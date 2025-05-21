@@ -56,16 +56,12 @@ import { CancelledRunError, RunError } from './shell.errors';
 const emptyArray: readonly any[] = Object.freeze([]);
 const emptyObj = Object.freeze({});
 
-const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);
-export const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
-export const gitLogDefaultConfigs = Object.freeze(['-c', 'log.showSignature=false']);
-export const gitLogDefaultConfigsWithFiles = Object.freeze([
-	'-c',
-	'log.showSignature=false',
-	'-c',
-	'diff.renameLimit=0',
-]);
-const gitStatusDefaultConfigs = Object.freeze(['-c', 'color.status=false']);
+export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
+export const gitConfigsDiff = ['-c', 'color.diff=false'] as const;
+export const gitConfigsLog = ['-c', 'log.showSignature=false'] as const;
+export const gitConfigsLogWithFiles = ['-c', 'log.showSignature=false', '-c', 'diff.renameLimit=0'] as const;
+export const gitConfigsPull = ['-c', 'merge.autoStash=true', '-c', 'rebase.autoStash=true'] as const;
+export const gitConfigsStatus = ['-c', 'color.status=false'] as const;
 
 export const maxGitCliLength = 30000;
 
@@ -740,7 +736,7 @@ export class Git implements Disposable {
 			{
 				cwd: repoPath,
 				cancellation: cancellation,
-				configs: gitBranchDefaultConfigs,
+				configs: gitConfigsBranch,
 				errors: GitErrorHandling.Ignore,
 			},
 			...params,
@@ -852,7 +848,7 @@ export class Git implements Disposable {
 
 		try {
 			const result = await this.exec(
-				{ cwd: repoPath, configs: gitDiffDefaultConfigs, encoding: options?.encoding },
+				{ cwd: repoPath, configs: gitConfigsDiff, encoding: options?.encoding },
 				...params,
 				'--',
 				fileName,
@@ -904,7 +900,7 @@ export class Git implements Disposable {
 			const result = await this.exec(
 				{
 					cwd: repoPath,
-					configs: gitDiffDefaultConfigs,
+					configs: gitConfigsDiff,
 					encoding: options?.encoding,
 					stdin: contents,
 				},
@@ -1070,7 +1066,7 @@ export class Git implements Disposable {
 		}
 
 		try {
-			void (await this.exec({ cwd: repoPath }, ...params));
+			void (await this.exec({ cwd: repoPath, configs: gitConfigsPull }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PullErrorReason = PullErrorReason.Other;
@@ -1207,7 +1203,7 @@ export class Git implements Disposable {
 					{
 						cwd: repoPath,
 						cancellation: cancellation,
-						configs: gitLogDefaultConfigs,
+						configs: gitConfigsLog,
 						errors: GitErrorHandling.Ignore,
 					},
 					'log',
@@ -1409,7 +1405,7 @@ export class Git implements Disposable {
 		if (isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
 		const opts: GitCommandOptions = {
-			configs: gitLogDefaultConfigs,
+			configs: gitConfigsLog,
 			cwd: root,
 			encoding: options?.encoding ?? 'utf8',
 			errors: GitErrorHandling.Throw,
@@ -1528,7 +1524,7 @@ export class Git implements Disposable {
 			{
 				cwd: repoPath,
 				cancellation: cancellation,
-				configs: gitStatusDefaultConfigs,
+				configs: gitConfigsStatus,
 				env: { GIT_OPTIONAL_LOCKS: '0' },
 			},
 			...params,

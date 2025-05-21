@@ -35,7 +35,7 @@ import { first } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git, GitResult } from '../git';
-import { gitDiffDefaultConfigs, GitErrors, gitLogDefaultConfigs } from '../git';
+import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class DiffGitSubProvider implements GitDiffSubProvider {
@@ -67,7 +67,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
+				{ cwd: repoPath, configs: gitConfigsDiff },
 				'diff',
 				'--shortstat',
 				'--no-ext-diff',
@@ -137,7 +137,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		let result;
 		try {
 			result = await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Throw },
+				{ cwd: repoPath, configs: gitConfigsLog, errors: GitErrorHandling.Throw },
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',
@@ -159,7 +159,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	@log({ args: { 1: false } })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
 		const result = await this.git.exec(
-			{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
+			{ cwd: repoPath, configs: gitConfigsLog, stdin: contents },
 			'apply',
 			'--numstat',
 			'--summary',
@@ -185,7 +185,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			const similarityThreshold =
 				options?.similarityThreshold ?? configuration.get('advanced.similarityThreshold') ?? undefined;
 			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
+				{ cwd: repoPath, configs: gitConfigsDiff },
 				'diff',
 				'--name-status',
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
@@ -263,7 +263,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			// Follow file history and specify the file path
 			args.push('--follow', '--', relativePath);
 
-			const result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
+			const result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
 
 			let currentSha;
 			let currentPath;
@@ -487,7 +487,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			args.push('--follow', rev!, '--', relativePath);
 
-			const result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
+			const result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
 
 			let previousSha;
 			let previousPath;
@@ -603,7 +603,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			let result: GitResult<string>;
 			try {
-				result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
+				result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
 			} catch (ex) {
 				if (rev && !isUncommittedStaged(rev)) throw ex;
 
@@ -624,7 +624,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				};
 
 				args.splice(index, 1, `-L${range.startLine},${range.endLine}:${relativePath}`);
-				result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
+				result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
 			}
 
 			let currentRange;
@@ -808,7 +808,7 @@ export async function findPathStatusChanged(
 	const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
 
 	const result = await git.exec(
-		{ cwd: repoPath, configs: gitLogDefaultConfigs },
+		{ cwd: repoPath, configs: gitConfigsLog },
 		'log',
 		...parser.arguments,
 		ordering ? `--${ordering}-order` : undefined,

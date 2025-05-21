@@ -15,7 +15,7 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git } from '../git';
-import { gitLogDefaultConfigs } from '../git';
+import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
@@ -211,7 +211,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		try {
 			// Apply the patch to our temp index, without touching the working directory
 			await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs, env: env, stdin: patch },
+				{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
 				'apply',
 				'--cached',
 				'-',
@@ -237,12 +237,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	@log({ args: { 1: false } })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
-			await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
-				'apply',
-				'--check',
-				'-',
-			);
+			await this.git.exec({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');
 			return true;
 		} catch (ex) {
 			if (ex instanceof Error && ex.message) {

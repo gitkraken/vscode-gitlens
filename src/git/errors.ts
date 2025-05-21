@@ -258,7 +258,7 @@ export class PullError extends Error {
 			reason = messageOrReason;
 			switch (reason) {
 				case PullErrorReason.Conflict:
-					message = `${baseMessage} due to conflicts.`;
+					message = `Unable to complete pull due to conflicts which must be resolved.`;
 					break;
 				case PullErrorReason.GitIdentity:
 					message = `${baseMessage} because you have not yet set up your Git identity.`;
