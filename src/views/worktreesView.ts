@@ -52,11 +52,12 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading worktrees...';
+
 			const access = await this.view.container.git.access('worktrees');
 			if (access.allowed === false) return [];
 
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading worktrees...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -92,6 +93,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(grandChildren.length);
 
 			return grandChildren;

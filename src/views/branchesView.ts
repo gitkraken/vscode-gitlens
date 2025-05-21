@@ -57,8 +57,9 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading branches...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading branches...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -104,6 +105,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(branches.values.length);
 
 			return child.getChildren();

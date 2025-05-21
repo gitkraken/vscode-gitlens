@@ -58,8 +58,9 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading contributors...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading contributors...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -109,6 +110,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(children.length);
 
 			return children;

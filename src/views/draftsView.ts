@@ -27,6 +27,8 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 	async getChildren(): Promise<(GroupingNode | DraftNode)[]> {
 		if (this.children == null) {
+			this.view.message = 'Loading Cloud Patches...';
+
 			const children: (GroupingNode | DraftNode)[] = [];
 
 			try {
@@ -57,6 +59,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 				if (!(ex instanceof AuthenticationRequiredError)) throw ex;
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.children = children;
 		}
 

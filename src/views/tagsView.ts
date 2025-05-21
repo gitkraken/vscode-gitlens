@@ -40,8 +40,9 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading tags...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading tags...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -73,6 +74,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(tags.values.length);
 
 			return child.getChildren();

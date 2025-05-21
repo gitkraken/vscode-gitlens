@@ -130,8 +130,9 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading commits...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading commits...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -200,6 +201,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			children.push(...this.children);
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return children;
 	}
 

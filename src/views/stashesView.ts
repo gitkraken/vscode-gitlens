@@ -39,8 +39,9 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading stashes...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading stashes...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -72,6 +73,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(gitStash.stashes.size);
 
 			return child.getChildren();
