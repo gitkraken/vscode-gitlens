@@ -210,9 +210,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 	private _filterResults: Promise<void> | undefined;
 
 	private async getFilesQueryResults() {
-		if (this._filesQueryResults === undefined) {
-			this._filesQueryResults = this._filesQuery();
-		}
+		this._filesQueryResults ??= this._filesQuery();
 
 		const results = await this._filesQueryResults;
 		if (
@@ -224,10 +222,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 			return results;
 		}
 
-		if (this._filterResults === undefined) {
-			this._filterResults = this.filterResults(this.filter, results);
-		}
-
+		this._filterResults ??= this.filterResults(this.filter, results);
 		await this._filterResults;
 
 		return results;

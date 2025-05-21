@@ -2465,12 +2465,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async getWorkingTreeStats(cancellation?: CancellationToken): Promise<GraphWorkingTreeStats | undefined> {
-		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
+		if (this.repository == null || !this.container.git.repositoryCount) return undefined;
 
-		const statusProvider = this.container.git.getRepositoryService(this.repository.path).status;
-		const status = await statusProvider.getStatus(cancellation);
+		const svc = this.container.git.getRepositoryService(this.repository.path);
+
+		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
+			svc.status.getStatus(cancellation),
+			svc.status.getPausedOperationStatus?.(cancellation),
+		]);
+
+		const status = getSettledValue(statusResult);
 		const workingTreeStatus = status?.getDiffStatus();
-		const pausedOpStatus = await statusProvider.getPausedOperationStatus?.(cancellation);
+		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 
 		return {
 			added: workingTreeStatus?.added ?? 0,

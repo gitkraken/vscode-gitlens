@@ -73,8 +73,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 		try {
 			let commit: GitCommit | undefined;
 			if (args.rev == null) {
-				const commitsProvider = repository.git.commits;
-				const log = await commitsProvider.getLog();
+				const log = await repository.git.commits.getLog();
 				const pick = await showCommitPicker(log, 'Explain Commit Changes', 'Choose a commit to explain');
 				if (pick?.sha == null) return;
 				args.rev = pick.sha;
