@@ -46,7 +46,7 @@ import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
 
-const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.freeze({
+const defaultScmGroupedViews = {
 	commits: true,
 	branches: true,
 	remotes: true,
@@ -58,7 +58,7 @@ const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.f
 	repositories: false,
 	searchAndCompare: false,
 	launchpad: false,
-});
+} as const;
 
 export class Views implements Disposable {
 	private readonly _disposable: Disposable;
@@ -382,7 +382,6 @@ export class Views implements Disposable {
 	private registerViews(): Disposable[] {
 		return [
 			(this._draftsView = new DraftsView(this.container)),
-			// (this._fileHistoryView = new FileHistoryView(this.container)),
 			(this._lineHistoryView = new LineHistoryView(this.container)),
 			(this._pullRequestView = new PullRequestView(this.container)),
 			(this._workspacesView = new WorkspacesView(this.container)),
@@ -907,8 +906,7 @@ export class Views implements Disposable {
 			case 'drafts':
 				return this.drafts.show();
 			case 'fileHistory':
-				return show('contributors', this._fileHistoryView);
-			// return this.fileHistory.show();
+				return show('fileHistory', this._fileHistoryView);
 			case 'launchpad':
 				return show('launchpad', this._launchpadView);
 			case 'lineHistory':
@@ -935,7 +933,7 @@ export class Views implements Disposable {
 	}
 }
 
-function getGroupedViews(cfg: Record<GroupableTreeViewTypes, boolean>) {
+function getGroupedViews(cfg: Readonly<Record<GroupableTreeViewTypes, boolean>>) {
 	const groupedViews = new Set<GroupableTreeViewTypes>();
 
 	for (const [key, value] of Object.entries(cfg) as [GroupableTreeViewTypes, boolean][]) {
