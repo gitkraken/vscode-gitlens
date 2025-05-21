@@ -665,8 +665,7 @@ export abstract class GitHostIntegration<
 			);
 			return { value: pullRequests, duration: Date.now() - start };
 		} catch (ex) {
-			Logger.error(ex, scope);
-			return { error: ex, duration: Date.now() - start };
+			return this.handleProviderException(ex, scope, { error: ex, duration: Date.now() - start });
 		}
 	}
 
