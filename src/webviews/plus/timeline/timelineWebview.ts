@@ -537,7 +537,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (uri == null) {
 			this._tabCloseDebounceTimer = setTimeout(async () => {
 				this._tabCloseDebounceTimer = undefined;
-				const changed = await this.updateScope(uri);
+				const changed = await this.updateScope(uri, undefined, true);
 				if (changed) {
 					this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
 				}
@@ -546,7 +546,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			return;
 		}
 
-		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined);
+		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
 		if (changed) {
 			this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
 		}
@@ -562,7 +562,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		uri = await ensureWorkingUri(this.container, uri ?? this.activeTabUri);
-		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined);
+		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
 		if (changed) {
 			this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
 		}
