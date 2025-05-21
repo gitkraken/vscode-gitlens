@@ -80,10 +80,9 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		const worktreesProvider = repo.git.worktrees;
-		if (worktreesProvider == null) return;
+		if (repo.git.worktrees == null) return;
 
-		groupWorktreesByBranch(await worktreesProvider.getWorktrees(cancellation), {
+		groupWorktreesByBranch(await repo.git.worktrees.getWorktrees(cancellation), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

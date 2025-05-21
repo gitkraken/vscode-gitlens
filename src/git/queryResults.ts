@@ -28,12 +28,13 @@ export async function getAheadBehindFilesQuery(
 	comparison: string,
 	compareWithWorkingTree: boolean,
 ): Promise<FilesQueryResults> {
-	const diffSvc = container.git.getRepositoryService(repoPath).diff;
-	const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-		diffSvc.getDiffStatus(comparison),
-		compareWithWorkingTree ? diffSvc.getDiffStatus('HEAD') : undefined,
-		diffSvc.getChangedFilesCount(comparison),
-		compareWithWorkingTree ? diffSvc.getChangedFilesCount('HEAD') : undefined,
+	const svc = container.git.getRepositoryService(repoPath);
+
+	const [filesResult, statsResult, workingFilesResult, workingStatsResult] = await Promise.allSettled([
+		svc.diff.getDiffStatus(comparison),
+		svc.diff.getChangedFilesCount(comparison),
+		compareWithWorkingTree ? svc.diff.getDiffStatus('HEAD') : undefined,
+		compareWithWorkingTree ? svc.diff.getChangedFilesCount('HEAD') : undefined,
 	]);
 
 	let files = getSettledValue(filesResult) ?? [];
@@ -42,7 +43,7 @@ export async function getAheadBehindFilesQuery(
 	if (compareWithWorkingTree) {
 		const workingFiles = getSettledValue(workingFilesResult);
 		if (workingFiles != null) {
-			if (files.length === 0) {
+			if (!files.length) {
 				files = workingFiles ?? [];
 			} else {
 				for (const wf of workingFiles) {
@@ -84,10 +85,10 @@ export function getCommitsQuery(
 	range: string,
 	filterByAuthors?: GitUser[] | undefined,
 ): (limit: number | undefined) => Promise<CommitsQueryResults> {
+	const svc = container.git.getRepositoryService(repoPath);
+
 	return async (limit: number | undefined) => {
-		const log = await container.git
-			.getRepositoryService(repoPath)
-			.commits.getLog(range, { limit: limit, authors: filterByAuthors });
+		const log = await svc.commits.getLog(range, { limit: limit, authors: filterByAuthors });
 
 		const results: Mutable<CommitsQueryResults> = {
 			log: log,
@@ -120,10 +121,11 @@ export async function getFilesQuery(
 		comparison = `${ref2}..${ref1}`;
 	}
 
-	const diffSvc = container.git.getRepositoryService(repoPath).diff;
+	const svc = container.git.getRepositoryService(repoPath);
+
 	const [filesResult, statsResult] = await Promise.allSettled([
-		diffSvc.getDiffStatus(comparison),
-		diffSvc.getChangedFilesCount(comparison),
+		svc.diff.getDiffStatus(comparison),
+		ref1 === '' ? svc.diff.getChangedFilesCount('', comparison) : svc.diff.getChangedFilesCount(comparison),
 	]);
 
 	const files = getSettledValue(filesResult) ?? [];

@@ -748,10 +748,10 @@ export class DraftService implements Disposable {
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
-			if (remoteProvider == null) return undefined;
+			const remote = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
+			if (remote == null) return undefined;
 
-			integration = await remoteProvider.getIntegration();
+			integration = await remote.getIntegration();
 		} else {
 			const metadata = providersMetadata[repoOrIntegrationId];
 			if (metadata == null) return undefined;

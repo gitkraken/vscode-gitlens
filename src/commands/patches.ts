@@ -413,9 +413,9 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 
 	const create: CreateDraft = { changes: [change], title: args.title, description: args.description };
 
-	const commitsProvider = repository.git.commits;
+	const { git: svc } = repository;
 
-	const commit = await commitsProvider.getCommit(to);
+	const commit = await svc.commits.getCommit(to);
 	if (commit == null) return undefined;
 
 	if (args.from == null) {
@@ -423,23 +423,23 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 
 		change.files = [...commit.fileset.files];
 	} else {
-		const diff = await repository.git.diff.getDiff?.(to, args.from);
+		const diff = await svc.diff.getDiff?.(to, args.from);
 		if (diff == null) return;
 
-		const result = await repository.git.diff.getDiffFiles?.(diff.contents);
+		const result = await svc.diff.getDiffFiles?.(diff.contents);
 		if (result?.files == null) return;
 
 		change.files = result.files;
 
 		if (!isSha(args.to)) {
-			const commit = await commitsProvider.getCommit(args.to);
+			const commit = await svc.commits.getCommit(args.to);
 			if (commit != null) {
 				change.revision.to = commit.sha;
 			}
 		}
 
 		if (!isSha(args.from)) {
-			const commit = await commitsProvider.getCommit(args.from);
+			const commit = await svc.commits.getCommit(args.from);
 			if (commit != null) {
 				change.revision.from = commit.sha;
 			}

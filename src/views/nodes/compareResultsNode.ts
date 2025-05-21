@@ -140,17 +140,19 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			};
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
-			const counts = await this.view.container.git
-				.getRepositoryService(this.repoPath)
-				.commits.getLeftRightCommitCount(createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'), {
-					authors: this.filterByAuthors,
-				});
+			const svc = this.view.container.git.getRepositoryService(this.repoPath);
 
-			const refsProvider = this.view.container.git.getRepositoryService(this.repoPath).refs;
+			const counts = await svc.commits.getLeftRightCommitCount(
+				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
+				{
+					authors: this.filterByAuthors,
+				},
+			);
+
 			const mergeBase =
-				(await refsProvider.getMergeBase(behind.ref1, behind.ref2, {
+				(await svc.refs.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await refsProvider.getMergeBase(behind.ref1, behind.ref2));
+				})) ?? (await svc.refs.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
