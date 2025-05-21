@@ -456,14 +456,34 @@ export abstract class ViewBase<
 	/** Tracks whether the view has been initialized and should avoid a duplicate refresh */
 	private _skipNextVisibilityChange: boolean = false;
 
+	private _loadingPromise: Promise<any> | undefined;
+
+	private trackAsLoading<T>(promise: T | Promise<T>): T | Promise<T> {
+		if (!isPromise(promise)) return promise;
+
+		const chainedPromise = this._loadingPromise != null ? this._loadingPromise.finally(() => promise) : promise;
+		const last = chainedPromise
+			.catch(() => {})
+			.finally(() => {
+				if (this._loadingPromise === last) {
+					this._loadingPromise = undefined;
+				}
+			});
+		this._loadingPromise = last;
+
+		return promise;
+	}
+
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
-		if (node != null) return node.getChildren();
+		if (node != null) {
+			return this.trackAsLoading(node.getChildren());
+		}
 
 		// If we are already visible, then skip the next visibility change event otherwise we end up refreshing twice
 		this._skipNextVisibilityChange = this.tree?.visible ?? false;
 
 		const root = this.ensureRoot();
-		const children = root.getChildren();
+		const children = this.trackAsLoading(root.getChildren());
 		if (!this.initialized) {
 			if (isPromise(children)) {
 				void children.then(() => {
@@ -488,7 +508,7 @@ export abstract class ViewBase<
 	getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
 		// If this node gets requested, ensure the splatted flag is cleared
 		node.splatted = false;
-		return node.getTreeItem();
+		return this.trackAsLoading(node.getTreeItem());
 	}
 
 	getViewDescription(count?: number): string | undefined {
@@ -841,8 +861,14 @@ export abstract class ViewBase<
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
 	triggerNodeChange(node?: ViewNode): void {
-		// Since the root node won't actually refresh, force everything
-		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
+		queueMicrotask(async () => {
+			if (this._loadingPromise != null) {
+				await this._loadingPromise;
+			}
+
+			// Since the root node won't actually refresh, force everything
+			this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
+		});
 	}
 
 	protected abstract readonly configKey: ViewsConfigKeys;
