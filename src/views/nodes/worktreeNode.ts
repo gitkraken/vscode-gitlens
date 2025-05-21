@@ -17,8 +17,9 @@ import { getBestPath } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
+import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
-import { defer, getSettledValue } from '../../system/promise';
+import { defer, getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithWorktrees } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -48,7 +49,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		view: ViewsWithWorktrees,
 		public override parent: ViewNode,
 		public readonly worktree: GitWorktree,
-		private readonly worktreeStatus: { status: GitStatus | undefined; missing: boolean } | undefined,
 	) {
 		super('worktree', uri, view, parent);
 
@@ -194,8 +194,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
-			if (this.worktreeStatus?.status?.hasChanges) {
-				children.unshift(new UncommittedFilesNode(this.view, this, this.worktreeStatus.status, undefined));
+			const { status } = await this.getStatus();
+			if (status?.hasChanges) {
+				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
 			this.children = children;
@@ -224,7 +225,19 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				  })`
 				: '';
 
-		const status = this.worktreeStatus?.status;
+		let status: GitStatus | undefined;
+		let missing = false;
+
+		const result = await pauseOnCancelOrTimeout(this.getStatus(), undefined, 1);
+		if (!result.paused) {
+			({ status, missing } = result.value);
+		} else {
+			queueMicrotask(() => {
+				void result.value.then(() => {
+					this.view.triggerNodeChange(this);
+				});
+			});
+		}
 
 		const folder = `\\\n$(folder) [\`${
 			this.worktree.friendlyPath
@@ -368,7 +381,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
 		}
 
-		const missing = this.worktreeStatus?.missing ?? false;
 		if (missing) {
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
 		}
@@ -454,6 +466,21 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		}
 
 		return this._log;
+	}
+
+	private _status: { status: GitStatus | undefined; missing: boolean } | undefined;
+	private async getStatus() {
+		if (this._status == null) {
+			try {
+				const status = await this.worktree.getStatus();
+				this._status = { status: status, missing: false };
+			} catch (ex) {
+				Logger.error(ex, `Worktree status failed: ${this.worktree.uri.toString(true)}`);
+				this._status = { status: undefined, missing: true };
+			}
+		}
+
+		return this._status;
 	}
 
 	get hasMore(): boolean {
