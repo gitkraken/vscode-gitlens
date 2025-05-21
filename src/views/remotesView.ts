@@ -53,8 +53,9 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading remotes...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading remotes...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
@@ -86,6 +87,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(remotes.length);
 
 			return child.getChildren();

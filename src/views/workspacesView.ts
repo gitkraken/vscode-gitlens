@@ -29,7 +29,11 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 	private _children: (WorkspaceNode | MessageNode | RepositoriesNode)[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.message = undefined;
+
 		if (this._children == null) {
+			this.view.message = 'Loading Cloud Workspaces...';
+
 			const children: (WorkspaceNode | MessageNode | RepositoriesNode)[] = [];
 
 			const { cloudWorkspaces, cloudWorkspaceInfo, localWorkspaces, localWorkspaceInfo } =
@@ -59,6 +63,7 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 				}
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this._children = children;
 		}
 
