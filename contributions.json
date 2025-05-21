@@ -3729,50 +3729,50 @@
 			"menus": {
 				"gitlens/views/grouped/commits": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && gitlens:plus:enabled",
+						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:plus:disabled",
 						"group": "8_gitlens_toggles",
 						"order": 0
 					}
 				],
 				"scm/sourceControl": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scm.graph && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
+						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scm.graph && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
 						"group": "6_gitlens",
 						"order": 1
 					}
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepositoryInline.graph",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepositoryInline.graph",
 						"group": "navigation",
 						"order": -1
 					},
 					{
-						"when": "scmProvider == git && gitlens:enabled && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepository.graph",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepository.graph",
 						"group": "2_z_gitlens",
 						"order": 5
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:plus:enabled",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !gitlens:plus:disabled",
 						"group": "inline",
 						"order": 100
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && gitlens:plus:enabled",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:plus:disabled",
 						"group": "3_gitlens_explore",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.commits && gitlens:plus:enabled",
+						"when": "view == gitlens.views.commits && !gitlens:plus:disabled",
 						"group": "navigation",
 						"order": 11
 					},
 					{
-						"when": "view == gitlens.views.commits && gitlens:plus:enabled",
+						"when": "view == gitlens.views.commits && !gitlens:plus:disabled",
 						"group": "8_gitlens_toggles",
 						"order": 0
 					}
@@ -10665,7 +10665,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "!gitlens:hasVirtualFolders && gitlens:plus:enabled && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees && !config.gitlens.views.scm.grouped.hiddenViews.worktrees && (gitlens:views:scm:grouped:view != worktrees || gitlens:views:scm:grouped:welcome)",
+						"when": "!gitlens:hasVirtualFolders && !gitlens:plus:disabled && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees && !config.gitlens.views.scm.grouped.hiddenViews.worktrees && (gitlens:views:scm:grouped:view != worktrees || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
 						"order": 2,
 						"alt": "gitlens.views.scm.grouped.worktrees.detach"
@@ -10685,7 +10685,7 @@
 			"menus": {
 				"gitlens/views/grouped/attachOrDetach": [
 					{
-						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !config.gitlens.views.scm.grouped.views.worktrees",
+						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !gitlens:plus:disabled && !config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "2_gitlens",
 						"order": 2
 					}
@@ -10698,7 +10698,7 @@
 			"menus": {
 				"gitlens/views/grouped/attachOrDetach": [
 					{
-						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && config.gitlens.views.scm.grouped.views.worktrees",
+						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !gitlens:plus:disabled && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "2_gitlens",
 						"order": 2
 					}
@@ -13792,7 +13792,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.worktrees",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && !gitlens:plus:disabled && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "navigation",
 						"order": 2
 					}
@@ -13944,7 +13944,7 @@
 		"gitlens.views.graph": {
 			"type": "webview",
 			"name": "Graph",
-			"when": "!gitlens:disabled && gitlens:plus:enabled",
+			"when": "!gitlens:disabled && !gitlens:plus:disabled",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-graph)",
 			"initialSize": 4,
@@ -13955,7 +13955,7 @@
 		"gitlens.views.graphDetails": {
 			"type": "webview",
 			"name": "Graph Details",
-			"when": "!gitlens:disabled && gitlens:plus:enabled",
+			"when": "!gitlens:disabled && !gitlens:plus:disabled",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-commit-view)",
 			"initialSize": 1,
@@ -14236,7 +14236,7 @@
 		"gitlens.views.timeline": {
 			"type": "webview",
 			"name": "Visual File History",
-			"when": "!gitlens:disabled && gitlens:plus:enabled",
+			"when": "!gitlens:disabled && !gitlens:plus:disabled",
 			"contextualTitle": "GitLens",
 			"icon": "$(graph-scatter)",
 			"initialSize": 1,
@@ -14273,7 +14273,7 @@
 		},
 		"gitlens.views.worktrees": {
 			"name": "Worktrees",
-			"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !(config.gitlens.views.scm.grouped.views.worktrees || gitlens:views:scm:grouped:views:worktrees)",
+			"when": "!gitlens:disabled && !gitlens:plus:disabled && !gitlens:hasVirtualFolders && !(config.gitlens.views.scm.grouped.views.worktrees || gitlens:views:scm:grouped:views:worktrees)",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-worktrees-view)",
 			"visibility": "collapsed",

@@ -1577,11 +1577,11 @@ export class SubscriptionService implements Disposable {
 			if (cancellation.isCancellationRequested) return;
 		}
 
-		const plusFeatures = configuration.get('plusFeatures.enabled') ?? true;
+		const plusEnabled = configuration.get('plusFeatures.enabled') ?? true;
 
 		let disallowedRepos: string[] | undefined;
 
-		if (!plusFeatures && allowed === 'mixed') {
+		if (!plusEnabled && allowed === 'mixed') {
 			disallowedRepos = [];
 			for (const repo of this.container.git.repositories) {
 				if (repo.closed) continue;
@@ -1595,7 +1595,7 @@ export class SubscriptionService implements Disposable {
 			}
 		}
 
-		void setContext('gitlens:plus:enabled', Boolean(allowed) || plusFeatures);
+		void setContext('gitlens:plus:disabled', !plusEnabled && !allowed);
 		void setContext('gitlens:plus:required', allowed === false);
 		void setContext('gitlens:plus:disallowedRepos', disallowedRepos);
 	}

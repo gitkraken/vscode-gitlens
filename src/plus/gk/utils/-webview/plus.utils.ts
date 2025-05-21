@@ -8,7 +8,8 @@ import { getContext } from '../../../../system/-webview/context';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../subscription.utils';
 
 export function arePlusFeaturesEnabled(): boolean {
-	return getContext('gitlens:plus:enabled', configuration.get('plusFeatures.enabled', undefined, true));
+	const enabled = configuration.get('plusFeatures.enabled', undefined, true);
+	return enabled ? true : !getContext('gitlens:plus:disabled');
 }
 
 export async function ensurePlusFeaturesEnabled(): Promise<boolean> {

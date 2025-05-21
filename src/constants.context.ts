@@ -22,8 +22,8 @@ export type ContextKeys = {
 	/** Indicates that this is the first run after an upgrade of GitLens */
 	'gitlens:install:upgradedFrom': string;
 	'gitlens:plus': Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
+	'gitlens:plus:disabled': boolean;
 	'gitlens:plus:disallowedRepos': string[];
-	'gitlens:plus:enabled': boolean;
 	'gitlens:plus:required': boolean;
 	'gitlens:plus:state': SubscriptionState;
 	'gitlens:prerelease': boolean;
