@@ -220,13 +220,20 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	private renderFooter() {
+		const sha = this._shaHovered ?? this._shaSelected;
+
 		return html`<footer>
 			<gl-chart-slider
 				.data=${this._dataReversed}
 				?shift=${this._shiftKeyPressed}
 				@gl-slider-change=${this.onSliderChanged}
+				@mouseover=${this.onSliderMouseOver}
+				@mouseout=${this.onSliderMouseOut}
 			></gl-chart-slider>
-			${renderCommitSha(this._shaHovered ?? this._shaSelected, 16)}${this.renderActions()}
+			<span @mouseover=${this.onFooterShaMouseOver} @mouseout=${this.onFooterShaMouseOut}
+				>${renderCommitSha(sha, 16)}</span
+			>
+			${this.renderActions()}
 		</footer>`;
 	}
 
@@ -295,6 +302,16 @@ export class GlTimelineChart extends GlElement {
 		this._shiftKeyPressed = e.shiftKey;
 	};
 
+	private onFooterShaMouseOver() {
+		if (!this._shaSelected) return;
+
+		this.showTooltip(this._data?.find(c => c.sha === this._shaSelected));
+	}
+
+	private onFooterShaMouseOut() {
+		this.hideTooltip();
+	}
+
 	private readonly onResize = (e: CustomEvent<{ entries: ResizeObserverEntry[] }>) => {
 		if (!this._chart) return;
 
@@ -325,12 +342,23 @@ export class GlTimelineChart extends GlElement {
 	private onSliderChanged(e: CustomEvent<SliderChangeEventDetail>) {
 		this.revealDate(e.detail.date, { focus: true, select: true });
 
-		const sha = this._commitsByTimestamp.get(e.detail.date.getTime())?.sha;
+		const commit = this._commitsByTimestamp.get(e.detail.date.getTime());
+		const sha = commit?.sha;
 		this._shaHovered = undefined;
 		this._shaSelected = sha;
 
+		this.showTooltip(commit);
+
 		if (sha == null) return;
 		this.emit('gl-commit-select', { id: sha, shift: e.detail.shift });
+	}
+
+	private onSliderMouseOver(_e: MouseEvent) {
+		this.showTooltip(this.slider?.value);
+	}
+
+	private onSliderMouseOut(_e: MouseEvent) {
+		this.hideTooltip();
 	}
 
 	private readonly onZoom = (domain: [Date, Date]) => {
@@ -413,6 +441,16 @@ export class GlTimelineChart extends GlElement {
 				this.slider?.select(sha);
 			}
 		}
+	}
+
+	private showTooltip(datum: TimelineDatum | undefined) {
+		if (datum == null) return;
+
+		this._chart?.tooltip.show({ x: new Date(datum.date) });
+	}
+
+	private hideTooltip() {
+		this._chart?.tooltip.hide();
 	}
 
 	zoom(factor: number): void {

@@ -1,8 +1,5 @@
-import type SlRange from '@shoelace-style/shoelace/dist/components/range/range.js';
-import type { PropertyValues } from 'lit';
 import { css, html } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../../../git/utils/revision.utils';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { TimelineDatum } from '../../../../plus/timeline/protocol';
 import { GlElement } from '../../../shared/components/element';
 import '@shoelace-style/shoelace/dist/components/range/range.js';
@@ -30,10 +27,11 @@ export class GlChartSlider extends GlElement {
 			--track-active-offset: 100%;
 			--track-color-active: var(--gl-track-color-active, var(--sl-color-neutral-200));
 		}
-	`;
 
-	@query('#slider')
-	private slider!: SlRange;
+		sl-range::part(thumb) {
+			cursor: pointer;
+		}
+	`;
 
 	@state()
 	private _value: number = 0;
@@ -68,18 +66,8 @@ export class GlChartSlider extends GlElement {
 		}
 	}
 
-	protected override firstUpdated(_changedProperties: PropertyValues): void {
-		this.slider.tooltipFormatter = (value: number) => {
-			const sha = this.data?.[value]?.sha;
-			if (sha == null) return '';
-
-			if (!sha) return 'Working Changes';
-			if (isUncommitted(sha)) {
-				return isUncommittedStaged(sha) ? 'Staged Changes' : 'Working Changes';
-			}
-
-			return `Commit ${shortenRevision(sha)}`;
-		};
+	get value() {
+		return this.data?.[this._value];
 	}
 
 	override render() {
@@ -89,8 +77,10 @@ export class GlChartSlider extends GlElement {
 				.min=${this._min}
 				.max=${this._max}
 				.value=${this._value}
+				tooltip="none"
 				@sl-change=${this.handleSliderInput}
 				@sl-input=${this.handleSliderInput}
+				@click=${this.handleSliderInput}
 			></sl-range>
 		</div>`;
 	}
@@ -110,7 +100,7 @@ export class GlChartSlider extends GlElement {
 		this._value = index;
 	}
 
-	private handleSliderInput(e: CustomEvent<void>) {
+	private handleSliderInput(e: MouseEvent | CustomEvent<void>) {
 		if (!this.data?.length) return;
 
 		const index = parseInt((e.target as HTMLInputElement).value);
