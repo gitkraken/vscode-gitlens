@@ -91,6 +91,7 @@ import type {
 	IntegrationState,
 	OpenInGraphParams,
 	OpenInTimelineParams,
+	OpenWorktreeCommandArgs,
 	OverviewFilters,
 	OverviewRecentThreshold,
 	OverviewRepository,
@@ -1482,12 +1483,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@log<HomeWebviewProvider['worktreeOpen']>({
 		args: { 0: r => `${r.branchId}, worktree: ${r.worktree?.name}` },
 	})
-	private async worktreeOpen(ref: BranchRef) {
+	private async worktreeOpen(args: OpenWorktreeCommandArgs) {
+		const { location, ...ref } = args;
 		const { branch } = await this.getRepoInfoFromRef(ref);
 		const worktree = await branch?.getWorktree();
 		if (worktree == null) return;
 
-		openWorkspace(worktree.uri);
+		openWorkspace(worktree.uri, location ? { location: location } : undefined);
 	}
 
 	@log<HomeWebviewProvider['switchToBranch']>({ args: { 0: r => r.branchId } })

@@ -23,6 +23,7 @@ import type {
 	GetOverviewBranch,
 	OpenInGraphParams,
 	OpenInTimelineParams,
+	OpenWorktreeCommandArgs,
 	State,
 } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -976,8 +977,13 @@ export class GlBranchCard extends GlBranchCardBase {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
+					alt-label="Open Worktree in New Window"
 					icon="browser"
+					alt-icon="empty-window"
 					href=${this.createCommandLink('gitlens.home.openWorktree')}
+					alt-href=${this.createCommandLink<OpenWorktreeCommandArgs>('gitlens.home.openWorktree', {
+						location: 'newWindow',
+					})}
 				></action-item>`,
 			);
 		} else {
@@ -1002,8 +1008,13 @@ export class GlBranchCard extends GlBranchCardBase {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
+					alt-label="Open Worktree in New Window"
 					icon="browser"
+					alt-icon="empty-window"
 					href=${this.createCommandLink('gitlens.home.openWorktree')}
+					alt-href=${this.createCommandLink<OpenWorktreeCommandArgs>('gitlens.home.openWorktree', {
+						location: 'newWindow',
+					})}
 				></action-item>`,
 			);
 
