@@ -137,16 +137,15 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			}
 
 			const repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No commits could be found.';
 
 				return [];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r =>
-					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r, {
+					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, {
 						showBranchAndLastFetched: true,
 					}),
 			);

@@ -82,7 +82,7 @@ export class BranchNode
 		public readonly root: boolean,
 		options?: Partial<Options>,
 	) {
-		super('branch', uri, view, parent, root);
+		super('branch', uri, view, parent);
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
 		this._uniqueId = getViewNodeId(this.type, this.context);

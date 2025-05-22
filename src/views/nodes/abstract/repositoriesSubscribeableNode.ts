@@ -14,7 +14,7 @@ export abstract class RepositoriesSubscribeableNode<
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repositories', TView, TChild> {
 	constructor(view: TView) {
-		super('repositories', unknownGitUri, view, undefined, true);
+		super('repositories', unknownGitUri, view);
 	}
 
 	override async getSplattedChild(): Promise<TChild | undefined> {

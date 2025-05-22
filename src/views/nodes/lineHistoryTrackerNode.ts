@@ -31,7 +31,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	private _selection: Selection | undefined;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
-		super('line-history-tracker', unknownGitUri, view, undefined, true);
+		super('line-history-tracker', unknownGitUri, view);
 	}
 
 	override dispose(): void {

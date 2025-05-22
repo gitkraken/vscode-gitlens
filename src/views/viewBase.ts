@@ -42,7 +42,7 @@ import { once } from '../system/event';
 import { debounce } from '../system/function/debounce';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
-import { cancellable, isPromise } from '../system/promise';
+import { cancellable, defer, isPromise } from '../system/promise';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
@@ -218,12 +218,11 @@ export abstract class ViewBase<
 		return this._onDidChangeVisibility.event;
 	}
 
-	protected _onDidInitialize = new EventEmitter<void>();
 	protected disposables: Disposable[] = [];
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
 
-	private initialized = false;
+	private initialized = defer<void>();
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
 	constructor(
@@ -240,17 +239,14 @@ export abstract class ViewBase<
 			this._onDidChangeSelection,
 			this._onDidChangeTreeData,
 			this._onDidChangeVisibility,
-			this._onDidInitialize,
 			once(container.onReady)(this.onReady, this),
 		);
 
 		if (this.container.debugging || configuration.get('debug')) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
-				if (item.tooltip == null) {
-					item.tooltip = new MarkdownString(
+				item.tooltip ??= new MarkdownString(
 						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
 					);
-				}
 
 				if (typeof item.tooltip === 'string') {
 					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
@@ -265,9 +261,9 @@ export abstract class ViewBase<
 				}
 			}
 
-			const getTreeItemFn = this.getTreeItem;
+			const originalGetTreeItem = this.getTreeItem;
 			this.getTreeItem = async function (this: ViewBase<Type, RootNode, ViewConfig>, node: ViewNode) {
-				const item = await getTreeItemFn.apply(this, [node]);
+				const item = await originalGetTreeItem.call(this, node);
 
 				if (node.resolveTreeItem == null) {
 					addDebuggingInfo(item, node, node.getParent());
@@ -276,14 +272,14 @@ export abstract class ViewBase<
 				return item;
 			};
 
-			const resolveTreeItemFn = this.resolveTreeItem;
+			const originalResolveTreeItem = this.resolveTreeItem;
 			this.resolveTreeItem = async function (
 				this: ViewBase<Type, RootNode, ViewConfig>,
 				item: TreeItem,
 				node: ViewNode,
 				token: CancellationToken,
 			) {
-				item = await resolveTreeItemFn.apply(this, [item, node, token]);
+				item = await originalResolveTreeItem.call(this, item, node, token);
 
 				addDebuggingInfo(item, node, node.getParent());
 
@@ -476,6 +472,7 @@ export abstract class ViewBase<
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
 		if (node != null) {
+			node.splatted ??= true;
 			return this.trackAsLoading(node.getChildren());
 		}
 
@@ -483,19 +480,14 @@ export abstract class ViewBase<
 		this._skipNextVisibilityChange = this.tree?.visible ?? false;
 
 		const root = this.ensureRoot();
+		root.splatted ??= true;
 		const children = this.trackAsLoading(root.getChildren());
-		if (!this.initialized) {
-			if (isPromise(children)) {
-				void children.then(() => {
-					if (!this.initialized) {
-						this.initialized = true;
-						setTimeout(() => this._onDidInitialize.fire(), 1);
-					}
-				});
-			} else {
-				this.initialized = true;
-				setTimeout(() => this._onDidInitialize.fire(), 1);
-			}
+
+		if (this.initialized.pending) {
+			queueMicrotask(async () => {
+				await children;
+				setTimeout(() => this.initialized.fulfill(), 1);
+			});
 		}
 
 		return children;
@@ -655,14 +647,12 @@ export abstract class ViewBase<
 			}
 		}
 
-		if (this.initialized) return find.call(this);
+		if (!this.initialized.pending) return find.call(this);
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
 		void this.show({ preserveFocus: true });
 		// Since we have to show the view, give the view time to load and let the callstack unwind before we try to find the node
-		return new Promise<ViewNode | undefined>(resolve =>
-			once(this._onDidInitialize.event)(() => resolve(find.call(this)), this),
-		);
+		return this.initialized.promise.then(() => find.call(this));
 	}
 
 	private async findNodeCoreBFS(
@@ -705,7 +695,7 @@ export abstract class ViewBase<
 			}
 
 			children = await node.getChildren();
-			if (children.length === 0) continue;
+			if (!children.length) continue;
 
 			while (node != null && !isPageableViewNode(node)) {
 				node = await node.getSplattedChild?.();
@@ -793,21 +783,72 @@ export abstract class ViewBase<
 	@log<ViewBase<Type, RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
 	async reveal(
 		node: ViewNode,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
+		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
+	): Promise<void> {
+		if (this.initialized.pending) {
+			await this.initialized.promise;
+		}
+
+		return this.revealCore(node, undefined, options);
+	}
+
+	@log<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
+		args: {
+			0: n => n.toString(),
+			1: n => n.length,
 		},
+	})
+	async revealDeep(
+		node: ViewNode,
+		parents: ViewNode[],
+		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
+	): Promise<void> {
+		if (this.initialized.pending) {
+			await this.initialized.promise;
+		}
+
+		let root: ViewNode = this.ensureRoot();
+		for (const node of parents) {
+			await this.revealCore(node, root, { expand: true, focus: false, select: false });
+			root = node;
+		}
+
+		return this.revealCore(node, root, options);
+	}
+
+	private async revealCore(
+		node: ViewNode,
+		root: ViewNode | undefined,
+		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
 	): Promise<void> {
 		if (this.tree == null) return;
 
 		const scope = getLogScope();
 
 		try {
-			await this.tree.reveal(node, options);
+			await this.tree?.reveal(node, options);
 		} catch (ex) {
+			if (!node.id || root == null) {
 			Logger.error(ex, scope);
 			debugger;
+
+				return;
+			}
+
+			const n = await this.findNodeCoreBFS(n => n.id === node.id, root, false, undefined, 1, undefined);
+			if (n == null) {
+				Logger.error(ex, scope);
+				debugger;
+
+				return;
+			}
+
+			try {
+				await this.tree?.reveal(n, options);
+			} catch (ex) {
+				Logger.error(ex, scope);
+				debugger;
+			}
 		}
 	}
 
@@ -818,11 +859,9 @@ export abstract class ViewBase<
 		try {
 			const command = `${this.grouped ? 'gitlens.views.scm.grouped' : this.id}.focus` as const;
 			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
-			if (!this.initialized) {
+			if (this.initialized.pending) {
 				void executeCoreCommand(command, options);
-				await new Promise<void>(resolve => {
-					void once(this._onDidInitialize.event)(() => resolve(), this);
-				});
+				await this.initialized.promise;
 			}
 
 			void (await executeCoreCommand(command, options));

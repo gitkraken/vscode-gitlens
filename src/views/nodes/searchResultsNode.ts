@@ -102,7 +102,6 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 				this._labels.label,
 				{ query: this._searchQueryOrLog, deferred: deferred },
 				{ expand: false },
-				true,
 			);
 		}
 

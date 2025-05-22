@@ -24,11 +24,10 @@ export abstract class RepositoryFolderNode<
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
-		splatted: boolean,
 		public readonly repo: Repository,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
-		super('repo-folder', uri, view, parent, splatted);
+		super('repo-folder', uri, view, parent);
 
 		this.updateContext({ repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);

@@ -31,7 +31,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			stats?: boolean;
 		},
 	) {
-		super('contributors', uri, view, parent, true);
+		super('contributors', uri, view, parent);
 
 		this.updateContext({ repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
