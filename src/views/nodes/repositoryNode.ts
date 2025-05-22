@@ -98,7 +98,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 				const pausedOpStatus = await this.repo.git.status.getPausedOperationStatus?.();
 				if (pausedOpStatus != null) {
-					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, status, true));
+					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, true, status));
 				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
 						if (!status.upstream.state.behind && !status.upstream.state.ahead) {

@@ -5,6 +5,7 @@ import type { ViewShowBranchComparison } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Colors } from '../../constants.colors';
 import type { Container } from '../../container';
+import type { GitRepositoryService } from '../../git/gitRepositoryService';
 import type { GitUri } from '../../git/gitUri';
 import { unknownGitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -223,15 +224,13 @@ export class BranchNode
 			const [
 				logResult,
 				getBranchAndTagTipsResult,
-				statusResult,
 				pausedOpStatusResult,
 				unpublishedCommitsResult,
 				baseResult,
 				targetResult,
 			] = await Promise.allSettled([
-				this.getLog(),
+				this.getLog(svc),
 				svc.getBranchesAndTagsTipsLookup(branch.name),
-				this.options.showStatus && branch.current ? svc.status.getStatus() : undefined,
 				this.options.showStatus && branch.current ? svc.status.getPausedOperationStatus?.() : undefined,
 				!branch.remote
 					? getBranchAheadRange(svc, branch).then(range =>
@@ -253,7 +252,6 @@ export class BranchNode
 
 			const children = [];
 
-			const status = getSettledValue(statusResult);
 			const pausedOpsStatus = getSettledValue(pausedOpStatusResult);
 			const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
 
@@ -262,17 +260,7 @@ export class BranchNode
 			}
 
 			if (pausedOpsStatus != null) {
-				children.push(
-					new PausedOperationStatusNode(
-						this.view,
-						this,
-						branch,
-						pausedOpsStatus,
-						status ??
-							(await this.view.container.git.getRepositoryService(this.uri.repoPath!).status.getStatus()),
-						this.root,
-					),
-				);
+				children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpsStatus, this.root));
 			} else if (this.options.showTracking) {
 				const status = {
 					ref: branch.ref,
@@ -471,7 +459,7 @@ export class BranchNode
 	}
 
 	private _log: GitLog | undefined;
-	private async getLog() {
+	private async getLog(svc: GitRepositoryService): Promise<GitLog | undefined> {
 		if (this._log == null) {
 			let limit =
 				this.limit ??
@@ -484,14 +472,12 @@ export class BranchNode
 				limit = Math.min(ahead + 1, limit * 2);
 			}
 
-			this._log = await this.view.container.git
-				.getRepositoryService(this.uri.repoPath!)
-				.commits.getLog(this.ref.ref, {
-					limit: limit,
-					authors: this.options?.authors,
-					merges: this.options?.showMergeCommits,
-					stashes: this.options?.showStashes,
-				});
+			this._log = await svc.commits.getLog(this.ref.ref, {
+				limit: limit,
+				authors: this.options?.authors,
+				merges: this.options?.showMergeCommits,
+				stashes: this.options?.showStashes,
+			});
 		}
 
 		return this._log;
@@ -503,11 +489,8 @@ export class BranchNode
 
 	@gate()
 	async loadMore(limit?: number | { until?: any }): Promise<void> {
-		let log = await window.withProgress(
-			{
-				location: { viewId: this.view.id },
-			},
-			() => this.getLog(),
+		let log = await window.withProgress({ location: { viewId: this.view.id } }, () =>
+			this.getLog(this.view.container.git.getRepositoryService(this.uri.repoPath!)),
 		);
 		if (!log?.hasMore) return;
 

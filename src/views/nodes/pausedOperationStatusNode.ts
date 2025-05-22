@@ -6,6 +6,7 @@ import type { GitPausedOperationStatus } from '../../git/models/pausedOperationS
 import type { GitStatus } from '../../git/models/status';
 import { pausedOperationStatusStringsByType } from '../../git/utils/pausedOperationStatus.utils';
 import { getReferenceLabel } from '../../git/utils/reference.utils';
+import { Lazy } from '../../system/lazy';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -14,19 +15,32 @@ import { MergeConflictFilesNode } from './mergeConflictFilesNode';
 import { RebaseCommitNode } from './rebaseCommitNode';
 
 export class PausedOperationStatusNode extends ViewNode<'paused-operation-status', ViewsWithCommits> {
+	private _status: GitStatus | undefined;
+	private readonly _lazyStatus: Lazy<GitStatus | Promise<GitStatus | undefined> | undefined>;
+
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly pausedOpStatus: GitPausedOperationStatus,
-		public readonly status: GitStatus | undefined,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
+		status?: GitStatus | undefined,
 	) {
 		super('paused-operation-status', GitUri.fromRepoPath(pausedOpStatus.repoPath), view, parent);
 
 		this.updateContext({ branch: branch, root: root, pausedOperation: pausedOpStatus.type });
 		this._uniqueId = getViewNodeId(this.type, this.context);
+
+		this._status = status;
+		this._lazyStatus = new Lazy<GitStatus | Promise<GitStatus | undefined> | undefined>(
+			() =>
+				status ??
+				this.view.container.git
+					.getRepositoryService(this.repoPath)
+					.status.getStatus()
+					.then(s => (this._status = s)),
+		);
 	}
 
 	get repoPath(): string {
@@ -34,9 +48,11 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		const status = await this._lazyStatus.value;
+
 		if (this.pausedOpStatus.type !== 'rebase') {
-			return this.status?.hasConflicts
-				? [new MergeConflictFilesNode(this.view, this, this.pausedOpStatus, this.status.conflicts)]
+			return status?.hasConflicts
+				? [new MergeConflictFilesNode(this.view, this, this.pausedOpStatus, status.conflicts)]
 				: [];
 		}
 
@@ -55,17 +71,19 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 			}
 		}
 
-		if (this.status?.hasConflicts) {
-			children.push(new MergeConflictFilesNode(this.view, this, this.pausedOpStatus, this.status.conflicts));
+		if (status?.hasConflicts) {
+			children.push(new MergeConflictFilesNode(this.view, this, this.pausedOpStatus, status.conflicts));
 		}
 
 		return children;
 	}
 
-	getTreeItem(): TreeItem {
-		const hasConflicts = this.status?.hasConflicts === true;
+	async getTreeItem(): Promise<TreeItem> {
+		const status = await this._lazyStatus.value;
+
+		const hasConflicts = status?.hasConflicts === true;
 		const hasChildren =
-			this.status?.hasConflicts ||
+			status?.hasConflicts ||
 			(this.pausedOpStatus.type === 'rebase' &&
 				this.pausedOpStatus.steps.total > 0 &&
 				this.pausedOpStatus.steps.current.commit != null);
@@ -91,7 +109,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 				break;
 		}
 
-		item.description = hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
+		item.description = hasConflicts ? pluralize('conflict', status.conflicts.length) : undefined;
 
 		const iconColor: Colors = hasConflicts
 			? 'gitlens.decorations.statusMergingOrRebasingConflictForegroundColor'
@@ -108,7 +126,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 	}
 
 	private get label(): string {
-		const hasConflicts = this.status?.hasConflicts === true;
+		const hasConflicts = this._status?.hasConflicts === true;
 
 		if (this.pausedOpStatus.type !== 'rebase') {
 			const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
@@ -136,7 +154,8 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 	}
 
 	private get tooltip(): MarkdownString {
-		const hasConflicts = this.status?.hasConflicts === true;
+		const status = this._status;
+		const hasConflicts = status?.hasConflicts === true;
 
 		let tooltip;
 		if (this.pausedOpStatus.type !== 'rebase') {
@@ -144,9 +163,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 			tooltip = `${strings.label} ${getReferenceLabel(this.pausedOpStatus.incoming, { label: false })} ${
 				strings.directionality
 			} ${getReferenceLabel(this.pausedOpStatus.current, { label: false })}${
-				hasConflicts
-					? `\n\nResolve ${pluralize('conflict', this.status.conflicts.length)} before continuing`
-					: ''
+				hasConflicts ? `\n\nResolve ${pluralize('conflict', status.conflicts.length)} before continuing` : ''
 			}`;
 		} else {
 			const started = this.pausedOpStatus.steps.total > 0;
@@ -161,7 +178,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 							this.pausedOpStatus.steps.total
 					  }${
 							hasConflicts
-								? `\\\nResolve ${pluralize('conflict', this.status.conflicts.length)} before continuing`
+								? `\\\nResolve ${pluralize('conflict', status.conflicts.length)} before continuing`
 								: ''
 					  }`
 					: ''
