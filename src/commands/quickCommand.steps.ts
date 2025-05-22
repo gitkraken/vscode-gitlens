@@ -1764,13 +1764,13 @@ export function* pickStashStep<
 	context: Context,
 	{
 		ignoreFocusOut,
-		gitStash,
+		stash,
 		picked,
 		placeholder,
 		title,
 	}: {
 		ignoreFocusOut?: boolean;
-		gitStash: GitStash | undefined;
+		stash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
 		title?: string;
@@ -1778,27 +1778,26 @@ export function* pickStashStep<
 ): StepResultGenerator<GitStashCommit> {
 	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, gitStash),
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
-		items:
-			gitStash == null
-				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-				: [
-						...map(gitStash.stashes.values(), stash =>
-							createStashQuickPickItem(
-								stash,
-								picked != null &&
-									(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
-								{
-									buttons: [ShowDetailsViewQuickInputButton],
-									compact: true,
-									icon: true,
-								},
-							),
+		items: !stash?.stashes.size
+			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
+			: [
+					...map(stash.stashes.values(), stash =>
+						createStashQuickPickItem(
+							stash,
+							picked != null &&
+								(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
+							{
+								buttons: [ShowDetailsViewQuickInputButton],
+								compact: true,
+								icon: true,
+							},
 						),
-				  ],
+					),
+			  ],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === ShowDetailsViewQuickInputButton) {
 				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
@@ -1822,13 +1821,13 @@ export function* pickStashesStep<
 	context: Context,
 	{
 		ignoreFocusOut,
-		gitStash,
+		stash,
 		picked,
 		placeholder,
 		title,
 	}: {
 		ignoreFocusOut?: boolean;
-		gitStash: GitStash | undefined;
+		stash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
 		title?: string;
@@ -1837,27 +1836,26 @@ export function* pickStashesStep<
 	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(title ?? context.title, state, context),
 		multiselect: true,
-		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, gitStash),
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
-		items:
-			gitStash == null
-				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-				: [
-						...map(gitStash.stashes.values(), stash =>
-							createStashQuickPickItem(
-								stash,
-								picked != null &&
-									(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
-								{
-									buttons: [ShowDetailsViewQuickInputButton],
-									compact: true,
-									icon: true,
-								},
-							),
+		items: !stash?.stashes.size
+			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
+			: [
+					...map(stash.stashes.values(), stash =>
+						createStashQuickPickItem(
+							stash,
+							picked != null &&
+								(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
+							{
+								buttons: [ShowDetailsViewQuickInputButton],
+								compact: true,
+								icon: true,
+							},
 						),
-				  ],
+					),
+			  ],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === ShowDetailsViewQuickInputButton) {
 				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });

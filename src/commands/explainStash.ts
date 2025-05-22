@@ -63,7 +63,11 @@ export class ExplainStashCommand extends GlCommandBase {
 		try {
 			let commit: GitCommit | undefined;
 			if (args.rev == null) {
-				const pick = await showStashPicker('Explain Stash Changes', 'Choose a stash to explain', repository);
+				const pick = await showStashPicker(
+					repository.git.stash?.getStash(),
+					'Explain Stash Changes',
+					'Choose a stash to explain',
+				);
 				if (pick?.ref == null) return;
 				args.rev = pick.ref;
 				commit = pick;
