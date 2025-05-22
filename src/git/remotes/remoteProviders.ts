@@ -212,7 +212,7 @@ function createBestRemoteProvider(
 	scheme: string | undefined,
 ): RemoteProvider | undefined {
 	try {
-		const key = domain.toLowerCase();
+		const key = domain?.toLowerCase();
 		for (const { custom, matcher, creator } of providers) {
 			if (typeof matcher === 'string') {
 				if (matcher === key) {
@@ -236,7 +236,7 @@ function createBestRemoteProvider(
 		return undefined;
 	} catch (ex) {
 		debugger;
-		Logger.error(ex, 'createRemoteProvider');
+		Logger.error(ex, 'createBestRemoteProvider');
 		return undefined;
 	}
 }
