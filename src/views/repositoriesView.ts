@@ -535,7 +535,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -594,7 +594,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -620,7 +620,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -646,7 +646,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -755,7 +755,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -811,7 +811,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

@@ -192,7 +192,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		const node = await this.findDraft(draft);
 		if (node == null) return undefined;
 
-		await this.ensureRevealNode(node, options);
+		await this.revealDeep(node, options);
 
 		return node;
 	}

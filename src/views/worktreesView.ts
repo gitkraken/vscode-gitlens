@@ -280,7 +280,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

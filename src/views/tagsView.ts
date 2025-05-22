@@ -223,7 +223,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

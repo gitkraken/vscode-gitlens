@@ -732,34 +732,6 @@ export abstract class ViewBase<
 		return undefined;
 	}
 
-	protected async ensureRevealNode(
-		node: ViewNode,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<void> {
-		// Not sure why I need to reveal each parent, but without it the node won't be revealed
-		const nodes: ViewNode[] = [];
-
-		let parent: ViewNode | undefined = node;
-		while (parent != null) {
-			nodes.push(parent);
-			parent = parent.getParent();
-		}
-
-		if (nodes.length > 1) {
-			nodes.pop();
-		}
-
-		for (const n of nodes.reverse()) {
-			try {
-				await this.reveal(n, options);
-			} catch {}
-		}
-	}
-
 	@debug()
 	async refresh(reset: boolean = false): Promise<void> {
 		// If we are resetting, make sure to clear any saved node state
@@ -792,19 +764,41 @@ export abstract class ViewBase<
 		return this.revealCore(node, undefined, options);
 	}
 
-	@log<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
-		args: {
-			0: n => n.toString(),
-			1: n => n.length,
-		},
-	})
+	async revealDeep(
+		node: ViewNode,
+		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
+	): Promise<void>;
 	async revealDeep(
 		node: ViewNode,
 		parents: ViewNode[],
 		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
+	): Promise<void>;
+	@log<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
+		args: {
+			0: n => n.toString(),
+			1: false,
+		},
+	})
+	async revealDeep(
+		node: ViewNode,
+		parents: ViewNode[] | { expand?: boolean | number; focus?: boolean; select?: boolean } | undefined,
+		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
 	): Promise<void> {
 		if (this.initialized.pending) {
 			await this.initialized.promise;
+		}
+
+		if (!Array.isArray(parents)) {
+			options = parents;
+			parents = [];
+
+			let parent: ViewNode | undefined = node;
+			while (parent != null) {
+				parent = parent.getParent();
+				if (parent == null) break;
+
+				parents.unshift(parent);
+			}
 		}
 
 		let root: ViewNode = this.ensureRoot();

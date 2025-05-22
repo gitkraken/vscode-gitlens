@@ -216,7 +216,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 				const node = await this.findStash(stash, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
