@@ -1,6 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { getAltKeySymbol } from '@env/platform';
 import type { State } from '../../../commitDetails/protocol';
 import { commitActionStyles } from './commit-action.css';
 
@@ -143,7 +144,8 @@ export class GlInspectNav extends LitElement {
 								>
 							</a>
 							<span slot="content"
-								>Copy ${this.stashNumber != null ? 'Stash Name' : 'SHA'}<br />[⌥] Copy Message</span
+								>Copy ${this.stashNumber != null ? 'Stash Name' : 'SHA'}<br />[${getAltKeySymbol()}]
+								Copy Message</span
 							>
 						</gl-tooltip>
 					`,
