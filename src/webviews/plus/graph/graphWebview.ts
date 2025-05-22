@@ -1121,8 +1121,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							commit = await svc.commits.getCommit(uncommitted, cancellation.token);
 							break;
 						case 'stash-node': {
-							const gitStash = await svc.stash?.getStash(undefined, cancellation.token);
-							commit = gitStash?.stashes.get(msg.params.id);
+							const stash = await svc.stash?.getStash(undefined, cancellation.token);
+							commit = stash?.stashes.get(msg.params.id);
 							break;
 						}
 						default: {

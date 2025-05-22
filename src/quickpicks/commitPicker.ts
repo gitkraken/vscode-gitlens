@@ -1,26 +1,27 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { Container } from '../container';
-import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { reveal, showDetailsView } from '../git/actions/commit';
+import type { GitCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
-import type { GitStash } from '../git/models/stash';
 import { configuration } from '../system/-webview/configuration';
 import type { KeyboardScope } from '../system/-webview/keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
-import { filter, map } from '../system/iterable';
+import { map } from '../system/iterable';
 import { isPromise } from '../system/promise';
 import { CommandQuickPickItem } from './items/common';
 import type { DirectiveQuickPickItem } from './items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
 import type { CommitQuickPickItem } from './items/gitWizard';
-import { createCommitQuickPickItem, createStashQuickPickItem } from './items/gitWizard';
+import { createCommitQuickPickItem } from './items/gitWizard';
 
 type Item = CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem;
 
 export async function showCommitPicker(
-	log: GitLog | undefined | Promise<GitLog | undefined>,
+	log: GitLog | Promise<GitLog | undefined> | undefined,
 	title: string,
 	placeholder: string,
 	options?: {
@@ -52,7 +53,7 @@ export async function showCommitPicker(
 		log = await log;
 	}
 
-	if (log == null) {
+	if (!log?.commits.size) {
 		quickpick.placeholder = 'No commits found';
 
 		if (options?.empty?.getState != null) {
@@ -86,6 +87,7 @@ export async function showCommitPicker(
 				await Promise.allSettled(
 					map(log.commits.values(), async commit =>
 						createCommitQuickPickItem(commit, options?.picked === commit.ref, {
+							buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 							compact: true,
 							icon: 'avatar',
 						}),
@@ -184,7 +186,7 @@ export async function showCommitPicker(
 			disposables.push(
 				quickpick.onDidHide(() => resolve(undefined)),
 				quickpick.onDidAccept(() => {
-					if (quickpick.activeItems.length !== 0) {
+					if (quickpick.activeItems.length) {
 						const [item] = quickpick.activeItems;
 						if (isDirectiveQuickPickItem(item)) {
 							switch (item.directive) {
@@ -211,138 +213,15 @@ export async function showCommitPicker(
 						void scope.resume();
 					}
 				}),
-			);
-
-			quickpick.busy = false;
-
-			quickpick.show();
-		});
-		if (pick == null || isDirectiveQuickPickItem(pick)) return undefined;
-
-		if (pick instanceof CommandQuickPickItem) {
-			void (await pick.execute());
-
-			return undefined;
-		}
-
-		return pick.item;
-	} finally {
-		quickpick.dispose();
-		disposables.forEach(d => void d.dispose());
-	}
-}
-
-export async function showStashPicker(
-	gitStash: GitStash | undefined | Promise<GitStash | undefined>,
-	title: string,
-	placeholder: string,
-	options?: {
-		empty?: string;
-		filter?: (c: GitStashCommit) => boolean;
-		keyboard?: {
-			keys: Keys[];
-			onDidPressKey(key: Keys, item: CommitQuickPickItem<GitStashCommit>): void | Promise<void>;
-		};
-		picked?: string;
-		showOtherReferences?: CommandQuickPickItem[];
-	},
-): Promise<GitStashCommit | undefined> {
-	const quickpick = window.createQuickPick<
-		CommandQuickPickItem | CommitQuickPickItem<GitStashCommit> | DirectiveQuickPickItem
-	>();
-	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
-
-	quickpick.title = title;
-	quickpick.placeholder = placeholder;
-	quickpick.matchOnDescription = true;
-	quickpick.matchOnDetail = true;
-
-	if (isPromise(gitStash)) {
-		quickpick.busy = true;
-		quickpick.show();
-
-		gitStash = await gitStash;
-	}
-
-	if (gitStash != null) {
-		quickpick.items = [
-			...(options?.showOtherReferences ?? []),
-			...map(
-				options?.filter != null ? filter(gitStash.stashes.values(), options.filter) : gitStash.stashes.values(),
-				stash =>
-					createStashQuickPickItem(stash, options?.picked === stash.ref, {
-						compact: true,
-						icon: true,
-					}),
-			),
-		];
-	}
-
-	if (gitStash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
-		quickpick.placeholder = gitStash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
-		quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
-	}
-
-	if (options?.picked) {
-		quickpick.activeItems = quickpick.items.filter(i => (CommandQuickPickItem.is(i) ? false : i.picked));
-	}
-
-	const disposables: Disposable[] = [];
-
-	let scope: KeyboardScope | undefined;
-	if (options?.keyboard != null) {
-		const { keyboard } = options;
-		scope = Container.instance.keyboard.createScope(
-			Object.fromEntries(
-				keyboard.keys.map(key => [
-					key,
-					{
-						onDidPressKey: async key => {
-							if (quickpick.activeItems.length !== 0) {
-								const [item] = quickpick.activeItems;
-								if (item != null && !isDirectiveQuickPickItem(item) && !CommandQuickPickItem.is(item)) {
-									const ignoreFocusOut = quickpick.ignoreFocusOut;
-									quickpick.ignoreFocusOut = true;
-
-									await keyboard.onDidPressKey(key, item);
-
-									quickpick.ignoreFocusOut = ignoreFocusOut;
-								}
-							}
-						},
-					},
-				]),
-			),
-		);
-		void scope.start();
-		disposables.push(scope);
-	}
-
-	try {
-		const pick = await new Promise<
-			CommandQuickPickItem | CommitQuickPickItem<GitStashCommit> | DirectiveQuickPickItem | undefined
-		>(resolve => {
-			disposables.push(
-				quickpick.onDidHide(() => resolve(undefined)),
-				quickpick.onDidAccept(() => {
-					if (quickpick.activeItems.length !== 0) {
-						const [item] = quickpick.activeItems;
-						if (isDirectiveQuickPickItem(item)) {
-							resolve(undefined);
-							return;
-						}
-
-						resolve(item);
+				quickpick.onDidTriggerItemButton(e => {
+					if (isDirectiveQuickPickItem(e.item) || e.item instanceof CommandQuickPickItem) {
+						return;
 					}
-				}),
-				quickpick.onDidChangeValue(value => {
-					if (scope == null) return;
 
-					// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
-					if (value.length !== 0) {
-						void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
-					} else {
-						void scope.resume();
+					if (e.button === ShowDetailsViewQuickInputButton) {
+						void showDetailsView(e.item.item, { pin: false, preserveFocus: true });
+					} else if (e.button === RevealInSideBarQuickInputButton) {
+						void reveal(e.item.item, { select: true, focus: false, expand: true });
 					}
 				}),
 			);
@@ -352,7 +231,6 @@ export async function showStashPicker(
 			quickpick.show();
 		});
 		if (pick == null || isDirectiveQuickPickItem(pick)) return undefined;
-
 		if (pick instanceof CommandQuickPickItem) {
 			void (await pick.execute());
 

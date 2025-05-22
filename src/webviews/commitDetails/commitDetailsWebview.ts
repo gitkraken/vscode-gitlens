@@ -1496,8 +1496,8 @@ export class CommitDetailsWebviewProvider
 			commit = commitish;
 		} else if (commitish != null) {
 			if (commitish.refType === 'stash') {
-				const gitStash = await this.container.git.getRepositoryService(commitish.repoPath).stash?.getStash();
-				commit = gitStash?.stashes.get(commitish.ref);
+				const stash = await this.container.git.getRepositoryService(commitish.repoPath).stash?.getStash();
+				commit = stash?.stashes.get(commitish.ref);
 			} else {
 				commit = await this.container.git
 					.getRepositoryService(commitish.repoPath)

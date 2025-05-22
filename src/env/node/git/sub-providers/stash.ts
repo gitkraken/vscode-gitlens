@@ -73,8 +73,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		let gitStash = this.cache.stashes?.get(repoPath);
-		if (gitStash == null) {
+		let stash = this.cache.stashes?.get(repoPath);
+		if (stash == null) {
 			const parser = getStashLogParser();
 			const args = [...parser.arguments];
 
@@ -89,17 +89,17 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				stashes.set(s.sha, createStash(this.container, s, repoPath));
 			}
 
-			gitStash = { repoPath: repoPath, stashes: stashes };
+			stash = { repoPath: repoPath, stashes: stashes };
 
-			this.cache.stashes?.set(repoPath, gitStash);
+			this.cache.stashes?.set(repoPath, stash);
 		}
 
 		// Return only reachable stashes from the given ref
-		if (options?.reachableFrom && gitStash?.stashes.size) {
+		if (options?.reachableFrom && stash?.stashes.size) {
 			// Create a copy because we are going to modify it and we don't want to mutate the cache
-			gitStash = { ...gitStash, stashes: new Map(gitStash.stashes) };
+			stash = { ...stash, stashes: new Map(stash.stashes) };
 
-			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
+			const oldestStashDate = new Date(min(stash.stashes.values(), c => c.date.getTime())).toISOString();
 
 			const result = await this.git.exec(
 				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
@@ -118,8 +118,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					const reachableStashes = new Set<string>();
 
 					// First pass: mark directly reachable stashes
-					for (const [sha, stash] of gitStash.stashes) {
-						if (stash.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+					for (const [sha, s] of stash.stashes) {
+						if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
 							reachableStashes.add(sha);
 						}
 					}
@@ -128,8 +128,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					let changed;
 					do {
 						changed = false;
-						for (const [sha, stash] of gitStash.stashes) {
-							if (!reachableStashes.has(sha) && stash.parents.some(p => reachableStashes.has(p))) {
+						for (const [sha, s] of stash.stashes) {
+							if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
 								reachableStashes.add(sha);
 								changed = true;
 							}
@@ -137,18 +137,18 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					} while (changed);
 
 					// Remove unreachable stashes
-					for (const [sha] of gitStash.stashes) {
+					for (const [sha] of stash.stashes) {
 						if (!reachableStashes.has(sha)) {
-							gitStash.stashes.delete(sha);
+							stash.stashes.delete(sha);
 						}
 					}
 				} else {
-					gitStash.stashes.clear();
+					stash.stashes.clear();
 				}
 			}
 		}
 
-		return gitStash;
+		return stash;
 	}
 
 	@log()
