@@ -245,8 +245,8 @@ export abstract class ViewBase<
 		if (this.container.debugging || configuration.get('debug')) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				item.tooltip ??= new MarkdownString(
-						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
-					);
+					item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
+				);
 
 				if (typeof item.tooltip === 'string') {
 					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
@@ -515,10 +515,12 @@ export abstract class ViewBase<
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>): void {
+		this._expandedNodes.delete(e.element);
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
 
 	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>): void {
+		this._expandedNodes.add(e.element);
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
 	}
 
@@ -732,6 +734,11 @@ export abstract class ViewBase<
 		return undefined;
 	}
 
+	private _expandedNodes = new WeakSet<ViewNode>();
+	isNodeExpanded(node: ViewNode): boolean {
+		return this._expandedNodes.has(node);
+	}
+
 	@debug()
 	async refresh(reset: boolean = false): Promise<void> {
 		// If we are resetting, make sure to clear any saved node state
@@ -823,8 +830,8 @@ export abstract class ViewBase<
 			await this.tree?.reveal(node, options);
 		} catch (ex) {
 			if (!node.id || root == null) {
-			Logger.error(ex, scope);
-			debugger;
+				Logger.error(ex, scope);
+				debugger;
 
 				return;
 			}
