@@ -20,6 +20,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 		public readonly remote: GitRemote,
+		private readonly _options?: { expand?: boolean },
 	) {
 		super('remote', uri, view, parent);
 
@@ -83,7 +84,10 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			this.remote.name,
+			this._options?.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.description = getRemoteUpstreamDescription(this.remote);
 

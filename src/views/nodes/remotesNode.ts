@@ -32,11 +32,14 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const remotes = await this.repo.git.remotes.getRemotes({ sort: true });
-			if (remotes.length === 0) {
+			if (!remotes.length) {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
 
-			this.children = remotes.map(r => new RemoteNode(this.uri, this.view, this, this.repo, r));
+			const expand = remotes.length === 1;
+			this.children = remotes.map(
+				r => new RemoteNode(this.uri, this.view, this, this.repo, r, { expand: expand }),
+			);
 		}
 
 		return this.children;
