@@ -87,7 +87,7 @@ export class ActionItem extends LitElement {
 		return this.icon;
 	}
 
-	get effectiveLabel(): string | undefined {
+	get effectiveTooltip(): string | undefined {
 		if (!this.label && !this.altLabel) {
 			return undefined;
 		}
@@ -96,6 +96,16 @@ export class ActionItem extends LitElement {
 				return this.altLabel;
 			}
 			return `${this.label}\n[${getAltKeySymbol()}] ${this.altLabel}`;
+		}
+		return this.label;
+	}
+
+	get effectiveLabel(): string | undefined {
+		if (!this.label && !this.altLabel) {
+			return undefined;
+		}
+		if (this.altLabel && this.isAltKeyPressed) {
+			return this.altLabel;
 		}
 		return this.label;
 	}
@@ -130,11 +140,11 @@ export class ActionItem extends LitElement {
 
 	override render(): unknown {
 		return html`
-			<gl-tooltip hoist content="${this.effectiveLabel ?? nothing}">
+			<gl-tooltip hoist content="${this.effectiveTooltip ?? nothing}">
 				<a
 					role="${!this.effectiveHref ? 'button' : nothing}"
 					type="${!this.effectiveHref ? 'button' : nothing}"
-					aria-label="${this.label ?? nothing}"
+					aria-label="${this.effectiveLabel ?? nothing}"
 					?disabled=${this.disabled}
 					href=${this.effectiveHref ?? nothing}
 				>
