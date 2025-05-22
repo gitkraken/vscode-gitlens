@@ -305,7 +305,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

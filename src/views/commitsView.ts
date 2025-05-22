@@ -419,7 +419,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

@@ -140,7 +140,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				const node = await this.findWorkspaceNode(workspaceId, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

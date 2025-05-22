@@ -301,7 +301,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -330,7 +330,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -356,7 +356,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
