@@ -55,7 +55,11 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			this.view.message = 'Loading worktrees...';
 
 			const access = await this.view.container.git.access('worktrees');
-			if (access.allowed === false) return [];
+			if (access.allowed === false) {
+				// Reset the message so the welcome view will show
+				this.view.message = undefined;
+				return [];
+			}
 
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
@@ -69,6 +73,8 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 
 			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			if (repo != null && !(await repo.git.supports('git:worktrees'))) {
+				// Reset the message so the welcome view will show
+				this.view.message = undefined;
 				return [];
 			}
 
@@ -88,6 +94,8 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 
 			const grandChildren = await child.getChildren();
 			if (grandChildren.length <= 1) {
+				// Reset the message so the welcome view will show
+				this.view.message = undefined;
 				void child.ensureSubscription();
 
 				return [];
