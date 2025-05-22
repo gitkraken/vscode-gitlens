@@ -27,7 +27,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	private _base: string | undefined;
 
 	constructor(view: FileHistoryView) {
-		super('file-history-tracker', unknownGitUri, view, undefined, true);
+		super('file-history-tracker', unknownGitUri, view);
 	}
 
 	override dispose(): void {

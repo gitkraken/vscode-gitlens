@@ -47,7 +47,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No tags could be found.';
 				return [];
 			}
@@ -57,9 +57,8 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
+				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -67,7 +66,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			const [child] = this.children;
 
 			const tags = await child.repo.git.tags.getTags();
-			if (tags.values.length === 0) {
+			if (!tags.values.length) {
 				this.view.message = 'No tags could be found.';
 				void child.ensureSubscription();
 

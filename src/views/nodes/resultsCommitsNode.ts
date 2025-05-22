@@ -48,9 +48,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			files?: { ref1: string; ref2: string; query: () => Promise<FilesQueryResults> };
 		},
 		options?: Partial<Options>,
-		splatted?: boolean,
 	) {
-		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent, splatted);
+		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (_results.direction != null) {
 			this.updateContext({ branchStatusUpstreamType: _results.direction });

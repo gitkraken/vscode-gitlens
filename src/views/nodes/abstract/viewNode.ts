@@ -157,7 +157,7 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/worktree/${context.worktree.uri.path}`;
 	}
 	if (context.remote != null) {
-		uniqueness += `/remote/${context.remote.name}`;
+		uniqueness += `/remote/${context.remote.id}`;
 	}
 	if (context.tag != null) {
 		uniqueness += `/tag/${context.tag.id}`;
@@ -237,10 +237,12 @@ export abstract class ViewNode<
 		return types.includes(this.type as unknown as T[number]);
 	}
 
-	protected _uniqueId!: string;
-	splatted = false;
+	splatted: boolean | undefined;
+
 	// NOTE: @eamodio uncomment to track node leaks
 	// readonly uuid = uuid();
+
+	protected _uniqueId!: string;
 
 	constructor(
 		public readonly type: Type,
@@ -248,14 +250,22 @@ export abstract class ViewNode<
 		uri: GitUri,
 		public readonly view: TView,
 		protected parent?: ViewNode | undefined,
-		//** Indicates if this node is only shown as its children, not itself */
-		splatted?: boolean,
 	) {
-		this.splatted = splatted ?? false;
-
 		// NOTE: @eamodio uncomment to track node leaks
 		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;
+
+		const originalGetChildren = this.getChildren;
+		this.getChildren = function (this: ViewNode) {
+			this.splatted ??= true;
+			return originalGetChildren.call(this);
+		};
+
+		const originalGetTreeItem = this.getTreeItem;
+		this.getTreeItem = function (this: ViewNode) {
+			this.splatted = false;
+			return originalGetTreeItem.call(this);
+		};
 	}
 
 	protected _disposed = false;

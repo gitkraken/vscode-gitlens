@@ -65,7 +65,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No contributors could be found.';
 				return [];
 			}
@@ -78,9 +78,8 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
+				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -103,7 +102,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// }
 
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
-			if (children.length === 0) {
+			if (!children.length) {
 				this.view.message = 'No contributors could be found.';
 				void child.ensureSubscription();
 

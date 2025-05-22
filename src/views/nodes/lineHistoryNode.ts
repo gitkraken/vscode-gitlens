@@ -42,7 +42,7 @@ export class LineHistoryNode
 		public readonly selection: Selection,
 		private readonly editorContents: string | undefined,
 	) {
-		super('line-history', uri, view, parent, true);
+		super('line-history', uri, view, parent);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });

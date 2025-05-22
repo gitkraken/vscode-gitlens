@@ -60,7 +60,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No remotes could be found.';
 				return [];
 			}
@@ -70,9 +70,8 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
+				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -80,7 +79,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			const [child] = this.children;
 
 			const remotes = await child.repo.git.remotes.getRemotes();
-			if (remotes.length === 0) {
+			if (!remotes.length) {
 				this.view.message = 'No remotes could be found.';
 				void child.ensureSubscription();
 

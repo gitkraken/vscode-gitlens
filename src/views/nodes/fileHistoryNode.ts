@@ -40,7 +40,7 @@ export class FileHistoryNode
 		private readonly folder: boolean,
 		private readonly branch: GitBranch | undefined,
 	) {
-		super('file-history', uri, view, parent, true);
+		super('file-history', uri, view, parent);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });

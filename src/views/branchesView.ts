@@ -64,7 +64,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No branches could be found.';
 				return [];
 			}
@@ -80,9 +80,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				worktreesByBranch: worktreesByBranch?.size ? worktreesByBranch : undefined,
 			});
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
+				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -98,7 +97,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				filter: b =>
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
 			});
-			if (branches.values.length === 0) {
+			if (!branches.values.length) {
 				this.view.message = 'No branches could be found.';
 				void child.ensureSubscription();
 

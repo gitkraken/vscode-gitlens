@@ -21,7 +21,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super('branches', uri, view, parent, true);
+		super('branches', uri, view, parent);
 
 		this.updateContext({ repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
