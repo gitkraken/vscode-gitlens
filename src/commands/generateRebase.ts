@@ -166,7 +166,7 @@ export async function generateRebase(
 	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 ): Promise<void> {
 	const repo = svc.getRepository()!;
-	const result = await container.ai.generateRebaseV2(repo, base.ref, head.ref, source, options);
+	const result = await container.ai.generateRebase(repo, base.ref, head.ref, source, options);
 	if (result == null) return;
 
 	try {

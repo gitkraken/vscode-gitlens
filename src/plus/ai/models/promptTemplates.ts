@@ -28,22 +28,14 @@ interface CreatePullRequestPromptTemplateContext {
 	instructions?: string;
 }
 
-interface RebasePromptTemplateContext {
-	diff: string;
-	data?: string;
-	commits?: string;
-	context?: string;
-	instructions?: string;
-}
-
-interface RebaseMultiStep1PromptTemplateContext {
+interface RebaseExplanationPromptTemplateContext {
 	diff: string;
 	commits?: string;
 	context?: string;
 	instructions?: string;
 }
 
-interface RebaseMultiStep2PromptTemplateContext {
+interface RebaseCommitsPromptTemplateContext {
 	data: string;
 	context?: string;
 	instructions?: string;
@@ -66,9 +58,7 @@ export type PromptTemplateType =
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
-	| 'generate-rebase'
-	| 'generate-rebase-multi-step1'
-	| 'generate-rebase-multi-step2'
+	| `generate-rebase-${'explanation' | 'commits'}`
 	| 'explain-changes';
 
 type PromptTemplateVersions = '' | '_v2';
@@ -86,12 +76,10 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? CreatePullRequestPromptTemplateContext
 	: T extends 'generate-changelog'
 	? ChangelogPromptTemplateContext
-	: T extends 'generate-rebase'
-	? RebasePromptTemplateContext
-	: T extends 'generate-rebase-multi-step1'
-	? RebaseMultiStep1PromptTemplateContext
-	: T extends 'generate-rebase-multi-step2'
-	? RebaseMultiStep2PromptTemplateContext
+	: T extends 'generate-rebase-explanation'
+	? RebaseExplanationPromptTemplateContext
+	: T extends 'generate-rebase-commits'
+	? RebaseCommitsPromptTemplateContext
 	: T extends 'explain-changes'
 	? ExplainChangesPromptTemplateContext
 	: never;
