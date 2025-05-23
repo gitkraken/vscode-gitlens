@@ -68,7 +68,7 @@ export abstract class RepositoryFolderNode<
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
-		let label = this.repo.formattedName ?? this.uri.repoPath ?? '';
+		let label = this.repo.name ?? this.uri.repoPath ?? '';
 		if (this.options?.showBranchAndLastFetched && branch != null) {
 			const remove = `: ${basename(branch.name)}`;
 			const suffix = `: ${branch.name}`;
@@ -122,13 +122,11 @@ export abstract class RepositoryFolderNode<
 			}
 
 			item.tooltip = new MarkdownString(
-				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+				`${this.repo.name ?? this.uri.repoPath ?? ''}${
 					lastFetched
 						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
 						: ''
-				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
-					branch.name
-				}${
+				}${this.repo.name ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
 					branch.upstream != null
 						? ` is ${branch.getTrackingStatus({
 								empty: branch.upstream.missing
@@ -148,9 +146,7 @@ export abstract class RepositoryFolderNode<
 				true,
 			);
 		} else {
-			item.tooltip = this.repo.formattedName
-				? `${this.repo.formattedName}\n${this.uri.repoPath}`
-				: this.uri.repoPath ?? '';
+			item.tooltip = this.repo.name ? `${this.repo.name}\n${this.uri.repoPath}` : this.uri.repoPath ?? '';
 		}
 
 		return item;

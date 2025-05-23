@@ -327,7 +327,7 @@ export class StashGitCommand extends QuickCommand<State> {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null
-							? `No stashes found in ${state.repo.formattedName}`
+							? `No stashes found in ${state.repo.name}`
 							: 'Choose a stash to apply to your working tree',
 					picked: state.reference?.ref,
 				});
@@ -431,7 +431,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose stashes to delete',
+						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose stashes to delete',
 					picked: state.references?.map(r => r.ref),
 				});
 				// Always break on the first step (so we will go back)
@@ -490,7 +490,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
+						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose a stash',
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)
@@ -792,7 +792,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to rename',
+						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose a stash to rename',
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)

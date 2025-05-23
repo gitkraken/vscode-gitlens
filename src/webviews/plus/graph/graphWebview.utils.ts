@@ -38,7 +38,7 @@ export async function formatRepositories(repositories: Repository[]): Promise<Gr
 			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 			return {
-				formattedName: repo.formattedName,
+				formattedName: repo.name,
 				id: repo.id,
 				name: repo.name,
 				path: repo.path,

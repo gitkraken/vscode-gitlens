@@ -222,7 +222,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		let description;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.repoPath ? this.view.container.git.getRepository(this.repoPath) : undefined;
-			description = repo?.formattedName ?? this.repoPath;
+			description = repo?.name ?? this.repoPath;
 		}
 
 		const item = new TreeItem(
