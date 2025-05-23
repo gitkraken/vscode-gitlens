@@ -86,12 +86,7 @@ export type ProAIFeatures =
 	| 'generate-stashMessage';
 
 export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures =
-	| 'generate-changelog'
-	| 'generate-create-pullRequest'
-	| 'generate-rebase'
-	| 'generate-rebase-multi-step1'
-	| 'generate-rebase-multi-step2';
+export type AdvancedAIFeatures = 'generate-changelog' | 'generate-create-pullRequest' | 'generate-rebase';
 
 export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
 
