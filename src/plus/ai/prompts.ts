@@ -338,3 +338,129 @@ Example output structure:
 
 Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`,
 };
+
+export const generateRebaseUserPromptV3: PromptTemplate<'generate-rebase'> = {
+	id: 'generate-rebase',
+	variables: ['diff', 'commits', 'data', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a new set of commits that are related, grouped logically, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
+
+First, examine the following unified Git diff of code changes:
+
+<unified_diff>
+\${diff}
+</unified_diff>
+
+Next, examine the following JSON array which represents a mapping of index to hunk headers in the unified_diff to be used later when mapping hunks to commits:
+<hunk_map>
+\${data}
+</hunk_map>
+
+
+Your task is to group the hunks in unified_diff into a set of commits, ordered into a commit history as an array. Follow these guidelines:
+
+1. Only organize the hunks themselves, not individual lines within hunks.
+2. Group hunks into logical units that make sense together and can be applied atomically.
+3. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+4. Write meaningful commit messages that accurately describe the changes in each commit.
+5. Provide a detailed explanation of the changes in each commit.
+6. Make sure the new commit history is easy to review and understand.
+
+Output your new commit history as a JSON array. Each commit in the array should be an object representing a grouping of hunks forming that commit, with the following properties:
+- "message": A string containing the commit message.
+- "explanation": A string with a detailed explanation of the changes in the commit. Write the explanation as if you were explaining the changes to a reviewer who is familiar with the codebase but not the specific changes. Walk through the changes and make references to specific changes where needed, explaining how they achieve the objective of the commit.
+- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
+  - "hunk": The hunk index (number) from the hunk_map, matching the equivalent hunk you chose from the unified_diff.
+
+Once you've completed your analysis, generate the JSON output following the specified format.
+
+Here's an example of the expected JSON structure (note that this is just a structural example and does not reflect the actual content you should produce):
+
+[
+  {
+    "message": "Example commit message",
+    "explanation": "Detailed explanation of the changes in this commit",
+    "hunks": [
+      {
+        "hunk": 2
+      },
+      {
+        "hunk": 7
+      }
+    ]
+  }
+]
+
+Remember to base your organization of commits solely on the provided unified_diff and hunk_map. Do not introduce any new changes or modify the content of the hunks. Your task is to organize the existing hunks in a logical and reviewable manner.
+
+\${instructions}
+
+Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.`,
+};
+
+export const generateRebaseMultiStep1UserPrompt: PromptTemplate<'generate-rebase-multi-step1'> = {
+	id: 'generate-rebase-multi-step1',
+	variables: ['diff', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant tasked with explaining code changes and how they would be best organized into commits. Your goal is to examine a unified diff of the code changes and explain the changes and how they should be grouped into a set of commits.
+
+First, examine the following unified Git diff of code changes:
+
+<unified_diff>
+\${diff}
+</unified_diff>
+
+Your task is to explain how you would group the changes in the unified_diff into a set of commits and why they would be grouped the way you chose. Follow these guidelines:
+
+1. Group the changes into logical units that make sense together and can be applied atomically.
+2. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+3. Make sure the new commit history is easy to review and understand.
+4. Provide a detailed and clear explanation of the changes that would map to which commit, how you would order the commits into the best possible history (ensuring that each commit is self-contained and only depends on commits that come before it in the new history), what each commit would do, how it would be atomic, logical and self-contained, and a detailed description of the overall changes as if you were explaining them to a reviewer, walking through them and making it as easy to review the code as possible.
+
+Output your explanation, detailing which file belongs to which commit so that it would be easy for someone to use them as instructions to form commits, and also easy for a reviewer to use your explanation to understand the changes.
+
+Remember to base your organization of commits solely on the provided unified_diff. Do not introduce any new changes or modify the content of the unified_diff.
+
+\${instructions}
+
+Now, proceed with your analysis and explanation. Output only the explanation you have generated, and nothing else.`,
+};
+
+export const generateRebaseMultiStep2UserPrompt: PromptTemplate<'generate-rebase-multi-step2'> = {
+	id: 'generate-rebase-multi-step2',
+	variables: ['data', 'context', 'instructions'],
+	template: `Using the plan you provided in the previous step, your goal now is use it to create that new set of commits, ensuring that ALL the changes in the unified diff are included in the new set of commits.
+
+Examine the following JSON array which represents a mapping of index to hunk headers in the unified diff to be used later when mapping hunks to commits:
+<hunk_map>
+\${data}
+</hunk_map>
+
+Using your plans, group the hunks in the unified diff into your new set of commits in an ordered array. Follow these guidelines:
+
+1. Only organize the hunks themselves, not individual lines within hunks.
+2. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+3. Ensure that each commit contains all the hunks that belong to it, across all the files that belong to it, and that all hunks are included in the new set of commits.
+4. Ensure that each commit is not empty and contains at least one hunk.
+5. Write meaningful commit messages that accurately describe the changes in each commit.
+
+Output your new commit history as a JSON array. Each commit in the array should be an object representing a grouping of hunks forming that commit, with the following properties:
+- "message": A string containing the commit message.
+- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
+  - "hunk": The hunk index (number) from the hunk_map, matching the equivalent hunk you chose from the unified diff.
+
+Once you've completed your analysis, generate the JSON output following the specified format.
+
+Here's an example of the expected JSON structure (note that this is just a structural example and does not reflect the actual content you should produce):
+
+[
+  {
+    "message": "Example commit message",
+    "hunks": [ { "hunk": 2 }, { "hunk": 7 } ]
+  }
+]
+
+Please review your output to make sure it aligns with the plan and the requirements above and that ALL hunks are represented in the commits. Do not introduce any new changes or modify the content of the hunks.
+
+\${instructions}
+
+Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.`,
+};

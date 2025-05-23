@@ -29,6 +29,7 @@ export interface State extends WebviewState {
 		ai: boolean;
 	};
 	aiEnabled: boolean;
+	aiGenerateCommitsEnabled: boolean;
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
@@ -283,6 +284,7 @@ export interface DidChangePreviewEnabledParams {
 	previewEnabled: boolean;
 	previewCollapsed: boolean;
 	aiEnabled: boolean;
+	aiGenerateCommitsEnabled: boolean;
 }
 export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
 	scope,

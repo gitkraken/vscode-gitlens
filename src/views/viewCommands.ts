@@ -909,7 +909,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.rebase(node.repoPath, node.ref);
 	}
 
-	@command('gitlens.views.ai.rebaseOntoCommit')
+	@command('gitlens.ai.rebaseOntoCommit:views')
 	@log()
 	private async aiRebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
 		if (!node.isAny('branch', 'commit', 'file-commit', 'tag')) {
