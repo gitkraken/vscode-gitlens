@@ -522,9 +522,7 @@ export class BranchGitCommand extends QuickCommand {
 					placeholder: prune
 						? 'Choose branches with missing upstreams to delete'
 						: 'Choose branches to delete',
-					emptyPlaceholder: prune
-						? `No branches with missing upstreams in ${state.repo.formattedName}`
-						: undefined,
+					emptyPlaceholder: prune ? `No branches with missing upstreams in ${state.repo.name}` : undefined,
 					sort: { current: false, missingUpstream: true },
 				});
 				// Always break on the first step (so we will go back)

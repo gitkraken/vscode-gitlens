@@ -154,10 +154,6 @@ export class Repository implements Disposable {
 		return this._commonRepositoryName;
 	}
 
-	get formattedName(): string {
-		return this.name;
-	}
-
 	readonly id: RepoComparisonKey;
 	readonly index: number;
 	readonly instance = instanceCounter.next();
@@ -566,7 +562,7 @@ export class Repository implements Disposable {
 				title:
 					opts.branch != null
 						? `${opts.pull ? 'Pulling' : 'Fetching'} ${opts.branch.name}...`
-						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
+						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.name}...`,
 			},
 			() => this.fetchCore(opts),
 		);
@@ -645,7 +641,7 @@ export class Repository implements Disposable {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pulling ${this.formattedName}...`,
+				title: `Pulling ${this.name}...`,
 			},
 			() => this.pullCore(opts),
 		);
@@ -714,7 +710,7 @@ export class Repository implements Disposable {
 				location: ProgressLocation.Notification,
 				title: isBranchReference(opts.reference)
 					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
-					: `Pushing ${this.formattedName}...`,
+					: `Pushing ${this.name}...`,
 			},
 			() => this.pushCore(opts),
 		);
@@ -786,7 +782,7 @@ export class Repository implements Disposable {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Switching ${this.formattedName} to ${ref}...`,
+				title: `Switching ${this.name} to ${ref}...`,
 				cancellable: false,
 			},
 			() => this.switchCore(ref, opts),

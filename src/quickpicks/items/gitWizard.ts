@@ -414,7 +414,7 @@ export async function createRepositoryQuickPickItem(
 	}
 
 	const item: RepositoryQuickPickItem = {
-		label: repository.formattedName,
+		label: repository.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,

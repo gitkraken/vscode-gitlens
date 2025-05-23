@@ -155,11 +155,11 @@ export function appendReposToTitle<
 	let repoContext;
 	if ((state as { repo: Repository }).repo != null) {
 		repoContext = `${additionalContext ?? ''}${pad(GlyphChars.Dot, 2, 2)}${
-			(state as { repo: Repository }).repo.formattedName
+			(state as { repo: Repository }).repo.name
 		}`;
 	} else if ((state as { repos: Repository[] }).repos.length === 1) {
 		repoContext = `${additionalContext ?? ''}${pad(GlyphChars.Dot, 2, 2)}${
-			(state as { repos: Repository[] }).repos[0].formattedName
+			(state as { repos: Repository[] }).repos[0].name
 		}`;
 	} else {
 		repoContext = `${pad(GlyphChars.Dot, 2, 2)}${(state as { repos: Repository[] }).repos.length} repositories`;
@@ -762,7 +762,7 @@ export function* pickBranchStep<
 
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No branches found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No branches found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
@@ -838,7 +838,7 @@ export function* pickOrResetBranchStep<
 	let resetButtonClicked = false;
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No branches found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No branches found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		additionalButtons: reset.allowed ? [resetButton] : [],
@@ -907,8 +907,7 @@ export function* pickBranchesStep<
 	const step = createPickStep<BranchQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count =>
-			!count ? emptyPlaceholder ?? `No branches found in ${state.repo.formattedName}` : placeholder,
+		placeholder: count => (!count ? emptyPlaceholder ?? `No branches found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
@@ -979,7 +978,7 @@ export function* pickBranchOrTagStep<
 		title: appendReposToTitle(title ?? context.title, state, context),
 		placeholder: count =>
 			!count
-				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.formattedName}`
+				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.name}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
 				  } (or enter a revision using #)`,
@@ -1017,7 +1016,7 @@ export function* pickBranchOrTagStep<
 					const branchesAndOrTags = await getBranchesAndOrTagsFn();
 					quickpick.placeholder =
 						branchesAndOrTags.length === 0
-							? `${state.repo.formattedName} has no branches${context.showTags ? ' or tags' : ''}`
+							? `${state.repo.name} has no branches${context.showTags ? ' or tags' : ''}`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
 							  } (or enter a revision using #)`;
@@ -1109,7 +1108,7 @@ export function* pickBranchOrTagStepMultiRepo<
 			!count
 				? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 						context.showTags ? ' or tags' : ''
-				  } found in ${state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repos`}`
+				  } found in ${state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
 				  } (or enter a revision using #)`,
@@ -1150,9 +1149,7 @@ export function* pickBranchOrTagStepMultiRepo<
 							? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 									context.showTags ? ' or tags' : ''
 							  } found in ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repos`
+									state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`
 							  }`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
@@ -1542,7 +1539,7 @@ export function* pickRemoteStep<
 
 	const step = createPickStep<RemoteQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No remotes found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No remotes found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
@@ -1595,7 +1592,7 @@ export function* pickRemotesStep<
 	const step = createPickStep<RemoteQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No remotes found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No remotes found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 
@@ -1902,7 +1899,7 @@ export function* pickTagsStep<
 	const step = createPickStep<TagQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No tags found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No tags found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
@@ -1964,7 +1961,7 @@ export function* pickWorktreeStep<
 
 	const step = createPickStep<WorktreeQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No worktrees found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No worktrees found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
@@ -2028,7 +2025,7 @@ export function* pickWorktreesStep<
 	const step = createPickStep<WorktreeQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? `No worktrees found in ${state.repo.formattedName}` : placeholder),
+		placeholder: count => (!count ? `No worktrees found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {

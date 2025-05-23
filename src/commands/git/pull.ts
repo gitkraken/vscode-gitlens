@@ -203,8 +203,8 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 
 			const pullDetails = status?.upstream?.state.behind
-				? ` ${pluralize('commit', status.upstream.state.behind)} into $(repo) ${repo.formattedName}`
-				: ` into $(repo) ${repo.formattedName}`;
+				? ` ${pluralize('commit', status.upstream.state.behind)} into $(repo) ${repo.name}`
+				: ` into $(repo) ${repo.name}`;
 
 			step = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),

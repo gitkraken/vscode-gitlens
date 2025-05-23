@@ -2509,7 +2509,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const cancellation = this.createCancellation('state');
 
 		this._etagRepository = this.repository?.etag;
-		this.host.title = `${this.host.originalTitle}: ${this.repository.formattedName}`;
+		this.host.title = `${this.host.originalTitle}: ${this.repository.name}`;
 
 		const { defaultItemLimit } = configuration.get('graph');
 

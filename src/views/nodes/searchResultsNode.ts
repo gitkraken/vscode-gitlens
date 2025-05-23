@@ -118,7 +118,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		item.contextValue = ContextValues.SearchResults;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.view.container.git.getRepository(this.repoPath);
-			item.description = repo?.formattedName ?? this.repoPath;
+			item.description = repo?.name ?? this.repoPath;
 		}
 		item.iconPath = new ThemeIcon('search');
 

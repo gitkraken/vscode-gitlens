@@ -197,14 +197,14 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const label = this.repo.formattedName ?? this.uri.repoPath ?? '';
+		const label = this.repo.name ?? this.uri.repoPath ?? '';
 
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		let description;
-		let tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+		let tooltip = `${this.repo.name ?? this.uri.repoPath ?? ''}${
 			lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
-		}${this.repo.formattedName ? `\\\n${this.uri.repoPath}` : ''}`;
+		}${this.repo.name ? `\\\n${this.uri.repoPath}` : ''}`;
 		let workingStatus = '';
 
 		const { workspace } = this.context;

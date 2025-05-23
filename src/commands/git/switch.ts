@@ -92,7 +92,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				title: `${
 					isBranchReference(state.reference) || state.createBranch ? 'Switching to' : 'Checking out'
 				} ${getReferenceLabel(state.reference, { icon: false, label: false })} in ${
-					state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repos`
+					state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`
 				}`,
 			},
 			() =>
