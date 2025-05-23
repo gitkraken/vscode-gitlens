@@ -262,6 +262,15 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		const actions = [];
 		if (aiEnabled) {
 			if (hasWip) {
+				if (this._homeState.aiGenerateCommitsEnabled) {
+					actions.push(
+						html`<menu-item
+							?disabled=${isFetching}
+							href=${this.createCommandLink('gitlens.ai.generateCommits:home')}
+							>Generate Commits with AI (Experimental)</menu-item
+						>`,
+					);
+				}
 				actions.push(
 					html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
 						>Explain Working Changes (Preview)</menu-item

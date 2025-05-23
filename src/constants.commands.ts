@@ -40,6 +40,7 @@ type InternalGraphWebviewCommands =
 type InternalHomeWebviewCommands =
 	| 'gitlens.ai.explainWip:home'
 	| 'gitlens.ai.explainBranch:home'
+	| 'gitlens.ai.generateCommits:home'
 	| 'gitlens.home.changeBranchMergeTarget'
 	| 'gitlens.home.deleteBranchOrWorktree'
 	| 'gitlens.home.pushBranch'

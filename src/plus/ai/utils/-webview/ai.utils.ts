@@ -37,6 +37,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Code Suggestion Details';
 		case 'generate-create-pullRequest':
 			return 'Create Pull Request Details (Preview)';
+		case 'generate-rebase':
+			return 'Generate Rebase (Preview)';
 		case 'explain-changes':
 			return 'Explain Changes';
 		default:

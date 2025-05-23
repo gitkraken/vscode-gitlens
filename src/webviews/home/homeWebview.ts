@@ -7,6 +7,7 @@ import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
+import type { GenerateCommitsCommandArgs } from '../../commands/generateRebase';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
@@ -268,7 +269,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled'])) {
+		if (
+			configuration.changed(e, ['home.preview.enabled', 'ai.enabled', 'ai.experimental.generateCommits.enabled'])
+		) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -362,6 +365,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.enableAi', this.enableAi, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
+			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
 		];
 	}
 
@@ -579,6 +583,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
+	@log<HomeWebviewProvider['generateCommits']>({ args: { 0: r => r.branchId } })
+	private async generateCommits(ref: BranchRef) {
+		const { repo } = await this.getRepoInfoFromRef(ref);
+		if (repo == null) return;
+
+		void executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
+			repoPath: repo.path,
+			source: { source: 'home' },
+		});
+	}
+
 	@log()
 	private enableAi() {
 		this.container.telemetry.sendEvent('home/enableAi');
@@ -726,6 +741,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return configuration.get('ai.enabled');
 	}
 
+	private getAiGenerateCommitsEnabled() {
+		return configuration.get('ai.experimental.generateCommits.enabled');
+	}
+
 	private getAmaBannerCollapsed() {
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
@@ -787,6 +806,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
+			aiGenerateCommitsEnabled: this.getAiGenerateCommitsEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			integrations: integrations,
@@ -1215,6 +1235,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			aiEnabled: this.getAiEnabled(),
+			aiGenerateCommitsEnabled: this.getAiGenerateCommitsEnabled(),
 		});
 	}
 

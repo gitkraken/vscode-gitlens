@@ -232,6 +232,77 @@
 				]
 			}
 		},
+		"gitlens.ai.generateCommits": {
+			"label": "Generate Commits with AI (Experimental)...",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled"
+		},
+		"gitlens.ai.generateCommits:graph": {
+			"label": "Generate Commits with AI (Experimental)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.ai.generateCommits:views": {
+			"label": "Generate Commits with AI (Experimental)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled",
+						"group": "3_gitlens_ai",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.ai.generateRebase": {
+			"label": "Rebase with AI (Experimental)...",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled"
+		},
+		"gitlens.ai.rebaseOntoCommit:graph": {
+			"label": "AI Rebase Current Branch onto Commit...",
+			"icon": "$(sparkle)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				]
+			}
+		},
+		"gitlens.ai.rebaseOntoCommit:views": {
+			"label": "AI Rebase Current Branch onto Commit...",
+			"icon": "$(sparkle)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"gitlens/commit/file/commit": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				]
+			}
+		},
 		"gitlens.ai.switchProvider": {
 			"label": "Switch AI Provider/Model",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"

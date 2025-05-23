@@ -91,6 +91,16 @@ export interface AISummarizeResult extends AIResult {
 	};
 }
 
+export interface AIRebaseResult extends AIResult {
+	readonly diff: string;
+	readonly explanation: string;
+	readonly hunkMap: { index: number; hunkHeader: string }[];
+	readonly commits: {
+		readonly message: string;
+		readonly hunks: { hunk: number }[];
+	}[];
+}
+
 export interface AIGenerateChangelogChange {
 	readonly message: string;
 	readonly issues: readonly { readonly id: string; readonly url: string; readonly title: string | undefined }[];
@@ -840,6 +850,288 @@ export class AIProviderService implements Disposable {
 			options,
 		);
 		return result != null ? { ...result } : undefined;
+	}
+
+	// Step 1: Get a patch containing the combined diff of all the changes within the branch input
+	// Step 2: Prompt the AI agent to output an array with the reorganized commits and their commit messages.
+	// Accept as context:
+	// 1. The combined diff
+	// 2. Optional list of original commits and messages
+	// Take as output:
+	// An array of commit objects with the properties:
+	//   'message': The commit message as a string
+	//   'explanation': A more detailed explanation of the changes in the commit as a string
+	//   'changes': The changes of the commit as a formatted diff
+	// Step 3: Create a new branch at the same branching point as the input branch with name <originalbranch>-recomposed
+	// Step 4: Iteratively apply the diffs from the array as commits using the message and changes properties of each object
+	// Step 5: ???
+
+	async generateRebaseV1(
+		repo: Repository,
+		baseRef: string,
+		headRef: string,
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AIRebaseResult | undefined> {
+		const result: Mutable<AIRebaseResult> = {
+			diff: undefined!,
+			explanation: undefined!,
+			hunkMap: [],
+			commits: [],
+		} as unknown as AIRebaseResult;
+
+		const rq = await this.sendRequest(
+			'generate-rebase',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				const [diffResult, logResult] = await Promise.allSettled([
+					repo.git.diff.getDiff?.(headRef, baseRef, { notation: '...' }),
+					repo.git.commits.getLog(`${baseRef}..${headRef}`),
+				]);
+
+				const diff = getSettledValue(diffResult);
+				const log = getSettledValue(logResult);
+
+				if (!diff?.contents || !log?.commits?.size) {
+					throw new AINoRequestDataError('No changes found to generate a rebase from.');
+				}
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				result.diff = diff.contents;
+
+				const hunkMap: { index: number; hunkHeader: string }[] = [];
+				let counter = 0;
+				//const filesDiffs = await repo.git.diff().getDiffFiles!(diff.contents)!;
+				//for (const f of filesDiffs!.files)
+				//for (const hunk of parsedDiff.hunks) {
+				//	hunkMap.push({ index: ++counter, hunkHeader: hunk.contents.split('\n', 1)[0] });
+				//}
+
+				// let hunksByNumber= '';
+
+				for (const hunkHeader of diff.contents.matchAll(/@@ -\d+,\d+ \+\d+,\d+ @@(.*)$/gm)) {
+					hunkMap.push({ index: ++counter, hunkHeader: hunkHeader[0] });
+				}
+
+				result.hunkMap = hunkMap;
+				// 	const hunkNumber = `hunk-${counter++}`;
+				// 	hunksByNumber += `${hunkNumber}: ${hunk[0]}\n`;
+				// }
+
+				// const commits: { diff: string; message: string }[] = [];
+				// for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+				// 	const diff = await repo.git.diff().getDiff?.(commit.ref);
+				// 	commits.push({ message: commit.message ?? commit.summary, diff: diff?.contents ?? '' });
+
+				// 	if (cancellation.isCancellationRequested) throw new CancellationError();
+				// }
+
+				const { prompt } = await this.getPrompt(
+					'generate-rebase',
+					model,
+					{
+						diff: diff.contents,
+						// commits: JSON.stringify(commits),
+						data: JSON.stringify(hunkMap),
+						context: options?.context,
+						// instructions: configuration.get('ai.generateRebase.customInstructions'),
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				return messages;
+			},
+			m => `Generating rebase with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'rebase',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+
+		// if it is wrapped in markdown, we need to strip it
+		const content = rq!.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
+
+		try {
+			// Parse the JSON content from the result
+			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
+		} catch {
+			debugger;
+			throw new Error('Unable to parse rebase result');
+		}
+
+		return result;
+	}
+
+	async generateRebaseV2(
+		repo: Repository,
+		baseRef: string,
+		headRef: string,
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AIRebaseResult | undefined> {
+		const result: Mutable<AIRebaseResult> = {
+			diff: undefined!,
+			explanation: undefined!,
+			hunkMap: [],
+			commits: [],
+		} as unknown as AIRebaseResult;
+
+		const lazyDiff = lazy(() => repo.git.diff.getDiff?.(headRef, baseRef, { notation: '...' }));
+
+		const conversation: AIChatMessage[] = [];
+
+		const req1 = await this.sendRequest(
+			'generate-rebase',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				const diff = await lazyDiff.value;
+				if (!diff?.contents) {
+					throw new AINoRequestDataError('No changes found to generate a rebase from.');
+				}
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				result.diff = diff.contents;
+
+				const { prompt } = await this.getPrompt(
+					'generate-rebase-multi-step1',
+					model,
+					{
+						diff: diff.contents,
+						context: options?.context,
+						// instructions: configuration.get('ai.generateRebase.customInstructions'),
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+
+				conversation.push(...messages);
+				return messages;
+			},
+			m => `Generating rebase (examining changes) with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'rebase',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+
+		conversation.push({
+			role: 'assistant',
+			content: req1!.content,
+		});
+		result.explanation = req1!.content;
+
+		const req2 = await this.sendRequest(
+			'generate-rebase',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				// const [diffResult, logResult] = await Promise.allSettled([
+				// 	repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
+				// 	repo.git.commits().getLog(`${baseRef}..${headRef}`),
+				// ]);
+
+				// const diff = getSettledValue(diffResult);
+				// const log = getSettledValue(logResult);
+
+				const diff = await lazyDiff.value;
+				if (!diff?.contents) {
+					throw new AINoRequestDataError('No changes found to generate a rebase from.');
+				}
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				// result.diff = diff.contents;
+
+				const hunkMap: { index: number; hunkHeader: string }[] = [];
+				let counter = 0;
+				// const filesDiffs = parseGitDiff(diff.contents, true);
+				// for (const f of filesDiffs.files) {
+				// 	for (const hunk of f.hunks) {
+				// 		hunkMap.push({ index: ++counter, hunkHeader: hunk.contents.split('\n', 1)[0] });
+				// 	}
+				// }
+
+				for (const hunkHeader of diff.contents.matchAll(/@@ -\d+,\d+ \+\d+,\d+ @@(.*)$/gm)) {
+					hunkMap.push({ index: ++counter, hunkHeader: hunkHeader[0] });
+				}
+
+				result.hunkMap = hunkMap;
+
+				const { prompt } = await this.getPrompt(
+					'generate-rebase-multi-step2',
+					model,
+					{
+						// diff: diff.contents,
+						// commits: JSON.stringify(commits),
+						data: JSON.stringify(hunkMap),
+						context: options?.context,
+						// instructions: configuration.get('ai.generateRebase.customInstructions'),
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				return [...conversation, ...messages];
+			},
+			m => `Generating rebase with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'rebase',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			{ ...options, modelOptions: { temperature: 0.2 } },
+		);
+
+		// if it is wrapped in markdown, we need to strip it
+		const content = req2!.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
+
+		try {
+			// Parse the JSON content from the result
+			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
+		} catch {
+			debugger;
+			throw new Error('Unable to parse rebase result');
+		}
+
+		return result;
 	}
 
 	private async sendRequest<T extends AIActionType>(
