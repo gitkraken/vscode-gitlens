@@ -1,4 +1,4 @@
-import type { AuthenticationSession, CancellationToken } from 'vscode';
+import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
 import { md5 } from '@env/crypto';
 import { SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
@@ -12,6 +12,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { HostingIntegration } from '../integration';
+import type { IntegrationConnectionChangeEvent } from '../integrationService';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models';
 import type { ProviderRepository } from './models';
 import { fromProviderPullRequest, providersMetadata } from './models';
@@ -34,9 +35,10 @@ export class BitbucketServerIntegration extends HostingIntegration<
 		container: Container,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
+		didChangeConnection: EventEmitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
 	) {
-		super(container, authenticationService, getProvidersApi);
+		super(container, authenticationService, getProvidersApi, didChangeConnection);
 	}
 
 	get domain(): string {

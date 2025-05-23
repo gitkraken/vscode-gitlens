@@ -34,6 +34,7 @@ import type {
 } from './authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './authentication/models';
+import type { IntegrationConnectionChangeEvent } from './integrationService';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -129,6 +130,7 @@ export abstract class IntegrationBase<
 		protected readonly container: Container,
 		protected readonly authenticationService: IntegrationAuthenticationService,
 		protected readonly getProvidersApi: () => Promise<ProvidersApi>,
+		private readonly didChangeConnection: EventEmitter<IntegrationConnectionChangeEvent>,
 	) {}
 
 	dispose(): void {
@@ -248,7 +250,7 @@ export abstract class IntegrationBase<
 
 			this._onDidChange.fire();
 			if (!options?.currentSessionOnly) {
-				this.container.integrations.disconnected(this, this.key);
+				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'disconnected' });
 			}
 		}
 
@@ -439,7 +441,7 @@ export abstract class IntegrationBase<
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
-				this.container.integrations.connected(this, this.key);
+				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'connected' });
 				void this.providerOnConnect?.();
 			});
 		}

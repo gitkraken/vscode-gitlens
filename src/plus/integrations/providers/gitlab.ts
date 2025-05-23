@@ -1,4 +1,4 @@
-import type { AuthenticationSession, CancellationToken } from 'vscode';
+import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
 import { window } from 'vscode';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
@@ -17,6 +17,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
+import type { IntegrationConnectionChangeEvent } from '../integrationService';
 import type { GitLabRelatedIntegrationIds } from './gitlab/gitlab.utils';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
@@ -448,10 +449,11 @@ export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<
 		container: Container,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
+		didChangeConnection: EventEmitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
 		readonly id: SelfHostedIntegrationId.GitLabSelfHosted | SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	) {
-		super(container, authenticationService, getProvidersApi);
+		super(container, authenticationService, getProvidersApi, didChangeConnection);
 		this.key = `${this.id}:${this.domain}` as const;
 		this.authProvider =
 			this.id === SelfHostedIntegrationId.GitLabSelfHosted ? enterpriseAuthProvider : cloudEnterpriseAuthProvider;
