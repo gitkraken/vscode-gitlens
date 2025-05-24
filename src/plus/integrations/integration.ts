@@ -269,9 +269,21 @@ export abstract class IntegrationBase<
 		void this.ensureSession({ createIfNeeded: false });
 	}
 
+	private static readonly requestExceptionLimit = 5;
+	private static readonly syncDueToRequestExceptionLimit = 1;
+	private syncCountDueToRequestException = 0;
 	private requestExceptionCount = 0;
 
 	resetRequestExceptionCount(): void {
+		this.requestExceptionCount = 0;
+		this.syncCountDueToRequestException = 0;
+	}
+
+	/**
+	 * Resets request exceptions without resetting the amount of syncs
+	 */
+	smoothifyRequestExceptionCount(): void {
+		// On resync we reset exception count only to avoid infinitive syncs on failure
 		this.requestExceptionCount = 0;
 	}
 
@@ -332,7 +344,17 @@ export abstract class IntegrationBase<
 
 		Logger.error(ex, scope);
 
-		if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
+		if (ex instanceof AuthenticationError && this._session?.cloud) {
+			if (this.syncCountDueToRequestException < IntegrationBase.syncDueToRequestExceptionLimit) {
+				this.syncCountDueToRequestException++;
+				this._session = {
+					...this._session,
+					expiresAt: new Date(Date.now() - 1),
+				};
+			} else {
+				this.trackRequestException();
+			}
+		} else if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
 			this.trackRequestException();
 		}
 		return defaultValue;
@@ -366,7 +388,7 @@ export abstract class IntegrationBase<
 	trackRequestException(): void {
 		this.requestExceptionCount++;
 
-		if (this.requestExceptionCount >= 5 && this._session !== null) {
+		if (this.requestExceptionCount >= IntegrationBase.requestExceptionLimit && this._session !== null) {
 			void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
 			void this.disconnect({ currentSessionOnly: true });
 		}
@@ -432,7 +454,7 @@ export abstract class IntegrationBase<
 		}
 
 		this._session = session ?? null;
-		this.resetRequestExceptionCount();
+		this.smoothifyRequestExceptionCount();
 
 		if (session != null) {
 			await this.container.storage.storeWorkspace(this.connectedKey, true);
@@ -1408,8 +1430,7 @@ export abstract class HostingIntegration<
 			);
 			return { value: pullRequests, duration: Date.now() - start };
 		} catch (ex) {
-			Logger.error(ex, scope);
-			return { error: ex, duration: Date.now() - start };
+			return this.handleProviderException(ex, scope, { error: ex, duration: Date.now() - start });
 		}
 	}
 
