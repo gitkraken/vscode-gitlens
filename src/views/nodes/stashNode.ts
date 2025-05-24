@@ -109,7 +109,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 		let enrichedAutolinks;
 
-		if (remote?.hasIntegration()) {
+		if (remote?.supportsIntegration()) {
 			const [enrichedAutolinksResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
 			]);

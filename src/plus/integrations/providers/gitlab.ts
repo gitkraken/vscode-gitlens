@@ -1,6 +1,6 @@
 import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
 import { window } from 'vscode';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
@@ -9,34 +9,34 @@ import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
 import { uniqueBy } from '../../../system/iterable';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { RepositoryDescriptor } from '../integration';
-import { HostingIntegration } from '../integration';
 import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import type { GitLabRelatedIntegrationIds } from './gitlab/gitlab.utils';
+import { GitHostIntegration } from '../models/gitHostIntegration';
+import type { GitLabIntegrationIds } from './gitlab/gitlab.utils';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderRepository } from './models';
 import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[HostingIntegrationId.GitLab];
+const metadata = providersMetadata[GitCloudHostIntegrationId.GitLab];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: metadata.id,
 	scopes: metadata.scopes,
 });
 
-const enterpriseMetadata = providersMetadata[SelfHostedIntegrationId.GitLabSelfHosted];
+const enterpriseMetadata = providersMetadata[GitSelfManagedHostIntegrationId.GitLabSelfHosted];
 const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
 });
-const cloudEnterpriseMetadata = providersMetadata[SelfHostedIntegrationId.CloudGitLabSelfHosted];
+const cloudEnterpriseMetadata = providersMetadata[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted];
 const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: cloudEnterpriseMetadata.id,
 	scopes: cloudEnterpriseMetadata.scopes,
@@ -44,7 +44,7 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 
 export type GitLabRepositoryDescriptor = RepositoryDescriptor;
 
-abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> extends HostingIntegration<
+abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends GitHostIntegration<
 	ID,
 	GitLabRepositoryDescriptor
 > {
@@ -112,8 +112,8 @@ abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> ext
 		const api = await this.container.gitlab;
 		const providerApi = await this.getProvidersApi();
 		const isEnterprise =
-			this.id === SelfHostedIntegrationId.GitLabSelfHosted ||
-			this.id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
+			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted ||
+			this.id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 
 		if (!api || !repo || !id) {
 			return undefined;
@@ -221,8 +221,8 @@ abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> ext
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		const isEnterprise =
-			this.id === SelfHostedIntegrationId.GitLabSelfHosted ||
-			this.id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
+			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted ||
+			this.id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 		const username = (await this.getCurrentAccount())?.username;
 		if (!username) {
 			return Promise.resolve([]);
@@ -284,8 +284,8 @@ abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> ext
 		const api = await this.container.gitlab;
 		const providerApi = await this.getProvidersApi();
 		const isEnterprise =
-			this.id === SelfHostedIntegrationId.GitLabSelfHosted ||
-			this.id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
+			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted ||
+			this.id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 
 		if (!api || !repos) {
 			return undefined;
@@ -344,8 +344,8 @@ abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> ext
 		if (!this.isPullRequest(pr)) return false;
 		const api = await this.getProvidersApi();
 		const isEnterprise =
-			this.id === SelfHostedIntegrationId.GitLabSelfHosted ||
-			this.id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
+			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted ||
+			this.id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 		try {
 			const res = await api.mergePullRequest(this.id, pr, {
 				...options,
@@ -384,8 +384,8 @@ abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> ext
 	}: AuthenticationSession): Promise<Account | undefined> {
 		const api = await this.getProvidersApi();
 		const isEnterprise =
-			this.id === SelfHostedIntegrationId.GitLabSelfHosted ||
-			this.id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
+			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted ||
+			this.id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 		const currentUser = await api.getCurrentUser(this.id, {
 			accessToken: accessToken,
 			isPAT: isEnterprise,
@@ -413,9 +413,9 @@ abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> ext
 	}
 }
 
-export class GitLabIntegration extends GitLabIntegrationBase<HostingIntegrationId.GitLab> {
+export class GitLabIntegration extends GitLabIntegrationBase<GitCloudHostIntegrationId.GitLab> {
 	readonly authProvider = authProvider;
-	readonly id = HostingIntegrationId.GitLab;
+	readonly id = GitCloudHostIntegrationId.GitLab;
 	protected readonly key = this.id;
 	readonly name: string = 'GitLab';
 	get domain(): string {
@@ -433,7 +433,7 @@ export class GitLabIntegration extends GitLabIntegrationBase<HostingIntegrationI
 }
 
 export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<
-	SelfHostedIntegrationId.GitLabSelfHosted | SelfHostedIntegrationId.CloudGitLabSelfHosted
+	GitSelfManagedHostIntegrationId.GitLabSelfHosted | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
 > {
 	readonly authProvider = enterpriseAuthProvider;
 	protected readonly key;
@@ -451,12 +451,16 @@ export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<
 		getProvidersApi: () => Promise<ProvidersApi>,
 		didChangeConnection: EventEmitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
-		readonly id: SelfHostedIntegrationId.GitLabSelfHosted | SelfHostedIntegrationId.CloudGitLabSelfHosted,
+		readonly id:
+			| GitSelfManagedHostIntegrationId.GitLabSelfHosted
+			| GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	) {
 		super(container, authenticationService, getProvidersApi, didChangeConnection);
 		this.key = `${this.id}:${this.domain}` as const;
 		this.authProvider =
-			this.id === SelfHostedIntegrationId.GitLabSelfHosted ? enterpriseAuthProvider : cloudEnterpriseAuthProvider;
+			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted
+				? enterpriseAuthProvider
+				: cloudEnterpriseAuthProvider;
 	}
 
 	@log()

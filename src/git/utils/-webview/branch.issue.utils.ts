@@ -1,7 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import type { GitConfigKeys } from '../../../constants';
 import type { Container } from '../../../container';
-import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../../plus/integrations/integration';
 import type { GitConfigEntityIdentifier } from '../../../plus/integrations/providers/models';
 import {
 	decodeEntityIdentifiersFromGitConfig,
@@ -14,6 +13,7 @@ import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise
 import type { GitBranch } from '../../models/branch';
 import type { Issue } from '../../models/issue';
 import type { GitBranchReference } from '../../models/reference';
+import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../models/resourceDescriptor';
 
 export async function addAssociatedIssueToBranch(
 	container: Container,

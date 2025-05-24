@@ -12,7 +12,7 @@ import type {
 import { authentication, EventEmitter, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../../../constants';
-import { HostingIntegrationId } from '../../../../constants.integrations';
+import { GitCloudHostIntegrationId } from '../../../../constants.integrations';
 import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
@@ -95,7 +95,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		domain: 'github.com',
 		scopes: githubAuthenticationScopes,
 	};
-	readonly authenticationProviderId = HostingIntegrationId.GitHub;
+	readonly authenticationProviderId = GitCloudHostIntegrationId.GitHub;
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChange = new EventEmitter<void>();
@@ -1063,21 +1063,21 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 						session = await getBuiltInIntegrationSession(
 							this.container,
-							HostingIntegrationId.GitHub,
+							GitCloudHostIntegrationId.GitHub,
 							this.authenticationDescriptor,
 							{ forceNewSession: true },
 						);
 					} else if (!skip && !silent) {
 						session = await getBuiltInIntegrationSession(
 							this.container,
-							HostingIntegrationId.GitHub,
+							GitCloudHostIntegrationId.GitHub,
 							this.authenticationDescriptor,
 							{ createIfNeeded: true },
 						);
 					} else {
 						session = await getBuiltInIntegrationSession(
 							this.container,
-							HostingIntegrationId.GitHub,
+							GitCloudHostIntegrationId.GitHub,
 							this.authenticationDescriptor,
 						);
 					}

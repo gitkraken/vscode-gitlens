@@ -542,7 +542,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (remotes != null) {
 			const [remote] = remotes;
 			if (
-				remote?.hasIntegration() &&
+				remote?.supportsIntegration() &&
 				!remote.maybeIntegrationConnected &&
 				configuration.get('integrations.enabled')
 			) {

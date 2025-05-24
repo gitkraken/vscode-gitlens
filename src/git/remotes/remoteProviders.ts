@@ -1,6 +1,6 @@
 import type { RemotesConfig } from '../../config';
-import type { CloudSelfHostedIntegrationId } from '../../constants.integrations';
-import { SelfHostedIntegrationId } from '../../constants.integrations';
+import type { CloudGitSelfManagedHostIntegrationIds } from '../../constants.integrations';
+import { GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { ConfiguredIntegrationDescriptor } from '../../plus/integrations/authentication/models';
 import { isCloudSelfHostedIntegrationId } from '../../plus/integrations/providers/models';
@@ -79,14 +79,14 @@ const builtInProviders: RemoteProviders = [
 ];
 
 const cloudProviderCreatorsMap: Record<
-	CloudSelfHostedIntegrationId,
+	CloudGitSelfManagedHostIntegrationIds,
 	(container: Container, domain: string, path: string, scheme: string | undefined) => RemoteProvider
 > = {
-	[SelfHostedIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
+	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
 		new GitHubRemote(container, domain, path),
-	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
+	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
 		new GitLabRemote(container, domain, path),
-	[SelfHostedIntegrationId.BitbucketServer]: (
+	[GitSelfManagedHostIntegrationId.BitbucketServer]: (
 		container: Container,
 		domain: string,
 		path: string,

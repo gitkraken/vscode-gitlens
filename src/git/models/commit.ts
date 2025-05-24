@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
@@ -540,7 +540,7 @@ export class GitCommit implements GitRevisionReference {
 		if (this.isUncommitted) return undefined;
 
 		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
-		if (!remote?.hasIntegration()) return undefined;
+		if (!remote?.supportsIntegration()) return undefined;
 
 		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
 			remote.provider.repoDesc,

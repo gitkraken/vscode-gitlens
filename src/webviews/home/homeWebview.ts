@@ -955,7 +955,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async formatRepository(repo: Repository): Promise<OverviewRepository> {
 		const remotes = await repo.git.remotes.getBestRemotesWithProviders();
-		const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
+		const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
 
 		return {
 			name: repo.commonRepositoryName ?? repo.name,

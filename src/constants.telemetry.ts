@@ -2,7 +2,7 @@ import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { WalkthroughSteps } from './constants';
 import type { AIProviders } from './constants.ai';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
-import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
@@ -423,22 +423,22 @@ interface CloudIntegrationsRefreshConnectionSkipUnusualTokenEvent {
 }
 
 interface CloudIntegrationsHostingConnectedEvent {
-	'hostingProvider.provider': IntegrationId;
+	'hostingProvider.provider': IntegrationIds;
 	'hostingProvider.key': string;
 }
 
 interface CloudIntegrationsHostingDisconnectedEvent {
-	'hostingProvider.provider': IntegrationId;
+	'hostingProvider.provider': IntegrationIds;
 	'hostingProvider.key': string;
 }
 
 interface CloudIntegrationsIssueConnectedEvent {
-	'issueProvider.provider': IntegrationId;
+	'issueProvider.provider': IntegrationIds;
 	'issueProvider.key': string;
 }
 
 interface CloudIntegrationsIssueDisconnectedEvent {
-	'issueProvider.provider': IntegrationId;
+	'issueProvider.provider': IntegrationIds;
 	'issueProvider.key': string;
 }
 
@@ -745,14 +745,14 @@ interface ProvidersRegistrationCompleteEvent {
 }
 
 interface RemoteProvidersConnectedEvent {
-	'hostingProvider.provider': IntegrationId;
+	'hostingProvider.provider': IntegrationIds;
 	'hostingProvider.key': string;
 	/** @deprecated */
 	'remoteProviders.key': string;
 }
 
 interface RemoteProvidersDisconnectedEvent {
-	'hostingProvider.provider': IntegrationId;
+	'hostingProvider.provider': IntegrationIds;
 	'hostingProvider.key': string;
 	/** @deprecated */
 	'remoteProviders.key': string;

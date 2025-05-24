@@ -1,6 +1,6 @@
 import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
 import { md5 } from '@env/crypto';
-import { SelfHostedIntegrationId } from '../../../constants.integrations';
+import { GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -11,24 +11,24 @@ import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata'
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from '../authentication/models';
-import { HostingIntegration } from '../integration';
 import type { IntegrationConnectionChangeEvent } from '../integrationService';
+import { GitHostIntegration } from '../models/gitHostIntegration';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models';
 import type { ProviderRepository } from './models';
 import { fromProviderPullRequest, providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[SelfHostedIntegrationId.BitbucketServer];
+const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-export class BitbucketServerIntegration extends HostingIntegration<
-	SelfHostedIntegrationId.BitbucketServer,
+export class BitbucketServerIntegration extends GitHostIntegration<
+	GitSelfManagedHostIntegrationId.BitbucketServer,
 	BitbucketRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = SelfHostedIntegrationId.BitbucketServer;
+	readonly id = GitSelfManagedHostIntegrationId.BitbucketServer;
 	protected readonly key =
-		`${this.id}:${this.domain}` satisfies `${SelfHostedIntegrationId.BitbucketServer}:${string}`;
+		`${this.id}:${this.domain}` satisfies `${GitSelfManagedHostIntegrationId.BitbucketServer}:${string}`;
 	readonly name: string = 'Bitbucket Data Center';
 
 	constructor(

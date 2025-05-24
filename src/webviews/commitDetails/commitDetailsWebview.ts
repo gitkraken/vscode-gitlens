@@ -927,7 +927,7 @@ export class CommitDetailsWebviewProvider
 	async getHasIntegrationsConnected(force = false): Promise<boolean> {
 		if (force || this._context.hasIntegrationsConnected == null) {
 			const configured = await this.container.integrations.getConfigured();
-			if (configured.length > 0) {
+			if (configured.length) {
 				this._context.hasIntegrationsConnected = configured.some(i =>
 					isSupportedCloudIntegrationId(i.integrationId),
 				);

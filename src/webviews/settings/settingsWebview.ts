@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
 import { extensionPrefix } from '../../constants';
-import { IssueIntegrationId } from '../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../constants.integrations';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
@@ -71,7 +71,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	async getJiraConnected(): Promise<boolean> {
-		const jira = await this.container.integrations.get(IssueIntegrationId.Jira);
+		const jira = await this.container.integrations.get(IssuesCloudHostIntegrationId.Jira);
 		if (jira == null) return false;
 		return jira.maybeConnected ?? jira.isConnected();
 	}

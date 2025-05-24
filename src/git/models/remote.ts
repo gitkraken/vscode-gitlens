@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Container } from '../../container';
-import type { HostingIntegration } from '../../plus/integrations/integration';
+import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { getLoggableName } from '../../system/logger';
 import { equalsIgnoreCase } from '../../system/string';
@@ -73,12 +73,8 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
-	async getIntegration(): Promise<HostingIntegration | undefined> {
+	async getIntegration(): Promise<GitHostIntegration | undefined> {
 		return this.provider != null ? this.container.integrations.getByRemote(this) : undefined;
-	}
-
-	hasIntegration(): this is GitRemote<RemoteProvider> {
-		return this.provider != null && this.container.integrations.supports(this.provider.id);
 	}
 
 	matches(url: string): boolean;
@@ -94,6 +90,10 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 
 	async setAsDefault(value: boolean = true): Promise<void> {
 		await this.container.git.getRepositoryService(this.repoPath).remotes.setRemoteAsDefault(this.name, value);
+	}
+
+	supportsIntegration(): this is GitRemote<RemoteProvider> {
+		return this.provider != null && this.container.integrations.supports(this.provider.id);
 	}
 }
 

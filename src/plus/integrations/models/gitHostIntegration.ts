@@ -33,14 +33,14 @@ import type { Integration, IntegrationResult, IntegrationType } from './integrat
 import { IntegrationBase } from './integration';
 
 export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
-	return integration.type === 'git';
+	return integration.type === 'hosting';
 }
 
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
 > extends IntegrationBase<ID> {
-	readonly type: IntegrationType = 'git';
+	readonly type: IntegrationType = 'hosting';
 
 	@gate()
 	@debug()

@@ -1,4 +1,4 @@
-import { IssueIntegrationId } from '../../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import { escapeMarkdown } from '../../../system/markdown';
 import { encodeHtmlWeak, escapeRegex } from '../../../system/string';
 import type {
@@ -32,7 +32,7 @@ export function serializeAutolink(value: Autolink): Autolink {
 	return serialized;
 }
 
-export const supportedAutolinkIntegrations = [IssueIntegrationId.Jira];
+export const supportedAutolinkIntegrations = [IssuesCloudHostIntegrationId.Jira];
 
 export function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
 	return !('prefix' in ref) && !('url' in ref);
@@ -154,8 +154,12 @@ export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[
 	let match;
 	// Sort refsets so that issue integrations are checked first for matches
 	const sortedRefSets = [...refsets].sort((a, b) => {
-		if (a[0]?.id === IssueIntegrationId.Jira || a[0]?.id === IssueIntegrationId.Trello) return -1;
-		if (b[0]?.id === IssueIntegrationId.Jira || b[0]?.id === IssueIntegrationId.Trello) return 1;
+		if (a[0]?.id === IssuesCloudHostIntegrationId.Jira || a[0]?.id === IssuesCloudHostIntegrationId.Trello) {
+			return -1;
+		}
+		if (b[0]?.id === IssuesCloudHostIntegrationId.Jira || b[0]?.id === IssuesCloudHostIntegrationId.Trello) {
+			return 1;
+		}
 		return 0;
 	});
 

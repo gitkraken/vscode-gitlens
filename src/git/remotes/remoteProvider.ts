@@ -2,7 +2,6 @@ import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
-import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
@@ -12,6 +11,7 @@ import type { CreatePullRequestRemoteResource, RemoteResource } from '../models/
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { ResourceDescriptor } from '../models/resourceDescriptor';
 import type { GitRevisionRangeNotation } from '../models/revision';
 
 export type RemoteProviderId =
