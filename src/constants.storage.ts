@@ -100,7 +100,10 @@ export type GlobalStorage = {
 	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
 } & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
 
-export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
+export type StoredIntegrationConfigurations = Record<
+	IntegrationIds,
+	StoredConfiguredIntegrationDescriptor[] | undefined
+>;
 
 export interface StoredConfiguredIntegrationDescriptor {
 	cloud: boolean;

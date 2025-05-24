@@ -40,10 +40,10 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 				.remotes.getBestRemoteWithIntegration();
 			if (remote == null) return;
 
-			const provider = await this.container.integrations.getByRemote(remote);
-			if (provider == null) return;
+			const integration = await remote?.getIntegration();
+			if (integration == null) return;
 
-			const pr = await provider.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
+			const pr = await integration.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
 			if (pr == null) {
 				void window.showInformationMessage(`No pull request associated with '${shortenRevision(args.ref)}'`);
 				return;

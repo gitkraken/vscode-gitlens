@@ -1118,7 +1118,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					supports:
 						supportedCloudDescriptor?.supports != null
 							? supportedCloudDescriptor.supports
-							: providersMetadata[i.integrationId].type === 'hosting'
+							: providersMetadata[i.integrationId].type === 'git'
 							  ? ['prs', 'issues']
 							  : providersMetadata[i.integrationId].type === 'issues'
 							    ? ['issues']

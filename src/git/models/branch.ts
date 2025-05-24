@@ -109,7 +109,7 @@ export class GitBranch implements GitBranchReference {
 		const remote = await this.getRemote();
 		if (remote?.provider == null) return undefined;
 
-		const integration = await this.container.integrations.getByRemote(remote);
+		const integration = await remote.getIntegration();
 		if (integration == null) return undefined;
 
 		if (this.upstream?.missing) {

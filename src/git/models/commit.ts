@@ -542,11 +542,8 @@ export class GitCommit implements GitRevisionReference {
 		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
 		if (!remote?.supportsIntegration()) return undefined;
 
-		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
-			remote.provider.repoDesc,
-			this.sha,
-			options,
-		);
+		const integration = await remote.getIntegration();
+		return integration?.getPullRequestForCommit(remote.provider.repoDesc, this.sha, options);
 	}
 
 	async getEnrichedAutolinks(remote?: GitRemote<RemoteProvider>): Promise<Map<string, EnrichedAutolink> | undefined> {

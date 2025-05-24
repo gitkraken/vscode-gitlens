@@ -63,34 +63,36 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 
 	@debug()
 	async deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void> {
-		const configured = await this.configuredIntegrationService.getConfigured({
-			id: this.authProviderId,
+		const configured = await this.configuredIntegrationService.getConfigured(this.authProviderId, {
+			cloud: this.cloud,
 			domain: isSelfHostedIntegrationId(this.authProviderId) ? descriptor?.domain : undefined,
-			type: this.cloud ? 'cloud' : 'local',
 		});
 
 		await this.configuredIntegrationService.deleteStoredSessions(
 			this.authProviderId,
 			descriptor,
-			this.cloud ? undefined : 'local',
+			// Cloud auth providers delete both types, while local only delete their own
+			this.cloud ? undefined : false,
 		);
-		if (configured != null && configured.length > 0) {
+
+		if (configured?.length) {
 			this.fireDidChange();
 		}
 	}
 
 	@debug()
 	async deleteAllSessions(): Promise<void> {
-		const configured = await this.configuredIntegrationService.getConfigured({
-			id: this.authProviderId,
-			type: this.cloud ? 'cloud' : 'local',
+		const configured = await this.configuredIntegrationService.getConfigured(this.authProviderId, {
+			cloud: this.cloud,
 		});
 
 		await this.configuredIntegrationService.deleteAllStoredSessions(
 			this.authProviderId,
-			this.cloud ? undefined : 'local',
+			// Cloud auth providers delete both types, while local only delete their own
+			this.cloud ? undefined : false,
 		);
-		if (configured != null && configured.length > 0) {
+
+		if (configured?.length) {
 			this.fireDidChange();
 		}
 	}
@@ -109,13 +111,13 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 				this.authProviderId,
 				descriptor,
 				// Cloud auth providers delete both types, while local only delete their own
-				this.cloud ? undefined : 'local',
+				this.cloud ? undefined : false,
 			);
 		} else {
 			session = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
 				descriptor,
-				this.cloud ? 'cloud' : 'local',
+				this.cloud,
 			);
 			previousToken = session?.accessToken;
 		}

@@ -92,7 +92,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 			if (!remote?.supportsIntegration()) return false;
 		}
 
-		const integration = await this.container.integrations.getByRemote(remote);
+		const integration = await remote.getIntegration();
 		if (integration == null) return false;
 
 		const connected = await integration.connect('remoteProvider');
@@ -189,7 +189,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			if (!remote?.supportsIntegration()) return;
 		}
 
-		const integration = await this.container.integrations.getByRemote(remote);
+		const integration = await remote.getIntegration();
 		return integration?.disconnect();
 	}
 }

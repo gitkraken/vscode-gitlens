@@ -35,8 +35,11 @@ import type { ProvidersApi } from '../providers/providersApi';
 import type { GitHostIntegration } from './gitHostIntegration';
 import type { IssuesIntegration } from './issuesIntegration';
 
-export type Integration = IssuesIntegration | GitHostIntegration;
-export type IntegrationType = 'issues' | 'hosting';
+export type Integration = GitHostIntegration | IssuesIntegration;
+export type IntegrationById<T extends IntegrationIds> = T extends IssuesCloudHostIntegrationId
+	? IssuesIntegration
+	: GitHostIntegration;
+export type IntegrationType = 'git' | 'issues';
 
 export type IntegrationKey =
 	| `${GitCloudHostIntegrationId}`
