@@ -1,6 +1,6 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { window } from 'vscode';
-import { HostingIntegrationId } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
@@ -10,7 +10,7 @@ import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata'
 import { getSettledValue } from '../../../system/promise';
 import { base64 } from '../../../system/string';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import { HostingIntegration } from '../integration';
+import { GitHostIntegration } from '../models/gitHostIntegration';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -21,15 +21,15 @@ import type {
 import type { ProviderPullRequest, ProviderRepository } from './models';
 import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models';
 
-const metadata = providersMetadata[HostingIntegrationId.AzureDevOps];
+const metadata = providersMetadata[GitCloudHostIntegrationId.AzureDevOps];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-export class AzureDevOpsIntegration extends HostingIntegration<
-	HostingIntegrationId.AzureDevOps,
+export class AzureDevOpsIntegration extends GitHostIntegration<
+	GitCloudHostIntegrationId.AzureDevOps,
 	AzureRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = HostingIntegrationId.AzureDevOps;
+	readonly id = GitCloudHostIntegrationId.AzureDevOps;
 	protected readonly key = this.id;
 	readonly name: string = 'Azure DevOps';
 	get domain(): string {

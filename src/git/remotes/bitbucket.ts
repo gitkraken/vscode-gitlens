@@ -1,10 +1,10 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { RepositoryDescriptor } from '../../plus/integrations/integration';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { RepositoryDescriptor } from '../models/resourceDescriptor';
 import type { GitRevisionRangeNotation } from '../models/revision';
 import { isSha } from '../utils/revision.utils';
 import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';

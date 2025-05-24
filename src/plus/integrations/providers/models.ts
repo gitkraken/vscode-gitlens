@@ -36,8 +36,12 @@ import {
 } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
-import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, IssueProject, IssueShape } from '../../../git/models/issue';
 import { Issue, RepositoryAccessLevel } from '../../../git/models/issue';
@@ -58,7 +62,7 @@ import {
 import type { Provider, ProviderReference } from '../../../git/models/remoteProvider';
 import { equalsIgnoreCase } from '../../../system/string';
 import type { EnrichableItem } from '../../launchpad/models/enrichedItem';
-import type { Integration, IntegrationType } from '../integration';
+import type { Integration, IntegrationType } from '../models/integration';
 import { getEntityIdentifierInput } from './utils';
 
 export type ProviderAccount = Account;
@@ -79,42 +83,42 @@ export type ProviderRequestFunction = RequestFunction;
 export type ProviderRequestResponse<T> = Response<T>;
 export type ProviderRequestOptions = RequestOptions;
 
-const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
-	SelfHostedIntegrationId.CloudGitHubEnterprise,
-	SelfHostedIntegrationId.GitHubEnterprise,
-	SelfHostedIntegrationId.CloudGitLabSelfHosted,
-	SelfHostedIntegrationId.GitLabSelfHosted,
-	SelfHostedIntegrationId.BitbucketServer,
+const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitSelfManagedHostIntegrationId.GitHubEnterprise,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitSelfManagedHostIntegrationId.GitLabSelfHosted,
+	GitSelfManagedHostIntegrationId.BitbucketServer,
 ] as const;
 
-export const supportedIntegrationIds: IntegrationId[] = [
-	HostingIntegrationId.GitHub,
-	HostingIntegrationId.GitLab,
-	HostingIntegrationId.Bitbucket,
-	HostingIntegrationId.AzureDevOps,
-	IssueIntegrationId.Jira,
-	IssueIntegrationId.Trello,
+export const supportedIntegrationIds: IntegrationIds[] = [
+	GitCloudHostIntegrationId.GitHub,
+	GitCloudHostIntegrationId.GitLab,
+	GitCloudHostIntegrationId.Bitbucket,
+	GitCloudHostIntegrationId.AzureDevOps,
+	IssuesCloudHostIntegrationId.Jira,
+	IssuesCloudHostIntegrationId.Trello,
 	...selfHostedIntegrationIds,
 ] as const;
 
-export function isSelfHostedIntegrationId(id: IntegrationId): id is SelfHostedIntegrationId {
-	return selfHostedIntegrationIds.includes(id as SelfHostedIntegrationId);
+export function isSelfHostedIntegrationId(id: IntegrationIds): id is GitSelfManagedHostIntegrationId {
+	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
 }
 
-export function isHostingIntegrationId(id: IntegrationId): id is HostingIntegrationId {
+export function isHostingIntegrationId(id: IntegrationIds): id is GitCloudHostIntegrationId {
 	return [
-		HostingIntegrationId.GitHub,
-		HostingIntegrationId.GitLab,
-		HostingIntegrationId.Bitbucket,
-		HostingIntegrationId.AzureDevOps,
-	].includes(id as HostingIntegrationId);
+		GitCloudHostIntegrationId.GitHub,
+		GitCloudHostIntegrationId.GitLab,
+		GitCloudHostIntegrationId.Bitbucket,
+		GitCloudHostIntegrationId.AzureDevOps,
+	].includes(id as GitCloudHostIntegrationId);
 }
 
-export function isCloudSelfHostedIntegrationId(id: IntegrationId): id is CloudSelfHostedIntegrationId {
+export function isCloudSelfHostedIntegrationId(id: IntegrationIds): id is CloudGitSelfManagedHostIntegrationIds {
 	return (
-		id === SelfHostedIntegrationId.CloudGitHubEnterprise ||
-		id === SelfHostedIntegrationId.CloudGitLabSelfHosted ||
-		id === SelfHostedIntegrationId.BitbucketServer
+		id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise ||
+		id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted ||
+		id === GitSelfManagedHostIntegrationId.BitbucketServer
 	);
 }
 
@@ -419,7 +423,7 @@ export interface ProviderInfo extends ProviderMetadata {
 
 export interface ProviderMetadata {
 	domain: string;
-	id: IntegrationId;
+	id: IntegrationIds;
 	name: string;
 	type: IntegrationType;
 	iconKey: string;
@@ -430,16 +434,16 @@ export interface ProviderMetadata {
 	supportedIssueFilters?: IssueFilter[];
 }
 
-export type Providers = Record<IntegrationId, ProviderInfo>;
-export type ProvidersMetadata = Record<IntegrationId, ProviderMetadata>;
+export type Providers = Record<IntegrationIds, ProviderInfo>;
+export type ProvidersMetadata = Record<IntegrationIds, ProviderMetadata>;
 
 export const providersMetadata: ProvidersMetadata = {
-	[HostingIntegrationId.GitHub]: {
+	[GitCloudHostIntegrationId.GitHub]: {
 		domain: 'github.com',
-		id: HostingIntegrationId.GitHub,
+		id: GitCloudHostIntegrationId.GitHub,
 		name: 'GitHub',
 		type: 'hosting',
-		iconKey: HostingIntegrationId.GitHub,
+		iconKey: GitCloudHostIntegrationId.GitHub,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -453,12 +457,12 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[SelfHostedIntegrationId.CloudGitHubEnterprise]: {
+	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
 		domain: '',
-		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
+		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
 		name: 'GitHub Enterprise',
 		type: 'hosting',
-		iconKey: SelfHostedIntegrationId.GitHubEnterprise,
+		iconKey: GitSelfManagedHostIntegrationId.GitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -472,12 +476,12 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[SelfHostedIntegrationId.GitHubEnterprise]: {
+	[GitSelfManagedHostIntegrationId.GitHubEnterprise]: {
 		domain: '',
-		id: SelfHostedIntegrationId.GitHubEnterprise,
+		id: GitSelfManagedHostIntegrationId.GitHubEnterprise,
 		name: 'GitHub Enterprise',
 		type: 'hosting',
-		iconKey: SelfHostedIntegrationId.GitHubEnterprise,
+		iconKey: GitSelfManagedHostIntegrationId.GitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -491,12 +495,12 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
-	[HostingIntegrationId.GitLab]: {
+	[GitCloudHostIntegrationId.GitLab]: {
 		domain: 'gitlab.com',
-		id: HostingIntegrationId.GitLab,
+		id: GitCloudHostIntegrationId.GitLab,
 		name: 'GitLab',
 		type: 'hosting',
-		iconKey: HostingIntegrationId.GitLab,
+		iconKey: GitCloudHostIntegrationId.GitLab,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -509,12 +513,12 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
-	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: {
+	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
 		domain: '',
-		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
+		id: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 		name: 'GitLab Self-Hosted',
 		type: 'hosting',
-		iconKey: SelfHostedIntegrationId.GitLabSelfHosted,
+		iconKey: GitSelfManagedHostIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -527,12 +531,12 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
-	[SelfHostedIntegrationId.GitLabSelfHosted]: {
+	[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: {
 		domain: '',
-		id: SelfHostedIntegrationId.GitLabSelfHosted,
+		id: GitSelfManagedHostIntegrationId.GitLabSelfHosted,
 		name: 'GitLab Self-Hosted',
 		type: 'hosting',
-		iconKey: SelfHostedIntegrationId.GitLabSelfHosted,
+		iconKey: GitSelfManagedHostIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -545,32 +549,32 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
-	[HostingIntegrationId.Bitbucket]: {
+	[GitCloudHostIntegrationId.Bitbucket]: {
 		domain: 'bitbucket.org',
-		id: HostingIntegrationId.Bitbucket,
+		id: GitCloudHostIntegrationId.Bitbucket,
 		name: 'Bitbucket',
 		type: 'hosting',
-		iconKey: HostingIntegrationId.Bitbucket,
+		iconKey: GitCloudHostIntegrationId.Bitbucket,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
 		supportedPullRequestFilters: [PullRequestFilter.Author],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
 	},
-	[SelfHostedIntegrationId.BitbucketServer]: {
+	[GitSelfManagedHostIntegrationId.BitbucketServer]: {
 		domain: '',
-		id: SelfHostedIntegrationId.BitbucketServer,
+		id: GitSelfManagedHostIntegrationId.BitbucketServer,
 		name: 'Bitbucket Data Center',
 		type: 'hosting',
-		iconKey: SelfHostedIntegrationId.BitbucketServer,
+		iconKey: GitSelfManagedHostIntegrationId.BitbucketServer,
 		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		scopes: ['Project (Read)', 'Repository (Write)'],
 	},
-	[HostingIntegrationId.AzureDevOps]: {
+	[GitCloudHostIntegrationId.AzureDevOps]: {
 		domain: 'dev.azure.com',
-		id: HostingIntegrationId.AzureDevOps,
+		id: GitCloudHostIntegrationId.AzureDevOps,
 		name: 'Azure DevOps',
 		type: 'hosting',
-		iconKey: HostingIntegrationId.AzureDevOps,
+		iconKey: GitCloudHostIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
@@ -579,12 +583,12 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
-	[IssueIntegrationId.Jira]: {
+	[IssuesCloudHostIntegrationId.Jira]: {
 		domain: 'atlassian.net',
-		id: IssueIntegrationId.Jira,
+		id: IssuesCloudHostIntegrationId.Jira,
 		name: 'Jira',
 		type: 'issues',
-		iconKey: IssueIntegrationId.Jira,
+		iconKey: IssuesCloudHostIntegrationId.Jira,
 		scopes: [
 			'read:status:jira',
 			'read:application-role:jira',
@@ -623,12 +627,12 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 	},
-	[IssueIntegrationId.Trello]: {
+	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',
-		id: IssueIntegrationId.Trello,
+		id: IssuesCloudHostIntegrationId.Trello,
 		name: 'Trello',
 		type: 'issues',
-		iconKey: IssueIntegrationId.Trello,
+		iconKey: IssuesCloudHostIntegrationId.Trello,
 		scopes: [],
 	},
 };

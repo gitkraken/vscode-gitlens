@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';

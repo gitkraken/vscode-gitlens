@@ -7,7 +7,9 @@ import type { Issue } from './git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from './git/models/issueOrPullRequest';
 import type { PullRequest } from './git/models/pullRequest';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
-import type { HostingIntegration, IntegrationBase, ResourceDescriptor } from './plus/integrations/integration';
+import type { ResourceDescriptor } from './git/models/resourceDescriptor';
+import type { GitHostIntegration } from './plus/integrations/models/gitHostIntegration';
+import type { IntegrationBase } from './plus/integrations/models/integration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -188,7 +190,7 @@ export class CacheProvider implements Disposable {
 	getPullRequestForBranch(
 		branch: string,
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<PullRequest> {
@@ -206,7 +208,7 @@ export class CacheProvider implements Disposable {
 	getPullRequestForSha(
 		sha: string,
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<PullRequest> {
@@ -223,7 +225,7 @@ export class CacheProvider implements Disposable {
 
 	getRepositoryDefaultBranch(
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<DefaultBranch> {
@@ -233,7 +235,7 @@ export class CacheProvider implements Disposable {
 
 	getRepositoryMetadata(
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<RepositoryMetadata> {
@@ -350,7 +352,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	}
 }
 
-function getResourceKeyAndEtag(resource: ResourceDescriptor, integration?: HostingIntegration | IntegrationBase) {
+function getResourceKeyAndEtag(resource: ResourceDescriptor, integration?: GitHostIntegration | IntegrationBase) {
 	return { key: resource.key, etag: `${resource.key}:${integration?.maybeConnected ?? false}` };
 }
 

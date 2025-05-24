@@ -1,7 +1,7 @@
 import type { CancellationToken } from 'vscode';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
-import type { HostingIntegration } from '../../plus/integrations/integration';
+import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
 import { log } from '../../system/decorators/log';
 import { sortCompare } from '../../system/string';
 import type { GitCache } from '../cache';
@@ -59,7 +59,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitRemote<RemoteProvider>[]> {
 		const remotes = await this.getRemotes(repoPath, options, cancellation);
-		return remotes.filter((r: GitRemote): r is GitRemote<RemoteProvider> => r.hasIntegration());
+		return remotes.filter((r: GitRemote): r is GitRemote<RemoteProvider> => r.supportsIntegration());
 	}
 
 	@log()
@@ -158,7 +158,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	async getBestRemoteWithIntegration(
 		repoPath: string,
 		options?: {
-			filter?: (remote: GitRemote, integration: HostingIntegration) => boolean;
+			filter?: (remote: GitRemote, integration: GitHostIntegration) => boolean;
 			includeDisconnected?: boolean;
 		},
 		cancellation?: CancellationToken,
@@ -167,7 +167,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
-			if (r.hasIntegration()) {
+			if (r.supportsIntegration()) {
 				const integration = await r.getIntegration();
 				if (integration != null) {
 					if (options?.filter?.(r, integration) === false) continue;

@@ -1,11 +1,15 @@
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../../constants.integrations';
 import type { GitReference } from '../../../git/models/reference';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { Repository } from '../../../git/models/repository';
 import type { GkProviderId } from '../../../git/models/repositoryIdentities';
 import type { RemoteProviderId } from '../../../git/remotes/remoteProvider';
 import { isGitReference } from '../../../git/utils/reference.utils';
-import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
+import { convertRemoteProviderIdToIntegrationId } from '../../../plus/integrations/utils/-webview/integration.utils';
 import type { Unbrand } from '../../../system/brand';
 import { getSettledValue } from '../../../system/promise';
 import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview';
@@ -35,7 +39,7 @@ export async function formatRepositories(repositories: Repository[]): Promise<Gr
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
 			const remotes = await repo.git.remotes.getBestRemotesWithProviders();
-			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
+			const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
 
 			return {
 				formattedName: repo.name,
@@ -45,9 +49,9 @@ export async function formatRepositories(repositories: Repository[]): Promise<Gr
 				provider: remote?.provider
 					? {
 							name: remote.provider.name,
-							integration: remote.hasIntegration()
+							integration: remote.supportsIntegration()
 								? {
-										id: remoteProviderIdToIntegrationId(remote.provider.id)!,
+										id: convertRemoteProviderIdToIntegrationId(remote.provider.id)!,
 										connected: remote.maybeIntegrationConnected ?? false,
 								  }
 								: undefined,
@@ -147,38 +151,38 @@ export function toGraphHostingServiceType(id: string): GraphHostingServiceType |
 	switch (id) {
 		case 'github' satisfies RemoteProviderId:
 		case 'github' satisfies Unbrand<GkProviderId>:
-		case HostingIntegrationId.GitHub:
+		case GitCloudHostIntegrationId.GitHub:
 			return 'github';
 
 		case 'cloud-github-enterprise' satisfies RemoteProviderId:
 		case 'githubEnterprise' satisfies Unbrand<GkProviderId>:
-		case SelfHostedIntegrationId.CloudGitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return 'githubEnterprise';
 
 		case 'gitlab' satisfies RemoteProviderId:
 		case 'gitlab' satisfies Unbrand<GkProviderId>:
-		case HostingIntegrationId.GitLab:
+		case GitCloudHostIntegrationId.GitLab:
 			return 'gitlab';
 
 		case 'cloud-gitlab-self-hosted' satisfies RemoteProviderId:
 		case 'gitlabSelfHosted' satisfies Unbrand<GkProviderId>:
-		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return 'gitlabSelfHosted';
 
 		case 'azure-devops' satisfies RemoteProviderId:
 		case 'azureDevops' satisfies Unbrand<GkProviderId>:
 		case 'azure':
-		case HostingIntegrationId.AzureDevOps:
+		case GitCloudHostIntegrationId.AzureDevOps:
 			return 'azureDevops';
 
 		case 'bitbucket' satisfies RemoteProviderId:
 		case 'bitbucket' satisfies Unbrand<GkProviderId>:
-		case HostingIntegrationId.Bitbucket:
+		case GitCloudHostIntegrationId.Bitbucket:
 			return 'bitbucket';
 
 		case 'bitbucket-server' satisfies RemoteProviderId:
 		case 'bitbucketServer' satisfies Unbrand<GkProviderId>:
-		case SelfHostedIntegrationId.BitbucketServer:
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
 			return 'bitbucketServer';
 
 		default:
@@ -190,33 +194,33 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 	switch (id) {
 		case 'github' satisfies RemoteProviderId:
 		case 'github' satisfies Unbrand<GkProviderId>:
-		case HostingIntegrationId.GitHub:
+		case GitCloudHostIntegrationId.GitHub:
 			return 'github';
 
 		case 'cloud-github-enterprise' satisfies RemoteProviderId:
 		case 'githubEnterprise' satisfies Unbrand<GkProviderId>:
-		case SelfHostedIntegrationId.CloudGitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return 'githubEnterprise';
 
 		case 'gitlab' satisfies RemoteProviderId:
 		case 'gitlab' satisfies Unbrand<GkProviderId>:
-		case HostingIntegrationId.GitLab:
+		case GitCloudHostIntegrationId.GitLab:
 			return 'gitlab';
 
 		case 'cloud-gitlab-self-hosted' satisfies RemoteProviderId:
 		case 'gitlabSelfHosted' satisfies Unbrand<GkProviderId>:
-		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return 'gitlabSelfHosted';
 
 		case 'azure-devops' satisfies RemoteProviderId:
 		case 'azureDevops' satisfies Unbrand<GkProviderId>:
 		case 'azure':
-		case HostingIntegrationId.AzureDevOps:
+		case GitCloudHostIntegrationId.AzureDevOps:
 			return 'azureDevops';
 
 		case 'bitbucket' satisfies RemoteProviderId:
 		case 'bitbucket' satisfies Unbrand<GkProviderId>:
-		case HostingIntegrationId.Bitbucket:
+		case GitCloudHostIntegrationId.Bitbucket:
 			return 'bitbucket';
 
 		// case 'bitbucket-server' satisfies RemoteProviderId:
@@ -224,7 +228,7 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 		// case SelfHostedIntegrationId.BitbucketServer:
 		// 	return 'bitbucketServer';
 
-		case IssueIntegrationId.Jira:
+		case IssuesCloudHostIntegrationId.Jira:
 			return 'jiraCloud';
 
 		// case IssueIntegrationId.JiraServer:

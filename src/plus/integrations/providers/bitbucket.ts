@@ -1,6 +1,6 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { md5 } from '@env/crypto';
-import { HostingIntegrationId } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
@@ -11,19 +11,19 @@ import { uniqueBy } from '../../../system/iterable';
 import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
-import { HostingIntegration } from '../integration';
+import { GitHostIntegration } from '../models/gitHostIntegration';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models';
 import { fromProviderPullRequest, providersMetadata } from './models';
 
-const metadata = providersMetadata[HostingIntegrationId.Bitbucket];
+const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-export class BitbucketIntegration extends HostingIntegration<
-	HostingIntegrationId.Bitbucket,
+export class BitbucketIntegration extends GitHostIntegration<
+	GitCloudHostIntegrationId.Bitbucket,
 	BitbucketRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = HostingIntegrationId.Bitbucket;
+	readonly id = GitCloudHostIntegrationId.Bitbucket;
 	protected readonly key = this.id;
 	readonly name: string = 'Bitbucket';
 	get domain(): string {

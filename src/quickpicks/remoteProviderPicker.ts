@@ -4,7 +4,7 @@ import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { GlyphChars } from '../constants';
-import type { IntegrationId } from '../constants.integrations';
+import type { IntegrationIds } from '../constants.integrations';
 import type { Sources } from '../constants.telemetry';
 import { Container } from '../container';
 import { RequiresIntegrationError } from '../errors';
@@ -16,8 +16,8 @@ import { getDefaultBranchName } from '../git/utils/-webview/branch.utils';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getHighlanderProviders } from '../git/utils/remote.utils';
 import { getNameFromRemoteResource } from '../git/utils/remoteResource.utils';
-import { remoteProviderIdToIntegrationId } from '../plus/integrations/integrationService';
 import { providersMetadata } from '../plus/integrations/providers/models';
+import { convertRemoteProviderIdToIntegrationId } from '../plus/integrations/utils/-webview/integration.utils';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { getSettledValue } from '../system/promise';
 import { CommandQuickPickItem, createQuickPickItemOfT } from './items/common';
@@ -81,7 +81,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 						resource.base.remote.url !== resource.head.remote.url &&
 						!(await this.remote.provider.isReadyForForCrossForkPullRequestUrls())
 					) {
-						const integrationId = remoteProviderIdToIntegrationId(this.remote.provider.id);
+						const integrationId = convertRemoteProviderIdToIntegrationId(this.remote.provider.id);
 						const connected =
 							integrationId && (await this.showIntegrationConnectionPicker(integrationId, 'view'));
 						if (!connected) {
@@ -130,7 +130,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 		void (await (this.clipboard ? this.remote.provider.copy(resources) : this.remote.provider.open(resources)));
 	}
 
-	async showIntegrationConnectionPicker(integrationId: IntegrationId, source: Sources): Promise<boolean> {
+	async showIntegrationConnectionPicker(integrationId: IntegrationIds, source: Sources): Promise<boolean> {
 		const disposables: Disposable[] = [];
 		const quickpick = window.createQuickPick<QuickPickItem>();
 		try {

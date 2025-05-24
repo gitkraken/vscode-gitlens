@@ -4,7 +4,7 @@ import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { GitConfigKeys } from '../constants';
 import type { SearchQuery } from '../constants.search';
 import type { Features } from '../features';
-import type { HostingIntegration } from '../plus/integrations/integration';
+import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
@@ -597,7 +597,7 @@ export interface GitRemotesSubProvider {
 	getBestRemoteWithIntegration(
 		repoPath: string,
 		options?: {
-			filter?: (remote: GitRemote, integration: HostingIntegration) => boolean;
+			filter?: (remote: GitRemote, integration: GitHostIntegration) => boolean;
 			includeDisconnected?: boolean;
 		},
 		cancellation?: CancellationToken,

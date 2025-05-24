@@ -109,7 +109,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 								),
 					    };
 
-			if (this.remote.hasIntegration()) {
+			if (this.remote.supportsIntegration()) {
 				const integration = await this.view.container.integrations.getByRemote(this.remote);
 				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 

@@ -1193,7 +1193,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.hasIntegration()) {
+		if (remote?.supportsIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), cancellation),
 				commit.getAssociatedPullRequest(remote),

@@ -1,15 +1,19 @@
 import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
-import type { IntegrationId } from '../../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../git/models/pullRequest';
+import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../../git/models/resourceDescriptor';
+import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../../../git/utils/resourceDescriptor.utils';
 import { Logger } from '../../../system/logger';
 import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
-import type { IssueResourceDescriptor, RepositoryDescriptor } from '../integration';
-import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../integration';
 import type { AzureProjectInputDescriptor } from './azure/models';
 import type { GitConfigEntityIdentifier } from './models';
 import { isCloudSelfHostedIntegrationId, isGitHubDotCom, isGitLabDotCom } from './models';
@@ -90,29 +94,29 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 
 export function getProviderIdFromEntityIdentifier(
 	entityIdentifier: EntityIdentifier | AnyEntityIdentifierInput | GitConfigEntityIdentifier,
-): IntegrationId | undefined {
+): IntegrationIds | undefined {
 	switch (entityIdentifier.provider) {
 		case EntityIdentifierProviderType.Github:
-			return HostingIntegrationId.GitHub;
+			return GitCloudHostIntegrationId.GitHub;
 		case EntityIdentifierProviderType.GithubEnterprise:
 			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
-				? SelfHostedIntegrationId.CloudGitHubEnterprise
-				: SelfHostedIntegrationId.GitHubEnterprise;
+				? GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+				: GitSelfManagedHostIntegrationId.GitHubEnterprise;
 		case EntityIdentifierProviderType.Gitlab:
-			return HostingIntegrationId.GitLab;
+			return GitCloudHostIntegrationId.GitLab;
 		case EntityIdentifierProviderType.GitlabSelfHosted:
 			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
-				? SelfHostedIntegrationId.CloudGitLabSelfHosted
-				: SelfHostedIntegrationId.GitLabSelfHosted;
+				? GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+				: GitSelfManagedHostIntegrationId.GitLabSelfHosted;
 		case EntityIdentifierProviderType.Jira:
-			return IssueIntegrationId.Jira;
+			return IssuesCloudHostIntegrationId.Jira;
 		case EntityIdentifierProviderType.Azure:
-			return HostingIntegrationId.AzureDevOps;
+			return GitCloudHostIntegrationId.AzureDevOps;
 		case EntityIdentifierProviderType.Bitbucket:
-			return HostingIntegrationId.Bitbucket;
+			return GitCloudHostIntegrationId.Bitbucket;
 		case EntityIdentifierProviderType.BitbucketServer:
 			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
-				? SelfHostedIntegrationId.BitbucketServer
+				? GitSelfManagedHostIntegrationId.BitbucketServer
 				: undefined;
 		default:
 			return undefined;
@@ -168,7 +172,7 @@ export function encodeIssueOrPullRequestForGitConfig(
 			id: entity.id,
 			owner: encodedOwner,
 			createdDate: new Date().toISOString(),
-			isCloudEnterprise: isCloudSelfHostedIntegrationId(entity.provider.id as IntegrationId),
+			isCloudEnterprise: isCloudSelfHostedIntegrationId(entity.provider.id as IntegrationIds),
 		},
 	};
 }
@@ -270,7 +274,7 @@ export async function getIssueFromGitConfigEntityIdentifier(
 export function getIssueOwner(
 	issue: IssueShape,
 ): RepositoryDescriptor | IssueResourceDescriptor | AzureProjectInputDescriptor | undefined {
-	const isAzure = issue.provider.id === 'azure' || HostingIntegrationId.AzureDevOps || 'azure-devops';
+	const isAzure = issue.provider.id === 'azure' || GitCloudHostIntegrationId.AzureDevOps || 'azure-devops';
 	return issue.repository
 		? {
 				key: `${issue.repository.owner}/${issue.repository.repo}`,

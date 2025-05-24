@@ -1,16 +1,18 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import { GlyphChars } from '../constants';
-import type { IntegrationId } from '../constants.integrations';
-import { IssueIntegrationId } from '../constants.integrations';
+import type { IntegrationIds } from '../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderId } from '../git/remotes/remoteProvider';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
 import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService';
-import type { HostingIntegration, Integration, IssueIntegration } from '../plus/integrations/integration';
-import { IntegrationBase } from '../plus/integrations/integration';
-import { remoteProviderIdToIntegrationId } from '../plus/integrations/integrationService';
+import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
+import type { Integration } from '../plus/integrations/models/integration';
+import { IntegrationBase } from '../plus/integrations/models/integration';
+import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration';
+import { convertRemoteProviderIdToIntegrationId } from '../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../system/-webview/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
@@ -86,13 +88,13 @@ export class AutolinksProvider implements Disposable {
 
 	/** Collects connected integration autolink references into @param refsets */
 	private async collectIntegrationAutolinks(remote: GitRemote | undefined, refsets: RefSet[]): Promise<void> {
-		const integrationPromises: Promise<HostingIntegration | IssueIntegration | undefined>[] =
+		const integrationPromises: Promise<GitHostIntegration | IssuesIntegration | undefined>[] =
 			supportedAutolinkIntegrations.map(async id => this.container.integrations.get(id));
 		if (remote?.provider != null) {
 			integrationPromises.push(remote.getIntegration());
 		}
 
-		const integrations = new Set<HostingIntegration | IssueIntegration>();
+		const integrations = new Set<GitHostIntegration | IssuesIntegration>();
 		const promises: Promise<void>[] = [];
 
 		// Filter out disconnected or duplicate integrations
@@ -174,7 +176,7 @@ export class AutolinksProvider implements Disposable {
 
 	getAutolinkEnrichableId(autolink: Autolink): string {
 		switch (autolink.provider?.id) {
-			case IssueIntegrationId.Jira:
+			case IssuesCloudHostIntegrationId.Jira:
 				return `${autolink.prefix}${autolink.id}`;
 			default:
 				return autolink.id;
@@ -215,7 +217,7 @@ export class AutolinksProvider implements Disposable {
 
 		const enrichedAutolinks = new Map<string, EnrichedAutolink>();
 		for (const [id, link] of messageOrAutolinks) {
-			let integrationId: IntegrationId | undefined;
+			let integrationId: IntegrationIds | undefined;
 			let linkIntegration: Integration | undefined;
 			if (link.provider != null) {
 				// Try to make a smart choice
@@ -225,11 +227,11 @@ export class AutolinksProvider implements Disposable {
 						: // TODO: Tighten the typing on ProviderReference to be specific to a remote provider, and then have a separate "integration" property (on autolinks and elsewhere)
 						  // that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
 						  // Either way, this converting/casting hackery needs to go away.
-						  remoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId);
+						  convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId);
 				if (integrationId == null) {
 					// Fall back to the old logic assuming that integration id might be saved as provider id.
 					// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
-					integrationId = link.provider.id as IntegrationId;
+					integrationId = link.provider.id as IntegrationIds;
 				}
 				try {
 					linkIntegration = await this.container.integrations.get(integrationId);

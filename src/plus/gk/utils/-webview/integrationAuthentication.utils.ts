@@ -1,6 +1,6 @@
 import { authentication, extensions } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
-import type { IntegrationId } from '../../../../constants.integrations';
+import type { IntegrationIds } from '../../../../constants.integrations';
 import type { Container } from '../../../../container';
 import { sequentialize } from '../../../../system/function';
 import { Logger } from '../../../../system/logger';
@@ -13,7 +13,7 @@ const failedAuthProviderIds = new Set<string>();
 export const getBuiltInIntegrationSession = sequentialize(
 	(
 		container: Container,
-		id: IntegrationId,
+		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?:
 			| { createIfNeeded: true; silent?: never; forceNewSession?: never }

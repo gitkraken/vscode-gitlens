@@ -2,9 +2,9 @@ import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { HostingIntegration } from '../../plus/integrations/integration';
-import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
+import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
 import { isVsts, parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
+import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
@@ -211,7 +211,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
-		const integrationId = remoteProviderIdToIntegrationId(this.id);
+		const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
 		const integration = integrationId && (await this.container.integrations.get(integrationId));
 		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
 	}
@@ -229,11 +229,11 @@ export class AzureDevOpsRemote extends RemoteProvider {
 			const { org: baseOrg, project: baseProject, repo: baseName } = parsedBaseUrl;
 			const targetDesc = { project: baseProject, name: baseName, owner: baseOrg };
 
-			const integrationId = remoteProviderIdToIntegrationId(this.id);
+			const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
 			const integration = integrationId && (await this.container.integrations.get(integrationId));
 
 			let targetRepoId;
-			if (integration?.isConnected && integration instanceof HostingIntegration) {
+			if (integration?.isConnected && integration instanceof GitHostIntegration) {
 				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
 			}
 			if (!targetRepoId) return undefined;

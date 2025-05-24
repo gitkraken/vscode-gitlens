@@ -37,8 +37,8 @@ import {
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
-import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
@@ -119,7 +119,7 @@ interface Context {
 	title: string;
 	collapsed: Map<LaunchpadGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
-	connectedIntegrations: Map<IntegrationId, boolean>;
+	connectedIntegrations: Map<IntegrationIds, boolean>;
 
 	inSearch: boolean | 'mode';
 	updateItemsDebouncer: ReturnType<typeof createAsyncDebouncer>;
@@ -197,7 +197,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		};
 	}
 
-	private async ensureIntegrationConnected(id: IntegrationId) {
+	private async ensureIntegrationConnected(id: IntegrationIds) {
 		const integration = await this.container.integrations.get(id);
 		if (integration == null) return false;
 
@@ -508,7 +508,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				alwaysShow: alwaysShow,
 				buttons: buttons,
 				iconPath:
-					i.provider.id === HostingIntegrationId.AzureDevOps
+					i.provider.id === GitCloudHostIntegrationId.AzureDevOps
 						? new ThemeIcon('account')
 						: i.author?.avatarUrl != null
 						  ? Uri.parse(i.author.avatarUrl)
@@ -939,7 +939,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							createdDateRelative: fromNow(state.item.createdDate),
 						}),
 						iconPath:
-							state.item.provider.id === HostingIntegrationId.AzureDevOps
+							state.item.provider.id === GitCloudHostIntegrationId.AzureDevOps
 								? new ThemeIcon('account')
 								: state.item.author?.avatarUrl != null
 								  ? Uri.parse(state.item.author.avatarUrl)
@@ -1173,9 +1173,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
-		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = !hasConnectedIntegration
+		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] = !hasConnectedIntegration
 			? [
 					createDirectiveQuickPickItem(Directive.Cancel, undefined, {
 						label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
@@ -1196,7 +1196,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				continue;
 			}
 			switch (integration) {
-				case HostingIntegrationId.GitHub:
+				case GitCloudHostIntegrationId.GitHub:
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -1207,7 +1207,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						),
 					);
 					break;
-				case HostingIntegrationId.GitLab:
+				case GitCloudHostIntegrationId.GitLab:
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -1244,7 +1244,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async *confirmCloudIntegrationsConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const step = this.createConfirmStep(
 			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
@@ -1492,7 +1492,7 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 		const isCurrentUser = review.reviewer.username === item.currentViewer.username;
 		let reviewLabel: string | undefined;
 		const iconPath =
-			item.provider.id === HostingIntegrationId.AzureDevOps
+			item.provider.id === GitCloudHostIntegrationId.AzureDevOps
 				? new ThemeIcon('account')
 				: review.reviewer.avatarUrl != null
 				  ? Uri.parse(review.reviewer.avatarUrl)
@@ -1585,18 +1585,18 @@ function getOpenActionLabel(actionCategory: string) {
 
 function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.GitLabSelfHosted:
-		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return OpenOnGitLabQuickInputButton;
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.GitHubEnterprise:
-		case SelfHostedIntegrationId.CloudGitHubEnterprise:
+		case GitCloudHostIntegrationId.GitHub:
+		case GitSelfManagedHostIntegrationId.GitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
-		case HostingIntegrationId.AzureDevOps:
+		case GitCloudHostIntegrationId.AzureDevOps:
 			return OpenOnAzureDevOpsQuickInputButton;
-		case HostingIntegrationId.Bitbucket:
-		case SelfHostedIntegrationId.BitbucketServer:
+		case GitCloudHostIntegrationId.Bitbucket:
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
 			return OpenOnBitbucketQuickInputButton;
 		default:
 			return undefined;
@@ -1610,19 +1610,19 @@ function getOpenOnGitProviderQuickInputButtons(integrationId: string): QuickInpu
 
 function getIntegrationTitle(integrationId: string): string {
 	switch (integrationId) {
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.GitLabSelfHosted:
-		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return 'GitLab';
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.GitHubEnterprise:
-		case SelfHostedIntegrationId.CloudGitHubEnterprise:
+		case GitCloudHostIntegrationId.GitHub:
+		case GitSelfManagedHostIntegrationId.GitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return 'GitHub';
-		case HostingIntegrationId.AzureDevOps:
+		case GitCloudHostIntegrationId.AzureDevOps:
 			return 'Azure DevOps';
-		case HostingIntegrationId.Bitbucket:
+		case GitCloudHostIntegrationId.Bitbucket:
 			return 'Bitbucket';
-		case SelfHostedIntegrationId.BitbucketServer:
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
 			return 'Bitbucket Data Center';
 		default:
 			return integrationId;

@@ -1,5 +1,5 @@
 import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
@@ -8,31 +8,31 @@ import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import type { RepositoryDescriptor } from '../../../git/models/resourceDescriptor';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { RepositoryDescriptor } from '../integration';
-import { HostingIntegration } from '../integration';
 import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import type { GitHubRelatedIntegrationIds } from './github/github.utils';
+import { GitHostIntegration } from '../models/gitHostIntegration';
+import type { GitHubIntegrationIds } from './github/github.utils';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils';
 import { providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[HostingIntegrationId.GitHub];
+const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: metadata.id,
 	scopes: metadata.scopes,
 });
 
-const enterpriseMetadata = providersMetadata[SelfHostedIntegrationId.GitHubEnterprise];
+const enterpriseMetadata = providersMetadata[GitSelfManagedHostIntegrationId.GitHubEnterprise];
 const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
 });
-const cloudEnterpriseMetadata = providersMetadata[SelfHostedIntegrationId.CloudGitHubEnterprise];
+const cloudEnterpriseMetadata = providersMetadata[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise];
 const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
 	id: cloudEnterpriseMetadata.id,
 	scopes: cloudEnterpriseMetadata.scopes,
@@ -40,7 +40,7 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 
 export type GitHubRepositoryDescriptor = RepositoryDescriptor;
 
-abstract class GitHubIntegrationBase<ID extends GitHubRelatedIntegrationIds> extends HostingIntegration<
+abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends GitHostIntegration<
 	ID,
 	GitHubRepositoryDescriptor
 > {
@@ -268,9 +268,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubRelatedIntegrationIds> ext
 	}
 }
 
-export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationId.GitHub> {
+export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegrationId.GitHub> {
 	readonly authProvider = authProvider;
-	readonly id = HostingIntegrationId.GitHub;
+	readonly id = GitCloudHostIntegrationId.GitHub;
 	protected readonly key = this.id;
 	readonly name: string = 'GitHub';
 	get domain(): string {
@@ -303,7 +303,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 }
 
 export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<
-	SelfHostedIntegrationId.GitHubEnterprise | SelfHostedIntegrationId.CloudGitHubEnterprise
+	GitSelfManagedHostIntegrationId.GitHubEnterprise | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
 > {
 	readonly authProvider;
 	protected readonly key;
@@ -322,12 +322,16 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<
 		getProvidersApi: () => Promise<ProvidersApi>,
 		didChangeConnection: EventEmitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
-		readonly id: SelfHostedIntegrationId.GitHubEnterprise | SelfHostedIntegrationId.CloudGitHubEnterprise,
+		readonly id:
+			| GitSelfManagedHostIntegrationId.GitHubEnterprise
+			| GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
 	) {
 		super(container, authenticationService, getProvidersApi, didChangeConnection);
 		this.key = `${this.id}:${this.domain}` as const;
 		this.authProvider =
-			this.id === SelfHostedIntegrationId.GitHubEnterprise ? enterpriseAuthProvider : cloudEnterpriseAuthProvider;
+			this.id === GitSelfManagedHostIntegrationId.GitHubEnterprise
+				? enterpriseAuthProvider
+				: cloudEnterpriseAuthProvider;
 	}
 
 	@log()

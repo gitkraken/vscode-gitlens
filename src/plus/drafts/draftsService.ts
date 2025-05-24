@@ -3,7 +3,7 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
-import type { IntegrationId } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -52,7 +52,7 @@ import type {
 } from './models/drafts';
 
 export interface ProviderAuth {
-	provider: IntegrationId;
+	provider: IntegrationIds;
 	token: string;
 }
 
@@ -744,7 +744,7 @@ export class DraftService implements Disposable {
 	}
 
 	async getProviderAuthFromRepoOrIntegrationId(
-		repoOrIntegrationId: Repository | IntegrationId,
+		repoOrIntegrationId: Repository | IntegrationIds,
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
@@ -815,13 +815,13 @@ export class DraftService implements Disposable {
 	): Promise<Draft[]>;
 	async getCodeSuggestions(
 		launchpadItem: LaunchpadItem,
-		integrationId: IntegrationId,
+		integrationId: IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
 		item: PullRequest | LaunchpadItem,
-		repositoryOrIntegrationId: Repository | IntegrationId,
+		repositoryOrIntegrationId: Repository | IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
 		if (!supportsCodeSuggest(item.provider)) return [];

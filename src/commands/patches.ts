@@ -4,7 +4,7 @@ import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { GlCommands } from '../constants.commands';
-import type { IntegrationId } from '../constants.integrations';
+import type { IntegrationIds } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
@@ -353,7 +353,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 
 		let providerAuth: ProviderAuth | undefined;
 		if (args.prEntityId != null && args.type === 'code_suggestion') {
-			let providerId: IntegrationId | undefined;
+			let providerId: IntegrationIds | undefined;
 			let providerDomain: string | undefined;
 			try {
 				const identifier = EntityIdentifierUtils.decode(args.prEntityId);

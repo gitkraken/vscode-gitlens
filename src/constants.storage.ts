@@ -1,6 +1,6 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
-import type { IntegrationId } from './constants.integrations';
+import type { IntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
@@ -8,7 +8,7 @@ import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
 import type { Subscription } from './plus/gk/models/subscription';
-import type { Integration } from './plus/integrations/integration';
+import type { Integration } from './plus/integrations/models/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
 export type SecretKeys =
@@ -18,8 +18,8 @@ export type SecretKeys =
 	| 'deepLinks:pending';
 
 export type IntegrationAuthenticationKeys =
-	| `gitlens.integration.auth:${IntegrationId}|${string}`
-	| `gitlens.integration.auth.cloud:${IntegrationId}|${string}`;
+	| `gitlens.integration.auth:${IntegrationIds}|${string}`
+	| `gitlens.integration.auth.cloud:${IntegrationIds}|${string}`;
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
@@ -104,7 +104,7 @@ export type StoredIntegrationConfigurations = Record<string, StoredConfiguredInt
 
 export interface StoredConfiguredIntegrationDescriptor {
 	cloud: boolean;
-	integrationId: IntegrationId;
+	integrationId: IntegrationIds;
 	domain?: string;
 	expiresAt?: string;
 	scopes: string;

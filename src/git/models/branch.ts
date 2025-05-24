@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { CancellationToken } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import type { Container } from '../../container';

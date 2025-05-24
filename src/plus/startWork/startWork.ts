@@ -29,8 +29,12 @@ import {
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
-import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { PlusFeatures } from '../../features';
@@ -94,13 +98,13 @@ export interface StartWorkOverrides {
 }
 
 export const supportedStartWorkIntegrations = [
-	HostingIntegrationId.GitHub,
-	SelfHostedIntegrationId.CloudGitHubEnterprise,
-	HostingIntegrationId.GitLab,
-	SelfHostedIntegrationId.CloudGitLabSelfHosted,
-	HostingIntegrationId.AzureDevOps,
-	HostingIntegrationId.Bitbucket,
-	IssueIntegrationId.Jira,
+	GitCloudHostIntegrationId.GitHub,
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitCloudHostIntegrationId.GitLab,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitCloudHostIntegrationId.Bitbucket,
+	IssuesCloudHostIntegrationId.Jira,
 ];
 export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 const instanceCounter = getScopedCounter();
@@ -283,16 +287,16 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		context.result = undefined;
-		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
+		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] = [];
 
 		for (const integration of supportedStartWorkIntegrations) {
 			if (context.connectedIntegrations.get(integration)) {
 				continue;
 			}
 			switch (integration) {
-				case HostingIntegrationId.GitHub:
+				case GitCloudHostIntegrationId.GitHub:
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -332,7 +336,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		return StepResultBreak;
 	}
 
-	private async ensureIntegrationConnected(id: IntegrationId) {
+	private async ensureIntegrationConnected(id: IntegrationIds) {
 		const integration = await this.container.integrations.get(id);
 		if (integration == null) return false;
 
@@ -348,7 +352,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		state: StepState<State>,
 		context: Context,
 		overrideStep?: QuickPickStep<QuickPickItemOfT<StartWorkItem>>,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		// TODO: This step is almost an exact copy of the similar one from launchpad.ts. Do we want to do anything about it? Maybe to move it to an util function with ability to parameterize labels?
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		context.result = undefined;
@@ -731,17 +735,17 @@ function buildItemTelemetryData(item: StartWorkItem) {
 
 function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
-		case HostingIntegrationId.AzureDevOps:
+		case GitCloudHostIntegrationId.AzureDevOps:
 			return OpenOnAzureDevOpsQuickInputButton;
-		case HostingIntegrationId.Bitbucket:
+		case GitCloudHostIntegrationId.Bitbucket:
 			return OpenOnBitbucketQuickInputButton;
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.CloudGitHubEnterprise:
+		case GitCloudHostIntegrationId.GitHub:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return OpenOnGitLabQuickInputButton;
-		case IssueIntegrationId.Jira:
+		case IssuesCloudHostIntegrationId.Jira:
 			return OpenOnJiraQuickInputButton;
 		default:
 			return undefined;

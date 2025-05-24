@@ -2,7 +2,7 @@
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
 import type { AutolinkConfig } from '../../../config';
-import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import type { IssuesCloudHostIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import { createCommandLink } from '../../../system/commands';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
@@ -808,7 +808,7 @@ export class SettingsApp extends App<State> {
 		let message = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 			'gitlens.plus.cloudIntegrations.connect',
 			{
-				integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+				integrationIds: ['jira' as IssuesCloudHostIntegrationId.Jira] as SupportedCloudIntegrationIds[],
 				source: {
 					source: 'settings',
 					detail: {

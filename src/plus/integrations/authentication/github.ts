@@ -1,6 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
@@ -13,7 +13,7 @@ import {
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './models';
 
-export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
+export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitCloudHostIntegrationId.GitHub> {
 	constructor(
 		container: Container,
 		authenticationService: IntegrationAuthenticationService,
@@ -29,8 +29,8 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 		);
 	}
 
-	protected override get authProviderId(): HostingIntegrationId.GitHub {
-		return HostingIntegrationId.GitHub;
+	protected override get authProviderId(): GitCloudHostIntegrationId.GitHub {
+		return GitCloudHostIntegrationId.GitHub;
 	}
 
 	public override async getSession(
@@ -52,15 +52,15 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 	}
 }
 
-export class GitHubEnterpriseCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitHubEnterprise> {
-	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitHubEnterprise {
-		return SelfHostedIntegrationId.CloudGitHubEnterprise;
+export class GitHubEnterpriseCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitSelfManagedHostIntegrationId.CloudGitHubEnterprise> {
+	protected override get authProviderId(): GitSelfManagedHostIntegrationId.CloudGitHubEnterprise {
+		return GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
 	}
 }
 
-export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuthenticationProvider<SelfHostedIntegrationId.GitHubEnterprise> {
-	protected override get authProviderId(): SelfHostedIntegrationId.GitHubEnterprise {
-		return SelfHostedIntegrationId.GitHubEnterprise;
+export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitSelfManagedHostIntegrationId.GitHubEnterprise> {
+	protected override get authProviderId(): GitSelfManagedHostIntegrationId.GitHubEnterprise {
+		return GitSelfManagedHostIntegrationId.GitHubEnterprise;
 	}
 
 	override async createSession(

@@ -89,7 +89,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 
 			remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotesWithProviders();
 			remote = remotes.find(r => r.name === args.remote) as GitRemote<RemoteProvider> | undefined;
-			if (!remote?.hasIntegration()) return false;
+			if (!remote?.supportsIntegration()) return false;
 		}
 
 		const integration = await this.container.integrations.getByRemote(remote);
@@ -186,7 +186,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			remote = (await this.container.git.getRepositoryService(repoPath).remotes.getRemotesWithProviders()).find(
 				r => r.name === args.remote,
 			);
-			if (!remote?.hasIntegration()) return;
+			if (!remote?.supportsIntegration()) return;
 		}
 
 		const integration = await this.container.integrations.getByRemote(remote);

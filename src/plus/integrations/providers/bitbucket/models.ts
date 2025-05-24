@@ -9,7 +9,7 @@ import {
 	PullRequestReviewState,
 } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
-import type { ResourceDescriptor } from '../../integration';
+import type { ResourceDescriptor } from '../../../../git/models/resourceDescriptor';
 
 export interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;

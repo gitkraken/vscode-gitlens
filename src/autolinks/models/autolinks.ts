@@ -1,6 +1,6 @@
 import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { ProviderReference } from '../../git/models/remoteProvider';
-import type { ResourceDescriptor } from '../../plus/integrations/integration';
+import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
 import type { MaybePausedResult } from '../../system/promise';
 
 export type AutolinkType = 'issue' | 'pullrequest';

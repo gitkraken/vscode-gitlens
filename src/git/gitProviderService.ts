@@ -1092,7 +1092,7 @@ export class GitProviderService implements Disposable {
 					// Skip if integrations are disabled or if we've already found a connected integration
 					if (!integrations || (hasSupportedIntegration && hasConnectedIntegration)) continue;
 
-					if (remote.hasIntegration()) {
+					if (remote.supportsIntegration()) {
 						hasSupportedIntegration = true;
 						reposWithHostingIntegrations.add(repo.uri.toString());
 						reposWithHostingIntegrations.add(repo.path);
