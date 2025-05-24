@@ -13,8 +13,7 @@ import {
 	generateCreateCloudPatch,
 	generateCreateCodeSuggest,
 	generateCreatePullRequest,
-	generateRebaseCommits,
-	generateRebaseExplanation,
+	generateRebase,
 	generateStashMessage,
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
@@ -36,10 +35,8 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return generateCreateCodeSuggest as PromptTemplate<T>;
 		case 'generate-create-pullRequest':
 			return generateCreatePullRequest as PromptTemplate<T>;
-		case 'generate-rebase-explanation':
-			return generateRebaseExplanation as PromptTemplate<T>;
-		case 'generate-rebase-commits':
-			return generateRebaseCommits as PromptTemplate<T>;
+		case 'generate-rebase':
+			return generateRebase as PromptTemplate<T>;
 		case 'explain-changes':
 			return explainChanges as PromptTemplate<T>;
 		default:
