@@ -25,6 +25,7 @@ import { elementBase, linkBase } from '../../../shared/components/styles/lit/bas
 import type { PromosContext } from '../../../shared/contexts/promos';
 import { promosContext } from '../../../shared/contexts/promos';
 import { chipStyles } from './chipStyles';
+import { ruleStyles } from './vscode.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
@@ -42,6 +43,7 @@ export class GlAccountChip extends LitElement {
 		linkBase,
 		focusableBaseStyles,
 		chipStyles,
+		ruleStyles,
 		css`
 			:host {
 				display: inline-flex;
@@ -198,11 +200,6 @@ export class GlAccountChip extends LitElement {
 				white-space: nowrap;
 				gap: 0.2em;
 				margin-left: 0.4rem;
-			}
-
-			hr {
-				border: none;
-				border-top: 1px solid var(--color-foreground--25);
 			}
 
 			.upgrade > * {

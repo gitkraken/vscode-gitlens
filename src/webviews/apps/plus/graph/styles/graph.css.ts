@@ -15,13 +15,6 @@ export const linkBase = css`
 	}
 `;
 
-export const ruleBase = css`
-	hr {
-		border: none;
-		border-top: 1px solid var(--color-foreground--25);
-	}
-`;
-
 export const actionButton = css`
 	.action-button {
 		position: relative;

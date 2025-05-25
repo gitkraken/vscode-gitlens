@@ -47,9 +47,10 @@ import { ipcContext } from '../../shared/contexts/ipc';
 import type { TelemetryContext } from '../../shared/contexts/telemetry';
 import { telemetryContext } from '../../shared/contexts/telemetry';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
+import { ruleStyles } from '../shared/components/vscode.css';
 import { stateContext } from './context';
 import { graphStateContext } from './stateProvider';
-import { actionButton, linkBase, ruleBase } from './styles/graph.css';
+import { actionButton, linkBase } from './styles/graph.css';
 import { graphHeaderControlStyles, progressStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -108,7 +109,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	static override styles = [
 		inlineCode,
 		linkBase,
-		ruleBase,
+		ruleStyles,
 		actionButton,
 		titlebarStyles,
 		repoHeaderStyles,

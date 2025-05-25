@@ -20,7 +20,7 @@ import { GlAppHost } from '../../shared/appHost';
 import type { Checkbox } from '../../shared/components/checkbox/checkbox';
 import type { GlRefButton } from '../../shared/components/ref-button';
 import type { HostIpc } from '../../shared/ipc';
-import { linkStyles } from '../shared/components/vscode.css';
+import { linkStyles, ruleStyles } from '../shared/components/vscode.css';
 import type { CommitEventDetail, GlTimelineChart } from './components/chart';
 import { TimelineStateProvider } from './stateProvider';
 import { timelineBaseStyles, timelineStyles } from './timeline.css';
@@ -44,7 +44,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 		delegatesFocus: true,
 	};
 
-	static override styles = [linkStyles, timelineBaseStyles, timelineStyles];
+	static override styles = [linkStyles, ruleStyles, timelineBaseStyles, timelineStyles];
 
 	@query('#chart')
 	private _chart?: GlTimelineChart;

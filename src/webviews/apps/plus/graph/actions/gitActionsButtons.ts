@@ -5,7 +5,8 @@ import { pluralize } from '../../../../../system/string';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { BranchState, State } from '../../../../plus/graph/protocol';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css';
-import { actionButton, linkBase, ruleBase } from '../styles/graph.css';
+import { ruleStyles } from '../../shared/components/vscode.css';
+import { actionButton, linkBase } from '../styles/graph.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 
@@ -61,7 +62,7 @@ export class GitActionsButtons extends LitElement {
 
 @customElement('gl-fetch-button')
 export class GlFetchButton extends LitElement {
-	static override styles = [linkBase, inlineCode, actionButton, ruleBase];
+	static override styles = [linkBase, inlineCode, actionButton, ruleStyles];
 
 	@property({ type: Object })
 	state!: State;
@@ -114,7 +115,7 @@ export class PushPullButton extends LitElement {
 		linkBase,
 		inlineCode,
 		actionButton,
-		ruleBase,
+		ruleStyles,
 		css`
 			:host {
 				display: contents;

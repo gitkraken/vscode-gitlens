@@ -5,92 +5,91 @@ import { until } from 'lit/directives/until.js';
 import type { RendererObject, RendererThis, Tokens } from 'marked';
 import { marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
+import { ruleStyles } from '../../../plus/shared/components/vscode.css';
 
 @customElement('gl-markdown')
 export class GlMarkdown extends LitElement {
-	static override styles = css`
-		a,
-		a code {
-			text-decoration: none;
-			color: var(--vscode-textLink-foreground);
-		}
+	static override styles = [
+		ruleStyles,
+		css`
+			a,
+			a code {
+				text-decoration: none;
+				color: var(--vscode-textLink-foreground);
+			}
 
-		a:hover,
-		a:hover code {
-			color: var(--vscode-textLink-activeForeground);
-		}
+			a:hover,
+			a:hover code {
+				color: var(--vscode-textLink-activeForeground);
+			}
 
-		a:hover:not(.disabled) {
-			cursor: pointer;
-		}
+			a:hover:not(.disabled) {
+				cursor: pointer;
+			}
 
-		p,
-		.code,
-		ul,
-		h1,
-		h2,
-		h3,
-		h4,
-		h5,
-		h6 {
-			margin: 8px 0;
-		}
+			p,
+			.code,
+			ul,
+			h1,
+			h2,
+			h3,
+			h4,
+			h5,
+			h6 {
+				margin: 8px 0;
+			}
 
-		h1,
-		h2,
-		h3,
-		h4,
-		h5,
-		h6 {
-			line-height: 1.1;
-		}
+			h1,
+			h2,
+			h3,
+			h4,
+			h5,
+			h6 {
+				line-height: 1.1;
+			}
 
-		code {
-			background: var(--vscode-textCodeBlock-background);
-			border-radius: 3px;
-			padding: 0px 4px 2px 4px;
-			font-family: var(--vscode-editor-font-family);
-		}
+			code {
+				background: var(--vscode-textCodeBlock-background);
+				border-radius: 3px;
+				padding: 0px 4px 2px 4px;
+				font-family: var(--vscode-editor-font-family);
+			}
 
-		code code-icon {
-			color: inherit;
-			font-size: inherit;
-			vertical-align: middle;
-		}
+			code code-icon {
+				color: inherit;
+				font-size: inherit;
+				vertical-align: middle;
+			}
 
-		hr {
-			border: none;
-			border-top: 1px solid var(--color-foreground--25);
-		}
+			p:first-child,
+			.code:first-child,
+			ul:first-child {
+				margin-top: 0;
+			}
 
-		p:first-child,
-		.code:first-child,
-		ul:first-child {
-			margin-top: 0;
-		}
+			p:last-child,
+			.code:last-child,
+			ul:last-child {
+				margin-bottom: 0;
+			}
 
-		p:last-child,
-		.code:last-child,
-		ul:last-child {
-			margin-bottom: 0;
-		}
+			/* MarkupContent Layout */
+			ul {
+				padding-left: 20px;
+			}
+			ol {
+				padding-left: 20px;
+			}
 
-		/* MarkupContent Layout */
-		ul {
-			padding-left: 20px;
-		}
-		ol {
-			padding-left: 20px;
-		}
+			li > p {
+				margin-bottom: 0;
+			}
 
-		li > p {
-			margin-bottom: 0;
-		}
-
-		li > ul {
-			margin-top: 0;
-		}
-	`;
+			li > ul {
+				margin-top: 0;
+			}
+		`,
+	];
 
 	@property({ type: String })
 	private markdown = '';
