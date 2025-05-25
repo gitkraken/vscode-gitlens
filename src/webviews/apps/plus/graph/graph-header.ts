@@ -704,8 +704,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								?disabled=${!this.hostState.repositories || this.hostState.repositories.length < 2}
 								@click=${() => this.handleChooseRepository()}
 							>
-								<span class="action-button__truncated">${repo?.formattedName ?? 'none selected'}</span
-								>${when(
+								<span class="action-button__truncated">${repo?.name ?? 'none selected'}</span>${when(
 									this.hostState.repositories && this.hostState.repositories.length > 1,
 									() => html`
 										<code-icon
@@ -931,11 +930,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										hoist
 									>
 										<code-icon icon="chevron-down" slot="expand-icon"></code-icon>
-										<sl-option value="all" ?disabled=${repo?.isVirtual}> All Branches </sl-option>
-										<sl-option value="smart" ?disabled=${repo?.isVirtual}>
+										<sl-option value="all" ?disabled=${repo?.virtual}> All Branches </sl-option>
+										<sl-option value="smart" ?disabled=${repo?.virtual}>
 											Smart Branches
 											${when(
-												!repo?.isVirtual,
+												!repo?.virtual,
 												() => html`
 													<gl-tooltip placement="right" slot="suffix">
 														<code-icon icon="info"></code-icon>
@@ -1040,7 +1039,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									<div slot="content">
 										<menu-label>Graph Filters</menu-label>
 										${when(
-											repo?.isVirtual !== true,
+											repo?.virtual !== true,
 											() => html`
 												<menu-item role="none">
 													<gl-tooltip

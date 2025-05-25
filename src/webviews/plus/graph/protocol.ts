@@ -24,7 +24,6 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
-import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
 import type { FeaturePreview } from '../../../features';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
@@ -39,6 +38,7 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
+import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { GitGraphSearchResultData } from '../../../git/search';
 import type { Subscription } from '../../../plus/gk/models/subscription';
 import type { DateTimeFormat } from '../../../system/date';
@@ -156,22 +156,7 @@ export interface GraphPaging {
 	hasMore: boolean;
 }
 
-export interface GraphRepository {
-	formattedName: string;
-	id: string;
-	name: string;
-	path: string;
-	isVirtual: boolean;
-	provider?: {
-		name: string;
-		integration?: {
-			id: SupportedCloudIntegrationIds;
-			connected: boolean;
-		};
-		icon?: string;
-		url?: string;
-	};
-}
+export type GraphRepository = RepositoryShape;
 
 export interface GraphCommitIdentity {
 	name: string;

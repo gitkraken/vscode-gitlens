@@ -39,6 +39,7 @@ import type { GitWorktree } from '../../git/models/worktree';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
 import { getBranchMergeTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
+import { toRepositoryShapeWithProvider } from '../../git/utils/-webview/repository.utils';
 import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
 import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
@@ -956,19 +957,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async formatRepository(repo: Repository): Promise<OverviewRepository> {
 		const remotes = await repo.git.remotes.getBestRemotesWithProviders();
 		const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
-
-		return {
-			name: repo.commonRepositoryName ?? repo.name,
-			path: repo.path,
-			provider: remote?.provider
-				? {
-						name: remote.provider.name,
-						supportedFeatures: remote.provider.supportedFeatures,
-						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-						url: await remote.provider.url({ type: RemoteResourceType.Repo }),
-				  }
-				: undefined,
-		};
+		return toRepositoryShapeWithProvider(repo, remote);
 	}
 
 	private _repositorySubscription: SubscriptionManager<Repository> | undefined;

@@ -23,6 +23,7 @@ import type {
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
 import { getReference } from '../../../git/utils/-webview/reference.utils';
+import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils';
 import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils';
 import { getChangedFilesCount } from '../../../git/utils/commit.utils';
 import { createReference } from '../../../git/utils/reference.utils';
@@ -653,10 +654,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const { uri } = scope;
 		const relativePath = git.getRelativePath(uri, repo.uri);
 		const ref = getReference(await repo.git.branches.getBranch());
-		const repository: State['repository'] =
-			repo != null
-				? { id: repo.id, name: repo.name, ref: ref, uri: repo.uri.toString(), virtual: repo.virtual }
-				: undefined;
+		const repository: State['repository'] = repo != null ? { ...toRepositoryShape(repo), ref: ref } : undefined;
 
 		scope.head ??= ref;
 		if (scope.base == null) {
