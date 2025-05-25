@@ -4,12 +4,11 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../../constants.integrations';
 import type { GitReference } from '../../../git/models/reference';
-import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { Repository } from '../../../git/models/repository';
 import type { GkProviderId } from '../../../git/models/repositoryIdentities';
 import type { RemoteProviderId } from '../../../git/remotes/remoteProvider';
+import { toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils';
 import { isGitReference } from '../../../git/utils/reference.utils';
-import { convertRemoteProviderIdToIntegrationId } from '../../../plus/integrations/utils/-webview/integration.utils';
 import type { Unbrand } from '../../../system/brand';
 import { getSettledValue } from '../../../system/promise';
 import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview';
@@ -34,33 +33,14 @@ import type {
 } from './protocol';
 
 export async function formatRepositories(repositories: Repository[]): Promise<GraphRepository[]> {
-	if (repositories.length === 0) return Promise.resolve([]);
+	if (!repositories.length) return [];
 
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
 			const remotes = await repo.git.remotes.getBestRemotesWithProviders();
 			const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
 
-			return {
-				formattedName: repo.name,
-				id: repo.id,
-				name: repo.name,
-				path: repo.path,
-				provider: remote?.provider
-					? {
-							name: remote.provider.name,
-							integration: remote.supportsIntegration()
-								? {
-										id: convertRemoteProviderIdToIntegrationId(remote.provider.id)!,
-										connected: remote.maybeIntegrationConnected ?? false,
-								  }
-								: undefined,
-							icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-							url: await remote.provider.url({ type: RemoteResourceType.Repo }),
-					  }
-					: undefined,
-				isVirtual: repo.provider.virtual,
-			};
+			return toRepositoryShapeWithProvider(repo, remote);
 		}),
 	);
 	return result.map(r => getSettledValue(r)).filter(r => r != null);

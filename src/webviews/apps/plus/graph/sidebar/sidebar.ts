@@ -77,7 +77,7 @@ export class GlGraphSideBar extends LitElement {
 
 	get include(): undefined | IconTypes[] {
 		const repo = this._state.repositories?.find(item => item.path === this._state.selectedRepository);
-		return repo?.isVirtual
+		return repo?.virtual
 			? (['branches', 'remotes', 'tags'] as const)
 			: (['branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
 	}

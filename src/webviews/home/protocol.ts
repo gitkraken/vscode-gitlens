@@ -7,6 +7,7 @@ import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
+import type { RepositoryShape } from '../../git/models/repositoryShape';
 import type { RemoteProviderSupportedFeatures } from '../../git/remotes/remoteProvider';
 import type { AIModel } from '../../plus/ai/models/model';
 import type { Subscription } from '../../plus/gk/models/subscription';
@@ -205,16 +206,7 @@ export interface GetOverviewBranch {
 	};
 }
 
-export interface OverviewRepository {
-	name: string;
-	path: string;
-	provider?: {
-		name: string;
-		icon?: string;
-		url?: string;
-		supportedFeatures: RemoteProviderSupportedFeatures;
-	};
-}
+export type OverviewRepository = RepositoryShape;
 
 // TODO: look at splitting off selected repo
 export type GetActiveOverviewResponse =

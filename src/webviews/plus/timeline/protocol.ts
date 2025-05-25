@@ -1,6 +1,7 @@
 import type { Uri } from 'vscode';
 import type { FeatureAccess } from '../../../features';
 import type { GitReference } from '../../../git/models/reference';
+import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { Serialized } from '../../../system/serialize';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
@@ -20,7 +21,7 @@ export interface State extends WebviewState {
 	};
 
 	scope: TimelineScopeSerialized | undefined;
-	repository: { id: string; name: string; ref: GitReference | undefined; uri: string; virtual: boolean } | undefined;
+	repository: (RepositoryShape & { ref: GitReference | undefined }) | undefined;
 
 	access: FeatureAccess;
 }
