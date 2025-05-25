@@ -194,7 +194,7 @@ export class GitProviderService implements Disposable {
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
-	private readonly _visitedPaths = new VisitedPathsTrie();
+	private readonly _searchedRepositoryPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
 		this._initializing = defer<number>();
@@ -1540,8 +1540,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		const path = getBestPath(uri);
-		let repository: Repository | undefined;
-		repository = this.getRepository(uri);
+		let repository: Repository | undefined = this.getRepository(uri);
 
 		if (repository == null && this._discoveringRepositories?.pending) {
 			await this._discoveringRepositories.promise;
@@ -1553,27 +1552,30 @@ export class GitProviderService implements Disposable {
 		const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
 		if (!detectNested) {
 			if (repository != null) return repository;
-		} else if (!options?.force && this._visitedPaths.has(path)) {
-			return repository;
-		} else {
-			const stats = await workspace.fs.stat(uri);
-
-			const bestPath = getBestPath(uri);
-
-			Logger.debug(
-				scope,
-				`Ensuring URI is a folder; repository=${repository?.toString()}, uri=${uri.toString(true)} stats.type=${
-					stats.type
-				}, bestPath=${bestPath}, visitedPaths.has=${this._visitedPaths.has(bestPath)}`,
-			);
-
-			// If the uri isn't a directory, go up one level
-			if ((stats.type & FileType.Directory) !== FileType.Directory) {
-				uri = Uri.joinPath(uri, '..');
-				if (!options?.force && this._visitedPaths.has(bestPath)) return repository;
+		} else if (!options?.force) {
+			// Check if we've seen this path before
+			if (this._searchedRepositoryPaths.has(path)) {
+				Logger.debug(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
+				return repository;
 			}
 
-			isDirectory = true;
+			const stats = await workspace.fs.stat(uri);
+			// If the uri isn't a directory, go up one level
+			if ((stats.type & FileType.Directory) !== FileType.Directory) {
+				// Check if we've seen it's parent before, since a file can't be a nested repository
+				if (this._searchedRepositoryPaths.hasParent(path)) {
+					Logger.debug(
+						scope,
+						`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
+					);
+					return repository;
+				}
+
+				uri = Uri.joinPath(uri, '..');
+				isDirectory = true;
+			} else {
+				isDirectory = true;
+			}
 		}
 
 		const key = asRepoComparisonKey(uri);
@@ -1583,12 +1585,12 @@ export class GitProviderService implements Disposable {
 				const { provider } = this.getProvider(uri);
 				const repoUri = await provider.findRepositoryUri(uri, isDirectory);
 
-				this._visitedPaths.set(path);
+				this._searchedRepositoryPaths.set(path);
 
 				if (repoUri == null) return undefined;
 
 				let root: Repository | undefined;
-				if (this._repositories.count !== 0) {
+				if (this._repositories.count) {
 					repository = this._repositories.get(repoUri);
 					if (repository != null) return repository;
 
