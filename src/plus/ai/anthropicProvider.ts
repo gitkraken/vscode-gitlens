@@ -8,15 +8,41 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-opus-4-0',
+		name: 'Claude 4 Opus',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+	},
+	{
+		id: 'claude-opus-4-20250514',
+		name: 'Claude 4 Opus',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'claude-sonnet-4-0',
+		name: 'Claude 4 Sonnet',
+		maxTokens: { input: 204800, output: 64000 },
+		provider: provider,
+	},
+	{
+		id: 'claude-sonnet-4-20250514',
+		name: 'Claude 4 Sonnet',
+		maxTokens: { input: 204800, output: 64000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'claude-3-7-sonnet-latest',
 		name: 'Claude 3.7 Sonnet',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 	},
 	{
 		id: 'claude-3-7-sonnet-20250219',
 		name: 'Claude 3.7 Sonnet',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
