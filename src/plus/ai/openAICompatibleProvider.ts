@@ -5,7 +5,7 @@ import { configuration } from '../../system/-webview/configuration';
 import type { AIModel } from './models/model';
 import { openAIModels } from './models/model';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { isAzureUrl } from './utils/-webview/ai.utils';
+import { ensureOrgConfiguredUrl, getOrgAIProviderOfType, isAzureUrl } from './utils/-webview/ai.utils';
 
 type OpenAICompatibleModel = AIModel<typeof provider.id>;
 const models: OpenAICompatibleModel[] = openAIModels(provider);
@@ -24,10 +24,14 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 	}
 
 	protected getUrl(_model?: AIModel<typeof provider.id>): string | undefined {
-		return configuration.get('ai.openaicompatible.url') ?? undefined;
+		return ensureOrgConfiguredUrl(this.id, configuration.get('ai.openaicompatible.url'));
 	}
 
 	private async getOrPromptBaseUrl(silent: boolean, hasApiKey: boolean): Promise<string | undefined> {
+		const orgConf = getOrgAIProviderOfType(this.id);
+		if (!orgConf.enabled) return undefined;
+		if (orgConf.url) return orgConf.url;
+
 		let url: string | undefined = this.getUrl();
 
 		if (silent || (url != null && hasApiKey)) return url;
