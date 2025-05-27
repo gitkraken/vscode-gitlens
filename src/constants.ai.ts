@@ -8,6 +8,7 @@ export type AIProviders =
 	| 'github'
 	| 'gitkraken'
 	| 'huggingface'
+	| 'mistral'
 	| 'ollama'
 	| 'openai'
 	| 'openaicompatible'
@@ -65,6 +66,13 @@ export const anthropicProviderDescriptor: AIProviderDescriptor<'anthropic'> = {
 export const geminiProviderDescriptor: AIProviderDescriptor<'gemini'> = {
 	id: 'gemini',
 	name: 'Google',
+	primary: false,
+	requiresAccount: true,
+	requiresUserKey: true,
+} as const;
+export const mistralProviderDescriptor: AIProviderDescriptor<'mistral'> = {
+	id: 'mistral',
+	name: 'Mistral',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,
