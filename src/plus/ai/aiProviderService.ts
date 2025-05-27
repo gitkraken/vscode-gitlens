@@ -9,6 +9,7 @@ import {
 	githubProviderDescriptor,
 	gitKrakenProviderDescriptor,
 	huggingFaceProviderDescriptor,
+	mistralProviderDescriptor,
 	ollamaProviderDescriptor,
 	openAICompatibleProviderDescriptor,
 	openAIProviderDescriptor,
@@ -166,6 +167,13 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...azureProviderDescriptor,
 			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './azureProvider')).AzureProvider),
+		},
+	],
+	[
+		'mistral',
+		{
+			...mistralProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './mistralProvider')).MistralProvider),
 		},
 	],
 	[
