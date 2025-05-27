@@ -10,7 +10,12 @@ import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
 import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
-import { getActionName, getOrPromptApiKey, getValidatedTemperature } from './utils/-webview/ai.utils';
+import {
+	getActionName,
+	getOrgAIProviderOfType,
+	getOrPromptApiKey,
+	getValidatedTemperature,
+} from './utils/-webview/ai.utils';
 
 export interface AIProviderConfig {
 	url: string;
@@ -36,6 +41,10 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 	}
 
 	async getApiKey(silent: boolean): Promise<string | undefined> {
+		const orgConf = getOrgAIProviderOfType(this.id);
+		if (!orgConf.enabled) return undefined;
+		if (orgConf.key) return orgConf.key;
+
 		const { keyUrl, keyValidator } = this.config;
 
 		return getOrPromptApiKey(

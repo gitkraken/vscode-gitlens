@@ -1,3 +1,5 @@
+import type { AIProviders } from '../../../constants.ai';
+
 export interface Organization {
 	readonly id: string;
 	readonly name: string;
@@ -20,7 +22,10 @@ export interface OrganizationMember {
 }
 
 export interface OrganizationSettings {
+	aiEnabled: boolean;
+	enforceAiProviders: boolean;
 	aiSettings: OrganizationSetting;
+	aiProviders: GkDevAIProviders;
 	draftsSettings: OrganizationDraftsSettings;
 }
 
@@ -38,4 +43,71 @@ export interface OrganizationDraftsSettings extends OrganizationSetting {
 				readonly provider: string;
 		  }
 		| undefined;
+}
+
+export type GkDevAIProviders = Partial<Record<GkDevAIProviderType, GkDevAIProvider>>;
+
+export interface GkDevAIProvider {
+	enabled: boolean;
+	url?: string;
+	key?: string;
+}
+
+export interface OrgAIProvider {
+	readonly type: AIProviders;
+	readonly enabled: boolean;
+	readonly url?: string;
+	readonly key?: string;
+}
+
+export type OrgAIProviders = Partial<Record<AIProviders, OrgAIProvider | undefined>>;
+export interface OrgAIConfig {
+	readonly aiEnabled: boolean;
+	readonly enforceAiProviders: boolean;
+	readonly aiProviders: OrgAIProviders;
+}
+
+export type GkDevAIProviderType = 'anthropic' | 'azure' | 'gitkraken_ai' | 'openai' | 'openai_compatible';
+
+export function fromGkDevAIProviderType(type: GkDevAIProviderType): AIProviders;
+export function fromGkDevAIProviderType(type: Exclude<unknown, GkDevAIProviderType>): never;
+export function fromGkDevAIProviderType(type: unknown): AIProviders | never {
+	switch (type) {
+		case 'anthropic':
+			return 'anthropic';
+		case 'azure':
+			return 'azure';
+		case 'gitkraken_ai':
+			return 'gitkraken';
+		case 'openai':
+			return 'openai';
+		case 'openai_compatible':
+			return 'openaicompatible';
+		case 'ollama':
+			return 'ollama';
+		default:
+			throw new Error(`Unknown AI provider type: ${String(type)}`);
+	}
+}
+
+function fromGkDevAIProvider(type: GkDevAIProviderType, provider: GkDevAIProvider): OrgAIProvider {
+	return {
+		type: fromGkDevAIProviderType(type),
+		enabled: provider.enabled,
+		url: provider.url,
+		key: provider.key,
+	};
+}
+
+export function fromGKDevAIProviders(providers?: GkDevAIProviders): OrgAIProviders {
+	const result: OrgAIProviders = {};
+	if (providers == null) return result;
+
+	Object.entries(providers).forEach(([type, provider]) => {
+		result[fromGkDevAIProviderType(type as GkDevAIProviderType)] = fromGkDevAIProvider(
+			type as GkDevAIProviderType,
+			provider,
+		);
+	});
+	return result;
 }
