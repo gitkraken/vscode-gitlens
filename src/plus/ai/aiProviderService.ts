@@ -65,7 +65,7 @@ import type {
 	PromptTemplateType,
 } from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
-import { ensureAccess } from './utils/-webview/ai.utils';
+import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
 export interface AIResult {
@@ -378,9 +378,10 @@ export class AIProviderService implements Disposable {
 	}
 
 	async getProvidersConfiguration(): Promise<Map<AIProviders, AIProviderDescriptorWithConfiguration>> {
+		const orgAiConfig = getOrgAIConfig();
 		const promises = await Promise.allSettled(
 			map(
-				supportedAIProviders.values(),
+				[...supportedAIProviders.values()].filter(p => isProviderEnabledByOrg(p.id, orgAiConfig)),
 				async p =>
 					[
 						p.id,

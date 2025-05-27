@@ -8,6 +8,7 @@ import { getContext } from '../../../../system/-webview/context';
 import { openSettingsEditor } from '../../../../system/-webview/vscode/editors';
 import { formatNumeric } from '../../../../system/date';
 import { getPossessiveForm, pluralize } from '../../../../system/string';
+import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils';
 import type { AIActionType, AIModel } from '../../models/model';
 
@@ -168,6 +169,35 @@ export function showPromptTruncationWarning(model: AIModel): void {
 
 export function isAzureUrl(url: string): boolean {
 	return url.includes('.azure.com');
+}
+
+export function getOrgAIConfig(): OrgAIConfig {
+	return {
+		aiEnabled: getContext('gitlens:gk:organization:ai:enabled', true),
+		enforceAiProviders: getContext('gitlens:gk:organization:ai:enforceProviders', false),
+		aiProviders: getContext('gitlens:gk:organization:ai:providers', {}),
+	};
+}
+
+export function getOrgAIProviderOfType(type: AIProviders, orgAiConfig?: OrgAIConfig): OrgAIProvider {
+	orgAiConfig ??= getOrgAIConfig();
+	if (!orgAiConfig.aiEnabled) return { type: type, enabled: false };
+	if (!orgAiConfig.enforceAiProviders) return { type: type, enabled: true };
+	return orgAiConfig.aiProviders[type] ?? { type: type, enabled: false };
+}
+
+export function isProviderEnabledByOrg(type: AIProviders, orgAiConfig?: OrgAIConfig): boolean {
+	return getOrgAIProviderOfType(type, orgAiConfig).enabled;
+}
+
+/**
+ * If the input value (userUrl) matches to the org configuration it returns it.
+ */
+export function ensureOrgConfiguredUrl(type: AIProviders, userUrl: null | undefined | string): string | undefined {
+	const provider = getOrgAIProviderOfType(type);
+	if (!provider.enabled) return undefined;
+
+	return provider.url || userUrl || undefined;
 }
 
 export async function ensureAccess(options?: { showPicker?: boolean }): Promise<boolean> {
