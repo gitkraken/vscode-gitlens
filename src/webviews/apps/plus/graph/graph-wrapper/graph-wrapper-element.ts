@@ -241,20 +241,24 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('rowdoubleclick', { detail: detail }));
 	};
 
-	private handleRowHover = (detail: {
-		graphZoneType: GraphZoneType;
-		graphRow: GraphRow;
-		clientX: number;
-		currentTarget: HTMLElement;
-	}): void => {
-		this.dispatchEvent(new CustomEvent('rowhover', { detail: detail }));
-	};
+	private handleRowHover = debounce(
+		(detail: {
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+			clientX: number;
+			currentTarget: HTMLElement;
+		}): void => {
+			this.dispatchEvent(new CustomEvent('rowhover', { detail: detail }));
+		},
+		250,
+	);
 
 	private handleRowUnhover = (detail: {
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
 		relatedTarget: EventTarget | null;
 	}): void => {
+		this.handleRowHover.cancel();
 		this.dispatchEvent(new CustomEvent('rowunhover', { detail: detail }));
 	};
 }
