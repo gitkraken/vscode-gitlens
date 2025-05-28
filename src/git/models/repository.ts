@@ -24,7 +24,7 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import type { GitProviderDescriptor } from '../gitProvider';
+import type { GitDir, GitProviderDescriptor } from '../gitProvider';
 import type { GitRepositoryService } from '../gitRepositoryService';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../utils/branch.utils';
 import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/reference.utils';
@@ -176,6 +176,7 @@ export class Repository implements Disposable {
 	private _fireFileSystemChangeDebounced: Deferrable<() => void> | undefined = undefined;
 	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
 	private _pendingRepoChange?: RepositoryChangeEvent;
+	private _repoWatchersDisposable: Disposable | undefined;
 	private _suspended: boolean;
 
 	constructor(
@@ -200,17 +201,12 @@ export class Repository implements Disposable {
 			}
 		} else {
 			this._name = basename(uri.path);
-
-			// TODO@eamodio should we create a fake workspace folder?
-			// folder = {
-			// 	uri: uri,
-			// 	name: this.name,
-			// 	index: container.git.repositoryCount,
-			// };
 		}
 
-		// Update the name if it is a worktree
-		void this.git.config.getGitDir?.().then(gd => {
+		void this.getGitDir().then(gd => {
+			this.setupRepoWatchers(gd);
+
+			// Update the name if it is a worktree
 			if (gd?.commonUri == null) return;
 
 			let path = gd.commonUri.path;
@@ -235,46 +231,7 @@ export class Repository implements Disposable {
 		this._disposable = Disposable.from(
 			this._onDidChange,
 			this._onDidChangeFileSystem,
-			this.setupRepoWatchers(),
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			// Sending this event in the `'git:cache:reset'` below to avoid unnecessary work. While we will refresh more than needed, this doesn't happen often
-			// container.richRemoteProviders.onAfterDidChangeConnectionState(async e => {
-			// 	const uniqueKeys = new Set<string>();
-			// 	for (const remote of await this.getRemotes()) {
-			// 		if (remote.provider?.hasRichIntegration()) {
-			// 			uniqueKeys.add(remote.provider.key);
-			// 		}
-			// 	}
-
-			// 	if (uniqueKeys.has(e.key)) {
-			// 		this.fireChange(RepositoryChange.RemoteProviders);
-			// 	}
-			// }),
-		);
-
-		this.onConfigurationChanged();
-		if (this._orderByLastFetched) {
-			void this.getLastFetched();
-		}
-	}
-
-	private setupRepoWatchers() {
-		let disposable: Disposable | undefined;
-
-		void this.setupRepoWatchersCore().then(d => (disposable = d));
-
-		return {
-			dispose: () => void disposable?.dispose(),
-		};
-	}
-
-	@debug({ singleLine: true })
-	private async setupRepoWatchersCore() {
-		const scope = getLogScope();
-
-		const disposables: Disposable[] = [];
-
-		disposables.push(
 			this.container.events.on('git:cache:reset', e => {
 				if (!e.data.repoPath || e.data.repoPath === this.path) {
 					if (e.data.types?.includes('providers')) {
@@ -289,44 +246,15 @@ export class Repository implements Disposable {
 			}),
 		);
 
-		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**/.gitignore'));
-		disposables.push(
-			watcher,
-			watcher.onDidChange(this.onGitIgnoreChanged, this),
-			watcher.onDidCreate(this.onGitIgnoreChanged, this),
-			watcher.onDidDelete(this.onGitIgnoreChanged, this),
-		);
-
-		function watch(this: Repository, uri: Uri, pattern: string) {
-			Logger.debug(scope, `watching '${uri.toString(true)}' for repository changes`);
-
-			const watcher = workspace.createFileSystemWatcher(new RelativePattern(uri, pattern));
-
-			disposables.push(
-				watcher,
-				watcher.onDidChange(e => this.onRepositoryChanged(e, uri, 'change')),
-				watcher.onDidCreate(e => this.onRepositoryChanged(e, uri, 'create')),
-				watcher.onDidDelete(e => this.onRepositoryChanged(e, uri, 'delete')),
-			);
-			return watcher;
+		this.onConfigurationChanged();
+		if (this._orderByLastFetched) {
+			void this.getLastFetched();
 		}
-
-		const gitDir = await this.git.config.getGitDir?.();
-		if (gitDir != null) {
-			if (gitDir?.commonUri == null) {
-				watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
-			} else {
-				watch.call(this, gitDir.uri, dotGitWatcherGlobRoot);
-				watch.call(this, gitDir.commonUri, dotGitWatcherGlobCommon);
-			}
-		}
-
-		return Disposable.from(...disposables);
 	}
 
 	dispose(): void {
 		this.unWatchFileSystem(true);
-
+		this._repoWatchersDisposable?.dispose();
 		this._disposable.dispose();
 	}
 
@@ -344,6 +272,7 @@ export class Repository implements Disposable {
 		if (changed) {
 			using scope = startLogScope(`${getLoggableName(this)}.closed`, false);
 			Logger.debug(scope, `setting closed=${value}`);
+			void this.getGitDir().then(gd => this.setupRepoWatchers(gd));
 			this.fireChange(this._closed ? RepositoryChange.Closed : RepositoryChange.Opened);
 		}
 	}
@@ -601,7 +530,7 @@ export class Repository implements Disposable {
 
 	@log({ exit: true })
 	async getCommonRepositoryUri(): Promise<Uri | undefined> {
-		const gitDir = await this.git.config.getGitDir?.();
+		const gitDir = await this.getGitDir();
 		if (gitDir?.commonUri?.path.endsWith('/.git')) {
 			return gitDir.commonUri.with({
 				path: gitDir.commonUri.path.substring(0, gitDir.commonUri.path.length - 5),
@@ -1008,10 +937,74 @@ export class Repository implements Disposable {
 		this._onDidChangeFileSystem.fire(e);
 	}
 
+	private _gitDirPromise: Promise<GitDir | undefined> | undefined;
+	private async getGitDir(): Promise<GitDir | undefined> {
+		return (this._gitDirPromise ??= this.git.config.getGitDir?.());
+	}
+
 	private async runTerminalCommand(command: string, ...args: string[]) {
 		await this.git.runGitCommandViaTerminal?.(command, args, { execute: true });
 
 		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
+	}
+
+	@debug({ singleLine: true })
+	private setupRepoWatchers(gitDir: GitDir | undefined): void {
+		const scope = getLogScope();
+
+		if (this.closed) {
+			if (this._repoWatchersDisposable != null) {
+				Logger.debug(
+					getLogScope(),
+					`(closed) stop watching '${this.uri.toString(true)}' for repository changes`,
+				);
+				this._repoWatchersDisposable.dispose();
+				this._repoWatchersDisposable = undefined;
+			}
+
+			return;
+		}
+
+		if (this._repoWatchersDisposable != null) return;
+
+		const disposables: Disposable[] = [];
+
+		// If the repository is not part of the workspace, then limit watching to only the .gitignore file at the root of the repository
+		const gitIgnorePattern = this.folder != null ? '**/.gitignore' : '.gitignore';
+		Logger.debug(scope, `watching '${this.uri.toString(true)}/${gitIgnorePattern}' for .gitignore changes`);
+
+		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, gitIgnorePattern));
+		disposables.push(
+			watcher,
+			watcher.onDidChange(this.onGitIgnoreChanged, this),
+			watcher.onDidCreate(this.onGitIgnoreChanged, this),
+			watcher.onDidDelete(this.onGitIgnoreChanged, this),
+		);
+
+		function watch(this: Repository, uri: Uri, pattern: string) {
+			Logger.debug(scope, `watching '${uri.toString(true)}/${pattern}' for repository changes`);
+
+			const watcher = workspace.createFileSystemWatcher(new RelativePattern(uri, pattern));
+
+			disposables.push(
+				watcher,
+				watcher.onDidChange(e => this.onRepositoryChanged(e, uri, 'change')),
+				watcher.onDidCreate(e => this.onRepositoryChanged(e, uri, 'create')),
+				watcher.onDidDelete(e => this.onRepositoryChanged(e, uri, 'delete')),
+			);
+			return watcher;
+		}
+
+		if (gitDir != null) {
+			if (gitDir?.commonUri == null) {
+				watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
+			} else {
+				watch.call(this, gitDir.uri, dotGitWatcherGlobRoot);
+				watch.call(this, gitDir.commonUri, dotGitWatcherGlobCommon);
+			}
+		}
+
+		this._repoWatchersDisposable = Disposable.from(...disposables);
 	}
 }
 
