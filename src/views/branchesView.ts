@@ -110,6 +110,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 

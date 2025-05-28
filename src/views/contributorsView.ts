@@ -115,6 +115,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			return children;
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 

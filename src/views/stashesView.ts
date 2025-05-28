@@ -78,6 +78,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
