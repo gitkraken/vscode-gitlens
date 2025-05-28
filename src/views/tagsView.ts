@@ -79,6 +79,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 

@@ -92,6 +92,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 

@@ -106,6 +106,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			return grandChildren;
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
