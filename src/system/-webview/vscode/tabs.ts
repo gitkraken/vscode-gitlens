@@ -1,6 +1,7 @@
 import type { Tab } from 'vscode';
 import { Uri, window } from 'vscode';
 import { areUrisEqual } from '../../uri';
+import { isTrackableUri } from './uris';
 
 export function getTabUri(tab: Tab | undefined): Uri | undefined {
 	const input = tab?.input;
@@ -42,6 +43,11 @@ export function getVisibleTabs(uri: Uri): Tab[] {
 		.flatMap(g => g.tabs)
 		.filter(t => t.isActive && tabContainsUri(t, uri))
 		.sort((a, b) => (a.group.isActive ? -1 : 1) - (b.group.isActive ? -1 : 1));
+}
+
+export function isTrackableTab(tab: Tab | undefined): boolean {
+	const uri = getTabUri(tab);
+	return uri != null ? isTrackableUri(uri) : false;
 }
 
 export function tabContainsUri(tab: Tab | undefined, uri: Uri | undefined): boolean {

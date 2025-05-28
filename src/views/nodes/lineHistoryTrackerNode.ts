@@ -139,10 +139,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return { cancel: !updated };
 	}
+
 	@debug()
 	protected async subscribe(): Promise<Disposable | undefined> {
 		await this.updateUri();
-
 		if (this.view.container.lineTracker.subscribed(this)) return undefined;
 
 		const onActiveLinesChanged = debounce(this.onActiveLinesChanged.bind(this), 250);
@@ -172,6 +172,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	private onActiveLinesChanged(_e: LinesChangeEvent) {
 		void this.triggerChange();
 	}
+
 	@gate()
 	@log()
 	async changeBase(): Promise<void> {
