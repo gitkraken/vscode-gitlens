@@ -1,5 +1,5 @@
-import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Disposable, TextEditor } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { ensureWorkingUri } from '../../git/gitUri.utils';
@@ -66,6 +66,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				this.view.description = this.view.grouped ? this.view.groupedLabel : undefined;
 
 				this.view.message = 'There are no editors open that can provide file history information.';
+				this.children = undefined;
 				return [];
 			}
 
@@ -97,7 +98,14 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			this.child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
 
-		return this.child.getChildren();
+		const children = this.child.getChildren();
+		void children.then(children => {
+			this.children = children;
+			if (this._selectSha != null) {
+				setTimeout(() => void this.revealCommit(), 250);
+			}
+		});
+		return children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -122,18 +130,16 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			this.reset();
 		}
 
-		const updated = await this.updateUri();
+		const updated = await this.updateUri(this._selectSha);
 		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return { cancel: !updated };
 	}
 
 	@debug()
-	protected async subscribe(): Promise<Disposable> {
-		await this.updateUri();
+	protected async subscribe(): Promise<Disposable | undefined> {
+		await this.updateUri(this._selectSha);
 
-		return Disposable.from(
-			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
-		);
+		return weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this);
 	}
 
 	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
@@ -143,10 +149,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		// For virtual repositories the active editor event takes a while to fire
 		// Ultimately we need to be using the upcoming Tabs api to avoid this
 		if (editor == null && isVirtualUri(this._uri)) {
-			if (this._triggerChangeDebounced == null) {
-				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
-			}
-
+			this._triggerChangeDebounced ??= debounce(() => this.triggerChange(), 1500);
 			void this._triggerChangeDebounced();
 			return;
 		}
@@ -194,8 +197,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@debug()
-	setUri(uri?: GitUri): void {
+	setUri(uri?: GitUri, sha?: string): void {
 		this._uri = uri ?? unknownGitUri;
+		this._selectSha = sha ?? uri?.sha;
 		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}
 
@@ -208,9 +212,12 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	private reset() {
 		this.setUri();
 		this.child = undefined;
+		this._selectSha = undefined;
 	}
 
-	private async updateUri(): Promise<boolean> {
+	private _selectSha: string | undefined;
+
+	private async updateUri(sha?: string): Promise<boolean> {
 		const editor = window.activeTextEditor;
 		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
 			if (
@@ -225,16 +232,20 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			return true;
 		}
 
+		let gitUri = await GitUri.fromUri(editor.document.uri);
+
 		if (editor.document.uri.path === this.uri.path) {
+			this._selectSha = sha ?? gitUri.sha;
+			queueMicrotask(() => void this.revealCommit());
 			return false;
 		}
-
-		let gitUri = await GitUri.fromUri(editor.document.uri);
 
 		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
 		const uri = await ensureWorkingUri(this.view.container, gitUri);
 
 		if (this.hasUri && areUrisEqual(uri ?? gitUri, this.uri)) {
+			this._selectSha = sha ?? gitUri.sha;
+			queueMicrotask(() => void this.revealCommit());
 			return false;
 		}
 
@@ -248,9 +259,35 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			return true;
 		}
 
-		this.setUri(gitUri);
+		this.setUri(gitUri, sha);
 		this.child = undefined;
 
 		return true;
+	}
+
+	async revealCommit(): Promise<void> {
+		const sha = this._selectSha;
+		this._selectSha = undefined;
+
+		const { children } = this;
+		if (!children?.length) return;
+
+		let node;
+		if (sha == null || sha === 'HEAD') {
+			[node] = children;
+		} else {
+			node = children.find(n =>
+				n.is('file-commit') || n.is('commit') ? n.commit?.sha?.startsWith(sha) ?? false : false,
+			);
+			if (!node) {
+				node = children[children.length - 1];
+				if (!node.is('pager')) {
+					node = undefined;
+				}
+			}
+		}
+		if (!node) return;
+
+		await this.view.reveal(node, { select: true, focus: false });
 	}
 }
