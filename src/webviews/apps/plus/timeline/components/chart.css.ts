@@ -348,7 +348,7 @@ export const timelineChartStyles = css`
 		font-family: var(--font-family);
 	}
 
-	:host-context(:host[placement='view']) .bb .bb-button {
+	:host-context([data-placement='view']) .bb .bb-button {
 		margin-right: 2.8rem;
 	}
 
@@ -392,7 +392,7 @@ export const timelineChartStyles = css`
 		opacity: 0;
 	}
 
-	:host-context(:host[placement='view']) .notice--blur {
+	:host-context([data-placement='view']) .notice--blur {
 		animation-delay: 0.5s;
 	}
 
@@ -477,25 +477,25 @@ export const timelineChartStyles = css`
 		white-space: pre-line;
 	}
 
-	:host-context(:host[placement='editor']) .bb-axis-y .tick text {
+	:host-context([data-placement='editor']) .bb-axis-y .tick text {
 		fill: var(--color-foreground--85);
 	}
 
-	:host-context(:host[placement='view']) .bb-axis-y .tick text {
+	:host-context([data-placement='view']) .bb-axis-y .tick text {
 		transform: translate(0, 0.4rem);
 		font-family: codicon;
 		font-size: 1.5rem;
 	}
 
 	@media (max-height: 275px) {
-		:host-context(:host[placement='view']) .bb-axis-y .tick text {
+		:host-context([data-placement='view']) .bb-axis-y .tick text {
 			transform: none;
 			font-size: 1rem;
 		}
 	}
 
 	@media (max-height: 225px) {
-		:host-context(:host[placement='view']) .bb-axis-y .tick text {
+		:host-context([data-placement='view']) .bb-axis-y .tick text {
 			display: none;
 		}
 	}

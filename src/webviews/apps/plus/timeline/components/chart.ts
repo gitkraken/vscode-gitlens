@@ -158,13 +158,6 @@ export class GlTimelineChart extends GlElement {
 		super.disconnectedCallback();
 	}
 
-	// override firstUpdated(changedProperties: PropertyValues): void {
-	// 	if (!changedProperties.has('dataPromise')) {
-	// 		this.updateChart();
-	// 	}
-	// 	super.firstUpdated(changedProperties);
-	// }
-
 	override update(changedProperties: PropertyValues): void {
 		if (changedProperties.has('dataPromise') || this.dataPromise == null) {
 			this.updateChart();
@@ -765,7 +758,11 @@ export class GlTimelineChart extends GlElement {
 							padding: { top: 75, bottom: 75 },
 							tick: {
 								format: (y: number) => {
-									if (this.compact) return this.sliceBy === 'branch' ? '\u{EA68}' : '\u{EB99}';
+									if (this.compact) {
+										return this.sliceBy === 'branch'
+											? '\u{EA68}' /* git-branch codicon */
+											: '\u{EB99}' /* account codicon */;
+									}
 									return truncateMiddle(this._slicesByIndex.get(y) ?? '', 30);
 								},
 								outer: true,
