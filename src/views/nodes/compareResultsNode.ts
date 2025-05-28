@@ -20,8 +20,6 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
-let instanceId = 0;
-
 type State = {
 	filterCommits: GitUser[] | undefined;
 };
@@ -32,8 +30,6 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	ViewNode,
 	State
 > {
-	private _instanceId: number;
-
 	constructor(
 		view: SearchAndCompareView,
 		protected override readonly parent: ViewNode,
@@ -44,9 +40,8 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	) {
 		super('compare-results', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._instanceId = instanceId++;
 		this.updateContext({
-			comparisonId: `${_ref.ref}+${_compareWith.ref}+${this._instanceId}`,
+			comparisonId: `${_ref.ref}+${_compareWith.ref}`,
 			storedComparisonId: this.getStorageId(),
 		});
 		this._uniqueId = getViewNodeId(this.type, this.context);

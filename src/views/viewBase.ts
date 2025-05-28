@@ -1,6 +1,7 @@
 import type {
 	CancellationToken,
 	ConfigurationChangeEvent,
+	Disposable,
 	Event,
 	TreeCheckboxChangeEvent,
 	TreeDataProvider,
@@ -11,7 +12,7 @@ import type {
 	TreeViewVisibilityChangeEvent,
 	ViewBadge,
 } from 'vscode';
-import { Disposable, EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
+import { EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
 import type {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -292,10 +293,8 @@ export abstract class ViewBase<
 
 	dispose(): void {
 		this._disposed = true;
-		this._nodeState?.dispose();
-		this._nodeState = undefined;
 		this.root?.dispose();
-		Disposable.from(...this.disposables).dispose();
+		this.disposables.forEach(d => void d.dispose());
 	}
 
 	private onReady() {
@@ -326,6 +325,7 @@ export abstract class ViewBase<
 	get nodeState(): ViewNodeState {
 		if (this._nodeState == null) {
 			this._nodeState = new ViewNodeState();
+			this.disposables.push(this._nodeState);
 		}
 
 		return this._nodeState;
@@ -836,7 +836,7 @@ export abstract class ViewBase<
 				return;
 			}
 
-			const n = await this.findNodeCoreBFS(n => n.id === node.id, root, false, undefined, 1, undefined);
+			const n = await this.findNodeCoreBFS(n => n.id === node.id, root, false, undefined, 0, undefined);
 			if (n == null) {
 				Logger.error(ex, scope);
 				debugger;

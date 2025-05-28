@@ -14,8 +14,6 @@ import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 
-let instanceId = 0;
-
 interface SearchQueryResults {
 	readonly label: string;
 	readonly log: GitLog | undefined;
@@ -24,8 +22,6 @@ interface SearchQueryResults {
 }
 
 export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompareView> implements PageableViewNode {
-	private _instanceId: number;
-
 	constructor(
 		view: SearchAndCompareView,
 		protected override readonly parent: ViewNode,
@@ -33,12 +29,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		private _search: SearchQuery,
 		private _labels: {
 			label: string;
-			queryLabel:
-				| string
-				| {
-						label: string;
-						resultsType?: { singular: string; plural: string };
-				  };
+			queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
 			resultsType?: { singular: string; plural: string };
 		},
 		private _searchQueryOrLog?:
@@ -50,8 +41,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 	) {
 		super('search-results', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._instanceId = instanceId++;
-		this.updateContext({ searchId: `${getSearchQueryComparisonKey(this._search)}+${this._instanceId}` });
+		this.updateContext({ searchId: getSearchQueryComparisonKey(this._search) });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		// If this is a new search, save it
