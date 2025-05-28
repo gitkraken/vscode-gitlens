@@ -324,12 +324,18 @@ export class AIProviderService implements Disposable {
 
 		let chosenProviderId: AIProviders | undefined;
 		let chosenModel: AIModel | undefined;
+		const orgAiConf = getOrgAIConfig();
 
 		if (!options?.force) {
-			const vsCodeModels = await this.getModels('vscode');
-			if (vsCodeModels.length !== 0) {
-				chosenProviderId = 'vscode';
-			} else if ((await this.container.subscription.getSubscription()).account?.verified) {
+			if (isProviderEnabledByOrg('vscode', orgAiConf)) {
+				const vsCodeModels = await this.getModels('vscode');
+				if (vsCodeModels.length !== 0) {
+					chosenProviderId = 'vscode';
+				}
+			} else if (
+				isProviderEnabledByOrg('gitkraken', orgAiConf) &&
+				(await this.container.subscription.getSubscription()).account?.verified
+			) {
 				chosenProviderId = 'gitkraken';
 				const gitkrakenModels = await this.getModels('gitkraken');
 				chosenModel = gitkrakenModels.find(m => m.default);
@@ -419,6 +425,12 @@ export class AIProviderService implements Disposable {
 		} else {
 			model = modelOrProviderId;
 			providerId = model.provider.id;
+		}
+
+		if (providerId && !isProviderEnabledByOrg(providerId)) {
+			this._provider = undefined;
+			this._model = undefined;
+			return undefined;
 		}
 
 		let changed = false;
