@@ -20,9 +20,11 @@ export async function openUrl(url?: string): Promise<boolean | undefined> {
 	// vscode.d.ts currently says it only supports a Uri, but it actually accepts a string too
 	return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(url);
 }
+
 export function isTrackableUri(uri: Uri): boolean {
 	return trackableSchemes.has(uri.scheme as Schemes);
 }
+
 export function isVirtualUri(uri: Uri): boolean {
 	return uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub;
 }
