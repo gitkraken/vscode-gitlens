@@ -94,16 +94,12 @@ export class GlTimelineApp extends GlAppHost<State> {
 		return !this.repository?.virtual;
 	}
 
-	get isSliceByAllowed() {
-		return this.config.showAllBranches && this.isSliceBySupported;
-	}
-
 	get isSliceBySupported() {
 		return !this.repository?.virtual && (this.scope?.type === 'file' || this.scope?.type === 'folder');
 	}
 
 	get sliceBy() {
-		return this.isSliceByAllowed ? this.config.sliceBy : 'author';
+		return this.isSliceBySupported && this.config.showAllBranches ? this.config.sliceBy : 'author';
 	}
 
 	get subscription() {
@@ -465,27 +461,22 @@ export class GlTimelineApp extends GlAppHost<State> {
 	private renderConfigSliceBy() {
 		if (!this.isSliceBySupported) return nothing;
 
-		const { sliceBy, isSliceByAllowed } = this;
-
-		const template = html`<label for="sliceBy" ?disabled=${!isSliceByAllowed}>Slice By</label>
-			<select
-				class="select"
-				name="sliceBy"
-				position="below"
-				.value=${sliceBy}
-				?disabled=${!isSliceByAllowed}
-				@change=${this.onSliceByChanged}
-			>
-				<option value="author" ?selected=${sliceBy === 'author'}>Author</option>
-				<option value="branch" ?selected=${sliceBy === 'branch'}>Branch</option>
-			</select>`;
-
-		if (isSliceByAllowed) return html`<section><span class="select-container">${template}</span></section>`;
+		const { sliceBy } = this;
 
 		return html`<section>
-			<gl-tooltip style="width: 100%" content="Slicing by branches is only available when viewing all branches">
-				<span class="select-container">${template}</span>
-			</gl-tooltip>
+			<span class="select-container"
+				><label for="sliceBy">Slice By</label>
+				<select
+					class="select"
+					name="sliceBy"
+					position="below"
+					.value=${sliceBy}
+					@change=${this.onSliceByChanged}
+				>
+					<option value="author" ?selected=${sliceBy === 'author'}>Author</option>
+					<option value="branch" ?selected=${sliceBy === 'branch'}>Branch</option>
+				</select></span
+			>
 		</section>`;
 	}
 

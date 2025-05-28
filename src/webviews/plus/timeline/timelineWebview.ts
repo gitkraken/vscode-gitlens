@@ -452,11 +452,19 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (changes.showAllBranches != null && changes.showAllBranches !== config.showAllBranches) {
 			changed = true;
 			config.showAllBranches = changes.showAllBranches;
+
+			if (config.sliceBy === 'branch' && !config.showAllBranches) {
+				config.sliceBy = 'author';
+			}
 		}
 
 		if (changes.sliceBy != null && changes.sliceBy !== config.sliceBy) {
 			changed = true;
 			config.sliceBy = changes.sliceBy;
+
+			if (config.sliceBy === 'branch' && !config.showAllBranches) {
+				config.showAllBranches = true;
+			}
 		}
 
 		if (changed) {
