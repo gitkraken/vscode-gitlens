@@ -11,11 +11,7 @@ import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 
-let instanceId = 0;
-
 export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', ViewsWithCommits> {
-	private _instanceId: number;
-
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: PageableViewNode,
@@ -25,8 +21,6 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 	) {
 		super('autolinks', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._instanceId = instanceId++;
-		this.updateContext({ autolinksId: String(this._instanceId) });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 

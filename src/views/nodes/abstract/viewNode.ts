@@ -111,7 +111,6 @@ export const enum ContextValues {
 }
 
 export interface AmbientContext {
-	readonly autolinksId?: string;
 	readonly branch?: GitBranch;
 	readonly branchStatus?: BranchTrackingStatus;
 	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'missing' | 'none';
@@ -197,9 +196,6 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 			context.contributor.id ??
 			`${context.contributor.username}+${context.contributor.email}+${context.contributor.name}`
 		}`;
-	}
-	if (context.autolinksId != null) {
-		uniqueness += `/autolinks/${context.autolinksId}`;
 	}
 	if (context.comparisonId != null) {
 		uniqueness += `/comparison/${context.comparisonId}`;
