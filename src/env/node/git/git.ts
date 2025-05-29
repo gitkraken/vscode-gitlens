@@ -411,9 +411,11 @@ export class Git implements Disposable {
 			const onAbort = () => aborter.abort();
 
 			const signal = spawnOpts.signal;
+			const cancellationDisposable = cancellation.onCancellationRequested(onAbort);
+
 			disposable = {
 				dispose: () => {
-					cancellation?.onCancellationRequested(onAbort);
+					cancellationDisposable.dispose();
 					signal?.removeEventListener('abort', onAbort);
 				},
 			};
