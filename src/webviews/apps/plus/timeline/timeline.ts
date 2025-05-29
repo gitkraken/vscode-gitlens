@@ -33,9 +33,11 @@ import '../../shared/components/copy-container';
 import '../../shared/components/feature-badge';
 import '../../shared/components/feature-gate';
 import '../../shared/components/menu/menu-label';
-import '../../shared/components/ref-button';
 import '../../shared/components/progress';
 import '../../shared/components/overlays/popover';
+import '../../shared/components/ref-button';
+import '../../shared/components/ref-name';
+import '../../shared/components/repo-button-group';
 
 @customElement('gl-timeline-app')
 export class GlTimelineApp extends GlAppHost<State> {
@@ -175,7 +177,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 			${this.renderRepositoryBreadcrumbItem()}
 			${this.renderBranchBreadcrumbItem()}${this.renderBreadcrumbPathItems()}
 			${this.placement === 'editor'
-				? html` <gl-button
+				? html`<gl-button
 						appearance="toolbar"
 						density="compact"
 						@click=${this.onChoosePath}
@@ -197,13 +199,19 @@ export class GlTimelineApp extends GlAppHost<State> {
 			shrink="10000000"
 			type="repo"
 		>
-			<gl-button
-				appearance="toolbar"
-				density="compact"
-				@click=${this.onChangeScope}
-				tooltip="Visualize Repository History&#10;&#10;${repo.name}"
-				aria-label="Visualize Repository History&#10;&#10;${repo.name}"
-				>${repo.name}</gl-button
+			<gl-repo-button-group
+				aria-label="Visualize Repository History"
+				.connectIcon=${false}
+				.hasMultipleRepositories=${false /* TODO support repositories switching */}
+				.icon=${false}
+				.repository=${repo}
+				.source=${{ source: 'timeline' } as const}
+				@gl-click=${this.onChangeScope}
+				><span slot="tooltip">
+					Visualize Repository History
+					<hr />
+					${repo.name}
+				</span></gl-repo-button-group
 			>
 		</gl-breadcrumb-item>`;
 	}
@@ -220,12 +228,15 @@ export class GlTimelineApp extends GlAppHost<State> {
 			shrink="100000"
 			type="ref"
 		>
-			<gl-ref-button
-				.ref=${showAllBranches ? undefined : head}
-				tooltip="Choose Branch&#10;&#10;${showAllBranches ? 'Showing All Branches' : head?.name || 'HEAD'}"
-				aria-label="Choose Branch&#10;&#10;${showAllBranches ? 'Showing All Branches' : head?.name || 'HEAD'}"
-				@click=${this.onChooseHeadRef}
-				><span slot="empty">All Branches</span></gl-ref-button
+			<gl-ref-button .ref=${showAllBranches ? undefined : head} @click=${this.onChooseHeadRef}
+				><span slot="empty">All Branches</span
+				><span slot="tooltip"
+					>Change Reference...
+					<hr />
+					${showAllBranches
+						? 'Showing All Branches'
+						: html`<gl-ref-name icon .ref=${head}></gl-ref-name>`}</span
+				></gl-ref-button
 			>
 		</gl-breadcrumb-item>`;
 	}
@@ -255,9 +266,12 @@ export class GlTimelineApp extends GlAppHost<State> {
 					<gl-button
 						appearance="toolbar"
 						@click=${this.onChangeScope}
-						tooltip="Visualize Folder History&#10;&#10;${rootPart}"
-						aria-label="Visualize Folder History &#10;&#10;${rootPart}"
-						>${rootPart}</gl-button
+						aria-label="Visualize folder history of ${rootPart}"
+						>${rootPart}<span slot="tooltip"
+							>Visualize Folder History
+							<hr />
+							${rootPart}</span
+						></gl-button
 					>
 
 					${parts.length
@@ -271,9 +285,12 @@ export class GlTimelineApp extends GlAppHost<State> {
 										<gl-button
 											appearance="toolbar"
 											@click=${this.onChangeScope}
-											tooltip="Visualize Folder History&#10;&#10;${fullPath}"
-											aria-label="Visualize Folder History&#10;&#10;${fullPath}"
-											>${part}</gl-button
+											aria-label="Visualize folder history of ${fullPath}"
+											>${part}<span slot="tooltip"
+												>Visualize Folder History
+												<hr />
+												${fullPath}</span
+											></gl-button
 										>
 									</gl-breadcrumb-item-child>`;
 								})}
@@ -368,11 +385,17 @@ export class GlTimelineApp extends GlAppHost<State> {
 				name="head"
 				?disabled=${disabled}
 				icon
-				tooltip="Change Reference"
 				.ref=${head}
 				location="config"
 				@click=${this.onChooseHeadRef}
-			></gl-ref-button>
+				><span slot="tooltip"
+					>Change Reference...
+					<hr />
+					${this.config.showAllBranches
+						? 'Showing All Branches'
+						: html`<gl-ref-name icon .ref=${head}></gl-ref-name>`}</span
+				></gl-ref-button
+			>
 		</section>`;
 
 		// Commenting out for now, until base is ready

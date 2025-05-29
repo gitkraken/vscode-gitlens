@@ -4,7 +4,6 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { when } from 'lit/directives/when.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
@@ -16,7 +15,8 @@ import type {
 	State,
 } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { linkStyles } from '../../shared/components/vscode.css';
+import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
+import { linkStyles, ruleStyles } from '../../shared/components/vscode.css';
 import { branchCardStyles, GlBranchCardBase } from './branch-card';
 import type { ActiveOverviewState } from './overviewState';
 import { activeOverviewStateContext } from './overviewState';
@@ -28,8 +28,8 @@ import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/menu/menu-label';
 import '../../../shared/components/overlays/popover';
-import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
+import '../../../shared/components/repo-button-group';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../shared/components/merge-rebase-status';
@@ -41,25 +41,46 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
 		branchCardStyles,
+		ruleStyles,
 		css`
 			[hidden] {
 				display: none;
 			}
+
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
 				color: var(--vscode-foreground);
 			}
-			.section-heading-action {
-				--button-padding: 0.1rem 0.2rem 0;
-				margin-block: -1rem;
+
+			gl-repo-button-group {
+				text-transform: none;
 			}
+
+			gl-section::part(header) {
+				margin-block-end: 0.2rem;
+			}
+
+			.section-heading-actions {
+				flex: none;
+				display: flex;
+				align-items: center;
+			}
+
+			.section-heading-action {
+				--button-padding: 0.2rem;
+				--button-line-height: 1.2rem;
+				/* margin-block: -1rem; */
+			}
+
 			.section-heading-provider {
 				color: inherit;
 			}
+
 			.tooltip {
 				text-transform: none;
 			}
+
 			.uppercase {
 				text-transform: uppercase;
 			}
@@ -121,27 +142,24 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		const repo = overview?.repository;
 		const activeBranch = overview?.active;
 		if (!repo || !activeBranch) return html`<span>None</span>`;
+		const hasMultipleRepositories = this._homeState.repositories.openCount > 1;
 
 		return html`
 			<gl-section ?loading=${isFetching}>
-				<span slot="heading">
-					${this.renderRepositoryIcon(repo.provider)}
-					${when(
-						this._homeState.repositories.openCount > 1,
-						() =>
-							html`<gl-button
-								aria-busy="${ifDefined(isFetching)}"
-								?disabled=${isFetching}
-								class="section-heading-action"
-								appearance="toolbar"
-								tooltip="Change Repository"
-								@click=${(e: MouseEvent) => this.onChange(e)}
-								><span class="uppercase">${repo.name}</span><code-icon icon="chevron-down"></code-icon
-							></gl-button>`,
-						() => html`${repo.name}`,
-					)}
-				</span>
-				<span slot="heading-actions">
+				<gl-repo-button-group
+					slot="heading"
+					.repository=${repo}
+					?disabled=${!hasMultipleRepositories}
+					?hasMultipleRepositories=${hasMultipleRepositories}
+					.source=${{ source: 'graph' } as const}
+					@gl-click=${this.onRepositorySelectorClicked}
+					><span slot="tooltip">
+						Switch to Another Repository...
+						<hr />
+						${repo.name}
+					</span></gl-repo-button-group
+				>
+				<span class="section-heading-actions" slot="heading-actions">
 					<gl-button
 						aria-busy="${ifDefined(isFetching)}"
 						?disabled=${isFetching}
@@ -180,29 +198,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private renderRepositoryIcon(provider?: { name: string; icon?: string; url?: string }) {
-		if (!provider) {
-			return html`<code-icon icon="repo" class="heading-icon"></code-icon>`;
-		}
-
-		let icon = 'repo';
-		if (provider.icon != null) {
-			icon = provider.icon === 'cloud' ? 'cloud' : `gl-provider-${provider.icon}`;
-		}
-
-		return html`<gl-tooltip>
-			${when(
-				provider.url != null,
-				() =>
-					html`<a href=${provider.url!} class="section-heading-provider"
-						><code-icon icon=${icon} class="heading-icon"></code-icon
-					></a>`,
-				() => html`<code-icon icon=${icon} class="heading-icon"></code-icon>`,
-			)}
-			<span slot="content" class="tooltip">Open Repository on ${provider.name}</span>
-		</gl-tooltip>`;
-	}
-
 	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string, isFetching: boolean) {
 		return html`<gl-active-branch-card
 			.branch=${branch}
@@ -212,8 +207,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		></gl-active-branch-card>`;
 	}
 
-	private onChange(_e: MouseEvent) {
-		this._activeOverviewState.changeRepository();
+	private onRepositorySelectorClicked(e: CustomEvent<RepoButtonGroupClickEvent>) {
+		if (e.detail.part === 'label') {
+			this._activeOverviewState.changeRepository();
+		}
 	}
 }
 
