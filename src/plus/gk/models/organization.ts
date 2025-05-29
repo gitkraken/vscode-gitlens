@@ -104,10 +104,14 @@ export function fromGKDevAIProviders(providers?: GkDevAIProviders): OrgAIProvide
 	if (providers == null) return result;
 
 	Object.entries(providers).forEach(([type, provider]) => {
-		result[fromGkDevAIProviderType(type as GkDevAIProviderType)] = fromGkDevAIProvider(
-			type as GkDevAIProviderType,
-			provider,
-		);
+		try {
+			result[fromGkDevAIProviderType(type as GkDevAIProviderType)] = fromGkDevAIProvider(
+				type as GkDevAIProviderType,
+				provider,
+			);
+		} catch {
+			// ignore invalid provider, continue with others
+		}
 	});
 	return result;
 }
