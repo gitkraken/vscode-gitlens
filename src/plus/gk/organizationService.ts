@@ -140,13 +140,22 @@ export class OrganizationService implements Disposable {
 
 	private async updateOrganizationPermissions(orgId: string | undefined): Promise<void> {
 		const settings = orgId != null ? await this.getOrganizationSettings(orgId) : undefined;
+		let aiProviders;
+		try {
+			aiProviders = fromGKDevAIProviders(settings?.aiProviders);
+		} catch {
+			aiProviders = {};
+			if (settings) {
+				settings.enforceAiProviders = false;
+			}
+		}
 
 		void setContext(
 			'gitlens:gk:organization:ai:enabled',
 			settings?.aiSettings.enabled ?? settings?.aiEnabled ?? true,
 		);
 		void setContext('gitlens:gk:organization:ai:enforceProviders', settings?.enforceAiProviders ?? false);
-		void setContext('gitlens:gk:organization:ai:providers', fromGKDevAIProviders(settings?.aiProviders) ?? {});
+		void setContext('gitlens:gk:organization:ai:providers', aiProviders);
 		void setContext('gitlens:gk:organization:drafts:byob', settings?.draftsSettings.bucket != null);
 		void setContext('gitlens:gk:organization:drafts:enabled', settings?.draftsSettings.enabled ?? true);
 	}
