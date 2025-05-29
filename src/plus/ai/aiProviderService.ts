@@ -882,15 +882,8 @@ export class AIProviderService implements Disposable {
 		const rq = await this.sendRequest(
 			'generate-rebase',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
-				const [diffResult, logResult] = await Promise.allSettled([
-					repo.git.diff.getDiff?.(headRef, baseRef, { notation: '...' }),
-					repo.git.commits.getLog(`${baseRef}..${headRef}`),
-				]);
-
-				const diff = getSettledValue(diffResult);
-				const log = getSettledValue(logResult);
-
-				if (!diff?.contents || !log?.commits?.size) {
+				const diff = await repo.git.diff.getDiff?.(headRef, baseRef, { notation: '...' });
+				if (!diff?.contents) {
 					throw new AINoRequestDataError('No changes found to generate a rebase from.');
 				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
