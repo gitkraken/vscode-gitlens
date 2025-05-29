@@ -20,7 +20,9 @@ const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
 export class OrganizationService implements Disposable {
 	private _disposable: Disposable;
 	private _organizations: Organization[] | null | undefined;
-	private _organizationSettings: Map<Organization['id'], OrganizationSettings> | undefined;
+	private _organizationSettings:
+		| Map<Organization['id'], { data: OrganizationSettings; lastValidatedDate: Date }>
+		| undefined;
 	private _organizationMembers: Map<Organization['id'], OrganizationMember[]> | undefined;
 
 	constructor(
@@ -126,11 +128,12 @@ export class OrganizationService implements Disposable {
 		});
 	}
 
-	private onSubscriptionChanged(e: SubscriptionChangeEvent): void {
+	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
 		if (e.current?.account?.id == null) {
 			this.updateOrganizations(undefined);
 		}
-		void this.updateOrganizationPermissions(e.current?.activeOrganization?.id);
+		await this.clearAllStoredOrganizationsSettings();
+		await this.updateOrganizationPermissions(e.current?.activeOrganization?.id);
 	}
 
 	private updateOrganizations(organizations: Organization[] | null | undefined): void {
@@ -217,7 +220,23 @@ export class OrganizationService implements Disposable {
 		const id = orgId ?? (await this.getActiveOrganizationId());
 		if (id == null) return undefined;
 
+		if (!options?.force && !this._organizationSettings?.has(id)) {
+			const cachedOrg = this.getStoredOrganizationSettings(id);
+			if (cachedOrg) {
+				this._organizationSettings ??= new Map();
+				this._organizationSettings.set(id, cachedOrg);
+			}
+		}
+
+		if (this._organizationSettings?.has(id)) {
+			const org = this._organizationSettings.get(id);
+			if (org && Date.now() - org.lastValidatedDate.getTime() > organizationsCacheExpiration) {
+				this._organizationSettings.delete(id);
+			}
+		}
+
 		if (!this._organizationSettings?.has(id) || options?.force === true) {
+			await this.deleteStoredOrganizationSettings(id);
 			const rsp = await this.connection.fetchGkApi(
 				`v1/organizations/settings`,
 				{ method: 'GET' },
@@ -245,9 +264,43 @@ export class OrganizationService implements Disposable {
 			if (this._organizationSettings == null) {
 				this._organizationSettings = new Map();
 			}
-			this._organizationSettings.set(id, organizationResponse.data);
+			this._organizationSettings.set(id, { data: organizationResponse.data, lastValidatedDate: new Date() });
+			await this.storeOrganizationSettings(id, organizationResponse.data, new Date());
 		}
-		return this._organizationSettings.get(id);
+		return this._organizationSettings.get(id)?.data;
+	}
+
+	private async clearAllStoredOrganizationsSettings(): Promise<void> {
+		return this.container.storage.deleteWithPrefix(`plus:organization:`);
+	}
+
+	private async deleteStoredOrganizationSettings(id: string): Promise<void> {
+		return this.container.storage.delete(`plus:organization:${id}:settings`);
+	}
+
+	private getStoredOrganizationSettings(
+		id: string,
+	): { data: OrganizationSettings; lastValidatedDate: Date } | undefined {
+		const result = this.container.storage.get(`plus:organization:${id}:settings`);
+		if (!result?.data) return undefined;
+
+		const { lastValidatedAt, ...organizationSettings } = result.data;
+
+		return {
+			data: organizationSettings,
+			lastValidatedDate: new Date(lastValidatedAt),
+		};
+	}
+
+	private async storeOrganizationSettings(
+		id: string,
+		settings: OrganizationSettings,
+		lastValidatedDate: Date,
+	): Promise<void> {
+		return this.container.storage.store(`plus:organization:${id}:settings`, {
+			v: 1,
+			data: { ...settings, lastValidatedAt: lastValidatedDate.getTime() },
+		});
 	}
 }
 
