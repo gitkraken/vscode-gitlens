@@ -131,6 +131,11 @@ export const graphHeaderControlStyles = css`
 		background-color: var(--vscode-menu-background);
 	}
 
+	.titlebar__group gl-repo-button-group,
+	.titlebar__group gl-ref-button {
+		font-size: 1.2rem;
+	}
+
 	.shrink {
 		max-width: fit-content;
 		transition: all 0.2s;

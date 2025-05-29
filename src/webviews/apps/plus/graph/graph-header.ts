@@ -2,13 +2,12 @@ import type { GraphRefOptData } from '@gitkraken/gitkraken-components';
 import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
-import { html, LitElement, nothing } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { GraphBranchesVisibility } from '../../../../config';
 import type { SearchQuery } from '../../../../constants.search';
@@ -21,7 +20,6 @@ import type {
 	GraphExcludedRef,
 	GraphExcludeTypes,
 	GraphMinimapMarkerTypes,
-	GraphRepository,
 	GraphSearchResults,
 	State,
 	UpdateGraphConfigurationParams,
@@ -40,6 +38,7 @@ import {
 	UpdateRefsVisibilityCommand,
 } from '../../../plus/graph/protocol';
 import type { RadioGroup } from '../../shared/components/radio/radio-group';
+import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group';
 import type { GlSearchBox } from '../../shared/components/search/search-box';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input';
 import { inlineCode } from '../../shared/components/styles/lit/base.css';
@@ -57,7 +56,6 @@ import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/button';
 import '../../shared/components/checkbox/checkbox';
 import '../../shared/components/code-icon';
-import '../../shared/components/indicators/indicator';
 import '../../shared/components/menu/menu-divider';
 import '../../shared/components/menu/menu-item';
 import '../../shared/components/menu/menu-label';
@@ -65,6 +63,8 @@ import '../../shared/components/overlays/popover';
 import '../../shared/components/overlays/tooltip';
 import '../../shared/components/radio/radio';
 import '../../shared/components/radio/radio-group';
+import '../../shared/components/ref-button';
+import '../../shared/components/repo-button-group';
 import '../../shared/components/rich/issue-pull-request';
 import '../../shared/components/search/search-box';
 import '../shared/components/merge-rebase-status';
@@ -583,144 +583,50 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	@debounce(250)
-	private handleChooseRepository() {
-		this._ipc.sendCommand(ChooseRepositoryCommand);
+	private onRepositorySelectorClicked(e: CustomEvent<RepoButtonGroupClickEvent>) {
+		switch (e.detail.part) {
+			case 'label':
+				this._ipc.sendCommand(ChooseRepositoryCommand);
+				break;
+
+			case 'icon':
+				emitTelemetrySentEvent<'graph/action/openRepoOnRemote'>(e.target!, {
+					name: 'graph/action/openRepoOnRemote',
+					data: {},
+				});
+				break;
+		}
 	}
 
 	@query('gl-search-box')
 	private readonly searchEl!: GlSearchBox;
 
-	private renderBranchStateIcon(): unknown {
-		const { branchState } = this.hostState;
-		if (branchState?.pr) {
-			return nothing;
-		}
-		if (branchState?.worktree) {
-			return html`<code-icon icon="gl-worktrees-view" aria-hidden="true"></code-icon>`;
-		}
-		return html`<code-icon icon="git-branch" aria-hidden="true"></code-icon>`;
-	}
-
-	private renderRepoControl(repo?: GraphRepository) {
-		return html`
-			<gl-popover placement="bottom">
-				<a
-					href=${ifDefined(repo!.provider!.url)}
-					class="action-button"
-					style="margin-right: -0.5rem"
-					aria-label=${`Open Repository on ${repo!.provider!.name}`}
-					slot="anchor"
-					@click=${(e: Event) =>
-						emitTelemetrySentEvent<'graph/action/openRepoOnRemote'>(e.target!, {
-							name: 'graph/action/openRepoOnRemote',
-							data: {},
-						})}
-				>
-					<span>
-						<code-icon
-							class="action-button__icon"
-							icon=${repo!.provider!.icon === 'cloud' ? 'cloud' : `gl-provider-${repo!.provider!.icon}`}
-							aria-hidden="true"
-						></code-icon
-						>${when(
-							repo!.provider!.integration?.connected,
-							() => html`<gl-indicator class="action-button__indicator"></gl-indicator>`,
-						)}
-					</span>
-				</a>
-				<span slot="content">
-					Open Repository on ${repo!.provider!.name}
-					<hr />
-					${when(
-						repo!.provider!.integration?.connected,
-						() => html`
-							<span>
-								<code-icon style="margin-top: -3px" icon="check" aria-hidden="true"></code-icon>
-								Connected to ${repo!.provider!.name}
-							</span>
-						`,
-						() => {
-							if (repo!.provider!.integration?.connected !== false) {
-								return nothing;
-							}
-							return html`
-								<code-icon style="margin-top: -3px" icon="plug" aria-hidden="true"></code-icon>
-								<a
-									href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-										'gitlens.plus.cloudIntegrations.connect',
-										{
-											integrationIds: [repo!.provider!.integration.id],
-											source: { source: 'graph' },
-										},
-									)}
-								>
-									Connect to ${repo!.provider!.name}
-								</a>
-								<span>&mdash; not connected</span>
-							`;
-						},
-					)}
-				</span>
-			</gl-popover>
-			${when(
-				repo?.provider?.integration?.connected === false,
-				() => html`
-					<gl-button
-						appearance="toolbar"
-						href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-							'gitlens.plus.cloudIntegrations.connect',
-							{
-								integrationIds: [repo!.provider!.integration!.id],
-								source: { source: 'graph' },
-							},
-						)}
-					>
-						<code-icon icon="plug" style="color: var(--titlebar-fg)"></code-icon>
-						<span slot="tooltip">
-							Connect to ${repo!.provider!.name}
-							<hr />
-							View pull requests and issues in the Commit Graph, Launchpad, autolinks, and more
-						</span>
-					</gl-button>
-				`,
-			)}
-		`;
-	}
-
 	override render() {
 		const repo = this.hostState.repositories?.find(repo => repo.id === this.hostState.selectedRepository);
 		const { searchResults } = this.appState;
+
+		const hasMultipleRepositories = (this.hostState.repositories?.length ?? 0) > 1;
 
 		return cache(
 			html`<header class="titlebar graph-app__header">
 				<div class="titlebar__row titlebar__row--wrap">
 					<div class="titlebar__group">
-						${when(repo?.provider?.url, this.renderRepoControl.bind(this, repo))}
-						<gl-tooltip placement="bottom">
-							<button
-								type="button"
-								class="action-button"
-								aria-label="Switch to Another Repository..."
-								?disabled=${!this.hostState.repositories || this.hostState.repositories.length < 2}
-								@click=${() => this.handleChooseRepository()}
-							>
-								<span class="action-button__truncated">${repo?.name ?? 'none selected'}</span>${when(
-									this.hostState.repositories && this.hostState.repositories.length > 1,
-									() => html`
-										<code-icon
-											class="action-button__more"
-											icon="chevron-down"
-											aria-hidden="true"
-										></code-icon>
-									`,
-								)}
-							</button>
-							<span slot="content">Switch to Another Repository...</span>
-						</gl-tooltip>
+						<gl-repo-button-group
+							?disabled=${this.hostState.loading || !hasMultipleRepositories}
+							?hasMultipleRepositories=${hasMultipleRepositories}
+							.repository=${repo}
+							.source=${{ source: 'graph' } as const}
+							@gl-click=${this.onRepositorySelectorClicked}
+							><span slot="tooltip">
+								Switch to Another Repository...
+								<hr />
+								${repo?.name}
+							</span></gl-repo-button-group
+						>
 						${when(
 							this.hostState.allowed && repo,
 							() => html`
-								<span> <code-icon icon="chevron-right"></code-icon> </span>${when(
+								<span><code-icon icon="chevron-right"></code-icon></span>${when(
 									this.hostState.branchState?.pr,
 									pr => html`
 										<gl-popover placement="bottom">
@@ -752,38 +658,26 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										</gl-popover>
 									`,
 								)}
-								<gl-popover placement="bottom">
-									<a
-										slot="anchor"
-										href=${createWebviewCommandLink(
-											'gitlens.graph.switchToAnotherBranch',
-											this.hostState.webviewId,
-											this.hostState.webviewInstanceId,
+								<gl-ref-button
+									href=${createWebviewCommandLink(
+										'gitlens.graph.switchToAnotherBranch',
+										this.hostState.webviewId,
+										this.hostState.webviewInstanceId,
+									)}
+									icon
+									.ref=${this.hostState.branch}
+									?worktree=${this.hostState.branchState?.worktree}
+								>
+									<div slot="tooltip">
+										Switch Branch...
+										<hr />
+										<code-icon icon="git-branch" aria-hidden="true"></code-icon>
+										<span class="inline-code">${this.hostState.branch?.name}</span>${when(
+											this.hostState.branchState?.worktree,
+											() => html`<i> (in a worktree)</i> `,
 										)}
-										class="action-button"
-										style=${this.hostState.branchState?.pr ? { marginLeft: '-0.6rem' } : {}}
-										aria-label="Switch to Another Branch..."
-									>
-										${this.renderBranchStateIcon()}
-										<span class="action-button__truncated">${this.hostState.branch?.name}</span>
-										<code-icon
-											class="action-button__more"
-											icon="chevron-down"
-											aria-hidden="true"
-										></code-icon>
-									</a>
-									<div slot="content">
-										<span>
-											Switch to Another Branch...
-											<hr />
-											<code-icon icon="git-branch" aria-hidden="true"></code-icon>
-											<span class="inline-code">${this.hostState.branch?.name}</span>${when(
-												this.hostState.branchState?.worktree,
-												() => html`<i> (in a worktree)</i> `,
-											)}
-										</span>
 									</div>
-								</gl-popover>
+								</gl-ref-button>
 								<gl-button class="jump-to-ref" appearance="toolbar" @click=${this.handleJumpToRef}>
 									<code-icon icon="target"></code-icon>
 									<span slot="tooltip">

@@ -22,6 +22,7 @@ export class GlSection extends LitElement {
 				margin-block: 0 0.8rem;
 			}
 			.section__heading {
+				min-width: 0;
 				flex: 1;
 				font-size: 1.3rem;
 			}
@@ -51,7 +52,7 @@ export class GlSection extends LitElement {
 	override render(): unknown {
 		return html`
 			<div class="section">
-				<header class="section__header">
+				<header class="section__header" part="header">
 					<div
 						class="section__heading"
 						role="heading"

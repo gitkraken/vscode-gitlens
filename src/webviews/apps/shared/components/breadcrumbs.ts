@@ -106,6 +106,7 @@ export class GlBreadcrumbItem extends LitElement {
 				align-items: center;
 				gap: 0.6rem;
 				vertical-align: middle;
+				max-width: 100%;
 			}
 
 			.breadcrumb-icon {

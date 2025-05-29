@@ -61,6 +61,7 @@ export class GlButton extends LitElement {
 				padding: var(--button-padding);
 				line-height: var(--button-line-height);
 				font-family: inherit;
+				font-size: inherit;
 
 				color: inherit;
 				text-decoration: none;
@@ -82,7 +83,8 @@ export class GlButton extends LitElement {
 			}
 
 			.label {
-				display: inline-block;
+				display: inline-flex;
+				align-items: center;
 				max-width: 100%;
 			}
 

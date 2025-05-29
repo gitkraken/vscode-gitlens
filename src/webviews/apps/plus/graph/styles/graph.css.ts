@@ -102,12 +102,6 @@ export const actionButton = css`
 		overflow: hidden;
 	}
 
-	.action-button__truncated {
-		width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
 	.action-button.is-ahead {
 		background-color: var(--branch-status-ahead-background);
 	}
