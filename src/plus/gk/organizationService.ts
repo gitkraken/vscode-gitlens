@@ -153,11 +153,14 @@ export class OrganizationService implements Disposable {
 			}
 		}
 
+		const enforceAiProviders = settings?.enforceAiProviders ?? false;
+		const disabledByEnforcing = enforceAiProviders && !Object.values(aiProviders).some(p => p.enabled);
+
 		void setContext(
 			'gitlens:gk:organization:ai:enabled',
-			settings?.aiSettings.enabled ?? settings?.aiEnabled ?? true,
+			(!disabledByEnforcing && settings?.aiSettings.enabled) ?? settings?.aiEnabled ?? true,
 		);
-		void setContext('gitlens:gk:organization:ai:enforceProviders', settings?.enforceAiProviders ?? false);
+		void setContext('gitlens:gk:organization:ai:enforceProviders', enforceAiProviders);
 		void setContext('gitlens:gk:organization:ai:providers', aiProviders);
 		void setContext('gitlens:gk:organization:drafts:byob', settings?.draftsSettings.bucket != null);
 		void setContext('gitlens:gk:organization:drafts:enabled', settings?.draftsSettings.enabled ?? true);
