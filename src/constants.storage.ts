@@ -7,6 +7,7 @@ import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
+import type { OrganizationSettings } from './plus/gk/models/organization';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
 import type { IntegrationConnectedKey } from './plus/integrations/models/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
@@ -89,6 +90,10 @@ export type GlobalStorage = {
 	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
 } & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
+	[key in `plus:organization:${string}:settings`]: Stored<
+		(OrganizationSettings & { lastValidatedAt: number }) | undefined
+	>;
+} & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
