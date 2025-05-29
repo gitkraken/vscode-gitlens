@@ -141,6 +141,10 @@ const instanceCounter = getScopedCounter();
 export class Repository implements Disposable {
 	private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChange(): Event<RepositoryChangeEvent> {
+		if (this._closed) {
+			// Closed repositories generally won't fire change events, so we should check to make sure this is correct
+			debugger;
+		}
 		return this._onDidChange.event;
 	}
 
@@ -165,9 +169,7 @@ export class Repository implements Disposable {
 
 	private _idHash: string | undefined;
 	get idHash(): string {
-		if (this._idHash === undefined) {
-			this._idHash = md5(this.id);
-		}
+		this._idHash ??= md5(this.id);
 		return this._idHash;
 	}
 
@@ -969,8 +971,8 @@ export class Repository implements Disposable {
 
 		const disposables: Disposable[] = [];
 
-		// If the repository is not part of the workspace, then limit watching to only the .gitignore file at the root of the repository
-		const gitIgnorePattern = this.folder != null ? '**/.gitignore' : '.gitignore';
+		// Limit watching to only the .gitignore file at the root of the repository for performance reasons
+		const gitIgnorePattern = '.gitignore';
 		Logger.debug(scope, `watching '${this.uri.toString(true)}/${gitIgnorePattern}' for .gitignore changes`);
 
 		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, gitIgnorePattern));
