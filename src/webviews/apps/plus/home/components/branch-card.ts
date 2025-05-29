@@ -37,6 +37,7 @@ import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
+import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';

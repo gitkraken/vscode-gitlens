@@ -12,6 +12,7 @@ import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
+import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/ref-button';
 
 const mergeTargetStyles = css`
