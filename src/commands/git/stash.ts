@@ -662,17 +662,12 @@ export class StashGitCommand extends QuickCommand<State> {
 
 						const generating = defer<AIModel>();
 						generating.promise.then(
-							m => {
-								input.validationMessage = {
+							m =>
+								(input.validationMessage = {
 									severity: InputBoxValidationSeverity.Info,
 									message: `$(loading~spin) Generating stash message with ${m.name}...`,
-								};
-								resume?.dispose();
-							},
-							() => {
-								input.validationMessage = undefined;
-								resume?.dispose();
-							},
+								}),
+							() => (input.validationMessage = undefined),
 						);
 
 						const result = await this.container.ai.generateStashMessage(
@@ -681,6 +676,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							{ generating: generating },
 						);
 
+						resume?.dispose();
 						input.validationMessage = undefined;
 
 						const message = result?.parsed.summary;
