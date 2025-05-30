@@ -790,39 +790,44 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!this.pr) {
 			if (this.branch.upstream?.missing === false && this.expanded) {
 				return html`
-					<div class="branch-item__row">
-						<gl-button
-							class="branch-item__missing"
-							appearance="secondary"
-							full
-							href="${createCommandLink('gitlens.home.createPullRequest', {
-								ref: this.branchRef,
-								describeWithAI: false,
-								source: { source: 'home', detail: 'create-pr' },
-							})}"
-							>Create a Pull Request</gl-button
-						>
-						${this._homeState.orgSettings.ai &&
-						this._homeState.aiEnabled &&
-						this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
-							? html`<gl-button
-									class="branch-item__missing"
-									tooltip="Create a Pull Request with AI (Preview)"
-									appearance="secondary"
-									href="${createCommandLink<CreatePullRequestCommandArgs>(
-										'gitlens.home.createPullRequest',
-										{
-											ref: this.branchRef,
-											describeWithAI: true,
-											source: { source: 'home', detail: 'create-pr' },
-										},
-									)}"
-							  >
-									<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
-									<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
-									<span class="branch-item__is-wide">Create with AI</span>
-							  </gl-button>`
-							: nothing}
+					<div>
+						<button-container grouping="split" layout="full">
+							<gl-button
+								class="branch-item__missing"
+								appearance="secondary"
+								full
+								href="${createCommandLink('gitlens.home.createPullRequest', {
+									ref: this.branchRef,
+									describeWithAI: false,
+									source: { source: 'home', detail: 'create-pr' },
+								})}"
+								>Create a Pull Request</gl-button
+							>
+							${this._homeState.orgSettings.ai &&
+							this._homeState.aiEnabled &&
+							this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
+								? html`<gl-button
+										class="branch-item__missing"
+										tooltip="Create a Pull Request with AI (Preview)"
+										appearance="secondary"
+										href="${createCommandLink<CreatePullRequestCommandArgs>(
+											'gitlens.home.createPullRequest',
+											{
+												ref: this.branchRef,
+												describeWithAI: true,
+												source: { source: 'home', detail: 'create-pr' },
+											},
+										)}"
+								  >
+										<code-icon
+											class="branch-item__is-wide"
+											icon="sparkle"
+											slot="prefix"
+										></code-icon>
+										<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
+								  </gl-button>`
+								: nothing}
+						</button-container>
 					</div>
 				`;
 			}
