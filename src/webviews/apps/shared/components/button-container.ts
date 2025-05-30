@@ -9,10 +9,11 @@ export class ButtonContainer extends LitElement {
 		css`
 			:host {
 				--button-group-gap: 0.4rem;
+				--button-max-width: 30rem;
+				--button-group-max-width: 30rem;
 				display: block;
-				max-width: 30rem;
-				margin-right: auto;
-				margin-left: auto;
+				max-width: var(--button-max-width, 30rem);
+				margin-inline: auto;
 				text-align: left;
 				transition: max-width 0.2s ease-out;
 			}
@@ -26,16 +27,21 @@ export class ButtonContainer extends LitElement {
 			}
 
 			@media (min-width: 640px) {
-				:host(:not([editor])) {
-					max-width: 100%;
+				:host([layout='shift']) {
+					--button-max-width: 100%;
 				}
+			}
+
+			:host([layout='full']) {
+				--button-max-width: 100%;
+				--button-group-max-width: 100%;
 			}
 
 			.group {
 				display: inline-flex;
 				gap: var(--button-group-gap, 0.4rem);
 				width: 100%;
-				max-width: 30rem;
+				max-width: var(--button-group-max-width, 30rem);
 			}
 
 			:host([grouping='split']) ::slotted(*:not(:first-child)) {
@@ -53,10 +59,10 @@ export class ButtonContainer extends LitElement {
 	editor = false;
 
 	@property({ reflect: true })
-	gap?: 'wide';
+	layout: 'shift' | 'editor' | 'full' = 'shift';
 
 	@property({ reflect: true })
-	grouping?: 'gap' | 'split' | 'gap-wide' = 'gap';
+	grouping: 'gap' | 'split' | 'gap-wide' = 'gap';
 
 	override render(): unknown {
 		return html`<div class="group"><slot></slot></div>`;
