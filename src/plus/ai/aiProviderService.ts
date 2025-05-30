@@ -65,7 +65,7 @@ import type {
 	PromptTemplateType,
 } from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
-import { ensureAccess } from './utils/-webview/ai.utils';
+import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
 export interface AIResult {
@@ -324,12 +324,18 @@ export class AIProviderService implements Disposable {
 
 		let chosenProviderId: AIProviders | undefined;
 		let chosenModel: AIModel | undefined;
+		const orgAiConf = getOrgAIConfig();
 
 		if (!options?.force) {
-			const vsCodeModels = await this.getModels('vscode');
-			if (vsCodeModels.length !== 0) {
-				chosenProviderId = 'vscode';
-			} else if ((await this.container.subscription.getSubscription()).account?.verified) {
+			if (isProviderEnabledByOrg('vscode', orgAiConf)) {
+				const vsCodeModels = await this.getModels('vscode');
+				if (vsCodeModels.length !== 0) {
+					chosenProviderId = 'vscode';
+				}
+			} else if (
+				isProviderEnabledByOrg('gitkraken', orgAiConf) &&
+				(await this.container.subscription.getSubscription()).account?.verified
+			) {
 				chosenProviderId = 'gitkraken';
 				const gitkrakenModels = await this.getModels('gitkraken');
 				chosenModel = gitkrakenModels.find(m => m.default);
@@ -378,9 +384,10 @@ export class AIProviderService implements Disposable {
 	}
 
 	async getProvidersConfiguration(): Promise<Map<AIProviders, AIProviderDescriptorWithConfiguration>> {
+		const orgAiConfig = getOrgAIConfig();
 		const promises = await Promise.allSettled(
 			map(
-				supportedAIProviders.values(),
+				[...supportedAIProviders.values()].filter(p => isProviderEnabledByOrg(p.id, orgAiConfig)),
 				async p =>
 					[
 						p.id,
@@ -418,6 +425,12 @@ export class AIProviderService implements Disposable {
 		} else {
 			model = modelOrProviderId;
 			providerId = model.provider.id;
+		}
+
+		if (providerId && !isProviderEnabledByOrg(providerId)) {
+			this._provider = undefined;
+			this._model = undefined;
+			return undefined;
 		}
 
 		let changed = false;
