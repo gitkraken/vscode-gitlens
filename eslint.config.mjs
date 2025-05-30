@@ -9,6 +9,17 @@ import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
 import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
 
+/** @type {Awaited<import('typescript-eslint').Config>[number]['languageOptions']} */
+const defaultLanguageOptions = {
+	parser: ts.parser,
+	parserOptions: {
+		ecmaVersion: 2023,
+		sourceType: 'module',
+		ecmaFeatures: { impliedStrict: true },
+		projectService: true,
+	},
+};
+
 export default ts.config(
 	js.configs.recommended,
 	...ts.configs.strictTypeChecked,
@@ -18,9 +29,7 @@ export default ts.config(
 		ignores: ['*', '*/', '!src/', '!tests/', 'src/@types/'],
 	},
 	{
-		linterOptions: {
-			reportUnusedDisableDirectives: true,
-		},
+		linterOptions: { reportUnusedDisableDirectives: true },
 		plugins: {
 			'import-x': importX,
 			'anti-trojan-source': antiTrojanSource,
@@ -325,16 +334,7 @@ export default ts.config(
 		name: 'extension:node',
 		files: ['src/**/*'],
 		ignores: ['src/**/webview/**/*', 'src/webviews/apps/**/*', 'src/env/browser/**/*'],
-		languageOptions: {
-			globals: { ...globals.node },
-			parser: ts.parser,
-			parserOptions: {
-				ecmaVersion: 2023,
-				sourceType: 'module',
-				ecmaFeatures: { impliedStrict: true },
-				projectService: true,
-			},
-		},
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
 	},
 	{
 		files: ['src/env/node/**/*'],
@@ -362,16 +362,7 @@ export default ts.config(
 		name: 'extension:browser',
 		files: ['src/**/*'],
 		ignores: ['src/**/webview/**/*', 'src/webviews/apps/**/*', 'src/env/node/**/*'],
-		languageOptions: {
-			globals: { ...globals.worker },
-			parser: ts.parser,
-			parserOptions: {
-				ecmaVersion: 2023,
-				sourceType: 'module',
-				ecmaFeatures: { impliedStrict: true },
-				projectService: true,
-			},
-		},
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.worker } },
 	},
 	{
 		name: 'webviews',
@@ -391,16 +382,7 @@ export default ts.config(
 			'**/webview/**/*',
 		],
 		ignores: ['**/-webview/**/*'],
-		languageOptions: {
-			globals: { ...globals.browser },
-			parser: ts.parser,
-			parserOptions: {
-				ecmaVersion: 2023,
-				sourceType: 'module',
-				ecmaFeatures: { impliedStrict: true },
-				projectService: true,
-			},
-		},
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
@@ -444,16 +426,7 @@ export default ts.config(
 		...wcConfigs['flat/best-practice'],
 		files: ['src/webviews/apps/**/*'],
 		ignores: ['**/-webview/**/*'],
-		languageOptions: {
-			globals: { ...globals.browser },
-			parser: ts.parser,
-			parserOptions: {
-				ecmaVersion: 2023,
-				sourceType: 'module',
-				ecmaFeatures: { impliedStrict: true },
-				projectService: true,
-			},
-		},
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
 			// 'lit/quoted-expressions': 'error',
 			'lit/lifecycle-super': 'error',
@@ -466,13 +439,7 @@ export default ts.config(
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
-					paths: [
-						{
-							name: 'vscode',
-							message: "Can't use `vscode` in webviews",
-							allowTypeImports: true,
-						},
-					],
+					paths: [{ name: 'vscode', message: "Can't use `vscode` in webviews", allowTypeImports: true }],
 					patterns: [
 						{
 							group: ['container'],
@@ -501,16 +468,7 @@ export default ts.config(
 	{
 		name: 'tests:e2e',
 		files: ['tests/**/*'],
-		languageOptions: {
-			globals: { ...globals.node },
-			parser: ts.parser,
-			parserOptions: {
-				ecmaVersion: 2023,
-				sourceType: 'module',
-				ecmaFeatures: { impliedStrict: true },
-				projectService: true,
-			},
-		},
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
 		rules: {
 			'@typescript-eslint/no-restricted-imports': 'off',
 		},
