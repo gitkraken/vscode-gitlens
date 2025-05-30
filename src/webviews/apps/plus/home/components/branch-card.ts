@@ -801,8 +801,10 @@ export abstract class GlBranchCardBase extends GlElement {
 									describeWithAI: false,
 									source: { source: 'home', detail: 'create-pr' },
 								})}"
-								>Create a Pull Request</gl-button
 							>
+								<code-icon icon="git-pull-request" slot="prefix"></code-icon>
+								<span>Create a Pull Request</span>
+							</gl-button>
 							${this._homeState.orgSettings.ai &&
 							this._homeState.aiEnabled &&
 							this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
