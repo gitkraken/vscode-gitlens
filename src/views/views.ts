@@ -48,16 +48,30 @@ import { WorktreesView } from './worktreesView';
 
 const defaultScmGroupedViews = {
 	commits: true,
+	worktrees: true,
 	branches: true,
 	remotes: true,
 	stashes: true,
 	tags: true,
-	worktrees: true,
 	contributors: true,
 	fileHistory: false,
 	repositories: false,
-	searchAndCompare: false,
 	launchpad: false,
+	searchAndCompare: false,
+} as const;
+
+const allScmGroupedViews = {
+	commits: true,
+	worktrees: true,
+	branches: true,
+	remotes: true,
+	stashes: true,
+	tags: true,
+	contributors: true,
+	fileHistory: true,
+	repositories: true,
+	launchpad: true,
+	searchAndCompare: true,
 } as const;
 
 export class Views implements Disposable {
@@ -366,9 +380,12 @@ export class Views implements Disposable {
 				executeCommand(`gitlens.views.${this._scmGroupedView.view.type}.refresh`);
 			}),
 			registerCommand('gitlens.views.scm.grouped.attachAll', () =>
-				updateScmGroupedViewsInConfig(getGroupedViews(defaultScmGroupedViews)),
+				updateScmGroupedViewsInConfig(getGroupedViews(allScmGroupedViews)),
 			),
 			registerCommand('gitlens.views.scm.grouped.detachAll', () => updateScmGroupedViewsInConfig(new Set())),
+			registerCommand('gitlens.views.scm.grouped.resetAll', () =>
+				updateScmGroupedViewsInConfig(getGroupedViews(defaultScmGroupedViews)),
+			),
 
 			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
 				this._welcomeDismissed = true;

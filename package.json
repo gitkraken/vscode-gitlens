@@ -9461,6 +9461,11 @@
 				"title": "Show Repositories View"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.resetAll",
+				"title": "Reset All Views",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.searchAndCompare",
 				"title": "Search & Compare",
 				"icon": "$(gitlens-search-view)",
@@ -13218,6 +13223,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.resetAll",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.searchAndCompare",
 					"when": "false"
 				},
@@ -15125,10 +15134,15 @@
 				{
 					"command": "gitlens.views.scm.grouped.attachAll",
 					"when": "view == gitlens.views.scm.grouped",
-					"group": "9_gitlens@98"
+					"group": "9_gitlens@97"
 				},
 				{
 					"command": "gitlens.views.scm.grouped.detachAll",
+					"when": "view == gitlens.views.scm.grouped",
+					"group": "9_gitlens@98"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.resetAll",
 					"when": "view == gitlens.views.scm.grouped",
 					"group": "9_gitlens@99"
 				}

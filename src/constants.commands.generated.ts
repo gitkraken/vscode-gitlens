@@ -494,6 +494,7 @@ export type ContributedCommands =
 	| 'gitlens.views.scm.grouped.repositories.setAsDefault'
 	| 'gitlens.views.scm.grouped.repositories.visibility.hide'
 	| 'gitlens.views.scm.grouped.repositories.visibility.show'
+	| 'gitlens.views.scm.grouped.resetAll'
 	| 'gitlens.views.scm.grouped.searchAndCompare'
 	| 'gitlens.views.scm.grouped.searchAndCompare.attach'
 	| 'gitlens.views.scm.grouped.searchAndCompare.detach'

@@ -9729,7 +9729,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped",
 						"group": "9_gitlens",
-						"order": 98
+						"order": 97
 					}
 				]
 			}
@@ -10033,7 +10033,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped",
 						"group": "9_gitlens",
-						"order": 99
+						"order": 98
 					}
 				]
 			}
@@ -10430,6 +10430,19 @@
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.repositories",
 						"group": "2_gitlens",
 						"order": 8
+					}
+				]
+			}
+		},
+		"gitlens.views.scm.grouped.resetAll": {
+			"label": "Reset All Views",
+			"enablement": "!gitlens:views:scm:grouped:welcome",
+			"menus": {
+				"gitlens/views/grouped/attachOrDetach": [
+					{
+						"when": "view == gitlens.views.scm.grouped",
+						"group": "9_gitlens",
+						"order": 99
 					}
 				]
 			}
