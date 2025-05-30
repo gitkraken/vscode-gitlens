@@ -3,6 +3,7 @@ import { commands, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import { configuration } from '../../system/-webview/configuration';
+import { getScopedCounter } from '../../system/counter';
 import { isPromise } from '../../system/promise';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
@@ -76,6 +77,8 @@ export class CommandMessageNode extends MessageNode {
 	}
 }
 
+const actionCommandCounter = getScopedCounter();
+
 export class ActionMessageNode extends CommandMessageNode {
 	private readonly _disposable: Disposable;
 
@@ -90,7 +93,7 @@ export class ActionMessageNode extends CommandMessageNode {
 		contextValue?: string,
 		resourceUri?: Uri,
 	) {
-		const command = { command: `gitlens.node.action:${Date.now()}`, title: 'Execute action' };
+		const command = { command: `gitlens.node.action:${actionCommandCounter.next()}`, title: 'Execute action' };
 		super(view, parent, command, message, description, tooltip, iconPath, contextValue, resourceUri);
 
 		this._disposable = commands.registerCommand(command.command, action.bind(undefined, this));
