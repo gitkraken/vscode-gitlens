@@ -11,7 +11,7 @@ import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils'
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { gate } from '../system/decorators/-webview/gate';
-import { groupByFilterMap } from '../system/iterable';
+import { groupByFilterMap, map } from '../system/iterable';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
@@ -35,11 +35,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 				const drafts = await this.view.container.drafts.getDrafts();
 				drafts?.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-				const groups = groupByFilterMap(
-					drafts,
-					this.calcDraftGroupKey.bind(this),
-					d => new DraftNode(this.uri, this.view, this, d),
-				);
+				const groups = groupByFilterMap(drafts, getDraftGroupKey, d => d);
 
 				const mine = groups.get('mine');
 				const shared = groups.get('shared');
@@ -47,13 +43,21 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 				if (!isFlat) {
 					if (mine?.length) {
-						children.push(new GroupingNode(this.view, 'Created by Me', mine));
+						children.push(
+							new GroupingNode(this.view, this, 'Created by Me', p =>
+								mine.map(d => new DraftNode(this.uri, this.view, p, d)),
+							),
+						);
 					}
 					if (shared?.length) {
-						children.push(new GroupingNode(this.view, 'Shared with Me', shared));
+						children.push(
+							new GroupingNode(this.view, this, 'Shared with Me', p =>
+								shared.map(d => new DraftNode(this.uri, this.view, p, d)),
+							),
+						);
 					}
 				} else {
-					children.push(...mine);
+					children.push(...map(mine, d => new DraftNode(this.uri, this.view, this, d)));
 				}
 			} catch (ex) {
 				if (!(ex instanceof AuthenticationRequiredError)) throw ex;
@@ -69,13 +73,6 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
 		return item;
-	}
-
-	private calcDraftGroupKey(d: Draft): DraftGroupKey {
-		if (d.type === 'suggested_pr_change') {
-			return 'pr_suggestion';
-		}
-		return d.isMine ? 'mine' : 'shared';
 	}
 }
 
@@ -200,4 +197,10 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
+}
+
+function getDraftGroupKey(d: Draft): DraftGroupKey {
+	if (d.type === 'suggested_pr_change') return 'pr_suggestion';
+
+	return d.isMine ? 'mine' : 'shared';
 }

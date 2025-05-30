@@ -6,28 +6,33 @@ import { ContextValues, ViewNode } from './abstract/viewNode';
 export class GroupingNode<TChild extends ViewNode = ViewNode> extends ViewNode<'grouping'> {
 	constructor(
 		view: View,
+		parent: ViewNode,
 		private readonly label: string,
-		private readonly childrenOrFn: TChild[] | Promise<TChild[]> | (() => TChild[] | Promise<TChild[]>),
-		private readonly collapsibleState: TreeItemCollapsibleState = TreeItemCollapsibleState.Expanded,
-		private readonly description?: string,
-		private readonly tooltip?: string,
-		private readonly iconPath?: TreeItem['iconPath'],
-		private readonly contextValue?: string,
+		private readonly children: (parent: ViewNode) => TChild[] | Promise<TChild[]>,
+		private readonly options?: {
+			readonly collapsibleState?: TreeItemCollapsibleState;
+			readonly contextValue?: ContextValues;
+			readonly description?: string;
+			readonly iconPath?: TreeItem['iconPath'];
+			readonly tooltip?: string;
+		},
 	) {
-		super('grouping', unknownGitUri, view);
+		super('grouping', unknownGitUri, view, parent);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
-		return typeof this.childrenOrFn === 'function' ? this.childrenOrFn() : this.childrenOrFn;
+		return this.children(this);
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(this.label, this.collapsibleState);
+		const { collapsibleState, description, tooltip, iconPath, contextValue } = this.options ?? {};
+
+		const item = new TreeItem(this.label, collapsibleState ?? TreeItemCollapsibleState.Expanded);
 		item.id = this.id;
-		item.contextValue = this.contextValue ?? ContextValues.Grouping;
-		item.description = this.description;
-		item.tooltip = this.tooltip;
-		item.iconPath = this.iconPath;
+		item.contextValue = contextValue ?? ContextValues.Grouping;
+		item.description = description;
+		item.tooltip = tooltip;
+		item.iconPath = iconPath;
 		return item;
 	}
 }

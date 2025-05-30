@@ -163,9 +163,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];
 
 			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
-			if (!hasIntegrations) {
-				return [];
-			}
+			if (!hasIntegrations) return [];
 
 			try {
 				const result = await this.view.container.launchpad.getCategorizedItems();
@@ -190,15 +188,17 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 					children.push(
 						new LaunchpadViewGroupingNode(
 							this.view,
+							this,
 							launchpadGroupLabelMap.get(ui)!,
 							ui,
-							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
-							ui === 'current-branch' || expanded.get(ui)
-								? TreeItemCollapsibleState.Expanded
-								: TreeItemCollapsibleState.Collapsed,
-							undefined,
-							undefined,
-							new ThemeIcon(icon.substring(2, icon.length - 1)),
+							p => groupItems.map(i => new LaunchpadItemNode(this.view, p, ui, i)),
+							{
+								collapsibleState:
+									ui === 'current-branch' || expanded.get(ui)
+										? TreeItemCollapsibleState.Expanded
+										: TreeItemCollapsibleState.Collapsed,
+								iconPath: new ThemeIcon(icon.substring(2, icon.length - 1)),
+							},
 						),
 					);
 				}
