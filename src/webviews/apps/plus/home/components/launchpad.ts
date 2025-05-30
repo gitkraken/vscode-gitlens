@@ -147,7 +147,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			<gl-section ?loading=${this._summaryState.computed.status === 'pending'}>
 				<span slot="heading">Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
-				<button-container gap="wide">
+				<button-container grouping="gap-wide">
 					<gl-button full class="start-work" href=${this.startWorkCommand}>Start Work on an Issue</gl-button>
 					<gl-button
 						appearance="secondary"
