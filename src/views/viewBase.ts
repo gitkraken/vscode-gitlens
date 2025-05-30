@@ -696,6 +696,11 @@ export abstract class ViewBase<
 				}
 			}
 
+			// If the node is splatted don't count it against the depth
+			if (node.splatted) {
+				depth--;
+			}
+
 			children = await node.getChildren();
 			if (!children.length) continue;
 
