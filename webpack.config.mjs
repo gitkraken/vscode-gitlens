@@ -308,10 +308,12 @@ function getExtensionConfig(target, mode, env) {
 				// This dependency is unnecessary for our use-case
 				'whatwg-url': path.resolve(__dirname, 'patches', 'whatwg-url.js'),
 			},
-			fallback:
-				target === 'webworker'
+			fallback: {
+				'../../../product.json': false,
+				...(target === 'webworker'
 					? { path: require.resolve('path-browserify'), os: require.resolve('os-browserify/browser') }
-					: undefined,
+					: {}),
+			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
