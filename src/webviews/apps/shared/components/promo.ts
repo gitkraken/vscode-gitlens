@@ -66,7 +66,7 @@ export class GlPromo extends LitElement {
 	private _focusable?: HTMLElement;
 
 	@property({ type: Object })
-	promoPromise!: Promise<Promo | undefined>;
+	promoPromise: Promise<Promo | undefined> | undefined;
 
 	@property({ type: Object })
 	source?: Source;
@@ -84,10 +84,7 @@ export class GlPromo extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`${until(
-			this.promoPromise.then(promo => this.renderPromo(promo)),
-			nothing,
-		)}`;
+		return html`${until(this.promoPromise?.then(promo => this.renderPromo(promo)), nothing)}`;
 	}
 
 	private renderPromo(promo: Promo | undefined) {

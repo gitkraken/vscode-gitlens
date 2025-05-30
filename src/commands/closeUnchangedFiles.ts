@@ -5,7 +5,7 @@ import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import { GlCommandBase } from './commandBase';
 
 export interface CloseUnchangedFilesCommandArgs {
@@ -23,10 +23,10 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repository = await getRepositoryOrShowPicker('Close All Unchanged Files');
-				if (repository == null) return;
+				const repo = await getRepositoryOrShowPicker('Close All Unchanged Files');
+				if (repo == null) return;
 
-				const status = await this.container.git.status(repository.uri).getStatus();
+				const status = await repo.git.status.getStatus();
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 
@@ -46,12 +46,12 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 						tab.input instanceof TabInputNotebook
 					) {
 						const inputUri = tab.input.uri;
-						if (hasNoChangedFiles || !args.uris.some(uri => uriEquals(uri, inputUri))) {
+						if (hasNoChangedFiles || !args.uris.some(uri => areUrisEqual(uri, inputUri))) {
 							void window.tabGroups.close(tab, true);
 						}
 					} else if (tab.input instanceof TabInputTextDiff || tab.input instanceof TabInputNotebookDiff) {
 						const inputUri = tab.input.modified;
-						if (hasNoChangedFiles || !args.uris.some(uri => uriEquals(uri, inputUri))) {
+						if (hasNoChangedFiles || !args.uris.some(uri => areUrisEqual(uri, inputUri))) {
 							void window.tabGroups.close(tab, true);
 						}
 					}

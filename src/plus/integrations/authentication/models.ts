@@ -1,11 +1,11 @@
 import type { AuthenticationSession } from 'vscode';
-import type { IntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import {
-	HostingIntegrationId,
-	IssueIntegrationId,
-	SelfHostedIntegrationId,
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
 	supportedOrderedCloudIntegrationIds,
-	supportedOrderedCloudIssueIntegrationIds,
+	supportedOrderedCloudIssuesIntegrationIds,
 } from '../../../constants.integrations';
 import { configuration } from '../../../system/-webview/configuration';
 
@@ -18,7 +18,7 @@ export interface ProviderAuthenticationSession extends AuthenticationSession {
 
 export interface ConfiguredIntegrationDescriptor {
 	readonly cloud: boolean;
-	readonly integrationId: IntegrationId;
+	readonly integrationId: IntegrationIds;
 	readonly scopes: string;
 	readonly domain?: string;
 	readonly expiresAt?: string | Date;
@@ -60,35 +60,35 @@ export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-clo
 export function getSupportedCloudIntegrationIds(): SupportedCloudIntegrationIds[] {
 	return configuration.get('cloudIntegrations.enabled', undefined, true)
 		? supportedOrderedCloudIntegrationIds
-		: supportedOrderedCloudIssueIntegrationIds;
+		: supportedOrderedCloudIssuesIntegrationIds;
 }
 
 export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
 	return getSupportedCloudIntegrationIds().includes(id as SupportedCloudIntegrationIds);
 }
 
-export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } = {
-	jira: IssueIntegrationId.Jira,
-	trello: IssueIntegrationId.Trello,
-	gitlab: HostingIntegrationId.GitLab,
-	github: HostingIntegrationId.GitHub,
-	githubEnterprise: SelfHostedIntegrationId.CloudGitHubEnterprise,
-	gitlabSelfHosted: SelfHostedIntegrationId.CloudGitLabSelfHosted,
-	bitbucket: HostingIntegrationId.Bitbucket,
-	bitbucketServer: SelfHostedIntegrationId.BitbucketServer,
-	azure: HostingIntegrationId.AzureDevOps,
+export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } = {
+	jira: IssuesCloudHostIntegrationId.Jira,
+	trello: IssuesCloudHostIntegrationId.Trello,
+	gitlab: GitCloudHostIntegrationId.GitLab,
+	github: GitCloudHostIntegrationId.GitHub,
+	githubEnterprise: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	gitlabSelfHosted: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	bitbucket: GitCloudHostIntegrationId.Bitbucket,
+	bitbucketServer: GitSelfManagedHostIntegrationId.BitbucketServer,
+	azure: GitCloudHostIntegrationId.AzureDevOps,
 };
 
-export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationType | undefined } = {
-	[IssueIntegrationId.Jira]: 'jira',
-	[IssueIntegrationId.Trello]: 'trello',
-	[HostingIntegrationId.GitLab]: 'gitlab',
-	[HostingIntegrationId.GitHub]: 'github',
-	[HostingIntegrationId.Bitbucket]: 'bitbucket',
-	[HostingIntegrationId.AzureDevOps]: 'azure',
-	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
-	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
-	[SelfHostedIntegrationId.BitbucketServer]: 'bitbucketServer',
-	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
-	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
+export const toCloudIntegrationType: { [key in IntegrationIds]: CloudIntegrationType | undefined } = {
+	[IssuesCloudHostIntegrationId.Jira]: 'jira',
+	[IssuesCloudHostIntegrationId.Trello]: 'trello',
+	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
+	[GitCloudHostIntegrationId.GitHub]: 'github',
+	[GitCloudHostIntegrationId.Bitbucket]: 'bitbucket',
+	[GitCloudHostIntegrationId.AzureDevOps]: 'azure',
+	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
+	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
+	[GitSelfManagedHostIntegrationId.BitbucketServer]: 'bitbucketServer',
+	[GitSelfManagedHostIntegrationId.GitHubEnterprise]: undefined,
+	[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: undefined,
 };

@@ -250,7 +250,7 @@ export class TagGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
-					picked: state.reference?.ref ?? (await state.repo.git.branches().getBranch())?.ref,
+					picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
 					title: `${context.title} from`,
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
@@ -296,7 +296,7 @@ export class TagGitCommand extends QuickCommand<State> {
 
 			endSteps(state);
 			try {
-				await state.repo.git.tags().createTag?.(state.name, state.reference.ref, state.message);
+				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
 			} catch (ex) {
 				Logger.error(ex, context.title);
 				void showGenericErrorMessage(ex);
@@ -385,7 +385,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			endSteps(state);
 			for (const { ref } of state.references) {
 				try {
-					await state.repo.git.tags().deleteTag?.(ref);
+					await state.repo.git.tags.deleteTag?.(ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
 					void showGenericErrorMessage(ex);

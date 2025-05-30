@@ -17,7 +17,7 @@ export interface GitRevisionReference {
 	sha: string;
 	repoPath: string;
 
-	number?: string | undefined;
+	stashNumber?: string | undefined;
 	message?: string | undefined;
 }
 
@@ -28,7 +28,7 @@ export interface GitStashReference {
 	ref: string;
 	sha: string;
 	repoPath: string;
-	number: string;
+	stashNumber: string;
 
 	message?: string | undefined;
 	stashOnRef?: string | undefined;

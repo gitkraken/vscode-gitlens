@@ -1,8 +1,8 @@
-import { IssueIntegrationId } from '../../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider';
 
-export class JiraAuthenticationProvider extends CloudIntegrationAuthenticationProvider<IssueIntegrationId.Jira> {
-	protected override get authProviderId(): IssueIntegrationId.Jira {
-		return IssueIntegrationId.Jira;
+export class JiraAuthenticationProvider extends CloudIntegrationAuthenticationProvider<IssuesCloudHostIntegrationId.Jira> {
+	protected override get authProviderId(): IssuesCloudHostIntegrationId.Jira {
+		return IssuesCloudHostIntegrationId.Jira;
 	}
 }

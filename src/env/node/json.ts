@@ -2,8 +2,10 @@ import { Uri } from 'vscode';
 import { isContainer } from '../../container';
 import { isBranch } from '../../git/models/branch';
 import { isCommit } from '../../git/models/commit';
+import { isRemote } from '../../git/models/remote';
 import { isRepository } from '../../git/models/repository';
 import { isTag } from '../../git/models/tag';
+import { isWorktree } from '../../git/models/worktree';
 import { isViewNode } from '../../views/nodes/utils/-webview/node.utils';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {
@@ -17,7 +19,15 @@ export function loggingJsonReplacer(key: string, value: unknown): unknown {
 		}
 		return value.toString();
 	}
-	if (isRepository(value) || isBranch(value) || isCommit(value) || isTag(value) || isViewNode(value)) {
+	if (
+		isRepository(value) ||
+		isBranch(value) ||
+		isCommit(value) ||
+		isRemote(value) ||
+		isTag(value) ||
+		isWorktree(value) ||
+		isViewNode(value)
+	) {
 		return value.toString();
 	}
 	if (isContainer(value)) return '<container>';

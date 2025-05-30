@@ -6,7 +6,7 @@ import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
@@ -135,7 +135,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.branch == null) {
-				const branch = await state.repo.git.branches().getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				if (branch == null) break;
 
 				context.branch = branch;
@@ -185,7 +185,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					log = state.repo.git.commits.getLog(rev, { merges: 'first-parent' });
 					context.cache.set(rev, log);
 				}
 
@@ -221,11 +221,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await state.repo.git
-			.commits()
-			.getLeftRightCommitCount(createRevisionRange(state.destination.ref, context.branch.ref, '...'), {
+		const counts = await state.repo.git.commits.getLeftRightCommitCount(
+			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
+			{
 				excludeMerges: true,
-			});
+			},
+		);
 
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
 		const ahead = counts != null ? counts.right : 0;
@@ -281,10 +282,11 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		let potentialConflict;
 		const subscription = await this.container.subscription.getSubscription();
-		if (isSubscriptionStatePaidOrTrial(subscription?.state)) {
-			potentialConflict = state.repo.git
-				.branches()
-				.getPotentialMergeOrRebaseConflict?.(context.branch.name, state.destination.ref);
+		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
+				context.branch.name,
+				state.destination.ref,
+			);
 		}
 
 		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;

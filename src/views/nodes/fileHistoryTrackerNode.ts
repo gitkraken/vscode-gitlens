@@ -1,5 +1,5 @@
-import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Disposable, TextEditor } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { ensureWorkingUri } from '../../git/gitUri.utils';
@@ -8,7 +8,7 @@ import { isSha } from '../../git/utils/revision.utils';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { setContext } from '../../system/-webview/context';
 import { isFolderUri } from '../../system/-webview/path';
-import { isVirtualUri } from '../../system/-webview/vscode';
+import { isVirtualUri } from '../../system/-webview/vscode/uris';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
@@ -16,7 +16,7 @@ import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { uriEquals } from '../../system/uri';
+import { areUrisEqual } from '../../system/uri';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -25,7 +25,6 @@ import { FileHistoryNode } from './fileHistoryNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-tracker', FileHistoryView> {
 	private _base: string | undefined;
-	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
 		super('file-history-tracker', unknownGitUri, view);
@@ -47,12 +46,27 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		this._child = value;
 	}
 
+	protected override etag(): number {
+		return 0;
+	}
+
+	get followingEditor(): boolean {
+		return this.canSubscribe;
+	}
+
+	get hasUri(): boolean {
+		return this._uri !== unknownGitUri && this._uri.repoPath != null;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
+			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
+
 			if (!this.hasUri) {
-				this.view.description = undefined;
+				this.view.description = this.view.grouped ? this.view.groupedLabel : undefined;
 
 				this.view.message = 'There are no editors open that can provide file history information.';
+				this.children = undefined;
 				return [];
 			}
 
@@ -66,35 +80,80 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			const fileUri = new GitUri(this.uri, commitish);
 			const folder = await isFolderUri(this.uri);
 
-			this.view.title = folder ? 'Folder History' : 'File History';
+			if (this.view.grouped) {
+				this.view.groupedLabel = (folder ? 'Folder History' : 'File History').toLocaleLowerCase();
+				this.view.description = this.view.groupedLabel;
+			} else {
+				this.view.title = folder ? 'Folder History' : 'File History';
+			}
+
+			const svc = this.view.container.git.getRepositoryService(commitish.repoPath);
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await this.view.container.git.branches(commitish.repoPath).getBranch();
+				branch = await svc.branches.getBranch();
 			} else if (!isSha(commitish.sha)) {
-				branch = await this.view.container.git.branches(commitish.repoPath).getBranch(commitish.sha);
+				branch = await svc.branches.getBranch(commitish.sha);
 			}
 			this.child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
 
-		return this.child.getChildren();
+		const children = this.child.getChildren();
+		void children.then(children => {
+			this.children = children;
+			if (this._selectSha != null) {
+				setTimeout(() => void this.revealCommit(), 250);
+			}
+		});
+		return children;
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveFileHistory;
 
 		return item;
 	}
 
-	get followingEditor(): boolean {
-		return this.canSubscribe;
+	@gate()
+	@debug({ exit: true })
+	override async refresh(reset: boolean = false): Promise<{ cancel: boolean }> {
+		const scope = getLogScope();
+
+		if (!this.canSubscribe) return { cancel: false };
+
+		if (reset) {
+			if (this._uri != null && this._uri !== unknownGitUri) {
+				await this.view.container.documentTracker.resetCache(this._uri, 'log');
+			}
+
+			this.reset();
+		}
+
+		const updated = await this.updateUri(this._selectSha);
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
+		return { cancel: !updated };
 	}
 
-	get hasUri(): boolean {
-		return this._uri !== unknownGitUri && this._uri.repoPath != null;
+	@debug()
+	protected async subscribe(): Promise<Disposable | undefined> {
+		await this.updateUri(this._selectSha);
+
+		return weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this);
+	}
+
+	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
+	@debug({ args: false })
+	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		// If we are losing the active editor, give more time before assuming its really gone
+		// For virtual repositories the active editor event takes a while to fire
+		// Ultimately we need to be using the upcoming Tabs api to avoid this
+		if (editor == null && isVirtualUri(this._uri)) {
+			this._triggerChangeDebounced ??= debounce(() => this.triggerChange(), 1500);
+			void this._triggerChangeDebounced();
+			return;
+		}
+		void this.triggerChange();
 	}
 
 	@gate()
@@ -113,7 +172,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		if (pick == null) return;
 
 		if (isBranchReference(pick)) {
-			const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
+			const branch = await this.view.container.git.getRepositoryService(this.uri.repoPath!).branches.getBranch();
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;
@@ -122,72 +181,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 		this.setUri();
 		await this.triggerChange();
-	}
-
-	@gate()
-	@debug({ exit: true })
-	override async refresh(reset: boolean = false): Promise<boolean> {
-		const scope = getLogScope();
-
-		if (!this.canSubscribe) return false;
-
-		if (reset) {
-			if (this._uri != null && this._uri !== unknownGitUri) {
-				await this.view.container.documentTracker.resetCache(this._uri, 'log');
-			}
-
-			this.reset();
-		}
-
-		const editor = window.activeTextEditor;
-		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
-			if (
-				!this.hasUri ||
-				(this.view.container.git.isTrackable(this.uri) &&
-					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
-			) {
-				return true;
-			}
-
-			this.reset();
-
-			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-			return false;
-		}
-
-		if (editor.document.uri.path === this.uri.path) {
-			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-			return true;
-		}
-
-		let gitUri = await GitUri.fromUri(editor.document.uri);
-
-		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
-		const uri = await ensureWorkingUri(this.view.container, gitUri);
-
-		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
-			return true;
-		}
-
-		if (uri != null) {
-			gitUri = await GitUri.fromUri(uri);
-		}
-
-		// If we have no repoPath then don't attempt to use the Uri
-		if (gitUri.repoPath == null) {
-			this.reset();
-		} else {
-			this.setUri(gitUri);
-			this.child = undefined;
-		}
-
-		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-		return false;
-	}
-
-	private reset() {
-		this.setUri();
-		this.child = undefined;
 	}
 
 	@log()
@@ -203,42 +196,98 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		}
 	}
 
+	@debug()
+	setUri(uri?: GitUri, sha?: string): void {
+		this._uri = uri ?? unknownGitUri;
+		this._selectSha = sha ?? uri?.sha;
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
+	}
+
 	@log()
 	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setUri(uri);
 		await this.triggerChange();
 	}
 
-	@debug()
-	protected subscribe(): Disposable {
-		return Disposable.from(
-			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
-		);
+	private reset() {
+		this.setUri();
+		this.child = undefined;
+		this._selectSha = undefined;
 	}
 
-	protected override etag(): number {
-		return 0;
-	}
+	private _selectSha: string | undefined;
 
-	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
-	@debug({ args: false })
-	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		// If we are losing the active editor, give more time before assuming its really gone
-		// For virtual repositories the active editor event takes a while to fire
-		// Ultimately we need to be using the upcoming Tabs api to avoid this
-		if (editor == null && isVirtualUri(this._uri)) {
-			if (this._triggerChangeDebounced == null) {
-				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
+	private async updateUri(sha?: string): Promise<boolean> {
+		const editor = window.activeTextEditor;
+		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
+			if (
+				!this.hasUri ||
+				(this.view.container.git.isTrackable(this.uri) &&
+					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
+			) {
+				return false;
 			}
 
-			void this._triggerChangeDebounced();
-			return;
+			this.reset();
+			return true;
 		}
-		void this.triggerChange();
+
+		let gitUri = await GitUri.fromUri(editor.document.uri);
+
+		if (editor.document.uri.path === this.uri.path) {
+			this._selectSha = sha ?? gitUri.sha;
+			queueMicrotask(() => void this.revealCommit());
+			return false;
+		}
+
+		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
+		const uri = await ensureWorkingUri(this.view.container, gitUri);
+
+		if (this.hasUri && areUrisEqual(uri ?? gitUri, this.uri)) {
+			this._selectSha = sha ?? gitUri.sha;
+			queueMicrotask(() => void this.revealCommit());
+			return false;
+		}
+
+		if (uri != null) {
+			gitUri = await GitUri.fromUri(uri);
+		}
+
+		// If we have no repoPath then don't attempt to use the Uri
+		if (!gitUri.repoPath) {
+			this.reset();
+			return true;
+		}
+
+		this.setUri(gitUri, sha);
+		this.child = undefined;
+
+		return true;
 	}
 
-	setUri(uri?: GitUri): void {
-		this._uri = uri ?? unknownGitUri;
-		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
+	async revealCommit(): Promise<void> {
+		const sha = this._selectSha;
+		this._selectSha = undefined;
+
+		const { children } = this;
+		if (!children?.length) return;
+
+		let node;
+		if (sha == null || sha === 'HEAD') {
+			[node] = children;
+		} else {
+			node = children.find(n =>
+				n.is('file-commit') || n.is('commit') ? n.commit?.sha?.startsWith(sha) ?? false : false,
+			);
+			if (!node) {
+				node = children[children.length - 1];
+				if (!node.is('pager')) {
+					node = undefined;
+				}
+			}
+		}
+		if (!node) return;
+
+		await this.view.reveal(node, { select: true, focus: false });
 	}
 }

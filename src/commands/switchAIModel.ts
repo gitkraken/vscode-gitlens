@@ -6,7 +6,7 @@ import { GlCommandBase } from './commandBase';
 @command()
 export class SwitchAIModelCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.switchAIModel');
+		super('gitlens.ai.switchProvider', ['gitlens.switchAIModel']);
 	}
 
 	async execute(source?: Source): Promise<void> {

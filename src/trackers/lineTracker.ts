@@ -2,7 +2,7 @@ import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } fro
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import { isTrackableTextEditor } from '../system/-webview/vscode';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';
@@ -169,7 +169,7 @@ export class LineTracker {
 			return isIncluded(lineOrSelections, this._selections);
 		}
 
-		if (this._selections == null || this._selections.length === 0) return false;
+		if (!this._selections?.length) return false;
 
 		const line = lineOrSelections;
 		const activeOnly = options?.activeOnly ?? true;

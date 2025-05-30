@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type {
@@ -11,7 +12,6 @@ import type { BranchSortOptions } from '../../../../../git/utils/-webview/sortin
 import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting';
 import { createRevisionRange } from '../../../../../git/utils/revision.utils';
 import { configuration } from '../../../../../system/-webview/configuration';
-import { gate } from '../../../../../system/decorators/-webview/gate';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
@@ -29,13 +29,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@gate()
 	@log()
-	async getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined> {
+	async getBranch(repoPath: string, name?: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
 		if (name != null) {
 			const {
 				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.name === name });
+			} = await this.getBranches(repoPath, { filter: b => b.name === name }, cancellation);
 			return branch;
 		}
 
@@ -44,7 +43,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
 				const {
 					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current });
+				} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
 				if (branch != null) return branch;
 
 				try {
@@ -62,7 +61,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								undefined,
 								revision.revision,
 								undefined,
-								undefined,
+								false,
 								true,
 							);
 					}
@@ -90,6 +89,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | BranchSortOptions;
 		},
+		_cancellation?: CancellationToken,
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -112,12 +112,30 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						const ref = branch.target.oid;
 
 						branches.push(
-							new GitBranch(container, repoPath!, `refs/heads/${branch.name}`, current, date, ref, {
-								name: `origin/${branch.name}`,
-								missing: false,
-								state: { ahead: 0, behind: 0 },
-							}),
-							new GitBranch(container, repoPath!, `refs/remotes/origin/${branch.name}`, false, date, ref),
+							new GitBranch(
+								container,
+								repoPath!,
+								`refs/heads/${branch.name}`,
+								current,
+								date,
+								ref,
+								{
+									name: `origin/${branch.name}`,
+									missing: false,
+									state: { ahead: 0, behind: 0 },
+								},
+								false,
+							),
+							new GitBranch(
+								container,
+								repoPath!,
+								`refs/remotes/origin/${branch.name}`,
+								false,
+								date,
+								ref,
+								undefined,
+								false,
+							),
 						);
 					}
 
@@ -188,31 +206,24 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
+		_cancellation?: CancellationToken,
 	): Promise<BranchContributionsOverview | undefined> {
 		const scope = getLogScope();
 
 		try {
-			// let baseOrTargetBranch = await this.getBaseBranchName(repoPath, ref);
-			// // If the base looks like its remote branch, look for the target or default
-			// if (baseOrTargetBranch == null || baseOrTargetBranch.endsWith(`/${ref}`)) {
-			// 	baseOrTargetBranch = await this.getTargetBranchName(repoPath, ref);
-			// 	baseOrTargetBranch ??= await this.getDefaultBranchName(repoPath);
-			// 	if (baseOrTargetBranch == null) return undefined;
-			// }
+			const mergeTarget = await this.getDefaultBranchName(repoPath);
+			if (mergeTarget == null) return undefined;
 
-			const baseOrTargetBranch = await this.getDefaultBranchName(repoPath);
-			if (baseOrTargetBranch == null) return undefined;
-
-			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, mergeTarget);
 			if (mergeBase == null) return undefined;
 
-			const contributors = await this.provider.contributors.getContributors(
+			const result = await this.provider.contributors.getContributors(
 				repoPath,
 				createRevisionRange(mergeBase, ref, '..'),
 				{ stats: true },
 			);
 
-			sortContributors(contributors, { orderBy: 'score:desc' });
+			sortContributors(result.contributors, { orderBy: 'score:desc' });
 
 			let totalCommits = 0;
 			let totalFiles = 0;
@@ -221,8 +232,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let firstCommitTimestamp;
 			let latestCommitTimestamp;
 
-			for (const c of contributors) {
-				totalCommits += c.commits;
+			for (const c of result.contributors) {
+				totalCommits += c.contributionCount;
 				totalFiles += c.stats?.files ?? 0;
 				totalAdditions += c.stats?.additions ?? 0;
 				totalDeletions += c.stats?.deletions ?? 0;
@@ -246,7 +257,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return {
 				repoPath: repoPath,
 				branch: ref,
-				baseOrTargetBranch: baseOrTargetBranch,
+				mergeTarget: mergeTarget,
 				mergeBase: mergeBase,
 
 				commits: totalCommits,
@@ -257,7 +268,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				latestCommitDate: latestCommitTimestamp != null ? new Date(latestCommitTimestamp) : undefined,
 				firstCommitDate: firstCommitTimestamp != null ? new Date(firstCommitTimestamp) : undefined,
 
-				contributors: contributors,
+				contributors: result.contributors,
 			};
 		} catch (ex) {
 			Logger.error(ex, scope);
@@ -273,6 +284,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		_cancellation?: CancellationToken,
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
@@ -313,7 +325,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getDefaultBranchName(repoPath: string | undefined, _remote?: string): Promise<string | undefined> {
+	async getDefaultBranchName(
+		repoPath: string | undefined,
+		_remote?: string,
+		_cancellation?: CancellationToken,
+	): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();

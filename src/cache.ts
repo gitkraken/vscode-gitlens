@@ -4,10 +4,12 @@ import type { Container } from './container';
 import type { Account } from './git/models/author';
 import type { DefaultBranch } from './git/models/defaultBranch';
 import type { Issue } from './git/models/issue';
-import type { IssueOrPullRequest } from './git/models/issueOrPullRequest';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from './git/models/issueOrPullRequest';
 import type { PullRequest } from './git/models/pullRequest';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
-import type { HostingIntegration, IntegrationBase, ResourceDescriptor } from './plus/integrations/integration';
+import type { ResourceDescriptor } from './git/models/resourceDescriptor';
+import type { GitHostIntegration } from './plus/integrations/models/gitHostIntegration';
+import type { IntegrationBase } from './plus/integrations/models/integration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -111,6 +113,7 @@ export class CacheProvider implements Disposable {
 
 	getIssueOrPullRequest(
 		id: string,
+		type: IssueOrPullRequestType | undefined,
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
@@ -119,11 +122,11 @@ export class CacheProvider implements Disposable {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
 		if (resource == null) {
-			return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable, options);
+			return this.get('issuesOrPrsById', `id:${id}:${key}:${type ?? 'unknown'}`, etag, cacheable, options);
 		}
 		return this.get(
 			'issuesOrPrsByIdAndRepo',
-			`id:${id}:${key}:${JSON.stringify(resource)}}`,
+			`id:${id}:${key}:${type ?? 'unknown'}:${JSON.stringify(resource)}}`,
 			etag,
 			cacheable,
 			options,
@@ -140,11 +143,17 @@ export class CacheProvider implements Disposable {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
 		if (resource == null) {
-			return this.get('issuesById', `id:${id}:${key}`, etag, cacheable, options);
+			return this.get(
+				'issuesById',
+				`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}`,
+				etag,
+				cacheable,
+				options,
+			);
 		}
 		return this.get(
 			'issuesByIdAndResource',
-			`id:${id}:${key}:${JSON.stringify(resource)}}`,
+			`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}`,
 			etag,
 			cacheable,
 			options,
@@ -161,15 +170,27 @@ export class CacheProvider implements Disposable {
 		const { key, etag } = getResourceKeyAndEtag(resource, integration);
 
 		if (resource == null) {
-			return this.get('prsById', `id:${id}:${key}`, etag, cacheable, options);
+			return this.get(
+				'prsById',
+				`id:${id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}`,
+				etag,
+				cacheable,
+				options,
+			);
 		}
-		return this.get('prsById', `id:${id}:${key}:${JSON.stringify(resource)}}`, etag, cacheable, options);
+		return this.get(
+			'prsById',
+			`id:${id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}`,
+			etag,
+			cacheable,
+			options,
+		);
 	}
 
 	getPullRequestForBranch(
 		branch: string,
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<PullRequest> {
@@ -187,7 +208,7 @@ export class CacheProvider implements Disposable {
 	getPullRequestForSha(
 		sha: string,
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<PullRequest> {
@@ -204,7 +225,7 @@ export class CacheProvider implements Disposable {
 
 	getRepositoryDefaultBranch(
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<DefaultBranch>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<DefaultBranch> {
@@ -214,7 +235,7 @@ export class CacheProvider implements Disposable {
 
 	getRepositoryMetadata(
 		repo: ResourceDescriptor,
-		integration: HostingIntegration | undefined,
+		integration: GitHostIntegration | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
 		options?: { expiryOverride?: boolean | number },
 	): CacheResult<RepositoryMetadata> {
@@ -264,7 +285,12 @@ export class CacheProvider implements Disposable {
 			if (isPromise(item.value)) {
 				void item.value.then(v => {
 					if (v != null) {
-						this.set('issuesOrPrsById', `id:${v.id}:${key}`, v, etag);
+						this.set(
+							'issuesOrPrsById',
+							`id:${v.id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}`,
+							v,
+							etag,
+						);
 					}
 				});
 			}
@@ -326,7 +352,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	}
 }
 
-function getResourceKeyAndEtag(resource: ResourceDescriptor, integration?: HostingIntegration | IntegrationBase) {
+function getResourceKeyAndEtag(resource: ResourceDescriptor, integration?: GitHostIntegration | IntegrationBase) {
 	return { key: resource.key, etag: `${resource.key}:${integration?.maybeConnected ?? false}` };
 }
 

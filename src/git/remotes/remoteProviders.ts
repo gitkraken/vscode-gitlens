@@ -1,6 +1,6 @@
 import type { RemotesConfig } from '../../config';
-import type { CloudSelfHostedIntegrationId } from '../../constants.integrations';
-import { SelfHostedIntegrationId } from '../../constants.integrations';
+import type { CloudGitSelfManagedHostIntegrationIds } from '../../constants.integrations';
+import { GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { ConfiguredIntegrationDescriptor } from '../../plus/integrations/authentication/models';
 import { isCloudSelfHostedIntegrationId } from '../../plus/integrations/providers/models';
@@ -20,7 +20,7 @@ import type { RemoteProvider } from './remoteProvider';
 export type RemoteProviders = {
 	custom: boolean;
 	matcher: string | RegExp;
-	creator: (container: Container, domain: string, path: string) => RemoteProvider;
+	creator: (container: Container, domain: string, path: string, scheme?: string) => RemoteProvider;
 }[];
 
 const builtInProviders: RemoteProviders = [
@@ -79,16 +79,26 @@ const builtInProviders: RemoteProviders = [
 ];
 
 const cloudProviderCreatorsMap: Record<
-	CloudSelfHostedIntegrationId,
-	(container: Container, domain: string, path: string) => RemoteProvider
+	CloudGitSelfManagedHostIntegrationIds,
+	(container: Container, domain: string, path: string, scheme: string | undefined) => RemoteProvider
 > = {
-	[SelfHostedIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
+	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
 		new GitHubRemote(container, domain, path),
-	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
+	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
 		new GitLabRemote(container, domain, path),
-	[SelfHostedIntegrationId.BitbucketServer]: (container: Container, domain: string, path: string) =>
-		new BitbucketServerRemote(container, domain, path),
+	[GitSelfManagedHostIntegrationId.BitbucketServer]: (
+		container: Container,
+		domain: string,
+		path: string,
+		scheme: string | undefined,
+	) => new BitbucketServerRemote(container, domain, path, cleanProtocol(scheme)),
 };
+
+const dirtyProtocolPattern = /(\w+)\W*/;
+function cleanProtocol(scheme: string | undefined): string | undefined {
+	const match = scheme?.match(dirtyProtocolPattern);
+	return match?.[1] ?? undefined;
+}
 
 export function loadRemoteProviders(
 	cfg: RemotesConfig[] | null | undefined,
@@ -181,7 +191,7 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 export async function getRemoteProviderMatcher(
 	container: Container,
 	providers?: RemoteProviders,
-): Promise<(url: string, domain: string, path: string) => RemoteProvider | undefined> {
+): Promise<(url: string, domain: string, path: string, sheme: string | undefined) => RemoteProvider | undefined> {
 	if (providers == null) {
 		providers = loadRemoteProviders(
 			configuration.get('remotes', null),
@@ -189,8 +199,8 @@ export async function getRemoteProviderMatcher(
 		);
 	}
 
-	return (url: string, domain: string, path: string) =>
-		createBestRemoteProvider(container, providers, url, domain, path);
+	return (url: string, domain: string, path: string, scheme) =>
+		createBestRemoteProvider(container, providers, url, domain, path, scheme);
 }
 
 function createBestRemoteProvider(
@@ -199,29 +209,34 @@ function createBestRemoteProvider(
 	url: string,
 	domain: string,
 	path: string,
+	scheme: string | undefined,
 ): RemoteProvider | undefined {
 	try {
-		const key = domain.toLowerCase();
+		const key = domain?.toLowerCase();
 		for (const { custom, matcher, creator } of providers) {
 			if (typeof matcher === 'string') {
-				if (matcher === key) return creator(container, domain, path);
+				if (matcher === key) {
+					return creator(container, domain, path, scheme);
+				}
 
 				continue;
 			}
 
-			if (matcher.test(key)) return creator(container, domain, path);
+			if (matcher.test(key)) {
+				return creator(container, domain, path, scheme);
+			}
 			if (!custom) continue;
 
 			const match = matcher.exec(url);
 			if (match != null) {
-				return creator(container, match[1], match[2]);
+				return creator(container, match[1], match[2], scheme);
 			}
 		}
 
 		return undefined;
 	} catch (ex) {
 		debugger;
-		Logger.error(ex, 'createRemoteProvider');
+		Logger.error(ex, 'createBestRemoteProvider');
 		return undefined;
 	}
 }

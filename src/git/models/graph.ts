@@ -7,6 +7,7 @@ import type {
 	RowStats,
 	Tag,
 } from '@gitkraken/gitkraken-components';
+import type { CancellationToken } from 'vscode';
 import type { GitBranch } from './branch';
 import type { GitStashCommit } from './commit';
 import type { GitRemote } from './remote';
@@ -42,10 +43,6 @@ export interface GitGraph {
 	/** A set of all "seen" commit ids */
 	readonly ids: Set<string>;
 	readonly includes: { stats?: boolean } | undefined;
-	/** A set of all remapped commit ids -- typically for stash index/untracked commits
-	 * (key = remapped from id, value = remapped to id)
-	 */
-	readonly remappedIds?: Map<string, string>;
 	readonly branches: Map<string, GitBranch>;
 	readonly remotes: Map<string, GitRemote>;
 	readonly downstreams: Map<string, string[]>;
@@ -66,7 +63,7 @@ export interface GitGraph {
 		readonly hasMore: boolean;
 	};
 
-	more?(limit: number, id?: string): Promise<GitGraph | undefined>;
+	more?(limit: number, id?: string, cancellation?: CancellationToken): Promise<GitGraph | undefined>;
 }
 
 export type GitGraphRowsStats = Map<string, GitGraphRowStats>;

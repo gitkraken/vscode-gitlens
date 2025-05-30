@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import { filterMap } from '../../../system/iterable';
 import { PageableResult } from '../../../system/paging';
 import type { GitBranch } from '../../models/branch';
@@ -37,7 +38,7 @@ export async function getWorktreeForBranch(
 		);
 	}
 
-	worktrees ??= await repo.git.worktrees()?.getWorktrees();
+	worktrees ??= await repo.git.worktrees?.getWorktrees();
 	if (!worktrees?.length) return undefined;
 
 	for (const worktree of worktrees) {
@@ -46,7 +47,7 @@ export async function getWorktreeForBranch(
 		if (upstreamNames == null || worktree.branch == null) continue;
 
 		branches ??= new PageableResult<GitBranch>(p =>
-			repo.git.branches().getBranches(p != null ? { paging: p } : undefined),
+			repo.git.branches.getBranches(p != null ? { paging: p } : undefined),
 		);
 
 		const values = branches.values();
@@ -73,15 +74,15 @@ export async function getWorktreeForBranch(
 export async function getWorktreesByBranch(
 	repos: Repository | Repository[] | undefined,
 	options?: { includeDefault?: boolean },
+	cancellation?: CancellationToken,
 ): Promise<Map<string, GitWorktree>> {
 	const worktreesByBranch = new Map<string, GitWorktree>();
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		const worktrees = repo.git.worktrees();
-		if (worktrees == null) return;
+		if (repo.git.worktrees == null) return;
 
-		groupWorktreesByBranch(await worktrees.getWorktrees(), {
+		groupWorktreesByBranch(await repo.git.worktrees.getWorktrees(cancellation), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

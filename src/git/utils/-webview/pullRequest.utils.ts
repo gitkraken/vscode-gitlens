@@ -57,11 +57,10 @@ export async function ensurePullRequestRefs(
 	refs ??= getComparisonRefsForPullRequest(repo.path, pr.refs);
 	const range = createRevisionRange(refs.base.ref, refs.head.ref, '...');
 
-	const commitsProvider = repo.git.commits();
-	let counts = await commitsProvider.getLeftRightCommitCount(range);
+	let counts = await repo.git.commits.getLeftRightCommitCount(range);
 	if (counts == null) {
 		if (await ensurePullRequestRemote(pr, repo, options)) {
-			counts = await commitsProvider.getLeftRightCommitCount(range);
+			counts = await repo.git.commits.getLeftRightCommitCount(range);
 		}
 	}
 
@@ -79,7 +78,7 @@ export async function ensurePullRequestRemote(
 	const prRemoteUrl = identity.remote.url.replace(/\.git$/, '');
 
 	let found = false;
-	for (const remote of await repo.git.remotes().getRemotes()) {
+	for (const remote of await repo.git.remotes.getRemotes()) {
 		if (remote.matches(prRemoteUrl)) {
 			found = true;
 			break;
@@ -101,9 +100,9 @@ export async function ensurePullRequestRemote(
 		);
 
 		if (result === confirm) {
-			await repo.git
-				.remotes()
-				.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+			await repo.git.remotes.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, {
+				fetch: true,
+			});
 			return true;
 		}
 	}

@@ -6,6 +6,7 @@ import type { Colors } from '../../constants.colors';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
+import type { DiffRange } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -14,6 +15,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
+import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
@@ -60,7 +62,9 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const pausedOpStatus = await this.view.container.git.status(this.commit.repoPath).getPausedOperationStatus?.();
+		const pausedOpStatus = await this.view.container.git
+			.getRepositoryService(this.commit.repoPath)
+			.status.getPausedOperationStatus?.();
 		if (pausedOpStatus == null) return [];
 
 		return [
@@ -75,8 +79,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
 				const log = await this.view.container.git
-					.commits(this.repoPath)
-					.getLogForPath(this.file.path, this.commit.sha, { limit: 2 });
+					.getRepositoryService(this.repoPath)
+					.commits.getLogForPath(this.file.path, this.commit.sha, { isFolder: false, limit: 1 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
@@ -138,11 +142,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	}
 
 	override getCommand(): Command | undefined {
-		let line;
+		let range: DiffRange;
 		if (this.commit.lines.length) {
-			line = this.commit.lines[0].line - 1;
+			// TODO@eamodio should the endLine be the last line of the commit?
+			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
 		} else {
-			line = this._options.selection?.active.line ?? 0;
+			range = this.commit.file?.range ?? selectionToDiffRange(this._options?.selection);
 		}
 
 		if (this.commit.file?.hasConflicts) {
@@ -156,11 +161,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 					uri: GitUri.fromFile(this.file, this.repoPath),
 				},
 				repoPath: this.repoPath,
-				line: 0,
-				showOptions: {
-					preserveFocus: false,
-					preview: false,
-				},
+				range: editorLineToDiffRange(0),
+				showOptions: { preserveFocus: false, preview: false },
 			});
 		}
 
@@ -171,26 +173,23 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			{
 				commit: this.commit,
 				uri: GitUri.fromFile(this.file, this.commit.repoPath),
-				line: line,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				range: range,
+				showOptions: { preserveFocus: true, preview: true },
 			},
 		);
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 
 	async getConflictBaseUri(): Promise<Uri | undefined> {
 		if (!this.commit.file?.hasConflicts) return undefined;
 
-		const mergeBase = await this.view.container.git.refs(this.repoPath).getMergeBase('MERGE_HEAD', 'HEAD');
+		const mergeBase = await this.view.container.git
+			.getRepositoryService(this.repoPath)
+			.refs.getMergeBase('MERGE_HEAD', 'HEAD');
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 
@@ -226,7 +225,7 @@ export async function getFileRevisionAsCommitTooltip(
 	},
 ): Promise<string | undefined> {
 	const [remotesResult, _] = await Promise.allSettled([
-		container.git.remotes(commit.repoPath).getBestRemotesWithProviders(options?.cancellation),
+		container.git.getRepositoryService(commit.repoPath).remotes.getBestRemotesWithProviders(options?.cancellation),
 		commit.message == null ? commit.ensureFullDetails() : undefined,
 	]);
 
@@ -238,7 +237,7 @@ export async function getFileRevisionAsCommitTooltip(
 	let enrichedAutolinks;
 	let pr;
 
-	if (remote?.hasIntegration()) {
+	if (remote?.supportsIntegration()) {
 		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), options?.cancellation),
 			commit.getAssociatedPullRequest(remote),

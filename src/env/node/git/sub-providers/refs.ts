@@ -1,5 +1,6 @@
-import type { Uri } from 'vscode';
+import type { CancellationToken, Uri } from 'vscode';
 import type { Container } from '../../../../container';
+import { isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitRefsSubProvider } from '../../../../git/gitProvider';
@@ -8,12 +9,10 @@ import type { GitReference } from '../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTag } from '../../../../git/models/tag';
 import { createReference } from '../../../../git/utils/reference.utils';
-import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../git/utils/revision.utils';
-import { TimedCancellationSource } from '../../../../system/-webview/cancellation';
-import { log } from '../../../../system/decorators/log';
+import { isShaWithOptionalRevisionSuffix, isUncommitted } from '../../../../git/utils/revision.utils';
+import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
-import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
@@ -28,13 +27,13 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	@log()
 	async checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'check-ref-format',
 				'--branch',
 				ref,
 			);
-			return Boolean(data.trim());
+			return Boolean(result.stdout.trim());
 		} catch {
 			return false;
 		}
@@ -46,34 +45,41 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		ref1: string,
 		ref2: string,
 		options?: { forkPoint?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<string | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const data = await this.git.exec(
-				{ cwd: repoPath },
+			const result = await this.git.exec(
+				{ cwd: repoPath, cancellation: cancellation },
 				'merge-base',
 				options?.forkPoint ? '--fork-point' : undefined,
 				ref1,
 				ref2,
 			);
-			if (!data) return undefined;
+			if (!result.stdout) return undefined;
 
-			return data.split('\n')[0].trim() || undefined;
+			return result.stdout.split('\n')[0].trim() || undefined;
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+
 			return undefined;
 		}
 	}
 
 	@log()
-	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
+	async getReference(
+		repoPath: string,
+		ref: string,
+		cancellation?: CancellationToken,
+	): Promise<GitReference | undefined> {
 		if (!ref || ref === deletedOrMissing) return undefined;
 
-		if (!(await this.isValidReference(repoPath, ref))) return undefined;
+		if (!(await this.isValidReference(repoPath, ref, undefined, cancellation))) return undefined;
 
-		if (ref !== 'HEAD' && !isShaLike(ref)) {
-			const branch = await this.provider.branches.getBranch(repoPath, ref);
+		if (ref !== 'HEAD' && !isShaWithOptionalRevisionSuffix(ref)) {
+			const branch = await this.provider.branches.getBranch(repoPath, ref, cancellation);
 			if (branch != null) {
 				return createReference(branch.ref, repoPath, {
 					id: branch.id,
@@ -84,7 +90,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 				});
 			}
 
-			const tag = await this.provider.tags.getTag(repoPath, ref);
+			const tag = await this.provider.tags.getTag(repoPath, ref, cancellation);
 			if (tag != null) {
 				return createReference(tag.ref, repoPath, {
 					id: tag.id,
@@ -98,11 +104,15 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@log()
-	async getSymbolicReferenceName(repoPath: string, ref: string): Promise<string | undefined> {
-		const supportsEndOfOptions = await this.git.isAtLeastVersion('2.30');
+	async getSymbolicReferenceName(
+		repoPath: string,
+		ref: string,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined> {
+		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
-		const data = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
 			'--quiet',
@@ -111,7 +121,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			supportsEndOfOptions ? '--end-of-options' : undefined,
 			ref,
 		);
-		return data?.trim() || undefined;
+		return result.stdout.trim() || undefined;
 	}
 
 	@log({ args: { 1: false } })
@@ -120,95 +130,52 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		},
+		cancellation?: CancellationToken,
 	): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.provider.branches.getBranches(repoPath, {
-				filter: options?.filter?.branches,
-				sort: false,
-			}),
-			this.provider.tags.getTags(repoPath, {
-				filter: options?.filter?.tags,
-				sort: false,
-			}),
+			this.provider.branches.getBranches(
+				repoPath,
+				{ filter: options?.filter?.branches, sort: false },
+				cancellation,
+			),
+			this.provider.tags.getTags(repoPath, { filter: options?.filter?.tags, sort: false }, cancellation),
 		]);
 
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
 	@log()
-	async isValidReference(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<boolean> {
-		const relativePath = pathOrUri ? this.provider.getRelativePath(pathOrUri, repoPath) : undefined;
-		return Boolean((await this.validateReference(repoPath, ref, relativePath))?.length);
-	}
-
-	@log()
-	async resolveReference(
+	async isValidReference(
 		repoPath: string,
 		ref: string,
 		pathOrUri?: string | Uri,
-		options?: { force?: boolean; timeout?: number },
-	): Promise<string> {
-		if (pathOrUri != null && isUncommittedParent(ref)) {
-			ref = 'HEAD';
-		}
-
-		if (
-			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
-		) {
-			return ref;
-		}
-
-		if (pathOrUri == null) {
-			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			if ((!options?.force && !isShaLike(ref)) || ref.endsWith('^3')) return ref;
-
-			return (await this.validateReference(repoPath, ref)) ?? ref;
-		}
-
-		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
-
-		let cancellation: TimedCancellationSource | undefined;
-		if (options?.timeout != null) {
-			cancellation = new TimedCancellationSource(options.timeout);
-		}
-
-		const [verifiedResult, resolvedResult] = await Promise.allSettled([
-			this.validateReference(repoPath, ref, relativePath),
-			this.git.log__file_recent(repoPath, relativePath, {
-				ref: ref,
-				cancellation: cancellation?.token,
-			}),
-		]);
-
-		const verified = getSettledValue(verifiedResult);
-		if (!verified) return deletedOrMissing;
-
-		const resolved = getSettledValue(resolvedResult);
-
-		const cancelled = cancellation?.token.isCancellationRequested;
-		cancellation?.dispose();
-
-		return cancelled ? ref : resolved ?? ref;
+		cancellation?: CancellationToken,
+	): Promise<boolean> {
+		const relativePath = pathOrUri ? this.provider.getRelativePath(pathOrUri, repoPath) : undefined;
+		return Boolean((await this.validateReference(repoPath, ref, relativePath, cancellation))?.length);
 	}
 
-	private async validateReference(repoPath: string, ref: string, relativePath?: string): Promise<string | undefined> {
+	@debug()
+	async validateReference(
+		repoPath: string,
+		ref: string,
+		relativePath?: string,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined> {
 		if (!ref) return undefined;
 		if (ref === deletedOrMissing || isUncommitted(ref)) return ref;
 
-		const supportsEndOfOptions = await this.git.isAtLeastVersion('2.30');
+		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
-		const data = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
 			supportsEndOfOptions ? '--end-of-options' : undefined,
 			relativePath ? `${ref}:./${relativePath}` : `${ref}^{commit}`,
 		);
-		return data?.trim() || undefined;
+		return result.stdout.trim() || undefined;
 	}
 }

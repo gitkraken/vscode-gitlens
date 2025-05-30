@@ -1,15 +1,16 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { window } from 'vscode';
-import { HostingIntegrationId } from '../../../constants.integrations';
-import type { Account } from '../../../git/models/author';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { getSettledValue } from '../../../system/promise';
+import { base64 } from '../../../system/string';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import { HostingIntegration } from '../integration';
+import { GitHostIntegration } from '../models/gitHostIntegration';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -20,15 +21,15 @@ import type {
 import type { ProviderPullRequest, ProviderRepository } from './models';
 import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models';
 
-const metadata = providersMetadata[HostingIntegrationId.AzureDevOps];
+const metadata = providersMetadata[GitCloudHostIntegrationId.AzureDevOps];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-export class AzureDevOpsIntegration extends HostingIntegration<
-	HostingIntegrationId.AzureDevOps,
+export class AzureDevOpsIntegration extends GitHostIntegration<
+	GitCloudHostIntegrationId.AzureDevOps,
 	AzureRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = HostingIntegrationId.AzureDevOps;
+	readonly id = GitCloudHostIntegrationId.AzureDevOps;
 	protected readonly key = this.id;
 	readonly name: string = 'Azure DevOps';
 	get domain(): string {
@@ -81,7 +82,10 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			const account = await this.getProviderCurrentAccount(session);
 			if (account?.id == null) return undefined;
 
-			const resources = await api.getAzureResourcesForUser(account.id, { accessToken: accessToken });
+			const resources = await api.getAzureResourcesForUser(account.id, {
+				accessToken: convertTokentoPAT(accessToken),
+				isPAT: true,
+			});
 			this._organizations.set(
 				accessToken,
 				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
@@ -117,7 +121,10 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			const azureProjects = (
 				await Promise.allSettled(
 					resourcesWithoutProjects.map(resource =>
-						api.getAzureProjectsForResource(resource.name, { accessToken: accessToken }),
+						api.getAzureProjectsForResource(resource.name, {
+							accessToken: convertTokentoPAT(accessToken),
+							isPAT: true,
+						}),
 					),
 				)
 			)
@@ -164,7 +171,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			projects.map(async project => {
 				const repos = (
 					await api.getReposForAzureProject(project.resourceName, project.name, {
-						accessToken: accessToken,
+						accessToken: convertTokentoPAT(accessToken),
+						isPAT: true,
 					})
 				)?.values;
 				if (repos != null && repos.length > 0) {
@@ -202,7 +210,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		try {
 			const merged = await api.mergePullRequest(this.id, pr, {
 				...options,
-				accessToken: accessToken,
+				accessToken: convertTokentoPAT(accessToken),
+				isPAT: true,
 			});
 			return merged;
 		} catch (ex) {
@@ -218,14 +227,22 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderAccountForCommit(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_ref: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		rev: string,
+		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
+	): Promise<UnidentifiedAuthor | undefined> {
+		return (await this.container.azure)?.getAccountForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+			options,
+		);
 	}
 
 	protected override async getProviderAccountForEmail(
@@ -293,11 +310,18 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_ref: string,
+		{ accessToken }: AuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		rev: string,
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getPullRequestForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+		);
 	}
 
 	public override async getRepoInfo(repo: {
@@ -306,8 +330,11 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		project: string;
 	}): Promise<ProviderRepository | undefined> {
 		const api = await this.getProvidersApi();
+		if (this._session == null) return undefined;
+
 		return api.getRepo(this.id, repo.owner, repo.name, repo.project, {
-			accessToken: this._session?.accessToken,
+			accessToken: convertTokentoPAT(this._session.accessToken),
+			isPAT: true,
 		});
 	}
 
@@ -347,13 +374,15 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
 		const assignedPrs = (
 			await api.getPullRequestsForAzureProjects(projectInputs, {
-				accessToken: session.accessToken,
+				accessToken: convertTokentoPAT(session.accessToken),
+				isPAT: true,
 				assigneeLogins: [user.username],
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(projectInputs, {
-				accessToken: session.accessToken,
+				accessToken: convertTokentoPAT(session.accessToken),
+				isPAT: true,
 				authorLogin: user.username,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
@@ -392,7 +421,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 				projects.map(async p => {
 					const issuesResponse = (
 						await api.getIssuesForAzureProject(p.resourceName, p.name, {
-							accessToken: session.accessToken,
+							accessToken: convertTokentoPAT(session.accessToken),
+							isPAT: true,
 							assigneeLogins: [user.username!],
 						})
 					).values;
@@ -546,4 +576,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
 export function isAzureCloudDomain(domain: string | undefined): boolean {
 	return domain != null && azureCloudDomainRegex.test(domain);
+}
+
+function convertTokentoPAT(accessToken: string): string {
+	return base64(`PAT:${accessToken}`);
 }

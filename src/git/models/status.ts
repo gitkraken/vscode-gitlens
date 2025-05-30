@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { pluralize } from '../../system/string';
@@ -256,7 +256,7 @@ export class GitStatus {
 	async getRemote(): Promise<GitRemote | undefined> {
 		if (this.upstream == null) return undefined;
 
-		const remotes = await this.container.git.remotes(this.repoPath).getRemotesWithProviders();
+		const remotes = await this.container.git.getRepositoryService(this.repoPath).remotes.getRemotesWithProviders();
 		if (remotes.length === 0) return undefined;
 
 		const remoteName = getRemoteNameFromBranchName(this.upstream?.name);

@@ -62,11 +62,75 @@ export default function (env, argv) {
 	};
 
 	return [
+		getCommonConfig(mode, env),
 		getExtensionConfig('node', mode, env),
 		getExtensionConfig('webworker', mode, env),
 		getWebviewsCommonConfig(mode, env),
 		...getWebviewsConfigs(mode, env),
 	];
+}
+
+/** @type WebpackConfig['stats'] */
+const stats = {
+	preset: 'errors-warnings',
+	assets: true,
+	assetsSort: 'name',
+	assetsSpace: 100,
+	colors: true,
+	env: true,
+	errorsCount: true,
+	excludeAssets: [/\.(ttf|webp)/],
+	warningsCount: true,
+	timings: true,
+};
+
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @returns { WebpackConfig }
+ */
+function getCommonConfig(mode, env) {
+	// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
+	const dist = path.join(__dirname, 'dist');
+	if (!fs.existsSync(dist)) {
+		fs.mkdirSync(dist);
+	}
+
+	/**
+	 * @type WebpackConfig['plugins'] | any
+	 */
+	const plugins = [
+		new DocsPlugin(),
+		new LicensesPlugin(),
+		new FantasticonPlugin({
+			configPath: '.fantasticonrc.js',
+			onBefore:
+				mode !== 'production'
+					? undefined
+					: () =>
+							spawnSync(pkgMgr, ['run', 'icons:svgo'], {
+								cwd: __dirname,
+								encoding: 'utf8',
+								shell: true,
+							}),
+			onComplete: () =>
+				spawnSync(pkgMgr, ['run', 'icons:apply'], {
+					cwd: __dirname,
+					encoding: 'utf8',
+					shell: true,
+				}),
+		}),
+	];
+
+	return {
+		name: 'common',
+		context: __dirname,
+		entry: {},
+		mode: mode,
+		plugins: plugins,
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
+	};
 }
 
 /**
@@ -112,36 +176,10 @@ function getExtensionConfig(target, mode, env) {
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
 	} else {
-		// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
-		const dist = path.join(__dirname, 'dist');
-		if (!fs.existsSync(dist)) {
-			fs.mkdirSync(dist);
-		}
-
 		plugins.push(
 			new GenerateContributionsPlugin(),
 			new ExtractContributionsPlugin(),
 			new GenerateCommandTypesPlugin(),
-			new DocsPlugin(),
-			new LicensesPlugin(),
-			new FantasticonPlugin({
-				configPath: '.fantasticonrc.js',
-				onBefore:
-					mode !== 'production'
-						? undefined
-						: () =>
-								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
-									cwd: __dirname,
-									encoding: 'utf8',
-									shell: true,
-								}),
-				onComplete: () =>
-					spawnSync(pkgMgr, ['run', 'icons:apply'], {
-						cwd: __dirname,
-						encoding: 'utf8',
-						shell: true,
-					}),
-			}),
 		);
 	}
 
@@ -278,23 +316,8 @@ function getExtensionConfig(target, mode, env) {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
 		plugins: plugins,
-		infrastructureLogging:
-			mode === 'production'
-				? undefined
-				: {
-						level: 'log', // enables logging required for problem matchers
-				  },
-		stats: {
-			preset: 'errors-warnings',
-			assets: true,
-			assetsSort: 'name',
-			assetsSpace: 100,
-			colors: true,
-			env: true,
-			errorsCount: true,
-			warningsCount: true,
-			timings: true,
-		},
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
 	};
 }
 
@@ -308,7 +331,7 @@ function getWebviewsConfigs(mode, env) {
 		getWebviewConfig(
 			{
 				commitDetails: { entry: './commitDetails/commitDetails.ts' },
-				graph: { entry: './plus/graph/graph.tsx', plus: true },
+				graph: { entry: './plus/graph/graph.ts', plus: true },
 				home: { entry: './home/home.ts' },
 				rebase: { entry: './rebase/rebase.ts' },
 				settings: { entry: './settings/settings.ts' },
@@ -316,24 +339,6 @@ function getWebviewsConfigs(mode, env) {
 				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
 			},
 			{},
-			mode,
-			env,
-		),
-		getWebviewConfig(
-			{
-				'graph-next': { entry: './plus/graph-next/graph.ts', plus: true },
-			},
-			{
-				alias: {
-					'@gitkraken/gitkraken-components': path.resolve(
-						__dirname,
-						'node_modules',
-						'@gitkraken/gitkraken-components-next',
-					),
-					react: path.resolve(__dirname, 'node_modules', 'react-next'),
-					'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom-next'),
-				},
-			},
 			mode,
 			env,
 		),
@@ -429,24 +434,8 @@ function getWebviewsCommonConfig(mode, env) {
 					: [],
 		},
 		plugins: plugins,
-		infrastructureLogging:
-			mode === 'production'
-				? undefined
-				: {
-						level: 'log', // enables logging required for problem matchers
-				  },
-		stats: {
-			preset: 'errors-warnings',
-			assets: true,
-			assetsSort: 'name',
-			assetsSpace: 100,
-			colors: true,
-			env: true,
-			errorsCount: true,
-			excludeAssets: [/\.(ttf|webp)/],
-			warningsCount: true,
-			timings: true,
-		},
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
 	};
 }
 
@@ -587,11 +576,6 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				// Disable all non-async code splitting
 				// chunks: () => false,
 				cacheGroups: {
-					billboard: {
-						test: /[\\/]node_modules[\\/](billboard\.js)[\\/]/,
-						filename: pathData => `lib-billboard-${pathData.chunk?.id ?? 'chunk'}.js`,
-						chunks: 'async',
-					},
 					default: false,
 					vendors: false,
 				},
@@ -650,6 +634,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				},
 			],
 		},
+
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
@@ -657,28 +642,13 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 				...overrides.alias,
 			},
+			fallback: { path: require.resolve('path-browserify') },
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
 		},
 		plugins: plugins,
-		infrastructureLogging:
-			mode === 'production'
-				? undefined
-				: {
-						level: 'log', // enables logging required for problem matchers
-				  },
-		stats: {
-			preset: 'errors-warnings',
-			assets: true,
-			assetsSort: 'name',
-			assetsSpace: 100,
-			colors: true,
-			env: true,
-			errorsCount: true,
-			excludeAssets: [/\.(ttf|webp)/],
-			warningsCount: true,
-			timings: true,
-		},
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
 	};
 }
 

@@ -3,7 +3,7 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
-import type { IntegrationId } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -52,7 +52,7 @@ import type {
 } from './models/drafts';
 
 export interface ProviderAuth {
-	provider: IntegrationId;
+	provider: IntegrationIds;
 	token: string;
 }
 
@@ -176,7 +176,7 @@ export class DraftService implements Disposable {
 					throw new Error(`No contents found for ${patch.baseCommitSha}`);
 				}
 
-				const diffFiles = await repository.git.diff().getDiffFiles?.(contents);
+				const diffFiles = await repository.git.diff.getDiffFiles?.(contents);
 				const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gitRepositoryId })) ?? [];
 
 				// Upload patch to returned S3 url
@@ -253,17 +253,14 @@ export class DraftService implements Disposable {
 
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
 			isWIP
-				? change.repository.git
-						.branches()
-						.getBranch()
-						.then(b => (b != null ? [b.name] : undefined))
-				: change.repository.git.branches().getBranchesWithCommits([change.revision.to, change.revision.from]),
+				? change.repository.git.branches.getBranch().then(b => (b != null ? [b.name] : undefined))
+				: change.repository.git.branches.getBranchesWithCommits([change.revision.to, change.revision.from]),
 			change.contents == null
-				? change.repository.git.diff().getDiff?.(change.revision.to, change.revision.from)
+				? change.repository.git.diff.getDiff?.(change.revision.to, change.revision.from)
 				: undefined,
-			change.repository.git.commits().getInitialCommitSha?.(),
-			change.repository.git.remotes().getBestRemoteWithProvider(),
-			change.repository.git.config().getCurrentUser(),
+			change.repository.git.commits.getInitialCommitSha?.(),
+			change.repository.git.remotes.getBestRemoteWithProvider(),
+			change.repository.git.config.getCurrentUser(),
 		]);
 
 		const firstSha = getSettledValue(firstShaResult);
@@ -301,7 +298,9 @@ export class DraftService implements Disposable {
 
 		let baseSha = change.revision.from;
 		if (!isSha(baseSha)) {
-			const commit = await this.container.git.commits(change.repository.uri).getCommit(baseSha);
+			const commit = await this.container.git
+				.getRepositoryService(change.repository.uri)
+				.commits.getCommit(baseSha);
 			if (commit != null) {
 				baseSha = commit.sha;
 			} else {
@@ -570,7 +569,7 @@ export class DraftService implements Disposable {
 			repoPath = repositoryOrIdentity.path;
 		}
 
-		const diffFiles = await this.container.git.diff(repoPath).getDiffFiles?.(contents);
+		const diffFiles = await this.container.git.getRepositoryService(repoPath).diff.getDiffFiles?.(contents);
 		const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gkRepositoryId })) ?? [];
 
 		return {
@@ -725,7 +724,7 @@ export class DraftService implements Disposable {
 			name = data.provider.repoName;
 		} else if (data.remote?.url != null && data.remote?.domain != null && data.remote?.path != null) {
 			const matcher = await getRemoteProviderMatcher(this.container);
-			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path);
+			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path, undefined);
 			name = provider?.repoName ?? data.remote.path;
 		} else {
 			name =
@@ -745,14 +744,14 @@ export class DraftService implements Disposable {
 	}
 
 	async getProviderAuthFromRepoOrIntegrationId(
-		repoOrIntegrationId: Repository | IntegrationId,
+		repoOrIntegrationId: Repository | IntegrationIds,
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.git.remotes().getBestRemoteWithIntegration();
-			if (remoteProvider == null) return undefined;
+			const remote = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
+			if (remote == null) return undefined;
 
-			integration = await remoteProvider.getIntegration();
+			integration = await remote.getIntegration();
 		} else {
 			const metadata = providersMetadata[repoOrIntegrationId];
 			if (metadata == null) return undefined;
@@ -816,13 +815,13 @@ export class DraftService implements Disposable {
 	): Promise<Draft[]>;
 	async getCodeSuggestions(
 		launchpadItem: LaunchpadItem,
-		integrationId: IntegrationId,
+		integrationId: IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
 		item: PullRequest | LaunchpadItem,
-		repositoryOrIntegrationId: Repository | IntegrationId,
+		repositoryOrIntegrationId: Repository | IntegrationIds,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
 		if (!supportsCodeSuggest(item.provider)) return [];

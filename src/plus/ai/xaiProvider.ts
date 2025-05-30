@@ -1,6 +1,6 @@
 import { xAIProviderDescriptor as provider } from '../../constants.ai';
 import type { AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type XAIModel = AIModel<typeof provider.id>;
 const models: XAIModel[] = [
@@ -13,7 +13,7 @@ const models: XAIModel[] = [
 	},
 ];
 
-export class XAIProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class XAIProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

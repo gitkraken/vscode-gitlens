@@ -7,12 +7,14 @@ import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
+import type { RepositoryShape } from '../../git/models/repositoryShape';
 import type { RemoteProviderSupportedFeatures } from '../../git/remotes/remoteProvider';
 import type { AIModel } from '../../plus/ai/models/model';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
 import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
@@ -27,6 +29,8 @@ export interface State extends WebviewState {
 		drafts: boolean;
 		ai: boolean;
 	};
+	aiEnabled: boolean;
+	aiGenerateCommitsEnabled: boolean;
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
@@ -202,16 +206,7 @@ export interface GetOverviewBranch {
 	};
 }
 
-export interface OverviewRepository {
-	name: string;
-	path: string;
-	provider?: {
-		name: string;
-		icon?: string;
-		url?: string;
-		supportedFeatures: RemoteProviderSupportedFeatures;
-	};
-}
+export type OverviewRepository = RepositoryShape;
 
 // TODO: look at splitting off selected repo
 export type GetActiveOverviewResponse =
@@ -260,6 +255,11 @@ export type OpenInGraphParams =
 	| undefined;
 export const OpenInGraphCommand = new IpcCommand<OpenInGraphParams>(scope, 'openInGraph');
 
+export type OpenInTimelineParams =
+	| { type: 'repo'; repoPath: string; branchId?: never }
+	| { type: 'branch'; repoPath: string; branchId: string }
+	| undefined;
+
 // NOTIFICATIONS
 
 export interface DidCompleteDiscoveringRepositoriesParams {
@@ -275,6 +275,8 @@ export const DidCompleteDiscoveringRepositories = new IpcNotification<DidComplet
 export interface DidChangePreviewEnabledParams {
 	previewEnabled: boolean;
 	previewCollapsed: boolean;
+	aiEnabled: boolean;
+	aiGenerateCommitsEnabled: boolean;
 }
 export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
 	scope,
@@ -344,6 +346,10 @@ export interface BranchRef {
 		name: string;
 		isDefault: boolean;
 	};
+}
+
+export interface OpenWorktreeCommandArgs extends BranchRef {
+	location?: OpenWorkspaceLocation;
 }
 
 export interface BranchAndTargetRefs extends BranchRef {

@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
 import { extensionPrefix } from '../../constants';
-import { IssueIntegrationId } from '../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../constants.integrations';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
@@ -71,7 +71,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	async getJiraConnected(): Promise<boolean> {
-		const jira = await this.container.integrations.get(IssueIntegrationId.Jira);
+		const jira = await this.container.integrations.get(IssuesCloudHostIntegrationId.Jira);
 		if (jira == null) return false;
 		return jira.maybeConnected ?? jira.isConnected();
 	}
@@ -203,12 +203,20 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-							new GitFileChange(
-								this.container,
-								'~/code/eamodio/vscode-gitlens-demo',
-								'code.ts',
-								GitFileIndexStatus.Modified,
-							),
+							{
+								files: undefined,
+								filtered: {
+									files: [
+										new GitFileChange(
+											this.container,
+											'~/code/eamodio/vscode-gitlens-demo',
+											'code.ts',
+											GitFileIndexStatus.Modified,
+										),
+									],
+									pathspec: 'code.ts',
+								},
+							},
 							undefined,
 							[],
 						);

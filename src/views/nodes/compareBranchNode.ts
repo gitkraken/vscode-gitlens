@@ -8,13 +8,12 @@ import type { GitBranch } from '../../git/models/branch';
 import type { RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
-import { getCommitsQuery, getFilesQuery } from '../../git/queryResults';
+import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
 import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
-import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { ViewsWithBranches } from '../viewBase';
 import type { WorktreesView } from '../worktreesView';
@@ -104,6 +103,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		return this.branch.repoPath;
 	}
 
+	@debug()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		const subscriptions: Disposable[] = [
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
@@ -143,16 +143,16 @@ export class CompareBranchNode extends SubscribeableViewNode<
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
 			const counts = await this.view.container.git
-				.commits(this.repoPath)
-				.getLeftRightCommitCount(createRevisionRange(behind.ref1, behind.ref2, '...'), {
+				.getRepositoryService(this.repoPath)
+				.commits.getLeftRightCommitCount(createRevisionRange(behind.ref1, behind.ref2, '...'), {
 					authors: this.filterByAuthors,
 				});
 
-			const refsProvider = this.view.container.git.refs(this.repoPath);
+			const svc = this.view.container.git.getRepositoryService(this.repoPath);
 			const mergeBase =
-				(await refsProvider.getMergeBase(behind.ref1, behind.ref2, {
+				(await svc.refs.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await refsProvider.getMergeBase(behind.ref1, behind.ref2));
+				})) ?? (await svc.refs.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
@@ -304,9 +304,9 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@debug()
-	override refresh(reset?: boolean): void {
-		super.refresh(reset);
+	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		this.loadCompareWith();
+		return super.refresh(reset);
 	}
 
 	@log()
@@ -337,73 +337,21 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		const comparison = createRevisionRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
-
-		const diffProvider = this.view.container.git.diff(this.repoPath);
-		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-			diffProvider.getDiffStatus(comparison),
-			this.compareWithWorkingTree ? diffProvider.getDiffStatus('HEAD') : undefined,
-			diffProvider.getChangedFilesCount(comparison),
-			this.compareWithWorkingTree ? diffProvider.getChangedFilesCount('HEAD') : undefined,
-		]);
-
-		let files = getSettledValue(filesResult) ?? [];
-		let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
-
-		if (this.compareWithWorkingTree) {
-			const workingFiles = getSettledValue(workingFilesResult);
-			if (workingFiles != null) {
-				if (files.length === 0) {
-					files = workingFiles;
-				} else {
-					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.path === wf.path);
-						if (index !== -1) {
-							files.splice(index, 1, wf);
-						} else {
-							files.push(wf);
-						}
-					}
-				}
-			}
-
-			const workingStats = getSettledValue(workingStatsResult);
-			if (workingStats != null) {
-				if (stats == null) {
-					stats = workingStats;
-				} else {
-					stats = {
-						additions: stats.additions + workingStats.additions,
-						deletions: stats.deletions + workingStats.deletions,
-						files: files.length,
-						approximated: true,
-					};
-				}
-			}
-		}
-
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: stats,
-		};
+		return getAheadBehindFilesQuery(
+			this.view.container,
+			this.repoPath,
+			createRevisionRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...'),
+			this.compareWithWorkingTree,
+		);
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		const comparison = createRevisionRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
-
-		const diffProvider = this.view.container.git.diff(this.repoPath);
-		const [filesResult, statsResult] = await Promise.allSettled([
-			diffProvider.getDiffStatus(comparison),
-			diffProvider.getChangedFilesCount(comparison),
-		]);
-
-		const files = getSettledValue(filesResult) ?? [];
-		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
-			files: files,
-			stats: getSettledValue(statsResult),
-		};
+		return getAheadBehindFilesQuery(
+			this.view.container,
+			this.repoPath,
+			createRevisionRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
+			false,
+		);
 	}
 
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {

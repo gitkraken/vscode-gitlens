@@ -36,6 +36,8 @@ tests/**
 BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
+contributions.json
+contributions.schema.json
 eslint.config.mjs
 pnpm-lock.yaml
 README.pre.md

@@ -71,7 +71,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 	@debug()
 	override async refresh(reset: boolean = false): Promise<void> {
 		const hasChildren = this.children != null;
-		super.refresh(reset);
+		await super.refresh(reset);
 		if (!hasChildren) return;
 
 		if (reset) {

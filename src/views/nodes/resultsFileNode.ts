@@ -9,6 +9,7 @@ import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createReference } from '../../git/utils/reference.utils';
 import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import type { View } from '../viewBase';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode';
@@ -125,28 +126,33 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	override getCommand(): Command | undefined {
+		let lhsUri;
+		let rhsUri;
+		if (this.file.status === 'R' || this.file.status === 'C') {
+			if (this.direction === 'behind') {
+				lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
+				rhsUri = this.uri;
+			} else {
+				if (this.direction == null) {
+					lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref1, true);
+				} else {
+					lhsUri = this.uri;
+				}
+				rhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
+			}
+		} else {
+			lhsUri = this.uri;
+			rhsUri = this.uri;
+		}
+
 		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
-			lhs: {
-				sha: this.ref1,
-				uri:
-					(this.file.status === 'R' || this.file.status === 'C') && this.direction === 'behind'
-						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
-						: this.uri,
-			},
-			rhs: {
-				sha: this.ref2,
-				uri:
-					(this.file.status === 'R' || this.file.status === 'C') && this.direction !== 'behind'
-						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
-						: this.uri,
-			},
+			lhs: { sha: this.ref1, uri: lhsUri },
+			rhs: { sha: this.ref2, uri: rhsUri },
 			repoPath: this.uri.repoPath!,
 
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
+			fromComparison: true,
+			range: editorLineToDiffRange(0),
+			showOptions: { preserveFocus: true, preview: true },
 		});
 	}
 }

@@ -5,6 +5,7 @@ import type { WebviewCommands, WebviewViewCommands } from '../constants.commands
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { isCancellationError } from '../errors';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
@@ -30,8 +31,10 @@ import {
 	ApplicablePromoRequest,
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
+	DidChangeWebviewVisibilityNotification,
 	ExecuteCommand,
 	ipcPromiseSettled,
+	isIpcPromise,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
@@ -248,17 +251,17 @@ export class WebviewController<
 			'context.webview.id': this.id,
 			'context.webview.type': this.descriptor.type,
 			'context.webview.instanceId': this.instanceId,
-			'context.webview.host': this.isHost('editor') ? 'editor' : 'view',
+			'context.webview.host': this.is('editor') ? 'editor' : 'view',
 		};
 	}
 
-	isHost(
+	is(
 		type: 'editor',
 	): this is WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>;
-	isHost(
+	is(
 		type: 'view',
 	): this is WebviewViewController<ID extends WebviewViewIds ? ID : never, State, SerializedState, ShowingArgs>;
-	isHost(
+	is(
 		type: 'editor' | 'view',
 	): this is
 		| WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>
@@ -318,14 +321,14 @@ export class WebviewController<
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	): boolean | undefined {
-		if (!this.isHost('editor')) return undefined;
+		if (!this.is('editor')) return undefined;
 
 		if (options?.column != null && options.column !== this.parent.viewColumn) return false;
 		return this.provider.canReuseInstance?.(...args);
 	}
 
 	getSplitArgs(): WebviewShowingArgs<ShowingArgs, SerializedState> {
-		if (this.isHost('view')) return [];
+		if (this.is('view')) return [];
 
 		return this.provider.getSplitArgs?.() ?? [];
 	}
@@ -336,16 +339,11 @@ export class WebviewController<
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	): Promise<void> {
-		if (options == null) {
-			options = {};
-		}
-
-		const eventBase = {
-			...this.getTelemetryContext(),
-			loading: loading,
-		};
+		options ??= {};
 
 		using sw = new Stopwatch(`WebviewController.show(${this.id})`);
+
+		const eventBase = { ...this.getTelemetryContext(), loading: loading };
 
 		let context;
 		const result = await this.provider.onShowing?.(loading, options, ...args);
@@ -363,17 +361,26 @@ export class WebviewController<
 
 		if (loading) {
 			this.cancellation ??= new CancellationTokenSource();
-			this.webview.html = await this.getHtml(this.webview);
+			try {
+				this.webview.html = await this.getHtml(this.webview);
+			} catch (ex) {
+				if (isCancellationError(ex)) {
+					this.cancellation.cancel();
+					return;
+				}
+
+				throw ex;
+			}
 		}
 
-		if (this.isHost('editor')) {
+		if (this.is('editor')) {
 			if (!loading) {
 				this.parent.reveal(
 					options.column ?? this.parent.viewColumn ?? this.descriptor.column ?? ViewColumn.Beside,
 					options.preserveFocus ?? false,
 				);
 			}
-		} else if (this.isHost('view')) {
+		} else if (this.is('view')) {
 			await executeCoreCommand(`${this.id}.focus`, options);
 			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
@@ -420,7 +427,18 @@ export class WebviewController<
 		const wasReady = this._ready;
 		this._ready = false;
 
-		const html = await this.getHtml(this.webview);
+		let html;
+		try {
+			html = await this.getHtml(this.webview);
+		} catch (ex) {
+			if (isCancellationError(ex)) {
+				this.cancellation.cancel();
+				return;
+			}
+
+			throw ex;
+		}
+
 		if (force) {
 			// Reset the html to get the webview to reload
 			this.webview.html = '';
@@ -452,7 +470,7 @@ export class WebviewController<
 			case WebviewReadyCommand.is(e):
 				this._ready = true;
 				this.sendPendingIpcNotifications();
-				this.provider.onReady?.();
+				void this.provider.onReady?.();
 
 				break;
 
@@ -538,6 +556,7 @@ export class WebviewController<
 			this.handleFocusChanged(false);
 		}
 
+		void this.notify(DidChangeWebviewVisibilityNotification, { visible: visible });
 		this.provider.onVisibilityChanged?.(visible);
 	}
 
@@ -595,7 +614,7 @@ export class WebviewController<
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
-			this.isHost('editor') ? 'editor' : 'view',
+			this.is('editor') ? 'editor' : 'view',
 			bootstrap,
 			head,
 			body,
@@ -657,14 +676,14 @@ export class WebviewController<
 	}
 
 	private replacePromisesWithIpcPromises(data: unknown) {
-		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
+		const pendingPromises: IpcPromise[] = [];
 		this.replacePromisesWithIpcPromisesCore(data, pendingPromises);
-		if (pendingPromises.length === 0) return;
+		if (!pendingPromises.length) return;
 
 		const cancellation = this.cancellation?.token;
 		queueMicrotask(() => {
-			for (const [promise, ipcPromise] of pendingPromises) {
-				promise.then(
+			for (const ipcPromise of pendingPromises) {
+				ipcPromise.__promise.then(
 					r => {
 						if (cancellation?.isCancellationRequested) {
 							debugger;
@@ -684,22 +703,28 @@ export class WebviewController<
 		});
 	}
 
-	private replacePromisesWithIpcPromisesCore(data: unknown, pendingPromises: [Promise<unknown>, IpcPromise][]) {
+	private replacePromisesWithIpcPromisesCore(data: unknown, pendingPromises: IpcPromise[]) {
 		if (data == null || typeof data !== 'object') return;
 
 		for (const key in data) {
+			if (key === '__promise') continue;
+
 			const value = (data as Record<string, unknown>)[key];
 			if (value instanceof Promise) {
 				const ipcPromise: IpcPromise = {
 					__ipc: 'promise',
+					__promise: value,
 					id: this.nextIpcId(),
 					method: ipcPromiseSettled.method,
 				};
 				(data as Record<string, unknown>)[key] = ipcPromise;
-				pendingPromises.push([value, ipcPromise]);
+				pendingPromises.push(ipcPromise);
+			} else if (isIpcPromise(value)) {
+				value.id = this.nextIpcId();
+				pendingPromises.push(value);
+			} else {
+				this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
 			}
-
-			this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
 		}
 	}
 
@@ -739,7 +764,7 @@ export class WebviewController<
 
 		let success;
 
-		if (this.isHost('view')) {
+		if (this.is('view')) {
 			// If we are in a view, show progress if we are waiting too long
 			const result = await pauseOnCancelOrTimeout(promise, undefined, 100);
 			if (result.paused) {

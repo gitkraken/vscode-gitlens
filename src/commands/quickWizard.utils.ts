@@ -5,6 +5,7 @@ import { LaunchpadCommand } from '../plus/launchpad/launchpad';
 import { AssociateIssueWithBranchCommand, StartWorkCommand } from '../plus/startWork/startWork';
 import { configuration } from '../system/-webview/configuration';
 import { getContext } from '../system/-webview/context';
+import { ChangeBranchMergeTargetCommand } from './changeBranchMergeTarget';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';
@@ -121,6 +122,10 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 
 		if (args?.command === 'associateIssueWithBranch') {
 			this.hiddenItems.push(new AssociateIssueWithBranchCommand(container, args));
+		}
+
+		if (args?.command === 'changeBranchMergeTarget') {
+			this.hiddenItems.push(new ChangeBranchMergeTargetCommand(container, args));
 		}
 	}
 

@@ -130,7 +130,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await this.container.git.commits(repoPath).getCommit(args.sha);
+					args.commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(args.sha);
 				}
 			}
 

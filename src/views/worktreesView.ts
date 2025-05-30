@@ -23,10 +23,7 @@ import { registerViewCommand } from './viewCommands';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
 	getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new WorktreesNode(this.uri, this.view, this, this.repo);
-		}
-
+		this.child ??= new WorktreesNode(this.uri, this.view, this, this.repo);
 		return this.child.getChildren();
 	}
 
@@ -55,17 +52,29 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading worktrees...';
+
 			const access = await this.view.container.git.access('worktrees');
-			if (access.allowed === false) return [];
+			if (access.allowed === false) {
+				// Reset the message so the welcome view will show
+				this.view.message = undefined;
+				return [];
+			}
 
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading worktrees...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No worktrees could be found.';
+				return [];
+			}
+
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
+			if (repo != null && !(await repo.git.supports('git:worktrees'))) {
+				// Reset the message so the welcome view will show
+				this.view.message = undefined;
 				return [];
 			}
 
@@ -74,9 +83,8 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -85,16 +93,20 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 
 			const grandChildren = await child.getChildren();
 			if (grandChildren.length <= 1) {
+				// Reset the message so the welcome view will show
+				this.view.message = undefined;
 				void child.ensureSubscription();
 
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(grandChildren.length);
 
 			return grandChildren;
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -143,7 +155,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					this.container.git.resetCaches('worktrees');
+					this.container.git.resetCaches('branches', 'status', 'worktrees');
 					return this.refresh(true);
 				},
 				this,
@@ -269,7 +281,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

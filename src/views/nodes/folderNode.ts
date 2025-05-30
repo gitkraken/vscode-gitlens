@@ -2,6 +2,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
+import { first } from '../../system/iterable';
 import { sortCompare } from '../../system/string';
 import type { StashesView } from '../stashesView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -44,14 +45,15 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 	}
 
 	getChildren(): (FolderNode | FileNode)[] {
-		if (this.root.descendants === undefined || this.root.children === undefined) return [];
+		if (!this.root.descendants?.length || !this.root.children?.size) return [];
 
 		let children: (FolderNode | FileNode)[];
+		const { compact } = this.view.config.files;
 
 		const nesting = FolderNode.getFileNesting(
 			this.view.config.files,
 			this.root.descendants,
-			this.relativePath === undefined,
+			this.relativePath == null,
 		);
 		if (nesting === 'list') {
 			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
@@ -59,7 +61,23 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 		} else {
 			children = [];
 			for (const folder of this.root.children.values()) {
-				if (folder.value === undefined) {
+				if (folder.value != null) {
+					// Make sure to set the parent
+					folder.value.parent = this.folderName ? this : this.parent;
+					folder.value.relativePath = this.root.relativePath;
+					children.push(folder.value);
+				}
+
+				if (!folder.children?.size) continue;
+				if (folder.children.size === 1 && compact) {
+					const child = first(folder.children.values());
+					if (child?.value != null) {
+						// Make sure to set the parent
+						child.value.parent = this.folderName ? this : this.parent;
+						child.value.relativePath = this.root.relativePath;
+						children.push(child.value);
+					}
+				} else {
 					children.push(
 						new FolderNode(
 							this.view,
@@ -71,13 +89,7 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 							this.containsWorkingFiles,
 						),
 					);
-					continue;
 				}
-
-				// Make sure to set the parent
-				folder.value.parent = this.folderName ? this : this.parent;
-				folder.value.relativePath = this.root.relativePath;
-				children.push(folder.value);
 			}
 		}
 

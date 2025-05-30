@@ -11,7 +11,7 @@ import { showReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -88,8 +88,8 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					if (gitUri.repoPath) {
 						if (gitUri.sha == null) {
 							const commit = await this.container.git
-								.commits(gitUri.repoPath)
-								.getCommitForFile(gitUri, undefined, { firstIfNotFound: true });
+								.getRepositoryService(gitUri.repoPath)
+								.commits.getCommitForFile(gitUri, undefined, { firstIfNotFound: true });
 							if (commit != null) {
 								args.sha = commit.sha;
 							}
@@ -117,12 +117,14 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 		args = { range: true, ...args };
 
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
+
 		try {
-			let remotes = await this.container.git.remotes(gitUri.repoPath).getRemotesWithProviders({ sort: true });
+			let remotes = await svc.remotes.getRemotesWithProviders({ sort: true });
 
 			let range: Range | undefined;
 			if (args.range) {
-				if (editor != null && uriEquals(editor.document.uri, uri)) {
+				if (editor != null && areUrisEqual(editor.document.uri, uri)) {
 					range = new Range(
 						editor.selection.start.with({ line: editor.selection.start.line + 1 }),
 						editor.selection.end.with({
@@ -152,7 +154,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			if ((args.sha == null && args.branchOrTag == null) || args.pickBranchOrTag) {
 				let branch;
 				if (!args.pickBranchOrTag) {
-					branch = await this.container.git.branches(gitUri.repoPath).getBranch();
+					branch = await svc.branches.getBranch();
 				}
 
 				if (branch?.upstream == null) {

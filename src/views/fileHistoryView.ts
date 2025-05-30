@@ -23,8 +23,8 @@ export class FileHistoryView extends ViewBase<
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
-	constructor(container: Container) {
-		super(container, 'fileHistory', 'File History', 'fileHistoryView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'fileHistory', 'File History', 'fileHistoryView', grouped);
 
 		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
 		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
@@ -151,7 +151,12 @@ export class FileHistoryView extends ViewBase<
 		this._followCursor = enabled;
 		void setContext('gitlens:views:fileHistory:cursorFollowing', enabled);
 
-		this.title = this._followCursor ? 'Line History' : 'File History';
+		if (this.grouped) {
+			this.groupedLabel = (this._followCursor ? 'Line History' : 'File History').toLocaleLowerCase();
+			this.description = this.groupedLabel;
+		} else {
+			this.title = this._followCursor ? 'Line History' : 'File History';
+		}
 
 		const root = this.ensureRoot(true);
 		if (uri != null) {

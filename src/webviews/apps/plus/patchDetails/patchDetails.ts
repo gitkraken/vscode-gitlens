@@ -354,7 +354,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	}
 
 	private onSwitchAIModel(_e: MouseEvent) {
-		this.onCommandClickedCore('gitlens.switchAIModel');
+		this.onCommandClickedCore('gitlens.ai.switchProvider');
 	}
 
 	private async onAIExplain(_e: MouseEvent) {

@@ -1,6 +1,10 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../constants.integrations';
 import type { Container } from '../../container';
 import { AuthenticationRequiredError, CancellationError } from '../../errors';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
@@ -188,18 +192,18 @@ const supportedRemoteProvidersToEnrich: Record<RemoteProvider['id'], EnrichedIte
 	'google-source': undefined,
 };
 
-const supportedIntegrationIdsToEnrich: Record<IntegrationId, EnrichedItemResponse['provider'] | undefined> = {
-	[HostingIntegrationId.AzureDevOps]: 'azure',
-	[HostingIntegrationId.GitLab]: 'gitlab',
-	[HostingIntegrationId.GitHub]: 'github',
-	[HostingIntegrationId.Bitbucket]: 'bitbucket',
-	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'github',
-	[SelfHostedIntegrationId.GitHubEnterprise]: 'github',
-	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlab',
-	[SelfHostedIntegrationId.GitLabSelfHosted]: 'gitlab',
-	[SelfHostedIntegrationId.BitbucketServer]: 'bitbucket',
-	[IssueIntegrationId.Jira]: 'jira',
-	[IssueIntegrationId.Trello]: 'trello',
+const supportedIntegrationIdsToEnrich: Record<IntegrationIds, EnrichedItemResponse['provider'] | undefined> = {
+	[GitCloudHostIntegrationId.AzureDevOps]: 'azure',
+	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
+	[GitCloudHostIntegrationId.GitHub]: 'github',
+	[GitCloudHostIntegrationId.Bitbucket]: 'bitbucket',
+	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: 'github',
+	[GitSelfManagedHostIntegrationId.GitHubEnterprise]: 'github',
+	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: 'gitlab',
+	[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: 'gitlab',
+	[GitSelfManagedHostIntegrationId.BitbucketServer]: 'bitbucket',
+	[IssuesCloudHostIntegrationId.Jira]: 'jira',
+	[IssuesCloudHostIntegrationId.Trello]: 'trello',
 };
 
 export function convertRemoteProviderToEnrichProvider(provider: RemoteProvider): EnrichedItemResponse['provider'] {
@@ -216,11 +220,11 @@ export function isEnrichableRemoteProviderId(id: string): id is RemoteProvider['
 	return supportedRemoteProvidersToEnrich[id as RemoteProvider['id']] != null;
 }
 
-export function isEnrichableIntegrationId(id: IntegrationId): boolean {
+export function isEnrichableIntegrationId(id: IntegrationIds): boolean {
 	return supportedIntegrationIdsToEnrich[id] != null;
 }
 
-export function convertIntegrationIdToEnrichProvider(id: IntegrationId): EnrichedItemResponse['provider'] {
+export function convertIntegrationIdToEnrichProvider(id: IntegrationIds): EnrichedItemResponse['provider'] {
 	const enrichProvider = supportedIntegrationIdsToEnrich[id];
 	if (enrichProvider == null) throw new Error(`Unknown integration id '${id}'`);
 	return enrichProvider;

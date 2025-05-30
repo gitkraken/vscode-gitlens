@@ -1,4 +1,4 @@
-import type { IntegrationId } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
@@ -39,7 +39,7 @@ export class CloudIntegrationService {
 	}
 
 	async getConnectionSession(
-		id: IntegrationId,
+		id: IntegrationIds,
 		refreshToken?: string,
 	): Promise<CloudIntegrationAuthenticationSession | undefined> {
 		const scope = getLogScope();
@@ -85,13 +85,28 @@ export class CloudIntegrationService {
 					},
 				);
 			}
+
+			if (refresh) {
+				// try once to just get the lastest token if the refresh fails, and give up if that fails too
+				const newTokenRsp = await this.connection.fetchGkApi(
+					`v1/provider-tokens/${cloudIntegrationType}`,
+					{ method: 'GET' },
+					{ organizationId: false },
+				);
+				if (newTokenRsp.ok) {
+					return (await newTokenRsp.json())?.data as Promise<
+						CloudIntegrationAuthenticationSession | undefined
+					>;
+				}
+			}
+
 			return undefined;
 		}
 
 		return (await tokenRsp.json())?.data as Promise<CloudIntegrationAuthenticationSession | undefined>;
 	}
 
-	async disconnect(id: IntegrationId): Promise<boolean> {
+	async disconnect(id: IntegrationIds): Promise<boolean> {
 		const scope = getLogScope();
 
 		const cloudIntegrationType = toCloudIntegrationType[id];

@@ -19,9 +19,6 @@ function generateIconStyles(iconMap: Record<string, string>, prefix = '') {
 export class CodeIcon extends LitElement {
 	static override styles = css`
 		:host {
-			--code-icon-size: 16px;
-			--code-icon-v-align: text-bottom;
-
 			font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
 			display: inline-block;
 			text-decoration: none;
@@ -33,7 +30,7 @@ export class CodeIcon extends LitElement {
 			-webkit-user-select: none;
 			-ms-user-select: none;
 			color: inherit;
-			vertical-align: var(--code-icon-v-align);
+			vertical-align: var(--code-icon-v-align, text-bottom);
 			letter-spacing: normal;
 		}
 

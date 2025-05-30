@@ -1,7 +1,7 @@
 import type { Disposable, Event } from 'vscode';
 import { authentication, EventEmitter } from 'vscode';
-import type { IntegrationId } from '../../../constants.integrations';
-import { HostingIntegrationId } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
@@ -15,7 +15,7 @@ import { isSupportedCloudIntegrationId } from './models';
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export interface IntegrationAuthenticationProviderDescriptor {
-	id: IntegrationId;
+	id: IntegrationIds;
 	scopes: string[];
 }
 
@@ -37,7 +37,7 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	get onDidChange(): Event<void>;
 }
 
-abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = IntegrationId>
+abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds = IntegrationIds>
 	implements IntegrationAuthenticationProvider
 {
 	protected readonly disposables: Disposable[] = [];
@@ -63,34 +63,36 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 
 	@debug()
 	async deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void> {
-		const configured = await this.configuredIntegrationService.getConfigured({
-			id: this.authProviderId,
+		const configured = await this.configuredIntegrationService.getConfigured(this.authProviderId, {
+			cloud: this.cloud,
 			domain: isSelfHostedIntegrationId(this.authProviderId) ? descriptor?.domain : undefined,
-			type: this.cloud ? 'cloud' : 'local',
 		});
 
 		await this.configuredIntegrationService.deleteStoredSessions(
 			this.authProviderId,
 			descriptor,
-			this.cloud ? undefined : 'local',
+			// Cloud auth providers delete both types, while local only delete their own
+			this.cloud ? undefined : false,
 		);
-		if (configured != null && configured.length > 0) {
+
+		if (configured?.length) {
 			this.fireDidChange();
 		}
 	}
 
 	@debug()
 	async deleteAllSessions(): Promise<void> {
-		const configured = await this.configuredIntegrationService.getConfigured({
-			id: this.authProviderId,
-			type: this.cloud ? 'cloud' : 'local',
+		const configured = await this.configuredIntegrationService.getConfigured(this.authProviderId, {
+			cloud: this.cloud,
 		});
 
 		await this.configuredIntegrationService.deleteAllStoredSessions(
 			this.authProviderId,
-			this.cloud ? undefined : 'local',
+			// Cloud auth providers delete both types, while local only delete their own
+			this.cloud ? undefined : false,
 		);
-		if (configured != null && configured.length > 0) {
+
+		if (configured?.length) {
 			this.fireDidChange();
 		}
 	}
@@ -109,13 +111,13 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 				this.authProviderId,
 				descriptor,
 				// Cloud auth providers delete both types, while local only delete their own
-				this.cloud ? undefined : 'local',
+				this.cloud ? undefined : false,
 			);
 		} else {
 			session = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
 				descriptor,
-				this.cloud ? 'cloud' : 'local',
+				this.cloud,
 			);
 			previousToken = session?.accessToken;
 		}
@@ -168,7 +170,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 }
 
 export abstract class LocalIntegrationAuthenticationProvider<
-	ID extends IntegrationId = IntegrationId,
+	ID extends IntegrationIds = IntegrationIds,
 > extends IntegrationAuthenticationProviderBase<ID> {
 	protected override async getNewSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
@@ -182,7 +184,7 @@ export abstract class LocalIntegrationAuthenticationProvider<
 }
 
 export abstract class CloudIntegrationAuthenticationProvider<
-	ID extends IntegrationId = IntegrationId,
+	ID extends IntegrationIds = IntegrationIds,
 > extends IntegrationAuthenticationProviderBase<ID> {
 	protected override readonly cloud: boolean = true;
 
@@ -262,7 +264,8 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		// Make an exception for GitHub and Cloud Self-Hosted integrations because they always return 0
 		if (
 			session?.expiresIn === 0 &&
-			(this.authProviderId === HostingIntegrationId.GitHub || isCloudSelfHostedIntegrationId(this.authProviderId))
+			(this.authProviderId === GitCloudHostIntegrationId.GitHub ||
+				isCloudSelfHostedIntegrationId(this.authProviderId))
 		) {
 			// It never expires so don't refresh it frequently:
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
@@ -315,7 +318,7 @@ export class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticatio
 		container: Container,
 		authenticationService: IntegrationAuthenticationService,
 		configuredIntegrationService: ConfiguredIntegrationService,
-		protected readonly authProviderId: IntegrationId,
+		protected readonly authProviderId: IntegrationIds,
 	) {
 		super(container, authenticationService, configuredIntegrationService);
 		this.disposables.push(

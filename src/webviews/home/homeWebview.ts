@@ -4,6 +4,10 @@ import { ActionRunnerType } from '../../api/actionRunners';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
+import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
+import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
+import type { ExplainWipCommandArgs } from '../../commands/explainWip';
+import type { GenerateCommitsCommandArgs } from '../../commands/generateRebase';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
@@ -17,6 +21,7 @@ import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { openComparisonChanges } from '../../git/actions/commit';
+import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../../git/actions/pausedOperation';
 import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributionsOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
@@ -32,8 +37,9 @@ import { uncommitted } from '../../git/models/revision';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
-import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
+import { getBranchMergeTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
+import { toRepositoryShapeWithProvider } from '../../git/utils/-webview/repository.utils';
 import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
 import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
@@ -43,7 +49,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
 import { providersMetadata } from '../../plus/integrations/providers/models';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
@@ -59,7 +65,8 @@ import {
 } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
-import { openUrl, openWorkspace } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
+import { openWorkspace } from '../../system/-webview/vscode/workspaces';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
@@ -70,6 +77,7 @@ import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
+import type { TimelineCommandArgs } from '../plus/timeline/registration';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
@@ -84,6 +92,8 @@ import type {
 	GetOverviewBranch,
 	IntegrationState,
 	OpenInGraphParams,
+	OpenInTimelineParams,
+	OpenWorktreeCommandArgs,
 	OverviewFilters,
 	OverviewRecentThreshold,
 	OverviewRepository,
@@ -116,11 +126,7 @@ import {
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
-const emptyDisposable = Object.freeze({
-	dispose: () => {
-		/* noop */
-	},
-});
+const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 interface RepositoryBranchData {
 	repo: Repository;
@@ -264,7 +270,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'home.preview.enabled')) {
+		if (
+			configuration.changed(e, ['home.preview.enabled', 'ai.enabled', 'ai.experimental.generateCommits.enabled'])
+		) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -282,6 +290,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			});
 		}
 		return Promise.resolve();
+	}
+
+	private async publishBranch(ref: BranchRef) {
+		const { repo, branch } = await this.getRepoInfoFromRef(ref);
+		if (branch == null) return;
+
+		return RepoActions.push(repo, undefined, getReferenceFromBranch(branch));
 	}
 
 	private async pull() {
@@ -305,7 +320,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				},
 				this,
 			),
-			registerCommand(`${this.host.id}.publishBranch`, this.push, this),
+			registerCommand(`${this.host.id}.publishBranch`, this.publishBranch, this),
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 			registerCommand(`${this.host.id}.disablePreview`, () => this.onTogglePreviewEnabled(false), this),
 			registerCommand(`${this.host.id}.enablePreview`, () => this.onTogglePreviewEnabled(true), this),
@@ -324,6 +339,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.changeBranchMergeTarget', this.changeBranchMergeTarget, this),
 			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
 			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
 			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
@@ -336,6 +352,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
 			registerCommand('gitlens.home.fetch', this.fetch, this),
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
+			registerCommand('gitlens.visualizeHistory.repo:home', this.openInTimeline, this),
+			registerCommand('gitlens.visualizeHistory.branch:home', this.openInTimeline, this),
 			registerCommand('gitlens.home.createBranch', this.createBranch, this),
 			registerCommand('gitlens.home.mergeIntoCurrent', this.mergeIntoCurrent, this),
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
@@ -345,6 +363,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.continuePausedOperation', this.continuePausedOperation, this),
 			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
 			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
+			registerCommand('gitlens.home.enableAi', this.enableAi, this),
+			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
+			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
+			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
 		];
 	}
 
@@ -466,6 +488,32 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand('gitlens.showGraph', repoInfo.repo);
 	}
 
+	@log<HomeWebviewProvider['openInTimeline']>({
+		args: { 0: p => `${p?.type}, repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
+	})
+	private openInTimeline(params: OpenInTimelineParams) {
+		const repo = params == null ? this.getSelectedRepository() : this.container.git.getRepository(params.repoPath);
+		if (repo == null) return;
+
+		if (params?.type === 'repo') {
+			void executeCommand<TimelineCommandArgs>('gitlens.visualizeHistory', { type: 'repo', uri: repo.uri });
+			return;
+		}
+
+		if (params?.type === 'branch') {
+			const repoInfo = this._repositoryBranches.get(repo.path);
+
+			const branch = repoInfo?.branches.find(b => b.id === params.branchId);
+			if (branch != null) {
+				void executeCommand<TimelineCommandArgs>('gitlens.visualizeHistory', {
+					type: 'repo',
+					uri: repo.uri,
+					head: getReferenceFromBranch(branch),
+				});
+			}
+		}
+	}
+
 	@log()
 	private createBranch() {
 		this.container.telemetry.sendEvent('home/createBranch');
@@ -477,6 +525,19 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				suggestNameOnly: true,
 				suggestRepoOnly: true,
 				confirmOptions: ['--switch', '--worktree'],
+			},
+		});
+	}
+
+	@log<HomeWebviewProvider['changeBranchMergeTarget']>()
+	private changeBranchMergeTarget(ref: BranchAndTargetRefs) {
+		this.container.telemetry.sendEvent('home/changeBranchMergeTarget');
+		void executeCommand<ChangeBranchMergeTargetCommandArgs>('gitlens.changeBranchMergeTarget', {
+			command: 'changeBranchMergeTarget',
+			state: {
+				repo: ref.repoPath,
+				branch: ref.branchName,
+				mergeBranch: ref.mergeTargetName,
 			},
 		});
 	}
@@ -497,6 +558,49 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void RepoActions.rebase(repo, getReferenceFromBranch(branch));
 	}
 
+	@log<HomeWebviewProvider['explainBranch']>({ args: { 0: r => r.branchId } })
+	private async explainBranch(ref: BranchRef) {
+		const { repo, branch } = await this.getRepoInfoFromRef(ref);
+		if (repo == null) return;
+
+		void executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
+			repoPath: repo.path,
+			ref: branch?.ref,
+			source: { source: 'home', type: 'branch' },
+		});
+	}
+
+	@log<HomeWebviewProvider['explainWip']>({ args: { 0: r => r.branchId } })
+	private async explainWip(ref: BranchRef) {
+		const { repo, branch } = await this.getRepoInfoFromRef(ref);
+		if (repo == null) return;
+
+		const worktree = await branch?.getWorktree();
+
+		void executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
+			repoPath: repo.path,
+			worktreePath: worktree?.path,
+			source: { source: 'home', type: 'wip' },
+		});
+	}
+
+	@log<HomeWebviewProvider['generateCommits']>({ args: { 0: r => r.branchId } })
+	private async generateCommits(ref: BranchRef) {
+		const { repo } = await this.getRepoInfoFromRef(ref);
+		if (repo == null) return;
+
+		void executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
+			repoPath: repo.path,
+			source: { source: 'home' },
+		});
+	}
+
+	@log()
+	private enableAi() {
+		this.container.telemetry.sendEvent('home/enableAi');
+		configuration.updateEffective('ai.enabled', true);
+	}
+
 	@log()
 	private startWork() {
 		this.container.telemetry.sendEvent('home/startWork');
@@ -508,47 +612,26 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@log<HomeWebviewProvider['abortPausedOperation']>({ args: { 0: op => op.type } })
 	private async abortPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
-		const abortPausedOperation = this.container.git.status(pausedOpArgs.repoPath).abortPausedOperation;
-		if (abortPausedOperation == null) return;
-
-		try {
-			await abortPausedOperation();
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await abortPausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@log<HomeWebviewProvider['continuePausedOperation']>({ args: { 0: op => op.type } })
 	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type === 'revert') return;
 
-		const continuePausedOperation = this.container.git.status(pausedOpArgs.repoPath).continuePausedOperation;
-		if (continuePausedOperation == null) return;
-
-		try {
-			await continuePausedOperation();
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await continuePausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@log<HomeWebviewProvider['skipPausedOperation']>({ args: { 0: op => op.type } })
 	private async skipPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
-		const continuePausedOperation = this.container.git.status(pausedOpArgs.repoPath).continuePausedOperation;
-		if (continuePausedOperation == null) return;
-
-		try {
-			await continuePausedOperation({ skip: true });
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await skipPausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@log<HomeWebviewProvider['openRebaseEditor']>({ args: { 0: op => op.type } })
 	private async openRebaseEditor(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.config(pausedOpArgs.repoPath).getGitDir?.();
+		const gitDir = await this.container.git.getRepositoryService(pausedOpArgs.repoPath).config.getGitDir?.();
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
@@ -562,7 +645,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		const status = await repo.git.status().getStatus();
+		const status = await repo.git.status.getStatus();
 		if (status == null) {
 			void window.showErrorMessage('Unable to create cloud patch');
 			return;
@@ -655,6 +738,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('newHomePreview') ?? false;
 	}
 
+	private getAiEnabled() {
+		return configuration.get('ai.enabled');
+	}
+
+	private getAiGenerateCommitsEnabled() {
+		return configuration.get('ai.experimental.generateCommits.enabled');
+	}
+
 	private getAmaBannerCollapsed() {
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
@@ -673,7 +764,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onContextChanged(key: keyof ContextKeys) {
-		if (key === 'gitlens:gk:organization:drafts:enabled') {
+		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this.notifyDidChangeOrgSettings();
 		}
 	}
@@ -684,7 +775,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		await this.notifyDidChangeSubscription(e.current);
 
-		if (isSubscriptionStatePaidOrTrial(e.current.state) !== isSubscriptionStatePaidOrTrial(e.previous.state)) {
+		if (
+			isSubscriptionTrialOrPaidFromState(e.current.state) !== isSubscriptionTrialOrPaidFromState(e.previous.state)
+		) {
 			this.onOverviewRepoChanged();
 		}
 	}
@@ -713,6 +806,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			avatar: subResult.value.avatar,
 			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
+			aiEnabled: this.getAiEnabled(),
+			aiGenerateCommitsEnabled: this.getAiGenerateCommitsEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			integrations: integrations,
@@ -860,21 +955,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async formatRepository(repo: Repository): Promise<OverviewRepository> {
-		const remotes = await repo.git.remotes().getBestRemotesWithProviders();
-		const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
-
-		return {
-			name: repo.commonRepositoryName ?? repo.name,
-			path: repo.path,
-			provider: remote?.provider
-				? {
-						name: remote.provider.name,
-						supportedFeatures: remote.provider.supportedFeatures,
-						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-						url: await remote.provider.url({ type: RemoteResourceType.Repo }),
-				  }
-				: undefined,
-		};
+		const remotes = await repo.git.remotes.getBestRemotesWithProviders();
+		const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
+		return toRepositoryShapeWithProvider(repo, remote);
 	}
 
 	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
@@ -982,10 +1065,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
 	private async getBranchesData(repo: Repository, force = false) {
 		if (force || !this._repositoryBranches.has(repo.path) || repo.etag !== this._etagRepository) {
-			const worktrees = (await repo.git.worktrees()?.getWorktrees()) ?? [];
+			const worktrees = (await repo.git.worktrees?.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees, { includeDefault: true });
 			const [branchesResult] = await Promise.allSettled([
-				repo.git.branches().getBranches({
+				repo.git.branches.getBranches({
 					filter: b => !b.remote,
 					sort: { current: true, openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch) },
 				}),
@@ -1024,7 +1107,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					supports:
 						supportedCloudDescriptor?.supports != null
 							? supportedCloudDescriptor.supports
-							: providersMetadata[i.integrationId].type === 'hosting'
+							: providersMetadata[i.integrationId].type === 'git'
 							  ? ['prs', 'issues']
 							  : providersMetadata[i.integrationId].type === 'issues'
 							    ? ['issues']
@@ -1080,7 +1163,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const subscription = await this.getSubscription();
 		if (subscription == null) return false;
 
-		return isSubscriptionStatePaidOrTrial(subscription.state);
+		return isSubscriptionTrialOrPaidFromState(subscription.state);
 	}
 
 	private async getSubscriptionState(subscription?: Subscription) {
@@ -1140,6 +1223,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangePreviewEnabled, {
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
+			aiEnabled: this.getAiEnabled(),
+			aiGenerateCommitsEnabled: this.getAiGenerateCommitsEnabled(),
 		});
 	}
 
@@ -1194,7 +1279,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
-		if (branch.current && mergeTarget != null && (!branch.worktree || branch.worktree.isDefault)) {
+		const worktree = branch.worktree === false ? undefined : branch.worktree ?? (await branch.getWorktree());
+
+		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
 			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
 			const confirm = await window.showWarningMessage(
 				`Before deleting the current branch '${branch.name}', you will be switched to '${mergeTargetLocalBranchName}'.`,
@@ -1204,7 +1291,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			if (confirm == null || confirm.title !== 'Continue') return;
 
-			await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranchName);
+			await this.container.git.getRepositoryService(ref.repoPath).checkout(mergeTargetLocalBranchName);
 
 			void executeGitCommand({
 				command: 'branch',
@@ -1214,9 +1301,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					references: branch,
 				},
 			});
-		} else if (repo != null && branch?.worktree != null && !branch.worktree.isDefault) {
+		} else if (repo != null && worktree != null && !worktree.isDefault) {
 			const commonRepo = await repo.getCommonRepository();
-			const defaultWorktree = await repo.git.worktrees?.()?.getWorktree(w => w.isDefault);
+			const defaultWorktree = await repo.git.worktrees?.getWorktree(w => w.isDefault);
 			if (defaultWorktree == null || commonRepo == null) return;
 
 			const confirm = await window.showWarningMessage(
@@ -1246,8 +1333,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					subcommand: 'open',
 					repo: defaultWorktree.repoPath,
 					worktree: defaultWorktree,
-					onWorkspaceChanging: async (_isNewWorktree?: boolean) =>
-						this.container.storage.store('deepLinks:pending', deleteBranchDeepLink),
+					onWorkspaceChanging: async (_isNewWorktree?: boolean) => {
+						await this.container.storage.storeSecret(
+							'deepLinks:pending',
+							JSON.stringify(deleteBranchDeepLink),
+						);
+						// Close the current window. This should only occur if there was already a different
+						// window open for the default worktree.
+						setTimeout(() => {
+							void executeCoreCommand('workbench.action.closeWindow');
+						}, 2000);
+					},
 					worktreeDefaultOpen: 'current',
 				},
 			});
@@ -1258,7 +1354,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
 	})
 	private pushBranch(ref: BranchRef) {
-		void this.container.git.push(ref.repoPath, {
+		void this.container.git.getRepositoryService(ref.repoPath).push({
 			reference: {
 				name: ref.branchName,
 				ref: ref.branchId,
@@ -1399,12 +1495,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@log<HomeWebviewProvider['worktreeOpen']>({
 		args: { 0: r => `${r.branchId}, worktree: ${r.worktree?.name}` },
 	})
-	private async worktreeOpen(ref: BranchRef) {
+	private async worktreeOpen(args: OpenWorktreeCommandArgs) {
+		const { location, ...ref } = args;
 		const { branch } = await this.getRepoInfoFromRef(ref);
 		const worktree = await branch?.getWorktree();
 		if (worktree == null) return;
 
-		openWorkspace(worktree.uri);
+		openWorkspace(worktree.uri, location ? { location: location } : undefined);
 	}
 
 	@log<HomeWebviewProvider['switchToBranch']>({ args: { 0: r => r.branchId } })
@@ -1470,7 +1567,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this.container.git.getRepository(ref.repoPath);
 		if (repo == null) return { repo: undefined, branch: undefined };
 
-		const branch = await repo.git.branches().getBranch(ref.branchName);
+		const branch = await repo.git.branches.getBranch(ref.branchName);
 		return { repo: repo, branch: branch };
 	}
 }
@@ -1520,7 +1617,7 @@ function getOverviewBranchesCore(
 			);
 			contributorsPromises.set(
 				branch.id,
-				container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
+				container.git.getRepositoryService(branch.repoPath).branches.getBranchContributionsOverview(branch.ref),
 			);
 			if (branch.current) {
 				mergeTargetPromises.set(branch.id, getBranchMergeTargetStatusInfo(container, branch));
@@ -1531,7 +1628,7 @@ function getOverviewBranchesCore(
 			statusPromises.set(branch.id, wt.getStatus(forceOptions));
 		} else if (isActive === true) {
 			if (repoStatusPromise === undefined) {
-				repoStatusPromise = container.git.status(branch.repoPath).getStatus();
+				repoStatusPromise = container.git.getRepositoryService(branch.repoPath).status.getStatus();
 			}
 			statusPromises.set(branch.id, repoStatusPromise);
 		}
@@ -1607,12 +1704,7 @@ function enrichOverviewBranchesCore(
 			issues =>
 				issues?.map(
 					i =>
-						({
-							id: i.id,
-							title: i.title,
-							state: i.state,
-							url: i.url,
-						}) satisfies NonNullable<IssuesInfo>[0],
+						({ id: i.id, title: i.title, state: i.state, url: i.url }) satisfies NonNullable<IssuesInfo>[0],
 				) ?? [],
 		);
 
@@ -1636,12 +1728,7 @@ async function getAutolinkIssuesInfo(links: Map<string, EnrichedAutolink> | unde
 			const issue = await issueOrPullRequest;
 			if (issue == null) return undefined;
 
-			return {
-				id: issue.id,
-				title: issue.title,
-				url: issue.url,
-				state: issue.state,
-			};
+			return { id: issue.id, title: issue.title, url: issue.url, state: issue.state };
 		}),
 	);
 
@@ -1665,7 +1752,7 @@ async function getContributorsInfo(
 					email: c.email ?? '',
 					current: c.current,
 					timestamp: c.latestCommitDate?.getTime(),
-					count: c.commits,
+					count: c.contributionCount,
 					stats: c.stats,
 					avatarUrl: (await c.getAvatarUri())?.toString(),
 				}) satisfies NonNullable<ContributorsInfo>[0],
@@ -1678,30 +1765,28 @@ async function getBranchMergeTargetStatusInfo(
 	container: Container,
 	branch: GitBranch,
 ): Promise<BranchMergeTargetStatusInfo> {
-	const info = await getBranchTargetInfo(container, branch, {
+	const info = await getBranchMergeTargetInfo(container, branch, {
 		associatedPullRequest: branch.getAssociatedPullRequest(),
 	});
 
 	let targetResult;
-	if (!info.targetBranch.paused && info.targetBranch.value) {
-		targetResult = info.targetBranch.value;
+	if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
+		targetResult = info.mergeTargetBranch.value;
 	}
 
 	const target = targetResult ?? info.baseBranch ?? info.defaultBranch;
 	if (target == null) return undefined;
 
-	const branchProvider = container.git.branches(branch.repoPath);
-	const targetBranch = await branchProvider.getBranch(target);
+	const svc = container.git.getRepositoryService(branch.repoPath);
+	const targetBranch = await svc.branches.getBranch(target);
 	if (targetBranch == null) return undefined;
 
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
-		container.git
-			.commits(branch.repoPath)
-			.getLeftRightCommitCount(createRevisionRange(targetBranch.name, branch.ref, '...'), {
-				excludeMerges: true,
-			}),
-		branchProvider.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
-		branchProvider.getBranchMergedStatus?.(branch, targetBranch),
+		svc.commits.getLeftRightCommitCount(createRevisionRange(targetBranch.name, branch.ref, '...'), {
+			excludeMerges: true,
+		}),
+		svc.branches.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
+		svc.branches.getBranchMergedStatus?.(branch, targetBranch),
 	]);
 
 	const counts = getSettledValue(countsResult);
@@ -1796,7 +1881,7 @@ async function getWipInfo(
 
 	const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 		statusPromise,
-		active ? container.git.status(branch.repoPath).getPausedOperationStatus?.() : undefined,
+		active ? container.git.getRepositoryService(branch.repoPath).status.getPausedOperationStatus?.() : undefined,
 	]);
 
 	const status = getSettledValue(statusResult);

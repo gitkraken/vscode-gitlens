@@ -1,6 +1,5 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
-import type { GlCommands } from '../constants.commands';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
@@ -15,7 +14,8 @@ export type WalkthroughContextKeys =
 	| 'visualizeCodeHistory'
 	| 'prReviews'
 	| 'streamlineCollaboration'
-	| 'integrations';
+	| 'integrations'
+	| 'aiFeatures';
 
 type WalkthroughUsage = {
 	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;
@@ -24,16 +24,13 @@ type WalkthroughUsage = {
 };
 
 const triedProStates: Readonly<SubscriptionState[]> = [
-	SubscriptionState.ProTrial,
-	SubscriptionState.ProTrialExpired,
-	SubscriptionState.ProTrialReactivationEligible,
+	SubscriptionState.Trial,
+	SubscriptionState.TrialExpired,
+	SubscriptionState.TrialReactivationEligible,
 	SubscriptionState.Paid,
 ];
 
-const tryProCommands: Readonly<TrackedUsageKeys[]> = [
-	`command:${'gitlens.plus.startPreviewTrial' satisfies GlCommands}:executed`,
-	`command:${'gitlens.plus.reactivateProTrial' satisfies GlCommands}:executed`,
-];
+const tryProCommands: Readonly<TrackedUsageKeys[]> = ['command:gitlens.plus.reactivateProTrial:executed'];
 
 const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, WalkthroughUsage>> = new Map<
 	WalkthroughContextKeys,
@@ -52,8 +49,8 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		{
 			usage: [
 				'homeView:shown',
-				`command:${'gitlens.showHomeView' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showAccountView' satisfies GlCommands}:executed`,
+				'command:gitlens.showHomeView:executed',
+				'command:gitlens.showAccountView:executed',
 			],
 		},
 	],
@@ -67,11 +64,11 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'graphView:shown',
 				'graphWebview:shown',
 				'commitDetailsView:shown',
-				`command:${'gitlens.showGraph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showGraphPage' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showGraphView' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showInCommitGraph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showInCommitGraphView' satisfies GlCommands}:executed`,
+				'command:gitlens.showGraph:executed',
+				'command:gitlens.showGraphPage:executed',
+				'command:gitlens.showGraphView:executed',
+				'command:gitlens.showInCommitGraph:executed',
+				'command:gitlens.showInCommitGraphView:executed',
 			],
 		},
 	],
@@ -83,12 +80,12 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			usage: [
 				'launchpadView:shown',
 				'worktreesView:shown',
-				`command:${'gitlens.showLaunchpad' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showLaunchpadView' satisfies GlCommands}:executed`,
-				`command:${'gitlens.gitCommands.worktree' satisfies GlCommands}:executed`,
-				`command:${'gitlens.gitCommands.worktree.create' satisfies GlCommands}:executed`,
-				`command:${'gitlens.gitCommands.worktree.delete' satisfies GlCommands}:executed`,
-				`command:${'gitlens.gitCommands.worktree.open' satisfies GlCommands}:executed`,
+				'command:gitlens.showLaunchpad:executed',
+				'command:gitlens.showLaunchpadView:executed',
+				'command:gitlens.gitCommands.worktree:executed',
+				'command:gitlens.gitCommands.worktree.create:executed',
+				'command:gitlens.gitCommands.worktree.delete:executed',
+				'command:gitlens.gitCommands.worktree.open:executed',
 			],
 		},
 	],
@@ -98,13 +95,13 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
 			usage: [
-				`patchDetailsView:shown`,
-				`patchDetailsWebview:shown`,
-				`draftsView:shown`,
-				`command:${'gitlens.showDraftsView' satisfies GlCommands}:executed`,
-				`command:${'gitlens.showPatchDetailsPage' satisfies GlCommands}:executed`,
-				`command:${'gitlens.createCloudPatch' satisfies GlCommands}:executed`,
-				`command:${'gitlens.createPatch' satisfies GlCommands}:executed`,
+				'patchDetailsView:shown',
+				'patchDetailsWebview:shown',
+				'draftsView:shown',
+				'command:gitlens.showDraftsView:executed',
+				'command:gitlens.showPatchDetailsPage:executed',
+				'command:gitlens.createCloudPatch:executed',
+				'command:gitlens.createPatch:executed',
 			],
 		},
 	],
@@ -112,8 +109,40 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		'integrations',
 		{
 			usage: [
-				`command:${'gitlens.plus.cloudIntegrations.connect' satisfies GlCommands}:executed`,
-				`command:${'gitlens.plus.cloudIntegrations.manage' satisfies GlCommands}:executed`,
+				'command:gitlens.plus.cloudIntegrations.connect:executed',
+				'command:gitlens.plus.cloudIntegrations.manage:executed',
+			],
+		},
+	],
+	[
+		'aiFeatures',
+		{
+			usage: [
+				'command:gitlens.walkthrough.openAiSettings:executed',
+				'command:gitlens.ai.explainBranch:executed',
+				'command:gitlens.ai.explainCommit:executed',
+				'command:gitlens.ai.explainStash:executed',
+				'command:gitlens.ai.explainWip:executed',
+				'command:gitlens.ai.generateChangelog:executed',
+				'command:gitlens.ai.generateCommitMessage:executed',
+				'command:gitlens.ai.explainBranch:graph:executed',
+				'command:gitlens.ai.explainBranch:views:executed',
+				'command:gitlens.ai.explainCommit:graph:executed',
+				'command:gitlens.ai.explainCommit:views:executed',
+				'command:gitlens.ai.explainStash:graph:executed',
+				'command:gitlens.ai.explainStash:views:executed',
+				'command:gitlens.ai.explainWip:graph:executed',
+				'command:gitlens.ai.explainWip:views:executed',
+				'command:gitlens.ai.generateChangelogFrom:graph:executed',
+				'command:gitlens.ai.generateChangelogFrom:views:executed',
+				'command:gitlens.ai.generateCommitMessage:graph:executed',
+				'command:gitlens.ai.generateCommitMessage:scm:executed',
+				'command:gitlens.ai.generateChangelog:views:executed',
+				'command:gitlens.ai.generateCommits:executed',
+				'command:gitlens.ai.generateCommits:graph:executed',
+				'command:gitlens.ai.generateCommits:views:executed',
+				'command:gitlens.ai.generateRebase:executed',
+				'command:gitlens.ai.rebaseOntoCommit:views:executed',
 			],
 		},
 	],

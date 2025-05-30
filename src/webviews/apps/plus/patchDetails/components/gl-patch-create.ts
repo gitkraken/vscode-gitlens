@@ -299,7 +299,7 @@ export class GlPatchCreate extends GlTreeBase {
 						@input=${(e: InputEvent) => this.onDebounceTitleInput(e)}
 					/>
 					${when(
-						this.state?.orgSettings.ai === true,
+						this.state?.orgSettings.ai === true && this.state?.preferences.aiEnabled === true,
 						() =>
 							html`<div class="message-input__menu">
 								<gl-button

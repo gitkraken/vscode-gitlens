@@ -4,7 +4,8 @@ import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
 import { configuration } from '../../../../system/-webview/configuration';
-import { openSettingsEditor } from '../../../../system/-webview/vscode';
+import { getContext } from '../../../../system/-webview/context';
+import { openSettingsEditor } from '../../../../system/-webview/vscode/editors';
 import { formatNumeric } from '../../../../system/date';
 import { getPossessiveForm, pluralize } from '../../../../system/string';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils';
@@ -36,6 +37,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Code Suggestion Details';
 		case 'generate-create-pullRequest':
 			return 'Create Pull Request Details (Preview)';
+		case 'generate-rebase':
+			return 'Generate Rebase (Preview)';
 		case 'explain-changes':
 			return 'Explain Changes';
 		default:
@@ -105,7 +108,11 @@ export async function getOrPromptApiKey(
 			input.password = true;
 			input.title = `Connect to ${provider.name}`;
 			input.placeholder = `Please enter your ${provider.name} API key to use this feature`;
-			input.prompt = `Enter your [${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`;
+			input.prompt = `Enter your ${
+				provider.url
+					? `[${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`
+					: `${provider.name} API Key`
+			}`;
 			if (provider.url) {
 				input.buttons = [infoButton];
 			}
@@ -157,4 +164,60 @@ export function showPromptTruncationWarning(model: AIModel): void {
 	void window.showWarningMessage(
 		`The prompt was truncated to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);
+}
+
+export function isAzureUrl(url: string): boolean {
+	return url.includes('.azure.com');
+}
+
+export async function ensureAccess(options?: { showPicker?: boolean }): Promise<boolean> {
+	const showPicker = options?.showPicker ?? false;
+
+	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
+		if (showPicker) {
+			await window.showQuickPick([{ label: 'OK' }], {
+				title: 'AI is Disabled',
+				placeHolder: 'GitLens AI features have been disabled by your GitKraken admin',
+				canPickMany: false,
+			});
+		} else {
+			await window.showErrorMessage(`AI features have been disabled by your GitKraken admin.`);
+		}
+
+		return false;
+	}
+
+	if (!configuration.get('ai.enabled')) {
+		let reenable = false;
+		if (showPicker) {
+			const enable = { label: 'Re-enable AI Features' };
+			const pick = await window.showQuickPick([{ label: 'OK' }, enable], {
+				title: 'AI is Disabled',
+				placeHolder: 'GitLens AI features have been disabled via settings',
+				canPickMany: false,
+			});
+			if (pick === enable) {
+				reenable = true;
+			}
+		} else {
+			const enable = { title: 'Re-enable AI Features' };
+			const result = await window.showErrorMessage(
+				`AI features have been disabled via GitLens settings.`,
+				{ modal: true },
+				enable,
+			);
+			if (result === enable) {
+				reenable = true;
+			}
+		}
+
+		if (reenable) {
+			await configuration.updateEffective('ai.enabled', true);
+			return true;
+		}
+
+		return false;
+	}
+
+	return true;
 }

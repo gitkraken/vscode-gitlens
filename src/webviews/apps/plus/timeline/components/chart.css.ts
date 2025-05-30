@@ -2,27 +2,63 @@ import { css } from 'lit';
 
 export const timelineChartStyles = css`
 	:host {
-		display: block;
-		position: relative;
+		display: flex;
+		flex-direction: column;
 		width: 100%;
 		height: 100%;
+		position: relative;
+
+		--scroller-track-top: unset;
+		--scroller-track-left: 0;
+		--scroller-track-width: 100%;
+		--scroller-thumb-height: 0.6rem;
+		--scroller-track-height: 1.2rem;
+	}
+
+	gl-chart-scroller {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		width: 100%;
+		min-height: 0;
+	}
+
+	gl-chart-scroller::part(track) {
+		--track-top: var(--scroller-track-top);
+		--track-left: var(--scroller-track-left);
+		--track-width: var(--scroller-track-width);
+		--track-height: var(--scroller-track-height);
+		--thumb-height: var(--scroller-thumb-height);
 	}
 
 	#chart {
-		position: absolute !important;
-		height: 100%;
+		flex: 1;
 		width: 100%;
+		height: 100%;
+		min-height: 0;
 	}
 
-	/* :host-context(:host[placement='view']) #chart {
-		height: calc(100% - 0.4rem);
-		width: calc(100% + 6.9rem);
-		left: -3.5rem;
-		bottom: 0.3rem;
-	} */
+	footer {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		margin: 0 1rem 0.4rem 1rem;
+		gap: 0.8rem;
+	}
+
+	gl-chart-slider {
+		flex: 1 0 auto;
+		margin-left: 1.4rem;
+	}
+
+	gl-commit-sha {
+		color: var(--color-foreground--75);
+		text-align: right;
+		min-width: 7.5rem; /* Ugly but stops the text from jumping around */
+	}
 
 	.bb svg {
-		font: 10px sans-serif;
+		font: 10px var(--font-family);
 		-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 	}
 
@@ -45,7 +81,6 @@ export const timelineChartStyles = css`
 	.bb .bb-button {
 		user-select: none;
 		fill: var(--color-view-foreground);
-		font-size: 11px;
 	}
 
 	.bb .bb-event-rects,
@@ -64,6 +99,10 @@ export const timelineChartStyles = css`
 	.bb .bb-event-rect,
 	.bb .bb-bars path {
 		shape-rendering: crispEdges;
+	}
+
+	.bb .bb-legend-item text {
+		fill: var(--color-foreground--85);
 	}
 
 	.bb .bb-legend-item-tile {
@@ -233,7 +272,7 @@ export const timelineChartStyles = css`
 	}
 
 	.bb .bb-title {
-		font: 14px sans-serif;
+		font: 14px var(--font-family);
 	}
 
 	.bb .bb-tooltip-container {
@@ -309,7 +348,7 @@ export const timelineChartStyles = css`
 		font-family: var(--font-family);
 	}
 
-	:host-context(:host[placement='view']) .bb .bb-button {
+	:host-context([data-placement='view']) .bb .bb-button {
 		margin-right: 2.8rem;
 	}
 
@@ -319,13 +358,46 @@ export const timelineChartStyles = css`
 		cursor: pointer;
 	}
 
-	.empty {
-		padding: 0.4rem 2rem 1.3rem 2rem;
-		font-size: var(--font-size);
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
-	.empty p {
-		margin-top: 0;
+	.notice {
+		position: absolute;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 10% 2rem 30% 2rem;
+		font-size: var(--font-size);
+
+		z-index: 1;
+	}
+
+	.notice--blur {
+		backdrop-filter: blur(15px);
+		-webkit-backdrop-filter: blur(15px);
+
+		animation: fadeIn 0.2s ease-in;
+		animation-fill-mode: forwards;
+		opacity: 0;
+	}
+
+	:host-context([data-placement='view']) .notice--blur {
+		animation-delay: 0.5s;
+	}
+
+	.notice p {
+		margin: 0;
 	}
 
 	.bb-tooltip {
@@ -347,6 +419,21 @@ export const timelineChartStyles = css`
 
 	.bb-tooltip .author {
 		font-weight: 600;
+	}
+
+	.bb-tooltip .branches {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		/* font-family: var(--vscode-editor-font-family); */
+	}
+
+	.bb-tooltip .sha {
+		/* background: var(--vscode-textCodeBlock-background);
+		border-radius: 0.3rem; */
+		/* padding: 0.1rem 0.4rem 0.2rem 0.4rem; */
+		font-family: var(--vscode-editor-font-family);
+		margin-right: 0.4rem;
 	}
 
 	.bb-tooltip .additions {
@@ -378,10 +465,10 @@ export const timelineChartStyles = css`
 	}
 
 	.bb-tooltip .message {
-		margin-left: 2rem;
+		margin-left: 0rem;
 		margin-top: 0.5rem;
 		margin-bottom: 0.5rem;
-		max-height: 12rem;
+		max-height: 50vh;
 		overflow-y: auto;
 		overflow-x: hidden;
 	}
@@ -390,21 +477,25 @@ export const timelineChartStyles = css`
 		white-space: pre-line;
 	}
 
-	:host-context(:host[placement='view']) .bb-axis-y .tick text {
+	:host-context([data-placement='editor']) .bb-axis-y .tick text {
+		fill: var(--color-foreground--85);
+	}
+
+	:host-context([data-placement='view']) .bb-axis-y .tick text {
 		transform: translate(0, 0.4rem);
 		font-family: codicon;
 		font-size: 1.5rem;
 	}
 
 	@media (max-height: 275px) {
-		:host-context(:host[placement='view']) .bb-axis-y .tick text {
+		:host-context([data-placement='view']) .bb-axis-y .tick text {
 			transform: none;
 			font-size: 1rem;
 		}
 	}
 
 	@media (max-height: 225px) {
-		:host-context(:host[placement='view']) .bb-axis-y .tick text {
+		:host-context([data-placement='view']) .bb-axis-y .tick text {
 			display: none;
 		}
 	}

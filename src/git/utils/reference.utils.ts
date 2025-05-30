@@ -8,7 +8,7 @@ import type {
 	GitTagReference,
 } from '../models/reference';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
-import { isRevisionRange, isShaParent, shortenRevision } from './revision.utils';
+import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils';
 
 interface GitBranchReferenceOptions {
 	refType: 'branch';
@@ -76,7 +76,7 @@ export function createReference(
 				ref: ref,
 				sha: ref,
 				name: options.name,
-				number: options.number,
+				stashNumber: options.number,
 				message: options.message,
 				stashOnRef: options.stashOnRef,
 			};
@@ -146,7 +146,7 @@ export function getReferenceLabel(
 				if (isStashReference(ref)) {
 					let message;
 					if (options.expand && ref.message) {
-						message = `${ref.number != null ? `#${ref.number}: ` : ''}${
+						message = `${ref.stashNumber != null ? `#${ref.stashNumber}: ` : ''}${
 							ref.message.length > 20
 								? `${ref.message.substring(0, 20).trimEnd()}${GlyphChars.Ellipsis}`
 								: ref.message
@@ -156,7 +156,7 @@ export function getReferenceLabel(
 					result = `${options.label ? 'stash ' : ''}${
 						options.icon
 							? `$(archive)${GlyphChars.Space}${message ?? ref.name}`
-							: message ?? (ref.number ? `#${ref.number}` : ref.name)
+							: message ?? (ref.stashNumber ? `#${ref.stashNumber}` : ref.name)
 					}`;
 				} else if (isRevisionRange(ref.ref)) {
 					result = refName;
@@ -170,7 +170,7 @@ export function getReferenceLabel(
 					}
 
 					let prefix;
-					if (options.expand && options.label && isShaParent(ref.ref)) {
+					if (options.expand && options.label && isShaWithParentSuffix(ref.ref)) {
 						refName = ref.name.endsWith('^') ? ref.name.substring(0, ref.name.length - 1) : ref.name;
 						if (options?.quoted) {
 							refName = `'${refName}'`;

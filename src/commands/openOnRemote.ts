@@ -42,7 +42,9 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 		let remotes =
 			'remotes' in args
 				? args.remotes
-				: await this.container.git.remotes(args.repoPath).getRemotesWithProviders({ sort: true });
+				: await this.container.git
+						.getRepositoryService(args.repoPath)
+						.remotes.getRemotesWithProviders({ sort: true });
 
 		if (args.remote != null) {
 			const filtered = remotes.filter(r => r.name === args.remote);
@@ -70,9 +72,11 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 						const file = await commit.findFile(fileName);
 						if (file?.status === 'D') {
 							// Resolve to the previous commit to that file
-							resource.sha = await this.container.git
-								.refs(commit.repoPath)
-								.resolveReference(`${commit.sha}^`, fileName);
+							resource.sha = (
+								await this.container.git
+									.getRepositoryService(commit.repoPath)
+									.revision.resolveRevision(`${commit.sha}^`, fileName)
+							).sha;
 						} else {
 							resource.sha = commit.sha;
 						}

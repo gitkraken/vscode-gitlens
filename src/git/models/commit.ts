@@ -1,22 +1,29 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
+import { ensureArray } from '../../system/array';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { Lazy } from '../../system/lazy';
 import { getLoggableName } from '../../system/logger';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
-import type { PreviousLineComparisonUrisResult } from '../gitProvider';
+import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { mapFilesWithStats } from '../utils/-webview/fileChange.utils';
 import { getChangedFilesCount } from '../utils/commit.utils';
-import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from '../utils/revision.utils';
+import {
+	isSha,
+	isUncommitted,
+	isUncommittedStaged,
+	isUncommittedStagedWithParentSuffix,
+	isUncommittedWithParentSuffix,
+} from '../utils/revision.utils';
 import type { GitDiffFileStats } from './diff';
 import type { GitFile } from './file';
 import { GitFileChange } from './fileChange';
@@ -36,6 +43,17 @@ export function isStash(commit: unknown): commit is GitStashCommit {
 	return isCommit(commit) && commit.refType === 'stash' && Boolean(commit.stashName);
 }
 
+export interface GitCommitFileset {
+	/** `undefined` if the full set of files hasn't been loaded */
+	readonly files: readonly GitFileChange[] | undefined;
+	readonly filtered?:
+		| {
+				readonly files: readonly GitFileChange[] | undefined;
+				readonly pathspec: string;
+		  }
+		| undefined;
+}
+
 export class GitCommit implements GitRevisionReference {
 	private _stashUntrackedFilesLoaded = false;
 	private _recomputeStats = false;
@@ -45,8 +63,7 @@ export class GitCommit implements GitRevisionReference {
 	readonly refType: GitRevisionReference['refType'];
 	readonly shortSha: string;
 	readonly stashName: string | undefined;
-	// TODO@eamodio rename to stashNumber
-	readonly number: string | undefined;
+	readonly stashNumber: string | undefined;
 	readonly stashOnRef: string | undefined;
 	readonly tips: string[] | undefined;
 
@@ -59,7 +76,7 @@ export class GitCommit implements GitRevisionReference {
 		summary: string,
 		public readonly parents: string[],
 		message?: string | undefined,
-		files?: GitFileChange | GitFileChange[] | { file?: GitFileChange; files?: GitFileChange[] } | undefined,
+		fileset?: GitCommitFileset | undefined,
 		stats?: GitCommitStats,
 		lines?: GitCommitLine | GitCommitLine[] | undefined,
 		tips?: string[],
@@ -74,7 +91,7 @@ export class GitCommit implements GitRevisionReference {
 			this.refType = 'stash';
 			this.stashName = stashName || undefined;
 			this.stashOnRef = stashOnRef || undefined;
-			this.number = stashNumberRegex.exec(stashName)?.[1];
+			this.stashNumber = stashNumberRegex.exec(stashName)?.[1];
 		} else {
 			this.refType = 'revision';
 		}
@@ -99,33 +116,13 @@ export class GitCommit implements GitRevisionReference {
 			this._stats = stats;
 		}
 
-		if (files != null) {
-			if (Array.isArray(files)) {
-				this._files = files;
-			} else if (files instanceof GitFileChange) {
-				this._file = files;
-			} else {
-				if (files.file != null) {
-					this._file = files.file;
-				}
+		if (fileset != null) {
+			this.fileset = fileset;
 
-				if (files.files != null) {
-					this._files = files.files;
-				}
-			}
-
-			this._recomputeStats = true;
+			this._recomputeStats = this._stats == null;
 		}
 
-		if (lines != null) {
-			if (Array.isArray(lines)) {
-				this.lines = lines;
-			} else {
-				this.lines = [lines];
-			}
-		} else {
-			this.lines = [];
-		}
+		this.lines = ensureArray(lines) ?? [];
 	}
 
 	toString(): string {
@@ -136,14 +133,69 @@ export class GitCommit implements GitRevisionReference {
 		return this.container.CommitDateFormatting.dateSource === 'committed' ? this.committer.date : this.author.date;
 	}
 
-	private _file: GitFileChange | undefined;
+	private _file: Lazy<GitFileChange | undefined> | undefined;
 	get file(): GitFileChange | undefined {
-		return this._file;
+		return this._file?.value;
 	}
 
-	private _files: GitFileChange[] | undefined;
-	get files(): readonly GitFileChange[] | undefined {
-		return this._files;
+	/** Gets a list of any files in the commit, filtered or otherwise */
+	get anyFiles(): readonly GitFileChange[] | undefined {
+		return this.fileset?.files ?? this.fileset?.filtered?.files;
+	}
+
+	private _fileset: GitCommitFileset | undefined;
+	get fileset(): GitCommitFileset | undefined {
+		return this._fileset;
+	}
+	private set fileset(value: GitCommitFileset | undefined) {
+		if (value == null) {
+			this._fileset = undefined;
+			this._file = undefined;
+			return;
+		}
+
+		// Handle folder "globs" (e.g. `src/*`)
+		if (value.filtered?.pathspec?.endsWith('*')) {
+			value = { ...value, filtered: { ...value.filtered, pathspec: value.filtered.pathspec.slice(0, -1) } };
+		}
+		this._fileset = value;
+
+		const current = this._file?.value;
+		this._file = new Lazy(() => {
+			let file;
+			if (value.filtered?.pathspec) {
+				if (value.filtered.files?.length === 1) {
+					[file] = value.filtered.files;
+				} else {
+					let files = value.filtered.files?.filter(f => f.path === value.filtered!.pathspec) ?? [];
+					// If we found multiple files with the same path and is uncommitted, then use the existing file if we have one, otherwise use the first
+					if (files.length > 1) {
+						if (this.isUncommitted) {
+							file = current ?? files[0];
+						}
+					} else if (files.length === 1) {
+						[file] = files;
+					} else {
+						files = value.filtered.files?.filter(f => f.path.startsWith(value.filtered!.pathspec)) ?? [];
+						file = files.length === 1 ? files[0] : undefined;
+					}
+				}
+			}
+
+			if (file == null) return undefined;
+
+			return new GitFileChange(
+				this.container,
+				file.repoPath,
+				file.path,
+				file.status,
+				file.originalPath ?? current?.originalPath,
+				file.previousSha ?? current?.previousSha,
+				file.stats ?? current?.stats,
+				file.staged ?? current?.staged,
+				file.range ?? current?.range,
+			);
+		});
 	}
 
 	get formattedDate(): string {
@@ -195,26 +247,48 @@ export class GitCommit implements GitRevisionReference {
 			this._resolvedPreviousSha ??
 			(this.file != null ? this.file.previousSha : this.parents[0]) ??
 			`${this.sha}^`;
-		return isUncommittedParent(previousSha) ? 'HEAD' : previousSha;
+		return isUncommittedWithParentSuffix(previousSha)
+			? isUncommittedStagedWithParentSuffix(previousSha)
+				? 'HEAD'
+				: uncommittedStaged
+			: previousSha;
 	}
 
 	private _etagFileSystem: number | undefined;
 
-	hasFullDetails(options?: { include?: { stats?: boolean } }): this is GitCommitWithFullDetails {
-		return (
-			this.message != null &&
-			this.files != null &&
-			(!options?.include?.stats || this.files.some(f => f.stats != null)) &&
-			((this.isUncommitted &&
-				// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
-				this._etagFileSystem === this.container.git.getRepository(this.repoPath)?.etagFileSystem) ||
-				this.parents.length !== 0) &&
-			(this.refType !== 'stash' || this._stashUntrackedFilesLoaded)
-		);
+	hasFullDetails(options?: {
+		allowFilteredFiles?: boolean;
+		include?: { stats?: boolean; uncommittedFiles?: boolean };
+	}): this is GitCommitWithFullDetails {
+		if (this.message == null || this.fileset == null) return false;
+		if (
+			this.fileset.files == null &&
+			(!options?.allowFilteredFiles || (options?.allowFilteredFiles && this.fileset.filtered?.files == null))
+		) {
+			return false;
+		}
+		if (this.refType === 'stash' && !this._stashUntrackedFilesLoaded && !options?.allowFilteredFiles) {
+			return false;
+		}
+		if (options?.include?.stats && this.anyFiles?.some(f => f.stats == null)) {
+			return false;
+		}
+		// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
+		if (
+			this.isUncommitted &&
+			(!this.parents.length ||
+				this._etagFileSystem !== this.container.git.getRepository(this.repoPath)?.etagFileSystem)
+		) {
+			return false;
+		}
+		return true;
 	}
 
 	@gate()
-	async ensureFullDetails(options?: { include?: { stats?: boolean } }): Promise<void> {
+	async ensureFullDetails(options?: {
+		allowFilteredFiles?: boolean;
+		include?: { stats?: boolean; uncommittedFiles?: boolean };
+	}): Promise<void> {
 		if (this.hasFullDetails(options)) return;
 
 		// If the commit is "uncommitted", then have the files list be all uncommitted files
@@ -222,23 +296,26 @@ export class GitCommit implements GitRevisionReference {
 			const repo = this.container.git.getRepository(this.repoPath);
 			this._etagFileSystem = repo?.etagFileSystem;
 
-			if (this._etagFileSystem != null) {
-				const status = await repo?.git.status().getStatus();
+			if (this._etagFileSystem != null || options?.include?.uncommittedFiles) {
+				const status = await repo?.git.status.getStatus();
 				if (status != null) {
-					this._files = status.files.flatMap(f => f.getPseudoFileChanges());
+					let files = status.files.flatMap(f => f.getPseudoFileChanges());
 					if (isUncommittedStaged(this.sha)) {
-						this._files = this._files.filter(f => f.staged);
+						files = files.filter(f => f.staged);
+					} else {
+						files = files.filter(f => !f.staged);
 					}
+
+					const pathspec = this.fileset?.filtered?.pathspec;
+					this.fileset = pathspec
+						? { files: undefined, filtered: { files: files, pathspec: pathspec } }
+						: { files: files };
 				}
 				this._etagFileSystem = repo?.etagFileSystem;
 			}
 
-			if (this._files == null) {
-				this._files = this.file != null ? [this.file] : [];
-			}
-
 			if (options?.include?.stats) {
-				const stats = await repo?.git.diff().getChangedFilesCount(this.sha);
+				const stats = await repo?.git.diff.getChangedFilesCount(this.sha);
 				this._stats = stats;
 				this._recomputeStats = false;
 			} else {
@@ -248,51 +325,27 @@ export class GitCommit implements GitRevisionReference {
 			return;
 		}
 
+		const svc = this.container.git.getRepositoryService(this.repoPath);
 		if (this.refType === 'stash') {
 			const [stashFilesResult] = await Promise.allSettled([
-				this.container.git.stash(this.repoPath)?.getStashCommitFiles(this.sha, options),
+				svc.stash?.getStashCommitFiles(this.sha),
 				this.getPreviousSha(),
 			]);
 
 			const stashFiles = getSettledValue(stashFilesResult);
 			if (stashFiles?.length) {
-				this._files = stashFiles;
+				this.fileset = { files: stashFiles, filtered: this.fileset?.filtered };
 			}
 			this._stashUntrackedFilesLoaded = true;
 		} else {
-			const commitsProvider = this.container.git.commits(this.repoPath);
-			const [commitResult, commitFilesStatsResult] = await Promise.allSettled([
-				commitsProvider.getCommit(this.sha),
-				options?.include?.stats ? commitsProvider.getCommitFilesStats?.(this.sha) : undefined,
-				this.getPreviousSha(),
-			]);
+			const [commitResult] = await Promise.allSettled([svc.commits.getCommit(this.sha), this.getPreviousSha()]);
 
 			const commit = getSettledValue(commitResult);
 			if (commit != null) {
 				this.parents.push(...(commit.parents ?? []));
 				this._summary = commit.summary;
 				this._message = commit.message;
-				this._files = (commit.files ?? []) as Mutable<typeof commit.files>;
-			}
-
-			const commitFilesStats = getSettledValue(commitFilesStatsResult);
-			if (commitFilesStats?.length && this._files?.length) {
-				this._files = mapFilesWithStats(this.container, this._files, commitFilesStats);
-			}
-		}
-
-		if (this._files != null && this._file != null) {
-			const file = this._files.find(f => f.path === this._file!.path);
-			if (file != null) {
-				this._file = new GitFileChange(
-					this.container,
-					file.repoPath,
-					file.path,
-					file.status,
-					file.originalPath ?? this._file.originalPath,
-					file.previousSha ?? this._file.previousSha,
-					file.stats ?? this._file.stats,
-				);
+				this.fileset = { files: commit.fileset?.files ?? [], filtered: this.fileset?.filtered };
 			}
 		}
 
@@ -300,7 +353,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	private computeFileStats(): void {
-		if (!this._recomputeStats || this._files == null) return;
+		if (!this._recomputeStats || this.fileset == null) return;
 		this._recomputeStats = false;
 
 		const changedFiles = {
@@ -311,23 +364,27 @@ export class GitCommit implements GitRevisionReference {
 
 		let additions = 0;
 		let deletions = 0;
-		for (const file of this._files) {
-			if (file.stats != null) {
-				additions += file.stats.additions;
-				deletions += file.stats.deletions;
-			}
 
-			switch (file.status) {
-				case 'A':
-				case '?':
-					changedFiles.added++;
-					break;
-				case 'D':
-					changedFiles.deleted++;
-					break;
-				default:
-					changedFiles.changed++;
-					break;
+		const files = this.fileset.files ?? this.fileset.filtered?.files;
+		if (files?.length) {
+			for (const file of files) {
+				if (file.stats != null) {
+					additions += file.stats.additions;
+					deletions += file.stats.deletions;
+				}
+
+				switch (file.status) {
+					case 'A':
+					case '?':
+						changedFiles.added++;
+						break;
+					case 'D':
+						changedFiles.deleted++;
+						break;
+					default:
+						changedFiles.changed++;
+						break;
+				}
 			}
 		}
 
@@ -346,18 +403,18 @@ export class GitCommit implements GitRevisionReference {
 	async findFile(
 		pathOrUri: string | Uri,
 		staged?: boolean,
-		options?: { include?: { stats?: boolean } },
+		options?: { allowFilteredFiles?: boolean; include?: { stats?: boolean } },
 	): Promise<GitFileChange | undefined> {
 		if (!this.hasFullDetails(options)) {
 			await this.ensureFullDetails(options);
-			if (this._files == null) return undefined;
+			if (this.fileset == null) return undefined;
 		}
 
 		const relativePath = this.container.git.getRelativePath(pathOrUri, this.repoPath);
 		if (this.isUncommitted && staged != null) {
-			return this._files?.find(f => f.path === relativePath && f.staged === staged);
+			return this.anyFiles?.find(f => f.path === relativePath && f.staged === staged);
 		}
-		return this._files?.find(f => f.path === relativePath);
+		return this.anyFiles?.find(f => f.path === relativePath);
 	}
 
 	formatDate(format?: string | null): string {
@@ -480,20 +537,19 @@ export class GitCommit implements GitRevisionReference {
 		remote?: GitRemote<RemoteProvider>,
 		options?: { expiryOverride?: boolean | number },
 	): Promise<PullRequest | undefined> {
-		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
-		if (!remote?.hasIntegration()) return undefined;
+		if (this.isUncommitted) return undefined;
 
-		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
-			remote.provider.repoDesc,
-			this.ref,
-			options,
-		);
+		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
+		if (!remote?.supportsIntegration()) return undefined;
+
+		const integration = await remote.getIntegration();
+		return integration?.getPullRequestForCommit(remote.provider.repoDesc, this.sha, options);
 	}
 
 	async getEnrichedAutolinks(remote?: GitRemote<RemoteProvider>): Promise<Map<string, EnrichedAutolink> | undefined> {
 		if (this.isUncommitted) return undefined;
 
-		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
+		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
 		if (remote?.provider == null) return undefined;
 
 		// TODO@eamodio should we cache these? Seems like we would use more memory than it's worth
@@ -524,43 +580,54 @@ export class GitCommit implements GitRevisionReference {
 		const foundFile = await this.findFile(path, staged);
 		if (foundFile == null) return undefined;
 
-		const commit = this.with({ sha: foundFile.staged ? uncommittedStaged : this.sha, files: { file: foundFile } });
+		const commit = this.with({
+			sha: foundFile.staged ? uncommittedStaged : this.sha,
+			fileset: { ...this.fileset!, filtered: { files: [foundFile], pathspec: path } },
+		});
 		return commit;
 	}
 
-	async getCommitsForFiles(options?: { include?: { stats?: boolean } }): Promise<GitCommit[]> {
+	async getCommitsForFiles(options?: {
+		allowFilteredFiles?: boolean;
+		include?: { stats?: boolean };
+	}): Promise<GitCommit[]> {
 		if (!this.hasFullDetails(options)) {
 			await this.ensureFullDetails(options);
-			if (this._files == null) return [];
+			if (this.fileset == null) return [];
 		}
 
-		const commits = this._files?.map(f => this.with({ files: { file: f } }));
+		// If we are "allowing" filtered files, prioritize them (allowing here really means "use" filtered files if they exist)
+		const commits = (
+			options?.allowFilteredFiles
+				? this.fileset?.filtered?.files ?? this.fileset?.files
+				: this.fileset?.files ?? this.fileset?.filtered?.files
+		)?.map(f => this.with({ fileset: { ...this.fileset!, filtered: { files: [f], pathspec: f.path } } }));
 		return commits ?? [];
 	}
 
 	@memoize()
 	getGitUri(previous: boolean = false): GitUri {
-		const uri = this._file?.uri ?? this.container.git.getAbsoluteUri(this.repoPath, this.repoPath);
+		const uri = this.file?.uri ?? this.container.git.getAbsoluteUri(this.repoPath, this.repoPath);
 		if (!previous) return new GitUri(uri, this);
 
-		return new GitUri(this._file?.originalUri ?? uri, {
+		return new GitUri(this.file?.originalUri ?? uri, {
 			repoPath: this.repoPath,
 			sha: this.unresolvedPreviousSha,
 		});
 	}
 
-	@memoize<GitCommit['getPreviousComparisonUrisForLine']>((el, ref) => `${el}|${ref ?? ''}`)
-	getPreviousComparisonUrisForLine(
-		editorLine: number,
-		ref?: string,
-	): Promise<PreviousLineComparisonUrisResult | undefined> {
+	@memoize<GitCommit['getPreviousComparisonUrisForRange']>((r, rev) => `${r.startLine}-${r.endLine}|${rev ?? ''}`)
+	getPreviousComparisonUrisForRange(
+		range: DiffRange,
+		rev?: string,
+	): Promise<PreviousRangeComparisonUrisResult | undefined> {
 		return this.file != null
 			? this.container.git
-					.diff(this.repoPath)
-					.getPreviousComparisonUrisForLine(
+					.getRepositoryService(this.repoPath)
+					.diff.getPreviousComparisonUrisForRange(
 						this.file.uri,
-						editorLine,
-						ref ?? (this.sha === uncommitted ? undefined : this.sha),
+						rev ?? (this.sha === uncommitted ? undefined : this.sha),
+						range,
 					)
 			: Promise.resolve(undefined);
 	}
@@ -569,17 +636,19 @@ export class GitCommit implements GitRevisionReference {
 	async getPreviousSha(): Promise<string | undefined> {
 		if (this._previousShaPromise == null) {
 			async function getCore(this: GitCommit) {
+				const svc = this.container.git.getRepositoryService(this.repoPath);
+
 				if (this.file != null) {
 					if (this.file.previousSha != null && isSha(this.file.previousSha)) {
 						return this.file.previousSha;
 					}
 
-					const sha = await this.container.git
-						.refs(this.repoPath)
-						.resolveReference(
+					const sha = (
+						await svc.revision.resolveRevision(
 							isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 							this.file.originalPath ?? this.file.path,
-						);
+						)
+					).sha;
 
 					this._resolvedPreviousSha = sha;
 					return sha;
@@ -591,9 +660,9 @@ export class GitCommit implements GitRevisionReference {
 					return parent;
 				}
 
-				const sha = await this.container.git
-					.refs(this.repoPath)
-					.resolveReference(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`);
+				const sha = (
+					await svc.revision.resolveRevision(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`)
+				).sha;
 
 				this._resolvedPreviousSha = sha;
 				return sha;
@@ -611,36 +680,16 @@ export class GitCommit implements GitRevisionReference {
 
 	@gate()
 	async isPushed(): Promise<boolean> {
-		return this.container.git.commits(this.repoPath).hasCommitBeenPushed(this.ref);
+		return this.container.git.getRepositoryService(this.repoPath).commits.hasCommitBeenPushed(this.ref);
 	}
 
 	with<T extends GitCommit>(changes: {
 		sha?: string;
-		parents?: string[];
-		files?: { file?: GitFileChange | null; files?: GitFileChange[] | null } | null;
-		lines?: GitCommitLine[];
-		stats?: GitCommitStats;
+		parents?: string[] | null;
+		fileset?: GitCommitFileset | null;
+		lines?: GitCommitLine[] | null;
+		stats?: GitCommitStats | null;
 	}): T {
-		let files: { file?: GitFileChange; files?: GitFileChange[] } | undefined = {
-			file: this._file,
-			files: this._files,
-		};
-		if (changes.files != null) {
-			if (changes.files.file != null) {
-				files.file = changes.files.file;
-			} else if (changes.files.file === null) {
-				files.file = undefined;
-			}
-
-			if (changes.files.files != null) {
-				files.files = changes.files.files;
-			} else if (changes.files.files === null) {
-				files.files = undefined;
-			}
-		} else if (changes.files === null) {
-			files = undefined;
-		}
-
 		return new GitCommit(
 			this.container,
 			this.repoPath,
@@ -650,7 +699,7 @@ export class GitCommit implements GitRevisionReference {
 			this.summary,
 			this.getChangedValue(changes.parents, this.parents) ?? [],
 			this.message,
-			files,
+			this.getChangedValue(changes.fileset, this.fileset),
 			this.getChangedValue(changes.stats, this.stats),
 			this.getChangedValue(changes.lines, this.lines),
 			this.tips,
@@ -660,8 +709,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
-		if (change === undefined) return original;
-		return change !== null ? change : undefined;
+		return change === undefined ? original : change === null ? undefined : change;
 	}
 }
 
@@ -718,7 +766,7 @@ export interface GitCommitStats<Files extends number | GitDiffFileStats = number
 export interface GitStashCommit extends GitCommit {
 	readonly refType: GitStashReference['refType'];
 	readonly stashName: string;
-	readonly number: string;
+	readonly stashNumber: string;
 }
 
-export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'>;
+export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;

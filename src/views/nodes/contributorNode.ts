@@ -16,7 +16,7 @@ import type { ClipboardType, PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class ContributorNode extends ViewNode<'contributor', ViewsWithContributors> implements PageableViewNode {
 	limit: number | undefined;
@@ -66,7 +66,9 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath);
+		const getBranchAndTagTips = await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.getBranchesAndTagsTipsLookup();
 		const children = [
 			...insertDateMarkers(
 				map(
@@ -90,7 +92,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			this.contributor.stats != null
 				? ` (${pluralize('file', this.contributor.stats.files)}, +${formatNumeric(
 						this.contributor.stats.additions,
-				  )} -${formatNumeric(this.contributor.stats.additions)} ${pluralize(
+				  )} -${formatNumeric(this.contributor.stats.deletions)} ${pluralize(
 						'line',
 						this.contributor.stats.additions + this.contributor.stats.deletions,
 						{ only: true },
@@ -111,7 +113,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 				: ''
 		}${this.contributor.latestCommitDate != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
-			this.contributor.commits,
+			this.contributor.contributionCount,
 		)}${shortStats}`;
 
 		let avatarUri;
@@ -124,7 +126,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.commits ? 'You are' : `${this.contributor.label} is`} ${
+				const title = `${this.contributor.contributionCount ? 'You are' : `${this.contributor.label} is`} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 
@@ -160,7 +162,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
-				this.contributor.commits,
+				this.contributor.contributionCount,
 			)}${stats}`,
 		);
 		markdown.supportHtml = true;
@@ -172,7 +174,6 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean): void {
 		if (reset) {
@@ -182,19 +183,21 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLog(this.options?.ref, {
-			all: this.options?.all,
-			limit: this.limit ?? this.view.config.defaultItemLimit,
-			merges: this.options?.showMergeCommits,
-			authors: [
-				{
-					name: this.contributor.name,
-					email: this.contributor.email,
-					username: this.contributor.username,
-					id: this.contributor.id,
-				},
-			],
-		});
+		this._log ??= await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.commits.getLog(this.options?.ref, {
+				all: this.options?.all,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
+				merges: this.options?.showMergeCommits,
+				authors: [
+					{
+						name: this.contributor.name,
+						email: this.contributor.email,
+						username: this.contributor.username,
+						id: this.contributor.id,
+					},
+				],
+			});
 		return this._log;
 	}
 

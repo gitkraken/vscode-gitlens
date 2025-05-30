@@ -3,11 +3,7 @@ import { Container } from '../container';
 import { builtInActionRunnerName } from './actionRunners';
 import type { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
 
-const emptyDisposable = Object.freeze({
-	dispose: () => {
-		/* noop */
-	},
-});
+const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 export class Api implements GitLensApi {
 	readonly #container: Container;

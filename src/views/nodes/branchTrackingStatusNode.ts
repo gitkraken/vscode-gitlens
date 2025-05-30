@@ -20,7 +20,7 @@ import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -85,10 +85,12 @@ export class BranchTrackingStatusNode
 			const ref = this.options?.unpublishedCommits != null ? last(this.options.unpublishedCommits) : undefined;
 			if (ref == null) return undefined;
 
-			const resolved = await this.view.container.git.refs(this.repoPath).resolveReference(`${ref}^`);
+			const resolved = await this.view.container.git
+				.getRepositoryService(this.repoPath)
+				.revision.resolveRevision(`${ref}^`);
 			return {
 				...comparison,
-				ref1: resolved,
+				ref1: resolved.sha,
 				ref2: comparison.ref1,
 				title: `Changes to push to ${comparison.ref2}`,
 			};
@@ -120,8 +122,8 @@ export class BranchTrackingStatusNode
 			const previousSha = await commit.getPreviousSha();
 			if (previousSha == null) {
 				const previousLog = await this.view.container.git
-					.commits(this.uri.repoPath!)
-					.getLog(commit.sha, { limit: 2 });
+					.getRepositoryService(this.uri.repoPath!)
+					.commits.getLog(commit.sha, { limit: 1 });
 				if (previousLog != null) {
 					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
@@ -291,7 +293,9 @@ export class BranchTrackingStatusNode
 				break;
 			}
 			case 'none': {
-				const remotes = await this.view.container.git.remotes(this.branch.repoPath).getRemotesWithProviders();
+				const remotes = await this.view.container.git
+					.getRepositoryService(this.branch.repoPath)
+					.remotes.getRemotesWithProviders();
 				const providers = getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -327,7 +331,6 @@ export class BranchTrackingStatusNode
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean): void {
 		if (reset) {
@@ -346,8 +349,8 @@ export class BranchTrackingStatusNode
 					: createRevisionRange(this.status.ref, this.status.upstream?.name, '..');
 
 			this._log = await this.view.container.git
-				.commits(this.uri.repoPath!)
-				.getLog(range, { limit: this.limit ?? this.view.config.defaultItemLimit });
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(range, { limit: this.limit ?? this.view.config.defaultItemLimit });
 		}
 
 		return this._log;

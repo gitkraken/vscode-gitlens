@@ -1,21 +1,48 @@
 import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
 import { anthropicProviderDescriptor as provider } from '../../constants.ai';
+import { AIError, AIErrorReason } from '../../errors';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-opus-4-0',
+		name: 'Claude 4 Opus',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+	},
+	{
+		id: 'claude-opus-4-20250514',
+		name: 'Claude 4 Opus',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'claude-sonnet-4-0',
+		name: 'Claude 4 Sonnet',
+		maxTokens: { input: 204800, output: 64000 },
+		provider: provider,
+	},
+	{
+		id: 'claude-sonnet-4-20250514',
+		name: 'Claude 4 Sonnet',
+		maxTokens: { input: 204800, output: 64000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'claude-3-7-sonnet-latest',
 		name: 'Claude 3.7 Sonnet',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 	},
 	{
 		id: 'claude-3-7-sonnet-20250219',
 		name: 'Claude 3.7 Sonnet',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
@@ -102,7 +129,7 @@ const models: AnthropicModel[] = [
 	},
 ];
 
-export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;
@@ -121,9 +148,9 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 
 	protected override getHeaders<TAction extends AIActionType>(
 		_action: TAction,
+		apiKey: string,
 		_model: AIModel<typeof provider.id>,
 		_url: string,
-		apiKey: string,
 	): Record<string, string> {
 		return {
 			Accept: 'application/json',
@@ -150,36 +177,32 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 
 	protected override async handleFetchFailure<TAction extends AIActionType>(
 		rsp: Response,
-		_action: TAction,
+		action: TAction,
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxInputTokens: number,
 	): Promise<{ retry: true; maxInputTokens: number }> {
-		if (rsp.status === 404) {
-			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
-		}
-		if (rsp.status === 429) {
-			throw new Error(
-				`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
-			);
-		}
+		if (rsp.status !== 404 && rsp.status !== 429) {
+			let json;
+			try {
+				json = (await rsp.json()) as AnthropicError | undefined;
+			} catch {}
 
-		let json;
-		try {
-			json = (await rsp.json()) as AnthropicError | undefined;
-		} catch {}
+			debugger;
 
-		debugger;
+			if (json?.error?.type === 'invalid_request_error' && json?.error?.message?.includes('prompt is too long')) {
+				if (retries < 2) {
+					return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+				}
 
-		if (
-			retries < 2 &&
-			json?.error?.type === 'invalid_request_error' &&
-			json?.error?.message?.includes('prompt is too long')
-		) {
-			return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+				throw new AIError(
+					AIErrorReason.RequestTooLarge,
+					new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+				);
+			}
 		}
 
-		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText})`);
+		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
 	}
 }
 

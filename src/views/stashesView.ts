@@ -39,13 +39,14 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading stashes...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading stashes...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No stashes could be found.';
 				return [];
 			}
@@ -55,28 +56,29 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const gitStash = await child.repo.git.stash()?.getStash();
-			if (!gitStash?.stashes.size) {
+			const stash = await child.repo.git.stash?.getStash();
+			if (!stash?.stashes.size) {
 				this.view.message = 'No stashes could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.description = this.view.getViewDescription(gitStash.stashes.size);
+			queueMicrotask(() => (this.view.message = undefined));
+			this.view.description = this.view.getViewDescription(stash.stashes.size);
 
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -215,7 +217,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 				const node = await this.findStash(stash, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

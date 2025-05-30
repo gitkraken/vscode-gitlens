@@ -2,11 +2,15 @@ import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from
 import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { isWeb } from '@env/platform';
 import type {
-	CloudSelfHostedIntegrationId,
-	IntegrationId,
+	CloudGitSelfManagedHostIntegrationIds,
+	IntegrationIds,
 	SupportedCloudIntegrationIds,
 } from '../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
 import { sourceToContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -14,9 +18,10 @@ import type { Account } from '../../git/models/author';
 import type { IssueShape } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
-import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
+import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
+import type { RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/-webview/configuration';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
@@ -37,34 +42,27 @@ import {
 	toCloudIntegrationType,
 	toIntegrationId,
 } from './authentication/models';
+import type { GitHostIntegration } from './models/gitHostIntegration';
 import type {
-	HostingIntegration,
 	Integration,
 	IntegrationBase,
+	IntegrationById,
 	IntegrationKey,
 	IntegrationResult,
-	IssueIntegration,
-	ResourceDescriptor,
-	SupportedCloudSelfHostedIntegrationIds,
-	SupportedHostingIntegrationIds,
-	SupportedIntegrationIds,
-	SupportedIssueIntegrationIds,
-	SupportedSelfHostedIntegrationIds,
-} from './integration';
-import { isAzureCloudDomain } from './providers/azureDevOps';
-import { isBitbucketCloudDomain } from './providers/bitbucket';
-import {
-	isCloudSelfHostedIntegrationId,
-	isGitHubDotCom,
-	isGitLabDotCom,
-	isHostingIntegrationId,
-	isSelfHostedIntegrationId,
-} from './providers/models';
+} from './models/integration';
+import type { IssuesIntegration } from './models/issuesIntegration';
+import { isCloudSelfHostedIntegrationId, isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
+import { convertRemoteProviderIdToIntegrationId } from './utils/-webview/integration.utils';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
 	reason: 'connected' | 'disconnected';
+}
+
+/** @internal Event emitted when an integration connection state changes  */
+export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeEvent {
+	integration: IntegrationBase;
 }
 
 export class IntegrationService implements Disposable {
@@ -85,6 +83,7 @@ export class IntegrationService implements Disposable {
 	private readonly _connectedCache = new Set<string>();
 	private readonly _disposable: Disposable;
 	private _integrations = new Map<IntegrationKey, Integration>();
+	private readonly _onDidChangeIntegrationConnection = new EventEmitter<IntegrationConnectionChangeEvent>();
 
 	constructor(
 		private readonly container: Container,
@@ -99,7 +98,8 @@ export class IntegrationService implements Disposable {
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 			container.subscription.onDidCheckIn(this.onUserCheckedIn, this),
-			container.subscription.onDidChange(this.onDidChangeSubscription, this),
+			container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this._onDidChangeIntegrationConnection.event(this.onIntegrationConnectionChanged, this),
 		);
 	}
 
@@ -109,129 +109,7 @@ export class IntegrationService implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	@gate()
-	@debug()
-	private async syncCloudIntegrations(forceConnect: boolean) {
-		const scope = getLogScope();
-		const connectedIntegrations = new Set<IntegrationId>();
-		const domainsById = new Map<IntegrationId, string>();
-
-		const loggedIn = await this.container.subscription.getAuthenticationSession();
-		if (loggedIn) {
-			const cloudIntegrations = await this.container.cloudIntegrations;
-			const connections = await cloudIntegrations?.getConnections();
-			if (connections == null) return;
-
-			connections.map(p => {
-				const integrationId = toIntegrationId[p.provider];
-				// GKDev includes some integrations like "google" that we don't support
-				if (integrationId == null) return;
-				connectedIntegrations.add(toIntegrationId[p.provider]);
-				if (p.domain?.length > 0) {
-					try {
-						const host = new URL(p.domain).host;
-						domainsById.set(integrationId, host);
-					} catch {
-						Logger.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`, scope);
-					}
-				}
-			});
-		}
-
-		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
-			await integration.syncCloudConnection(
-				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
-				forceConnect,
-			);
-		}
-
-		if (this.container.telemetry.enabled) {
-			this.container.telemetry.setGlobalAttributes({
-				'cloudIntegrations.connected.count': connectedIntegrations.size,
-				'cloudIntegrations.connected.ids': join(connectedIntegrations.values(), ','),
-			});
-		}
-
-		this._onDidSyncCloudIntegrations.fire();
-		return connectedIntegrations;
-	}
-
-	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationId, string>): AsyncIterable<Integration> {
-		for (const id of getSupportedCloudIntegrationIds()) {
-			if (isCloudSelfHostedIntegrationId(id) && !domainsById.has(id)) {
-				// Try getting whatever we have now because we will need to disconnect
-				const integration = await this.get(id, undefined);
-				if (integration != null) {
-					yield integration;
-				}
-			} else {
-				const integration = await this.get(id, domainsById.get(id));
-				if (integration != null) {
-					yield integration;
-				}
-			}
-		}
-	}
-
-	private onUserCheckedIn() {
-		void this.syncCloudIntegrations(false);
-	}
-
-	private onDidChangeSubscription(e: SubscriptionChangeEvent) {
-		// When logging out, disconnect all connected cloud integrations
-		if (e.current?.account == null) {
-			void this.syncCloudIntegrations(false);
-		}
-	}
-
-	async manageCloudIntegrations(source: Source | undefined): Promise<void> {
-		const scope = getLogScope();
-		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent(
-				'cloudIntegrations/settingsOpened',
-				{ 'integration.id': undefined },
-				source,
-			);
-		}
-
-		const account = (await this.container.subscription.getSubscription()).account;
-		if (account == null) {
-			if (!(await this.container.subscription.loginOrSignUp(true, source))) {
-				return;
-			}
-		}
-
-		try {
-			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations', `token=${exchangeToken}`)))) {
-				return;
-			}
-		} catch (ex) {
-			Logger.error(ex, scope);
-			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations')))) {
-				return;
-			}
-		}
-		take(
-			window.onDidChangeWindowState,
-			2,
-		)(async e => {
-			if (e.focused) {
-				const connected = await this.syncCloudIntegrations(true);
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						'cloudIntegrations/connected',
-						{
-							'integration.ids': undefined,
-							'integration.connected.ids': connected ? join(connected.values(), ',') : undefined,
-						},
-						source,
-					);
-				}
-			}
-		});
-	}
-
+	@log()
 	async connectCloudIntegrations(
 		connect?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean; skipPreSync?: boolean },
 		source?: Source,
@@ -395,132 +273,53 @@ export class IntegrationService implements Disposable {
 		return true;
 	}
 
-	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
-		for (const integration of this._integrations.values()) {
-			if (e.provider.id === integration.authProvider.id) {
-				integration.refresh();
-			}
-		}
-	}
-
-	connected(integration: IntegrationBase, key: string): void {
-		// Only fire events if the key is being connected for the first time
-		if (this._connectedCache.has(key)) return;
-
-		this._connectedCache.add(key);
-		if (this.container.telemetry.enabled) {
-			if (integration.type === 'hosting') {
-				if (isSupportedCloudIntegrationId(integration.id)) {
-					this.container.telemetry.sendEvent('cloudIntegrations/hosting/connected', {
-						'hostingProvider.provider': integration.id,
-						'hostingProvider.key': key,
-					});
-				} else {
-					this.container.telemetry.sendEvent('remoteProviders/connected', {
-						'hostingProvider.provider': integration.id,
-						'hostingProvider.key': key,
-
-						// Deprecated
-						'remoteProviders.key': key,
-					});
-				}
-			} else {
-				this.container.telemetry.sendEvent('cloudIntegrations/issue/connected', {
-					'issueProvider.provider': integration.id,
-					'issueProvider.key': key,
-				});
-			}
-		}
-
-		setTimeout(() => this._onDidChangeConnectionState.fire({ key: key, reason: 'connected' }), 250);
-	}
-
-	disconnected(integration: IntegrationBase, key: string): void {
-		// Probably shouldn't bother to fire the event if we don't already think we are connected, but better to be safe
-		// if (!_connectedCache.has(key)) return;
-		this._connectedCache.delete(key);
-		if (this.container.telemetry.enabled) {
-			if (integration.type === 'hosting') {
-				if (isSupportedCloudIntegrationId(integration.id)) {
-					this.container.telemetry.sendEvent('cloudIntegrations/hosting/disconnected', {
-						'hostingProvider.provider': integration.id,
-						'hostingProvider.key': key,
-					});
-				} else {
-					this.container.telemetry.sendEvent('remoteProviders/disconnected', {
-						'hostingProvider.provider': integration.id,
-						'hostingProvider.key': key,
-
-						// Deprecated
-						'remoteProviders.key': key,
-					});
-				}
-			} else {
-				this.container.telemetry.sendEvent('cloudIntegrations/issue/disconnected', {
-					'issueProvider.provider': integration.id,
-					'issueProvider.key': key,
-				});
-			}
-		}
-
-		setTimeout(() => this._onDidChangeConnectionState.fire({ key: key, reason: 'disconnected' }), 250);
-	}
-
-	isConnected(key?: string): boolean {
-		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
-	}
-
-	async getConfigured(
-		options?:
-			| { id?: HostingIntegrationId | IssueIntegrationId; domain?: never; type?: 'cloud' | 'local' }
-			| { id?: CloudSelfHostedIntegrationId | SelfHostedIntegrationId; domain?: string; type?: never },
-	): Promise<ConfiguredIntegrationDescriptor[]> {
-		return this.configuredIntegrationService.getConfigured(options);
-	}
-
-	get(id: SupportedHostingIntegrationIds): Promise<HostingIntegration>;
-	get(id: SupportedIssueIntegrationIds): Promise<IssueIntegration>;
+	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
+	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
 	get(
-		id: SupportedHostingIntegrationIds | SupportedCloudSelfHostedIntegrationIds,
+		id: GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds,
 		domain?: string,
-	): Promise<HostingIntegration | undefined>;
-	get(id: SupportedSelfHostedIntegrationIds, domain: string): Promise<HostingIntegration | undefined>;
-	get(id: SupportedIntegrationIds, domain?: string): Promise<Integration | undefined>;
-	async get(
-		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
-		domain?: string,
-	): Promise<Integration | undefined> {
+	): Promise<GitHostIntegration | undefined>;
+	get(id: GitSelfManagedHostIntegrationId, domain: string): Promise<GitHostIntegration | undefined>;
+	get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined>;
+	async get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined> {
 		let integration = this.getCached(id, domain);
 		if (integration == null) {
 			switch (id) {
-				case HostingIntegrationId.GitHub:
+				case GitCloudHostIntegrationId.GitHub:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/github')
-					).GitHubIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
+					).GitHubIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case SelfHostedIntegrationId.CloudGitHubEnterprise:
+
+				case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 					if (domain == null) {
 						integration = this.findCachedById(id);
-						if (integration != null) {
-							// return immediately in order to not to cache it after the "switch" block:
-							return integration;
-						}
+						// return immediately in order to not to cache it after the "switch" block:
+						if (integration != null) return integration;
 
-						const existingConfigured = await this.getConfigured({
-							id: SelfHostedIntegrationId.CloudGitHubEnterprise,
-						});
-						if (existingConfigured.length) {
-							const { domain: configuredDomain } = existingConfigured[0];
+						const configured = this.getConfiguredLite(
+							GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+						);
+						if (configured.length) {
+							const { domain: configuredDomain } = configured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
+
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/github')
 							).GitHubEnterpriseIntegration(
 								this.container,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
+								this._onDidChangeIntegrationConnection,
 								configuredDomain,
 								id,
-							);
+							) as GitHostIntegration as IntegrationById<T>;
+
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
 							break;
@@ -535,50 +334,62 @@ export class IntegrationService implements Disposable {
 						this.container,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
 						domain,
 						id,
-					);
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case SelfHostedIntegrationId.GitHubEnterprise:
+
+				case GitSelfManagedHostIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
+
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/github')
 					).GitHubEnterpriseIntegration(
 						this.container,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
 						domain,
 						id,
-					);
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case HostingIntegrationId.GitLab:
+
+				case GitCloudHostIntegrationId.GitLab:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/gitlab')
-					).GitLabIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
+					).GitLabIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+
+				case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 					if (domain == null) {
 						integration = this.findCachedById(id);
-						if (integration != null) {
-							// return immediately in order to not to cache it after the "switch" block:
-							return integration;
-						}
+						// return immediately in order to not to cache it after the "switch" block:
+						if (integration != null) return integration;
 
-						const existingConfigured = await this.getConfigured({
-							id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
-						});
-						if (existingConfigured.length) {
-							const { domain: configuredDomain } = existingConfigured[0];
+						const configured = this.getConfiguredLite(
+							GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+						);
+						if (configured.length) {
+							const { domain: configuredDomain } = configured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
+
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/gitlab')
 							).GitLabSelfHostedIntegration(
 								this.container,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
+								this._onDidChangeIntegrationConnection,
 								configuredDomain,
 								id,
-							);
+							) as GitHostIntegration as IntegrationById<T>;
+
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
 							break;
@@ -593,51 +404,59 @@ export class IntegrationService implements Disposable {
 						this.container,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
 						domain,
 						id,
-					);
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case SelfHostedIntegrationId.GitLabSelfHosted:
+
+				case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
+
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/gitlab')
 					).GitLabSelfHostedIntegration(
 						this.container,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
 						domain,
 						id,
-					);
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case HostingIntegrationId.Bitbucket:
+
+				case GitCloudHostIntegrationId.Bitbucket:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/bitbucket')
-					).BitbucketIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
+					).BitbucketIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case SelfHostedIntegrationId.BitbucketServer:
+
+				case GitSelfManagedHostIntegrationId.BitbucketServer:
 					if (domain == null) {
 						integration = this.findCachedById(id);
-						if (integration != null) {
-							// return immediately in order to not to cache it after the "switch" block:
-							return integration;
-						}
+						// return immediately in order to not to cache it after the "switch" block:
+						if (integration != null) return integration;
 
-						const existingConfigured = await this.getConfigured({
-							id: SelfHostedIntegrationId.BitbucketServer,
-						});
-						if (existingConfigured.length) {
-							const { domain: configuredDomain } = existingConfigured[0];
-							if (configuredDomain == null) {
-								throw new Error(`Domain is required for '${id}' integration`);
-							}
+						const configured = this.getConfiguredLite(GitSelfManagedHostIntegrationId.BitbucketServer);
+						if (configured.length) {
+							const { domain: configuredDomain } = configured[0];
+							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
+
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/bitbucket-server')
 							).BitbucketServerIntegration(
 								this.container,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
+								this._onDidChangeIntegrationConnection,
 								configuredDomain,
-							);
+							) as GitHostIntegration as IntegrationById<T>;
+
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
 							break;
@@ -652,138 +471,101 @@ export class IntegrationService implements Disposable {
 						this.container,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
 						domain,
-					);
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case HostingIntegrationId.AzureDevOps:
+
+				case GitCloudHostIntegrationId.AzureDevOps:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
 					).AzureDevOpsIntegration(
 						this.container,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
-					);
+						this._onDidChangeIntegrationConnection,
+					) as GitHostIntegration as IntegrationById<T>;
 					break;
-				case IssueIntegrationId.Jira:
+
+				case IssuesCloudHostIntegrationId.Jira:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/jira')
-					).JiraIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
+					).JiraIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as IssuesIntegration as IntegrationById<T>;
 					break;
+
 				default:
 					throw new Error(`Integration with '${id}' is not supported`);
 			}
+
 			this._integrations.set(this.getCacheKey(id, domain), integration);
 		}
 
 		return integration;
 	}
 
-	private _providersApi: Promise<ProvidersApi> | undefined;
-	private async getProvidersApi() {
-		if (this._providersApi == null) {
-			const container = this.container;
-			const authenticationService = this.authenticationService;
-			async function load() {
-				return new (
-					await import(/* webpackChunkName: "integrations" */ './providers/providersApi')
-				).ProvidersApi(container, authenticationService);
-			}
+	async getConfigured(): Promise<ConfiguredIntegrationDescriptor[]>;
+	async getConfigured(
+		id: GitCloudHostIntegrationId.GitHub,
+		options: { cloud: false | undefined; domain?: never },
+	): Promise<ConfiguredIntegrationDescriptor[]>;
+	async getConfigured(
+		id?: GitCloudHostIntegrationId.GitHub,
+		options?: { cloud: false | undefined; domain?: never },
+	): Promise<ConfiguredIntegrationDescriptor[]> {
+		return this.configuredIntegrationService.getConfigured(id, options);
+	}
 
-			this._providersApi = load();
+	getConfiguredLite(
+		id: GitCloudHostIntegrationId.GitHub,
+		options: { cloud: true; domain?: never },
+	): ConfiguredIntegrationDescriptor[];
+	getConfiguredLite(
+		id: Exclude<IntegrationIds, GitCloudHostIntegrationId.GitHub>,
+		options?: { cloud?: boolean; domain?: string },
+	): ConfiguredIntegrationDescriptor[];
+	getConfiguredLite(
+		id: IntegrationIds,
+		options?: { cloud?: boolean; domain?: string },
+	): ConfiguredIntegrationDescriptor[] {
+		if (id === GitCloudHostIntegrationId.GitHub) {
+			return this.configuredIntegrationService.getConfiguredLite(id, { cloud: true });
 		}
 
-		return this._providersApi;
-	}
-
-	getByRemote(remote: GitRemote): Promise<HostingIntegration | undefined> {
-		if (remote?.provider == null) return Promise.resolve(undefined);
-
-		return this.getByRemoteCore(remote as GitRemote<RemoteProvider>, this.get);
-	}
-
-	getByRemoteCached(remote: GitRemote): HostingIntegration | undefined {
-		if (remote?.provider == null) return undefined;
-
-		return this.getByRemoteCore(remote as GitRemote<RemoteProvider>, this.getCached);
-	}
-
-	private getByRemoteCore<F extends typeof this.get | typeof this.getCached>(
-		remote: GitRemote<RemoteProvider>,
-		getOrGetCached: F,
-	): F extends typeof this.get ? Promise<HostingIntegration | undefined> : HostingIntegration | undefined {
-		type RT = F extends typeof this.get ? Promise<HostingIntegration | undefined> : HostingIntegration | undefined;
-
-		const get = getOrGetCached.bind(this);
-
-		switch (remote.provider.id) {
-			case 'azure-devops':
-				if (isAzureCloudDomain(remote.provider.domain)) {
-					return get(HostingIntegrationId.AzureDevOps) as RT;
-				}
-				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
-			case 'bitbucket':
-				if (isBitbucketCloudDomain(remote.provider.domain)) {
-					return get(HostingIntegrationId.Bitbucket) as RT;
-				}
-				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
-			case 'bitbucket-server':
-				if (!isBitbucketCloudDomain(remote.provider.domain)) {
-					return get(SelfHostedIntegrationId.BitbucketServer) as RT;
-				}
-				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
-			case 'github':
-				if (remote.provider.domain != null && !isGitHubDotCom(remote.provider.domain)) {
-					return get(
-						remote.provider.custom
-							? SelfHostedIntegrationId.GitHubEnterprise
-							: SelfHostedIntegrationId.CloudGitHubEnterprise,
-						remote.provider.domain,
-					) as RT;
-				}
-				return get(HostingIntegrationId.GitHub) as RT;
-			case 'gitlab':
-				if (remote.provider.domain != null && !isGitLabDotCom(remote.provider.domain)) {
-					return get(
-						remote.provider.custom
-							? SelfHostedIntegrationId.GitLabSelfHosted
-							: SelfHostedIntegrationId.CloudGitLabSelfHosted,
-						remote.provider.domain,
-					) as RT;
-				}
-				return get(HostingIntegrationId.GitLab) as RT;
-			default:
-				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
-		}
+		return this.configuredIntegrationService.getConfiguredLite(id, options);
 	}
 
 	@log<IntegrationService['getMyIssues']>({
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyIssues(
-		integrationIds?: (
-			| SupportedHostingIntegrationIds
-			| SupportedIssueIntegrationIds
-			| SupportedSelfHostedIntegrationIds
-		)[],
+		integrationIds?: (GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId)[],
 		options?: { openRepositoriesOnly?: boolean; cancellation?: CancellationToken },
 	): Promise<IssueShape[] | undefined> {
 		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
 		const hostingIntegrationIds = integrationIds?.filter(
-			id => id in HostingIntegrationId || id in SelfHostedIntegrationId,
-		) as SupportedHostingIntegrationIds[];
-		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
+			id => id in GitCloudHostIntegrationId || id in GitSelfManagedHostIntegrationId,
+		) as GitCloudHostIntegrationId[];
+		const openRemotesByIntegrationId = new Map<IntegrationIds, ResourceDescriptor[]>();
 		let hasOpenAzureRepository = false;
 		for (const repository of this.container.git.openRepositories) {
-			const remotes = await repository.git.remotes().getRemotes();
+			const remotes = await repository.git.remotes.getRemotes();
 			for (const remote of remotes) {
 				const remoteIntegration = await remote.getIntegration();
 				if (remoteIntegration == null) continue;
-				if (remoteIntegration.id === HostingIntegrationId.AzureDevOps) {
+				if (remoteIntegration.id === GitCloudHostIntegrationId.AzureDevOps) {
 					hasOpenAzureRepository = true;
 				}
 				for (const integrationId of hostingIntegrationIds?.length
 					? hostingIntegrationIds
-					: [...Object.values(HostingIntegrationId), ...Object.values(SelfHostedIntegrationId)]) {
+					: [
+							...Object.values(GitCloudHostIntegrationId),
+							...Object.values(GitSelfManagedHostIntegrationId),
+					  ]) {
 					if (
 						remoteIntegration.id === integrationId &&
 						remote.provider?.owner != null &&
@@ -806,17 +588,17 @@ export class IntegrationService implements Disposable {
 		for (const integrationId of integrationIds?.length
 			? integrationIds
 			: [
-					...Object.values(HostingIntegrationId),
-					...Object.values(IssueIntegrationId),
-					...Object.values(SelfHostedIntegrationId),
+					...Object.values(GitCloudHostIntegrationId),
+					...Object.values(IssuesCloudHostIntegrationId),
+					...Object.values(GitSelfManagedHostIntegrationId),
 			  ]) {
 			const integration = await this.get(integrationId);
 			const isInvalidIntegration =
 				(options?.openRepositoriesOnly &&
-					integrationId !== HostingIntegrationId.AzureDevOps &&
+					integrationId !== GitCloudHostIntegrationId.AzureDevOps &&
 					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
 					!openRemotesByIntegrationId.has(integrationId)) ||
-				(integrationId === HostingIntegrationId.AzureDevOps && !hasOpenAzureRepository);
+				(integrationId === GitCloudHostIntegrationId.AzureDevOps && !hasOpenAzureRepository);
 			if (integration == null || isInvalidIntegration) {
 				continue;
 			}
@@ -863,11 +645,11 @@ export class IntegrationService implements Disposable {
 			const [remote] = remoteOrRemotes;
 			if (remote?.provider == null) return undefined;
 
-			const integration = await this.getByRemote(remote);
+			const integration = await remote.getIntegration();
 			return integration?.searchMyIssues(remote.provider.repoDesc);
 		}
 
-		const integrations = new Map<HostingIntegration, ResourceDescriptor[]>();
+		const integrations = new Map<GitHostIntegration, ResourceDescriptor[]>();
 
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
@@ -890,9 +672,9 @@ export class IntegrationService implements Disposable {
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>') },
 	})
 	async getMyCurrentAccounts(
-		integrationIds: (HostingIntegrationId | CloudSelfHostedIntegrationId)[],
-	): Promise<Map<HostingIntegrationId | CloudSelfHostedIntegrationId, Account>> {
-		const accounts = new Map<HostingIntegrationId | CloudSelfHostedIntegrationId, Account>();
+		integrationIds: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
+	): Promise<Map<GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds, Account>> {
+		const accounts = new Map<GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds, Account>();
 		await Promise.allSettled(
 			integrationIds.map(async integrationId => {
 				const integration = await this.get(integrationId);
@@ -911,12 +693,14 @@ export class IntegrationService implements Disposable {
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyPullRequests(
-		integrationIds?: (HostingIntegrationId | CloudSelfHostedIntegrationId)[],
+		integrationIds?: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
-		const integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined> = new Map();
-		for (const integrationId of integrationIds?.length ? integrationIds : Object.values(HostingIntegrationId)) {
+		const integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined> = new Map();
+		for (const integrationId of integrationIds?.length
+			? integrationIds
+			: Object.values(GitCloudHostIntegrationId)) {
 			let integration;
 			try {
 				integration = await this.get(integrationId);
@@ -931,7 +715,7 @@ export class IntegrationService implements Disposable {
 	}
 
 	private async getMyPullRequestsCore(
-		integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined>,
+		integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined>,
 		cancellation?: CancellationToken,
 		silent?: boolean,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
@@ -989,11 +773,11 @@ export class IntegrationService implements Disposable {
 			const [remote] = remoteOrRemotes;
 			if (remote?.provider == null) return undefined;
 
-			const provider = await this.getByRemote(remote);
-			return provider?.searchMyPullRequests(remote.provider.repoDesc);
+			const integration = await remote.getIntegration();
+			return integration?.searchMyPullRequests(remote.provider.repoDesc);
 		}
 
-		const integrations = new Map<HostingIntegration, ResourceDescriptor[]>();
+		const integrations = new Map<GitHostIntegration, ResourceDescriptor[]>();
 
 		for (const remote of remoteOrRemotes) {
 			if (remote?.provider == null) continue;
@@ -1012,32 +796,8 @@ export class IntegrationService implements Disposable {
 		return this.getMyPullRequestsCore(integrations);
 	}
 
-	isMaybeConnected(remote: GitRemote): boolean | undefined {
-		if (remote.provider?.id != null && this.supports(remote.provider.id)) {
-			return this.getByRemoteCached(remote)?.maybeConnected;
-		}
-		return false;
-	}
-
-	@log()
-	async reset(): Promise<void> {
-		for (const integration of this._integrations.values()) {
-			await integration.reset();
-		}
-
-		await this.authenticationService.reset();
-		await this.container.storage.deleteWithPrefix('provider:authentication:skip');
-		queueMicrotask(() => void this.syncCloudIntegrations(true));
-	}
-
-	supports(remoteProviderId: RemoteProviderId): boolean {
-		return remoteProviderIdToIntegrationId(remoteProviderId) != null;
-	}
-
 	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
-	ignoreSSLErrors(
-		integration: HostingIntegration | { id: SupportedIntegrationIds; domain?: string },
-	): boolean | 'force' {
+	ignoreSSLErrors(integration: GitHostIntegration | { id: IntegrationIds; domain?: string }): boolean | 'force' {
 		if (isWeb) return false;
 
 		let ignoreSSLErrors = this._ignoreSSLErrors.get(integration.id);
@@ -1052,53 +812,242 @@ export class IntegrationService implements Disposable {
 		return ignoreSSLErrors;
 	}
 
-	private getCached(id: SupportedHostingIntegrationIds): HostingIntegration | undefined;
-	private getCached(id: SupportedIssueIntegrationIds): IssueIntegration | undefined;
-	private getCached(id: SupportedSelfHostedIntegrationIds, domain: string): HostingIntegration | undefined;
-	private getCached(
-		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
-		domain?: string,
-	): Integration | undefined;
-	private getCached(
-		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
-		domain?: string,
-	): Integration | undefined {
-		return this._integrations.get(this.getCacheKey(id, domain));
+	@log()
+	async manageCloudIntegrations(source: Source | undefined): Promise<void> {
+		const scope = getLogScope();
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'cloudIntegrations/settingsOpened',
+				{ 'integration.id': undefined },
+				source,
+			);
+		}
+
+		const account = (await this.container.subscription.getSubscription()).account;
+		if (account == null) {
+			if (!(await this.container.subscription.loginOrSignUp(true, source))) {
+				return;
+			}
+		}
+
+		try {
+			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
+			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations', `token=${exchangeToken}`)))) {
+				return;
+			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations')))) {
+				return;
+			}
+		}
+		take(
+			window.onDidChangeWindowState,
+			2,
+		)(async e => {
+			if (e.focused) {
+				const connected = await this.syncCloudIntegrations(true);
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						'cloudIntegrations/connected',
+						{
+							'integration.ids': undefined,
+							'integration.connected.ids': connected ? join(connected.values(), ',') : undefined,
+						},
+						source,
+					);
+				}
+			}
+		});
 	}
 
-	private findCachedById(id: SupportedSelfHostedIntegrationIds): Integration | undefined {
+	@log()
+	async reset(): Promise<void> {
+		for (const integration of this._integrations.values()) {
+			await integration.reset();
+		}
+
+		await this.authenticationService.reset();
+		await this.container.storage.deleteWithPrefix('provider:authentication:skip');
+		queueMicrotask(() => void this.syncCloudIntegrations(true));
+	}
+
+	supports(remoteProviderId: RemoteProviderId): boolean {
+		return convertRemoteProviderIdToIntegrationId(remoteProviderId) != null;
+	}
+
+	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
+		for (const integration of this._integrations.values()) {
+			if (e.provider.id === integration.authProvider.id) {
+				integration.refresh();
+			}
+		}
+	}
+
+	private onIntegrationConnectionChanged(e: {
+		integration: IntegrationBase;
+		key: string;
+		reason: 'connected' | 'disconnected';
+	}): void {
+		const { integration, key, reason } = e;
+
+		if (reason === 'connected') {
+			// Only fire events if the key is being connected for the first time
+			if (this._connectedCache.has(key)) return;
+
+			this._connectedCache.add(key);
+		} else {
+			// Probably shouldn't bother to fire the event if we don't already think we are connected, but better to be safe
+			// if (!_connectedCache.has(key)) return;
+
+			this._connectedCache.delete(key);
+		}
+
+		if (this.container.telemetry.enabled) {
+			if (integration.type === 'git') {
+				if (isSupportedCloudIntegrationId(integration.id)) {
+					this.container.telemetry.sendEvent(
+						`cloudIntegrations/hosting/${reason === 'connected' ? 'connected' : 'disconnected'}`,
+						{
+							'hostingProvider.provider': integration.id,
+							'hostingProvider.key': key,
+						},
+					);
+				} else {
+					this.container.telemetry.sendEvent(
+						`remoteProviders/${reason === 'connected' ? 'connected' : 'disconnected'}`,
+						{
+							'hostingProvider.provider': integration.id,
+							'hostingProvider.key': key,
+
+							// Deprecated
+							'remoteProviders.key': key,
+						},
+					);
+				}
+			} else {
+				this.container.telemetry.sendEvent(
+					`cloudIntegrations/issue/${reason === 'connected' ? 'connected' : 'disconnected'}`,
+					{
+						'issueProvider.provider': integration.id,
+						'issueProvider.key': key,
+					},
+				);
+			}
+		}
+
+		setTimeout(() => this._onDidChangeConnectionState.fire({ key: key, reason: reason }), 250);
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		// When logging out, disconnect all connected cloud integrations
+		if (e.current?.account == null) {
+			void this.syncCloudIntegrations(false);
+		}
+	}
+
+	private onUserCheckedIn(options?: { force?: boolean } | void) {
+		void this.syncCloudIntegrations(Boolean(options?.force));
+	}
+
+	private _providersApi: Promise<ProvidersApi> | undefined;
+	private async getProvidersApi() {
+		if (this._providersApi == null) {
+			const container = this.container;
+			const authenticationService = this.authenticationService;
+			async function load() {
+				return new (
+					await import(/* webpackChunkName: "integrations" */ './providers/providersApi')
+				).ProvidersApi(container, authenticationService);
+			}
+
+			this._providersApi = load();
+		}
+
+		return this._providersApi;
+	}
+
+	private getCached<T extends IntegrationIds>(id: T, domain?: string): IntegrationById<T> | undefined {
+		return this._integrations.get(this.getCacheKey(id, domain)) as IntegrationById<T> | undefined;
+	}
+
+	private getCacheKey(
+		id: GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId,
+		domain?: string,
+	): IntegrationKey {
+		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
+	}
+	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationIds, string>): AsyncIterable<Integration> {
+		for (const id of getSupportedCloudIntegrationIds()) {
+			if (isCloudSelfHostedIntegrationId(id) && !domainsById.has(id)) {
+				// Try getting whatever we have now because we will need to disconnect
+				const integration = await this.get(id, undefined);
+				if (integration != null) {
+					yield integration;
+				}
+			} else {
+				const integration = await this.get(id, domainsById.get(id));
+				if (integration != null) {
+					yield integration;
+				}
+			}
+		}
+	}
+
+	private findCachedById<T extends IntegrationIds>(id: T): IntegrationById<T> | undefined {
 		const key = this.getCacheKey(id, '');
 		for (const [k, integration] of this._integrations) {
 			if (k.startsWith(key)) {
-				return integration;
+				return integration as IntegrationById<T>;
 			}
 		}
 		return undefined;
 	}
 
-	private getCacheKey(
-		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
-		domain?: string,
-	): IntegrationKey {
-		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
-	}
-}
+	@gate()
+	@debug()
+	private async syncCloudIntegrations(forceConnect: boolean) {
+		const scope = getLogScope();
+		const connectedIntegrations = new Set<IntegrationIds>();
+		const domainsById = new Map<IntegrationIds, string>();
 
-export function remoteProviderIdToIntegrationId(
-	remoteProviderId: RemoteProviderId,
-): SupportedCloudIntegrationIds | undefined {
-	switch (remoteProviderId) {
-		case 'azure-devops':
-			return HostingIntegrationId.AzureDevOps;
-		case 'bitbucket':
-			return HostingIntegrationId.Bitbucket;
-		case 'github':
-			return HostingIntegrationId.GitHub;
-		case 'gitlab':
-			return HostingIntegrationId.GitLab;
-		case 'bitbucket-server':
-			return SelfHostedIntegrationId.BitbucketServer;
-		default:
-			return undefined;
+		const loggedIn = await this.container.subscription.getAuthenticationSession();
+		if (loggedIn) {
+			const cloudIntegrations = await this.container.cloudIntegrations;
+			const connections = await cloudIntegrations?.getConnections();
+			if (connections == null) return;
+
+			connections.map(p => {
+				const integrationId = toIntegrationId[p.provider];
+				// GKDev includes some integrations like "google" that we don't support
+				if (integrationId == null) return;
+				connectedIntegrations.add(toIntegrationId[p.provider]);
+				if (p.domain?.length > 0) {
+					try {
+						const host = new URL(p.domain).host;
+						domainsById.set(integrationId, host);
+					} catch {
+						Logger.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`, scope);
+					}
+				}
+			});
+		}
+
+		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
+			await integration.syncCloudConnection(
+				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
+				forceConnect,
+			);
+		}
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.setGlobalAttributes({
+				'cloudIntegrations.connected.count': connectedIntegrations.size,
+				'cloudIntegrations.connected.ids': join(connectedIntegrations.values(), ','),
+			});
+		}
+
+		this._onDidSyncCloudIntegrations.fire();
+		return connectedIntegrations;
 	}
 }

@@ -40,13 +40,14 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading tags...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading tags...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No tags could be found.';
 				return [];
 			}
@@ -56,28 +57,29 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const tags = await child.repo.git.tags().getTags();
-			if (tags.values.length === 0) {
+			const tags = await child.repo.git.tags.getTags();
+			if (!tags.values.length) {
 				this.view.message = 'No tags could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(tags.values.length);
 
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -222,7 +224,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

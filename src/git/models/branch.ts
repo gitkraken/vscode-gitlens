@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+import type { CancellationToken } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
@@ -48,7 +49,7 @@ export class GitBranch implements GitBranchReference {
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
 		public readonly upstream?: GitTrackingUpstream,
-		public readonly worktree?: { path: string; isDefault: boolean },
+		public readonly worktree?: { path: string; isDefault: boolean } | false,
 		detached: boolean = false,
 		public readonly rebasing: boolean = false,
 	) {
@@ -108,7 +109,7 @@ export class GitBranch implements GitBranchReference {
 		const remote = await this.getRemote();
 		if (remote?.provider == null) return undefined;
 
-		const integration = await this.container.integrations.getByRemote(remote);
+		const integration = await remote.getIntegration();
 		if (integration == null) return undefined;
 
 		if (this.upstream?.missing) {
@@ -126,7 +127,7 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
-		const remote = await this.container.git.remotes(this.repoPath).getBestRemoteWithProvider();
+		const remote = await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithProvider();
 		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
 		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
 	}
@@ -153,7 +154,7 @@ export class GitBranch implements GitBranchReference {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 
-		return this.container.git.remotes(this.repoPath).getRemote(remoteName);
+		return this.container.git.getRepositoryService(this.repoPath).remotes.getRemote(remoteName);
 	}
 
 	@memoize()
@@ -177,11 +178,19 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	@debug()
-	async getWorktree(): Promise<GitWorktree | undefined> {
-		if (this.worktree == null) return undefined;
+	async getWorktree(cancellation?: CancellationToken): Promise<GitWorktree | undefined> {
+		if (this.worktree === false) return undefined;
+		if (this.worktree == null) {
+			const { id } = this;
+			return this.container.git
+				.getRepositoryService(this.repoPath)
+				.worktrees?.getWorktree(wt => wt.branch?.id === id, cancellation);
+		}
 
-		const worktreePath = this.worktree.path;
-		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === worktreePath);
+		const { path } = this.worktree;
+		return this.container.git
+			.getRepositoryService(this.repoPath)
+			.worktrees?.getWorktree(wt => wt.path === path, cancellation);
 	}
 
 	get starred(): boolean {
@@ -220,7 +229,7 @@ export type GitBranchStatus =
 	| 'remote';
 
 export interface BranchTargetInfo {
+	mergeTargetBranch: MaybePausedResult<string | undefined>;
 	baseBranch: string | undefined;
 	defaultBranch: string | undefined;
-	targetBranch: MaybePausedResult<string | undefined>;
 }

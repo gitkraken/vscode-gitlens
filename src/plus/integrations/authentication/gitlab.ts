@@ -1,6 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
@@ -11,7 +11,7 @@ import {
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './models';
 
-type GitLabId = HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted;
+type GitLabId = GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.GitLabSelfHosted;
 
 export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
 	constructor(
@@ -93,14 +93,14 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 	}
 }
 
-export class GitLabSelfHostedCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitLabSelfHosted> {
-	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitLabSelfHosted {
-		return SelfHostedIntegrationId.CloudGitLabSelfHosted;
+export class GitLabSelfHostedCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted> {
+	protected override get authProviderId(): GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted {
+		return GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 	}
 }
 
 export class GitLabCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitLabId> {
 	protected override get authProviderId(): GitLabId {
-		return HostingIntegrationId.GitLab;
+		return GitCloudHostIntegrationId.GitLab;
 	}
 }

@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type { GlCommands } from '../../../../../constants.commands';
+import type { GlCommands, PlusCommands, WebviewCommands, WebviewViewCommands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import {
 	actionGroupMap,
@@ -16,11 +16,14 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/st
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
+import { createWebviewCommandLink } from '../../../../../system/webview';
 import type {
 	BranchRef,
 	CreatePullRequestCommandArgs,
 	GetOverviewBranch,
 	OpenInGraphParams,
+	OpenInTimelineParams,
+	OpenWorktreeCommandArgs,
 	State,
 } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -34,6 +37,7 @@ import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
+import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
@@ -43,6 +47,10 @@ import '../../../shared/components/branch-icon';
 import './merge-target-status';
 
 export const branchCardStyles = css`
+	* {
+		box-sizing: border-box;
+	}
+
 	gl-avatar-list {
 		--gl-avatar-size: 2.4rem;
 		margin-block: -0.4rem;
@@ -263,7 +271,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
-	private _homeState!: State;
+	protected _homeState!: State;
 
 	@property()
 	repo!: string;
@@ -694,6 +702,18 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<action-nav class="branch-item__collapsed-actions">${actions}</action-nav>`;
 	}
 
+	protected createWebviewCommandLink<T>(
+		command: WebviewCommands | WebviewViewCommands | PlusCommands,
+		args?: T | any,
+	): string {
+		return createWebviewCommandLink<T>(
+			command,
+			'gitlens.views.home',
+			'',
+			args ? { ...args, ...this.branchRef } : this.branchRef,
+		);
+	}
+
 	protected createCommandLink<T>(command: GlCommands, args?: T | any): string {
 		return createCommandLink<T>(command, args ? { ...args, ...this.branchRef } : this.branchRef);
 	}
@@ -763,6 +783,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			?hasChanges=${hasChanges}
 			upstream=${this.branch.upstream?.name}
 			?worktree=${this.branch.worktree != null}
+			?is-default=${this.branch.worktree?.isDefault ?? false}
 		></gl-branch-icon>`;
 	}
 
@@ -783,6 +804,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							>Create a Pull Request</gl-button
 						>
 						${this._homeState.orgSettings.ai &&
+						this._homeState.aiEnabled &&
 						this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
 							? html`<gl-button
 									class="branch-item__missing"
@@ -956,8 +978,13 @@ export class GlBranchCard extends GlBranchCardBase {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
+					alt-label="Open Worktree in New Window"
 					icon="browser"
+					alt-icon="empty-window"
 					href=${this.createCommandLink('gitlens.home.openWorktree')}
+					alt-href=${this.createCommandLink<OpenWorktreeCommandArgs>('gitlens.home.openWorktree', {
+						location: 'newWindow',
+					})}
 				></action-item>`,
 			);
 		} else {
@@ -976,14 +1003,48 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getBranchActions(): TemplateResult[] {
 		const actions = [];
 
+		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+
 		if (this.branch.worktree) {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
+					alt-label="Open Worktree in New Window"
 					icon="browser"
+					alt-icon="empty-window"
 					href=${this.createCommandLink('gitlens.home.openWorktree')}
+					alt-href=${this.createCommandLink<OpenWorktreeCommandArgs>('gitlens.home.openWorktree', {
+						location: 'newWindow',
+					})}
 				></action-item>`,
 			);
+
+			if (aiEnabled) {
+				const hasWip =
+					this.wip?.workingTreeState != null
+						? this.wip.workingTreeState.added +
+								this.wip.workingTreeState.changed +
+								this.wip.workingTreeState.deleted >
+						  0
+						: false;
+				if (hasWip) {
+					actions.push(
+						html`<action-item
+							label="Explain Working Changes (Preview)"
+							icon="sparkle"
+							href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+						></action-item>`,
+					);
+				} else {
+					actions.push(
+						html`<action-item
+							label="Explain Branch Changes (Preview)"
+							icon="sparkle"
+							href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+						></action-item>`,
+					);
+				}
+			}
 		} else {
 			actions.push(
 				html`<action-item
@@ -992,6 +1053,16 @@ export class GlBranchCard extends GlBranchCardBase {
 					href=${this.createCommandLink('gitlens.home.switchToBranch')}
 				></action-item>`,
 			);
+
+			if (aiEnabled) {
+				actions.push(
+					html`<action-item
+						label="Explain Branch Changes (Preview)"
+						icon="sparkle"
+						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+					></action-item>`,
+				);
+			}
 		}
 
 		// branch actions
@@ -1000,6 +1071,17 @@ export class GlBranchCard extends GlBranchCardBase {
 				label="Fetch"
 				icon="repo-fetch"
 				href=${this.createCommandLink('gitlens.home.fetch')}
+			></action-item>`,
+		);
+		actions.push(
+			html` <action-item
+				label="Visualize Branch History"
+				icon="graph-scatter"
+				href=${createCommandLink('gitlens.visualizeHistory.branch:home', {
+					type: 'branch',
+					repoPath: this.repo,
+					branchId: this.branch.id,
+				} satisfies OpenInTimelineParams)}
 			></action-item>`,
 		);
 		actions.push(

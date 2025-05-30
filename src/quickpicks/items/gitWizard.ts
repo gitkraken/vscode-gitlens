@@ -214,7 +214,7 @@ export function createStashQuickPickItem(
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
 ): CommitQuickPickItem<GitStashCommit> {
-	const number = stash.number == null ? '' : `${stash.number}: `;
+	const number = stash.stashNumber == null ? '' : `${stash.stashNumber}: `;
 
 	if (options?.compact) {
 		const item: CommitQuickPickItem<GitStashCommit> = {
@@ -378,7 +378,7 @@ export async function createRepositoryQuickPickItem(
 ): Promise<RepositoryQuickPickItem> {
 	let repoStatus;
 	if (options?.branch || options?.status) {
-		repoStatus = await repository.git.status().getStatus();
+		repoStatus = await repository.git.status.getStatus();
 	}
 
 	let description = '';
@@ -414,7 +414,7 @@ export async function createRepositoryQuickPickItem(
 	}
 
 	const item: RepositoryQuickPickItem = {
-		label: repository.formattedName,
+		label: repository.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,

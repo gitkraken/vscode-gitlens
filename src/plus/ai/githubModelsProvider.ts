@@ -1,12 +1,13 @@
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import { githubProviderDescriptor as provider } from '../../constants.ai';
+import { AIError, AIErrorReason } from '../../errors';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 
-export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class GitHubModelsProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;
@@ -20,26 +21,23 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
 		});
 
-		interface ModelsResponseResult {
-			type: 'model';
-			task: 'chat-completion';
-
-			id: string;
-			name: string;
-			friendly_name: string;
-			publisher: string;
-			model_family: string;
-			max_input_tokens: number;
-			max_output_tokens: number;
-		}
-
 		interface ModelsResponse {
-			results: ModelsResponseResult[];
+			results: {
+				type: 'model';
+				task: 'chat-completion';
+
+				id: string;
+				name: string;
+				friendly_name: string;
+				publisher: string;
+				model_family: string;
+				max_input_tokens: number;
+				max_output_tokens: number;
+			}[];
 		}
 
 		const result: ModelsResponse = await rsp.json();
-
-		const models = result.results.map(
+		const models = result.results.map<GitHubModelsModel>(
 			m =>
 				({
 					id: m.name,
@@ -70,11 +68,18 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 				json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
 			} catch {}
 
-			if (retries < 2 && json?.error?.code === 'tokens_limit_reached') {
-				const match = /Max size: (\d+) tokens/.exec(json?.error?.message);
-				if (match?.[1] != null) {
-					return { retry: true, maxInputTokens: parseInt(match[1], 10) };
+			if (json?.error?.code === 'tokens_limit_reached') {
+				if (retries < 2) {
+					const match = /Max size: (\d+) tokens/.exec(json?.error?.message);
+					if (match?.[1] != null) {
+						return { retry: true, maxInputTokens: parseInt(match[1], 10) };
+					}
 				}
+
+				throw new AIError(
+					AIErrorReason.RequestTooLarge,
+					new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+				);
 			}
 		}
 

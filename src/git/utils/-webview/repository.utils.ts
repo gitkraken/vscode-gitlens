@@ -1,7 +1,12 @@
+import { convertRemoteProviderIdToIntegrationId } from '../../../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { formatDate, fromNow } from '../../../system/date';
 import { map } from '../../../system/iterable';
+import type { GitRemote } from '../../models/remote';
+import { RemoteResourceType } from '../../models/remoteResource';
 import type { Repository } from '../../models/repository';
+import type { RepositoryShape } from '../../models/repositoryShape';
+import type { RemoteProvider } from '../../remotes/remoteProvider';
 import { millisecondsPerDay } from '../fetch.utils';
 
 export function formatLastFetched(lastFetched: number, short: boolean = true): string {
@@ -56,4 +61,31 @@ export async function groupRepositories(repositories: Repository[]): Promise<Map
 	}
 
 	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
+}
+
+export function toRepositoryShape(repo: Repository): RepositoryShape {
+	return { id: repo.id, name: repo.name, path: repo.path, uri: repo.uri.toString(), virtual: repo.virtual };
+}
+
+export async function toRepositoryShapeWithProvider(
+	repo: Repository,
+	remote: GitRemote<RemoteProvider> | undefined,
+): Promise<RepositoryShape> {
+	let provider: RepositoryShape['provider'] | undefined;
+	if (remote?.provider != null) {
+		provider = {
+			name: remote.provider.name,
+			icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+			integration: remote.supportsIntegration()
+				? {
+						id: convertRemoteProviderIdToIntegrationId(remote.provider.id)!,
+						connected: remote.maybeIntegrationConnected ?? false,
+				  }
+				: undefined,
+			supportedFeatures: remote.provider.supportedFeatures,
+			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+		};
+	}
+
+	return { ...toRepositoryShape(repo), provider: provider };
 }

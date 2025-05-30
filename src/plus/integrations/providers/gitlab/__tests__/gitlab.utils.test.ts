@@ -10,7 +10,7 @@ suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUr
 				: {
 						ownerAndRepo: ownerAndRepo,
 						prNumber: prNumber,
-						provider: 'gitlab',
+						provider: undefined,
 				  },
 			`Parse: ${message} (${JSON.stringify(query)})`,
 		);

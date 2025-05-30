@@ -6,7 +6,6 @@ import { urls } from '../../../../../constants';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
-	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
@@ -37,10 +36,9 @@ export class GlFeatureGatePlusState extends LitElement {
 		css`
 			:host {
 				--gk-action-radius: 0.3rem;
-				container-type: inline-size;
 			}
 
-			:host([appearance='welcome']) gl-button {
+			:host([appearance='welcome']) gl-button:only-child {
 				width: 100%;
 				max-width: 300px;
 			}
@@ -147,27 +145,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p>You must verify your email before you can continue.</p>
 				`;
 
-			// case SubscriptionState.Community:
-			// 	return html`
-			// 		<gl-button
-			// 			appearance="${appearance}"
-			// 			href="${createCommandLink<Source>('gitlens.plus.startPreviewTrial', this.source)}"
-			// 			>Continue</gl-button
-			// 		>
-			// 		<p>
-			// 			Continuing gives you 3 days to preview
-			// 			${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
-			// 			Pro features.<br />
-			// 			${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
-			// 			<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-			// 				>start your free ${proTrialLengthInDays}-day Pro trial</a
-			// 			>
-			// 			or
-			// 			<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In">sign in</a>.
-			// 		</p>
-			// 	`;
 			case SubscriptionState.Community:
-			case SubscriptionState.ProPreviewExpired:
 				if (this.featurePreview && getFeaturePreviewStatus(this.featurePreview) !== 'expired') {
 					return html`${this.renderFeaturePreview(this.featurePreview)}`;
 				}
@@ -195,7 +173,7 @@ export class GlFeatureGatePlusState extends LitElement {
 						<a href="${urls.communityVsPro}">GitLens Pro</a> for free — no credit card required.
 					</p>`;
 
-			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.TrialExpired:
 				return html`<slot name="feature"></slot>
 					<p>Use on privately-hosted repos requires <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
 					<p class="actions-row">
@@ -203,20 +181,15 @@ export class GlFeatureGatePlusState extends LitElement {
 							class="inline"
 							appearance="${ifDefined(appearance)}"
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								...(this.source ?? { source: 'feature-gate' }),
 							})}"
 							>Upgrade to Pro</gl-button
-						><span
-							>or
-							<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In"
-								>sign in</a
-							></span
 						>
 					</p>
 					<p>${this.renderPromo()}</p>`;
 
-			case SubscriptionState.ProTrialReactivationEligible:
+			case SubscriptionState.TrialReactivationEligible:
 				return html`<slot name="feature"></slot>
 					<p class="actions-row">
 						<gl-button
@@ -224,11 +197,6 @@ export class GlFeatureGatePlusState extends LitElement {
 							appearance="${ifDefined(appearance)}"
 							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
 							>Continue</gl-button
-						><span
-							>or
-							<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In"
-								>sign in</a
-							></span
 						>
 					</p>
 					<p>

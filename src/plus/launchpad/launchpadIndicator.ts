@@ -3,7 +3,7 @@ import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } fr
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
-import type { HostingIntegrationId } from '../../constants.integrations';
+import type { GitCloudHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { createCommand, executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
@@ -65,7 +65,7 @@ export class LaunchpadIndicator implements Disposable {
 	}
 
 	private async onConnectedIntegrationsChanged(e: ConnectionStateChangeEvent) {
-		if (supportedLaunchpadIntegrations.includes(e.key as HostingIntegrationId)) {
+		if (supportedLaunchpadIntegrations.includes(e.key as GitCloudHostIntegrationId)) {
 			await this.maybeLoadData(true);
 		}
 	}

@@ -1,7 +1,10 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+import { GitCloudHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
-import type { HostingIntegration } from '../../plus/integrations/integration';
+import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
+import { getIntegrationIdForRemote } from '../../plus/integrations/utils/-webview/integration.utils';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { getLoggableName } from '../../system/logger';
 import { equalsIgnoreCase } from '../../system/string';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
@@ -22,6 +25,10 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		public readonly urls: { type: GitRemoteType; url: string }[],
 	) {}
 
+	toString(): string {
+		return `${getLoggableName(this)}(${this.id})`;
+	}
+
 	get default(): boolean {
 		const defaultRemote = this.container.storage.getWorkspace('remote:default');
 		// Check for `this.remoteKey` matches to handle previously saved data
@@ -39,7 +46,24 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	get maybeIntegrationConnected(): boolean | undefined {
-		return this.container.integrations.isMaybeConnected(this);
+		if (!this.provider?.id) return false;
+
+		const integrationId = getIntegrationIdForRemote(this);
+		if (integrationId == null) return false;
+
+		// Special case for GitHub, since we support the legacy GitHub integration
+		if (integrationId === GitCloudHostIntegrationId.GitHub) {
+			const configured = this.container.integrations.getConfiguredLite(integrationId, { cloud: true });
+			if (configured.length) return true;
+
+			return undefined;
+		}
+
+		const configured = this.container.integrations.getConfiguredLite(
+			integrationId,
+			this.provider.custom ? { domain: this.provider.domain } : undefined,
+		);
+		return Boolean(configured.length);
 	}
 
 	@memoize()
@@ -68,12 +92,9 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
-	async getIntegration(): Promise<HostingIntegration | undefined> {
-		return this.provider != null ? this.container.integrations.getByRemote(this) : undefined;
-	}
-
-	hasIntegration(): this is GitRemote<RemoteProvider> {
-		return this.provider != null && this.container.integrations.supports(this.provider.id);
+	async getIntegration(): Promise<GitHostIntegration | undefined> {
+		const integrationId = getIntegrationIdForRemote(this);
+		return integrationId && this.container.integrations.get(integrationId, this.provider?.domain);
 	}
 
 	matches(url: string): boolean;
@@ -88,7 +109,11 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	async setAsDefault(value: boolean = true): Promise<void> {
-		await this.container.git.remotes(this.repoPath).setRemoteAsDefault(this.name, value);
+		await this.container.git.getRepositoryService(this.repoPath).remotes.setRemoteAsDefault(this.name, value);
+	}
+
+	supportsIntegration(): this is GitRemote<RemoteProvider> {
+		return Boolean(getIntegrationIdForRemote(this));
 	}
 }
 

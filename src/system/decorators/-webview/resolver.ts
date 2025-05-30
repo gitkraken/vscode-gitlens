@@ -1,10 +1,13 @@
 import { Uri } from 'vscode';
 import { loggingJsonReplacer } from '@env/json';
+import { getCancellationTokenId, isCancellationToken } from '../../-webview/cancellation';
 import { isContainer } from '../../../container';
 import { isBranch } from '../../../git/models/branch';
 import { isCommit } from '../../../git/models/commit';
+import { isRemote } from '../../../git/models/remote';
 import { isRepository } from '../../../git/models/repository';
 import { isTag } from '../../../git/models/tag';
+import { isWorktree } from '../../../git/models/worktree';
 import { isViewNode } from '../../../views/nodes/utils/-webview/node.utils';
 
 export function defaultResolver(...args: unknown[]): string {
@@ -33,10 +36,19 @@ export function defaultResolver(...args: unknown[]): string {
 				}
 				return arg.toString();
 			}
-			if (isRepository(arg) || isBranch(arg) || isCommit(arg) || isTag(arg) || isViewNode(arg)) {
+			if (
+				isRepository(arg) ||
+				isBranch(arg) ||
+				isCommit(arg) ||
+				isRemote(arg) ||
+				isTag(arg) ||
+				isWorktree(arg) ||
+				isViewNode(arg)
+			) {
 				return arg.toString();
 			}
 			if (isContainer(arg)) return '<container>';
+			if (isCancellationToken(arg)) return getCancellationTokenId(arg);
 
 			return JSON.stringify(arg, loggingJsonReplacer);
 	}

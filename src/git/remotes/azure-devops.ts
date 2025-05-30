@@ -2,15 +2,15 @@ import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { HostingIntegration } from '../../plus/integrations/integration';
-import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
-import { parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
+import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
+import { isVsts, parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
+import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
-import type { RemoteProviderId } from './remoteProvider';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
@@ -122,6 +122,20 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return 'Azure DevOps';
 	}
 
+	override get owner(): string | undefined {
+		if (isVsts(this.domain)) {
+			return this.domain.split('.')[0];
+		}
+		return super.owner;
+	}
+
+	override get repoName(): string | undefined {
+		if (isVsts(this.domain)) {
+			return this.path;
+		}
+		return super.repoName;
+	}
+
 	override get providerDesc():
 		| {
 				id: GkProviderId;
@@ -150,13 +164,9 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this._displayPath;
 	}
 
-	async getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
-		if (uri.authority !== this.domain) return Promise.resolve(undefined);
-		// if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+	async getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
+		if (uri.authority !== this.domain) return undefined;
+		// if (!uri.path.startsWith(`/${this.path}/`)) return undefined;
 
 		let startLine;
 		let endLine;
@@ -174,14 +184,14 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		}
 
 		const match = fileRegex.exec(uri.query);
-		if (match == null) return Promise.resolve(undefined);
+		if (match == null) return undefined;
 
 		const [, path] = match;
 
-		const absoluteUri = repository.toAbsoluteUri(path, { validate: options?.validate });
-		return Promise.resolve(
-			absoluteUri != null ? { uri: absoluteUri, startLine: startLine, endLine: endLine } : undefined,
-		);
+		const absoluteUri = await repo.getAbsoluteOrBestRevisionUri(path, undefined);
+		return absoluteUri != null
+			? { uri: absoluteUri, repoPath: repo.path, rev: undefined, startLine: startLine, endLine: endLine }
+			: undefined;
 	}
 
 	protected getUrlForBranches(): string {
@@ -201,7 +211,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
-		const integrationId = remoteProviderIdToIntegrationId(this.id);
+		const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
 		const integration = integrationId && (await this.container.integrations.get(integrationId));
 		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
 	}
@@ -219,11 +229,11 @@ export class AzureDevOpsRemote extends RemoteProvider {
 			const { org: baseOrg, project: baseProject, repo: baseName } = parsedBaseUrl;
 			const targetDesc = { project: baseProject, name: baseName, owner: baseOrg };
 
-			const integrationId = remoteProviderIdToIntegrationId(this.id);
+			const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
 			const integration = integrationId && (await this.container.integrations.get(integrationId));
 
 			let targetRepoId;
-			if (integration?.isConnected && integration instanceof HostingIntegration) {
+			if (integration?.isConnected && integration instanceof GitHostIntegration) {
 				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
 			}
 			if (!targetRepoId) return undefined;

@@ -1,8 +1,10 @@
 import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
-import type { SubscriptionPlanId, SubscriptionState } from './constants.subscription';
+import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { Features } from './features';
 import type { PromoKeys } from './plus/gk/models/promo';
+import type { SubscriptionPlanIds } from './plus/gk/models/subscription';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
 export type ContextKeys = {
@@ -20,9 +22,9 @@ export type ContextKeys = {
 	'gitlens:install:new': boolean;
 	/** Indicates that this is the first run after an upgrade of GitLens */
 	'gitlens:install:upgradedFrom': string;
-	'gitlens:plus': Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
+	'gitlens:plus': Exclude<SubscriptionPlanIds, 'community'>;
+	'gitlens:plus:disabled': boolean;
 	'gitlens:plus:disallowedRepos': string[];
-	'gitlens:plus:enabled': boolean;
 	'gitlens:plus:required': boolean;
 	'gitlens:plus:state': SubscriptionState;
 	'gitlens:prerelease': boolean;
@@ -54,6 +56,7 @@ export type ContextKeys = {
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &
+	Record<`gitlens:feature:unsupported:${Features}`, boolean> &
 	Record<`gitlens:key:${Keys}`, boolean> &
 	Record<`gitlens:views:scm:grouped:views:${GroupableTreeViewTypes}`, boolean> &
 	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &

@@ -2,14 +2,14 @@ import type { Uri } from 'vscode';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
+import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
 import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
-	public readonly required: RequiredSubscriptionPlans | undefined;
+	public readonly required: RequiredSubscriptionPlanIds | undefined;
 
-	constructor(subscription: Subscription, required: RequiredSubscriptionPlans | undefined) {
+	constructor(subscription: Subscription, required: RequiredSubscriptionPlanIds | undefined) {
 		let message;
 		if (subscription.account?.verified === false) {
 			message = 'Email verification required';
@@ -99,8 +99,21 @@ export class CancellationError extends _CancellationError {
 	constructor(public readonly original?: Error) {
 		super();
 
+		if (this.original) {
+			if (this.original.message.startsWith('Operation cancelled')) {
+				this.message = this.original.message;
+			} else {
+				this.message = `Operation cancelled; ${this.original.message}`;
+			}
+		} else {
+			this.message = 'Operation cancelled';
+		}
 		Error.captureStackTrace?.(this, CancellationError);
 	}
+}
+
+export function isCancellationError(ex: unknown): ex is CancellationError {
+	return ex instanceof CancellationError || ex instanceof _CancellationError;
 }
 
 export class ExtensionNotFoundError extends Error {
@@ -278,12 +291,17 @@ export class RequiresIntegrationError extends Error {
 }
 
 export const enum AIErrorReason {
+	DeniedByOrganization,
+	DeniedByUser,
+	NoEntitlement,
 	NoRequestData,
-	Entitlement,
-	RequestTooLarge,
-	UserQuotaExceeded,
 	RateLimitExceeded,
+	RateLimitOrFundsExceeded,
+	RequestTooLarge,
+	ModelNotSupported,
 	ServiceCapacityExceeded,
+	Unauthorized,
+	UserQuotaExceeded,
 }
 
 export class AIError extends Error {
@@ -293,7 +311,7 @@ export class AIError extends Error {
 	constructor(reason: AIErrorReason, original?: Error) {
 		let message;
 		switch (reason) {
-			case AIErrorReason.Entitlement:
+			case AIErrorReason.NoEntitlement:
 				message = 'You do not have the required entitlement to use this feature';
 				break;
 			case AIErrorReason.RequestTooLarge:
@@ -305,11 +323,26 @@ export class AIError extends Error {
 			case AIErrorReason.RateLimitExceeded:
 				message = 'Rate limit exceeded';
 				break;
+			case AIErrorReason.RateLimitOrFundsExceeded:
+				message = 'Rate limit exceeded or your account is out of funds';
+				break;
 			case AIErrorReason.ServiceCapacityExceeded:
 				message = 'Service capacity exceeded';
 				break;
 			case AIErrorReason.NoRequestData:
 				message = original?.message ?? 'No data was provided for the request';
+				break;
+			case AIErrorReason.ModelNotSupported:
+				message = 'Model not supported for this request';
+				break;
+			case AIErrorReason.Unauthorized:
+				message = 'You are not authorized to use the specified provider or model';
+				break;
+			case AIErrorReason.DeniedByOrganization:
+				message = 'Your organization has denied access to the specified provider or model';
+				break;
+			case AIErrorReason.DeniedByUser:
+				message = 'You have denied access to the specified provider or model';
 				break;
 			default:
 				message = original?.message ?? 'An unknown error occurred';

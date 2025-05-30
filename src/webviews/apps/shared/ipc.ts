@@ -31,7 +31,7 @@ function nextIpcId() {
 
 type PendingHandler = (msg: IpcMessage) => void;
 
-@logName<HostIpc>((c, name) => `${c.appName}(${name})`)
+@logName<HostIpc>(c => `${c.appName}(HostIpc)`)
 export class HostIpc implements Disposable {
 	private _onReceiveMessage = new Emitter<IpcMessage>();
 	get onReceiveMessage(): Event<IpcMessage> {

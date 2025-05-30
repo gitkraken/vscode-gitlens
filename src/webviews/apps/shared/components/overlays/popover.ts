@@ -173,6 +173,13 @@ export class GlPopover extends GlElement {
 				width: max-content;
 			}
 
+			:host([appearance='menu']) {
+				--sl-tooltip-padding: 0 var(--sl-spacing-2x-small) var(--sl-spacing-2x-small);
+				--sl-tooltip-font-size: var(--vscode-font-size);
+				--sl-tooltip-background-color: var(--vscode-menu-background);
+				--arrow-color: var(--vscode-menu-background);
+			}
+
 			/* .popover::part(hover-bridge) {
 			background: tomato;
 			opacity: 1;
@@ -222,6 +229,9 @@ export class GlPopover extends GlElement {
 	 */
 	@property({ type: Boolean })
 	hoist = false;
+
+	@property({ reflect: true })
+	appearance?: 'menu';
 
 	get currentPlacement(): SlPopup['placement'] {
 		return (this.popup?.getAttribute('data-current-placement') ?? this.placement) as SlPopup['placement'];
@@ -290,7 +300,7 @@ export class GlPopover extends GlElement {
 			<div
 				part="body"
 				id="popover"
-				class="popover__body scrollable"
+				class="popover__body scrollable ${this.appearance === 'menu' ? 'is-menu' : ''}"
 				role="tooltip"
 				aria-live=${this.open ? 'polite' : 'off'}
 			>

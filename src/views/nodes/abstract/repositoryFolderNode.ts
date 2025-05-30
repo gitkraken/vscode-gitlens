@@ -20,22 +20,17 @@ export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repo-folder', TView> {
-	protected override splatted = true;
-
 	constructor(
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		splatted: boolean,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
 		super('repo-folder', uri, view, parent);
 
 		this.updateContext({ repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
-
-		this.splatted = splatted;
 	}
 
 	private _child: TChild | undefined;
@@ -67,15 +62,13 @@ export abstract class RepositoryFolderNode<
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
-		const branch = await this.repo.git.branches().getBranch();
+		const branch = await this.repo.git.branches.getBranch();
 		const ahead = Boolean(branch?.upstream?.state.ahead);
 		const behind = Boolean(branch?.upstream?.state.behind);
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
-		let label = this.repo.formattedName ?? this.uri.repoPath ?? '';
+		let label = this.repo.name ?? this.uri.repoPath ?? '';
 		if (this.options?.showBranchAndLastFetched && branch != null) {
 			const remove = `: ${basename(branch.name)}`;
 			const suffix = `: ${branch.name}`;
@@ -118,7 +111,9 @@ export abstract class RepositoryFolderNode<
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = getHighlanderProviders(
-					await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
+					await this.view.container.git
+						.getRepositoryService(branch.repoPath)
+						.remotes.getRemotesWithProviders(),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -127,13 +122,11 @@ export abstract class RepositoryFolderNode<
 			}
 
 			item.tooltip = new MarkdownString(
-				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+				`${this.repo.name ?? this.uri.repoPath ?? ''}${
 					lastFetched
 						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
 						: ''
-				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
-					branch.name
-				}${
+				}${this.repo.name ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
 					branch.upstream != null
 						? ` is ${branch.getTrackingStatus({
 								empty: branch.upstream.missing
@@ -153,9 +146,7 @@ export abstract class RepositoryFolderNode<
 				true,
 			);
 		} else {
-			item.tooltip = this.repo.formattedName
-				? `${this.repo.formattedName}\n${this.uri.repoPath}`
-				: this.uri.repoPath ?? '';
+			item.tooltip = this.repo.name ? `${this.repo.name}\n${this.uri.repoPath}` : this.uri.repoPath ?? '';
 		}
 
 		return item;
@@ -172,9 +163,8 @@ export abstract class RepositoryFolderNode<
 	@gate()
 	@debug()
 	override async refresh(reset: boolean = false): Promise<void> {
-		super.refresh(reset);
+		await super.refresh(reset);
 		await this.child?.triggerChange(reset, false, this);
-
 		await this.ensureSubscription();
 	}
 

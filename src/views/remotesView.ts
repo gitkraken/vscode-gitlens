@@ -53,13 +53,14 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading remotes...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading remotes...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No remotes could be found.';
 				return [];
 			}
@@ -69,28 +70,29 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				repositories = [...grouped.keys()];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const remotes = await child.repo.git.remotes().getRemotes();
-			if (remotes.length === 0) {
+			const remotes = await child.repo.git.remotes.getRemotes();
+			if (!remotes.length) {
 				this.view.message = 'No remotes could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(remotes.length);
 
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -129,7 +131,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
-					this.container.git.resetCaches('branches', 'remotes');
+					this.container.git.resetCaches('branches', 'remotes', 'worktrees');
 					return this.refresh(true);
 				},
 				this,
@@ -221,8 +223,8 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 
 		// Get all the remote branches the commit is on
 		const branches = await this.container.git
-			.branches(commit.repoPath)
-			.getBranchesWithCommits(
+			.getRepositoryService(commit.repoPath)
+			.branches.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
 				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
@@ -300,7 +302,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -329,7 +331,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -355,7 +357,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

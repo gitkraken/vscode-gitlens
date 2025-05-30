@@ -1,8 +1,11 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { IntegrationId } from '../../../constants.integrations';
-import { HostingIntegrationId } from '../../../constants.integrations';
-import type { StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
+import type { IntegrationIds } from '../../../constants.integrations';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations';
+import type {
+	StoredConfiguredIntegrationDescriptor,
+	StoredIntegrationConfigurations,
+} from '../../../constants.storage';
 import type { Container } from '../../../container';
 import { debounce } from '../../../system/function/debounce';
 import { flatten } from '../../../system/iterable';
@@ -26,10 +29,8 @@ interface StoredSession {
 	protocol?: string;
 }
 
-export type ConfiguredIntegrationType = 'cloud' | 'local';
-
 export interface ConfiguredIntegrationsChangeEvent {
-	ids: IntegrationId[];
+	ids: IntegrationIds[];
 }
 
 export class ConfiguredIntegrationService implements Disposable {
@@ -38,25 +39,29 @@ export class ConfiguredIntegrationService implements Disposable {
 		return this._onDidChange.event;
 	}
 
-	private _configured?: Map<IntegrationId, ConfiguredIntegrationDescriptor[]>;
-
 	constructor(private readonly container: Container) {}
 
 	dispose(): void {
 		this._onDidChange.dispose();
 	}
 
-	private get configured(): Map<IntegrationId, ConfiguredIntegrationDescriptor[]> {
+	private _configured?: Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>;
+	private get configured(): Map<IntegrationIds, ConfiguredIntegrationDescriptor[]> {
 		if (this._configured == null) {
-			this._configured = new Map();
+			this._configured = new Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>();
+
 			const storedConfigured = this.container.storage.get('integrations:configured');
-			for (const [id, configured] of Object.entries(storedConfigured ?? {})) {
+			for (const [id, configured] of Object.entries(storedConfigured ?? {}) as [
+				IntegrationIds,
+				StoredConfiguredIntegrationDescriptor[],
+			][]) {
 				if (configured == null) continue;
+
 				const descriptors = configured.map(d => ({
 					...d,
 					expiresAt: d.expiresAt ? new Date(d.expiresAt) : undefined,
 				}));
-				this._configured.set(id as IntegrationId, descriptors);
+				this._configured.set(id, descriptors);
 			}
 		}
 
@@ -64,77 +69,82 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	// async because we do the heavy work of checking authentication api for your vscode GitHub session
-	async getConfigured(options?: {
-		id?: IntegrationId;
-		domain?: string;
-		type?: ConfiguredIntegrationType;
-	}): Promise<ConfiguredIntegrationDescriptor[]> {
-		const descriptors: ConfiguredIntegrationDescriptor[] = [];
-		const configured =
-			options?.id != null
-				? this.configured.get(options.id)
-				: [...flatten<ConfiguredIntegrationDescriptor>(this.configured.values())];
+	async getConfigured(
+		id?: IntegrationIds,
+		options?: { cloud?: boolean; domain?: string },
+	): Promise<ConfiguredIntegrationDescriptor[]> {
+		const descriptors = this.getConfiguredLiteCore(id, options);
 
-		if (configured != null && (options?.domain != null || options?.type != null)) {
-			for (const descriptor of configured) {
-				if (options?.domain != null && descriptor.domain !== options.domain) continue;
-				if (options?.type === 'cloud' && !descriptor.cloud) continue;
-				if (options?.type === 'local' && descriptor.cloud) continue;
-				descriptors.push(descriptor);
-			}
-		} else {
-			descriptors.push(...(configured ?? []));
+		if (
+			(id != null && id !== GitCloudHostIntegrationId.GitHub) ||
+			options?.cloud === true ||
+			this.configured.get(GitCloudHostIntegrationId.GitHub)
+		) {
+			return descriptors;
 		}
 
 		// If we don't have a cloud config for GitHub, include a descriptor for the built-in VS Code session of GitHub even though we don't store it
-		if (
-			(options?.id == null || options.id === HostingIntegrationId.GitHub) &&
-			options?.type !== 'cloud' &&
-			!this.configured.get(HostingIntegrationId.GitHub)
-		) {
-			const vscodeSession = await getBuiltInIntegrationSession(
-				this.container,
-				HostingIntegrationId.GitHub,
-				{
-					domain: providersMetadata[HostingIntegrationId.GitHub].domain,
-					scopes: providersMetadata[HostingIntegrationId.GitHub].scopes,
-				},
-				{ silent: true },
-			);
+		const session = await getBuiltInIntegrationSession(
+			this.container,
+			GitCloudHostIntegrationId.GitHub,
+			{
+				domain: providersMetadata[GitCloudHostIntegrationId.GitHub].domain,
+				scopes: providersMetadata[GitCloudHostIntegrationId.GitHub].scopes,
+			},
+			{ silent: true },
+		);
 
-			if (vscodeSession != null) {
-				descriptors.push({
-					integrationId: HostingIntegrationId.GitHub,
-					domain: undefined,
-					expiresAt: vscodeSession.expiresAt,
-					scopes: providersMetadata[HostingIntegrationId.GitHub].scopes.join(','),
-					cloud: false,
-				});
-			}
+		if (session != null) {
+			descriptors.push({
+				integrationId: GitCloudHostIntegrationId.GitHub,
+				domain: undefined,
+				expiresAt: session.expiresAt,
+				scopes: providersMetadata[GitCloudHostIntegrationId.GitHub].scopes.join(','),
+				cloud: false,
+			});
 		}
 
 		return descriptors;
 	}
 
 	// getConfigured without the async check for the GitHub vscode session (which forces async and is a db hit)
-	getConfiguredLite(options?: {
-		id?: IntegrationId;
-		domain?: string;
-		type?: ConfiguredIntegrationType;
-	}): ConfiguredIntegrationDescriptor[] {
+	getConfiguredLite(
+		id: GitCloudHostIntegrationId.GitHub,
+		options: { cloud: true; domain?: never },
+	): ConfiguredIntegrationDescriptor[];
+	getConfiguredLite(
+		id: Exclude<IntegrationIds, GitCloudHostIntegrationId.GitHub>,
+		options?: { cloud?: boolean; domain?: string },
+	): ConfiguredIntegrationDescriptor[];
+	getConfiguredLite(
+		id: IntegrationIds,
+		options?: { cloud?: boolean; domain?: string },
+	): ConfiguredIntegrationDescriptor[] {
+		return this.getConfiguredLiteCore(id, options);
+	}
+
+	private getConfiguredLiteCore(
+		id?: IntegrationIds,
+		options?: { cloud?: boolean; domain?: string },
+	): ConfiguredIntegrationDescriptor[] {
 		const descriptors: ConfiguredIntegrationDescriptor[] = [];
 
 		const configured =
-			options?.id != null
-				? this.configured.get(options.id)
+			id != null
+				? this.configured.get(id)
 				: [...flatten<ConfiguredIntegrationDescriptor>(this.configured.values())];
-		if (configured == null) return descriptors;
+		if (!configured?.length) return descriptors;
 
-		if (options?.domain != null || options?.type != null) {
+		if (options?.domain != null || options?.cloud != null) {
 			for (const descriptor of configured) {
-				if (options?.domain != null && descriptor.domain !== options.domain) continue;
-				if (options?.type === 'cloud' && !descriptor.cloud) continue;
-				if (options?.type === 'local' && descriptor.cloud) continue;
+				if (
+					(options?.domain != null && descriptor.domain !== options.domain) ||
+					(options?.cloud === true && !descriptor.cloud) ||
+					(options?.cloud === false && descriptor.cloud)
+				) {
+					continue;
+				}
+
 				descriptors.push(descriptor);
 			}
 		} else {
@@ -146,7 +156,7 @@ export class ConfiguredIntegrationService implements Disposable {
 
 	private async storeConfigured(): Promise<void> {
 		// We need to convert the map to a record to store
-		const configured: Record<string, StoredConfiguredIntegrationDescriptor[]> = {};
+		const configured: StoredIntegrationConfigurations = {} as unknown as StoredIntegrationConfigurations;
 		for (const [id, descriptors] of this.configured) {
 			configured[id] = descriptors.map(d => ({
 				...d,
@@ -186,16 +196,13 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.storeConfigured();
 	}
 
-	private async removeConfigured(
-		id: IntegrationId,
-		options?: { domain?: string; type?: ConfiguredIntegrationType },
-	): Promise<void> {
+	private async removeConfigured(id: IntegrationIds, options?: { cloud?: boolean; domain?: string }): Promise<void> {
 		const descriptors = this.configured
 			.get(id)
 			?.filter(d =>
-				options?.type === 'cloud'
+				options?.cloud === true
 					? !(d.cloud === true && d.domain === options?.domain)
-					: options?.type === 'local'
+					: options?.cloud === false
 					  ? !(d.cloud === false && d.domain === options?.domain)
 					  : d.domain !== options?.domain,
 			);
@@ -209,18 +216,18 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.storeConfigured();
 	}
 
-	async storeSession(id: IntegrationId, session: ProviderAuthenticationSession): Promise<void> {
+	async storeSession(id: IntegrationIds, session: ProviderAuthenticationSession): Promise<void> {
 		await this.writeSecret(id, session);
 	}
 
 	async getStoredSession(
-		id: IntegrationId,
+		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		type: ConfiguredIntegrationType = 'local',
+		cloud: boolean = false,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.getSessionId(descriptor);
-		let session = await this.readSecret(id, sessionId, 'local');
-		if (type !== 'cloud') return convertStoredSessionToSession(session, descriptor, false);
+		let session = await this.readSecret(id, sessionId, false);
+		if (!cloud) return convertStoredSessionToSession(session, descriptor, false);
 
 		let cloudIfMissing = false;
 		if (session != null) {
@@ -238,58 +245,58 @@ export class ConfiguredIntegrationService implements Disposable {
 		// If no local session we try to restore a session with the cloud key
 		if (session == null) {
 			cloudIfMissing = true;
-			session = await this.readSecret(id, sessionId, 'cloud');
+			session = await this.readSecret(id, sessionId, true);
 		}
 
 		return convertStoredSessionToSession(session, descriptor, cloudIfMissing);
 	}
 
 	async deleteStoredSessions(
-		id: IntegrationId,
+		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		type?: ConfiguredIntegrationType,
+		cloud?: boolean,
 	): Promise<void> {
-		await this.deleteSecrets(id, this.getSessionId(descriptor), type);
+		await this.deleteSecrets(id, this.getSessionId(descriptor), cloud);
 	}
 
-	async deleteAllStoredSessions(id: IntegrationId, type?: ConfiguredIntegrationType): Promise<void> {
-		await this.deleteAllSecrets(id, type);
+	async deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean): Promise<void> {
+		await this.deleteAllSecrets(id, cloud);
 	}
 
-	async deleteSecrets(id: IntegrationId, sessionId: string, type?: ConfiguredIntegrationType): Promise<void> {
-		if (type == null || type === 'local') {
+	async deleteSecrets(id: IntegrationIds, sessionId: string, cloud?: boolean): Promise<void> {
+		if (cloud == null || cloud === false) {
 			await this.container.storage.deleteSecret(this.getLocalSecretKey(id, sessionId));
 		}
 
-		if (type == null || type === 'cloud') {
+		if (cloud == null || cloud === true) {
 			await this.container.storage.deleteSecret(this.getCloudSecretKey(id, sessionId));
 		}
 
 		await this.removeConfigured(id, {
+			cloud: cloud,
 			domain: isSelfHostedIntegrationId(id) ? sessionId : undefined,
-			type: type,
 		});
 	}
 
-	async deleteAllSecrets(id: IntegrationId, type?: ConfiguredIntegrationType): Promise<void> {
+	async deleteAllSecrets(id: IntegrationIds, cloud?: boolean): Promise<void> {
 		if (isSelfHostedIntegrationId(id)) {
 			// Hack because session IDs are tied to domain. Update this when session ids are different
 			const configuredDomains = this.configured.get(id)?.map(c => c.domain);
 			if (configuredDomains != null) {
 				for (const domain of configuredDomains) {
-					await this.deleteSecrets(id, domain!, type);
+					await this.deleteSecrets(id, domain!, cloud);
 				}
 			}
 
 			return;
 		}
 
-		await this.deleteSecrets(id, providersMetadata[id].domain, type);
+		await this.deleteSecrets(id, providersMetadata[id].domain, cloud);
 	}
 
-	async writeSecret(id: IntegrationId, session: ProviderAuthenticationSession | StoredSession): Promise<void> {
+	async writeSecret(id: IntegrationIds, session: ProviderAuthenticationSession | StoredSession): Promise<void> {
 		await this.container.storage.storeSecret(
-			this.getSecretKey(id, session.id, session.cloud ? 'cloud' : 'local'),
+			this.getSecretKey(id, session.id, session.cloud ?? false),
 			JSON.stringify(session),
 		);
 
@@ -303,13 +310,13 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	async readSecret(
-		id: IntegrationId,
+		id: IntegrationIds,
 		sessionId: string,
-		type: ConfiguredIntegrationType = 'local',
+		cloud: boolean = false,
 	): Promise<StoredSession | undefined> {
 		let storedSession: StoredSession | undefined;
 		try {
-			const sessionJSON = await this.container.storage.getSecret(this.getSecretKey(id, sessionId, type));
+			const sessionJSON = await this.container.storage.getSecret(this.getSecretKey(id, sessionId, cloud));
 			if (sessionJSON) {
 				storedSession = JSON.parse(sessionJSON);
 				if (storedSession != null) {
@@ -332,33 +339,33 @@ export class ConfiguredIntegrationService implements Disposable {
 			}
 		} catch (_ex) {
 			try {
-				await this.deleteSecrets(id, sessionId, type);
+				await this.deleteSecrets(id, sessionId, cloud);
 			} catch {}
 		}
 		return storedSession;
 	}
 
 	private getSecretKey(
-		id: IntegrationId,
+		id: IntegrationIds,
 		sessionId: string,
-		type: ConfiguredIntegrationType = 'local',
+		cloud: boolean = false,
 	):
-		| `gitlens.integration.auth:${IntegrationId}|${string}`
-		| `gitlens.integration.auth.cloud:${IntegrationId}|${string}` {
-		return type === 'cloud' ? this.getCloudSecretKey(id, sessionId) : this.getLocalSecretKey(id, sessionId);
+		| `gitlens.integration.auth:${IntegrationIds}|${string}`
+		| `gitlens.integration.auth.cloud:${IntegrationIds}|${string}` {
+		return cloud ? this.getCloudSecretKey(id, sessionId) : this.getLocalSecretKey(id, sessionId);
 	}
 
 	private getLocalSecretKey(
-		id: IntegrationId,
+		id: IntegrationIds,
 		sessionId: string,
-	): `gitlens.integration.auth:${IntegrationId}|${string}` {
+	): `gitlens.integration.auth:${IntegrationIds}|${string}` {
 		return `gitlens.integration.auth:${id}|${sessionId}`;
 	}
 
 	private getCloudSecretKey(
-		id: IntegrationId,
+		id: IntegrationIds,
 		sessionId: string,
-	): `gitlens.integration.auth.cloud:${IntegrationId}|${string}` {
+	): `gitlens.integration.auth.cloud:${IntegrationIds}|${string}` {
 		return `gitlens.integration.auth.cloud:${id}|${sessionId}`;
 	}
 
@@ -366,9 +373,9 @@ export class ConfiguredIntegrationService implements Disposable {
 		return descriptor.domain;
 	}
 
-	private changedIds = new Set<IntegrationId>();
+	private changedIds = new Set<IntegrationIds>();
 	private debouncedFireDidChange?: () => void;
-	private queueDidChange(id: IntegrationId) {
+	private queueDidChange(id: IntegrationIds) {
 		this.debouncedFireDidChange ??= debounce(() => {
 			this._onDidChange.fire({ ids: [...this.changedIds] });
 			this.changedIds.clear();

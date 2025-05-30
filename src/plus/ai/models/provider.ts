@@ -1,7 +1,6 @@
 import type { CancellationToken, Disposable, Event } from 'vscode';
 import type { AIProviders } from '../../../constants.ai';
 import type { AIActionType, AIModel } from './model';
-import type { PromptTemplate } from './promptTemplates';
 
 export type AIChatMessageRole = 'assistant' | 'system' | 'user';
 
@@ -37,13 +36,10 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 	configured(silent: boolean): Promise<boolean>;
 	getApiKey(silent: boolean): Promise<string | undefined>;
 	getModels(): Promise<readonly AIModel<Provider>[]>;
-	getPromptTemplate<T extends AIActionType>(action: T, model: AIModel<Provider>): Promise<PromptTemplate | undefined>;
-
 	sendRequest<T extends AIActionType>(
 		action: T,
 		model: AIModel<Provider>,
 		apiKey: string,
-		promptTemplate: PromptTemplate,
 		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIRequestResult | undefined>;

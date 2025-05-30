@@ -1,7 +1,7 @@
 import type { PullRequestRefs, PullRequestState } from '../../../../git/models/pullRequest';
 import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
-import type { Integration } from '../../integration';
+import type { Integration } from '../../models/integration';
 import type { ProviderPullRequest } from '../models';
 import { fromProviderPullRequest } from '../models';
 

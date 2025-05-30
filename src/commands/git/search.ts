@@ -201,7 +201,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			const searchKey = getSearchQueryComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
-				context.resultsPromise = state.repo.git.commits().searchCommits(search);
+				context.resultsPromise = state.repo.git.commits.searchCommits(search);
 				context.resultsKey = searchKey;
 			}
 
@@ -226,10 +226,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 					log: await context.resultsPromise,
 					onDidLoadMore: log => (context.resultsPromise = Promise.resolve(log)),
 					placeholder: (_context, log) =>
-						log == null
+						!log?.commits.size
 							? `No results for ${state.query}`
 							: `${pluralize('result', log.count, {
-									format: c => (log.hasMore ? `${c}+` : undefined),
+									format: c => (log.hasMore ? `${c}+` : String(c)),
 							  })} for ${state.query}`,
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
@@ -342,6 +342,14 @@ export class SearchGitCommand extends QuickCommand<State> {
 						description: 'change: pattern or ~: pattern',
 						alwaysShow: true,
 						item: 'change:' as const,
+				  },
+			context.hasVirtualFolders
+				? undefined
+				: {
+						label: searchOperatorToTitleMap.get('type:')!,
+						description: 'type: stash or is: stash',
+						alwaysShow: true,
+						item: 'type:' as const,
 				  },
 		].filter(<T>(i?: T): i is T => i != null);
 

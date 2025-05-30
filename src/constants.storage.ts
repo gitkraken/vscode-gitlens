@@ -1,6 +1,6 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
-import type { IntegrationId } from './constants.integrations';
+import type { IntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
@@ -8,17 +8,18 @@ import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
 import type { Subscription } from './plus/gk/models/subscription';
-import type { Integration } from './plus/integrations/integration';
+import type { Integration } from './plus/integrations/models/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
 export type SecretKeys =
 	| IntegrationAuthenticationKeys
 	| `gitlens.${AIProviders}.key`
-	| `gitlens.plus.auth:${Environment}`;
+	| `gitlens.plus.auth:${Environment}`
+	| 'deepLinks:pending';
 
 export type IntegrationAuthenticationKeys =
-	| `gitlens.integration.auth:${IntegrationId}|${string}`
-	| `gitlens.integration.auth.cloud:${IntegrationId}|${string}`;
+	| `gitlens.integration.auth:${IntegrationIds}|${string}`
+	| `gitlens.integration.auth.cloud:${IntegrationIds}|${string}`;
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
@@ -64,7 +65,6 @@ export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
-	'deepLinks:pending': StoredDeepLinkContext;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
@@ -100,11 +100,14 @@ export type GlobalStorage = {
 	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
 } & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
 
-export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
+export type StoredIntegrationConfigurations = Record<
+	IntegrationIds,
+	StoredConfiguredIntegrationDescriptor[] | undefined
+>;
 
 export interface StoredConfiguredIntegrationDescriptor {
 	cloud: boolean;
-	integrationId: IntegrationId;
+	integrationId: IntegrationIds;
 	domain?: string;
 	expiresAt?: string;
 	scopes: string;
@@ -147,7 +150,6 @@ export type WorkspaceStorage = {
 	'remote:default': string;
 	'starred:branches': StoredStarred;
 	'starred:repositories': StoredStarred;
-	'views:commitDetails:autolinksExpanded': boolean;
 	'views:commitDetails:pullRequestExpanded': boolean;
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;

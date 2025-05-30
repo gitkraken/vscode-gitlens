@@ -9,6 +9,7 @@ import { createUncommittedChangesCommit } from './commit.utils';
 export function getPseudoCommits(
 	container: Container,
 	files: GitStatusFile[] | undefined,
+	filteredPath: string | undefined,
 	user: GitUser | undefined,
 ): GitCommit[] {
 	if (!files?.length) return [];
@@ -76,10 +77,9 @@ export function getPseudoCommits(
 		const conflictedAndWipFiles = [...(conflicted ?? []), ...(wip ?? [])];
 		commits.push(
 			createUncommittedChangesCommit(container, repoPath, uncommitted, now, user, {
-				files: {
-					file: conflictedAndWipFiles.length === 1 ? conflictedAndWipFiles[0] : undefined,
-					files: conflictedAndWipFiles,
-				},
+				fileset: filteredPath
+					? { files: undefined, filtered: { files: conflictedAndWipFiles, pathspec: filteredPath } }
+					: { files: conflictedAndWipFiles },
 				parents: [staged?.length ? uncommittedStaged : 'HEAD'],
 			}),
 		);
@@ -91,7 +91,9 @@ export function getPseudoCommits(
 	if (staged?.length) {
 		commits.push(
 			createUncommittedChangesCommit(container, repoPath, uncommittedStaged, now, user, {
-				files: { file: staged.length === 1 ? staged[0] : undefined, files: staged },
+				fileset: filteredPath
+					? { files: undefined, filtered: { files: staged, pathspec: filteredPath } }
+					: { files: staged },
 				parents: ['HEAD'],
 			}),
 		);
@@ -103,20 +105,21 @@ export function getPseudoCommits(
 export async function getPseudoCommitsWithStats(
 	container: Container,
 	files: GitStatusFile[] | undefined,
+	filteredPath: string | undefined,
 	user: GitUser | undefined,
 ): Promise<GitCommit[]> {
-	const pseudoCommits = getPseudoCommits(container, files, user);
+	const pseudoCommits = getPseudoCommits(container, files, filteredPath, user);
 	if (!pseudoCommits.length) return pseudoCommits;
 
-	const diffProvider = container.git.diff(pseudoCommits[0].repoPath);
+	const diffSvc = container.git.getRepositoryService(pseudoCommits[0].repoPath).diff;
 
 	const commits: GitCommit[] = [];
 
 	for (const commit of pseudoCommits) {
 		commits.push(
 			commit.with({
-				stats: await diffProvider.getChangedFilesCount(commit.sha, 'HEAD', {
-					uris: commit.files?.map(f => f.uri),
+				stats: await diffSvc.getChangedFilesCount(commit.sha, 'HEAD', {
+					uris: commit.anyFiles?.map(f => f.uri),
 				}),
 			}),
 		);

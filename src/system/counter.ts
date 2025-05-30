@@ -1,6 +1,6 @@
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
-export type Counter = { readonly current: number; next(): number };
+export type Counter = { readonly current: number; next(): number; reset(): void };
 
 export function getScopedCounter(): Counter {
 	let counter = 0;
@@ -13,6 +13,9 @@ export function getScopedCounter(): Counter {
 				counter = 0;
 			}
 			return ++counter;
+		},
+		reset: function () {
+			counter = 0;
 		},
 	};
 }

@@ -4,12 +4,12 @@ import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { GitConfigKeys } from '../constants';
 import type { SearchQuery } from '../constants.search';
 import type { Features } from '../features';
-import type { HostingIntegration } from '../plus/integrations/integration';
+import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
-import type { GitCommit, GitCommitStats } from './models/commit';
+import type { GitCommit, GitCommitStats, GitStashCommit } from './models/commit';
 import type { GitContributor, GitContributorsStats } from './models/contributor';
 import type {
 	GitDiff,
@@ -21,6 +21,7 @@ import type {
 } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitFileChange } from './models/fileChange';
+import type { GitFileStatus } from './models/fileStatus';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { MergeConflict } from './models/mergeConflict';
@@ -104,8 +105,16 @@ export interface PreviousComparisonUrisResult {
 	previous: GitUri | undefined;
 }
 
-export interface PreviousLineComparisonUrisResult extends PreviousComparisonUrisResult {
-	line: number;
+export interface DiffRange {
+	/** 1-based */
+	readonly startLine: number;
+	/** 1-based */
+	readonly endLine: number;
+	readonly active?: 'start' | 'end';
+}
+
+export interface PreviousRangeComparisonUrisResult extends PreviousComparisonUrisResult {
+	range: DiffRange;
 }
 
 export interface RepositoryCloseEvent {
@@ -127,7 +136,7 @@ export interface RepositoryVisibilityInfo {
 export interface BranchContributionsOverview extends GitCommitStats<number> {
 	readonly repoPath: string;
 	readonly branch: string;
-	readonly baseOrTargetBranch: string;
+	readonly mergeTarget: string;
 	readonly mergeBase: string;
 
 	readonly commits: number;
@@ -204,7 +213,7 @@ export type GitBranchMergedStatus =
 	| { merged: true; confidence: MergeDetectionConfidence; localBranchOnly?: GitBranchReference };
 
 export interface GitBranchesSubProvider {
-	getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined>;
+	getBranch(repoPath: string, name?: string, cancellation?: CancellationToken): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
 		options?: {
@@ -212,8 +221,13 @@ export interface GitBranchesSubProvider {
 			paging?: PagingOptions | undefined;
 			sort?: boolean | BranchSortOptions | undefined;
 		},
+		cancellation?: CancellationToken,
 	): Promise<PagedResult<GitBranch>>;
-	getBranchContributionsOverview(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
+	getBranchContributionsOverview(
+		repoPath: string,
+		ref: string,
+		cancellation?: CancellationToken,
+	): Promise<BranchContributionsOverview | undefined>;
 	getBranchesWithCommits(
 		repoPath: string,
 		shas: string[],
@@ -221,8 +235,13 @@ export interface GitBranchesSubProvider {
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<string[]>;
-	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
+	getDefaultBranchName(
+		repoPath: string | undefined,
+		remote?: string,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
 	/**
@@ -236,102 +255,132 @@ export interface GitBranchesSubProvider {
 		repoPath: string,
 		branch: GitBranchReference,
 		into: GitBranchReference,
+		cancellation?: CancellationToken,
 	): Promise<GitBranchMergedStatus>;
 	/** @internal not intended to be used outside of the sub-providers */
-	getCurrentBranchReference?(repoPath: string): Promise<GitBranchReference | undefined>;
-	getLocalBranchByUpstream?(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined>;
+	getCurrentBranchReference?(
+		repoPath: string,
+		cancellation?: CancellationToken,
+	): Promise<GitBranchReference | undefined>;
+	getLocalBranchByUpstream?(
+		repoPath: string,
+		remoteBranchName: string,
+		cancellation?: CancellationToken,
+	): Promise<GitBranch | undefined>;
 	getPotentialMergeOrRebaseConflict?(
 		repoPath: string,
 		branch: string,
 		targetBranch: string,
+		cancellation?: CancellationToken,
 	): Promise<MergeConflict | undefined>;
-	getBaseBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
-	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
-	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
-	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
+	getBaseBranchName?(repoPath: string, ref: string, cancellation?: CancellationToken): Promise<string | undefined>;
+	/** Gets the stored merge target branch name, first checking the user target, then the detected target */
+	getStoredMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	/** Gets the stored detected merge target branch name */
+	getStoredDetectedMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	/** Gets the stored user merge target branch name */
+	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
+	storeBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
+	storeMergeTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
+	storeUserMergeTargetBranchName?(repoPath: string, ref: string, target: string | undefined): Promise<void>;
+}
+
+interface GitLogOptionsBase {
+	cursor?: string;
+	limit?: number;
+	ordering?: 'date' | 'author-date' | 'topo' | null;
+}
+
+export interface GitLogOptions extends GitLogOptionsBase {
+	all?: boolean;
+	authors?: GitUser[];
+	merges?: boolean | 'first-parent';
+	since?: string;
+	stashes?: boolean | Map<string, GitStashCommit>;
+	until?: number;
+}
+
+export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
+	filters?: GitDiffFilter[];
+	isFolder?: boolean;
+	range?: Range;
+	renames?: boolean;
+}
+
+export interface GitLogShasOptions extends GitLogOptionsBase {
+	all?: boolean;
+	authors?: GitUser[];
+	merges?: boolean | 'first-parent';
+	pathOrUri?: string | Uri;
+	since?: string;
+}
+
+export interface GitSearchCommitsOptions extends GitLogOptionsBase {
+	skip?: number;
+}
+
+export interface IncomingActivityOptions extends GitLogOptionsBase {
+	all?: boolean;
+	branch?: string;
+	skip?: number;
 }
 
 export interface GitCommitsSubProvider {
-	getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined>;
-	getCommitCount(repoPath: string, rev: string): Promise<number | undefined>;
-	getCommitFilesStats?(repoPath: string, rev: string): Promise<GitFileChange[] | undefined>;
-	getCommitFileStatus(repoPath: string, uri: Uri, rev: string): Promise<GitFile | undefined>;
+	cherryPick?(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
+	getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined>;
+	getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined>;
+	getCommitFiles(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitFileChange[]>;
 	getCommitForFile(
 		repoPath: string,
 		uri: Uri,
 		rev?: string | undefined,
 		options?: { firstIfNotFound?: boolean | undefined },
+		cancellation?: CancellationToken,
 	): Promise<GitCommit | undefined>;
 	getIncomingActivity?(
 		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			branch?: string | undefined;
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
+		options?: IncomingActivityOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitReflog | undefined>;
-	getInitialCommitSha?(repoPath: string): Promise<string | undefined>;
+	getInitialCommitSha?(repoPath: string, cancellation?: CancellationToken): Promise<string | undefined>;
 	getLeftRightCommitCount(
 		repoPath: string,
 		range: GitRevisionRange,
-		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
+		options?: { authors?: GitUser[]; excludeMerges?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<LeftRightCommitCountResult | undefined>;
 	getLog(
 		repoPath: string,
 		rev?: string | undefined,
-		options?: {
-			all?: boolean | undefined;
-			authors?: GitUser[] | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			merges?: boolean | 'first-parent' | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			since?: string | undefined;
-			stashes?: boolean;
-		},
+		options?: GitLogOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined>;
-	getLogShasOnly(
-		repoPath: string,
-		rev?: string | undefined,
-		options?: {
-			authors?: GitUser[] | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			since?: string | undefined;
-		},
-	): Promise<Set<string> | undefined>;
 	getLogForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
-		options?: {
-			all?: boolean | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			range?: Range | undefined;
-			renames?: boolean | undefined;
-			reverse?: boolean | undefined;
-			since?: string | undefined;
-			skip?: number | undefined;
-		},
+		options?: GitLogForPathOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined>;
-	getOldestUnpushedShaForPath(repoPath: string, pathOrUri: string | Uri): Promise<string | undefined>;
-	isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean>;
-	hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean>;
+	getLogShas(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: GitLogShasOptions,
+		cancellation?: CancellationToken,
+	): Promise<Iterable<string>>;
+	getOldestUnpushedShaForPath(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined>;
+	isAncestorOf(repoPath: string, rev1: string, rev2: string, cancellation?: CancellationToken): Promise<boolean>;
+	hasCommitBeenPushed(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<boolean>;
 	searchCommits(
 		repoPath: string,
 		search: SearchQuery,
-		options?: {
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
+		options?: GitSearchCommitsOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined>;
 }
 
@@ -343,20 +392,37 @@ export interface GitConfigSubProvider {
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 }
 
+export interface GitContributorsResult {
+	readonly contributors: GitContributor[];
+	readonly cancelled?: { reason: 'cancelled' | 'timedout' } | undefined;
+}
+
 export interface GitContributorsSubProvider {
-	getContributorsStats(
-		repoPath: string,
-		options?: { merges?: boolean; since?: string },
-	): Promise<GitContributorsStats | undefined>;
 	getContributors(
 		repoPath: string,
 		rev?: string | undefined,
 		options?: {
-			all?: boolean | undefined;
+			all?: boolean;
 			merges?: boolean | 'first-parent';
-			stats?: boolean | undefined;
+			pathspec?: string;
+			since?: string;
+			stats?: boolean;
 		},
+		cancellation?: CancellationToken,
+		timeout?: number,
+	): Promise<GitContributorsResult>;
+	getContributorsLite(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: string },
+		cancellation?: CancellationToken,
 	): Promise<GitContributor[]>;
+	getContributorsStats(
+		repoPath: string,
+		options?: { merges?: boolean | 'first-parent'; since?: string },
+		cancellation?: CancellationToken,
+		timeout?: number,
+	): Promise<GitContributorsStats | undefined>;
 }
 
 export interface GitDiffSubProvider {
@@ -365,40 +431,51 @@ export interface GitDiffSubProvider {
 		to?: string,
 		from?: string,
 		options?: { uris?: Uri[] },
+		cancellation?: CancellationToken,
 	): Promise<GitDiffShortStat | undefined>;
 	getDiff?(
 		repoPath: string,
 		to: string,
 		from?: string,
 		options?: { context?: number; includeUntracked?: boolean; notation?: GitRevisionRangeNotation; uris?: Uri[] },
+		cancellation?: CancellationToken,
 	): Promise<GitDiff | undefined>;
-	getDiffFiles?(repoPath: string, contents: string): Promise<GitDiffFiles | undefined>;
+	getDiffFiles?(
+		repoPath: string,
+		contents: string,
+		cancellation?: CancellationToken,
+	): Promise<GitDiffFiles | undefined>;
 	getDiffStatus(
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
 		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
+		cancellation?: CancellationToken,
 	): Promise<GitFile[] | undefined>;
 	getDiffTool?(repoPath?: string): Promise<string | undefined>;
 	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip?: number,
+		cancellation?: CancellationToken,
 	): Promise<NextComparisonUrisResult | undefined>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip?: number,
+		unsaved?: boolean,
+		cancellation?: CancellationToken,
 	): Promise<PreviousComparisonUrisResult | undefined>;
-	getPreviousComparisonUrisForLine(
+	getPreviousComparisonUrisForRange(
 		repoPath: string,
 		uri: Uri,
-		editorLine: number,
-		ref: string | undefined,
-		skip?: number,
-	): Promise<PreviousLineComparisonUrisResult | undefined>;
+		rev: string | undefined,
+		range: DiffRange,
+		options?: { skipFirstRev?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<PreviousRangeComparisonUrisResult | undefined>;
 	openDiffTool?(
 		repoPath: string,
 		uri: Uri,
@@ -417,19 +494,14 @@ export interface GitGraphSubProvider {
 		repoPath: string,
 		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			include?: { stats?: boolean };
-			limit?: number;
-		},
+		options?: { include?: { stats?: boolean }; limit?: number },
+		cancellation?: CancellationToken,
 	): Promise<GitGraph>;
 	searchGraph(
 		repoPath: string,
 		search: SearchQuery,
-		options?: {
-			cancellation?: CancellationToken;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
-		},
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		cancellation?: CancellationToken,
 	): Promise<GitGraphSearch>;
 }
 
@@ -446,10 +518,16 @@ export interface GitPatchSubProvider {
 	): Promise<void>;
 	createUnreachableCommitForPatch(
 		repoPath: string,
-		contents: string,
-		baseRef: string,
+		base: string,
 		message: string,
+		patch: string,
 	): Promise<GitCommit | undefined>;
+	createUnreachableCommitsFromPatches(
+		repoPath: string,
+		base: string,
+		patches: { message: string; patch: string }[],
+	): Promise<string[]>;
+
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
 }
 
@@ -460,9 +538,14 @@ export interface GitRefsSubProvider {
 		ref1: string,
 		ref2: string,
 		options?: { forkPoint?: boolean | undefined },
+		cancellation?: CancellationToken,
 	): Promise<string | undefined>;
-	getReference(repoPath: string, ref: string): Promise<GitReference | undefined>;
-	getSymbolicReferenceName?(repoPath: string, ref: string): Promise<string | undefined>;
+	getReference(repoPath: string, ref: string, cancellation?: CancellationToken): Promise<GitReference | undefined>;
+	getSymbolicReferenceName?(
+		repoPath: string,
+		ref: string,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
@@ -470,14 +553,14 @@ export interface GitRefsSubProvider {
 				| { branches?: ((b: GitBranch) => boolean) | undefined; tags?: ((t: GitTag) => boolean) | undefined }
 				| undefined;
 		},
+		cancellation?: CancellationToken,
 	): Promise<boolean>;
-	isValidReference(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<boolean>;
-	resolveReference(
+	isValidReference(
 		repoPath: string,
 		ref: string,
 		pathOrUri?: string | Uri,
-		options?: { force?: boolean; timeout?: number | undefined },
-	): Promise<string>;
+		cancellation?: CancellationToken,
+	): Promise<boolean>;
 }
 
 export interface GitRemotesSubProvider {
@@ -492,7 +575,7 @@ export interface GitRemotesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitRemote[]>;
 
-	getDefaultRemote(repoPath: string, _cancellation?: CancellationToken): Promise<GitRemote | undefined>;
+	getDefaultRemote(repoPath: string, cancellation?: CancellationToken): Promise<GitRemote | undefined>;
 	getRemotesWithProviders(
 		repoPath: string,
 		options?: { sort?: boolean },
@@ -514,7 +597,7 @@ export interface GitRemotesSubProvider {
 	getBestRemoteWithIntegration(
 		repoPath: string,
 		options?: {
-			filter?: (remote: GitRemote, integration: HostingIntegration) => boolean;
+			filter?: (remote: GitRemote, integration: GitHostIntegration) => boolean;
 			includeDisconnected?: boolean;
 		},
 		cancellation?: CancellationToken,
@@ -531,10 +614,25 @@ export interface GitRemotesSubProvider {
 	setRemoteAsDefault(repoPath: string, name: string, value?: boolean): Promise<void>;
 }
 
+export interface ResolvedRevision {
+	/** The SHA of the revision */
+	sha: string;
+	/** The "friendly" version of the revision, if applicable, otherwise the SHA */
+	revision: string;
+
+	/** Only set if the pathOrUri is provided */
+	status?: GitFileStatus;
+	/** Only set if the pathOrUri is provided */
+	path?: string;
+	/** Only set if the pathOrUri is provided */
+	originalPath?: string;
+}
+
 export interface GitRevisionSubProvider {
 	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined>;
 	getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
+	resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision>;
 }
 
 export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
@@ -543,7 +641,7 @@ export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 }
 
 export interface GitStagingSubProvider {
-	createTemporaryIndex(repoPath: string, baseRef: string): Promise<DisposableTemporaryGitIndex>;
+	createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex>;
 	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
 	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
@@ -554,12 +652,12 @@ export interface GitStagingSubProvider {
 
 export interface GitStashSubProvider {
 	applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
-	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
-	getStashCommitFiles(
+	getStash(
 		repoPath: string,
-		ref: string,
-		options?: { include?: { stats?: boolean } },
-	): Promise<GitFileChange[]>;
+		options?: { reachableFrom?: string },
+		cancellation?: CancellationToken,
+	): Promise<GitStash | undefined>;
+	getStashCommitFiles(repoPath: string, ref: string, cancellation?: CancellationToken): Promise<GitFileChange[]>;
 	deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void>;
 	renameStash(repoPath: string, stashName: string, sha: string, message: string, stashOnRef?: string): Promise<void>;
 	saveStash(
@@ -572,17 +670,55 @@ export interface GitStashSubProvider {
 }
 
 export interface GitStatusSubProvider {
-	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
-	getStatusForFile?(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
-	getStatusForPath?(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
+	/**
+	 * Get the status of the repository
+	 * @param repoPath Repository path
+	 * @returns A promise of the status
+	 */
+	getStatus(repoPath: string | undefined, cancellation?: CancellationToken): Promise<GitStatus | undefined>;
+	/**
+	 * Get the status of a file
+	 * @param repoPath Repository path
+	 * @param pathOrUri Path or Uri of the file to get the status for
+	 * @param options Options to control how the status is retrieved
+	 * @returns A promise of the file's status
+	 */
+	getStatusForFile?(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		options?: {
+			/** If false, will avoid rename detection (faster) */
+			renames?: boolean;
+		},
+		cancellation?: CancellationToken,
+	): Promise<GitStatusFile | undefined>;
+	/**
+	 * Get the status of a path
+	 * @param repoPath Repository path
+	 * @param pathOrUri Path or Uri to get the status for
+	 * @param options Options to control how the status is retrieved
+	 * @returns A promise of the path's status
+	 */
+	getStatusForPath?(
+		repoPath: string,
+		pathOrUri: Uri,
+		options?: {
+			/** If false, will avoid rename detection (faster) */
+			renames?: boolean;
+		},
+		cancellation?: CancellationToken,
+	): Promise<GitStatusFile[] | undefined>;
 
-	getPausedOperationStatus?(repoPath: string): Promise<GitPausedOperationStatus | undefined>;
+	getPausedOperationStatus?(
+		repoPath: string,
+		cancellation?: CancellationToken,
+	): Promise<GitPausedOperationStatus | undefined>;
 	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
 	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 }
 
 export interface GitTagsSubProvider {
-	getTag(repoPath: string, name: string): Promise<GitTag | undefined>;
+	getTag(repoPath: string, name: string, cancellation?: CancellationToken): Promise<GitTag | undefined>;
 	getTags(
 		repoPath: string,
 		options?: {
@@ -590,6 +726,7 @@ export interface GitTagsSubProvider {
 			paging?: PagingOptions | undefined;
 			sort?: boolean | TagSortOptions | undefined;
 		},
+		cancellation?: CancellationToken,
 	): Promise<PagedResult<GitTag>>;
 	getTagsWithCommit(
 		repoPath: string,
@@ -598,6 +735,7 @@ export interface GitTagsSubProvider {
 			commitDate?: Date | undefined;
 			mode?: 'contains' | 'pointsAt' | undefined;
 		},
+		cancellation?: CancellationToken,
 	): Promise<string[]>;
 
 	createTag?(repoPath: string, name: string, sha: string, message?: string): Promise<void>;
@@ -615,8 +753,12 @@ export interface GitWorktreesSubProvider {
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<GitWorktree | undefined>;
-	getWorktree(repoPath: string, predicate: (w: GitWorktree) => boolean): Promise<GitWorktree | undefined>;
-	getWorktrees(repoPath: string): Promise<GitWorktree[]>;
+	getWorktree(
+		repoPath: string,
+		predicate: (w: GitWorktree) => boolean,
+		cancellation?: CancellationToken,
+	): Promise<GitWorktree | undefined>;
+	getWorktrees(repoPath: string, cancellation?: CancellationToken): Promise<GitWorktree[]>;
 	getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined>;
 	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
 }
@@ -638,13 +780,10 @@ export type GitSubProvider =
 	| GitTagsSubProvider
 	| GitWorktreesSubProvider;
 
-export type GitSubProviderProps = keyof {
+type GitSubProviders = {
 	[P in keyof GitProvider as NonNullable<GitProvider[P]> extends GitSubProvider ? P : never]: GitProvider[P];
 };
-
-export type NonNullableGitSubProviderProps = keyof {
-	[P in keyof GitProvider as GitProvider[P] extends GitSubProvider ? P : never]: GitProvider[P];
-};
+export type GitSubProvidersProps = keyof GitSubProviders;
 
 export type GitSubProviderForRepo<T extends GitSubProvider> = {
 	[K in keyof T]: RemoveFirstArg<T[K]>;
@@ -703,9 +842,9 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
 	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
-	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
+	getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined>;
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
-	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
+	getRevisionUri(repoPath: string, rev: string, path: string): Uri;
 	// getRootUri(pathOrUri: string | Uri): Uri;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 

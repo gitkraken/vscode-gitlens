@@ -7,19 +7,14 @@ import type { RepositoryLocationProvider } from '../../git/location/repositorylo
 import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
+import type { GitResult } from '../node/git/git';
 
-export function git(_options: GitCommandOptions, ..._args: any[]): Promise<string | Buffer> {
-	return Promise.resolve('');
-}
-
-export function gitLogStreamTo(
-	_repoPath: string,
-	_sha: string,
-	_limit: number,
-	_options?: { configs?: readonly string[]; stdin?: string },
-	..._args: string[]
-): Promise<[data: string[], count: number]> {
-	return Promise.resolve([[''], 0]);
+export function git(
+	_container: Container,
+	_options: GitCommandOptions,
+	..._args: any[]
+): Promise<GitResult<string | Buffer>> {
+	return Promise.resolve({ stdout: '', exitCode: 0 });
 }
 
 export function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {

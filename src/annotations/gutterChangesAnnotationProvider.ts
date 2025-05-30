@@ -107,14 +107,14 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 		let commit: GitCommit | undefined;
 
-		const commitsProvider = this.container.git.commits(this.trackedDocument.uri.repoPath!);
+		const svc = this.container.git.getRepositoryService(this.trackedDocument.uri.repoPath!);
 
 		let localChanges = rev1 == null && rev2 == null;
 		if (localChanges) {
-			let rev = await commitsProvider.getOldestUnpushedShaForPath(this.trackedDocument.uri);
+			let rev = await svc.commits.getOldestUnpushedShaForPath(this.trackedDocument.uri);
 			if (rev != null) {
 				rev = `${rev}^`;
-				commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev);
+				commit = await svc.commits.getCommitForFile(this.trackedDocument.uri, rev);
 				if (commit != null) {
 					if (rev2 != null) {
 						rev2 = rev;
@@ -126,15 +126,10 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					localChanges = false;
 				}
 			} else {
-				const status = await this.container.git
-					.status(this.trackedDocument.uri.repoPath!)
-					.getStatusForFile?.(this.trackedDocument.uri);
-				const commits = status?.getPseudoCommits(
-					this.container,
-					await this.container.git.config(this.trackedDocument.uri.repoPath!).getCurrentUser(),
-				);
+				const status = await svc.status.getStatusForFile?.(this.trackedDocument.uri);
+				const commits = status?.getPseudoCommits(this.container, await svc.config.getCurrentUser());
 				if (commits?.length) {
-					commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri);
+					commit = await svc.commits.getCommitForFile(this.trackedDocument.uri);
 					rev1 = 'HEAD';
 				} else if (this.trackedDocument.dirty) {
 					rev1 = 'HEAD';
@@ -145,7 +140,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		if (!localChanges) {
-			commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev2 ?? rev1);
+			commit = await svc.commits.getCommitForFile(this.trackedDocument.uri, rev2 ?? rev1);
 
 			if (commit != null) {
 				if (rev2 != null) {

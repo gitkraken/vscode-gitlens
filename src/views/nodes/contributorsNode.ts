@@ -1,4 +1,5 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { CoreColors } from '../../constants.colors';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
@@ -9,7 +10,7 @@ import type { ViewsWithContributorsNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { MessageNode } from './common';
+import { ActionMessageNode, MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
 
 export class ContributorsNode extends CacheableChildrenViewNode<
@@ -17,8 +18,6 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	ViewsWithContributorsNode,
 	ContributorNode
 > {
-	protected override splatted = true;
-
 	constructor(
 		uri: GitUri,
 		view: ViewsWithContributorsNode,
@@ -51,10 +50,12 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			let rev = this.options?.ref;
 			const all = rev == null && (this.options?.all ?? configuration.get('views.contributors.showAllBranches'));
 
+			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+
 			// If there is no ref and we aren't getting all branches, get the upstream of the current branch if there is one
 			if (rev == null && !all) {
 				try {
-					const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
+					const branch = await svc.branches.getBranch();
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
 						rev = '@{u}';
 					}
@@ -63,33 +64,71 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 			const stats = this.options?.stats ?? configuration.get('views.contributors.showStatistics');
 
-			const contributors = await this.repo.git.contributors().getContributors(rev, {
-				all: all,
-				merges: this.options?.showMergeCommits,
-				stats: stats,
-			});
-			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			let timeout: number;
+			const overrideMaxWait = this.getState('overrideMaxWait');
+			if (overrideMaxWait) {
+				timeout = overrideMaxWait;
+				this.deleteState('overrideMaxWait');
+			} else {
+				timeout = configuration.get('views.contributors.maxWait') * 1000;
+			}
 
-			sortContributors(contributors);
-			const presenceMap = this.view.container.vsls.active ? await this.getPresenceMap(contributors) : undefined;
+			const result = await svc.contributors.getContributors(
+				rev,
+				{ all: all, merges: this.options?.showMergeCommits, stats: stats },
+				undefined,
+				timeout || undefined,
+			);
+			if (!result.contributors.length) {
+				return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			}
 
-			this.children = contributors.map(
-				c =>
+			const children: ContributorNode[] = [];
+			if (result.cancelled) {
+				children.push(
+					new ActionMessageNode(
+						this.view,
+						this,
+						n => {
+							n.update({
+								iconPath: new ThemeIcon('loading~spin'),
+								message: 'Loading contributors...',
+								description: `waiting for ${(timeout * 2) / 1000}s`,
+								tooltip: null,
+							});
+							this.storeState('overrideMaxWait', timeout * 2);
+							void this.triggerChange(true);
+						},
+						stats ? 'Showing incomplete contributors and statistics' : 'Showing incomplete contributors',
+						result.cancelled.reason === 'timedout' ? `timed out after ${timeout / 1000}s` : 'cancelled',
+						'Click to retry and wait longer for contributors',
+						new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors)),
+					) as unknown as ContributorNode,
+				);
+			}
+
+			sortContributors(result.contributors);
+			const presenceMap = this.view.container.vsls.active
+				? await this.getPresenceMap(result.contributors)
+				: undefined;
+
+			for (const c of result.contributors) {
+				children.push(
 					new ContributorNode(this.uri, this.view, this, c, {
 						all: all,
 						ref: rev,
 						presence: presenceMap,
 						showMergeCommits: this.options?.showMergeCommits,
 					}),
-			);
+				);
+			}
+			this.children = children;
 		}
 
 		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;
@@ -107,11 +146,6 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 				void child.triggerChange();
 			}
 		}
-	}
-
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
 	}
 
 	@debug({ args: false })

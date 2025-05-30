@@ -21,11 +21,7 @@ export interface OpenRevisionFileCommandArgs {
 @command()
 export class OpenRevisionFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			'gitlens.openRevisionFile',
-			'gitlens.openRevisionFileInDiffLeft',
-			'gitlens.openRevisionFileInDiffRight',
-		]);
+		super('gitlens.openRevisionFile');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs): Promise<void> {
@@ -42,18 +38,15 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		try {
 			if (args.revisionUri == null) {
 				if (gitUri?.sha) {
-					const commit = await this.container.git.commits(gitUri.repoPath!).getCommit(gitUri.sha);
+					const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
+					const commit = await svc.commits.getCommit(gitUri.sha);
 
 					args.revisionUri =
 						commit?.file?.status === 'D'
-							? this.container.git.getRevisionUri(
-									(await commit.getPreviousSha()) ?? deletedOrMissing,
-									commit.file,
-									commit.repoPath,
-							  )
-							: this.container.git.getRevisionUri(gitUri);
+							? svc.getRevisionUri((await commit.getPreviousSha()) ?? deletedOrMissing, commit.file)
+							: this.container.git.getRevisionUriFromGitUri(gitUri);
 				} else {
-					args.revisionUri = this.container.git.getRevisionUri(gitUri);
+					args.revisionUri = this.container.git.getRevisionUriFromGitUri(gitUri);
 				}
 			}
 

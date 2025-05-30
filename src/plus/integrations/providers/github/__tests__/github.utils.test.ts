@@ -11,7 +11,7 @@ suite('Test GitHub PR URL parsing to identity: getPullRequestIdentityFromMaybeUr
 				: {
 						ownerAndRepo: ownerAndRepo,
 						prNumber: prNumber,
-						provider: 'github',
+						provider: undefined,
 				  },
 			`Parse: ${message} (${JSON.stringify(query)})`,
 		);

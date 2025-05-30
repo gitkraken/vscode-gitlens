@@ -4,10 +4,10 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
-import { findOrOpenEditors } from '../system/-webview/vscode';
+import { openTextEditors } from '../system/-webview/vscode/editors';
 import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import { GlCommandBase } from './commandBase';
 
 export interface OpenOnlyChangedFilesCommandArgs {
@@ -25,10 +25,10 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repository = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
-				if (repository == null) return;
+				const repo = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
+				if (repo == null) return;
 
-				const status = await this.container.git.status(repository.uri).getStatus();
+				const status = await repo.git.status.getStatus();
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed & close unchanged files');
 
@@ -64,7 +64,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 
 					if (inputUri == null) continue;
 					// eslint-disable-next-line no-loop-func
-					matchingUri = args.uris.find(uri => uriEquals(uri, inputUri));
+					matchingUri = args.uris.find(uri => areUrisEqual(uri, inputUri));
 					if (matchingUri != null) {
 						openUris.delete(matchingUri);
 					} else {
@@ -74,7 +74,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 			}
 
 			if (openUris.size > 0) {
-				findOrOpenEditors([...openUris]);
+				openTextEditors([...openUris]);
 			}
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnlyChangedFilesCommand');

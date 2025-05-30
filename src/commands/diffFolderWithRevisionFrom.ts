@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { FileType, Uri, workspace } from 'vscode';
+import { Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { openFolderCompare } from '../git/actions/commit';
@@ -9,6 +9,7 @@ import { showGenericErrorMessage } from '../messages';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
+import { isFolderUri } from '../system/-webview/path';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
 import { ActiveEditorCommand } from './commandBase';
@@ -32,12 +33,9 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 		uri = args?.uri ?? getCommandUri(uri, editor);
 		if (uri == null) return;
 
-		try {
-			const stat = await workspace.fs.stat(uri);
-			if (stat.type !== FileType.Directory) {
-				uri = Uri.joinPath(uri, '..');
-			}
-		} catch {}
+		if (!(await isFolderUri(uri))) {
+			uri = Uri.joinPath(uri, '..');
+		}
 
 		try {
 			const repoPath = (

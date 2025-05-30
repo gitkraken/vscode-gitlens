@@ -28,7 +28,6 @@ import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
-	protected override splatted = true;
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
@@ -72,8 +71,6 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('SearchAndCompare', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.SearchAndCompare;
 		return item;
@@ -134,7 +131,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		await Promise.allSettled(
 			filterMap(children, c => {
 				const result = c.refresh?.(reset);
-				return isPromise<boolean | void>(result) ? result : undefined;
+				return isPromise<{ cancel: boolean } | void>(result) ? result : undefined;
 			}),
 		);
 	}

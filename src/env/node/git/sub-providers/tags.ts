@@ -1,4 +1,6 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../container';
+import { isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { TagError } from '../../../../git/errors';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
@@ -22,10 +24,10 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	) {}
 
 	@log()
-	async getTag(repoPath: string, name: string): Promise<GitTag | undefined> {
+	async getTag(repoPath: string, name: string, cancellation?: CancellationToken): Promise<GitTag | undefined> {
 		const {
 			values: [tag],
-		} = await this.getTags(repoPath, { filter: t => t.name === name });
+		} = await this.getTags(repoPath, { filter: t => t.name === name }, cancellation);
 		return tag;
 	}
 
@@ -37,6 +39,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | TagSortOptions;
 		},
+		cancellation?: CancellationToken,
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -48,26 +51,25 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 				try {
 					const parser = getTagParser();
 
-					const data = await this.git.exec(
-						{ cwd: repoPath },
+					const result = await this.git.exec(
+						{ cwd: repoPath, cancellation: cancellation },
 						'for-each-ref',
 						...parser.arguments,
 						'refs/tags/',
 					);
-
-					if (!data?.length) return emptyPagedResult;
+					if (!result.stdout) return emptyPagedResult;
 
 					using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
 
 					const tags: GitTag[] = [];
 
-					for (const entry of parser.parse(data)) {
+					for (const entry of parser.parse(result.stdout)) {
 						tags.push(
 							new GitTag(
 								this.container,
 								repoPath,
 								entry.name,
-								entry.sha,
+								entry.sha || entry.tagSha,
 								entry.message,
 								entry.date ? new Date(entry.date) : undefined,
 								entry.commitDate ? new Date(entry.commitDate) : undefined,
@@ -78,8 +80,9 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 					sw?.stop({ suffix: ` parsed ${tags.length} tags` });
 
 					return { values: tags };
-				} catch (_ex) {
+				} catch (ex) {
 					this.cache.tags?.delete(repoPath);
+					if (isCancellationError(ex)) throw ex;
 
 					return emptyPagedResult;
 				}
@@ -112,11 +115,17 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		repoPath: string,
 		sha: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+		cancellation?: CancellationToken,
 	): Promise<string[]> {
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [sha], { type: 'tag', ...options });
-		if (!data) return [];
+		const result = await this.git.branchOrTag__containsOrPointsAt(
+			repoPath,
+			[sha],
+			{ type: 'tag', ...options },
+			cancellation,
+		);
+		if (!result.stdout) return [];
 
-		return filterMap(data.split('\n'), b => b.trim() || undefined);
+		return filterMap(result.stdout.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()

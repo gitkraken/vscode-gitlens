@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
 import { defer } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import { executeGitCommand } from '../actions';
@@ -42,17 +42,17 @@ export async function create(
 export function copyChangesToWorktree(
 	type: 'working-tree' | 'index',
 	repo?: string | Repository,
-	worktree?: GitWorktree,
+	target?: GitWorktree,
+	source?: GitWorktree,
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'worktree',
 		state: {
 			subcommand: 'copy-changes',
 			repo: repo,
-			worktree: worktree,
-			changes: {
-				type: type,
-			},
+			source: source,
+			target: target,
+			changes: { type: type },
 		},
 	});
 }

@@ -34,9 +34,6 @@ export const searchOperatorsToLongFormMap = new Map<SearchOperators, SearchOpera
 	['type:', 'type:'],
 ]);
 
-export const searchOperationRegex =
-	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|is:|type:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change|is|type):)/g;
-
 export const searchOperationHelpRegex =
 	/(?:^|(\b|\s)*)((=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|is:|type:)(?:"[^"]*"?|\w*))(?:$|(\b|\s))/g;
 

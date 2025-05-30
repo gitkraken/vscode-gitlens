@@ -35,7 +35,7 @@ import { registerViewCommand } from './viewCommands';
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
-			const branch = await this.repo.git.branches().getBranch();
+			const branch = await this.repo.git.branches.getBranch();
 			if (branch == null) {
 				this.view.message = 'No commits could be found.';
 
@@ -130,22 +130,22 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading commits...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading commits...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			const repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No commits could be found.';
 
 				return [];
 			}
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r =>
-					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat, {
+					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, {
 						showBranchAndLastFetched: true,
 					}),
 			);
@@ -175,7 +175,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branch = await child.repo.git.branches().getBranch();
+			const branch = await child.repo.git.branches.getBranch();
 			if (branch != null) {
 				const descParts = [];
 
@@ -200,6 +200,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			children.push(...this.children);
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return children;
 	}
 
@@ -350,12 +351,12 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	): Promise<ViewNode | undefined> {
 		const { repoPath } = commit;
 
-		const branchesProvider = this.container.git.branches(commit.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const svc = this.container.git.getRepositoryService(commit.repoPath);
+		const branch = await svc.branches.getBranch();
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		const branches = await branchesProvider.getBranchesWithCommits([commit.ref], branch.name, {
+		const branches = await svc.branches.getBranchesWithCommits([commit.ref], branch.name, {
 			commitDate: isCommit(commit) ? commit.committer.date : undefined,
 		});
 		if (!branches.length) return undefined;
@@ -418,7 +419,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -469,7 +470,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 
 			let authors = this.state.filterCommits.get(repo.id);
 			if (authors == null) {
-				const current = await repo.git.config().getCurrentUser();
+				const current = await repo.git.config.getCurrentUser();
 				authors = current != null ? [current] : undefined;
 			}
 

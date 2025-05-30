@@ -15,6 +15,7 @@ import { isRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
+import { GitWorktree } from '../git/models/worktree';
 import { CloudWorkspace } from '../plus/workspaces/models/cloudWorkspace';
 import { LocalWorkspace } from '../plus/workspaces/models/localWorkspace';
 import { isScm, isScmResourceGroup, isScmResourceState } from '../system/-webview/scm';
@@ -119,6 +120,14 @@ export function isCommandContextViewNodeHasRemote(
 	if (context.type !== 'viewItem') return false;
 
 	return isRemote((context.node as ViewNode & { remote: GitRemote }).remote);
+}
+
+export function isCommandContextViewNodeHasWorktree(
+	context: CommandContext,
+): context is CommandViewNodeContext & { node: ViewNode & { worktree: GitWorktree } } {
+	if (context.type !== 'viewItem') return false;
+
+	return (context.node as ViewNode & { worktree?: GitWorktree }).worktree instanceof GitWorktree;
 }
 
 export function isCommandContextViewNodeHasRepository(

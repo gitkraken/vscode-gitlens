@@ -90,13 +90,18 @@ export function registerWebviewCommand(
 			if (
 				webview === 'gitlens.graph' ||
 				webview === 'gitlens.views.graph' ||
-				command.startsWith('gitlens.graph.')
+				command.startsWith('gitlens.graph.') ||
+				command.endsWith(':graph')
 			) {
 				Container.instance.telemetry.sendEvent('graph/command', {
 					command: command,
 					webview: webview ?? '<missing>',
 				});
-			} else if (webview === 'gitlens.views.home' || command.startsWith('gitlens.home.')) {
+			} else if (
+				webview === 'gitlens.views.home' ||
+				command.startsWith('gitlens.home.') ||
+				command.endsWith(':home')
+			) {
 				Container.instance.telemetry.sendEvent('home/command', {
 					command: command,
 					webview: webview ?? '<missing>',

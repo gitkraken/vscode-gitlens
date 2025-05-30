@@ -30,7 +30,7 @@ import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import type { KeyboardScope } from '../system/-webview/keyboard';
 import { UriSet } from '../system/-webview/uriMap';
-import { isTrackableTextEditor } from '../system/-webview/vscode';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function/debounce';

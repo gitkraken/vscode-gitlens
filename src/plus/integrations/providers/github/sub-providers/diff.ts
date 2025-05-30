@@ -2,10 +2,11 @@ import type { Uri } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type {
+	DiffRange,
 	GitDiffSubProvider,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
-	PreviousLineComparisonUrisResult,
+	PreviousRangeComparisonUrisResult,
 } from '../../../../../git/gitProvider';
 import { GitUri } from '../../../../../git/gitUri';
 import type { GitDiffFilter, GitDiffShortStat } from '../../../../../git/models/diff';
@@ -16,6 +17,7 @@ import type { GitRevisionRange } from '../../../../../git/models/revision';
 import { deletedOrMissing, uncommitted } from '../../../../../git/models/revision';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
 import { createRevisionRange, getRevisionRangeParts, isRevisionRange } from '../../../../../git/utils/revision.utils';
+import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors';
 import { log } from '../../../../../system/decorators/log';
 import { union } from '../../../../../system/iterable';
 import { Logger } from '../../../../../system/logger';
@@ -133,11 +135,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip: number = 0,
 	): Promise<NextComparisonUrisResult | undefined> {
-		// If we have no ref there is no next commit
-		if (!ref) return undefined;
+		// If we have no revision there is no next commit
+		if (!rev) return undefined;
 
 		const scope = getLogScope();
 
@@ -149,8 +151,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			const relativePath = this.provider.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 			const revision = (await metadata.getRevision()).revision;
 
-			if (ref === 'HEAD') {
-				ref = revision;
+			if (rev === 'HEAD') {
+				rev = revision;
 			}
 
 			const refs = await github.getNextCommitRefs(
@@ -159,13 +161,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				metadata.repo.name,
 				revision,
 				relativePath,
-				stripOrigin(ref),
+				stripOrigin(rev),
 			);
 
 			return {
 				current:
 					skip === 0
-						? GitUri.fromFile(relativePath, repoPath, ref)
+						? GitUri.fromFile(relativePath, repoPath, rev)
 						: new GitUri(await this.provider.getBestRevisionUri(repoPath, relativePath, refs[skip - 1])),
 				next: new GitUri(await this.provider.getBestRevisionUri(repoPath, relativePath, refs[skip])),
 			};
@@ -181,15 +183,16 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	async getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip: number = 0,
+		_unsaved?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
+		if (rev === deletedOrMissing) return undefined;
 
 		const scope = getLogScope();
 
-		if (ref === uncommitted) {
-			ref = undefined;
+		if (rev === uncommitted) {
+			rev = undefined;
 		}
 
 		try {
@@ -199,13 +202,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			const { metadata, github, remotehub, session } = context;
 			const relativePath = this.provider.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
-			const offset = ref != null ? 1 : 0;
+			const offset = rev != null ? 1 : 0;
 
 			const result = await github.getCommitRefs(
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(!ref || ref === 'HEAD' ? (await metadata.getRevision()).revision : ref),
+				stripOrigin(!rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev),
 				{
 					path: relativePath,
 					first: offset + skip + 1,
@@ -216,7 +219,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			// If we are at a commit, diff commit with previous
 			const current =
 				skip === 0
-					? GitUri.fromFile(relativePath, repoPath, ref)
+					? GitUri.fromFile(relativePath, repoPath, rev)
 					: new GitUri(
 							await this.provider.getBestRevisionUri(
 								repoPath,
@@ -245,14 +248,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	}
 
 	@log()
-	async getPreviousComparisonUrisForLine(
+	async getPreviousComparisonUrisForRange(
 		repoPath: string,
 		uri: Uri,
-		editorLine: number, // 0-based, Git is 1-based
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<PreviousLineComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
+		rev: string | undefined,
+		range: DiffRange,
+		_options?: { skipFirstRev?: boolean },
+	): Promise<PreviousRangeComparisonUrisResult | undefined> {
+		if (rev === deletedOrMissing) return undefined;
 
 		const scope = getLogScope();
 
@@ -266,24 +269,26 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			// FYI, GitHub doesn't currently support returning the original line number, nor the previous sha, so this is untrustworthy
 
-			let current = GitUri.fromFile(relativePath, repoPath, ref);
+			const editorLine = diffRangeToEditorLine(range);
+
+			let current = GitUri.fromFile(relativePath, repoPath, rev);
 			let currentLine = editorLine;
 			let previous;
 			let previousLine = editorLine;
 			let nextLine = editorLine;
 
-			for (let i = 0; i < Math.max(0, skip) + 2; i++) {
+			for (let i = 0; i < 2; i++) {
 				const blameLine = await this.provider.getBlameForLine(previous ?? current, nextLine, undefined, {
 					forceSingleLine: true,
 				});
 				if (blameLine == null) break;
 
 				// Diff with line ref with previous
-				ref = blameLine.commit.sha;
+				rev = blameLine.commit.sha;
 				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
 				nextLine = blameLine.line.originalLine - 1;
 
-				const gitUri = GitUri.fromFile(relativePath, repoPath, ref);
+				const gitUri = GitUri.fromFile(relativePath, repoPath, rev);
 				if (previous == null) {
 					previous = gitUri;
 					previousLine = nextLine;
@@ -297,10 +302,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			if (current == null) return undefined;
 
+			const line = currentLine != null ? currentLine + 1 : range.startLine;
 			return {
 				current: current,
 				previous: previous,
-				line: (currentLine ?? editorLine) + 1, // 1-based
+				range: { startLine: line, endLine: line, active: range.active },
 			};
 		} catch (ex) {
 			Logger.error(ex, scope);

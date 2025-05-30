@@ -9,7 +9,7 @@ import {
 	PullRequestReviewState,
 } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
-import type { ResourceDescriptor } from '../../integration';
+import type { ResourceDescriptor } from '../../../../git/models/resourceDescriptor';
 
 const vstsHostnameRegex = /\.visualstudio\.com$/;
 
@@ -202,9 +202,42 @@ export interface AzureRepository {
 	isInMaintenance: boolean;
 }
 
+export interface AzureGitUser {
+	date?: string;
+	email?: string;
+	imageUrl?: string;
+	name: string;
+}
+
 export interface AzureGitCommitRef {
 	commitId: string;
 	url: string;
+}
+
+export interface AzureGitCommit {
+	_links: {
+		changes: AzureLink;
+		repository: AzureLink;
+		self: AzureLink;
+		web: AzureLink;
+	};
+	author: AzureGitUser;
+	comment: string;
+	commentTruncated?: boolean;
+	commitId: string;
+	commitTooManyChanges?: boolean;
+	committer: AzureGitUser;
+	parents: string[];
+	push: {
+		date: string;
+		pushedBy: AzureUser;
+		pushId: number;
+	};
+	remoteUrl: string;
+	statuses?: AzureGitStatus[];
+	treeId: string;
+	url: string;
+	workItems?: AzureResourceRef[];
 }
 
 export interface AzureResourceRef {
@@ -331,6 +364,9 @@ export function getAzureDevOpsOwner(url: URL): string {
 export function getAzureOwner(url: URL): string {
 	const isVSTS = vstsHostnameRegex.test(url.hostname);
 	return isVSTS ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
+}
+export function isVsts(domain: string): boolean {
+	return vstsHostnameRegex.test(domain);
 }
 
 export function getAzureRepo(pr: AzurePullRequest): string {
@@ -472,12 +508,7 @@ function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'):
 	};
 }
 
-export function fromAzurePullRequest(
-	pr: AzurePullRequest,
-	provider: Provider,
-	orgName: string,
-	projectName: string,
-): PullRequest {
+export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider, orgName: string): PullRequest {
 	const url = new URL(pr.url);
 	return new PullRequest(
 		provider,
@@ -531,7 +562,7 @@ export function fromAzurePullRequest(
 		undefined,
 		{
 			id: pr.repository?.project?.id,
-			name: projectName,
+			name: pr.repository.project.name,
 			resourceId: '', // TODO: This is a workaround until we can get the org id here.
 			resourceName: orgName,
 		},

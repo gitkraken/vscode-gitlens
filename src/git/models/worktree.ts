@@ -1,12 +1,13 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri, WorkspaceFolder } from 'vscode';
 import { workspace } from 'vscode';
 import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import { relative } from '../../system/-webview/path';
-import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode';
+import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { getLoggableName } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import { shortenRevision } from '../utils/revision.utils';
 import type { GitBranch } from './branch';
@@ -24,6 +25,10 @@ export class GitWorktree {
 		public readonly sha?: string,
 		public readonly branch?: GitBranch,
 	) {}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.uri.toString()})`;
+	}
 
 	get date(): Date | undefined {
 		return this.branch?.date;
@@ -90,7 +95,7 @@ export class GitWorktree {
 			// eslint-disable-next-line no-async-promise-executor
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
-					const status = await this.container.git.status(this.uri.fsPath).getStatus();
+					const status = await this.container.git.getRepositoryService(this.uri.fsPath).status.getStatus();
 					this._status = status;
 					resolve(status);
 				} catch (ex) {

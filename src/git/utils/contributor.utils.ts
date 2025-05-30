@@ -24,7 +24,7 @@ export const defaultContributorScoreOptions: ContributorScoreOptions = {
 };
 
 export function calculateContributionScore(
-	stats: GitCommitStats<number> | undefined,
+	stats: GitCommitStats | undefined,
 	timestamp: number,
 	options: ContributorScoreOptions = defaultContributorScoreOptions,
 ): number {

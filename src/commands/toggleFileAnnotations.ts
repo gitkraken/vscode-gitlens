@@ -4,7 +4,11 @@ import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnot
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { getEditorIfVisible, getOtherVisibleTextEditors, isTrackableTextEditor } from '../system/-webview/vscode';
+import {
+	getOpenTextEditorIfVisible,
+	getOtherVisibleTextEditors,
+	isTrackableTextEditor,
+} from '../system/-webview/vscode/editors';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand, EditorCommand } from './commandBase';
 
@@ -60,7 +64,7 @@ export type ToggleFileAnnotationCommandArgs =
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(['gitlens.toggleFileBlame', 'gitlens.toggleFileBlameInDiffLeft', 'gitlens.toggleFileBlameInDiffRight']);
+		super('gitlens.toggleFileBlame');
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {
@@ -165,7 +169,7 @@ function getValidEditor(editor: TextEditor | undefined, uri: Uri | undefined) {
 	}
 
 	if (uri != null && (editor == null || editor.document.uri.toString() !== uri.toString())) {
-		const e = getEditorIfVisible(uri);
+		const e = getOpenTextEditorIfVisible(uri);
 		if (e != null) {
 			editor = e;
 		}

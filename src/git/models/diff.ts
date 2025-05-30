@@ -33,18 +33,22 @@ export interface GitLineDiff {
 
 export interface ParsedGitDiff {
 	readonly files: ParsedGitDiffFile[];
-	readonly contents?: string;
+	readonly rawContent?: string;
 }
 
-export interface ParsedGitDiffFile extends Omit<GitFileChangeShape, 'repoPath'>, ParsedGitDiffHunks {}
+export interface ParsedGitDiffFile extends Omit<GitFileChangeShape, 'repoPath'>, ParsedGitDiffHunks {
+	readonly header: string;
+}
 
 export interface ParsedGitDiffHunks {
 	readonly hunks: ParsedGitDiffHunk[];
-	readonly contents?: string;
+	readonly rawContent?: string;
 }
 
 export interface ParsedGitDiffHunk {
-	readonly contents: string;
+	readonly header: string;
+	readonly content: string;
+
 	readonly current: {
 		readonly count: number;
 		readonly position: { readonly start: number; readonly end: number };

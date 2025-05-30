@@ -7,8 +7,8 @@ import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode'
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
-import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
@@ -18,6 +18,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { ProviderReference } from '../../git/models/remoteProvider';
 import type { Repository } from '../../git/models/repository';
+import type { RepositoryDescriptor } from '../../git/models/resourceDescriptor';
 import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
 import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
 import {
@@ -26,10 +27,11 @@ import {
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
 } from '../../git/utils/pullRequest.utils';
+import { getCancellationTokenId } from '../../system/-webview/cancellation';
 import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, groupByMap, map, some } from '../../system/iterable';
@@ -42,8 +44,9 @@ import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink'
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts';
-import type { HostingIntegration, IntegrationResult, RepositoryDescriptor } from '../integrations/integration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
+import type { GitHostIntegration } from '../integrations/models/gitHostIntegration';
+import type { IntegrationResult } from '../integrations/models/integration';
 import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
 import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
@@ -127,14 +130,14 @@ type PullRequestsWithSuggestionCounts = {
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
-export const supportedLaunchpadIntegrations: (HostingIntegrationId | CloudSelfHostedIntegrationId)[] = [
-	HostingIntegrationId.GitHub,
-	SelfHostedIntegrationId.CloudGitHubEnterprise,
-	HostingIntegrationId.GitLab,
-	SelfHostedIntegrationId.CloudGitLabSelfHosted,
-	HostingIntegrationId.AzureDevOps,
-	HostingIntegrationId.Bitbucket,
-	SelfHostedIntegrationId.BitbucketServer,
+export const supportedLaunchpadIntegrations: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[] = [
+	GitCloudHostIntegrationId.GitHub,
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitCloudHostIntegrationId.GitLab,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitCloudHostIntegrationId.Bitbucket,
+	GitSelfManagedHostIntegrationId.BitbucketServer,
 ];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
@@ -254,7 +257,7 @@ export class LaunchpadProvider implements Disposable {
 		};
 
 		const findByPrIdentity = async (
-			integration: HostingIntegration,
+			integration: GitHostIntegration,
 		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const { provider, ownerAndRepo, prNumber } = prUrlIdentity ?? {};
 			const providerMatch = provider == null || provider === integration.id;
@@ -278,7 +281,7 @@ export class LaunchpadProvider implements Disposable {
 		};
 
 		const findByQuery = async (
-			integration: HostingIntegration,
+			integration: GitHostIntegration,
 		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const prs = await withDurationAndSlowEventOnTimeout(
 				integration?.searchPullRequests(search, undefined, cancellation),
@@ -296,7 +299,7 @@ export class LaunchpadProvider implements Disposable {
 		await Promise.allSettled(
 			[...connectedIntegrations.keys()]
 				.filter(
-					(id: IntegrationId): id is SupportedLaunchpadIntegrationIds =>
+					(id: IntegrationIds): id is SupportedLaunchpadIntegrationIds =>
 						(connectedIntegrations.get(id) && isSupportedLaunchpadIntegrationId(id)) ?? false,
 				)
 				.map(async (id: SupportedLaunchpadIntegrationIds) => {
@@ -571,7 +574,7 @@ export class LaunchpadProvider implements Disposable {
 		const [repo, remote] = match;
 
 		const remoteBranchName = `${remote.name}/${pr.refs?.head.branch ?? pr.headRef?.name}`;
-		const matchingLocalBranch = await repo.git.branches().getLocalBranchByUpstream?.(remoteBranchName);
+		const matchingLocalBranch = await repo.git.branches.getLocalBranchByUpstream?.(remoteBranchName);
 
 		return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
 	}
@@ -590,7 +593,7 @@ export class LaunchpadProvider implements Disposable {
 		async function matchRemotes(repo: Repository) {
 			if (uniqueRemoteUrls.size === 0) return;
 
-			const remotes = await repo.git.remotes().getRemotes();
+			const remotes = await repo.git.remotes.getRemotes();
 
 			for (const remote of remotes) {
 				if (uniqueRemoteUrls.size === 0) return;
@@ -631,7 +634,7 @@ export class LaunchpadProvider implements Disposable {
 
 	async getPullRequestIdentityFromSearch(
 		search: string,
-		connectedIntegrations: Map<IntegrationId, boolean>,
+		connectedIntegrations: Map<IntegrationIds, boolean>,
 	): Promise<PullRequestUrlIdentity | undefined> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			if (connectedIntegrations.get(integrationId)) {
@@ -639,19 +642,17 @@ export class LaunchpadProvider implements Disposable {
 				if (integration == null) continue;
 
 				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
-				if (prIdentity) {
-					return prIdentity;
-				}
+				if (prIdentity) return prIdentity;
 			}
 		}
 		return getPullRequestIdentityFromMaybeUrl(search);
 	}
 
 	@gate<LaunchpadProvider['getCategorizedItems']>(
-		o =>
+		(o, c) =>
 			`${o?.force ?? false}|${
 				o?.search != null && typeof o.search !== 'string' ? o.search.map(pr => pr.url).join(',') : o?.search
-			}`,
+			}${getCancellationTokenId(c)}`,
 	)
 	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
@@ -926,8 +927,8 @@ export class LaunchpadProvider implements Disposable {
 		return false;
 	}
 
-	async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
-		const connected = new Map<IntegrationId, boolean>();
+	async getConnectedIntegrations(): Promise<Map<IntegrationIds, boolean>> {
+		const connected = new Map<IntegrationIds, boolean>();
 		await Promise.allSettled(
 			supportedLaunchpadIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
@@ -1112,7 +1113,7 @@ export function getPullRequestBranchDeepLink(
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
 	const searchParams = new URLSearchParams({
-		url: pr.provider.id !== HostingIntegrationId.AzureDevOps ? ensureRemoteUrl(remoteUrl) : remoteUrl,
+		url: pr.provider.id !== GitCloudHostIntegrationId.AzureDevOps ? ensureRemoteUrl(remoteUrl) : remoteUrl,
 	});
 	if (action) {
 		searchParams.set('action', action);

@@ -22,3 +22,8 @@ export function getPlatform(): Platform {
 export function getTempFile(filename: string): string {
 	return join(tmpdir(), filename);
 }
+
+export function getAltKeySymbol(): string {
+	if (isMac) return '⌥';
+	return 'Alt';
+}

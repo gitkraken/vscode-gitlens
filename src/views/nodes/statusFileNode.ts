@@ -11,6 +11,7 @@ import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { shortenRevision } from '../../git/utils/revision.utils';
 import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import { getFileTooltip, ViewFileNode } from './abstract/viewFileNode';
@@ -213,11 +214,8 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 				{
 					commit: this.commit,
 					uri: GitUri.fromFile(this.file, this.repoPath),
-					line: 0,
-					showOptions: {
-						preserveFocus: true,
-						preview: true,
-					},
+					range: editorLineToDiffRange(0),
+					showOptions: { preserveFocus: true, preview: true },
 				},
 			);
 		}
@@ -233,7 +231,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 					lhs: {
 						sha: `${lhs.sha}^`,
 						uri: GitUri.fromFile(
-							lhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							lhs.fileset?.files?.find(f => f.path === this.file.path) ?? this.file.path,
 							this.repoPath,
 							`${lhs.sha}^`,
 							true,
@@ -242,23 +240,20 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 					rhs: {
 						sha: rhs.sha,
 						uri: GitUri.fromFile(
-							rhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							rhs.fileset?.files?.find(f => f.path === this.file.path) ?? this.file.path,
 							this.repoPath,
 							rhs.sha,
 						),
 					},
 					repoPath: this.repoPath,
-					line: 0,
-					showOptions: {
-						preserveFocus: true,
-						preview: true,
-					},
+					range: editorLineToDiffRange(0),
+					showOptions: { preserveFocus: true, preview: true },
 				};
 				break;
 			}
 			default: {
 				const commit = this._files[this._files.length - 1].commit;
-				const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
+				const file = commit.fileset?.files?.find(f => f.path === this.file.path) ?? this.file;
 				commandArgs = {
 					lhs: {
 						sha: `${commit.sha}^`,
@@ -269,7 +264,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 						uri: GitUri.fromFile(this.file, this.repoPath),
 					},
 					repoPath: this.repoPath,
-					line: 0,
+					range: editorLineToDiffRange(0),
 					showOptions: {
 						preserveFocus: true,
 						preview: true,

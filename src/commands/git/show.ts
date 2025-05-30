@@ -142,8 +142,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 			) {
 				if (state.reference != null && !isCommit(state.reference)) {
 					state.reference = await this.container.git
-						.commits(state.reference.repoPath)
-						.getCommit(state.reference.ref);
+						.getRepositoryService(state.reference.repoPath)
+						.commits.getCommit(state.reference.ref);
 				}
 
 				if (state.counter < 2 || state.reference == null) {
@@ -152,7 +152,6 @@ export class ShowGitCommand extends QuickCommand<State> {
 							repoPath: state.repo.path,
 							commits: new Map<string, GitCommit | GitStashCommit>(),
 							sha: undefined,
-							range: undefined,
 							count: 0,
 							limit: undefined,
 							hasMore: false,
@@ -176,7 +175,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 			assertsStateStepCommit(state);
 
 			if (state.counter < 3) {
-				if (state.reference.files == null) {
+				if (!state.reference.hasFullDetails({ allowFilteredFiles: true })) {
 					await state.reference.ensureFullDetails();
 				}
 

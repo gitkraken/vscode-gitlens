@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../../git/gitProvider';
@@ -20,10 +21,10 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	) {}
 
 	@log()
-	async getTag(repoPath: string, name: string): Promise<GitTag | undefined> {
+	async getTag(repoPath: string, name: string, cancellation?: CancellationToken): Promise<GitTag | undefined> {
 		const {
 			values: [tag],
-		} = await this.getTags(repoPath, { filter: t => t.name === name });
+		} = await this.getTags(repoPath, { filter: t => t.name === name }, cancellation);
 		return tag;
 	}
 
@@ -35,6 +36,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | TagSortOptions;
 		},
+		_cancellation?: CancellationToken,
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -120,6 +122,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		repoPath: string,
 		sha: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+		_cancellation?: CancellationToken,
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 

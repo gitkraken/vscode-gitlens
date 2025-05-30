@@ -120,6 +120,7 @@ export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams
 
 export interface IpcPromise {
 	__ipc: 'promise';
+	__promise: Promise<unknown>;
 	id: string;
 	method: string;
 }
@@ -153,6 +154,14 @@ export interface DidChangeWebviewFocusParams {
 export const DidChangeWebviewFocusNotification = new IpcCommand<DidChangeWebviewFocusParams>(
 	'core',
 	'webview/focus/didChange',
+);
+
+export interface DidChangeWebviewVisibilityParams {
+	visible: boolean;
+}
+export const DidChangeWebviewVisibilityNotification = new IpcNotification<DidChangeWebviewVisibilityParams>(
+	'core',
+	'webview/visibility/didChange',
 );
 
 export interface DidChangeConfigurationParams {

@@ -1,6 +1,6 @@
 import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { ProviderReference } from '../../git/models/remoteProvider';
-import type { ResourceDescriptor } from '../../plus/integrations/integration';
+import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
 import type { MaybePausedResult } from '../../system/promise';
 
 export type AutolinkType = 'issue' | 'pullrequest';
@@ -26,7 +26,6 @@ export interface AutolinkReference {
 export interface Autolink extends Omit<CacheableAutolinkReference, 'id'> {
 	provider?: ProviderReference;
 	id: string;
-	index?: number;
 }
 
 export type EnrichedAutolink = [
@@ -56,7 +55,7 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 	messageHtmlRegex?: RegExp;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
-	branchNameRegex?: RegExp;
+	branchNameRegexes?: RegExp[];
 }
 
 export interface DynamicAutolinkReference {

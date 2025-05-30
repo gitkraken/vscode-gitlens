@@ -657,6 +657,25 @@ export class VisitedPathsTrie {
 		return node != null;
 	}
 
+	hasParent(path: string, ignoreCase?: boolean): boolean {
+		path = this.normalize(path);
+		ignoreCase = ignoreCase ?? !isLinux;
+
+		const segments = path.split('/');
+		segments.pop(); // Remove the last segment (file name)
+
+		let node: VisitedPathNode | undefined;
+
+		for (const segment of segments) {
+			const n = (node ?? this.root).children?.get(ignoreCase ? segment.toLowerCase() : segment);
+			if (n == null) return false;
+
+			node = n;
+		}
+
+		return node != null;
+	}
+
 	set(path: string, ignoreCase?: boolean): void {
 		path = this.normalize(path);
 		ignoreCase = ignoreCase ?? !isLinux;

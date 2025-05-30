@@ -1,4 +1,4 @@
-import type { Uri } from 'vscode';
+import type { CancellationToken, Uri } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitRefsSubProvider } from '../../../../../git/gitProvider';
@@ -7,13 +7,7 @@ import type { GitReference } from '../../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitTag } from '../../../../../git/models/tag';
 import { createReference } from '../../../../../git/utils/reference.utils';
-import {
-	createRevisionRange,
-	isSha,
-	isShaLike,
-	isUncommitted,
-	isUncommittedParent,
-} from '../../../../../git/utils/revision.utils';
+import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
@@ -42,6 +36,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		ref1: string,
 		ref2: string,
 		_options?: { forkPoint?: boolean },
+		_cancellation?: CancellationToken,
 	): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -65,12 +60,16 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@log()
-	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
+	async getReference(
+		repoPath: string,
+		ref: string,
+		_cancellation?: CancellationToken,
+	): Promise<GitReference | undefined> {
 		if (!ref || ref === deletedOrMissing) return undefined;
 
 		if (!(await this.isValidReference(repoPath, ref))) return undefined;
 
-		if (ref !== 'HEAD' && !isShaLike(ref)) {
+		if (ref !== 'HEAD' && !isShaWithOptionalRevisionSuffix(ref)) {
 			const branch = await this.provider.branches.getBranch(repoPath, ref);
 			if (branch != null) {
 				return createReference(branch.ref, repoPath, {
@@ -101,69 +100,37 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		},
+		cancellation?: CancellationToken,
 	): Promise<boolean> {
 		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.provider.branches.getBranches(repoPath, {
-				filter: options?.filter?.branches,
-				sort: false,
-			}),
-			this.provider.tags.getTags(repoPath, {
-				filter: options?.filter?.tags,
-				sort: false,
-			}),
+			this.provider.branches.getBranches(
+				repoPath,
+				{
+					filter: options?.filter?.branches,
+					sort: false,
+				},
+				cancellation,
+			),
+			this.provider.tags.getTags(
+				repoPath,
+				{
+					filter: options?.filter?.tags,
+					sort: false,
+				},
+				cancellation,
+			),
 		]);
 
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
 	@log()
-	isValidReference(_repoPath: string, _ref: string, _pathOrUri?: string | Uri): Promise<boolean> {
+	isValidReference(
+		_repoPath: string,
+		_ref: string,
+		_pathOrUri?: string | Uri,
+		_cancellation?: CancellationToken,
+	): Promise<boolean> {
 		return Promise.resolve(true);
-	}
-
-	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		_options?: { force?: boolean; timeout?: number },
-	): Promise<string> {
-		if (pathOrUri != null && isUncommittedParent(ref)) {
-			ref = 'HEAD';
-		}
-
-		if (
-			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
-		) {
-			return ref;
-		}
-
-		let relativePath;
-		if (pathOrUri != null) {
-			relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
-		} else if (!isShaLike(ref) || ref.endsWith('^3')) {
-			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			return ref;
-		}
-
-		const context = await this.provider.ensureRepositoryContext(repoPath);
-		if (context == null) return ref;
-
-		const { metadata, github, session } = context;
-
-		const resolved = await github.resolveReference(
-			session.accessToken,
-			metadata.repo.owner,
-			metadata.repo.name,
-			stripOrigin(ref),
-			relativePath,
-		);
-
-		if (resolved != null) return resolved;
-
-		return relativePath ? deletedOrMissing : ref;
 	}
 }

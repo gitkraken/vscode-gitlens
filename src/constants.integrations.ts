@@ -1,45 +1,48 @@
-export enum HostingIntegrationId {
+export enum GitCloudHostIntegrationId {
 	GitHub = 'github',
 	GitLab = 'gitlab',
 	Bitbucket = 'bitbucket',
 	AzureDevOps = 'azureDevOps',
 }
 
-export enum SelfHostedIntegrationId {
+export enum GitSelfManagedHostIntegrationId {
 	BitbucketServer = 'bitbucket-server',
 	GitHubEnterprise = 'github-enterprise',
 	CloudGitHubEnterprise = 'cloud-github-enterprise',
-	CloudGitLabSelfHosted = 'cloud-gitlab-self-hosted',
 	GitLabSelfHosted = 'gitlab-self-hosted',
+	CloudGitLabSelfHosted = 'cloud-gitlab-self-hosted',
 }
 
-export type CloudSelfHostedIntegrationId =
-	| SelfHostedIntegrationId.CloudGitHubEnterprise
-	| SelfHostedIntegrationId.BitbucketServer
-	| SelfHostedIntegrationId.CloudGitLabSelfHosted;
-
-export enum IssueIntegrationId {
+export enum IssuesCloudHostIntegrationId {
 	Jira = 'jira',
 	Trello = 'trello',
 }
 
-export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHostedIntegrationId;
+export type CloudGitSelfManagedHostIntegrationIds =
+	| GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+	| GitSelfManagedHostIntegrationId.BitbucketServer
+	| GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 
-export const supportedOrderedCloudIssueIntegrationIds = [IssueIntegrationId.Jira];
+export type GitHostIntegrationIds = GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId;
+export type IssuesHostIntegrationIds = IssuesCloudHostIntegrationId;
+
+export type IntegrationIds = GitHostIntegrationIds | IssuesHostIntegrationIds;
+
+export const supportedOrderedCloudIssuesIntegrationIds = [IssuesCloudHostIntegrationId.Jira];
 export const supportedOrderedCloudIntegrationIds = [
-	HostingIntegrationId.GitHub,
-	SelfHostedIntegrationId.CloudGitHubEnterprise,
-	HostingIntegrationId.GitLab,
-	SelfHostedIntegrationId.CloudGitLabSelfHosted,
-	HostingIntegrationId.AzureDevOps,
-	HostingIntegrationId.Bitbucket,
-	SelfHostedIntegrationId.BitbucketServer,
-	IssueIntegrationId.Jira,
+	GitCloudHostIntegrationId.GitHub,
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitCloudHostIntegrationId.GitLab,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitCloudHostIntegrationId.Bitbucket,
+	GitSelfManagedHostIntegrationId.BitbucketServer,
+	IssuesCloudHostIntegrationId.Jira,
 ];
 
 export type SupportedCloudIntegrationIds = (typeof supportedOrderedCloudIntegrationIds)[number];
 
-export function isSupportedCloudIntegrationId(id: IntegrationId): id is SupportedCloudIntegrationIds {
+export function isSupportedCloudIntegrationId(id: IntegrationIds): id is SupportedCloudIntegrationIds {
 	return supportedOrderedCloudIntegrationIds.includes(id as SupportedCloudIntegrationIds);
 }
 
@@ -52,58 +55,59 @@ export interface IntegrationDescriptor {
 	supports: IntegrationFeatures[];
 	requiresPro: boolean;
 }
+
 export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 	{
-		id: HostingIntegrationId.GitHub,
+		id: GitCloudHostIntegrationId.GitHub,
 		name: 'GitHub',
 		icon: 'gl-provider-github',
 		supports: ['prs', 'issues'],
 		requiresPro: false,
 	},
 	{
-		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
+		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
 		name: 'GitHub Enterprise',
 		icon: 'gl-provider-github',
 		supports: ['prs', 'issues'],
 		requiresPro: true,
 	},
 	{
-		id: HostingIntegrationId.GitLab,
+		id: GitCloudHostIntegrationId.GitLab,
 		name: 'GitLab',
 		icon: 'gl-provider-gitlab',
 		supports: ['prs', 'issues'],
 		requiresPro: false,
 	},
 	{
-		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
+		id: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 		name: 'GitLab Self-Hosted',
 		icon: 'gl-provider-gitlab',
 		supports: ['prs', 'issues'],
 		requiresPro: true,
 	},
 	{
-		id: HostingIntegrationId.AzureDevOps,
+		id: GitCloudHostIntegrationId.AzureDevOps,
 		name: 'Azure DevOps',
 		icon: 'gl-provider-azdo',
 		supports: ['prs', 'issues'],
 		requiresPro: true,
 	},
 	{
-		id: HostingIntegrationId.Bitbucket,
+		id: GitCloudHostIntegrationId.Bitbucket,
 		name: 'Bitbucket',
 		icon: 'gl-provider-bitbucket',
 		supports: ['prs', 'issues'],
 		requiresPro: false,
 	},
 	{
-		id: SelfHostedIntegrationId.BitbucketServer,
+		id: GitSelfManagedHostIntegrationId.BitbucketServer,
 		name: 'Bitbucket Data Center',
 		icon: 'gl-provider-bitbucket',
 		supports: ['prs'],
 		requiresPro: true,
 	},
 	{
-		id: IssueIntegrationId.Jira,
+		id: IssuesCloudHostIntegrationId.Jira,
 		name: 'Jira',
 		icon: 'gl-provider-jira',
 		supports: ['issues'],

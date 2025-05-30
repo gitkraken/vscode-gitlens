@@ -85,7 +85,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		const remoteUrl = remoteUri.toString();
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
-		const remotes = await repo.git.remotes().getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		const remotes = await repo.git.remotes.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 		const remote = remotes[0] as GitRemote | undefined;
 
 		let addRemote: { name: string; url: string } | undefined;
@@ -93,7 +93,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		if (remote != null) {
 			remoteName = remote.name;
 			// Ensure we have the latest from the remote
-			await this.container.git.fetch(repo.path, { remote: remote.name });
+			await repo.git.fetch({ remote: remote.name });
 		} else {
 			remoteName = remoteOwner;
 			addRemote = { name: remoteOwner, url: remoteUrl };
@@ -112,7 +112,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		let branchRef: GitBranchReference;
 		let createBranch: string | undefined;
 
-		const localBranch = await repo.git.branches().getLocalBranchByUpstream?.(remoteBranchName);
+		const localBranch = await repo.git.branches.getLocalBranchByUpstream?.(remoteBranchName);
 		if (localBranch != null) {
 			branchRef = getReferenceFromBranch(localBranch);
 			// TODO@eamodio check if we are behind and if so ask the user to fast-forward
@@ -136,12 +136,10 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 
 			// Save the PR number in the branch config
 			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
-			void repo.git
-				.config()
-				.setConfig?.(
-					`branch.${localBranchName}.github-pr-owner-number`,
-					`${rootOwner}#${rootRepository}#${number}`,
-				);
+			void repo.git.config.setConfig?.(
+				`branch.${localBranchName}.github-pr-owner-number`,
+				`${rootOwner}#${rootRepository}#${number}`,
+			);
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
 			void window.showErrorMessage(`Unable to create worktree for ${remoteOwner}:${ref}`);

@@ -20,8 +20,6 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
-let instanceId = 0;
-
 type State = {
 	filterCommits: GitUser[] | undefined;
 };
@@ -32,8 +30,6 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	ViewNode,
 	State
 > {
-	private _instanceId: number;
-
 	constructor(
 		view: SearchAndCompareView,
 		protected override readonly parent: ViewNode,
@@ -44,9 +40,8 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	) {
 		super('compare-results', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._instanceId = instanceId++;
 		this.updateContext({
-			comparisonId: `${_ref.ref}+${_compareWith.ref}+${this._instanceId}`,
+			comparisonId: `${_ref.ref}+${_compareWith.ref}`,
 			storedComparisonId: this.getStorageId(),
 		});
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -105,6 +100,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return authors;
 	}
 
+	@debug()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return Disposable.from(
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
@@ -139,17 +135,19 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			};
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
-			const counts = await this.view.container.git
-				.commits(this.repoPath)
-				.getLeftRightCommitCount(createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'), {
-					authors: this.filterByAuthors,
-				});
+			const svc = this.view.container.git.getRepositoryService(this.repoPath);
 
-			const refsProvider = this.view.container.git.refs(this.repoPath);
+			const counts = await svc.commits.getLeftRightCommitCount(
+				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
+				{
+					authors: this.filterByAuthors,
+				},
+			);
+
 			const mergeBase =
-				(await refsProvider.getMergeBase(behind.ref1, behind.ref2, {
+				(await svc.refs.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await refsProvider.getMergeBase(behind.ref1, behind.ref2));
+				})) ?? (await svc.refs.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
@@ -219,7 +217,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		let description;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.repoPath ? this.view.container.git.getRepository(this.repoPath) : undefined;
-			description = repo?.formattedName ?? this.repoPath;
+			description = repo?.name ?? this.repoPath;
 		}
 
 		const item = new TreeItem(

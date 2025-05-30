@@ -2,14 +2,14 @@ import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription';
 import {
-	getSubscriptionPlanName,
+	getSubscriptionProductPlanName,
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
-	isSubscriptionStateTrial,
+	isSubscriptionTrial,
 } from '../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../system/commands';
 import { pluralize } from '../../../../system/string';
@@ -175,7 +175,7 @@ export class GlFeatureBadge extends LitElement {
 				return html`${text} <code-icon class="badge-icon" icon="warning" size="10"></code-icon>`;
 			} else if (isSubscriptionPaid(this.subscription) || (this.cloud && this.subscription.account != null)) {
 				return html`${text} <code-icon class="badge-icon" icon="check" size="10"></code-icon>`;
-			} else if (isSubscriptionStateTrial(this.state)) {
+			} else if (isSubscriptionTrial(this.subscription)) {
 				return html`${text} <code-icon class="badge-icon" icon="clock" size="10"></code-icon>`;
 			}
 		}
@@ -225,7 +225,7 @@ export class GlFeatureBadge extends LitElement {
 					Your
 					<gl-tooltip hoist content="Show Account view">
 						<a href="${createCommandLink('gitlens.showAccountView')}"
-							>${getSubscriptionPlanName(this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro)}</a
+							>${getSubscriptionProductPlanName(this.subscription?.plan.actual.id ?? 'pro')}</a
 						>
 					</gl-tooltip>
 					plan provides access to all Pro features.
@@ -249,7 +249,7 @@ export class GlFeatureBadge extends LitElement {
 					</div>`;
 				break;
 
-			case SubscriptionState.ProTrial: {
+			case SubscriptionState.Trial: {
 				const days = this.daysRemaining;
 
 				content = html`<p>
@@ -262,7 +262,7 @@ export class GlFeatureBadge extends LitElement {
 				break;
 			}
 
-			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.TrialExpired:
 				content = html`<p>
 						Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.
 					</p>
@@ -271,7 +271,7 @@ export class GlFeatureBadge extends LitElement {
 					)}`;
 				break;
 
-			case SubscriptionState.ProTrialReactivationEligible:
+			case SubscriptionState.TrialReactivationEligible:
 				content = html`<p>
 						Reactivate your Pro trial and experience all the new Pro features — free for another
 						${pluralize('day', proTrialLengthInDays)}!
@@ -287,22 +287,6 @@ export class GlFeatureBadge extends LitElement {
 				break;
 
 			default:
-				if (!this.cloud && this.state === SubscriptionState.ProPreview) {
-					const days = this.daysRemaining;
-
-					content = html`<p>
-							You have
-							<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
-							to preview
-							<gl-tooltip hoist content="Pro features that do not require an account"
-								><span class="hint">local</span></gl-tooltip
-							>
-							Pro features.
-						</p>
-						${this.renderStartTrialActions()}`;
-					break;
-				}
-
 				content = html`<p>
 						You only have access to
 						<gl-tooltip hoist content="Pro features that do not require an account"
@@ -334,7 +318,7 @@ export class GlFeatureBadge extends LitElement {
 			<gl-button
 				density="tight"
 				href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-					plan: SubscriptionPlanId.Pro,
+					plan: 'pro',
 					...(this.source ?? { source: 'feature-badge' }),
 				})}"
 				>Upgrade to Pro</gl-button

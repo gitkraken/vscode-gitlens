@@ -1,7 +1,7 @@
 import { hostname, userInfo } from 'os';
 import { env as process_env } from 'process';
 import { Uri } from 'vscode';
-import type { GitConfigKeys } from '../../../../constants';
+import type { DeprecatedGitConfigKeys, GitConfigKeys } from '../../../../constants';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
@@ -26,7 +26,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		private readonly provider: LocalGitProvider,
 	) {}
 
-	getConfig(repoPath: string, key: GitConfigKeys): Promise<string | undefined> {
+	getConfig(repoPath: string, key: GitConfigKeys | DeprecatedGitConfigKeys): Promise<string | undefined> {
 		return this.git.config__get(key, repoPath);
 	}
 
@@ -88,14 +88,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 			const author = `${user.name} <${user.email}>`;
 			// Check if there is a mailmap for the current user
-			const mappedAuthor = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'check-mailmap',
 				author,
 			);
 
-			if (mappedAuthor != null && mappedAuthor.length !== 0 && author !== mappedAuthor) {
-				const match = mappedAuthorRegex.exec(mappedAuthor);
+			if (result.stdout && result.stdout !== author) {
+				const match = mappedAuthorRegex.exec(result.stdout);
 				if (match != null) {
 					[, user.name, user.email] = match;
 				}

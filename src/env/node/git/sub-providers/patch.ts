@@ -1,7 +1,6 @@
 import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
-import { GitErrorHandling } from '../../../../git/commandOptions';
 import {
 	ApplyPatchCommitError,
 	ApplyPatchCommitErrorReason,
@@ -16,7 +15,7 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git } from '../git';
-import { gitLogDefaultConfigs } from '../git';
+import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
@@ -130,7 +129,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.git.cherrypick(targetPath, rev, { noCommit: true, errors: GitErrorHandling.Throw });
+			await this.provider.commits.cherryPick(targetPath, [rev], { noCommit: true });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {
@@ -159,60 +158,74 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 	}
 
-	@log({ args: { 1: '<contents>', 3: '<message>' } })
+	@log({ args: { 2: '<message>', 3: '<patch>' } })
 	async createUnreachableCommitForPatch(
 		repoPath: string,
-		contents: string,
-		baseRef: string,
+		base: string,
 		message: string,
+		patch: string,
 	): Promise<GitCommit | undefined> {
-		const scope = getLogScope();
+		// Create a temporary index file
+		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
+		const { env } = disposableIndex;
 
-		if (!contents.endsWith('\n')) {
-			contents += '\n';
+		const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
+		// eslint-disable-next-line no-return-await -- await is needed for the disposableIndex to be disposed properly after
+		return await this.provider.commits.getCommit(repoPath, sha);
+	}
+
+	@log<PatchGitSubProvider['createUnreachableCommitsFromPatches']>({ args: { 2: p => p.length } })
+	async createUnreachableCommitsFromPatches(
+		repoPath: string,
+		base: string,
+		patches: { message: string; patch: string }[],
+	): Promise<string[]> {
+		// Create a temporary index file
+		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
+		const { env } = disposableIndex;
+
+		const shas: string[] = [];
+
+		for (const { message, patch } of patches) {
+			const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
+			shas.push(sha);
+			base = sha;
 		}
 
-		// Create a temporary index file
-		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, baseRef);
-		const { env } = disposableIndex;
+		return shas;
+	}
+
+	private async createUnreachableCommitForPatchCore(
+		env: Record<string, any>,
+		repoPath: string,
+		base: string,
+		message: string,
+		patch: string,
+	): Promise<string> {
+		const scope = getLogScope();
+
+		if (!patch.endsWith('\n')) {
+			patch += '\n';
+		}
 
 		try {
 			// Apply the patch to our temp index, without touching the working directory
 			await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs, env: env, stdin: contents },
+				{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
 				'apply',
 				'--cached',
 				'-',
 			);
 
 			// Create a new tree from our patched index
-			const tree = (
-				await this.git.exec(
-					{
-						cwd: repoPath,
-						env: env,
-					},
-					'write-tree',
-				)
-			)?.trim();
+			let result = await this.git.exec({ cwd: repoPath, env: env }, 'write-tree');
+			const tree = result.stdout.trim();
 
 			// Create new commit from the tree
-			const sha = (
-				await this.git.exec(
-					{
-						cwd: repoPath,
-						env: env,
-					},
-					'commit-tree',
-					tree,
-					'-p',
-					baseRef,
-					'-m',
-					message,
-				)
-			)?.trim();
+			result = await this.git.exec({ cwd: repoPath, env: env }, 'commit-tree', tree, '-p', base, '-m', message);
+			const sha = result.stdout.trim();
 
-			return await this.provider.commits.getCommit(repoPath, sha);
+			return sha;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -224,12 +237,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	@log({ args: { 1: false } })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
-			await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
-				'apply',
-				'--check',
-				'-',
-			);
+			await this.git.exec({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');
 			return true;
 		} catch (ex) {
 			if (ex instanceof Error && ex.message) {

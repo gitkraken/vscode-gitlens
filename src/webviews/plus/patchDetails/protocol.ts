@@ -112,6 +112,7 @@ export interface Preferences {
 	files: Config['views']['patchDetails']['files'];
 	indentGuides: 'none' | 'onHover' | 'always';
 	indent: number | undefined;
+	aiEnabled: boolean;
 }
 
 export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;

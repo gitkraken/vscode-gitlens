@@ -55,10 +55,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		repoPath: string,
 		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			include?: { stats?: boolean };
-			limit?: number;
-		},
+		options?: { include?: { stats?: boolean }; limit?: number },
+		_cancellation?: CancellationToken,
 	): Promise<GitGraph> {
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
 		// const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
@@ -457,7 +455,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				startingCursor: log.startingCursor,
 				hasMore: log.hasMore,
 			},
-			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
+			more: async (
+				limit: number | undefined,
+				_sha?: string,
+				_cancellation?: CancellationToken,
+			): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
 				return this.getGraphCore(
 					repoPath,
@@ -495,10 +497,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		repoPath: string,
 		search: SearchQuery,
 		options?: {
-			cancellation?: CancellationToken;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitGraphSearch> {
 		// const scope = getLogScope();
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
@@ -553,7 +555,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				limit: number | undefined,
 				cursor?: string,
 			): Promise<GitGraphSearch> {
-				if (options?.cancellation?.isCancellationRequested) {
+				if (cancellation?.isCancellationRequested) {
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
@@ -569,7 +571,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							  : undefined,
 				});
 
-				if (result == null || options?.cancellation?.isCancellationRequested) {
+				if (result == null || cancellation?.isCancellationRequested) {
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 

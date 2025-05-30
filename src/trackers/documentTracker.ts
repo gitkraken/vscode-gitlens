@@ -19,7 +19,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { UriSet } from '../system/-webview/uriMap';
-import { findTextDocument, isVisibleDocument } from '../system/-webview/vscode';
+import { getOpenTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function/debounce';
@@ -113,7 +113,7 @@ export class GitDocumentTracker implements Disposable {
 			.filter(d => this.container.git.supportedSchemes.has(d.uri.scheme))
 			.map<[TextDocument, visible: boolean, active: boolean]>(d => [
 				d,
-				isVisibleDocument(d),
+				isVisibleTextDocument(d),
 				activeDocument === d,
 			]);
 
@@ -330,7 +330,7 @@ export class GitDocumentTracker implements Disposable {
 			this,
 			document,
 			(e: DocumentBlameStateChangeEvent) => this._onDidChangeBlameState.fire(e),
-			visible ?? isVisibleDocument(document),
+			visible ?? isVisibleTextDocument(document),
 			// Always start out false, so we will fire the event if needed
 			false,
 		);
@@ -355,7 +355,7 @@ export class GitDocumentTracker implements Disposable {
 	@debug()
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedGitDocument> | undefined {
 		if (documentOrUri instanceof Uri) {
-			const document = findTextDocument(documentOrUri);
+			const document = getOpenTextDocument(documentOrUri);
 			if (document == null) return undefined;
 
 			documentOrUri = document;
@@ -374,7 +374,7 @@ export class GitDocumentTracker implements Disposable {
 	has(uri: Uri): boolean;
 	has(documentOrUri: TextDocument | Uri): boolean {
 		if (documentOrUri instanceof Uri) {
-			const document = findTextDocument(documentOrUri);
+			const document = getOpenTextDocument(documentOrUri);
 			if (document == null) return false;
 
 			documentOrUri = document;

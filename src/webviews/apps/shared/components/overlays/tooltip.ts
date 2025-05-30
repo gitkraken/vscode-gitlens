@@ -2,6 +2,7 @@ import type SlTooltip from '@shoelace-style/shoelace/dist/components/tooltip/too
 import { setDefaultAnimation } from '@shoelace-style/shoelace/dist/utilities/animation-registry.js';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { handleUnsafeOverlayContent } from './overlays.utils';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 setDefaultAnimation('tooltip.show', null);
@@ -48,6 +49,11 @@ export class GlTooltip extends LitElement {
 		:host([data-current-placement^='right']) sl-tooltip::part(base__arrow) {
 			border-top-width: 0;
 			border-right-width: 0;
+		}
+
+		[slot='content'] hr {
+			border: none;
+			border-top: 1px solid var(--color-foreground--25);
 		}
 	`;
 
@@ -106,7 +112,7 @@ export class GlTooltip extends LitElement {
 		>
 			<slot></slot>
 			<div slot="content">
-				<slot name="content">${this.content}</slot>
+				<slot name="content">${handleUnsafeOverlayContent(this.content)}</slot>
 			</div>
 		</sl-tooltip>`;
 	}

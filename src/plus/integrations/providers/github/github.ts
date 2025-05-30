@@ -313,7 +313,7 @@ export class GitHubApi implements Disposable {
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		rev: string,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -346,11 +346,11 @@ export class GitHubApi implements Disposable {
 			const query = `query getAccountForCommit(
 	$owner: String!
 	$repo: String!
-	$ref: GitObjectID!
+	$rev: GitObjectID!
 	$avatarSize: Int
 ) {
 	repository(name: $repo, owner: $owner) {
-		object(oid: $ref) {
+		object(oid: $rev) {
 			... on Commit {
 				author {
 					name
@@ -373,7 +373,7 @@ export class GitHubApi implements Disposable {
 					...options,
 					owner: owner,
 					repo: repo,
-					ref: ref,
+					rev: rev,
 				},
 				scope,
 			);
@@ -859,7 +859,7 @@ export class GitHubApi implements Disposable {
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		rev: string,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -885,11 +885,11 @@ export class GitHubApi implements Disposable {
 			const query = `query getPullRequestForCommit(
 	$owner: String!
 	$repo: String!
-	$ref: GitObjectID!
+	$rev: GitObjectID!
 	$avatarSize: Int
 ) {
 	repository(name: $repo, owner: $owner) {
-		object(oid: $ref) {
+		object(oid: $rev) {
 			... on Commit {
 				associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
 					nodes {
@@ -909,7 +909,7 @@ export class GitHubApi implements Disposable {
 					...options,
 					owner: owner,
 					repo: repo,
-					ref: ref,
+					rev: rev,
 				},
 				scope,
 				cancellation,

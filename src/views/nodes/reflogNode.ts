@@ -68,18 +68,17 @@ export class ReflogNode
 	}
 
 	@debug()
-	override refresh(reset?: boolean): void {
-		super.refresh(true);
-
+	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._reflog = undefined;
 		}
+		return super.refresh(true);
 	}
 
 	private _reflog: GitReflog | undefined;
 	private async getReflog() {
 		if (this._reflog === undefined) {
-			this._reflog = await this.repo.git.commits().getIncomingActivity?.({
+			this._reflog = await this.repo.git.commits.getIncomingActivity?.({
 				all: true,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 			});

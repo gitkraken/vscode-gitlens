@@ -315,6 +315,10 @@ export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: numbe
 	}
 }
 
+export function slice<T>(source: Iterable<T> | IterableIterator<T>, start: number, end: number): Iterable<T> {
+	return skip(take(source, end), start);
+}
+
 export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): boolean {
 	for (const item of source) {
 		if (predicate == null || predicate(item)) return true;

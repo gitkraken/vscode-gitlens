@@ -45,7 +45,6 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import { deletedOrMissing } from '../../../git/models/revision';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser';
-import { parseGitLogSimpleFormat, parseGitLogSimpleRenamed } from '../../../git/parsers/logParser';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../git/utils/branch.utils';
 import { isBranchReference } from '../../../git/utils/reference.utils';
 import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
@@ -60,6 +59,7 @@ import {
 } from '../../../messages';
 import { asRepoComparisonKey } from '../../../repositories';
 import { configuration } from '../../../system/-webview/configuration';
+import { setContext } from '../../../system/-webview/context';
 import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -68,9 +68,9 @@ import { first, join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
-import { commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath, pathEquals } from '../../../system/path';
+import { arePathsEqual, commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath } from '../../../system/path';
 import { any, asSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds, splitSingle } from '../../../system/string';
+import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
 import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
@@ -83,7 +83,7 @@ import { BranchesGitSubProvider } from './sub-providers/branches';
 import { CommitsGitSubProvider } from './sub-providers/commits';
 import { ConfigGitSubProvider } from './sub-providers/config';
 import { ContributorsGitSubProvider } from './sub-providers/contributors';
-import { DiffGitSubProvider } from './sub-providers/diff';
+import { DiffGitSubProvider, findPathStatusChanged } from './sub-providers/diff';
 import { GraphGitSubProvider } from './sub-providers/graph';
 import { PatchGitSubProvider } from './sub-providers/patch';
 import { RefsGitSubProvider } from './sub-providers/refs';
@@ -103,6 +103,10 @@ const RepoSearchWarnings = {
 };
 
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
+
+export type LocalGitProviderInternal = Omit<LocalGitProvider, 'isTrackedWithDetails'> & {
+	isTrackedWithDetails: LocalGitProvider['isTrackedWithDetails'];
+};
 
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: 'git', name: 'Git', virtual: false };
@@ -463,21 +467,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (supported != null) return supported;
 
 		switch (feature) {
-			case 'worktrees' satisfies Features:
-				supported = await this.git.isAtLeastVersion('2.17.0');
-				this._supportedFeatures.set(feature, supported);
-				return supported;
-			case 'stashOnlyStaged' satisfies Features:
-				supported = await this.git.isAtLeastVersion('2.35.0');
-				this._supportedFeatures.set(feature, supported);
-				return supported;
-			case 'forceIfIncludes' satisfies Features:
-				supported = await this.git.isAtLeastVersion('2.30.0');
-				this._supportedFeatures.set(feature, supported);
-				return supported;
+			case 'stashes':
+			case 'timeline':
+				supported = true;
+				break;
 			default:
-				return true;
+				if (feature.startsWith('git:')) {
+					supported = await this.git.supports(feature);
+				} else {
+					supported = true;
+				}
+				break;
 		}
+
+		void setContext(`gitlens:feature:unsupported:${feature}`, !supported);
+		this._supportedFeatures.set(feature, supported);
+		return supported;
 	}
 
 	@debug<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })
@@ -775,24 +780,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ exit: true })
-	async getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined> {
-		if (ref === deletedOrMissing) return undefined;
+	async getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined> {
+		if (rev === deletedOrMissing) return undefined;
 
 		// TODO@eamodio Align this with isTrackedCore?
-		if (!ref || (isUncommitted(ref) && !isUncommittedStaged(ref))) {
+		if (!rev || (isUncommitted(rev) && !isUncommittedStaged(rev))) {
 			// Make sure the file exists in the repo
-			let data = await this.git.ls_files(repoPath, path);
-			if (data != null) return this.getAbsoluteUri(path, repoPath);
+			let exists = await this.revision.exists(repoPath, path);
+			if (exists) return this.getAbsoluteUri(path, repoPath);
 
 			// Check if the file exists untracked
-			data = await this.git.ls_files(repoPath, path, { untracked: true });
-			if (data != null) return this.getAbsoluteUri(path, repoPath);
+			exists = await this.revision.exists(repoPath, path, { untracked: true });
+			if (exists) return this.getAbsoluteUri(path, repoPath);
 
 			return undefined;
 		}
 
 		// If the ref is the index, then try to create a Uri using the Git extension, but if we can't find a repo for it, then generate our own Uri
-		if (isUncommittedStaged(ref)) {
+		if (isUncommittedStaged(rev)) {
 			let scmRepo = await this.getScmRepository(repoPath);
 			if (scmRepo == null) {
 				// If the repoPath is a canonical path, then we need to remap it to the real path, because the vscode.git extension always uses the real path
@@ -807,7 +812,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		return this.getRevisionUri(repoPath, path, ref);
+		return this.getRevisionUri(repoPath, rev, path);
 	}
 
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string {
@@ -846,8 +851,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return normalizePath(relativePath);
 	}
 
-	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
-		if (isUncommitted(ref) && !isUncommittedStaged(ref)) return this.getAbsoluteUri(path, repoPath);
+	getRevisionUri(repoPath: string, rev: string, path: string): Uri {
+		if (isUncommitted(rev) && !isUncommittedStaged(rev)) return this.getAbsoluteUri(path, repoPath);
 
 		let uncPath;
 
@@ -864,7 +869,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		const metadata: RevisionUriData = {
-			ref: ref,
+			ref: rev,
 			repoPath: normalizePath(repoPath),
 			uncPath: uncPath,
 		};
@@ -874,8 +879,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authority: encodeGitLensRevisionUriAuthority(metadata),
 			path: path,
 			// Replace `/` with `\u2009\u2215\u2009` so that it doesn't get treated as part of the path of the file
-			query: ref
-				? JSON.stringify({ ref: shortenRevision(ref).replaceAll('/', '\u2009\u2215\u2009') })
+			query: rev
+				? JSON.stringify({ ref: shortenRevision(rev).replaceAll('/', '\u2009\u2215\u2009') })
 				: undefined,
 		});
 		return uri;
@@ -885,41 +890,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined> {
 		let relativePath = this.getRelativePath(uri, repoPath);
 
-		let data;
-		let ref;
+		let result;
+		let rev;
 		do {
-			data = await this.git.ls_files(repoPath, relativePath);
-			if (data != null) {
-				relativePath = splitSingle(data, '\n')[0];
-				break;
-			}
+			if (await this.revision.exists(repoPath, relativePath)) break;
 
 			// TODO: Add caching
 
-			const cfg = configuration.get('advanced');
-
 			// Get the most recent commit for this file name
-			ref = await this.git.log__file_recent(repoPath, relativePath, {
-				ordering: cfg.commitOrdering,
-				similarityThreshold: cfg.similarityThreshold,
-			});
-			if (ref == null) return undefined;
+			rev = first(await this.commits.getLogShas(repoPath, undefined, { limit: 1, pathOrUri: relativePath }));
+			if (rev == null) return undefined;
 
-			// Now check if that commit had any renames
-			data = await this.git.log__file(repoPath, '.', ref, {
-				argsOrFormat: parseGitLogSimpleFormat,
-				fileMode: 'simple',
-				filters: ['R', 'C', 'D'],
-				limit: 1,
-				ordering: cfg.commitOrdering,
-			});
-			if (data == null || data.length === 0) break;
+			// Now check if that commit had any copies/renames
+			result = await findPathStatusChanged(this.git, repoPath, relativePath, rev);
+			// If the file was deleted, then we can't find the working file
+			if (result?.file?.status === 'D') return undefined;
+			if (result?.file == null) break;
 
-			const [foundRef, foundFile, foundStatus] = parseGitLogSimpleRenamed(data, relativePath);
-			if (foundStatus === 'D' && foundFile != null) return undefined;
-			if (foundRef == null || foundFile == null) break;
-
-			relativePath = foundFile;
+			relativePath = result?.file.path;
 		} while (true);
 
 		uri = this.getAbsoluteUri(relativePath, repoPath);
@@ -942,7 +930,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let patch;
 		try {
-			patch = await this.git.diff(root, relativePath, ref1, ref2);
+			const result = await this.git.diff(root, relativePath, ref1, ref2);
+			patch = result.stdout;
 			void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn'));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
@@ -1015,15 +1004,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const paths = new Map<string, Uri>(uris.map(u => [normalizePath(u.fsPath), u]));
 
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: join(paths.keys(), '\0') },
 			'check-ignore',
 			'-z',
 			'--stdin',
 		);
-		if (data == null) return uris;
+		if (!result.stdout) return uris;
 
-		const ignored = data.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
+		const ignored = result.stdout.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
 		if (ignored.length === 0) return uris;
 
 		for (const file of ignored) {
@@ -1232,7 +1221,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (networkPath != null) {
 							// If the repository is at the root of the mapped drive then we
 							// have to append `\` (ex: D:\) otherwise the path is not valid.
-							const isDriveRoot = pathEquals(repoUri.fsPath, networkPath);
+							const isDriveRoot = arePathsEqual(repoUri.fsPath, networkPath);
 
 							repoPath = normalizePath(
 								repoUri.fsPath.replace(
@@ -1261,7 +1250,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							return;
 						}
 
-						if (pathEquals(uri.fsPath, resolvedPath)) {
+						if (arePathsEqual(uri.fsPath, resolvedPath)) {
 							Logger.debug(scope, `No symlink detected; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;
@@ -1367,7 +1356,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1463,7 +1452,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1548,7 +1537,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1616,7 +1605,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1763,7 +1752,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		try {
-			const data = await this.git.diff(root, relativePath, ref1, ref2, {
+			const result = await this.git.diff(root, relativePath, ref1, ref2, {
 				...options,
 				filters: ['M'],
 				linesOfContext: 0,
@@ -1771,7 +1760,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const diff = parseGitFileDiff(data);
+			const diff = parseGitFileDiff(result.stdout);
 			return diff;
 		} catch (ex) {
 			// Trap and cache expected diff errors
@@ -2002,14 +1991,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				// Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
-				let tracked = Boolean(await this.git.ls_files(repoPath, relativePath));
+				let tracked = await this.revision.exists(repoPath, relativePath);
 				if (tracked) return [relativePath, repoPath];
 
 				if (repoPath) {
 					const [newRelativePath, newRepoPath] = splitPath(path, '', true);
 					if (newRelativePath !== relativePath) {
 						// If we didn't find it, check it as close to the file as possible (will find nested repos)
-						tracked = Boolean(await this.git.ls_files(newRepoPath, newRelativePath));
+						tracked = await this.revision.exists(newRepoPath, newRelativePath);
 						if (tracked) {
 							repository = await this.container.git.getOrOpenRepository(Uri.file(path), {
 								detectNested: true,
@@ -2024,10 +2013,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				if (!tracked && ref && !isUncommitted(ref)) {
-					tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { rev: ref }));
+					tracked = await this.revision.exists(repoPath, relativePath, ref);
 					// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
 					if (!tracked) {
-						tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { rev: `${ref}^` }));
+						tracked = await this.revision.exists(repoPath, relativePath, `${ref}^`);
 					}
 				}
 
@@ -2085,7 +2074,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _commits: CommitsGitSubProvider | undefined;
 	get commits(): CommitsGitSubProvider {
-		return (this._commits ??= new CommitsGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._commits ??= new CommitsGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _config: ConfigGitSubProvider | undefined;

@@ -27,7 +27,7 @@ export abstract class CacheableChildrenViewNode<
 	}
 
 	@debug()
-	override refresh(reset: boolean = false): void {
+	override refresh(reset: boolean = false): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this.children = undefined;
 		}

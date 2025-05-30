@@ -2,6 +2,13 @@ interface CacheEntry<V> {
 	promise: Promise<V>;
 	accessed: number;
 	created: number;
+
+	createTTL: number | undefined;
+	accessTTL: number | undefined;
+}
+
+export interface Cancellable {
+	cancel(): void;
 }
 
 export class PromiseCache<K, V> {
@@ -18,30 +25,59 @@ export class PromiseCache<K, V> {
 		},
 	) {}
 
-	async get(key: K, factory: () => Promise<V>): Promise<V> {
+	async get(
+		key: K,
+		factory: (cancellable: Cancellable) => Promise<V>,
+		options?: {
+			/** TTL (time-to-live) in milliseconds since creation */
+			createTTL?: number;
+			/** TTL (time-to-live) in milliseconds since last access */
+			accessTTL?: number;
+			/** Whether to expire the entry if the promise fails */
+			expireOnError?: boolean;
+		},
+	): Promise<V> {
 		const now = Date.now();
+
+		options = {
+			...this.options,
+			...options,
+		};
 
 		let entry = this.cache.get(key);
 		if (entry != null && !this.expired(entry, now)) {
 			// Update accessed time
 			entry.accessed = now;
+
+			entry.createTTL = options.createTTL;
+			entry.accessTTL = options.accessTTL;
 			return entry.promise;
 		}
 
-		const promise = factory();
+		let cancelled = false;
+		const promise = factory({ cancel: () => (cancelled = true) });
+		void promise.finally(() => {
+			if (cancelled) {
+				this.cache.delete(key);
+			}
+		});
+
 		entry = {
 			promise: promise,
 			created: now,
 			accessed: now,
+
+			createTTL: options.createTTL,
+			accessTTL: options.accessTTL,
 		};
 		this.cache.set(key, entry);
 
 		// Clean up other expired entries
-		if ((this.options?.createTTL != null || this.options?.accessTTL != null) && this.cache.size > 1) {
+		if (this.cache.size > 1) {
 			queueMicrotask(() => this.cleanupExpired());
 		}
 
-		if (this.options?.expireOnError) {
+		if (options?.expireOnError) {
 			promise.catch(() => this.cache.delete(key));
 		}
 
@@ -60,8 +96,8 @@ export class PromiseCache<K, V> {
 
 	private expired(entry: CacheEntry<V>, now: number): boolean {
 		return (
-			(this.options?.createTTL != null && now - entry.created >= this.options?.createTTL) ||
-			(this.options?.accessTTL != null && now - entry.accessed >= this.options?.accessTTL)
+			(entry.createTTL != null && now - entry.created >= entry.createTTL) ||
+			(entry.accessTTL != null && now - entry.accessed >= entry.accessTTL)
 		);
 	}
 

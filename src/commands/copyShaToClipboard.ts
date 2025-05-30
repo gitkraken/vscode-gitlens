@@ -6,6 +6,7 @@ import { shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
+import { createMarkdownCommandLink } from '../system/commands';
 import { first } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
@@ -23,6 +24,13 @@ export interface CopyShaToClipboardCommandArgs {
 
 @command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
+	static createMarkdownCommandLink(sha: string): string;
+	static createMarkdownCommandLink(args: CopyShaToClipboardCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: CopyShaToClipboardCommandArgs | string): string {
+		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+		return createMarkdownCommandLink<CopyShaToClipboardCommandArgs>('gitlens.copyShaToClipboard', args);
+	}
+
 	constructor(private readonly container: Container) {
 		super('gitlens.copyShaToClipboard');
 	}
@@ -57,10 +65,10 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			if (!args.sha) {
 				// If we don't have an editor then get the sha of the last commit to the branch
 				if (uri == null) {
-					const repoPath = this.container.git.getBestRepository(editor)?.path;
-					if (!repoPath) return;
+					const repo = this.container.git.getBestRepository(editor);
+					if (repo == null) return;
 
-					const log = await this.container.git.commits(repoPath).getLog(undefined, { limit: 1 });
+					const log = await repo.git.commits.getLog(undefined, { limit: 1 });
 					if (log == null) return;
 
 					args.sha = first(log.commits.values())?.sha;

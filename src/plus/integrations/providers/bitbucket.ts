@@ -1,7 +1,7 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { md5 } from '@env/crypto';
-import { HostingIntegrationId } from '../../../constants.integrations';
-import type { Account } from '../../../git/models/author';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
@@ -11,19 +11,19 @@ import { uniqueBy } from '../../../system/iterable';
 import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
-import { HostingIntegration } from '../integration';
+import { GitHostIntegration } from '../models/gitHostIntegration';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models';
 import { fromProviderPullRequest, providersMetadata } from './models';
 
-const metadata = providersMetadata[HostingIntegrationId.Bitbucket];
+const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-export class BitbucketIntegration extends HostingIntegration<
-	HostingIntegrationId.Bitbucket,
+export class BitbucketIntegration extends GitHostIntegration<
+	GitCloudHostIntegrationId.Bitbucket,
 	BitbucketRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = HostingIntegrationId.Bitbucket;
+	readonly id = GitCloudHostIntegrationId.Bitbucket;
 	protected readonly key = this.id;
 	readonly name: string = 'Bitbucket';
 	get domain(): string {
@@ -49,14 +49,24 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderAccountForCommit(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_ref: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
+		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
+	): Promise<Account | UnidentifiedAuthor | undefined> {
+		return (await this.container.bitbucket)?.getAccountForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+			{
+				avatarSize: options?.avatarSize,
+			},
+		);
 	}
 
 	protected override async getProviderAccountForEmail(
@@ -131,11 +141,18 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_ref: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getPullRequestForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+		);
 	}
 
 	protected override async getProviderRepositoryMetadata(
@@ -212,7 +229,7 @@ export class BitbucketIntegration extends HostingIntegration<
 			return undefined;
 		}
 
-		const remotes = await flatSettled(this.container.git.openRepositories.map(r => r.git.remotes().getRemotes()));
+		const remotes = await flatSettled(this.container.git.openRepositories.map(r => r.git.remotes.getRemotes()));
 		const workspaceRepos = await nonnullSettled(
 			remotes.map(async r => {
 				const integration = await r.getIntegration();

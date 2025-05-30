@@ -20,6 +20,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 		public readonly remote: GitRemote,
+		private readonly _options?: { expand?: boolean },
 	) {
 		super('remote', uri, view, parent);
 
@@ -40,7 +41,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const branches = await this.repo.git.branches().getBranches({
+		const branches = await this.repo.git.branches.getBranches({
 			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true,
@@ -62,7 +63,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			branchNodes,
 			n => n.treeHierarchy,
 			(...paths) => paths.join('/'),
-			this.view.config.files.compact,
+			this.view.config.branches.compact,
 			b => {
 				b.compacted = true;
 				return true;
@@ -83,7 +84,10 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			this.remote.name,
+			this._options?.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.description = getRemoteUpstreamDescription(this.remote);
 
@@ -105,8 +109,8 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 								),
 					    };
 
-			if (this.remote.hasIntegration()) {
-				const integration = await this.view.container.integrations.getByRemote(this.remote);
+			if (this.remote.supportsIntegration()) {
+				const integration = await this.remote.getIntegration();
 				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;

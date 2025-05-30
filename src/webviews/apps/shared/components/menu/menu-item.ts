@@ -19,6 +19,8 @@ export class MenuItem extends LitElement {
 				text-align: left;
 				height: auto;
 				line-height: 2.2rem;
+				-webkit-font-smoothing: auto;
+				border-radius: var(--menu-item-radius, 0.3rem);
 			}
 
 			:host([role='option']:hover) {

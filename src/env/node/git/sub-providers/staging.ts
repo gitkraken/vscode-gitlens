@@ -18,7 +18,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	) {}
 
 	@log()
-	async createTemporaryIndex(repoPath: string, baseRef: string): Promise<DisposableTemporaryGitIndex> {
+	async createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex> {
 		// Create a temporary index file
 		const tempDir = await fs.mkdtemp(joinPaths(tmpdir(), 'gl-'));
 		const tempIndex = joinPaths(tempDir, 'index');
@@ -39,37 +39,24 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			// Create the temp index file from a base ref/sha
 
 			// Get the tree of the base
-			const newIndex = await this.git.exec(
-				{
-					cwd: repoPath,
-					env: env,
-				},
+			const newIndexResult = await this.git.exec(
+				{ cwd: repoPath, env: env },
 				'ls-tree',
 				'-z',
 				'-r',
 				'--full-name',
-				baseRef,
+				base,
 			);
 
 			// Write the tree to our temp index
 			await this.git.exec(
-				{
-					cwd: repoPath,
-					env: env,
-					stdin: newIndex,
-				},
+				{ cwd: repoPath, env: env, stdin: newIndexResult.stdout },
 				'update-index',
 				'-z',
 				'--index-info',
 			);
 
-			return mixinAsyncDisposable(
-				{
-					path: tempIndex,
-					env: { GIT_INDEX_FILE: tempIndex },
-				},
-				dispose,
-			);
+			return mixinAsyncDisposable({ path: tempIndex, env: { GIT_INDEX_FILE: tempIndex } }, dispose);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -81,9 +68,13 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@log()
 	async stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void> {
-		await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', [
+		await this.git.exec(
+			{ cwd: repoPath },
+			'add',
+			options?.intentToAdd ? '-N' : '-A',
+			'--',
 			typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0],
-		]);
+		);
 	}
 
 	@log()
@@ -107,9 +98,13 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		directoryOrUri: string | Uri,
 		options?: { intentToAdd?: boolean },
 	): Promise<void> {
-		await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', [
+		await this.git.exec(
+			{ cwd: repoPath },
+			'add',
+			options?.intentToAdd ? '-N' : '-A',
+			'--',
 			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
-		]);
+		);
 	}
 
 	@log()

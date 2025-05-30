@@ -57,13 +57,14 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			this.view.message = 'Loading branches...';
+
 			if (this.view.container.git.isDiscoveringRepositories) {
-				this.view.message = 'Loading branches...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) {
+			if (!repositories.length) {
 				this.view.message = 'No branches could be found.';
 				return [];
 			}
@@ -79,9 +80,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				worktreesByBranch: worktreesByBranch?.size ? worktreesByBranch : undefined,
 			});
 
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -90,25 +90,27 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			const { showRemoteBranches } = this.view.config;
 			const defaultRemote = showRemoteBranches
-				? (await child.repo.git.remotes().getDefaultRemote())?.name
+				? (await child.repo.git.remotes.getDefaultRemote())?.name
 				: undefined;
 
-			const branches = await child.repo.git.branches().getBranches({
+			const branches = await child.repo.git.branches.getBranches({
 				filter: b =>
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
 			});
-			if (branches.values.length === 0) {
+			if (!branches.values.length) {
 				this.view.message = 'No branches could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
+			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(branches.values.length);
 
 			return child.getChildren();
 		}
 
+		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -147,7 +149,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
-					this.container.git.resetCaches('branches');
+					this.container.git.resetCaches('branches', 'worktrees');
 					return this.refresh(true);
 				},
 				this,
@@ -255,8 +257,8 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 
 		// Get all the branches the commit is on
 		const branches = await this.container.git
-			.branches(commit.repoPath)
-			.getBranchesWithCommits(
+			.getRepositoryService(commit.repoPath)
+			.branches.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
 				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
@@ -306,7 +308,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -335,7 +337,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

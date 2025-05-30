@@ -2,7 +2,7 @@ import { env, window } from 'vscode';
 import type { Container } from '../container';
 import { shortenRevision } from '../git/utils/revision.utils';
 import { command } from '../system/-webview/command';
-import { openUrl } from '../system/-webview/vscode';
+import { openUrl } from '../system/-webview/vscode/uris';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
 
@@ -35,13 +35,15 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await this.container.git.remotes(args.repoPath).getBestRemoteWithIntegration();
+			const remote = await this.container.git
+				.getRepositoryService(args.repoPath)
+				.remotes.getBestRemoteWithIntegration();
 			if (remote == null) return;
 
-			const provider = await this.container.integrations.getByRemote(remote);
-			if (provider == null) return;
+			const integration = await remote?.getIntegration();
+			if (integration == null) return;
 
-			const pr = await provider.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
+			const pr = await integration.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
 			if (pr == null) {
 				void window.showInformationMessage(`No pull request associated with '${shortenRevision(args.ref)}'`);
 				return;

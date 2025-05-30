@@ -1,10 +1,49 @@
 import type { StoredFeaturePreviewUsagePeriod } from './constants.storage';
 import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription';
 import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
+import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
 import { capitalize } from './system/string';
 
-export type Features = 'stashes' | 'timeline' | 'worktrees' | 'stashOnlyStaged' | 'forceIfIncludes';
+// GitFeature's must start with `git:` to be recognized in all usages
+export type GitFeatures =
+	| 'git:for-each-ref:worktreePath'
+	| 'git:ignoreRevsFile'
+	| 'git:merge-tree'
+	| 'git:push:force-if-includes'
+	| 'git:rev-parse:end-of-options'
+	| 'git:stash:push:pathspecs'
+	| 'git:stash:push:staged'
+	| 'git:stash:push:stdin'
+	| 'git:status:find-renames'
+	| 'git:status:porcelain-v2'
+	| 'git:worktrees';
+
+type ExtractPrefix<T> = T extends `${infer Prefix}:${infer Rest}`
+	? Rest extends `${infer SubPrefix}:${string}`
+		? T | `${Prefix}:${SubPrefix}` | Prefix
+		: T | Prefix
+	: never;
+
+export type GitFeatureOrPrefix = ExtractPrefix<GitFeatures>;
+export type FilteredGitFeatures<T extends GitFeatureOrPrefix> = T extends GitFeatures
+	? T
+	: Extract<GitFeatures, T | `${T}:${string}`>;
+
+export const gitFeaturesByVersion = new Map<GitFeatures, string>([
+	['git:for-each-ref:worktreePath', '2.23'],
+	['git:ignoreRevsFile', '2.23'],
+	['git:merge-tree', '2.33'],
+	['git:push:force-if-includes', '2.30.0'],
+	['git:rev-parse:end-of-options', '2.30'],
+	['git:stash:push:pathspecs', '2.13.2'],
+	['git:stash:push:staged', '2.35.0'],
+	['git:stash:push:stdin', '2.30.0'],
+	['git:status:find-renames', '2.18'],
+	['git:status:porcelain-v2', '2.11'],
+	['git:worktrees', '2.17.0'],
+]);
+
+export type Features = 'stashes' | 'timeline' | GitFeatures;
 
 export type FeatureAccess =
 	| {
@@ -14,7 +53,7 @@ export type FeatureAccess =
 	  }
 	| {
 			allowed: false | 'mixed';
-			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlanIds };
 			visibility?: RepositoryVisibility;
 	  };
 
@@ -26,7 +65,7 @@ export type RepoFeatureAccess =
 	  }
 	| {
 			allowed: false;
-			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlanIds };
 			visibility?: RepositoryVisibility;
 	  };
 

@@ -20,8 +20,12 @@ export interface GenerateCommitMessageCommandArgs {
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(
-			['gitlens.ai.generateCommitMessage', 'gitlens.scm.ai.generateCommitMessage'],
-			['gitlens.generateCommitMessage', 'gitlens.scm.generateCommitMessage'],
+			['gitlens.ai.generateCommitMessage', 'gitlens.ai.generateCommitMessage:scm'],
+			[
+				'gitlens.generateCommitMessage',
+				'gitlens.scm.generateCommitMessage',
+				'gitlens.scm.ai.generateCommitMessage',
+			],
 		);
 	}
 
@@ -29,7 +33,8 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		let source: Sources | undefined = args?.source;
 		if (
 			source == null &&
-			(context.command === 'gitlens.scm.ai.generateCommitMessage' ||
+			(context.command === 'gitlens.ai.generateCommitMessage:scm' ||
+				context.command === /** @deprecated */ 'gitlens.scm.ai.generateCommitMessage' ||
 				context.command === /** @deprecated */ 'gitlens.scm.generateCommitMessage')
 		) {
 			source = 'scm-input';
@@ -44,25 +49,25 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		args = { ...args };
 
-		let repository;
+		let repo;
 		if (args.repoPath != null) {
-			repository = this.container.git.getRepository(args.repoPath);
+			repo = this.container.git.getRepository(args.repoPath);
 		} else {
 			uri = getCommandUri(uri, editor);
 
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-			repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Generate Commit Message');
+			repo = await getBestRepositoryOrShowPicker(gitUri, editor, 'Generate Commit Message');
 		}
-		if (repository == null) return;
+		if (repo == null) return;
 
-		const scmRepo = await this.container.git.getScmRepository(repository.path);
+		const scmRepo = await repo.git.getScmRepository();
 		if (scmRepo == null) return;
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
 			const result = await this.container.ai.generateCommitMessage(
-				repository,
+				repo,
 				{ source: args?.source ?? 'commandPalette' },
 				{
 					context: currentMessage,
@@ -72,8 +77,8 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (result == null) return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}\n\n${
-				result.parsed.body
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
+				result.parsed.body ? `\n\n${result.parsed.body}` : ''
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');

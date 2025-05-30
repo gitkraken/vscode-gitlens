@@ -37,9 +37,7 @@ import '../../../shared/components/badges/badge';
 import '../../../shared/components/button-container';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
-import '../../../shared/components/commit/commit-identity';
 import '../../../shared/components/markdown/markdown';
-import '../../../shared/components/tree/tree-generator';
 import '../../../shared/components/webview-pane';
 
 // Can only import types from 'vscode'
@@ -192,7 +190,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	private renderExplainAi() {
-		if (this.state?.orgSettings.ai === false) return undefined;
+		if (this.state?.orgSettings.ai === false || this.state?.preferences.aiEnabled === false) return undefined;
 
 		const markdown =
 			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;

@@ -63,7 +63,9 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 			);
 
 			if (result == null) return;
-			return `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}\n\n${result.parsed.body}`;
+			return `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
+				result.parsed.body ? `\n\n${result.parsed.body}` : ''
+			}`;
 		} catch (ex) {
 			Logger.error(ex, scope);
 

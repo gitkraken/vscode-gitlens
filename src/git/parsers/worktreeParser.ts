@@ -18,14 +18,17 @@ interface WorktreeEntry {
 
 export function parseGitWorktrees(
 	container: Container,
-	data: string,
+	data: string | undefined,
 	repoPath: string,
 	branches: GitBranch[],
 ): GitWorktree[] {
 	using sw = maybeStopWatch(`Git.parseWorktrees(${repoPath})`, { log: false, logLevel: 'debug' });
 
 	const worktrees: GitWorktree[] = [];
-	if (!data) return worktrees;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return worktrees;
+	}
 
 	if (repoPath != null) {
 		repoPath = normalizePath(repoPath);
@@ -40,7 +43,7 @@ export function parseGitWorktrees(
 	let prunable: string;
 	let main = true; // the first worktree is the main worktree
 
-	for (line of iterateByDelimiter(data)) {
+	for (line of iterateByDelimiter(data, '\n')) {
 		index = line.indexOf(' ');
 		if (index === -1) {
 			key = line;
@@ -50,7 +53,7 @@ export function parseGitWorktrees(
 			value = line.substring(index + 1);
 		}
 
-		if (key.length === 0 && entry != null) {
+		if (!key && entry != null) {
 			// eslint-disable-next-line no-loop-func
 			const branch = entry.branch ? branches?.find(b => b.name === entry!.branch) : undefined;
 
@@ -73,9 +76,7 @@ export function parseGitWorktrees(
 			continue;
 		}
 
-		if (entry == null) {
-			entry = {};
-		}
+		entry ??= {};
 
 		switch (key) {
 			case 'worktree':

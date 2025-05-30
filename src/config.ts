@@ -151,6 +151,7 @@ export type StatusBarCommands =
 
 // NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
 export type SuppressedMessages =
+	| 'suppressBitbucketPRCommitLinksAppNotInstalledWarning'
 	| 'suppressCommitHasNoPreviousCommitWarning'
 	| 'suppressCommitNotFoundWarning'
 	| 'suppressCreatePullRequestPrompt'
@@ -190,6 +191,9 @@ export interface AdvancedConfig {
 		readonly gitPath: boolean;
 	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo' | null;
+	readonly commits: {
+		readonly delayLoadingFileDetails: boolean;
+	};
 	readonly externalDiffTool: string | null;
 	readonly externalDirectoryDiffTool: string | null;
 	readonly fileHistoryFollowsRenames: boolean;
@@ -206,8 +210,20 @@ export interface AdvancedConfig {
 }
 
 interface AIConfig {
+	readonly enabled: boolean;
+	readonly azure: {
+		readonly url: string | null;
+	};
 	readonly explainChanges: {
 		readonly customInstructions: string;
+	};
+	readonly experimental: {
+		readonly generateCommits: {
+			readonly enabled: boolean;
+		};
+		readonly generateRebase: {
+			readonly enabled: boolean;
+		};
 	};
 	readonly generateChangelog: {
 		readonly customInstructions: string;
@@ -240,7 +256,13 @@ interface AIConfig {
 	readonly modelOptions: {
 		readonly temperature: number;
 	};
+	readonly ollama: {
+		readonly url: string | null;
+	};
 	readonly openai: {
+		readonly url: string | null;
+	};
+	readonly openaicompatible: {
 		readonly url: string | null;
 	};
 	readonly vscode: {
@@ -792,6 +814,7 @@ export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
 export interface BranchesViewConfig {
 	readonly avatars: boolean;
 	readonly branches: {
+		readonly compact: boolean;
 		readonly layout: ViewBranchesLayout;
 	};
 	readonly files: ViewsFilesConfig;
@@ -835,6 +858,7 @@ export interface CommitDetailsViewConfig {
 export interface ContributorsViewConfig {
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
+	readonly maxWait: number;
 	readonly pullRequests: {
 		readonly enabled: boolean;
 		readonly showForCommits: boolean;
@@ -893,6 +917,7 @@ export interface PullRequestViewConfig {
 export interface RemotesViewConfig {
 	readonly avatars: boolean;
 	readonly branches: {
+		readonly compact: boolean;
 		readonly layout: ViewBranchesLayout;
 	};
 	readonly files: ViewsFilesConfig;
@@ -909,6 +934,7 @@ export interface RepositoriesViewConfig {
 	readonly autoReveal: boolean;
 	readonly avatars: boolean;
 	readonly branches: {
+		readonly compact: boolean;
 		readonly layout: ViewBranchesLayout;
 		readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
 		readonly showStashes: boolean;
@@ -953,6 +979,7 @@ export interface StashesViewConfig {
 export interface TagsViewConfig {
 	readonly avatars: boolean;
 	readonly branches: {
+		readonly compact: boolean;
 		readonly layout: ViewBranchesLayout;
 	};
 	readonly files: ViewsFilesConfig;
@@ -964,6 +991,7 @@ export type ViewWorktreesViewAs = 'name' | 'path' | 'relativePath';
 export interface WorktreesViewConfig {
 	readonly avatars: boolean;
 	readonly branches: {
+		readonly compact: boolean;
 		readonly layout: ViewBranchesLayout;
 	};
 	readonly files: ViewsFilesConfig;
@@ -983,6 +1011,7 @@ export interface WorktreesViewConfig {
 export interface WorkspacesViewConfig {
 	readonly avatars: boolean;
 	readonly branches: {
+		readonly compact: boolean;
 		readonly layout: ViewBranchesLayout;
 		readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
 		readonly showStashes: boolean;

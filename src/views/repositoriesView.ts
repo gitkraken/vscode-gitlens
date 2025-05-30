@@ -71,7 +71,15 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
-					this.container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
+					this.container.git.resetCaches(
+						'branches',
+						'contributors',
+						'remotes',
+						'stashes',
+						'status',
+						'tags',
+						'worktrees',
+					);
 					return this.refresh(true);
 				},
 				this,
@@ -330,14 +338,14 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	): Promise<ViewNode | undefined> {
 		const { repoPath } = commit;
 
+		const svc = this.container.git.getRepositoryService(repoPath);
+
 		// Get all the branches the commit is on
-		let branches = await this.container.git
-			.branches(commit.repoPath)
-			.getBranchesWithCommits(
-				[commit.ref],
-				undefined,
-				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
-			);
+		let branches = await svc.branches.getBranchesWithCommits(
+			[commit.ref],
+			undefined,
+			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
+		);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 				allowPaging: true,
@@ -366,13 +374,11 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		}
 
 		// If we didn't find the commit on any local branches, check remote branches
-		branches = await this.container.git
-			.branches(commit.repoPath)
-			.getBranchesWithCommits(
-				[commit.ref],
-				undefined,
-				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
-			);
+		branches = await svc.branches.getBranchesWithCommits(
+			[commit.ref],
+			undefined,
+			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+		);
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);
@@ -529,7 +535,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -588,7 +594,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -614,7 +620,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -640,7 +646,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -749,7 +755,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -805,7 +811,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

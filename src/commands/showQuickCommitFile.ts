@@ -111,7 +111,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				if (args.fileLog == null) {
 					const repoPath = args.commit?.repoPath ?? gitUri.repoPath;
-					args.commit = await this.container.git.commits(repoPath!).getCommitForFile(gitUri, args.sha);
+					args.commit = await this.container.git
+						.getRepositoryService(repoPath!)
+						.commits.getCommitForFile(gitUri, args.sha);
 					if (args.commit == null) {
 						void showCommitNotFoundWarningMessage('Unable to show commit file details');
 
@@ -128,7 +130,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
 			if (isCommit(args.commit)) {
-				if (args.commit.files == null) {
+				if (!args.commit.hasFullDetails({ allowFilteredFiles: true })) {
 					await args.commit.ensureFullDetails();
 				}
 			}
@@ -151,11 +153,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 @command()
 export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
-		super([
-			'gitlens.showQuickRevisionDetails',
-			'gitlens.showQuickRevisionDetailsInDiffLeft',
-			'gitlens.showQuickRevisionDetailsInDiffRight',
-		]);
+		super('gitlens.showQuickRevisionDetails');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {

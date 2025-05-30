@@ -1,17 +1,17 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
-import { IssueIntegrationId } from '../../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
+import type { IssueResourceDescriptor } from '../../../git/models/resourceDescriptor';
 import { filterMap, flatten } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import type { IssueResourceDescriptor } from '../integration';
-import { IssueIntegration } from '../integration';
+import { IssuesIntegration } from '../models/issuesIntegration';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models';
 
-const metadata = providersMetadata[IssueIntegrationId.Jira];
+const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
 
@@ -26,9 +26,9 @@ export interface JiraProjectDescriptor extends JiraBaseDescriptor {
 	resourceId: string;
 }
 
-export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
+export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Jira> {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = IssueIntegrationId.Jira;
+	readonly id = IssuesCloudHostIntegrationId.Jira;
 	protected readonly key = this.id;
 	readonly name: string = 'Jira';
 
@@ -57,16 +57,29 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 				const projects = this._projects.get(`${this._session.accessToken}:${organization.id}`);
 				if (projects != null) {
 					for (const project of projects) {
-						const prefix = `${project.key}-`;
+						const dashedPrefix = `${project.key}-`;
+						const underscoredPrefix = `${project.key}_`;
 						autolinks.push({
-							prefix: prefix,
-							url: `${organization.url}/browse/${prefix}<num>`,
+							prefix: dashedPrefix,
+							url: `${organization.url}/browse/${dashedPrefix}<num>`,
 							alphanumeric: false,
 							ignoreCase: false,
-							title: `Open Issue ${prefix}<num> on ${organization.name}`,
+							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
 
 							type: 'issue',
-							description: `${organization.name} Issue ${prefix}<num>`,
+							description: `${organization.name} Issue ${dashedPrefix}<num>`,
+							descriptor: { ...organization },
+						});
+						autolinks.push({
+							prefix: underscoredPrefix,
+							url: `${organization.url}/browse/${dashedPrefix}<num>`,
+							alphanumeric: false,
+							ignoreCase: false,
+							referenceType: 'branch',
+							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+
+							type: 'issue',
+							description: `${organization.name} Issue ${dashedPrefix}<num>`,
 							descriptor: { ...organization },
 						});
 					}

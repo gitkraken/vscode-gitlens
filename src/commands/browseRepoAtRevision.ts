@@ -3,7 +3,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/-webview/command';
-import { openWorkspace } from '../system/-webview/vscode';
+import { openWorkspace } from '../system/-webview/vscode/workspaces';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { ActiveEditorCommand } from './commandBase';
@@ -56,12 +56,12 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			}
 
 			let gitUri = await GitUri.fromUri(uri);
-			if (gitUri.sha == null) return;
+			if (gitUri.repoPath == null || gitUri.sha == null) throw new Error('No repo or SHA for Uri');
 
-			const sha = args?.before
-				? await this.container.git.refs(gitUri.repoPath!).resolveReference(`${gitUri.sha}^`)
-				: gitUri.sha;
-			uri = this.container.git.getRevisionUri(sha, gitUri.repoPath!, gitUri.repoPath!);
+			const svc = this.container.git.getRepositoryService(gitUri.repoPath);
+
+			const sha = args?.before ? (await svc.revision.resolveRevision(`${gitUri.sha}^`)).sha : gitUri.sha;
+			uri = svc.getRevisionUri(sha, gitUri.repoPath);
 			gitUri = GitUri.fromRevisionUri(uri);
 
 			openWorkspace(uri, {

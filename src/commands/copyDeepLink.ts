@@ -127,7 +127,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 
 		try {
 			let chosenRemote;
-			const remotes = await this.container.git.remotes(repoPath).getRemotes({ sort: true });
+			const remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotes({ sort: true });
 			const defaultRemote = remotes.find(r => r.default);
 			if (args.remote && !args.prePickRemote) {
 				chosenRemote = remotes.find(r => r.name === args?.remote);
@@ -290,7 +290,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 
 		try {
 			let chosenRemote;
-			const remotes = await this.container.git.remotes(repoPath).getRemotes({ sort: true });
+			const remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotes({ sort: true });
 			const defaultRemote = remotes.find(r => r.default);
 			if (args.remote && !args.prePickRemote) {
 				chosenRemote = remotes.find(r => r.name === args?.remote);

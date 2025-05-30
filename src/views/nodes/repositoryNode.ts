@@ -16,6 +16,7 @@ import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
+import { join, map, slice } from '../../system/iterable';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositories } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -51,7 +52,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		this.updateContext({ ...context, repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
-		this._status = this.repo.git.status().getStatus();
+		this._status = this.repo.git.status.getStatus();
 	}
 
 	override get id(): string {
@@ -80,7 +81,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			const status = await this._status;
 			if (status != null) {
-				const defaultWorktreePath = await this.repo.git.config().getDefaultWorktreePath?.();
+				const defaultWorktreePath = await this.repo.git.config.getDefaultWorktreePath?.();
 
 				const branch = new GitBranch(
 					this.view.container,
@@ -95,9 +96,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					status.rebasing,
 				);
 
-				const pausedOpStatus = await this.repo.git.status().getPausedOperationStatus?.();
+				const pausedOpStatus = await this.repo.git.status.getPausedOperationStatus?.();
 				if (pausedOpStatus != null) {
-					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, status, true));
+					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, true, status));
 				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
 						if (!status.upstream.state.behind && !status.upstream.state.ahead) {
@@ -174,7 +175,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showWorktrees && (await this.repo.git.supports('worktrees'))) {
+			if (this.view.config.showWorktrees && (await this.repo.git.supports('git:worktrees'))) {
 				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 
@@ -196,14 +197,14 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const label = this.repo.formattedName ?? this.uri.repoPath ?? '';
+		const label = this.repo.name ?? this.uri.repoPath ?? '';
 
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		let description;
-		let tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+		let tooltip = `${this.repo.name ?? this.uri.repoPath ?? ''}${
 			lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
-		}${this.repo.formattedName ? `\\\n${this.uri.repoPath}` : ''}`;
+		}${this.repo.name ? `\\\n${this.uri.repoPath}` : ''}`;
 		let workingStatus = '';
 
 		const { workspace } = this.context;
@@ -247,7 +248,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			let providerName;
 			if (status.upstream != null) {
-				const providers = getHighlanderProviders(await this.repo.git.remotes().getRemotesWithProviders());
+				const providers = getHighlanderProviders(await this.repo.git.remotes.getRemotesWithProviders());
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
 				const remote = await status.getRemote();
@@ -329,11 +330,11 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false): Promise<void> {
-		super.refresh(reset);
+	override async refresh(reset?: boolean): Promise<void | { cancel: boolean }> {
+		await super.refresh(reset);
 
 		if (reset) {
-			this._status = this.repo.git.status().getStatus();
+			this._status = this.repo.git.status.getStatus();
 		}
 
 		await this.ensureSubscription();
@@ -393,14 +394,14 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	@debug<RepositoryNode['onFileSystemChanged']>({
 		args: {
 			0: e =>
-				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.length}): [${e.uris
-					.slice(0, 1)
-					.map(u => u.fsPath)
-					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`,
+				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.size}): [${join(
+					map(slice(e.uris, 0, 1), u => u.fsPath),
+					', ',
+				)}${e.uris.size > 1 ? ', ...' : ''}] }`,
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
-		this._status = this.repo.git.status().getStatus();
+		this._status = this.repo.git.status.getStatus();
 
 		if (this.children !== undefined) {
 			const status = await this._status;
