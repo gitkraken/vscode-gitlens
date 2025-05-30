@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Automatically stashes (and pops) uncommitted changes on Pull ([#4296](https://github.com/gitkraken/vscode-gitlens/issues/4296))
+- Combines the "Create Pull Request" and "Create with AI" buttons into a split button ([#4330](https://github.com/gitkraken/vscode-gitlens/issues/4330))
 
 ### Fixed
 
