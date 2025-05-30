@@ -243,9 +243,9 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 	override render(): unknown {
 		return html`
-			${this.renderBranchIndicator()}${this.renderBranchItem(
+			${this.renderBranchIndicator()}${this.renderIssuesItem()}${this.renderBranchItem(
 				html`${this.renderBranchStateActions()}${this.renderBranchActions()}`,
-			)}${this.renderPrItem()}${this.renderIssuesItem()}
+			)}${this.renderPrItem()}
 		`;
 	}
 
