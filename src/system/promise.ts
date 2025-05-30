@@ -6,7 +6,7 @@ export type PromiseOrValue<T> = Promise<T> | T;
 export function any<T>(...promises: Promise<T>[]): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		let settled = false;
-		const onFullfilled = (r: T) => {
+		const onFulfilled = (r: T) => {
 			settled = true;
 			resolve(r);
 		};
@@ -31,7 +31,7 @@ export function any<T>(...promises: Promise<T>[]): Promise<T> {
 		};
 
 		for (const promise of promises) {
-			promise.then(onFullfilled, onRejected);
+			promise.then(onFulfilled, onRejected);
 		}
 	});
 }
