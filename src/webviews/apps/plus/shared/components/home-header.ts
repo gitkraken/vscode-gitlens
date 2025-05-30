@@ -1,5 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
+import type { GlPromoBanner } from '../../../home/components/promo-banner';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import type { GlAccountChip } from './account-chip';
 import './account-chip';
@@ -62,6 +63,9 @@ export class GlHomeHeader extends LitElement {
 	@query('gl-account-chip')
 	private accountChip!: GlAccountChip;
 
+	@query('gl-promo-banner')
+	private promoBanner!: GlPromoBanner;
+
 	override render(): unknown {
 		return html`<gl-promo-banner></gl-promo-banner>
 			<div class="container" tabindex="-1">
@@ -73,5 +77,9 @@ export class GlHomeHeader extends LitElement {
 
 	show(): void {
 		this.accountChip.show();
+	}
+
+	refreshPromo(): void {
+		this.promoBanner?.requestUpdate();
 	}
 }

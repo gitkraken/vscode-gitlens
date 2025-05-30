@@ -5,7 +5,7 @@ import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
-import { DidFocusAccount } from '../../home/protocol';
+import { DidChangeSubscription, DidFocusAccount } from '../../home/protocol';
 import {
 	ActiveOverviewState,
 	activeOverviewStateContext,
@@ -59,6 +59,9 @@ export class GlHomeApp extends GlAppHost<State> {
 				switch (true) {
 					case DidFocusAccount.is(msg):
 						this._header.show();
+						break;
+					case DidChangeSubscription.is(msg):
+						this._header.refreshPromo();
 						break;
 				}
 			}),

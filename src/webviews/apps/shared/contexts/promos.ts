@@ -1,5 +1,8 @@
 import { createContext } from '@lit/context';
 import type { Promo, PromoLocation } from '../../../../plus/gk/models/promo';
+import { DidChangeSubscription } from '../../../home/protocol';
+import { DidChangeSubscriptionNotification } from '../../../plus/graph/protocol';
+import { DidChangeNotification } from '../../../plus/timeline/protocol';
 import { ApplicablePromoRequest } from '../../../protocol';
 import type { Disposable } from '../events';
 import type { HostIpc } from '../ipc';
@@ -10,6 +13,17 @@ export class PromosContext implements Disposable {
 
 	constructor(ipc: HostIpc) {
 		this.ipc = ipc;
+		this.disposables.push(
+			this.ipc.onReceiveMessage(msg => {
+				if (
+					DidChangeSubscription.is(msg) ||
+					DidChangeSubscriptionNotification.is(msg) ||
+					DidChangeNotification.is(msg)
+				) {
+					this._promos.clear();
+				}
+			}),
+		);
 	}
 
 	private _promos: Map<PromoLocation | undefined, Promise<Promo | undefined>> = new Map();
