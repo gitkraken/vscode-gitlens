@@ -237,6 +237,10 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				color: var(--vscode-descriptionForeground);
 				font-style: italic;
 			}
+
+			gl-work-item {
+				--gl-card-vertical-padding: 0.4rem;
+			}
 		`,
 	];
 
