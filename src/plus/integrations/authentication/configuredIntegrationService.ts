@@ -17,11 +17,7 @@ import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } f
 interface StoredSession {
 	id: string;
 	accessToken: string;
-	account?: {
-		label?: string;
-		displayName?: string;
-		id: string;
-	};
+	account?: { label?: string; displayName?: string; id: string };
 	scopes: string[];
 	cloud?: boolean;
 	expiresAt?: string;
@@ -30,7 +26,8 @@ interface StoredSession {
 }
 
 export interface ConfiguredIntegrationsChangeEvent {
-	ids: IntegrationIds[];
+	readonly added: readonly IntegrationIds[];
+	readonly removed: readonly IntegrationIds[];
 }
 
 export class ConfiguredIntegrationService implements Disposable {
@@ -171,7 +168,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.container.storage.store('integrations:configured', configured);
 	}
 
-	private async addConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
+	private async addOrUpdateConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
 		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
 		const existing = descriptors.find(
 			d =>
@@ -180,39 +177,57 @@ export class ConfiguredIntegrationService implements Disposable {
 				d.cloud === descriptor.cloud,
 		);
 
+		let changed = false;
 		if (existing != null) {
 			if (existing.expiresAt === descriptor.expiresAt && existing.scopes === descriptor.scopes) {
 				return;
 			}
 
-			//remove the existing descriptor from the array
-			const index = descriptors.indexOf(existing);
-			descriptors.splice(index, 1);
+			// Only fire the change event if the scopes changes (i.e. ignore any expiresAt changes)
+			changed = existing.scopes !== descriptor.scopes;
+
+			// remove the existing descriptor from the array
+			descriptors.splice(descriptors.indexOf(existing), 1);
+		} else {
+			changed = true;
 		}
 
 		descriptors.push(descriptor);
 		this.configured.set(descriptor.integrationId, descriptors);
-		this.queueDidChange(descriptor.integrationId);
+
+		if (changed) {
+			this.fireChange(descriptor.integrationId);
+		}
 		await this.storeConfigured();
 	}
 
-	private async removeConfigured(id: IntegrationIds, options?: { cloud?: boolean; domain?: string }): Promise<void> {
-		const descriptors = this.configured
-			.get(id)
-			?.filter(d =>
-				options?.cloud === true
-					? !(d.cloud === true && d.domain === options?.domain)
-					: options?.cloud === false
-					  ? !(d.cloud === false && d.domain === options?.domain)
-					  : d.domain !== options?.domain,
-			);
+	private async removeConfigured(
+		id: IntegrationIds,
+		options: { cloud: boolean | undefined; domain: string | undefined },
+	): Promise<void> {
+		let changed = false;
+		const descriptors = [];
 
-		if (descriptors != null && descriptors.length === 0) {
-			this.configured.delete(id);
+		for (const d of this.configured.get(id) ?? []) {
+			if (
+				d.domain === options.domain &&
+				(options?.cloud == null ||
+					(options?.cloud === true && d.cloud === true) ||
+					(options?.cloud === false && d.cloud === false))
+			) {
+				changed = true;
+				continue;
+			}
+
+			descriptors.push(d);
 		}
 
-		this.configured.set(id, descriptors ?? []);
-		this.queueDidChange(id);
+		this.configured.set(id, descriptors);
+
+		if (changed) {
+			this.fireChange(undefined, id);
+		}
+
 		await this.storeConfigured();
 	}
 
@@ -300,7 +315,7 @@ export class ConfiguredIntegrationService implements Disposable {
 			JSON.stringify(session),
 		);
 
-		await this.addConfigured({
+		await this.addOrUpdateConfigured({
 			integrationId: id,
 			domain: isSelfHostedIntegrationId(id) ? session.domain : undefined,
 			expiresAt: session.expiresAt,
@@ -327,7 +342,7 @@ export class ConfiguredIntegrationService implements Disposable {
 						configured.length === 0 ||
 						!configured.some(c => c.domain === domain && c.integrationId === id)
 					) {
-						await this.addConfigured({
+						await this.addOrUpdateConfigured({
 							integrationId: id,
 							domain: domain,
 							expiresAt: storedSession.expiresAt,
@@ -373,16 +388,26 @@ export class ConfiguredIntegrationService implements Disposable {
 		return descriptor.domain;
 	}
 
-	private changedIds = new Set<IntegrationIds>();
-	private debouncedFireDidChange?: () => void;
-	private queueDidChange(id: IntegrationIds) {
-		this.debouncedFireDidChange ??= debounce(() => {
-			this._onDidChange.fire({ ids: [...this.changedIds] });
-			this.changedIds.clear();
-		}, 300);
+	private _addedIds = new Set<IntegrationIds>();
+	private _removedIds = new Set<IntegrationIds>();
+	private _fireChangeDebounced?: () => void;
+	private fireChange(added?: IntegrationIds, removed?: IntegrationIds) {
+		this._fireChangeDebounced ??= debounce(() => {
+			const added = [...this._addedIds];
+			this._addedIds.clear();
+			const removed = [...this._removedIds];
+			this._removedIds.clear();
 
-		this.changedIds.add(id);
-		this.debouncedFireDidChange();
+			this._onDidChange.fire({ added: added, removed: removed });
+		}, 250);
+
+		if (added != null) {
+			this._addedIds.add(added);
+		}
+		if (removed != null) {
+			this._removedIds.add(removed);
+		}
+		this._fireChangeDebounced();
 	}
 }
 

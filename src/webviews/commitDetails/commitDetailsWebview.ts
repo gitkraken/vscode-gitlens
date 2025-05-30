@@ -214,7 +214,7 @@ export class CommitDetailsWebviewProvider
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			container.integrations.onDidChangeConfiguredIntegrations(this.onIntegrationsChanged, this),
+			container.integrations.onDidChange(this.onIntegrationsChanged, this),
 		);
 	}
 

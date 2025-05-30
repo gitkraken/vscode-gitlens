@@ -66,18 +66,13 @@ export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeE
 }
 
 export class IntegrationService implements Disposable {
+	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
+		return this.configuredIntegrationService.onDidChange;
+	}
+
 	private readonly _onDidChangeConnectionState = new EventEmitter<ConnectionStateChangeEvent>();
 	get onDidChangeConnectionState(): Event<ConnectionStateChangeEvent> {
 		return this._onDidChangeConnectionState.event;
-	}
-
-	private readonly _onDidSyncCloudIntegrations = new EventEmitter<void>();
-	get onDidSyncCloudIntegrations(): Event<void> {
-		return this._onDidSyncCloudIntegrations.event;
-	}
-
-	get onDidChangeConfiguredIntegrations(): Event<ConfiguredIntegrationsChangeEvent> {
-		return this.configuredIntegrationService.onDidChange;
 	}
 
 	private readonly _connectedCache = new Set<string>();
@@ -1047,7 +1042,6 @@ export class IntegrationService implements Disposable {
 			});
 		}
 
-		this._onDidSyncCloudIntegrations.fire();
 		return connectedIntegrations;
 	}
 }

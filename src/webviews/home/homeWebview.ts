@@ -169,7 +169,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
-			this.container.integrations.onDidChangeConfiguredIntegrations(this.onIntegrationsChanged, this),
+			this.container.integrations.onDidChange(this.onIntegrationsChanged, this),
 			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),

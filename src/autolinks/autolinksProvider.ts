@@ -50,7 +50,7 @@ export class AutolinksProvider implements Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			container.integrations.onDidChangeConfiguredIntegrations(this.onConfiguredIntegrationsChanged, this),
+			container.integrations.onDidChange(this.onIntegrationsChanged, this),
 		);
 
 		this.setAutolinksFromConfig();
@@ -67,7 +67,7 @@ export class AutolinksProvider implements Disposable {
 		}
 	}
 
-	private onConfiguredIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
+	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
 		this._refsetCache.clear();
 	}
 
