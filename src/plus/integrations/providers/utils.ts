@@ -221,7 +221,6 @@ export function decodeEntityIdentifiersFromGitConfig(str: string): GitConfigEnti
 		) {
 			debugger;
 			Logger.error('Invalid Jira issue in git config');
-			continue;
 		}
 	}
 
