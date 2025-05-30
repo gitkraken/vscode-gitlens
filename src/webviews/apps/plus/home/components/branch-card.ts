@@ -1185,6 +1185,8 @@ export class GlWorkUnit extends LitElement {
 
 			gl-card::part(base) {
 				margin-block-end: 0;
+				padding-top: 0.4rem;
+				padding-bottom: 0.4rem;
 			}
 		`,
 	];
