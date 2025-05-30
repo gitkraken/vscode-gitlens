@@ -170,9 +170,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChangeConfiguredIntegrations(this.onIntegrationsChanged, this),
-			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
+			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
-			this.container.launchpad.onDidChange(this.onDidLaunchpadChange, this),
+			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
 		);
 	}
@@ -265,7 +265,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.notifyDidChangeRepositories();
 	}
 
-	private onWalkthroughChanged() {
+	private onWalkthroughProgressChanged() {
 		this.notifyDidChangeProgress();
 	}
 
@@ -277,7 +277,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	private onDidLaunchpadChange() {
+	private onLaunchpadChanged() {
 		this.notifyDidChangeLaunchpad();
 	}
 

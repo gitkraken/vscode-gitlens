@@ -149,9 +149,9 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 ]);
 
 export class WalkthroughStateProvider implements Disposable {
-	private readonly _onProgressChanged = new EventEmitter<void>();
-	get onProgressChanged(): Event<void> {
-		return this._onProgressChanged.event;
+	private readonly _onDidChangeProgress = new EventEmitter<void>();
+	get onDidChangeProgress(): Event<void> {
+		return this._onDidChangeProgress.event;
 	}
 
 	readonly walkthroughSize = walkthroughRequiredMapping.size;
@@ -162,7 +162,7 @@ export class WalkthroughStateProvider implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this.disposables.push(
-			this._onProgressChanged,
+			this._onDidChangeProgress,
 			this.container.usage.onDidChange(this.onUsageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
@@ -178,7 +178,7 @@ export class WalkthroughStateProvider implements Disposable {
 				void this.completeStep(key);
 			}
 		}
-		this._onProgressChanged.fire(undefined);
+		this._onDidChangeProgress.fire(undefined);
 	}
 
 	private onUsageChanged(e: UsageChangeEvent | void) {
@@ -204,7 +204,7 @@ export class WalkthroughStateProvider implements Disposable {
 			}
 		}
 		if (shouldFire) {
-			this._onProgressChanged.fire(undefined);
+			this._onDidChangeProgress.fire(undefined);
 		}
 	}
 
@@ -227,7 +227,7 @@ export class WalkthroughStateProvider implements Disposable {
 			}
 		}
 		if (shouldFire) {
-			this._onProgressChanged.fire(undefined);
+			this._onDidChangeProgress.fire(undefined);
 		}
 	}
 
