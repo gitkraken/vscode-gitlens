@@ -463,7 +463,7 @@ export class BitbucketApi implements Disposable {
 			if (ex.original instanceof ProviderFetchError) {
 				const json = await ex.original.response.json();
 				if (json?.error === 'Invalid or unknown installation') {
-					// TODO: In future get it on to home as an worning on the integratin istelf "this integration has issues"
+					// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
 					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
 					const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
 					void showBitbucketPRCommitLinksAppNotInstalledWarningMessage(commitWebUrl);

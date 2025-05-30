@@ -215,13 +215,13 @@ declare module 'vscode' {
 	 */
 	export class LanguageModelError extends Error {
 		/**
-		 * The requestor does not have permissions to use this
+		 * The requester does not have permissions to use this
 		 * language model
 		 */
 		static NoPermissions(message?: string): LanguageModelError;
 
 		/**
-		 * The requestor is blocked from using this language model.
+		 * The requester is blocked from using this language model.
 		 */
 		static Blocked(message?: string): LanguageModelError;
 

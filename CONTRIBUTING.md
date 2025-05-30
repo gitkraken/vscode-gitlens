@@ -250,4 +250,4 @@ To add new icons to the GL Icons font follow the steps below:
 
   ```
 
-Once you've finshed copy the new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss` and search and replace the old references with the new one.
+Once you've finished copy the new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss` and search and replace the old references with the new one.

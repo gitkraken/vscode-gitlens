@@ -442,10 +442,10 @@ export class GlAccountChip extends LitElement {
 												},
 											},
 										)}"
-										aria-label="Ugrade to Advanced"
+										aria-label="Upgrade to Advanced"
 										><span class="upgrade-button">Upgrade</span
 										><span slot="tooltip"
-											>Ugrade to the Advanced plan for access to self-hosted integrations,
+											>Upgrade to the Advanced plan for access to self-hosted integrations,
 											advanced AI features @ 500K tokens/week, and more</span
 										>
 									</gl-button>
