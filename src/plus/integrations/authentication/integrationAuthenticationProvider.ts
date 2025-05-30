@@ -76,7 +76,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 		);
 
 		if (configured?.length) {
-			this.fireDidChange();
+			this.fireChange();
 		}
 	}
 
@@ -93,7 +93,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 		);
 
 		if (configured?.length) {
-			this.fireDidChange();
+			this.fireChange();
 		}
 	}
 
@@ -139,7 +139,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 		}
 
 		if (previousToken !== session?.accessToken) {
-			this.fireDidChange();
+			this.fireChange();
 		}
 
 		return session;
@@ -164,7 +164,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 			  },
 	): Promise<ProviderAuthenticationSession | undefined>;
 
-	protected fireDidChange(): void {
+	protected fireChange(): void {
 		queueMicrotask(() => this._onDidChange.fire());
 	}
 }
@@ -324,7 +324,7 @@ export class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticatio
 		this.disposables.push(
 			authentication.onDidChangeSessions(e => {
 				if (e.provider.id === this.authProviderId) {
-					this.fireDidChange();
+					this.fireChange();
 				}
 			}),
 		);

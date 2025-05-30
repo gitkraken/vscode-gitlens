@@ -23,7 +23,7 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 		this.disposables.push(
 			authentication.onDidChangeSessions(e => {
 				if (e.provider.id === this.authProviderId) {
-					this.fireDidChange();
+					this.fireChange();
 				}
 			}),
 		);
