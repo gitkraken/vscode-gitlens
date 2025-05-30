@@ -188,6 +188,11 @@ export const branchCardStyles = css`
 		flex-grow: 1;
 	}
 
+	span.branch-item__missing {
+		color: var(--vscode-descriptionForeground);
+		font-style: italic;
+	}
+
 	.branch-item__missing {
 		--button-foreground: inherit;
 	}
@@ -918,16 +923,21 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!issues.length) {
 			if (!this.expanded) return nothing;
 
-			return html`<gl-button
-				class="branch-item__missing"
-				appearance="secondary"
-				full
-				href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
-					branch: this.branch.reference,
-					source: 'home',
-				})}
-				>Associate an Issue</gl-button
-			>`;
+			return html`<div class="branch-item__row" full>
+				<span class="branch-item__missing" full>Current work item</span>
+				<gl-tooltip hoist content="Associate an issue">
+					<a
+						href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
+							'gitlens.associateIssueWithBranch',
+							{
+								branch: this.branch.reference,
+								source: 'home',
+							},
+						)}
+						><span class="branch-item__icon"> <issue-icon></issue-icon> </span
+					></a>
+				</gl-tooltip>
+			</div>`;
 		}
 
 		const indicator: GlCard['indicator'] = this.branch.opened ? 'base' : undefined;
