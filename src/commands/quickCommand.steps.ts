@@ -43,7 +43,7 @@ import {
 } from '../git/utils/reference.utils';
 import { getHighlanderProviderName } from '../git/utils/remote.utils';
 import { createRevisionRange, isRevisionRange } from '../git/utils/revision.utils';
-import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
+import { getSubscriptionNextPaidPlanId, isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
@@ -2753,7 +2753,11 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return access;
 
-		const promo = await container.productConfig.getApplicablePromo(access.subscription.current.state, 'gate');
+		const promo = await container.productConfig.getApplicablePromo(
+			access.subscription.current.state,
+			getSubscriptionNextPaidPlanId(access.subscription.current),
+			'gate',
+		);
 		const detail = promo?.content?.quickpick.detail;
 
 		switch (feature) {

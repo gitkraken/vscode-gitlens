@@ -1,5 +1,5 @@
 import { createContext } from '@lit/context';
-import type { Promo, PromoLocation } from '../../../../plus/gk/models/promo';
+import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/models/promo';
 import { DidChangeSubscription } from '../../../home/protocol';
 import { DidChangeSubscriptionNotification } from '../../../plus/graph/protocol';
 import { DidChangeNotification } from '../../../plus/timeline/protocol';
@@ -26,16 +26,17 @@ export class PromosContext implements Disposable {
 		);
 	}
 
-	private _promos: Map<PromoLocation | undefined, Promise<Promo | undefined>> = new Map();
+	private _promos = new Map<`${PromoPlans | undefined}|${PromoLocation | undefined}`, Promise<Promo | undefined>>();
 
-	async getApplicablePromo(location?: PromoLocation): Promise<Promo | undefined> {
-		let promise = this._promos.get(location);
+	async getApplicablePromo(plan?: PromoPlans, location?: PromoLocation): Promise<Promo | undefined> {
+		const cacheKey = `${plan}|${location}` as const;
+		let promise = this._promos.get(cacheKey);
 		if (promise == null) {
-			promise = this.ipc.sendRequest(ApplicablePromoRequest, { location: location }).then(
+			promise = this.ipc.sendRequest(ApplicablePromoRequest, { plan: plan, location: location }).then(
 				rsp => rsp.promo,
 				() => undefined,
 			);
-			this._promos.set(location, promise);
+			this._promos.set(cacheKey, promise);
 		}
 		const promo = await promise;
 		return promo;

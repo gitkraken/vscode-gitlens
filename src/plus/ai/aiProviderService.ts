@@ -493,8 +493,8 @@ export class AIProviderService implements Disposable {
 			!(await ensureFeatureAccess(
 				this.container,
 				isAdvancedFeature(feature)
-					? `Advanced AI features require a trial or GitLens Advanced.`
-					: `Pro AI features require a trial or GitLens Pro.`,
+					? 'This AI feature requires GitLens Advanced or a Pro trial'
+					: 'This AI feature requires GitLens Pro or a Pro trial',
 				feature,
 				source,
 			))

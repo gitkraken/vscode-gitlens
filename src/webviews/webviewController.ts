@@ -6,6 +6,7 @@ import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { isCancellationError } from '../errors';
+import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
@@ -491,6 +492,7 @@ export class WebviewController<
 				const subscription = await this.container.subscription.getSubscription();
 				const promo = await this.container.productConfig.getApplicablePromo(
 					subscription.state,
+					e.params.plan ?? getSubscriptionNextPaidPlanId(subscription),
 					e.params.location,
 				);
 				void this.respond(ApplicablePromoRequest, e, { promo: promo });

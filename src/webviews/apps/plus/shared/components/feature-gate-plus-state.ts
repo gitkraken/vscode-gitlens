@@ -307,7 +307,7 @@ export class GlFeatureGatePlusState extends LitElement {
 
 	private renderPromo() {
 		return html`<gl-promo
-			.promoPromise=${this.promos.getApplicablePromo('gate')}
+			.promoPromise=${this.promos.getApplicablePromo(undefined, 'gate')}
 			.source=${this.source}
 		></gl-promo>`;
 	}

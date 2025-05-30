@@ -1,10 +1,12 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
+import type { PromoPlans } from '../../../../../plus/gk/models/promo';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import {
 	compareSubscriptionPlans,
@@ -20,6 +22,7 @@ import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import type { GlPopover } from '../../../shared/components/overlays/popover';
+import type { GlPromo } from '../../../shared/components/promo';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import type { PromosContext } from '../../../shared/contexts/promos';
@@ -442,12 +445,17 @@ export class GlAccountChip extends LitElement {
 												},
 											},
 										)}"
-										aria-label="Ugrade to Advanced"
-										><span class="upgrade-button">Upgrade</span
-										><span slot="tooltip"
-											>Ugrade to the Advanced plan for access to self-hosted integrations,
-											advanced AI features @ 500K tokens/week, and more</span
-										>
+										aria-label="Upgrade to Advanced"
+										><span class="upgrade-button">Upgrade</span>${this.renderPromo(
+											'advanced',
+											'icon',
+											'suffix',
+										)}
+										<span slot="tooltip"
+											>Upgrade to the Advanced plan for access to self-hosted integrations,
+											advanced AI features @ 500K tokens/week, and more
+											${this.renderPromo('advanced', 'info')}
+										</span>
 									</gl-button>
 							  </div>`
 							: nothing}
@@ -466,7 +474,7 @@ export class GlAccountChip extends LitElement {
 			case SubscriptionState.VerificationRequired:
 				return html`<div class="account-status">
 					<p>You must verify your email before you can access Pro features.</p>
-					<button-container>
+					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<Source>('gitlens.plus.resendVerification', {
@@ -502,7 +510,7 @@ export class GlAccountChip extends LitElement {
 						in your Pro trial. Once your trial ends, you will only be able to use Pro features on
 						publicly-hosted repos.
 					</p>
-					<button-container>
+					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
@@ -517,7 +525,7 @@ export class GlAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo()} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
+					${this.renderPromo('pro')} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
 				</div>`;
 			}
 
@@ -525,7 +533,7 @@ export class GlAccountChip extends LitElement {
 				return html`<div class="account-status">
 					<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
 					<p>Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.</p>
-					<button-container>
+					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
@@ -540,7 +548,7 @@ export class GlAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo()} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
+					${this.renderPromo('pro')} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
 				</div>`;
 
 			case SubscriptionState.TrialReactivationEligible:
@@ -549,7 +557,7 @@ export class GlAccountChip extends LitElement {
 						Reactivate your GitLens Pro trial and experience all the new Pro features — free for another
 						${pluralize('day', proTrialLengthInDays)}.
 					</p>
-					<button-container>
+					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', {
@@ -569,7 +577,7 @@ export class GlAccountChip extends LitElement {
 						collaboration with
 						<a href="${urls.communityVsPro}">GitLens Pro</a>.
 					</p>
-					<button-container>
+					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<Source>('gitlens.plus.signUp', {
@@ -627,7 +635,7 @@ export class GlAccountChip extends LitElement {
 					<span class="header__title">Advantages of GitLens Pro</span>
 				</div>
 				<div class="upgrade">
-					<button-container>
+					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
@@ -642,7 +650,7 @@ export class GlAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo()}
+					${this.renderPromo('pro')}
 
 					<ul>
 						<li>Unlimited cloud integrations</li>
@@ -669,6 +677,8 @@ export class GlAccountChip extends LitElement {
 							>Upgrade to Advanced</gl-button
 						>
 					</button-container>
+					${this.renderPromo('advanced')}
+
 					<ul>
 						<li>Self-hosted integrations</li>
 						<li>Advanced AI features &mdash; 500K tokens/week</li>
@@ -678,9 +688,11 @@ export class GlAccountChip extends LitElement {
 		</gl-popover>`;
 	}
 
-	private renderPromo() {
+	private renderPromo(plan: PromoPlans, type: GlPromo['type'] = 'info', slot?: string): unknown {
 		return html`<gl-promo
-			.promoPromise=${this.promos.getApplicablePromo('account')}
+			slot=${ifDefined(slot)}
+			.promoPromise=${this.promos.getApplicablePromo(plan, 'account')}
+			.type=${type}
 			.source="${{ source: 'account' } as const}"
 		></gl-promo>`;
 	}

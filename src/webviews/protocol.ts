@@ -10,7 +10,7 @@ import type {
 	WebviewViewIds,
 	WebviewViewTypes,
 } from '../constants.views';
-import type { Promo, PromoLocation } from '../plus/gk/models/promo';
+import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo';
 import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
@@ -87,6 +87,7 @@ export interface ExecuteCommandParams {
 export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'command/execute');
 
 export interface ApplicablePromoRequestParams {
+	plan?: PromoPlans;
 	location?: PromoLocation;
 }
 export interface ApplicablePromoResponse {

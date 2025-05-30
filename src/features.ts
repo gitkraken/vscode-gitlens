@@ -103,8 +103,12 @@ export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 
 export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
 	switch (feature) {
+		case 'explain-changes':
 		case 'generate-changelog':
+		case 'generate-create-cloudPatch':
+		case 'generate-create-codeSuggestion':
 		case 'generate-create-pullRequest':
+		case 'generate-rebase':
 			return true;
 		default:
 			return false;
@@ -116,9 +120,6 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'launchpad':
 		case 'startWork':
 		case 'associateIssueWithBranch':
-		case 'explain-changes':
-		case 'generate-create-cloudPatch':
-		case 'generate-create-codeSuggestion':
 		case 'generate-stashMessage':
 			return true;
 		default:

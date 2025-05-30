@@ -329,7 +329,7 @@ export class GlFeatureBadge extends LitElement {
 
 	private renderPromo() {
 		return html`<gl-promo
-			.promoPromise=${this.promos.getApplicablePromo('badge')}
+			.promoPromise=${this.promos.getApplicablePromo(undefined, 'badge')}
 			.source=${this.source}
 		></gl-promo>`;
 	}

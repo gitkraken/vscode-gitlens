@@ -1,9 +1,10 @@
-import type { Uri } from 'vscode';
+import type { MessageItem, Uri } from 'vscode';
 import { window } from 'vscode';
 import { proTrialLengthInDays } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { PlusFeatures } from '../../../../features';
+import { isAdvancedFeature } from '../../../../features';
 import { createQuickPickSeparator } from '../../../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
@@ -15,8 +16,8 @@ export async function ensureAccount(container: Container, title: string, source:
 			const resend = { title: 'Resend Email' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nYou must verify your email before you can continue.`,
-				{ modal: true },
+				title,
+				{ modal: true, detail: 'You must verify your email before you can continue.' },
 				resend,
 				cancel,
 			);
@@ -36,8 +37,11 @@ export async function ensureAccount(container: Container, title: string, source:
 		const signIn = { title: 'Sign In' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`${title}\n\nStart your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features, or sign in.`,
-			{ modal: true },
+			title,
+			{
+				modal: true,
+				detail: `Start your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features, or sign in.`,
+			},
 			signUp,
 			signIn,
 			cancel,
@@ -133,17 +137,42 @@ export async function ensureFeatureAccess(
 		const access = await container.git.access(feature, repoPath);
 		if (access.allowed) break;
 
-		const upgrade = { title: 'Upgrade to Pro' };
+		const isAdvanced = isAdvancedFeature(feature);
+		const plan = isAdvanced ? 'advanced' : 'pro';
+
+		const promo = await container.productConfig.getApplicablePromo(access.subscription.current.state, plan, 'gate');
+		const promoDetail = promo?.content?.modal?.detail;
+
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
-		const result = await window.showWarningMessage(
-			`${title}\n\nPlease upgrade to GitLens Pro to continue.`,
-			{ modal: true },
-			upgrade,
-			cancel,
-		);
+		let upgrade: MessageItem;
+		let result: MessageItem | undefined;
+
+		if (isAdvanced) {
+			upgrade = { title: 'Upgrade to Advanced' };
+			result = await window.showWarningMessage(
+				title,
+				{
+					modal: true,
+					detail: `Please upgrade to GitLens Advanced to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
+				},
+				upgrade,
+				cancel,
+			);
+		} else {
+			upgrade = { title: 'Upgrade to Pro' };
+			result = await window.showWarningMessage(
+				title,
+				{
+					modal: true,
+					detail: `Please upgrade to GitLens Pro to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
+				},
+				upgrade,
+				cancel,
+			);
+		}
 
 		if (result === upgrade) {
-			if (await container.subscription.upgrade('pro', source)) {
+			if (await container.subscription.upgrade(plan, source)) {
 				continue;
 			}
 		}

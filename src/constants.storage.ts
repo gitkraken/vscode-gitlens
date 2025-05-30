@@ -7,7 +7,7 @@ import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
-import type { Subscription } from './plus/gk/models/subscription';
+import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
 import type { Integration } from './plus/integrations/models/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
@@ -120,8 +120,9 @@ export interface StoredProductConfig {
 export interface StoredPromo {
 	key: string;
 	code?: string;
-	locations?: ('account' | 'badge' | 'gate' | 'home')[];
+	plan?: PaidSubscriptionPlanIds;
 	states?: SubscriptionState[];
+	locations?: ('account' | 'badge' | 'gate' | 'home')[];
 	expiresOn?: number;
 	startsOn?: number;
 	percentile?: number;

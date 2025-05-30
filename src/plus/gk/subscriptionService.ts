@@ -67,7 +67,7 @@ import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
 import type { Organization } from './models/organization';
 import type { Promo } from './models/promo';
-import type { Subscription, SubscriptionPlanIds, SubscriptionUpgradeCommandArgs } from './models/subscription';
+import type { PaidSubscriptionPlanIds, Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription';
 import type { ServerConnection } from './serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
 import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils';
@@ -77,6 +77,7 @@ import {
 	compareSubscriptionPlans,
 	computeSubscriptionState,
 	getCommunitySubscription,
+	getSubscriptionNextPaidPlanId,
 	getSubscriptionPlan,
 	getSubscriptionPlanType,
 	getSubscriptionProductPlanName,
@@ -824,7 +825,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async upgrade(plan: SubscriptionPlanIds | undefined, source: Source | undefined): Promise<boolean> {
+	async upgrade(plan: PaidSubscriptionPlanIds | undefined, source: Source | undefined): Promise<boolean> {
 		const scope = getLogScope();
 
 		if (!(await ensurePlusFeaturesEnabled())) return false;
@@ -832,7 +833,7 @@ export class SubscriptionService implements Disposable {
 		plan ??= 'pro';
 
 		let aborted = false;
-		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
+		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state, plan ?? 'pro');
 
 		using telemetry = this.container.telemetry.enabled
 			? createDisposable(
@@ -1341,7 +1342,9 @@ export class SubscriptionService implements Disposable {
 		assertSubscriptionState(subscription);
 
 		void setContext('gitlens:promo', undefined);
-		const promoPromise = this.container.productConfig.getApplicablePromo(subscription.state).catch(() => undefined);
+		const promoPromise = this.container.productConfig
+			.getApplicablePromo(subscription.state, getSubscriptionNextPaidPlanId(subscription))
+			.catch(() => undefined);
 		void promoPromise.then(promo => void setContext('gitlens:promo', promo?.key));
 
 		const previous = this._subscription as typeof this._subscription | undefined; // Can be undefined here, since we call this in the constructor

@@ -72,7 +72,7 @@ export class GlPromo extends LitElement {
 	source?: Source;
 
 	@property({ reflect: true, type: String })
-	type: 'link' | 'info' = 'info';
+	type: 'icon' | 'info' | 'link' = 'info';
 
 	private _hasPromo = false;
 	@property({ type: Boolean, reflect: true, attribute: 'has-promo' })
@@ -95,6 +95,9 @@ export class GlPromo extends LitElement {
 
 		const content = promo.content.webview;
 		switch (this.type) {
+			case 'icon':
+				return html`<code-icon icon="star-full" size="16"></code-icon>`;
+
 			case 'info':
 				if (content.info) {
 					this.hasPromo = true;

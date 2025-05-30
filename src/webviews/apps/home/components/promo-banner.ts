@@ -32,7 +32,7 @@ export class GlPromoBanner extends LitElement {
 	override render(): unknown {
 		return html`
 			<gl-promo
-				.promoPromise=${this.promos.getApplicablePromo('home')}
+				.promoPromise=${this.promos.getApplicablePromo(undefined, 'home')}
 				.source="${{ source: 'home' } as const}"
 				class="promo-banner promo-banner--eyebrow"
 				id="promo"

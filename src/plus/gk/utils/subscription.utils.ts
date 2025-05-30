@@ -79,6 +79,13 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	}
 }
 
+export function getSubscriptionNextPaidPlanId(subscription: Optional<Subscription, 'state'>): PaidSubscriptionPlanIds {
+	const next = orderedPaidPlans.indexOf(subscription.plan.actual.id as PaidSubscriptionPlanIds) + 1;
+	if (next >= orderedPaidPlans.length) return 'enterprise'; // Not sure what to do here
+
+	return orderedPaidPlans[next] ?? 'pro';
+}
+
 export function getSubscriptionPlan(
 	id: SubscriptionPlanIds,
 	bundle: boolean,

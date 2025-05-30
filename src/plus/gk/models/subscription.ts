@@ -49,7 +49,7 @@ export interface SubscriptionAccount {
 }
 
 export interface SubscriptionUpgradeCommandArgs extends Source {
-	plan?: SubscriptionPlanIds;
+	plan?: PaidSubscriptionPlanIds;
 }
 
 export type SubscriptionStateString =
