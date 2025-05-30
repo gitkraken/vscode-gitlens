@@ -93,8 +93,8 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				);
 
 				for await (const c of parser.parseAsync(stream)) {
-					if (signal?.aborted) {
-						// cancellable?.cancel();
+					if (signal?.aborted || cancellation?.isCancellationRequested) {
+						cancellable?.cancel();
 						break;
 					}
 
