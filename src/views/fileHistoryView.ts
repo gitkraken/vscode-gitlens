@@ -7,6 +7,7 @@ import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -23,7 +24,7 @@ export class FileHistoryView extends ViewBase<
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'fileHistory', 'File History', 'fileHistoryView', grouped);
 
 		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);

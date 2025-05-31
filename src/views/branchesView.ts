@@ -20,16 +20,14 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, BranchesNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new BranchesNode(this.uri, this.view, this, this.repo);
-		}
-
+		this.child ??= new BranchesNode(this.uri, this.view, this, this.repo);
 		return this.child.getChildren();
 	}
 
@@ -57,8 +55,6 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading branches...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
 			}
@@ -104,13 +100,11 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(branches.values.length);
 
 			return child.getChildren();
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -123,7 +117,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'branches', 'Branches', 'branchesView', grouped);
 	}
 

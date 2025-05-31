@@ -51,6 +51,7 @@ export type ContextKeys = {
 	'gitlens:views:patchDetails:mode': 'create' | 'view';
 	'gitlens:views:pullRequest:visible': boolean;
 	'gitlens:views:repositories:autoRefresh': boolean;
+	'gitlens:views:scm:grouped:loading': boolean;
 	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
 	'gitlens:views:scm:grouped:welcome': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';

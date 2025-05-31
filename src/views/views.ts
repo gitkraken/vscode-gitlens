@@ -501,7 +501,7 @@ export class Views implements Disposable {
 		await configuration.updateEffective('views.scm.grouped.default', type);
 	}
 
-	private setScmGroupedView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean) {
+	private async setScmGroupedView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean) {
 		if (this._scmGroupedView != null) {
 			// Save current selection before switching views
 			let { view } = this._scmGroupedView;
@@ -526,6 +526,7 @@ export class Views implements Disposable {
 				}
 			}
 
+			await this._scmGroupedView.clearView(type);
 			view = this._scmGroupedView.setView(type, focus);
 
 			// Restore the last selection for this view type (if any)
@@ -614,8 +615,16 @@ export class Views implements Disposable {
 
 		this._scmGroupedViews = getScmGroupedViewsFromConfig();
 
-		this._scmGroupedView?.dispose();
-		this._scmGroupedView = undefined;
+		if (this._scmGroupedViews.size) {
+			if (this._scmGroupedView == null) {
+				this._scmGroupedView = new ScmGroupedView(this.container, this);
+			} else {
+				void this.setScmGroupedView(this.lastSelectedScmGroupedView ?? first(this._scmGroupedViews.keys())!);
+			}
+		} else {
+			this._scmGroupedView?.dispose();
+			this._scmGroupedView = undefined;
+		}
 
 		if (!this._scmGroupedViews.has('branches')) {
 			this._branchesView ??= new BranchesView(this.container);
@@ -699,10 +708,6 @@ export class Views implements Disposable {
 
 			// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
 			void this.showWelcomeNotification();
-		}
-
-		if (this._scmGroupedViews.size) {
-			this._scmGroupedView ??= new ScmGroupedView(this.container, this);
 		}
 	}
 
@@ -940,18 +945,14 @@ export class Views implements Disposable {
 	}
 
 	async showView(view: TreeViewTypes): Promise<void> {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const self = this;
-
-		function show(
+		const show = async (
 			type: GroupableTreeViewTypes,
 			view: TreeViewByType[GroupableTreeViewTypes] | undefined,
-		): Promise<void> {
+		): Promise<void> => {
 			if (view != null) return view.show();
 
-			self.setScmGroupedView(type, true);
-			return Promise.resolve();
-		}
+			await this.setScmGroupedView(type, true);
+		};
 
 		switch (view) {
 			case 'branches':

@@ -17,6 +17,7 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -52,14 +53,8 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading worktrees...';
-
 			const access = await this.view.container.git.access('worktrees');
-			if (access.allowed === false) {
-				// Reset the message so the welcome view will show
-				this.view.message = undefined;
-				return [];
-			}
+			if (access.allowed === false) return [];
 
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
@@ -72,11 +67,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			}
 
 			const repo = this.view.container.git.getBestRepositoryOrFirst();
-			if (repo != null && !(await repo.git.supports('git:worktrees'))) {
-				// Reset the message so the welcome view will show
-				this.view.message = undefined;
-				return [];
-			}
+			if (repo != null && !(await repo.git.supports('git:worktrees'))) return [];
 
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
@@ -93,20 +84,16 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 
 			const grandChildren = await child.getChildren();
 			if (grandChildren.length <= 1) {
-				// Reset the message so the welcome view will show
-				this.view.message = undefined;
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(grandChildren.length);
 
 			return grandChildren;
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -119,7 +106,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'worktrees', 'Worktrees', 'worktreesView', grouped);
 	}
 

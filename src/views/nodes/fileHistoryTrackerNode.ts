@@ -59,6 +59,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.message = undefined;
+
 		if (this.child == null) {
 			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
 
@@ -69,8 +71,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				this.children = undefined;
 				return [];
 			}
-
-			this.view.message = undefined;
 
 			const commitish: GitCommitish = {
 				...this.uri,

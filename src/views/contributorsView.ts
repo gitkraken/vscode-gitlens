@@ -18,18 +18,16 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new ContributorsNode(this.uri, this.view, this, this.repo, {
-				showMergeCommits: !this.view.state.hideMergeCommits,
-			});
-		}
-
+		this.child ??= new ContributorsNode(this.uri, this.view, this, this.repo, {
+			showMergeCommits: !this.view.state.hideMergeCommits,
+		});
 		return this.child.getChildren();
 	}
 
@@ -58,8 +56,6 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading contributors...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
 			}
@@ -109,13 +105,11 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(children.length);
 
 			return children;
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -132,7 +126,7 @@ interface ContributorsViewState {
 export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'contributors', 'Contributors', 'contributorsView', grouped);
 
 		void setContext('gitlens:views:contributors:hideMergeCommits', true);

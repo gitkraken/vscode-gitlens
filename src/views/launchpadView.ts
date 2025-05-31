@@ -22,6 +22,7 @@ import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
 import type { GroupingNode } from './nodes/groupingNode';
 import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
+import type { GroupedViewContext } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -222,7 +223,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	protected readonly configKey = 'launchpad';
 	private _disposable: Disposable | undefined;
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'launchpad', 'Launchpad', 'launchpadView', grouped);
 	}
 

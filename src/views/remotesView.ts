@@ -23,6 +23,7 @@ import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { RemoteNode } from './nodes/remoteNode';
 import { RemotesNode } from './nodes/remotesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -53,8 +54,6 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading remotes...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
 			}
@@ -86,13 +85,11 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(remotes.length);
 
 			return child.getChildren();
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -105,7 +102,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'remotes', 'Remotes', 'remotesView', grouped);
 	}
 

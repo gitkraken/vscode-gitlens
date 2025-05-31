@@ -36,6 +36,7 @@ import { StashesNode } from './nodes/stashesNode';
 import { TagsNode } from './nodes/tagsNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -48,7 +49,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 
 	protected readonly configKey = 'repositories';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'repositories', 'Repositories', 'repositoriesView', grouped);
 	}
 

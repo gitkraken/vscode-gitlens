@@ -28,12 +28,15 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { CommandMessageNode } from './nodes/common';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.message = undefined;
+
 		if (this.child == null) {
 			const branch = await this.repo.git.branches.getBranch();
 			if (branch == null) {
@@ -41,8 +44,6 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 				return [];
 			}
-
-			this.view.message = undefined;
 
 			const authors = this.view.state.filterCommits.get(this.repo.id);
 			this.child = new BranchNode(
@@ -130,8 +131,6 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading commits...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
 			}
@@ -200,7 +199,6 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			children.push(...this.children);
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return children;
 	}
 
@@ -218,7 +216,7 @@ interface CommitsViewState {
 export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'commits', 'Commits', 'commitsView', grouped);
 		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
 	}

@@ -23,6 +23,7 @@ import { ContextValues, ViewNode } from './nodes/abstract/viewNode';
 import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compareResultsNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
+import type { GroupedViewContext } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -270,7 +271,7 @@ export class SearchAndCompareView extends ViewBase<
 > {
 	protected readonly configKey = 'searchAndCompare';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'searchAndCompare', 'Search & Compare', 'searchAndCompareView', grouped);
 	}
 

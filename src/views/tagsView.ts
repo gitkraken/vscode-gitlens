@@ -16,6 +16,7 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { TagsNode } from './nodes/tagsNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -40,8 +41,6 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading tags...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
 			}
@@ -73,13 +72,11 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(tags.values.length);
 
 			return child.getChildren();
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -92,7 +89,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'tags', 'Tags', 'tagsView', grouped);
 	}
 

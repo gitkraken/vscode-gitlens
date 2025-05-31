@@ -63,6 +63,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.message = undefined;
+
 		if (this.child == null) {
 			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
 
@@ -87,8 +89,6 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 				}${!this.followingEditor ? ' (pinned)' : ''}`;
 				return [];
 			}
-
-			this.view.message = undefined;
 
 			const commitish: GitCommitish = {
 				...this.uri,

@@ -41,6 +41,8 @@ import { configuration } from '../system/-webview/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function/debounce';
+import { first } from '../system/iterable';
+import type { Lazy } from '../system/lazy';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { cancellable, defer, isPromise } from '../system/promise';
@@ -156,6 +158,12 @@ export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpa
 	state: TreeItemCollapsibleState;
 }
 
+export interface GroupedViewContext {
+	onDidChangeTreeData: EventEmitter<ViewNode | undefined>;
+	tree: Lazy<TreeView<ViewNode>>;
+	cancellation?: CancellationToken;
+}
+
 export abstract class ViewBase<
 		Type extends TreeViewTypes,
 		RootNode extends ViewNode,
@@ -185,6 +193,11 @@ export abstract class ViewBase<
 		return types.includes(this.type as unknown as T[number]);
 	}
 
+	private _cancellation: CancellationToken | undefined;
+	get cancellation(): CancellationToken | undefined {
+		return this._cancellation;
+	}
+
 	private _disposed: boolean = false;
 	get disposed(): boolean {
 		return this._disposed;
@@ -209,7 +222,7 @@ export abstract class ViewBase<
 		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
-	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
+	protected readonly _onDidChangeTreeData: EventEmitter<ViewNode | undefined>;
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
 	}
@@ -231,14 +244,23 @@ export abstract class ViewBase<
 		public readonly type: Type,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
-		public readonly grouped?: boolean,
+		grouped?: GroupedViewContext,
 	) {
+		this._grouped = grouped;
+		if (grouped != null) {
+			this._onDidChangeTreeData = grouped.onDidChangeTreeData;
+			this._cancellation = grouped.cancellation;
+		} else {
+			this._onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
+			this.disposables.push(this._onDidChangeTreeData);
+		}
+
 		this.description = this.getViewDescription();
+
 		this.disposables.push(
 			this._onDidChangeNodesCheckedState,
 			this._onDidChangeNodeCollapsibleState,
 			this._onDidChangeSelection,
-			this._onDidChangeTreeData,
 			this._onDidChangeVisibility,
 			once(container.onReady)(this.onReady, this),
 		);
@@ -311,6 +333,11 @@ export abstract class ViewBase<
 
 	get canSelectMany(): boolean {
 		return false;
+	}
+
+	private readonly _grouped: GroupedViewContext | undefined;
+	get grouped(): boolean {
+		return this._grouped != null;
 	}
 
 	private _groupedLabel: string | undefined;
@@ -408,10 +435,13 @@ export abstract class ViewBase<
 	}
 
 	protected initialize(options?: { canSelectMany?: boolean; showCollapseAll?: boolean }): void {
-		this.tree = window.createTreeView<ViewNode>(this.grouped ? 'gitlens.views.scm.grouped' : this.id, {
-			...options,
-			treeDataProvider: this,
-		});
+		if (this._grouped != null) {
+			this.tree = this._grouped.tree.value;
+		} else {
+			this.tree = window.createTreeView<ViewNode>(this.id, { ...options, treeDataProvider: this });
+			this.disposables.push(this.tree);
+		}
+
 		this.disposables.push(
 			configuration.onDidChange(e => {
 				if (!this.filterConfigurationChanged(e)) return;
@@ -419,7 +449,6 @@ export abstract class ViewBase<
 				this._config = undefined;
 				this.onConfigurationChanged(e);
 			}, this),
-			this.tree,
 			this.tree.onDidChangeSelection(debounce(this.onSelectionChanged, 250), this),
 			this.tree.onDidChangeVisibility(debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidChangeCheckboxState(this.onCheckboxStateChanged, this),
@@ -906,16 +935,53 @@ export abstract class ViewBase<
 		this._lastKnownLimits.delete(node.id);
 	}
 
+	private _pendingNodeChanges = new Set<ViewNode | undefined>();
+	private _processingNodeChanges = false;
+
 	@debug<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
 	triggerNodeChange(node?: ViewNode): void {
-		queueMicrotask(async () => {
-			if (this._loadingPromise != null) {
+		// Since the root node won't actually refresh, force everything
+		const target = node != null && node !== this.root ? node : undefined;
+
+		// Clear all queued changes if this is a full-refresh (`undefined`)
+		if (target == null) {
+			this._pendingNodeChanges.clear();
+			this._pendingNodeChanges.add(undefined);
+		}
+		// Don't queue if a full-refresh or this node is already queued
+		else if (this._pendingNodeChanges.has(undefined) || this._pendingNodeChanges.has(target)) {
+			return;
+		} else {
+			this._pendingNodeChanges.add(target);
+		}
+
+		// Only start processing if not already processing
+		if (!this._processingNodeChanges) {
+			this._processingNodeChanges = true;
+			queueMicrotask(() => this.processNextNodeChange());
+		}
+	}
+
+	private async processNextNodeChange(): Promise<void> {
+		while (this._pendingNodeChanges.size > 0) {
+			const target = first(this._pendingNodeChanges.values());
+
+			// Wait until all loading is complete (avoids Element with id '...' already exists errors)
+			while (this._loadingPromise != null) {
 				await this._loadingPromise;
 			}
 
-			// Since the root node won't actually refresh, force everything
-			this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
-		});
+			// Clear all pending changes if this was a full-refresh
+			if (target == null) {
+				this._pendingNodeChanges.clear();
+			} else {
+				this._pendingNodeChanges.delete(target);
+			}
+
+			this._onDidChangeTreeData.fire(target);
+		}
+
+		this._processingNodeChanges = false;
 	}
 
 	protected abstract readonly configKey: ViewsConfigKeys;

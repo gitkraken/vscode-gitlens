@@ -15,6 +15,7 @@ import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubs
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { StashesNode } from './nodes/stashesNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -39,8 +40,6 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading stashes...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
 				await this.view.container.git.isDiscoveringRepositories;
 			}
@@ -72,13 +71,11 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(stash.stashes.size);
 
 			return child.getChildren();
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -91,7 +88,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'stashes', 'Stashes', 'stashesView', grouped);
 	}
 
