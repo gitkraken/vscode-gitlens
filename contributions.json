@@ -10864,11 +10864,18 @@
 						"order": 1
 					}
 				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:searchAndCompare",
+						"group": "inline",
+						"order": 97
+					}
+				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.searchAndCompare",
 						"group": "navigation",
-						"order": 98
+						"order": 97
 					}
 				]
 			}
@@ -10887,6 +10894,13 @@
 			"label": "Refresh",
 			"icon": "$(refresh)",
 			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:searchAndCompare",
+						"group": "inline",
+						"order": 98
+					}
+				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.searchAndCompare",
@@ -13620,6 +13634,13 @@
 			"label": "New Search or Compare",
 			"icon": "$(add)",
 			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:searchAndCompare",
+						"group": "inline",
+						"order": 10
+					}
+				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.searchAndCompare",

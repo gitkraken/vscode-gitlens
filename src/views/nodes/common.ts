@@ -5,6 +5,7 @@ import { unknownGitUri } from '../../git/gitUri';
 import { configuration } from '../../system/-webview/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { isPromise } from '../../system/promise';
+import { compareSubstringIgnoreCase, equalsIgnoreCase } from '../../system/string';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, ViewNode } from './abstract/viewNode';
@@ -17,7 +18,7 @@ export class MessageNode extends ViewNode<'message'> {
 		protected description?: string,
 		protected tooltip?: string,
 		protected iconPath?: TreeItem['iconPath'],
-		protected contextValue?: ContextValues,
+		protected contextValue?: ContextValues | `gitlens:views:${View['type']}`,
 		protected resourceUri?: Uri,
 	) {
 		super('message', unknownGitUri, view, parent);
@@ -35,6 +36,31 @@ export class MessageNode extends ViewNode<'message'> {
 		item.iconPath = this.iconPath;
 		item.resourceUri = this.resourceUri;
 		return item;
+	}
+}
+
+export class GroupedHeaderNode extends MessageNode {
+	constructor(view: View, parent: ViewNode) {
+		let description = view.description;
+		if (description && !equalsIgnoreCase(view.name, description)) {
+			const index = compareSubstringIgnoreCase(description, view.name, 0, view.name.length);
+			description = index === 0 ? description.substring(view.name.length).trimStart() : description;
+			if (description.startsWith(':')) {
+				description = description.substring(1).trimStart();
+			}
+		} else {
+			description = undefined;
+		}
+
+		super(
+			view,
+			parent,
+			view.name.toLocaleUpperCase(),
+			description,
+			view.description,
+			undefined,
+			`gitlens:views:${view.type}`,
+		);
 	}
 }
 

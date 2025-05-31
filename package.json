@@ -18124,6 +18124,21 @@
 					"group": "3_gitlens_ai@1"
 				},
 				{
+					"submenu": "gitlens/view/searchAndCompare/new",
+					"when": "viewItem == gitlens:views:searchAndCompare",
+					"group": "inline@10"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.clear",
+					"when": "viewItem == gitlens:views:searchAndCompare",
+					"group": "inline@97"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.refresh",
+					"when": "viewItem == gitlens:views:searchAndCompare",
+					"group": "inline@98"
+				},
+				{
 					"command": "gitlens.views.workspaces.addRepos",
 					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
 					"group": "inline@1"
@@ -19922,7 +19937,7 @@
 				{
 					"command": "gitlens.views.searchAndCompare.clear",
 					"when": "view == gitlens.views.searchAndCompare",
-					"group": "navigation@98"
+					"group": "navigation@97"
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.refresh",
