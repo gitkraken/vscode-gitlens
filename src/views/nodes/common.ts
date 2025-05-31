@@ -17,7 +17,7 @@ export class MessageNode extends ViewNode<'message'> {
 		protected description?: string,
 		protected tooltip?: string,
 		protected iconPath?: TreeItem['iconPath'],
-		protected contextValue?: string,
+		protected contextValue?: ContextValues,
 		protected resourceUri?: Uri,
 	) {
 		super('message', unknownGitUri, view, parent);
@@ -38,12 +38,6 @@ export class MessageNode extends ViewNode<'message'> {
 	}
 }
 
-export class GroupedHeaderNode extends MessageNode {
-	constructor(view: View, parent: ViewNode, description?: string, label?: string) {
-		super(view, parent, label ?? view.name, description, view.name, undefined, `gitlens:views:${view.type}`);
-	}
-}
-
 export class CommandMessageNode extends MessageNode {
 	constructor(
 		view: View,
@@ -53,7 +47,7 @@ export class CommandMessageNode extends MessageNode {
 		description?: string,
 		tooltip?: string,
 		iconPath?: TreeItem['iconPath'],
-		contextValue?: string,
+		contextValue?: ContextValues,
 		resourceUri?: Uri,
 	) {
 		super(view, parent, message, description, tooltip, iconPath, contextValue, resourceUri);
@@ -90,7 +84,7 @@ export class ActionMessageNode extends CommandMessageNode {
 		description?: string,
 		tooltip?: string,
 		iconPath?: TreeItem['iconPath'],
-		contextValue?: string,
+		contextValue?: ContextValues,
 		resourceUri?: Uri,
 	) {
 		const command = { command: `gitlens.node.action:${actionCommandCounter.next()}`, title: 'Execute action' };
@@ -108,7 +102,7 @@ export class ActionMessageNode extends CommandMessageNode {
 		description?: string | null;
 		tooltip?: string | null;
 		iconPath?: TreeItem['iconPath'] | null;
-		contextValue?: string | null;
+		contextValue?: ContextValues | null;
 		resourceUri?: Uri | null;
 	}): void {
 		this.message = options.message ?? this.message;
