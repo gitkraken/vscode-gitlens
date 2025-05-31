@@ -77,7 +77,8 @@ export class GlChartSlider extends GlElement {
 				.min=${this._min}
 				.max=${this._max}
 				.value=${this._value}
-				tooltip="none"
+				.tooltip="top"
+				.tooltipFormatter=${(_: number) => `Hold shift to compare with working tree`}
 				@sl-change=${this.handleSliderInput}
 				@sl-input=${this.handleSliderInput}
 				@click=${this.handleSliderInput}
