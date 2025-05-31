@@ -16,6 +16,8 @@ import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
+	BranchError,
+	BranchErrorReason,
 	FetchError,
 	FetchErrorReason,
 	PullError,
@@ -75,6 +77,8 @@ export const GitErrors = {
 	alreadyExists: /already exists/i,
 	ambiguousArgument: /fatal:\s*ambiguous argument ['"].+['"]: unknown revision or path not in the working tree/i,
 	badRevision: /bad revision '(.*?)'/i,
+	branchAlreadyExists: /fatal: A branch named '.+?' already exists/i,
+	branchNotFullyMerged: /error: The branch '.+?' is not fully merged/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten:
 		/Your local changes to the following files would be overwritten|Your local changes would be overwritten/i,
@@ -84,6 +88,7 @@ export const GitErrors = {
 	emptyPreviousCherryPick: /The previous cherry-pick is now empty/i,
 	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
+	invalidBranchName: /fatal: '.+?' is not a valid branch name/i,
 	invalidLineCount: /file .+? has only (\d+) lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
@@ -91,6 +96,7 @@ export const GitErrors = {
 	mainWorkingTree: /is a main working tree/i,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
+	noRemoteReference: /unable to delete '.+?': remote ref does not exist/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
 	notAValidObjectName: /Not a valid object name/i,
@@ -169,15 +175,14 @@ const uniqueCounterForStdin = getScopedCounter();
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
-const tagErrorAndReason: [RegExp, TagErrorReason][] = [
-	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
-	[GitErrors.tagNotFound, TagErrorReason.TagNotFound],
-	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
-	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
-	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
+const branchErrorsToReasons: [RegExp, BranchErrorReason][] = [
+	[GitErrors.noRemoteReference, BranchErrorReason.NoRemoteReference],
+	[GitErrors.invalidBranchName, BranchErrorReason.InvalidBranchName],
+	[GitErrors.branchAlreadyExists, BranchErrorReason.BranchAlreadyExists],
+	[GitErrors.branchNotFullyMerged, BranchErrorReason.BranchNotFullyMerged],
 ];
 
-const resetErrorAndReason: [RegExp, ResetErrorReason][] = [
+const resetErrorsToReasons: [RegExp, ResetErrorReason][] = [
 	[GitErrors.ambiguousArgument, ResetErrorReason.AmbiguousArgument],
 	[GitErrors.changesWouldBeOverwritten, ResetErrorReason.ChangesWouldBeOverwritten],
 	[GitErrors.detachedHead, ResetErrorReason.DetachedHead],
@@ -185,6 +190,14 @@ const resetErrorAndReason: [RegExp, ResetErrorReason][] = [
 	[GitErrors.permissionDenied, ResetErrorReason.PermissionDenied],
 	[GitErrors.refLocked, ResetErrorReason.RefLocked],
 	[GitErrors.unmergedChanges, ResetErrorReason.UnmergedChanges],
+];
+
+const tagErrorsToReasons: [RegExp, TagErrorReason][] = [
+	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
+	[GitErrors.tagNotFound, TagErrorReason.TagNotFound],
+	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
+	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
+	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
 ];
 
 export class GitError extends Error {
@@ -705,6 +718,21 @@ export class Git implements Disposable {
 		}
 	}
 
+	async branch(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
+		try {
+			const result = await this.exec({ cwd: repoPath }, 'branch', ...args);
+			return result;
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of branchErrorsToReasons) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new BranchError(reason, ex);
+				}
+			}
+			throw new BranchError(BranchErrorReason.Other, ex);
+		}
+	}
+
 	async branchOrTag__containsOrPointsAt(
 		repoPath: string,
 		refs: string[],
@@ -991,6 +1019,10 @@ export class Git implements Disposable {
 			publish?: boolean;
 			remote?: string;
 			upstream?: string;
+			delete?: {
+				remote: string;
+				branch: string;
+			};
 		},
 	): Promise<void> {
 		const params = ['push'];
@@ -1018,6 +1050,8 @@ export class Git implements Disposable {
 			}
 		} else if (options.remote) {
 			params.push(options.remote);
+		} else if (options.delete) {
+			params.push(options.delete.remote, `:${options.delete.branch}`);
 		}
 
 		try {
@@ -1038,12 +1072,16 @@ export class Git implements Disposable {
 						/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr || '')
 					) {
 						reason = PushErrorReason.PushRejectedWithLeaseIfIncludes;
+					} else if (/error: unable to delete '(.*?)': remote ref does not exist/m.test(ex.stderr || '')) {
+						reason = PushErrorReason.PushRejectedRefNotExists;
 					} else {
 						reason = PushErrorReason.PushRejected;
 					}
 				} else {
 					reason = PushErrorReason.PushRejected;
 				}
+			} else if (/error: unable to delete '(.*?)': remote ref does not exist/m.test(ex.stderr || '')) {
+				reason = PushErrorReason.PushRejectedRefNotExists;
 			} else if (GitErrors.permissionDenied.test(msg) || GitErrors.permissionDenied.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.PermissionDenied;
 			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
@@ -1052,7 +1090,12 @@ export class Git implements Disposable {
 				reason = PushErrorReason.NoUpstream;
 			}
 
-			throw new PushError(reason, ex, options?.branch, options?.remote);
+			throw new PushError(
+				reason,
+				ex,
+				options?.branch || options?.delete?.branch,
+				options?.remote || options?.delete?.remote,
+			);
 		}
 	}
 
@@ -1126,7 +1169,7 @@ export class Git implements Disposable {
 			await this.exec({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			for (const [error, reason] of resetErrorAndReason) {
+			for (const [error, reason] of resetErrorsToReasons) {
 				if (error.test(msg) || error.test(ex.stderr ?? '')) {
 					throw new ResetError(reason, ex);
 				}
@@ -1542,7 +1585,7 @@ export class Git implements Disposable {
 			return result;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			for (const [error, reason] of tagErrorAndReason) {
+			for (const [error, reason] of tagErrorsToReasons) {
 				if (error.test(msg) || error.test(ex.stderr ?? '')) {
 					throw new TagError(reason, ex);
 				}

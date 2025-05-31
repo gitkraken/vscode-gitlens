@@ -244,6 +244,8 @@ export interface GitBranchesSubProvider {
 	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
+	deleteLocalBranch?(repoPath: string, name: string, options?: { force?: boolean }): Promise<void>;
+	deleteRemoteBranch?(repoPath: string, name: string, remote: string): Promise<void>;
 	/**
 	 * Returns whether a branch has been merged into another branch
 	 * @param repoPath The repository path
