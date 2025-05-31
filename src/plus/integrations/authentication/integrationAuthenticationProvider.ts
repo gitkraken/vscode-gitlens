@@ -6,7 +6,10 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
-import { isCloudSelfHostedIntegrationId, isSelfHostedIntegrationId } from '../providers/models';
+import {
+	isCloudGitSelfManagedHostIntegrationId,
+	isGitSelfManagedHostIntegrationId,
+} from '../utils/-webview/integration.utils';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService';
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './models';
@@ -65,7 +68,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds =
 	async deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void> {
 		const configured = await this.configuredIntegrationService.getConfigured(this.authProviderId, {
 			cloud: this.cloud,
-			domain: isSelfHostedIntegrationId(this.authProviderId) ? descriptor?.domain : undefined,
+			domain: isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined,
 		});
 
 		await this.configuredIntegrationService.deleteStoredSessions(
@@ -265,7 +268,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		if (
 			session?.expiresIn === 0 &&
 			(this.authProviderId === GitCloudHostIntegrationId.GitHub ||
-				isCloudSelfHostedIntegrationId(this.authProviderId))
+				isCloudGitSelfManagedHostIntegrationId(this.authProviderId))
 		) {
 			// It never expires so don't refresh it frequently:
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length

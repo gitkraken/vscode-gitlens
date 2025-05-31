@@ -51,9 +51,13 @@ import type {
 	IntegrationResult,
 } from './models/integration';
 import type { IssuesIntegration } from './models/issuesIntegration';
-import { isCloudSelfHostedIntegrationId, isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
-import { convertRemoteProviderIdToIntegrationId } from './utils/-webview/integration.utils';
+import {
+	convertRemoteProviderIdToIntegrationId,
+	isCloudGitSelfManagedHostIntegrationId,
+	isGitCloudHostIntegrationId,
+	isGitSelfManagedHostIntegrationId,
+} from './utils/-webview/integration.utils';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -591,7 +595,7 @@ export class IntegrationService implements Disposable {
 			const isInvalidIntegration =
 				(options?.openRepositoriesOnly &&
 					integrationId !== GitCloudHostIntegrationId.AzureDevOps &&
-					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
+					(isGitCloudHostIntegrationId(integrationId) || isGitSelfManagedHostIntegrationId(integrationId)) &&
 					!openRemotesByIntegrationId.has(integrationId)) ||
 				(integrationId === GitCloudHostIntegrationId.AzureDevOps && !hasOpenAzureRepository);
 			if (integration == null || isInvalidIntegration) {
@@ -970,11 +974,12 @@ export class IntegrationService implements Disposable {
 		id: GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId,
 		domain?: string,
 	): IntegrationKey {
-		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
+		return isGitSelfManagedHostIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 	}
+
 	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationIds, string>): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			if (isCloudSelfHostedIntegrationId(id) && !domainsById.has(id)) {
+			if (isCloudGitSelfManagedHostIntegrationId(id) && !domainsById.has(id)) {
 				// Try getting whatever we have now because we will need to disconnect
 				const integration = await this.get(id, undefined);
 				if (integration != null) {

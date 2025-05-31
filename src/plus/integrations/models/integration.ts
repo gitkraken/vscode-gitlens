@@ -2,11 +2,7 @@
 import type { CancellationToken, Disposable, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
-import type {
-	GitSelfManagedHostIntegrationId,
-	IntegrationIds,
-	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations';
+import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -41,15 +37,13 @@ export type IntegrationById<T extends IntegrationIds> = T extends IssuesCloudHos
 	: GitHostIntegration;
 export type IntegrationType = 'git' | 'issues';
 
-export type IntegrationKey =
-	| `${GitCloudHostIntegrationId}`
-	| `${IssuesCloudHostIntegrationId}`
-	| `${GitSelfManagedHostIntegrationId}:${string}`;
-export type IntegrationKeyById<T extends IntegrationIds> = T extends IssuesCloudHostIntegrationId
-	? `${IssuesCloudHostIntegrationId}`
-	: T extends GitCloudHostIntegrationId
-	  ? `${GitCloudHostIntegrationId}`
-	  : `${GitSelfManagedHostIntegrationId}:${string}`;
+export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extends
+	| GitCloudHostIntegrationId
+	| IssuesCloudHostIntegrationId
+	? `${T}`
+	: `${T}:${string}`;
+
+export type IntegrationConnectedKey<T extends IntegrationIds = IntegrationIds> = `connected:${IntegrationKey<T>}`;
 
 export type IntegrationResult<T> =
 	| { value: T; duration?: number; error?: never }
@@ -81,7 +75,7 @@ export abstract class IntegrationBase<
 
 	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
 	abstract get id(): ID;
-	protected abstract get key(): IntegrationKeyById<ID>;
+	protected abstract get key(): IntegrationKey<ID>;
 	abstract get name(): string;
 	abstract get domain(): string;
 
@@ -104,7 +98,7 @@ export abstract class IntegrationBase<
 		return [];
 	}
 
-	private get connectedKey(): `connected:${Integration['key']}` {
+	private get connectedKey(): IntegrationConnectedKey<ID> {
 		return `connected:${this.key}`;
 	}
 

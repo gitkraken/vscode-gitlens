@@ -1,17 +1,20 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import { isPullRequest } from '../../git/models/pullRequest';
+import { debug } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
+import { debounce } from '../../system/function/debounce';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuple } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 
-export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', ViewsWithCommits> {
+export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: PageableViewNode,
@@ -24,8 +27,27 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
+	protected override etag(): number {
+		return 0;
+	}
+
 	override get id(): string {
 		return this._uniqueId;
+	}
+
+	@debug()
+	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
+		return Disposable.from(
+			weakEvent(
+				this.view.container.integrations.onDidChangeConnectionState,
+				debounce(this.onIntegrationsChanged, 500),
+				this,
+			),
+		);
+	}
+
+	private onIntegrationsChanged() {
+		this.view.triggerNodeChange(this.parent);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

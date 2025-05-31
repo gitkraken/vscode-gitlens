@@ -3,7 +3,7 @@ import type { CloudGitSelfManagedHostIntegrationIds } from '../../constants.inte
 import { GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { ConfiguredIntegrationDescriptor } from '../../plus/integrations/authentication/models';
-import { isCloudSelfHostedIntegrationId } from '../../plus/integrations/providers/models';
+import { isCloudGitSelfManagedHostIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../../system/-webview/configuration';
 import { Logger } from '../../system/logger';
 import { AzureDevOpsRemote } from './azure-devops';
@@ -130,7 +130,7 @@ export function loadRemoteProviders(
 	if (configuredIntegrations?.length) {
 		for (const ci of configuredIntegrations) {
 			const integrationId = ci.integrationId;
-			if (isCloudSelfHostedIntegrationId(integrationId) && ci.domain) {
+			if (isCloudGitSelfManagedHostIntegrationId(integrationId) && ci.domain) {
 				const matcher = ci.domain.toLocaleLowerCase();
 				const provider = {
 					custom: false,

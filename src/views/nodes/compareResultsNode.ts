@@ -104,16 +104,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return Disposable.from(
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
-			weakEvent(
-				this.view.container.integrations.onDidChangeConnectionState,
-				this.onIntegrationConnectionStateChanged,
-				this,
-			),
 		);
-	}
-
-	private onIntegrationConnectionStateChanged() {
-		this.view.triggerNodeChange(this.parent);
 	}
 
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {

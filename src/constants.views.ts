@@ -109,6 +109,7 @@ export const treeViewFileNodeTypes: TreeViewFileNodeTypes[] = [
 	'uncommitted-file',
 ];
 export type TreeViewSubscribableNodeTypes =
+	| 'autolinks'
 	| 'commits-current-branch'
 	| 'compare-branch'
 	| 'compare-results'
@@ -126,7 +127,6 @@ export type TreeViewNodeTypes =
 	| TreeViewFileNodeTypes
 	| TreeViewSubscribableNodeTypes
 	| 'autolink'
-	| 'autolinks'
 	| 'branch-tag-folder'
 	| 'branches'
 	| 'compare-picker'

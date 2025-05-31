@@ -8,7 +8,7 @@ import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
-import type { Integration } from './plus/integrations/models/integration';
+import type { IntegrationConnectedKey } from './plus/integrations/models/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
 export type SecretKeys =
@@ -156,7 +156,7 @@ export type WorkspaceStorage = {
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
 } & {
-	[key in `connected:${Integration['key']}`]: boolean;
+	[key in IntegrationConnectedKey]: boolean;
 };
 
 export interface Stored<T, SchemaVersion extends number = 1> {

@@ -13,6 +13,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import type { IntegrationConnectionChangeEvent } from '../integrationService';
 import { GitHostIntegration } from '../models/gitHostIntegration';
+import type { IntegrationKey } from '../models/integration';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models';
 import type { ProviderRepository } from './models';
 import { fromProviderPullRequest, providersMetadata } from './models';
@@ -28,7 +29,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 	readonly id = GitSelfManagedHostIntegrationId.BitbucketServer;
 	protected readonly key =
-		`${this.id}:${this.domain}` satisfies `${GitSelfManagedHostIntegrationId.BitbucketServer}:${string}`;
+		`${this.id}:${this.domain}` satisfies IntegrationKey<GitSelfManagedHostIntegrationId.BitbucketServer>;
 	readonly name: string = 'Bitbucket Data Center';
 
 	constructor(

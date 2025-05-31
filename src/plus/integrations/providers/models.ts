@@ -36,7 +36,7 @@ import {
 } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
@@ -82,45 +82,6 @@ export const ProviderBuildStatusState = GitBuildStatusState;
 export type ProviderRequestFunction = RequestFunction;
 export type ProviderRequestResponse<T> = Response<T>;
 export type ProviderRequestOptions = RequestOptions;
-
-const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
-	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
-	GitSelfManagedHostIntegrationId.GitHubEnterprise,
-	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
-	GitSelfManagedHostIntegrationId.GitLabSelfHosted,
-	GitSelfManagedHostIntegrationId.BitbucketServer,
-] as const;
-
-export const supportedIntegrationIds: IntegrationIds[] = [
-	GitCloudHostIntegrationId.GitHub,
-	GitCloudHostIntegrationId.GitLab,
-	GitCloudHostIntegrationId.Bitbucket,
-	GitCloudHostIntegrationId.AzureDevOps,
-	IssuesCloudHostIntegrationId.Jira,
-	IssuesCloudHostIntegrationId.Trello,
-	...selfHostedIntegrationIds,
-] as const;
-
-export function isSelfHostedIntegrationId(id: IntegrationIds): id is GitSelfManagedHostIntegrationId {
-	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
-}
-
-export function isHostingIntegrationId(id: IntegrationIds): id is GitCloudHostIntegrationId {
-	return [
-		GitCloudHostIntegrationId.GitHub,
-		GitCloudHostIntegrationId.GitLab,
-		GitCloudHostIntegrationId.Bitbucket,
-		GitCloudHostIntegrationId.AzureDevOps,
-	].includes(id as GitCloudHostIntegrationId);
-}
-
-export function isCloudSelfHostedIntegrationId(id: IntegrationIds): id is CloudGitSelfManagedHostIntegrationIds {
-	return (
-		id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise ||
-		id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted ||
-		id === GitSelfManagedHostIntegrationId.BitbucketServer
-	);
-}
 
 export const enum PullRequestFilter {
 	Author = 'author',

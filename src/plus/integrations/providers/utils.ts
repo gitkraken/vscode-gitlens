@@ -14,9 +14,10 @@ import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../../git
 import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../../../git/utils/resourceDescriptor.utils';
 import { Logger } from '../../../system/logger';
 import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
+import { isCloudGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils';
 import type { AzureProjectInputDescriptor } from './azure/models';
 import type { GitConfigEntityIdentifier } from './models';
-import { isCloudSelfHostedIntegrationId, isGitHubDotCom, isGitLabDotCom } from './models';
+import { isGitHubDotCom, isGitLabDotCom } from './models';
 
 function isLaunchpadItem(item: IssueOrPullRequest | LaunchpadItem): item is LaunchpadItem {
 	return (item as LaunchpadItem).uuid !== undefined;
@@ -172,7 +173,7 @@ export function encodeIssueOrPullRequestForGitConfig(
 			id: entity.id,
 			owner: encodedOwner,
 			createdDate: new Date().toISOString(),
-			isCloudEnterprise: isCloudSelfHostedIntegrationId(entity.provider.id as IntegrationIds),
+			isCloudEnterprise: isCloudGitSelfManagedHostIntegrationId(entity.provider.id as IntegrationIds),
 		},
 	};
 }

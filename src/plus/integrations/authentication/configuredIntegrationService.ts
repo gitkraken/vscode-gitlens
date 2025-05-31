@@ -10,7 +10,8 @@ import type { Container } from '../../../container';
 import { debounce } from '../../../system/function/debounce';
 import { flatten } from '../../../system/iterable';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
-import { isSelfHostedIntegrationId, providersMetadata } from '../providers/models';
+import { providersMetadata } from '../providers/models';
+import { isGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
 import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models';
 
@@ -289,12 +290,12 @@ export class ConfiguredIntegrationService implements Disposable {
 
 		await this.removeConfigured(id, {
 			cloud: cloud,
-			domain: isSelfHostedIntegrationId(id) ? sessionId : undefined,
+			domain: isGitSelfManagedHostIntegrationId(id) ? sessionId : undefined,
 		});
 	}
 
 	async deleteAllSecrets(id: IntegrationIds, cloud?: boolean): Promise<void> {
-		if (isSelfHostedIntegrationId(id)) {
+		if (isGitSelfManagedHostIntegrationId(id)) {
 			// Hack because session IDs are tied to domain. Update this when session ids are different
 			const configuredDomains = this.configured.get(id)?.map(c => c.domain);
 			if (configuredDomains != null) {
@@ -317,7 +318,7 @@ export class ConfiguredIntegrationService implements Disposable {
 
 		await this.addOrUpdateConfigured({
 			integrationId: id,
-			domain: isSelfHostedIntegrationId(id) ? session.domain : undefined,
+			domain: isGitSelfManagedHostIntegrationId(id) ? session.domain : undefined,
 			expiresAt: session.expiresAt,
 			scopes: session.scopes.join(','),
 			cloud: session.cloud ?? false,
@@ -336,7 +337,7 @@ export class ConfiguredIntegrationService implements Disposable {
 				storedSession = JSON.parse(sessionJSON);
 				if (storedSession != null) {
 					const configured = this.configured.get(id);
-					const domain = isSelfHostedIntegrationId(id) ? storedSession.id : undefined;
+					const domain = isGitSelfManagedHostIntegrationId(id) ? storedSession.id : undefined;
 					if (
 						configured == null ||
 						configured.length === 0 ||

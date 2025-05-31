@@ -8,7 +8,7 @@ import {
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { log } from '../../../system/decorators/log';
-import { supportedIntegrationIds } from '../providers/models';
+import { supportedIntegrationIds } from '../utils/-webview/integration.utils';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService';
 import type { IntegrationAuthenticationProvider } from './integrationAuthenticationProvider';
 import { BuiltInAuthenticationProvider } from './integrationAuthenticationProvider';

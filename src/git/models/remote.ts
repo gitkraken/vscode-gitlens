@@ -2,7 +2,10 @@
 import { GitCloudHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
-import { getIntegrationIdForRemote } from '../../plus/integrations/utils/-webview/integration.utils';
+import {
+	getIntegrationConnectedKey,
+	getIntegrationIdForRemote,
+} from '../../plus/integrations/utils/-webview/integration.utils';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { getLoggableName } from '../../system/logger';
 import { equalsIgnoreCase } from '../../system/string';
@@ -54,7 +57,9 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		// Special case for GitHub, since we support the legacy GitHub integration
 		if (integrationId === GitCloudHostIntegrationId.GitHub) {
 			const configured = this.container.integrations.getConfiguredLite(integrationId, { cloud: true });
-			if (configured.length) return true;
+			if (configured.length) {
+				return this.container.storage.getWorkspace(getIntegrationConnectedKey(integrationId)) !== false;
+			}
 
 			return undefined;
 		}
@@ -63,7 +68,14 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 			integrationId,
 			this.provider.custom ? { domain: this.provider.domain } : undefined,
 		);
-		return Boolean(configured.length);
+
+		if (configured.length) {
+			return (
+				this.container.storage.getWorkspace(getIntegrationConnectedKey(integrationId, this.provider.domain)) !==
+				false
+			);
+		}
+		return false;
 	}
 
 	@memoize()
