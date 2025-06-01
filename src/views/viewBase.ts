@@ -861,26 +861,13 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
+			while (this._loadingPromise != null) {
+				await this._loadingPromise;
+			}
+
 			await this.tree?.reveal(node, options);
 		} catch (ex) {
 			if (!node.id || root == null) {
-				Logger.error(ex, scope);
-				debugger;
-
-				return;
-			}
-
-			const n = await this.findNodeCoreBFS(n => n.id === node.id, root, false, undefined, 0, undefined);
-			if (n == null) {
-				Logger.error(ex, scope);
-				debugger;
-
-				return;
-			}
-
-			try {
-				await this.tree?.reveal(n, options);
-			} catch (ex) {
 				Logger.error(ex, scope);
 				debugger;
 			}
