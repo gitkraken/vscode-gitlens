@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { TreeViewNodeTypes } from '../../constants.views';
 import { GitUri } from '../../git/gitUri';
 import { isStash } from '../../git/models/commit';
 import type { GitRevisionRange } from '../../git/models/revision';
@@ -27,8 +28,8 @@ interface Options {
 	description?: string;
 }
 
-export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
-	extends ViewNode<'results-commits', View>
+export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends ViewsWithCommits = ViewsWithCommits>
+	extends ViewNode<Type, View>
 	implements PageableViewNode
 {
 	limit: number | undefined;
@@ -36,6 +37,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private readonly _options: Options;
 
 	constructor(
+		type: Type,
 		view: View,
 		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
@@ -49,7 +51,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		},
 		options?: Partial<Options>,
 	) {
-		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
+		super(type, GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (_results.direction != null) {
 			this.updateContext({ branchStatusUpstreamType: _results.direction });
@@ -260,5 +262,27 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		if (log == null) return { changes: [], range: range };
 
 		return getChangesForChangelog(this.view.container, range, log);
+	}
+}
+
+export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits> extends ResultsCommitsNodeBase<
+	'results-commits',
+	View
+> {
+	constructor(
+		view: View,
+		parent: ViewNode,
+		repoPath: string,
+		label: string,
+		results: {
+			query: (limit: number | undefined) => Promise<CommitsQueryResults>;
+			comparison?: { ref1: string; ref2: string; range: GitRevisionRange };
+			deferred?: boolean;
+			direction?: 'ahead' | 'behind';
+			files?: { ref1: string; ref2: string; query: () => Promise<FilesQueryResults> };
+		},
+		options?: Partial<Options>,
+	) {
+		super('results-commits', view, parent, repoPath, label, results, options);
 	}
 }
