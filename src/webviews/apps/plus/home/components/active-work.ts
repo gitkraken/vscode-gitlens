@@ -21,6 +21,7 @@ import { linkStyles, ruleStyles } from '../../shared/components/vscode.css';
 import { branchCardStyles, GlBranchCardBase } from './branch-card';
 import type { ActiveOverviewState } from './overviewState';
 import { activeOverviewStateContext } from './overviewState';
+import '../../../shared/components/breadcrumbs';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/skeleton-loader';
@@ -85,6 +86,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			.uppercase {
 				text-transform: uppercase;
 			}
+
+			gl-breadcrumbs {
+				--gl-tooltip-text-transform: none;
+			}
+			.heading-branch-breadcrumb {
+				text-transform: none;
+			}
 		`,
 	];
 
@@ -147,19 +155,26 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 		return html`
 			<gl-section ?loading=${isFetching}>
-				<gl-repo-button-group
-					slot="heading"
-					.repository=${repo}
-					?disabled=${!hasMultipleRepositories}
-					?hasMultipleRepositories=${hasMultipleRepositories}
-					.source=${{ source: 'graph' } as const}
-					@gl-click=${this.onRepositorySelectorClicked}
-					><span slot="tooltip">
-						Switch to Another Repository...
-						<hr />
-						${repo.name}
-					</span></gl-repo-button-group
-				>
+				<gl-breadcrumbs slot="heading">
+					<gl-breadcrumb-item collapsibleState="collapsed" icon="repo"
+						><gl-repo-button-group
+							.repository=${repo}
+							.icon=${false}
+							?disabled=${!hasMultipleRepositories}
+							?hasMultipleRepositories=${hasMultipleRepositories}
+							.source=${{ source: 'graph' } as const}
+							@gl-click=${this.onRepositorySelectorClicked}
+							><span slot="tooltip">
+								Switch to Another Repository...
+								<hr />
+								${repo.name}
+							</span></gl-repo-button-group
+						></gl-breadcrumb-item
+					>
+					<gl-breadcrumb-item collapsibleState="none" icon="git-branch" class="heading-branch-breadcrumb"
+						>${activeBranch.name}</gl-breadcrumb-item
+					>
+				</gl-breadcrumbs>
 				<span class="section-heading-actions" slot="heading-actions">
 					<gl-button
 						aria-busy="${ifDefined(isFetching)}"
