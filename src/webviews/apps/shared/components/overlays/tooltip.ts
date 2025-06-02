@@ -31,6 +31,10 @@ export class GlTooltip extends LitElement {
 			z-index: 1;
 		}
 
+		:host {
+			text-transform: var(--gl-tooltip-text-transform, inherit);
+		}
+
 		:host([data-current-placement^='top']) sl-tooltip::part(base__arrow) {
 			border-top-width: 0;
 			border-left-width: 0;
