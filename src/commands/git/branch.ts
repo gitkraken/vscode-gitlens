@@ -1,11 +1,13 @@
-import { QuickInputButtons } from 'vscode';
+import { QuickInputButtons, window } from 'vscode';
 import type { Container } from '../../container';
+import { BranchError, BranchErrorReason } from '../../git/errors';
 import type { IssueShape } from '../../git/models/issue';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
 import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
 import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getBranchNameAndRemote } from '../../git/utils/branch.utils';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
@@ -430,7 +432,7 @@ export class BranchGitCommand extends QuickCommand {
 				try {
 					await state.repo.git.branches.createBranch?.(state.name, state.reference.ref);
 				} catch (ex) {
-					Logger.error(ex);
+					Logger.error(ex, context.title);
 					// TODO likely need some better error handling here
 					return showGenericErrorMessage('Unable to create branch');
 				}
@@ -571,10 +573,47 @@ export class BranchGitCommand extends QuickCommand {
 			state.flags = result;
 
 			endSteps(state);
-			state.repo.branchDelete(state.references, {
-				force: state.flags.includes('--force'),
-				remote: state.flags.includes('--remotes'),
-			});
+
+			for (const ref of state.references) {
+				const [name, remote] = getBranchNameAndRemote(ref);
+				try {
+					if (ref.remote) {
+						await state.repo.git.branches.deleteRemoteBranch?.(name, remote!);
+					} else {
+						await state.repo.git.branches.deleteLocalBranch?.(name, {
+							force: state.flags.includes('--force'),
+						});
+						if (state.flags.includes('--remotes') && remote) {
+							await state.repo.git.branches.deleteRemoteBranch?.(name, remote);
+						}
+					}
+				} catch (ex) {
+					if (BranchError.is(ex, BranchErrorReason.BranchNotFullyMerged)) {
+						const confirm = { title: 'Delete Branch' };
+						const cancel = { title: 'Cancel', isCloseAffordance: true };
+						const result = await window.showWarningMessage(
+							`Unable to delete branch '${name}' as it is not fully merged. Do you want to delete it anyway?`,
+							{ modal: true },
+							confirm,
+							cancel,
+						);
+
+						if (result === confirm) {
+							try {
+								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
+							} catch (ex) {
+								Logger.error(ex, context.title);
+								void showGenericErrorMessage(ex);
+							}
+						}
+
+						continue;
+					}
+
+					Logger.error(ex, context.title);
+					void showGenericErrorMessage(ex);
+				}
+			}
 		}
 	}
 
@@ -680,7 +719,7 @@ export class BranchGitCommand extends QuickCommand {
 			try {
 				await state.repo.git.branches.renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
-				Logger.error(ex);
+				Logger.error(ex, context.title);
 				// TODO likely need some better error handling here
 				return showGenericErrorMessage('Unable to rename branch');
 			}

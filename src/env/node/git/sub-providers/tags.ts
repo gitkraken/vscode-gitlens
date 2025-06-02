@@ -134,7 +134,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			await this.git.tag(repoPath, name, sha, ...(message != null && message.length > 0 ? ['-m', message] : []));
 		} catch (ex) {
 			if (ex instanceof TagError) {
-				throw ex.withTag(name).withAction('create');
+				throw ex.update({ tag: name, action: 'create' });
 			}
 
 			throw ex;
@@ -147,7 +147,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			await this.git.tag(repoPath, '-d', name);
 		} catch (ex) {
 			if (ex instanceof TagError) {
-				throw ex.withTag(name).withAction('delete');
+				throw ex.update({ tag: name, action: 'delete' });
 			}
 
 			throw ex;

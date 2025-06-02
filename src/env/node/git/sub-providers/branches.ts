@@ -3,6 +3,7 @@ import type { Container } from '../../../../container';
 import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
+import { BranchError } from '../../../../git/errors';
 import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
@@ -441,7 +442,41 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@log()
 	async createBranch(repoPath: string, name: string, sha: string): Promise<void> {
-		await this.git.exec({ cwd: repoPath }, 'branch', name, sha);
+		try {
+			await this.git.branch(repoPath, name, sha);
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.update({ branch: name, action: 'create' });
+			}
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async deleteLocalBranch(repoPath: string, name: string, options?: { force?: boolean }): Promise<void> {
+		try {
+			await this.git.branch(repoPath, options?.force ? '-D' : '-d', name);
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.update({ branch: name, action: 'delete' });
+			}
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async deleteRemoteBranch(repoPath: string, name: string, remote: string): Promise<void> {
+		try {
+			await this.git.exec({ cwd: repoPath }, 'push', '-d', remote, name);
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.update({ branch: name, action: 'delete' });
+			}
+
+			throw ex;
+		}
 	}
 
 	@log()
@@ -781,7 +816,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
-		await this.git.exec({ cwd: repoPath }, 'branch', '-m', oldName, newName);
+		try {
+			await this.git.branch(repoPath, 'branch', '-m', oldName, newName);
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.update({ branch: oldName, action: 'rename' });
+			}
+
+			throw ex;
+		}
 	}
 
 	@log()
