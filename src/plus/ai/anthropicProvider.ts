@@ -190,15 +190,24 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 
 			debugger;
 
-			if (json?.error?.type === 'invalid_request_error' && json?.error?.message?.includes('prompt is too long')) {
-				if (retries < 2) {
-					return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+			if (json?.error?.type === 'invalid_request_error') {
+				if (json?.error?.message?.includes('prompt is too long')) {
+					if (retries < 2) {
+						return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+					}
+
+					throw new AIError(
+						AIErrorReason.RequestTooLarge,
+						new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+					);
 				}
 
-				throw new AIError(
-					AIErrorReason.RequestTooLarge,
-					new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
-				);
+				if (json?.error?.message?.includes('balance is too low')) {
+					throw new AIError(
+						AIErrorReason.RateLimitOrFundsExceeded,
+						new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+					);
+				}
 			}
 		}
 
