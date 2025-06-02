@@ -149,6 +149,7 @@ export const enum PushErrorReason {
 	RemoteAhead,
 	TipBehind,
 	PushRejected,
+	PushRejectedRefNotExists,
 	PushRejectedWithLease,
 	PushRejectedWithLeaseIfIncludes,
 	PermissionDenied,
@@ -193,6 +194,11 @@ export class PushError extends Error {
 					break;
 				case PushErrorReason.PushRejected:
 					message = `${baseMessage} because some refs failed to push or the push was rejected. Try pulling first.`;
+					break;
+				case PushErrorReason.PushRejectedRefNotExists:
+					message = `Unable to delete remote branch${branch ? ` '${branch}'` : ''}${
+						remote ? ` from ${remote}` : ''
+					}, the remote reference does not exist`;
 					break;
 				case PushErrorReason.PushRejectedWithLease:
 				case PushErrorReason.PushRejectedWithLeaseIfIncludes:
@@ -496,6 +502,84 @@ export class WorktreeDeleteError extends Error {
 	}
 }
 
+export const enum BranchErrorReason {
+	BranchAlreadyExists,
+	BranchNotFullyMerged,
+	NoRemoteReference,
+	InvalidBranchName,
+	Other,
+}
+
+export class BranchError extends Error {
+	static is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
+		return ex instanceof BranchError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: BranchErrorReason | undefined;
+	private _branch?: string;
+	get branch(): string | undefined {
+		return this._branch;
+	}
+	private _action?: string;
+	get action(): string | undefined {
+		return this._action;
+	}
+
+	constructor(reason?: BranchErrorReason, original?: Error, branch?: string, action?: string);
+	constructor(message?: string, original?: Error);
+	constructor(
+		messageOrReason: string | BranchErrorReason | undefined,
+		original?: Error,
+		branch?: string,
+		action?: string,
+	) {
+		let message;
+		let reason: BranchErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as BranchErrorReason;
+			message = BranchError.buildErrorMessage(reason, branch, action);
+		} else {
+			message = messageOrReason;
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this._branch = branch;
+		this._action = action;
+		Error.captureStackTrace?.(this, BranchError);
+	}
+
+	private static buildErrorMessage(reason?: BranchErrorReason, branch?: string, action?: string): string {
+		let baseMessage: string;
+		if (action != null) {
+			baseMessage = `Unable to ${action} branch ${branch ? `'${branch}'` : ''}`;
+		} else {
+			baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
+		}
+		switch (reason) {
+			case BranchErrorReason.BranchAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case BranchErrorReason.BranchNotFullyMerged:
+				return `${baseMessage} because it is not fully merged`;
+			case BranchErrorReason.NoRemoteReference:
+				return `${baseMessage} because the remote reference does not exist`;
+			case BranchErrorReason.InvalidBranchName:
+				return `${baseMessage} because the branch name is invalid`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	update(changes: { branch?: string; action?: string }): this {
+		this._branch = changes.branch === null ? undefined : changes.branch ?? this._branch;
+		this._action = changes.action === null ? undefined : changes.action ?? this._action;
+		this.message = BranchError.buildErrorMessage(this.reason, this._branch, this._action);
+		return this;
+	}
+}
+
 export const enum TagErrorReason {
 	TagAlreadyExists,
 	TagNotFound,
@@ -512,10 +596,36 @@ export class TagError extends Error {
 
 	readonly original?: Error;
 	readonly reason: TagErrorReason | undefined;
-	action?: string;
-	tag?: string;
+	private _tag?: string;
+	get tag(): string | undefined {
+		return this._tag;
+	}
+	private _action?: string;
+	get action(): string | undefined {
+		return this._action;
+	}
 
-	private static buildTagErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
+	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
+		let message;
+		let reason: TagErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as TagErrorReason;
+			message = TagError.buildErrorMessage(reason, tag, action);
+		} else {
+			message = messageOrReason;
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this._tag = tag;
+		this._action = action;
+		Error.captureStackTrace?.(this, TagError);
+	}
+
+	private static buildErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
 		let baseMessage: string;
 		if (action != null) {
 			baseMessage = `Unable to ${action} tag ${tag ? `'${tag}'` : ''}`;
@@ -539,37 +649,10 @@ export class TagError extends Error {
 		}
 	}
 
-	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
-	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
-		let reason: TagErrorReason | undefined;
-		if (typeof messageOrReason !== 'string') {
-			reason = messageOrReason as TagErrorReason;
-		} else {
-			super(messageOrReason);
-		}
-		const message =
-			typeof messageOrReason === 'string'
-				? messageOrReason
-				: TagError.buildTagErrorMessage(messageOrReason as TagErrorReason, tag, action);
-		super(message);
-
-		this.original = original;
-		this.reason = reason;
-		this.tag = tag;
-		this.action = action;
-		Error.captureStackTrace?.(this, TagError);
-	}
-
-	withTag(tag: string): this {
-		this.tag = tag;
-		this.message = TagError.buildTagErrorMessage(this.reason, tag, this.action);
-		return this;
-	}
-
-	withAction(action: string): this {
-		this.action = action;
-		this.message = TagError.buildTagErrorMessage(this.reason, this.tag, action);
+	update(changes: { tag?: string; action?: string }): this {
+		this._tag = changes.tag === null ? undefined : changes.tag ?? this._tag;
+		this._action = changes.action === null ? undefined : changes.action ?? this._action;
+		this.message = TagError.buildErrorMessage(this.reason, this._tag, this._action);
 		return this;
 	}
 }

@@ -383,6 +383,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (result === StepResultBreak) continue;
 
 			endSteps(state);
+
 			for (const { ref } of state.references) {
 				try {
 					await state.repo.git.tags.deleteTag?.(ref);
