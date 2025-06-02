@@ -2920,62 +2920,6 @@
 				]
 			}
 		},
-		"gitlens.graph.stash.apply": {
-			"label": "Apply Stash...",
-			"icon": "$(gitlens-stash-pop)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.graph.stash.delete": {
-			"label": "Drop Stash...",
-			"icon": "$(trash)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.graph.stash.rename": {
-			"label": "Rename Stash...",
-			"icon": "$(edit)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.graph.stash.save": {
-			"label": "Stash All Changes...",
-			"icon": "$(gitlens-stash-save)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 3
-					}
-				]
-			}
-		},
 		"gitlens.graph.switchToAnotherBranch": {
 			"label": "Switch Branch...",
 			"icon": "$(gitlens-switch)",
@@ -4459,11 +4403,96 @@
 			"icon": "$(rocket)",
 			"commandPalette": "gitlens:enabled"
 		},
-		"gitlens.stashApply": {
+		"gitlens.stashApply:graph": {
+			"label": "Apply Stash...",
+			"icon": "$(gitlens-stash-pop)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.stashApply:views": {
+			"label": "Apply Stash...",
+			"icon": "$(gitlens-stash-pop)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "inline",
+						"order": 1
+					},
+					{
+						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.stashDelete:graph": {
+			"label": "Drop Stash...",
+			"icon": "$(trash)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.stashDelete:views": {
+			"label": "Drop Stash...",
+			"icon": "$(trash)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "inline",
+						"order": 99
+					},
+					{
+						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.stashDelete.multi:views": {
+			"label": "Drop Stashes...",
+			"icon": "$(trash)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:stash && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.stashesApply": {
 			"label": "Apply a Stash...",
 			"icon": "$(gitlens-stash-pop)",
 			"enablement": "!operationInProgress",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.stashesApply:views": {
+			"label": "Apply a Stash...",
+			"icon": "$(gitlens-stash-pop)",
+			"enablement": "!operationInProgress",
 			"menus": {
 				"gitlens/views/grouped/stashes": [
 					{
@@ -4503,29 +4532,70 @@
 				]
 			}
 		},
+		"gitlens.stashRename:graph": {
+			"label": "Rename Stash...",
+			"icon": "$(edit)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.stashRename:views": {
+			"label": "Rename Stash...",
+			"icon": "$(edit)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "inline",
+						"order": 98
+					},
+					{
+						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.stashSave": {
+			"label": "Stash All Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"enablement": "!operationInProgress",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.stashSave:graph": {
+			"label": "Stash All Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.stashSave:scm": {
 			"label": "Stash All Changes...",
 			"icon": "$(gitlens-stash-save)",
 			"enablement": "!operationInProgress",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 			"menus": {
-				"gitlens/views/grouped/stashes": [
-					{
-						"when": "gitlens:views:scm:grouped:view == stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "2_gitlens_actions",
-						"order": 1
-					}
-				],
 				"scm/resourceGroup/context": [
-					{
-						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroupInline.stash",
-						"group": "inline",
-						"order": -1
-					},
 					{
 						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroup.stash",
 						"group": "1_modification",
-						"order": 100
+						"order": 101
 					}
 				],
 				"scm/title": [
@@ -4533,6 +4603,20 @@
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepositoryInline.stash",
 						"group": "navigation",
 						"order": -2
+					}
+				]
+			}
+		},
+		"gitlens.stashSave:views": {
+			"label": "Stash All Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"gitlens/views/grouped/stashes": [
+					{
+						"when": "gitlens:views:scm:grouped:view == stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "2_gitlens_actions",
+						"order": 1
 					}
 				],
 				"view/item/context": [
@@ -4547,12 +4631,12 @@
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "viewItem == gitlens:stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "viewItem == gitlens:stashes && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -4566,7 +4650,7 @@
 				]
 			}
 		},
-		"gitlens.stashSaveFiles": {
+		"gitlens.stashSave.files:scm": {
 			"label": "Stash Changes...",
 			"icon": "$(gitlens-stash-save)",
 			"enablement": "!operationInProgress",
@@ -4582,12 +4666,69 @@
 						"group": "1_modification",
 						"order": 2
 					}
-				],
+				]
+			}
+		},
+		"gitlens.stashSave.files:views": {
+			"label": "Stash Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"enablement": "!operationInProgress",
+			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+(un)?staged\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
+					},
+					{
+						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "inline",
+						"order": 98
+					},
+					{
+						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.stashSave.staged:scm": {
+			"label": "Stash Staged Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"enablement": "!operationInProgress",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+			"menus": {
+				"scm/resourceGroup/context": [
+					{
+						"when": "scmResourceGroup == index && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroupInline.stash",
+						"group": "inline",
+						"order": -1
+					},
+					{
+						"when": "scmResourceGroup == index && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroup.stash",
+						"group": "1_modification",
+						"order": 100
+					}
+				]
+			}
+		},
+		"gitlens.stashSave.unstaged:scm": {
+			"label": "Stash Unstaged Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"enablement": "!operationInProgress",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+			"menus": {
+				"scm/resourceGroup/context": [
+					{
+						"when": "scmResourceGroup == workingTree && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroupInline.stash",
+						"group": "inline",
+						"order": -1
+					},
+					{
+						"when": "scmResourceGroup == workingTree && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroup.stash",
+						"group": "1_modification",
+						"order": 100
 					}
 				]
 			}
@@ -11730,77 +11871,6 @@
 						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/ && listMultiSelection",
 						"group": "8_gitlens_actions_",
 						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.views.stash.apply": {
-			"label": "Apply Stash...",
-			"icon": "$(gitlens-stash-pop)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "inline",
-						"order": 1
-					},
-					{
-						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.views.stash.delete": {
-			"label": "Drop Stash...",
-			"icon": "$(trash)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "inline",
-						"order": 99
-					},
-					{
-						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.views.stash.delete.multi": {
-			"label": "Drop Stashes...",
-			"icon": "$(trash)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:stash && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.views.stash.rename": {
-			"label": "Rename Stash...",
-			"icon": "$(edit)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "inline",
-						"order": 98
-					},
-					{
-						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 2
 					}
 				]
 			}

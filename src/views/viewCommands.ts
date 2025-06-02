@@ -314,7 +314,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.applyChanges(node.file, node.ref);
 	}
 
-	@command('gitlens.views.stash.apply')
+	@command('gitlens.stashApply:views')
 	@log()
 	private applyStash(node: StashNode) {
 		if (!node.is('stash')) return Promise.resolve();
@@ -481,8 +481,8 @@ export class ViewCommands implements Disposable {
 		return BranchActions.remove(node.repoPath, refs);
 	}
 
-	@command('gitlens.views.stash.delete')
-	@command('gitlens.views.stash.delete.multi', { multiselect: true })
+	@command('gitlens.stashDelete:views')
+	@command('gitlens.stashDelete.multi:views', { multiselect: true })
 	@log()
 	private deleteStash(node: StashNode, nodes?: StashNode[]) {
 		if (!node.is('stash')) return Promise.resolve();
@@ -491,7 +491,7 @@ export class ViewCommands implements Disposable {
 		return StashActions.drop(node.repoPath, refs);
 	}
 
-	@command('gitlens.views.stash.rename')
+	@command('gitlens.stashRename:views')
 	@log()
 	private renameStash(node: StashNode) {
 		if (!node.is('stash')) return Promise.resolve();

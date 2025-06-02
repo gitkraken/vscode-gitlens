@@ -549,10 +549,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.switchToCommit', this.switchTo),
 			this.host.registerWebviewCommand('gitlens.graph.undoCommit', this.undoCommit),
 
-			this.host.registerWebviewCommand('gitlens.graph.stash.save', this.saveStash),
-			this.host.registerWebviewCommand('gitlens.graph.stash.apply', this.applyStash),
-			this.host.registerWebviewCommand('gitlens.graph.stash.delete', this.deleteStash),
-			this.host.registerWebviewCommand('gitlens.graph.stash.rename', this.renameStash),
+			this.host.registerWebviewCommand('gitlens.stashSave:graph', this.saveStash),
+			this.host.registerWebviewCommand('gitlens.stashApply:graph', this.applyStash),
+			this.host.registerWebviewCommand('gitlens.stashDelete:graph', this.deleteStash),
+			this.host.registerWebviewCommand('gitlens.stashRename:graph', this.renameStash),
 
 			this.host.registerWebviewCommand('gitlens.graph.createTag', this.createTag),
 			this.host.registerWebviewCommand('gitlens.graph.deleteTag', this.deleteTag),

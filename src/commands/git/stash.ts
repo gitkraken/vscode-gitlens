@@ -587,9 +587,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						);
 
 						if (result === confirm) {
-							if (state.uris == null) {
-								state.uris = state.onlyStagedUris;
-							}
+							state.uris ??= state.onlyStagedUris;
 							state.flags.splice(state.flags.indexOf('--staged'), 1);
 							continue;
 						}

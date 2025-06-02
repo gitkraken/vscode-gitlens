@@ -1,12 +1,14 @@
 import type { Uri } from 'vscode';
+import { window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { Container } from '../container';
 import { push } from '../git/actions/stash';
 import { GitUri } from '../git/gitUri';
+import type { Repository } from '../git/models/repository';
 import { command } from '../system/-webview/command';
 import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { CommandContext, CommandScmGroupsContext, CommandScmStatesContext } from './commandContext';
 import {
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
@@ -26,7 +28,15 @@ export interface StashSaveCommandArgs {
 @command()
 export class StashSaveCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.stashSave', 'gitlens.stashSaveFiles']);
+		super([
+			'gitlens.stashSave',
+			'gitlens.stashSave:scm',
+			'gitlens.stashSave:views',
+			'gitlens.stashSave.staged:scm',
+			'gitlens.stashSave.unstaged:scm',
+			'gitlens.stashSave.files:scm',
+			'gitlens.stashSave.files:views',
+		]);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs): Promise<void> {
@@ -49,83 +59,11 @@ export class StashSaveCommand extends GlCommandBase {
 				}
 			}
 		} else if (context.type === 'scm-states') {
-			args = { ...args };
-
-			let hasOnlyStaged = undefined;
-			let hasStaged = false;
-			let hasUntracked = false;
-
-			const uris: Uri[] = [];
-
-			for (const resource of context.scmResourceStates as ScmResource[]) {
-				uris.push(resource.resourceUri);
-				if (resource.type === ScmStatus.UNTRACKED) {
-					hasUntracked = true;
-				}
-
-				if (resource.resourceGroupType === ScmResourceGroupType.Index) {
-					hasStaged = true;
-					if (hasOnlyStaged == null) {
-						hasOnlyStaged = true;
-					}
-				} else {
-					hasOnlyStaged = false;
-				}
-			}
-
-			const repo = await this.container.git.getOrOpenRepository(uris[0]);
-
-			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('git:stash:push:staged') : false;
-			if (args.keepStaged == null && !hasStaged) {
-				args.keepStaged = true;
-			}
-			args.includeUntracked = hasUntracked;
-
-			args.uris = uris;
+			args = await getStashSaveArgsForScmStates(this.container, context, args);
+			if (args == null) return;
 		} else if (context.type === 'scm-groups') {
-			args = { ...args };
-
-			let hasOnlyStaged = undefined;
-			let hasStaged = false;
-			let hasUntracked = false;
-
-			const uris: Uri[] = [];
-			const stagedUris: Uri[] = [];
-
-			for (const group of context.scmResourceGroups) {
-				for (const resource of group.resourceStates as ScmResource[]) {
-					uris.push(resource.resourceUri);
-					if (resource.type === ScmStatus.UNTRACKED) {
-						hasUntracked = true;
-					}
-				}
-
-				if (group.id === 'index') {
-					hasStaged = true;
-					if (hasOnlyStaged == null) {
-						hasOnlyStaged = true;
-					}
-					stagedUris.push(...group.resourceStates.map(s => s.resourceUri));
-				} else {
-					hasOnlyStaged = false;
-				}
-			}
-
-			const repo = await this.container.git.getOrOpenRepository(uris[0]);
-
-			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('git:stash:push:staged') : false;
-			if (args.keepStaged == null && !hasStaged) {
-				args.keepStaged = true;
-			}
-			args.includeUntracked = hasUntracked;
-
-			if (args.onlyStaged) {
-				args.onlyStagedUris = stagedUris;
-			} else {
-				args.uris = uris;
-			}
+			args = await getStashSaveArgsForScmGroups(this.container, context, args);
+			if (args == null) return;
 		}
 
 		return this.execute(args);
@@ -142,4 +80,216 @@ export class StashSaveCommand extends GlCommandBase {
 			args?.onlyStagedUris,
 		);
 	}
+}
+
+async function getStashSaveArgsForScmStates(
+	container: Container,
+	context: CommandScmStatesContext,
+	args: StashSaveCommandArgs | undefined,
+): Promise<StashSaveCommandArgs | undefined> {
+	args = { ...args };
+
+	let selectedStaged = 0;
+	let selectedWorking = 0;
+	let selectedUntracked = 0;
+
+	const uris: Uri[] = [];
+
+	for (const resource of context.scmResourceStates as ScmResource[]) {
+		uris.push(resource.resourceUri);
+		if (resource.type === ScmStatus.UNTRACKED) {
+			selectedUntracked++;
+		}
+
+		if (resource.resourceGroupType === ScmResourceGroupType.Index) {
+			selectedStaged++;
+		} else if (resource.resourceGroupType === ScmResourceGroupType.WorkingTree) {
+			selectedWorking++;
+		}
+	}
+
+	const repo = await container.git.getOrOpenRepository(uris[0]);
+	args.repoPath = repo?.path;
+
+	if (!(await repo?.git?.supports('git:stash:push:pathspecs'))) {
+		const confirm = { title: 'Stash All' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			"Your Git version doesn't support stashing individual files. Stash all changes instead?",
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+		if (result !== confirm) return undefined;
+
+		return args;
+	}
+
+	let hasStaged = 0;
+	// let hasWorking = 0;
+	// let hasUntracked = 0;
+
+	const status = await repo?.git.status.getStatus();
+	for (const file of status?.files ?? []) {
+		if (file.indexStatus) {
+			hasStaged++;
+		}
+		// if (file.workingTreeStatus) {
+		// 	hasWorking++;
+		// }
+		// if (file.status === '?') {
+		// 	hasUntracked++;
+		// }
+	}
+
+	if (!selectedWorking && !selectedUntracked) {
+		if (!(await repo?.git?.supports('git:stash:push:staged'))) {
+			const confirm = { title: 'Stash All' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				"Your Git version doesn't support stashing only staged changes. Stash all changes instead?",
+				{ modal: true },
+				confirm,
+				cancel,
+			);
+			if (result !== confirm) return args;
+		} else {
+			args.onlyStaged = true;
+		}
+	}
+
+	if (args.keepStaged == null && hasStaged !== selectedStaged) {
+		args.keepStaged = true;
+	}
+	args.includeUntracked = Boolean(selectedUntracked);
+
+	args.uris = uris;
+	return args;
+}
+
+async function getStashSaveArgsForScmGroups(
+	container: Container,
+	context: CommandScmGroupsContext,
+	args: StashSaveCommandArgs | undefined,
+): Promise<StashSaveCommandArgs | undefined> {
+	args = { ...args };
+
+	let repo;
+	const uri = context.scmResourceGroups[0]?.resourceStates[0]?.resourceUri;
+	if (uri != null) {
+		repo = await container.git.getOrOpenRepository(uri);
+		args.repoPath = repo?.path;
+	}
+	if (repo == null) return args;
+
+	if (context.command === 'gitlens.stashSave.staged:scm') {
+		return getStashSaveArgsForStagedScmGroup(repo, args);
+	}
+
+	if (context.command === 'gitlens.stashSave.unstaged:scm') {
+		return getStashSaveArgsForUnstagedScmGroup(repo, args);
+	}
+
+	return args;
+}
+
+async function getStashSaveArgsForStagedScmGroup(
+	repo: Repository,
+	args: StashSaveCommandArgs,
+): Promise<StashSaveCommandArgs | undefined> {
+	let hasStaged = false;
+	let hasWorking = false;
+	let hasUntracked = false;
+
+	const status = await repo.git.status.getStatus();
+	for (const file of status?.files ?? []) {
+		if (file.indexStatus) {
+			hasStaged = true;
+		}
+		if (file.workingTreeStatus) {
+			hasWorking = true;
+		}
+		if (file.status === '?') {
+			hasUntracked = true;
+		}
+	}
+
+	if (!hasStaged) {
+		const confirm = { title: 'Stash All' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			'There are no staged changes to stash. Stash all changes instead?',
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+		if (result !== confirm) return undefined;
+
+		return args;
+	}
+
+	args.onlyStaged = false;
+	if (hasWorking || hasUntracked) {
+		if (await repo?.git?.supports('git:stash:push:staged')) {
+			args.onlyStaged = true;
+		} else {
+			const confirm = { title: 'Stash All' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				"Your Git version doesn't support stashing only staged changes. Stash all changes instead?",
+				{ modal: true },
+				confirm,
+				cancel,
+			);
+			if (result !== confirm) return;
+		}
+	}
+
+	args.keepStaged = false;
+	args.includeUntracked = false;
+
+	return args;
+}
+
+async function getStashSaveArgsForUnstagedScmGroup(
+	repo: Repository,
+	args: StashSaveCommandArgs,
+): Promise<StashSaveCommandArgs | undefined> {
+	let hasStaged = false;
+	let hasWorking = false;
+	let hasUntracked = false;
+
+	const status = await repo?.git.status.getStatus();
+	for (const file of status?.files ?? []) {
+		if (file.indexStatus) {
+			hasStaged = true;
+		}
+		if (file.workingTreeStatus) {
+			hasWorking = true;
+		}
+		if (file.status === '?') {
+			hasUntracked = true;
+		}
+	}
+
+	if (!hasWorking && !hasUntracked) {
+		const confirm = { title: 'Stash All' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			'There are no unstaged changes to stash. Stash all changes instead?',
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+		if (result !== confirm) return undefined;
+
+		return args;
+	}
+
+	if (args.keepStaged == null && hasStaged) {
+		args.keepStaged = true;
+	}
+	args.includeUntracked = hasUntracked;
+
+	return args;
 }

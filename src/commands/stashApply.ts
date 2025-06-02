@@ -19,17 +19,19 @@ export interface StashApplyCommandArgs {
 @command()
 export class StashApplyCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.stashApply');
+		super(['gitlens.stashesApply', 'gitlens.stashesApply:views']);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: StashApplyCommandArgs): Promise<void> {
-		if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
-			if (context.node.commit.message == null) {
-				await context.node.commit.ensureFullDetails();
+		if (context.command === 'gitlens.stashesApply:views') {
+			if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
+				if (context.node.commit.message == null) {
+					await context.node.commit.ensureFullDetails();
+				}
+				args = { ...args, stashItem: context.node.commit };
+			} else if (isCommandContextViewNodeHasRepository(context)) {
+				args = { ...args, repoPath: context.node.repo.path };
 			}
-			args = { ...args, stashItem: context.node.commit };
-		} else if (isCommandContextViewNodeHasRepository(context)) {
-			args = { ...args, repoPath: context.node.repo.path };
 		}
 
 		return this.execute(args);
