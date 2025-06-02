@@ -3,6 +3,7 @@ import type {
 	ConfigurationChangeEvent,
 	Disposable,
 	Event,
+	ThemeIcon,
 	TreeCheckboxChangeEvent,
 	TreeDataProvider,
 	TreeItem,
@@ -55,6 +56,7 @@ import type { LaunchpadView } from './launchpadView';
 import type { LineHistoryView } from './lineHistoryView';
 import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
 import { isPageableViewNode } from './nodes/abstract/viewNode';
+import { GroupedHeaderNode } from './nodes/common';
 import type { PullRequestView } from './pullRequestView';
 import type { RemotesView } from './remotesView';
 import type { RepositoriesView } from './repositoriesView';
@@ -348,6 +350,10 @@ export abstract class ViewBase<
 		this._groupedLabel = value;
 	}
 
+	protected get groupedIcon(): ThemeIcon | undefined {
+		return undefined;
+	}
+
 	private _nodeState: ViewNodeState | undefined;
 	get nodeState(): ViewNodeState {
 		if (this._nodeState == null) {
@@ -404,7 +410,7 @@ export abstract class ViewBase<
 	}
 	set description(value: string | undefined) {
 		this._description = value;
-		if (this.tree != null) {
+		if (this.tree != null && !this.grouped) {
 			this.tree.description = value;
 		}
 	}
@@ -461,7 +467,7 @@ export abstract class ViewBase<
 		} else {
 			this._title = this.tree.title;
 		}
-		if (this._description != null) {
+		if (this._description != null && !this.grouped) {
 			this.tree.description = this._description;
 		}
 		if (this._message != null) {
@@ -499,10 +505,30 @@ export abstract class ViewBase<
 		return promise;
 	}
 
+	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
+		if (!this.grouped || node !== this.root) return promise;
+
+		if (!isPromise(promise)) {
+			if (promise.length && !(promise[0] instanceof GroupedHeaderNode)) {
+				promise.unshift(new GroupedHeaderNode(this as unknown as View, node));
+			}
+
+			return promise;
+		}
+
+		return promise.then(c => {
+			if (c.length && !(c[0] instanceof GroupedHeaderNode)) {
+				c.unshift(new GroupedHeaderNode(this as unknown as View, node));
+			}
+
+			return c;
+		});
+	}
+
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
 		if (node != null) {
 			node.splatted ??= true;
-			return this.trackAsLoading(node.getChildren());
+			return this.trackAsLoading(this.addHeaderNode(node, node.getChildren()));
 		}
 
 		// If we are already visible, then skip the next visibility change event otherwise we end up refreshing twice
@@ -510,7 +536,7 @@ export abstract class ViewBase<
 
 		const root = this.ensureRoot();
 		root.splatted ??= true;
-		const children = this.trackAsLoading(root.getChildren());
+		const children = this.trackAsLoading(this.addHeaderNode(root, root.getChildren()));
 
 		if (this.initialized.pending) {
 			queueMicrotask(async () => {
@@ -534,8 +560,11 @@ export abstract class ViewBase<
 
 	getViewDescription(count?: number): string | undefined {
 		return (
-			`${this.grouped ? `${this.name.toLocaleLowerCase()} ` : ''}${count != null ? `(${count})` : ''}` ||
-			undefined
+			(this.grouped
+				? `${this.name.toLocaleLowerCase()}${count != null ? ` (${count})` : ''}`
+				: count != null
+				  ? `(${count})`
+				  : '') || undefined
 		);
 	}
 
