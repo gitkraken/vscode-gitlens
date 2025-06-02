@@ -47,6 +47,7 @@ export type ContextKeys = {
 	'gitlens:views:fileHistory:canPin': boolean;
 	'gitlens:views:fileHistory:cursorFollowing': boolean;
 	'gitlens:views:fileHistory:editorFollowing': boolean;
+	'gitlens:views:fileHistory:mode': 'commits' | 'contributors';
 	'gitlens:views:lineHistory:editorFollowing': boolean;
 	'gitlens:views:patchDetails:mode': 'create' | 'view';
 	'gitlens:views:pullRequest:visible': boolean;

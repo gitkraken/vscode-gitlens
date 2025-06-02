@@ -14,6 +14,8 @@ import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
+export type FileHistoryMode = 'commits' | 'contributors';
+
 export class FileHistoryView extends ViewBase<
 	'fileHistory',
 	FileHistoryTrackerNode | LineHistoryTrackerNode,
@@ -29,10 +31,18 @@ export class FileHistoryView extends ViewBase<
 
 		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
 		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
+		void setContext(
+			'gitlens:views:fileHistory:mode',
+			configuration.get('views.fileHistory.mode', undefined, 'commits'),
+		);
 	}
 
 	override get canSelectMany(): boolean {
 		return configuration.get('views.multiselect');
+	}
+
+	get mode(): FileHistoryMode {
+		return configuration.get('views.fileHistory.mode', undefined, 'commits');
 	}
 
 	protected override get showCollapseAll(): boolean {
@@ -70,6 +80,12 @@ export class FileHistoryView extends ViewBase<
 			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
+				this,
+			),
+			registerViewCommand(this.getQualifiedCommand('setModeCommits'), () => this.setMode('commits'), this),
+			registerViewCommand(
+				this.getQualifiedCommand('setModeContributors'),
+				() => this.setMode('contributors'),
 				this,
 			),
 			registerViewCommand(
@@ -146,8 +162,18 @@ export class FileHistoryView extends ViewBase<
 		void this.root?.changeBase();
 	}
 
+	private setMode(mode: FileHistoryMode) {
+		void setContext('gitlens:views:fileHistory:mode', mode);
+		return configuration.updateEffective('views.fileHistory.mode', mode);
+	}
+
 	private setCursorFollowing(enabled: boolean) {
 		const uri = !this._followEditor && this.root?.hasUri ? this.root.uri : undefined;
+
+		// Reset to commits mode since we don't support line ranges for contributors
+		if (enabled && this.mode === 'contributors') {
+			void this.setMode('commits');
+		}
 
 		this._followCursor = enabled;
 		void setContext('gitlens:views:fileHistory:cursorFollowing', enabled);

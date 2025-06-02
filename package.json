@@ -2383,6 +2383,21 @@
 				"title": "File History View",
 				"order": 150,
 				"properties": {
+					"gitlens.views.fileHistory.mode": {
+						"type": "string",
+						"default": "commits",
+						"enum": [
+							"commits",
+							"contributors"
+						],
+						"enumDescriptions": [
+							"Displays commits for the selected file or folder",
+							"Displays contributors for the selected file or folder"
+						],
+						"markdownDescription": "Specifies the default mode for the _File History_ view",
+						"scope": "window",
+						"order": 10
+					},
 					"gitlens.views.fileHistory.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
@@ -8619,6 +8634,18 @@
 				"icon": "$(pinned)"
 			},
 			{
+				"command": "gitlens.views.fileHistory.setModeCommits",
+				"title": "View Commits",
+				"icon": "$(git-commit)",
+				"enablement": "!gitlens:views:fileHistory:cursorFollowing && gitlens:views:fileHistory:mode == contributors"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setModeContributors",
+				"title": "View Contributors",
+				"icon": "$(organization)",
+				"enablement": "!gitlens:views:fileHistory:cursorFollowing && gitlens:views:fileHistory:mode != contributors"
+			},
+			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
 				"title": "Don't Follow Renames"
 			},
@@ -12557,6 +12584,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setModeCommits",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setModeContributors",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
 					"when": "false"
 				},
@@ -15385,14 +15420,24 @@
 					"group": "1_gitlens_@1"
 				},
 				{
-					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
+					"command": "gitlens.views.fileHistory.setModeCommits",
 					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
 					"group": "1_gitlens_1@1"
 				},
 				{
-					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
+					"command": "gitlens.views.fileHistory.setModeContributors",
 					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
 					"group": "1_gitlens_1@2"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens_2@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens_2@2"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
@@ -18684,6 +18729,16 @@
 					"group": "inline@11"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setModeCommits",
+					"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:mode == contributors",
+					"group": "inline@12"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setModeContributors",
+					"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:mode != contributors",
+					"group": "inline@12"
+				},
+				{
 					"command": "gitlens.views.fileHistory.refresh",
 					"when": "viewItem == gitlens:views:fileHistory",
 					"group": "inline@99"
@@ -20679,6 +20734,16 @@
 					"group": "navigation@11"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setModeCommits",
+					"when": "view == gitlens.views.fileHistory && gitlens:views:fileHistory:mode == contributors",
+					"group": "navigation@12"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setModeContributors",
+					"when": "view == gitlens.views.fileHistory && gitlens:views:fileHistory:mode != contributors",
+					"group": "navigation@12"
+				},
+				{
 					"command": "gitlens.views.fileHistory.attach",
 					"when": "view == gitlens.views.fileHistory",
 					"group": "navigation@99"
@@ -20706,12 +20771,12 @@
 				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
 					"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-					"group": "1_gitlens_1@1"
+					"group": "1_gitlens_2@1"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
 					"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-					"group": "1_gitlens_1@2"
+					"group": "1_gitlens_2@2"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
