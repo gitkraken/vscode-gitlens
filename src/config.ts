@@ -879,6 +879,7 @@ export interface DraftsViewConfig {
 export interface FileHistoryViewConfig {
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
+	readonly mode: 'commits' | 'contributors';
 	readonly pullRequests: {
 		readonly enabled: boolean;
 		readonly showForCommits: boolean;

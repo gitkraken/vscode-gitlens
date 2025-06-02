@@ -303,6 +303,8 @@ export type ContributedCommands =
 	| 'gitlens.views.fileHistory.setCursorFollowingOn'
 	| 'gitlens.views.fileHistory.setEditorFollowingOff'
 	| 'gitlens.views.fileHistory.setEditorFollowingOn'
+	| 'gitlens.views.fileHistory.setModeCommits'
+	| 'gitlens.views.fileHistory.setModeContributors'
 	| 'gitlens.views.fileHistory.setRenameFollowingOff'
 	| 'gitlens.views.fileHistory.setRenameFollowingOn'
 	| 'gitlens.views.fileHistory.setShowAllBranchesOff'
