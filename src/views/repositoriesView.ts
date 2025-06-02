@@ -123,16 +123,6 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowBranchComparisonOn'),
-				() => this.setShowBranchComparison(true),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setShowBranchComparisonOff'),
-				() => this.setShowBranchComparison(false),
-				this,
-			),
-			registerViewCommand(
 				this.getQualifiedCommand('setBranchesShowBranchComparisonOn'),
 				() => this.setBranchShowBranchComparison(true),
 				this,
@@ -142,90 +132,109 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				() => this.setBranchShowBranchComparison(false),
 				this,
 			),
-
 			registerViewCommand(
-				this.getQualifiedCommand('setShowBranchesOn'),
+				this.getQualifiedCommand('setBranchesShowStashesOn'),
+				() => this.setBranchShowStashes(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setBranchesShowStashesOff'),
+				() => this.setBranchShowStashes(false),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowSectionBranchComparisonOn'),
+				() => this.toggleSectionBranchComparison(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowSectionBranchComparisonOff'),
+				() => this.toggleSectionBranchComparison(false),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowSectionBranchesOn'),
 				() => this.toggleSection('showBranches', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowBranchesOff'),
+				this.getQualifiedCommand('setShowSectionBranchesOff'),
 				() => this.toggleSection('showBranches', false),
 				this,
 			),
 
 			registerViewCommand(
-				this.getQualifiedCommand('setShowCommitsOn'),
+				this.getQualifiedCommand('setShowSectionCommitsOn'),
 				() => this.toggleSection('showCommits', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowCommitsOff'),
+				this.getQualifiedCommand('setShowSectionCommitsOff'),
 				() => this.toggleSection('showCommits', false),
 				this,
 			),
 
 			registerViewCommand(
-				this.getQualifiedCommand('setShowContributorsOn'),
+				this.getQualifiedCommand('setShowSectionContributorsOn'),
 				() => this.toggleSection('showContributors', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowContributorsOff'),
+				this.getQualifiedCommand('setShowSectionContributorsOff'),
 				() => this.toggleSection('showContributors', false),
 				this,
 			),
 
 			registerViewCommand(
-				this.getQualifiedCommand('setShowRemotesOn'),
+				this.getQualifiedCommand('setShowSectionRemotesOn'),
 				() => this.toggleSection('showRemotes', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowRemotesOff'),
+				this.getQualifiedCommand('setShowSectionRemotesOff'),
 				() => this.toggleSection('showRemotes', false),
 				this,
 			),
 
 			registerViewCommand(
-				this.getQualifiedCommand('setShowStashesOn'),
+				this.getQualifiedCommand('setShowSectionStashesOn'),
 				() => this.toggleSection('showStashes', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowStashesOff'),
+				this.getQualifiedCommand('setShowSectionStashesOff'),
 				() => this.toggleSection('showStashes', false),
 				this,
 			),
 
 			registerViewCommand(
-				this.getQualifiedCommand('setShowTagsOn'),
+				this.getQualifiedCommand('setShowSectionTagsOn'),
 				() => this.toggleSection('showTags', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowTagsOff'),
+				this.getQualifiedCommand('setShowSectionTagsOff'),
 				() => this.toggleSection('showTags', false),
 				this,
 			),
 
 			registerViewCommand(
-				this.getQualifiedCommand('setShowWorktreesOn'),
+				this.getQualifiedCommand('setShowSectionWorktreesOn'),
 				() => this.toggleSection('showWorktrees', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowWorktreesOff'),
+				this.getQualifiedCommand('setShowSectionWorktreesOff'),
 				() => this.toggleSection('showWorktrees', false),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowUpstreamStatusOn'),
+				this.getQualifiedCommand('setShowSectionUpstreamStatusOn'),
 				() => this.toggleSection('showUpstreamStatus', true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setShowUpstreamStatusOff'),
+				this.getQualifiedCommand('setShowSectionUpstreamStatusOff'),
 				() => this.toggleSection('showUpstreamStatus', false),
 				this,
 			),
@@ -875,18 +884,15 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 
-	private setShowBranchComparison(enabled: boolean) {
-		return configuration.updateEffective(
-			`views.${this.configKey}.showBranchComparison` as const,
-			enabled ? 'working' : false,
-		);
-	}
-
 	private setBranchShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.branches.showBranchComparison` as const,
 			enabled ? 'branch' : false,
 		);
+	}
+
+	private setBranchShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.branches.showStashes` as const, enabled);
 	}
 
 	async toggleSection(
@@ -903,6 +909,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		enabled: boolean,
 	): Promise<void> {
 		return configuration.updateEffective(`views.${this.configKey}.${key}` as const, enabled);
+	}
+
+	private toggleSectionBranchComparison(enabled: boolean) {
+		return configuration.updateEffective(
+			`views.${this.configKey}.showBranchComparison` as const,
+			enabled ? 'working' : false,
+		);
 	}
 
 	async toggleSectionByNode(
@@ -932,7 +945,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		}
 
 		if (node instanceof CompareBranchNode) {
-			return this.setShowBranchComparison(enabled);
+			return this.toggleSectionBranchComparison(enabled);
 		}
 
 		if (node instanceof ContributorsNode) {
