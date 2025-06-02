@@ -1,24 +1,22 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
-import { workspace } from 'vscode';
+import type { Container } from '../../container';
 import { Logger } from '../logger';
 import { executeCoreCommand } from './command';
 
-export async function showMarkdownPreview(
+export function showMarkdownPreview(
 	uriOrContent: Uri | string,
 	options: TextDocumentShowOptions = {
 		preview: false,
 	},
-): Promise<void> {
+): void {
 	try {
-		if (typeof uriOrContent === 'string') {
-			const document = await workspace.openTextDocument({ language: 'markdown', content: uriOrContent });
-
-			uriOrContent = document.uri;
-		}
-
 		void executeCoreCommand('vscode.openWith', uriOrContent, 'vscode.markdown.preview.editor', options);
 	} catch (ex) {
 		Logger.error(ex, 'showMarkdownPreview');
 		debugger;
 	}
+}
+
+export function createGLMarkdownDocument(container: Container, content: string, path: string, label: string): Uri {
+	return container.markdown.openDocument(content, path, label);
 }

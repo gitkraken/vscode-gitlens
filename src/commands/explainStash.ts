@@ -101,7 +101,8 @@ export class ExplainStashCommand extends GlCommandBase {
 				commit.message || commit.ref
 			}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
 
-			void showMarkdownPreview(content);
+			// showMarkdownPreview(this.container, content, { filename: `stash-${commit.ref}` });
+			showMarkdownPreview(content);
 		} catch (ex) {
 			Logger.error(ex, 'ExplainStashCommand', 'execute');
 			void showGenericErrorMessage('Unable to explain stash');
