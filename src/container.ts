@@ -19,6 +19,7 @@ import type { DateStyle, FileAnnotationType, Mode } from './config';
 import { fromOutputLevel } from './config';
 import { extensionPrefix } from './constants';
 import type { GlCommands } from './constants.commands';
+import { MarkdownContentProvider } from './documents/markdown';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
@@ -219,6 +220,7 @@ export class Container {
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._launchpadProvider = new LaunchpadProvider(this)));
+		this._disposables.push((this._markdownProvider = new MarkdownContentProvider()));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -468,6 +470,11 @@ export class Container {
 	private readonly _launchpadProvider: LaunchpadProvider;
 	get launchpad(): LaunchpadProvider {
 		return this._launchpadProvider;
+	}
+
+	private readonly _markdownProvider: MarkdownContentProvider;
+	get markdown(): MarkdownContentProvider {
+		return this._markdownProvider;
 	}
 
 	private readonly _git: GitProviderService;

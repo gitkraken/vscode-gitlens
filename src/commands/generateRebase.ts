@@ -191,7 +191,7 @@ export async function generateRebase(
 			}
 		}
 
-		void showMarkdownPreview(markdownContent);
+		showMarkdownPreview(markdownContent);
 	} catch (ex) {
 		Logger.error(ex, 'GenerateRebaseCommand', 'execute');
 		void showGenericErrorMessage('Unable to parse rebase result');
