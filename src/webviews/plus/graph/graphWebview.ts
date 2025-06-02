@@ -216,6 +216,8 @@ import {
 	GetMoreRowsCommand,
 	GetRowHoverRequest,
 	OpenPullRequestDetailsCommand,
+	SearchHistoryGetRequest,
+	SearchHistoryStoreRequest,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	supportedRefMetadataTypes,
@@ -228,6 +230,7 @@ import {
 	UpdateSelectionCommand,
 } from './protocol';
 import type { GraphWebviewShowingArgs } from './registration';
+import { loadSearchHistory, storeSearchHistory } from './searchHistory';
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
@@ -780,6 +783,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case SearchOpenInViewCommand.is(e):
 				this.onSearchOpenInView(e.params);
+				break;
+			case SearchHistoryGetRequest.is(e):
+				this.onSearchHistoryGetRequest(SearchHistoryGetRequest, e);
+				break;
+			case SearchHistoryStoreRequest.is(e):
+				void this.onSearchHistoryStoreRequest(SearchHistoryStoreRequest, e);
 				break;
 			case UpdateColumnsCommand.is(e):
 				this.onColumnsChanged(e.params);
@@ -1508,6 +1517,30 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (pr == null) return undefined;
 
 		return this.container.views.pullRequest.showPullRequest(pr, branch);
+	}
+
+	@debug()
+	private onSearchHistoryGetRequest<T extends typeof SearchHistoryGetRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		try {
+			void this.host.respond(requestType, msg, { history: loadSearchHistory(this.container) });
+		} catch {
+			void this.host.respond(requestType, msg, { history: [] });
+		}
+	}
+
+	@debug()
+	private async onSearchHistoryStoreRequest<T extends typeof SearchHistoryStoreRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		try {
+			await storeSearchHistory(this.container, msg.params.search);
+		} finally {
+			void this.host.respond(requestType, msg, { history: loadSearchHistory(this.container) });
+		}
 	}
 
 	@debug()

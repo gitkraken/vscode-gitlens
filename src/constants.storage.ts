@@ -144,6 +144,7 @@ export type WorkspaceStorage = {
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
+	'graph:searchHistory': StoredGraphSearchHistory[];
 	'remote:default': string;
 	'starred:branches': StoredStarred;
 	'starred:repositories': StoredStarred;
@@ -320,6 +321,13 @@ export interface StoredGraphFilters {
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
+
+export type StoredGraphSearchHistory = {
+	query: string;
+	matchAll: boolean | undefined;
+	matchCase: boolean | undefined;
+	matchRegex: boolean | undefined;
+};
 
 export type StoredGraphSearchMode = 'normal' | 'filter';
 

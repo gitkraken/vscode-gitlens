@@ -343,6 +343,19 @@ export interface DidEnsureRowParams {
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
+export interface DidSearchHistoryGetParams {
+	history: SearchQuery[];
+}
+export const SearchHistoryGetRequest = new IpcRequest<void, DidSearchHistoryGetParams>(scope, 'search/history/get');
+
+export interface SearchHistoryStoreParams {
+	search: SearchQuery;
+}
+export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/store',
+);
+
 export type DidGetCountParams =
 	| {
 			branches: number;

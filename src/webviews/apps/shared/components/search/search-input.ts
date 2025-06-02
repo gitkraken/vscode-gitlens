@@ -1,9 +1,12 @@
+import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../../../../constants.search';
 import { searchOperationHelpRegex, searchOperatorsToLongFormMap } from '../../../../../constants.search';
 import type { Deferrable } from '../../../../../system/function/debounce';
 import { debounce } from '../../../../../system/function/debounce';
+import { SearchHistoryGetRequest, SearchHistoryStoreRequest } from '../../../../plus/graph/protocol';
+import { ipcContext } from '../../contexts/ipc';
 import { GlElement } from '../element';
 import type { GlPopover } from '../overlays/popover';
 import '../button';
@@ -220,6 +223,9 @@ export class GlSearchInput extends GlElement {
 		}
 	`;
 
+	@consume({ context: ipcContext })
+	private readonly _ipc!: typeof ipcContext.__context__;
+
 	@query('input') input!: HTMLInputElement;
 	@query('gl-popover') popoverEl!: GlPopover;
 
@@ -251,6 +257,26 @@ export class GlSearchInput extends GlElement {
 
 	get matchCaseOverride(): boolean {
 		return this.matchRegex ? this.matchCase : true;
+	}
+
+	private _searchHistory: string[] = [];
+	private get searchHistory() {
+		return this._searchHistory;
+	}
+	private set searchHistory(value: string[]) {
+		this._searchHistory = value;
+		this.searchHistoryPos = -1;
+	}
+
+	private searchHistoryPos = -1;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		void this._ipc
+			.sendRequest(SearchHistoryGetRequest, undefined)
+			.then(response => (this.searchHistory = response.history.map(s => s.query)))
+			.catch(() => {});
 	}
 
 	override focus(options?: FocusOptions): void {
@@ -304,6 +330,11 @@ export class GlSearchInput extends GlElement {
 	private handleInput(e: InputEvent) {
 		const value = (e.target as HTMLInputElement)?.value;
 		this._value = value;
+
+		if (value !== this.searchHistory[this.searchHistoryPos]) {
+			this.searchHistoryPos = -1;
+		}
+
 		this.updateHelpText();
 		this.debouncedOnSearchChanged();
 	}
@@ -339,11 +370,12 @@ export class GlSearchInput extends GlElement {
 		e.preventDefault();
 		if (e.key === 'Enter') {
 			this.emit('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
-		} else if (this.searchHistory.length !== 0) {
-			const direction = e.key === 'ArrowDown' ? 1 : -1;
+		} else if (this.searchHistory.length) {
+			const direction = e.key === 'ArrowDown' ? -1 : 1;
 			const nextPos = this.searchHistoryPos + direction;
-			if (nextPos > -1 && nextPos < this.searchHistory.length) {
+			if (nextPos >= -1 && nextPos < this.searchHistory.length) {
 				this.searchHistoryPos = nextPos;
+
 				const value = this.searchHistory[nextPos];
 				if (value !== this.value) {
 					this._value = value;
@@ -385,18 +417,11 @@ export class GlSearchInput extends GlElement {
 		this.errorMessage = errorMessage;
 	}
 
-	searchHistory: string[] = [];
-	searchHistoryPos = 0;
-	logSearch(query: SearchQuery): void {
-		const lastIndex = this.searchHistory.length - 1;
+	async logSearch(search: SearchQuery): Promise<void> {
+		if (search.query === this.searchHistory?.[this.searchHistoryPos]) return;
 
-		// prevent duplicate entries
-		if (this.searchHistoryPos < lastIndex || this.searchHistory[lastIndex] === query.query) {
-			return;
-		}
-
-		this.searchHistory.push(query.query);
-		this.searchHistoryPos = this.searchHistory.length - 1;
+		const response = await this._ipc.sendRequest(SearchHistoryStoreRequest, { search: search });
+		this.searchHistory = response.history.map(s => s.query);
 	}
 
 	setSearchQuery(query: string): void {

@@ -189,7 +189,7 @@ export class GlSearchBox extends GlElement {
 	}
 
 	logSearch(query: SearchQuery): void {
-		this.searchInput?.logSearch(query);
+		void this.searchInput?.logSearch(query);
 	}
 
 	setSearchQuery(query: string): void {
