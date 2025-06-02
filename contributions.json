@@ -8226,6 +8226,62 @@
 				]
 			}
 		},
+		"gitlens.views.fileHistory.setModeCommits": {
+			"label": "View Commits",
+			"icon": "$(git-commit)",
+			"enablement": "!gitlens:views:fileHistory:cursorFollowing && gitlens:views:fileHistory:mode == contributors",
+			"menus": {
+				"gitlens/views/grouped/fileHistory": [
+					{
+						"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+						"group": "1_gitlens_1",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:mode == contributors",
+						"group": "inline",
+						"order": 12
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.fileHistory && gitlens:views:fileHistory:mode == contributors",
+						"group": "navigation",
+						"order": 12
+					}
+				]
+			}
+		},
+		"gitlens.views.fileHistory.setModeContributors": {
+			"label": "View Contributors",
+			"icon": "$(organization)",
+			"enablement": "!gitlens:views:fileHistory:cursorFollowing && gitlens:views:fileHistory:mode != contributors",
+			"menus": {
+				"gitlens/views/grouped/fileHistory": [
+					{
+						"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+						"group": "1_gitlens_1",
+						"order": 2
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:mode != contributors",
+						"group": "inline",
+						"order": 12
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.fileHistory && gitlens:views:fileHistory:mode != contributors",
+						"group": "navigation",
+						"order": 12
+					}
+				]
+			}
+		},
 		"gitlens.views.fileHistory.setRenameFollowingOff": {
 			"label": "Don't Follow Renames",
 			"menus": {
@@ -8285,7 +8341,7 @@
 				"gitlens/views/grouped/fileHistory": [
 					{
 						"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-						"group": "1_gitlens_1",
+						"group": "1_gitlens_2",
 						"order": 1
 					}
 				],
@@ -8299,7 +8355,7 @@
 				"view/title": [
 					{
 						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-						"group": "1_gitlens_1",
+						"group": "1_gitlens_2",
 						"order": 1
 					}
 				]
@@ -8312,7 +8368,7 @@
 				"gitlens/views/grouped/fileHistory": [
 					{
 						"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-						"group": "1_gitlens_1",
+						"group": "1_gitlens_2",
 						"order": 2
 					}
 				],
@@ -8326,7 +8382,7 @@
 				"view/title": [
 					{
 						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-						"group": "1_gitlens_1",
+						"group": "1_gitlens_2",
 						"order": 2
 					}
 				]

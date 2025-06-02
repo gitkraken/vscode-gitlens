@@ -1,3 +1,4 @@
+import type { Uri } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
 import { GlyphChars } from '../../constants';
@@ -16,6 +17,7 @@ import type { ClipboardType, PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class ContributorNode extends ViewNode<'contributor', ViewsWithContributors> implements PageableViewNode {
@@ -31,6 +33,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			ref?: string;
 			presence: Map<string, ContactPresence> | undefined;
 			showMergeCommits?: boolean;
+			pathspec?: { uri: Uri; isFolder: boolean };
 		},
 	) {
 		super('contributor', uri, view, parent);
@@ -66,14 +69,22 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
+		const hasPathspec = this.options?.pathspec != null;
+		const useFileRevisionAsCommit = this.options?.pathspec != null && !this.options.pathspec.isFolder;
+
 		const getBranchAndTagTips = await this.view.container.git
 			.getRepositoryService(this.uri.repoPath!)
 			.getBranchesAndTagsTipsLookup();
 		const children = [
 			...insertDateMarkers(
-				map(
-					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
+				map(log.commits.values(), c =>
+					useFileRevisionAsCommit
+						? new FileRevisionAsCommitNode(this.view, this, c.file!, c, {
+								getBranchAndTagTips: getBranchAndTagTips,
+						  })
+						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
+								allowFilteredFiles: hasPathspec,
+						  }),
 				),
 				this,
 			),
@@ -159,11 +170,14 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
 				: '';
 
+		const pathContext = this.options?.pathspec?.uri
+			? ` to \`${this.view.container.git.getRelativePath(this.options?.pathspec?.uri, this.uri.repoPath!)}\``
+			: '';
 		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
 				this.contributor.contributionCount,
-			)}${stats}`,
+			)}${pathContext}${stats}`,
 		);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
@@ -183,21 +197,27 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		this._log ??= await this.view.container.git
-			.getRepositoryService(this.uri.repoPath!)
-			.commits.getLog(this.options?.ref, {
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+
+		const { name, email, username, id } = this.contributor;
+
+		// If a Uri is provided, get log for the specific path, otherwise get all commits by author
+		if (this.options?.pathspec?.uri) {
+			this._log ??= await svc.commits.getLogForPath(this.uri, this.options?.ref, {
 				all: this.options?.all,
+				authors: [{ name: name, email: email, username: username, id: id }],
+				isFolder: this.options?.pathspec.isFolder,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				merges: this.options?.showMergeCommits,
-				authors: [
-					{
-						name: this.contributor.name,
-						email: this.contributor.email,
-						username: this.contributor.username,
-						id: this.contributor.id,
-					},
-				],
 			});
+		} else {
+			this._log ??= await svc.commits.getLog(this.options?.ref, {
+				all: this.options?.all,
+				authors: [{ name: name, email: email, username: username, id: id }],
+				limit: this.limit ?? this.view.config.defaultItemLimit,
+				merges: this.options?.showMergeCommits,
+			});
+		}
 		return this._log;
 	}
 
@@ -207,12 +227,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	@gate()
 	async loadMore(limit?: number | { until?: any }): Promise<void> {
-		let log = await window.withProgress(
-			{
-				location: { viewId: this.view.id },
-			},
-			() => this.getLog(),
-		);
+		let log = await window.withProgress({ location: { viewId: this.view.id } }, () => this.getLog());
 		if (!log?.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);

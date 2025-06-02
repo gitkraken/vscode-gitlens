@@ -23,6 +23,7 @@ import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
+import { ContributorNode } from './contributorNode';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './utils/-webview/node.utils';
@@ -62,96 +63,10 @@ export class FileHistoryNode
 			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
 		}`;
 
-		const children: ViewNode[] = [];
-		if (this.uri.repoPath == null) return children;
-
-		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath);
-		const range = this.branch != null ? await getBranchAheadRange(svc, this.branch) : undefined;
-		const [logResult, fileStatusesResult, currentUserResult, getBranchAndTagTipsResult, unpublishedCommitsResult] =
-			await Promise.allSettled([
-				this.getLog(),
-				this.uri.sha == null ? svc.status.getStatusForPath?.(this.uri) : undefined,
-				this.uri.sha == null ? svc.config.getCurrentUser() : undefined,
-				svc.getBranchesAndTagsTipsLookup(this.branch?.name),
-				range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
-			]);
-
-		const currentUser = getSettledValue(currentUserResult);
-		const fileStatuses = getSettledValue(fileStatusesResult);
-
-		if (fileStatuses?.length) {
-			if (this.folder) {
-				const relativePath = svc.getRelativePath(this.getPathOrGlob(), this.uri.repoPath);
-				// Combine all the working/staged changes into single pseudo commits
-				const commits = map(
-					uniqueBy(
-						flatMap(fileStatuses, f => f.getPseudoCommits(this.view.container, currentUser)),
-						c => c.sha,
-						(original, c) =>
-							original.with({
-								fileset: {
-									files: [...(original.fileset?.files ?? []), ...(c.fileset?.files ?? [])],
-									filtered: {
-										files: [
-											...(original.fileset?.filtered?.files ?? []),
-											...(c.fileset?.filtered?.files ?? []),
-										],
-										pathspec: relativePath,
-									},
-								},
-							}),
-					),
-					commit => new CommitNode(this.view, this, commit),
-				);
-				children.push(...commits);
-			} else {
-				const [file] = fileStatuses;
-				const commits = file.getPseudoCommits(this.view.container, currentUser);
-				if (commits.length) {
-					children.push(
-						...commits.map(commit => new FileRevisionAsCommitNode(this.view, this, file, commit)),
-					);
-				}
-			}
+		if (this.view.mode === 'contributors') {
+			return this.getContributors();
 		}
-
-		const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
-		const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
-
-		const log = getSettledValue(logResult);
-		if (log != null) {
-			children.push(
-				...insertDateMarkers(
-					filterMap(log.commits.values(), c =>
-						this.folder
-							? new CommitNode(
-									this.view,
-									this,
-									c,
-									unpublishedCommits?.has(c.ref),
-									this.branch,
-									getBranchAndTagTips,
-									{ allowFilteredFiles: true, expand: false },
-							  )
-							: c.file != null
-							  ? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
-										branch: this.branch,
-										getBranchAndTagTips: getBranchAndTagTips,
-										unpublished: unpublishedCommits?.has(c.ref),
-							    })
-							  : undefined,
-					),
-					this,
-				),
-			);
-
-			if (log.hasMore) {
-				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
-			}
-		}
-
-		if (children.length === 0) return [new MessageNode(this.view, this, 'No file history could be found.')];
-		return children;
+		return this.getCommits();
 	}
 
 	getTreeItem(): TreeItem {
@@ -294,5 +209,125 @@ export class FileHistoryNode
 
 		// Needs to force if splatted, since the parent node will cancel the refresh (since it thinks nothing changed)
 		void this.triggerChange(false, this.splatted);
+	}
+
+	private async getContributors(): Promise<ViewNode[]> {
+		if (this.uri.repoPath == null) return [];
+
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath);
+		const result = await svc.contributors.getContributors(this.uri.sha ?? undefined, {
+			pathspec: this.folder
+				? svc.getRelativePath(this.getPathOrGlob(), this.uri.repoPath)
+				: svc.getRelativePath(this.uri, this.uri.repoPath),
+			stats: true,
+		});
+		if (!result?.contributors.length) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+
+		const children = result.contributors.map(
+			contributor =>
+				new ContributorNode(this.uri, this.view, this, contributor, {
+					presence: undefined,
+					ref: this.uri.sha,
+					showMergeCommits: configuration.get('advanced.fileHistoryShowMergeCommits'),
+					pathspec: { uri: this.uri, isFolder: this.folder },
+				}),
+		);
+
+		return children;
+	}
+
+	private async getCommits(): Promise<ViewNode[]> {
+		if (this.uri.repoPath == null) return [];
+
+		const children: ViewNode[] = [];
+
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath);
+		const range = this.branch != null ? await getBranchAheadRange(svc, this.branch) : undefined;
+		const [logResult, fileStatusesResult, currentUserResult, getBranchAndTagTipsResult, unpublishedCommitsResult] =
+			await Promise.allSettled([
+				this.getLog(),
+				this.uri.sha == null ? svc.status.getStatusForPath?.(this.uri) : undefined,
+				this.uri.sha == null ? svc.config.getCurrentUser() : undefined,
+				svc.getBranchesAndTagsTipsLookup(this.branch?.name),
+				range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
+			]);
+
+		const currentUser = getSettledValue(currentUserResult);
+		const fileStatuses = getSettledValue(fileStatusesResult);
+
+		if (fileStatuses?.length) {
+			if (this.folder) {
+				const relativePath = svc.getRelativePath(this.getPathOrGlob(), this.uri.repoPath);
+				// Combine all the working/staged changes into single pseudo commits
+				const commits = map(
+					uniqueBy(
+						flatMap(fileStatuses, f => f.getPseudoCommits(this.view.container, currentUser)),
+						c => c.sha,
+						(original, c) =>
+							original.with({
+								fileset: {
+									files: [...(original.fileset?.files ?? []), ...(c.fileset?.files ?? [])],
+									filtered: {
+										files: [
+											...(original.fileset?.filtered?.files ?? []),
+											...(c.fileset?.filtered?.files ?? []),
+										],
+										pathspec: relativePath,
+									},
+								},
+							}),
+					),
+					commit => new CommitNode(this.view, this, commit),
+				);
+				children.push(...commits);
+			} else {
+				const [file] = fileStatuses;
+				const commits = file.getPseudoCommits(this.view.container, currentUser);
+				if (commits.length) {
+					children.push(
+						...commits.map(commit => new FileRevisionAsCommitNode(this.view, this, file, commit)),
+					);
+				}
+			}
+		}
+
+		const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
+		const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
+
+		const log = getSettledValue(logResult);
+		if (log != null) {
+			children.push(
+				...insertDateMarkers(
+					filterMap(log.commits.values(), c =>
+						this.folder
+							? new CommitNode(
+									this.view,
+									this,
+									c,
+									unpublishedCommits?.has(c.ref),
+									this.branch,
+									getBranchAndTagTips,
+									{ allowFilteredFiles: true, expand: false },
+							  )
+							: c.file != null
+							  ? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
+										branch: this.branch,
+										getBranchAndTagTips: getBranchAndTagTips,
+										unpublished: unpublishedCommits?.has(c.ref),
+							    })
+							  : undefined,
+					),
+					this,
+				),
+			);
+
+			if (log.hasMore) {
+				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+			}
+		}
+
+		if (!children.length) return [new MessageNode(this.view, this, 'No file history could be found.')];
+
+		return children;
 	}
 }
