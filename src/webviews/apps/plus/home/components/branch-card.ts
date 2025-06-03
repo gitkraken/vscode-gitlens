@@ -191,19 +191,6 @@ export const branchCardStyles = css`
 		--button-foreground: inherit;
 	}
 
-	.branch-item__is-narrow {
-		display: none;
-	}
-
-	@media (max-width: 330px) {
-		.branch-item__is-narrow {
-			display: block;
-		}
-		.branch-item__is-wide {
-			display: none;
-		}
-	}
-
 	:host-context(.vscode-dark) .branch-item__missing,
 	:host-context(.vscode-high-contrast) .branch-item__missing {
 		--button-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
@@ -821,12 +808,7 @@ export abstract class GlBranchCardBase extends GlElement {
 											},
 										)}"
 								  >
-										<code-icon
-											class="branch-item__is-wide"
-											icon="sparkle"
-											slot="prefix"
-										></code-icon>
-										<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
+										<code-icon icon="sparkle"></code-icon>
 								  </gl-button>`
 								: nothing}
 						</button-container>
