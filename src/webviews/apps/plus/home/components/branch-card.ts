@@ -12,7 +12,6 @@ import {
 	launchpadGroupIconMap,
 	launchpadGroupLabelMap,
 } from '../../../../../plus/launchpad/models/launchpad';
-import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
@@ -916,18 +915,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	protected renderIssuesItem(): TemplateResult | NothingType {
 		const issues = [...(this.issues ?? []), ...(this.autolinks ?? [])];
 		if (!issues.length) {
-			if (!this.expanded) return nothing;
-
-			return html`<gl-button
-				class="branch-item__missing"
-				appearance="secondary"
-				full
-				href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
-					branch: this.branch.reference,
-					source: 'home',
-				})}
-				>Associate an Issue</gl-button
-			>`;
+			return nothing;
 		}
 
 		const indicator: GlCard['indicator'] = this.branch.opened ? 'base' : undefined;

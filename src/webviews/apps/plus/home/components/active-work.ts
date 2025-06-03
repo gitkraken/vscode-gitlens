@@ -5,6 +5,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
+import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type {
@@ -511,4 +512,25 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	protected getCollapsedActions(): TemplateResult[] {
 		return [];
 	}
+
+	protected override renderIssuesItem(): TemplateResult | NothingType {
+		const issues = [...(this.issues ?? []), ...(this.autolinks ?? [])];
+		if (!issues.length) {
+			if (!this.expanded) return nothing;
+
+			return html`<gl-button
+				class="branch-item__missing"
+				appearance="secondary"
+				full
+				href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
+					branch: this.branch.reference,
+					source: 'home',
+				})}
+				>Associate an Issue</gl-button
+			>`;
+		}
+		return super.renderIssuesItem();
+	}
 }
+
+type NothingType = typeof nothing;
