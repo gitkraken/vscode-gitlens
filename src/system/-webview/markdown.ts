@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import type { Container } from '../../container';
+import type { MarkdownContentMetadata } from '../../documents/markdown';
 import { Logger } from '../logger';
 import { executeCoreCommand } from './command';
 
@@ -17,6 +18,12 @@ export function showMarkdownPreview(
 	}
 }
 
-export function createGLMarkdownDocument(container: Container, content: string, path: string, label: string): Uri {
-	return container.markdown.openDocument(content, path, label);
+export function createGLMarkdownDocument(
+	container: Container,
+	content: string,
+	path: string,
+	label: string,
+	metadata?: MarkdownContentMetadata,
+): Uri {
+	return container.markdown.openDocument(content, path, label, metadata);
 }

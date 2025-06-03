@@ -3,7 +3,6 @@ import { EventEmitter, Uri, workspace } from 'vscode';
 import { Schemes } from '../constants';
 import type { GlCommands } from '../constants.commands';
 import { decodeGitLensRevisionUriAuthority, encodeGitLensRevisionUriAuthority } from '../git/gitUri.authority';
-import { createMarkdownCommandLink } from '../system/commands';
 
 // gitlens-markdown:{explain}/{entity}/{entityID}/{model}[{/friendlyName}].md
 
@@ -49,14 +48,26 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 		return `# ${uri.path}\n\nNo content available.`;
 	}
 
-	openDocument(content: string, path: string, label: string, metadata?: Record<string, unknown>): Uri {
+	openDocument(content: string, path: string, label: string, metadata?: MarkdownContentMetadata): Uri {
 		const uri = Uri.from({
 			scheme: Schemes.GitLensMarkdown,
 			authority: metadata ? encodeGitLensRevisionUriAuthority(metadata) : undefined,
 			path: `${path}.md`,
 			query: JSON.stringify({ label: label }),
 		});
-		this.contents.set(uri.toString(), content);
+
+		const uriString = uri.toString();
+		const existingContent = this.contents.get(uriString);
+		const contentChanged = existingContent !== content;
+
+		this.contents.set(uriString, content);
+
+		// If this document already exists and the content changed, fire the change event
+		// This will automatically refresh any open previews
+		if (contentChanged) {
+			this._onDidChange.fire(uri);
+		}
+
 		return uri;
 	}
 
@@ -95,10 +106,7 @@ function getContentFromMarkdownUri(uri: Uri): string | undefined {
 
 	if (metadata.command == null) return `${headerContent}\n\nNo content available.`;
 
-	const commandContent = `\n\n\n\n[${metadata.command.label}](${createMarkdownCommandLink(
-		metadata.command.name,
-		metadata.command.args,
-	)})`;
+	const commandContent = `\n\n\n\n${metadata.command.label} using the \`Regenerate\` editor action in the editor toolbar.`;
 
 	return `${headerContent}\n\n${commandContent}`;
 }
