@@ -1,6 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
+import type { MarkdownContentMetadata } from '../documents/markdown';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { showGenericErrorMessage } from '../messages';
@@ -101,8 +102,27 @@ export class ExplainStashCommand extends GlCommandBase {
 				commit.message || commit.ref
 			}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
 
-			// showMarkdownPreview(this.container, content, { filename: `stash-${commit.ref}` });
-			showMarkdownPreview(content);
+			const contentMetadata = {
+				header: {
+					title: 'Stash Summary',
+					subtitle: commit.message || commit.ref,
+					aiModel: result.model.name,
+				},
+				command: {
+					label: 'Explain Stash Changes',
+					name: 'gitlens.ai.explainStash',
+					args: { repoPath: repository.path, ref: commit.ref, source: args.source },
+				},
+			};
+
+			const documentUri = this.container.markdown.openDocument(
+				content,
+				`/explain/stash/${commit.ref}/${result.model.id}`,
+				commit.message || commit.ref,
+				contentMetadata as MarkdownContentMetadata,
+			);
+
+			showMarkdownPreview(documentUri);
 		} catch (ex) {
 			Logger.error(ex, 'ExplainStashCommand', 'execute');
 			void showGenericErrorMessage('Unable to explain stash');

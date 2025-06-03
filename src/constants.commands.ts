@@ -127,6 +127,7 @@ type InternalGlCommands =
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.refreshHover'
+	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.visualizeHistory'
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands

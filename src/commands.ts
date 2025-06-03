@@ -53,6 +53,7 @@ import './commands/patches';
 import './commands/quickWizard';
 import './commands/rebaseEditor';
 import './commands/refreshHover';
+import './commands/regenerateMarkdownDocument';
 import './commands/remoteProviders';
 import './commands/repositories';
 import './commands/resets';
