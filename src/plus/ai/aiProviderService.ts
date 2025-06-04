@@ -28,6 +28,7 @@ import {
 } from '../../errors';
 import type { AIFeatures } from '../../features';
 import { isAdvancedFeature } from '../../features';
+import type { GitRepositoryService } from '../../git/gitRepositoryService';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitRevisionReference } from '../../git/models/reference';
@@ -656,7 +657,7 @@ export class AIProviderService implements Disposable {
 		const result = await this.sendRequest(
 			'generate-create-pullRequest',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
-				const compareData = await prepareCompareDataForAIRequest(repo, headRef, baseRef, {
+				const compareData = await prepareCompareDataForAIRequest(repo.git, headRef, baseRef, {
 					cancellation: cancellation,
 				});
 
@@ -1517,7 +1518,7 @@ function isPrimaryAIProviderModel(model: AIModel): model is AIModel<AIPrimaryPro
 }
 
 export async function prepareCompareDataForAIRequest(
-	repo: Repository,
+	svc: GitRepositoryService,
 	headRef: string,
 	baseRef: string,
 	options?: {
@@ -1528,16 +1529,16 @@ export async function prepareCompareDataForAIRequest(
 	},
 ): Promise<{ diff: string; logMessages: string } | undefined> {
 	const { cancellation, reportNoDiffService, reportNoCommitsService, reportNoChanges } = options ?? {};
-	const diffService = repo.git.diff;
-	if (diffService?.getDiff === undefined) {
+	const getDiff = svc.diff?.getDiff;
+	if (getDiff == null) {
 		if (reportNoDiffService) {
 			reportNoDiffService();
 			return;
 		}
 	}
 
-	const commitsService = repo.git.commits;
-	if (commitsService?.getLog === undefined) {
+	const getLog = svc.commits?.getLog;
+	if (getLog === undefined) {
 		if (reportNoCommitsService) {
 			reportNoCommitsService();
 			return;
@@ -1545,8 +1546,8 @@ export async function prepareCompareDataForAIRequest(
 	}
 
 	const [diffResult, logResult] = await Promise.allSettled([
-		diffService.getDiff?.(headRef, baseRef, { notation: '...' }),
-		commitsService.getLog(`${baseRef}..${headRef}`),
+		getDiff?.(headRef, baseRef, { notation: '...' }),
+		getLog(`${baseRef}..${headRef}`),
 	]);
 	const diff = getSettledValue(diffResult);
 	const log = getSettledValue(logResult);
