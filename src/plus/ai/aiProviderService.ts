@@ -871,6 +871,7 @@ export class AIProviderService implements Disposable {
 			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
+			generateCommits?: boolean;
 		},
 	): Promise<AIRebaseResult | undefined> {
 		const result: Mutable<AIRebaseResult> = {
@@ -968,7 +969,7 @@ export class AIProviderService implements Disposable {
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			m => `Generating rebase with ${m.name}...`,
+			m => `Generating ${options?.generateCommits ? 'commits' : 'rebase'} with ${m.name}...`,
 			source,
 			m => ({
 				key: 'ai/generate',
@@ -990,7 +991,7 @@ export class AIProviderService implements Disposable {
 			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
 		} catch {
 			debugger;
-			throw new Error('Unable to parse rebase result');
+			throw new Error(`Unable to parse ${options?.generateCommits ? 'commits' : 'rebase'} result`);
 		}
 
 		return {
