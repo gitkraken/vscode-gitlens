@@ -23562,6 +23562,13 @@
 					"tildify": true,
 					"workspaceSuffix": "GitLens"
 				}
+			},
+			{
+				"scheme": "gitlens-markdown",
+				"authority": "*",
+				"formatting": {
+					"label": "${query.label}"
+				}
 			}
 		],
 		"viewsContainers": {
