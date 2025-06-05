@@ -6227,35 +6227,35 @@
 			},
 			{
 				"command": "gitlens.ai.generateCommits",
-				"title": "Generate Commits with AI (Experimental)...",
+				"title": "Generate Commits with AI (Preview)...",
 				"category": "GitLens",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.generateCommits:graph",
-				"title": "Generate Commits with AI (Experimental)",
+				"title": "Generate Commits with AI (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.generateCommits:views",
-				"title": "Generate Commits with AI (Experimental)",
+				"title": "Generate Commits with AI (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.generateRebase",
-				"title": "Rebase with AI (Experimental)...",
+				"title": "Rebase with AI (Preview)...",
 				"category": "GitLens",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.rebaseOntoCommit:graph",
-				"title": "AI Rebase Current Branch onto Commit...",
+				"title": "AI Rebase Current Branch onto Commit (Preview)...",
 				"icon": "$(sparkle)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.ai.rebaseOntoCommit:views",
-				"title": "AI Rebase Current Branch onto Commit...",
+				"title": "AI Rebase Current Branch onto Commit (Preview)...",
 				"icon": "$(sparkle)",
 				"enablement": "!operationInProgress"
 			},
