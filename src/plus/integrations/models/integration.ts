@@ -414,6 +414,10 @@ export abstract class IntegrationBase<
 							source: source,
 						},
 			);
+
+			if (session?.expiresAt != null && session.expiresAt < new Date()) {
+				session = null;
+			}
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 
