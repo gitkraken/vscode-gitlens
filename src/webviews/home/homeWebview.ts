@@ -270,9 +270,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (
-			configuration.changed(e, ['home.preview.enabled', 'ai.enabled', 'ai.experimental.generateCommits.enabled'])
-		) {
+		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled'])) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -742,10 +740,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return configuration.get('ai.enabled');
 	}
 
-	private getAiGenerateCommitsEnabled() {
-		return configuration.get('ai.experimental.generateCommits.enabled');
-	}
-
 	private getAmaBannerCollapsed() {
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
@@ -807,7 +801,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
-			aiGenerateCommitsEnabled: this.getAiGenerateCommitsEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			integrations: integrations,
@@ -1224,7 +1217,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			aiEnabled: this.getAiEnabled(),
-			aiGenerateCommitsEnabled: this.getAiGenerateCommitsEnabled(),
 		});
 	}
 
