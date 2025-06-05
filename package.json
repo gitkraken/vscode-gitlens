@@ -10746,7 +10746,7 @@
 				},
 				{
 					"command": "gitlens.ai.generateCommits",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled"
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.ai.generateCommits:graph",
@@ -10758,7 +10758,7 @@
 				},
 				{
 					"command": "gitlens.ai.generateRebase",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled"
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:graph",
@@ -14383,7 +14383,7 @@
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:views",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_actions@6"
 				},
 				{
@@ -17077,7 +17077,7 @@
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:views",
-					"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+					"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_actions@6"
 				},
 				{
@@ -18360,7 +18360,7 @@
 				},
 				{
 					"command": "gitlens.ai.generateCommits:views",
-					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "3_gitlens_ai@1"
 				},
 				{
@@ -22708,7 +22708,7 @@
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:graph",
-					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_actions@6"
 				},
 				{
@@ -22968,7 +22968,7 @@
 				},
 				{
 					"command": "gitlens.ai.generateCommits:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens@2"
 				},
 				{
