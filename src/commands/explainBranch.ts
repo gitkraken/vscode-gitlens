@@ -1,33 +1,31 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
 import type { GitBranchReference } from '../git/models/reference';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
-import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
-import { GlCommandBase } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
 import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
+import type { ExplainBaseArgs } from './explainBase';
+import { ExplainCommandBase } from './explainBase';
 
-export interface ExplainBranchCommandArgs {
-	repoPath?: string | Uri;
+export interface ExplainBranchCommandArgs extends ExplainBaseArgs {
 	ref?: string;
-	source?: AIExplainSource;
 }
 
 @command()
-export class ExplainBranchCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super(['gitlens.ai.explainBranch', 'gitlens.ai.explainBranch:views']);
+export class ExplainBranchCommand extends ExplainCommandBase {
+	pickerTitle = 'Explain Branch Changes';
+	repoPickerPlaceholder = 'Choose which repository to explain a branch from';
+
+	constructor(container: Container) {
+		super(container, ['gitlens.ai.explainBranch', 'gitlens.ai.explainBranch:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainBranchCommandArgs): Promise<void> {
@@ -44,41 +42,26 @@ export class ExplainBranchCommand extends GlCommandBase {
 	async execute(editor?: TextEditor, uri?: Uri, args?: ExplainBranchCommandArgs): Promise<void> {
 		args = { ...args };
 
-		let repository;
-		if (args?.repoPath != null) {
-			repository = this.container.git.getRepository(args.repoPath);
-		} else {
-			uri = getCommandUri(uri, editor);
-			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-			repository = await getBestRepositoryOrShowPicker(
-				gitUri,
-				editor,
-				'Explain Branch Changes',
-				'Choose which repository to explain a branch from',
-			);
+		const svc = await this.getRepositoryService(editor, uri, args);
+		if (svc == null) {
+			void showGenericErrorMessage('Unable to find a repository');
+			return;
 		}
-
-		if (repository == null) return;
 
 		try {
 			// Clarifying the head branch
 			if (args.ref == null) {
 				// If no ref is provided, show a picker to select a branch
-				const pick = (await showReferencePicker(
-					repository.path,
-					'Explain Branch Changes',
-					'Choose a branch to explain',
-					{
-						include: ReferencesQuickPickIncludes.Branches,
-						sort: { branches: { current: true } },
-					},
-				)) as GitBranchReference | undefined;
+				const pick = (await showReferencePicker(svc.path, this.pickerTitle, 'Choose a branch to explain', {
+					include: ReferencesQuickPickIncludes.Branches,
+					sort: { branches: { current: true } },
+				})) as GitBranchReference | undefined;
 				if (pick?.ref == null) return;
 				args.ref = pick.ref;
 			}
 
 			// Get the branch
-			const branch = await repository.git.branches.getBranch(args.ref);
+			const branch = await svc.branches.getBranch(args.ref);
 			if (branch == null) {
 				void showGenericErrorMessage('Unable to find the specified branch');
 				return;
@@ -88,7 +71,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
 			let baseBranch;
 			if (!baseBranchNameResult.paused) {
-				baseBranch = await repository.git.branches.getBranch(baseBranchNameResult.value);
+				baseBranch = await svc.branches.getBranch(baseBranchNameResult.value);
 			}
 
 			if (!baseBranch) {
@@ -97,7 +80,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			}
 
 			// Get the diff between the branch and its upstream or base
-			const compareData = await prepareCompareDataForAIRequest(repository, branch.ref, baseBranch.ref, {
+			const compareData = await prepareCompareDataForAIRequest(svc, branch.ref, baseBranch.ref, {
 				reportNoDiffService: () => void showGenericErrorMessage('Unable to get diff service'),
 				reportNoCommitsService: () => void showGenericErrorMessage('Unable to get commits service'),
 				reportNoChanges: () => void showGenericErrorMessage('No changes found to explain'),

@@ -1,37 +1,38 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { isStash } from '../git/models/commit';
 import { showGenericErrorMessage } from '../messages';
-import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { showCommitPicker } from '../quickpicks/commitPicker';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
-import { GlCommandBase } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
 import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
+import type { ExplainBaseArgs } from './explainBase';
+import { ExplainCommandBase } from './explainBase';
 
-export interface ExplainCommitCommandArgs {
-	repoPath?: string | Uri;
+export interface ExplainCommitCommandArgs extends ExplainBaseArgs {
 	rev?: string;
-	source?: AIExplainSource;
 }
 
 @command()
-export class ExplainCommitCommand extends GlCommandBase {
+export class ExplainCommitCommand extends ExplainCommandBase {
+	pickerTitle = 'Explain Commit Changes';
+	repoPickerPlaceholder = 'Choose which repository to explain a commit from';
 	static createMarkdownCommandLink(args: ExplainCommitCommandArgs): string {
 		return createMarkdownCommandLink<ExplainCommitCommandArgs>('gitlens.ai.explainCommit:editor', args);
 	}
 
-	constructor(private readonly container: Container) {
-		super(['gitlens.ai.explainCommit', 'gitlens.ai.explainCommit:editor', 'gitlens.ai.explainCommit:views']);
+	constructor(container: Container) {
+		super(container, [
+			'gitlens.ai.explainCommit',
+			'gitlens.ai.explainCommit:editor',
+			'gitlens.ai.explainCommit:views',
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainCommitCommandArgs): Promise<void> {
@@ -52,35 +53,25 @@ export class ExplainCommitCommand extends GlCommandBase {
 	async execute(editor?: TextEditor, uri?: Uri, args?: ExplainCommitCommandArgs): Promise<void> {
 		args = { ...args };
 
-		let repository;
-		if (args?.repoPath != null) {
-			repository = this.container.git.getRepository(args.repoPath);
+		const svc = await this.getRepositoryService(editor, uri, args);
+		if (svc == null) {
+			void showGenericErrorMessage('Unable to find a repository');
+			return;
 		}
-
-		if (repository == null) {
-			uri = getCommandUri(uri, editor);
-			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-			repository = await getBestRepositoryOrShowPicker(
-				gitUri,
-				editor,
-				'Explain Commit Changes',
-				'Choose which repository to explain a commit from',
-			);
-		}
-
-		if (repository == null) return;
 
 		try {
+			const commitsProvider = svc.commits;
+
 			let commit: GitCommit | undefined;
 			if (args.rev == null) {
-				const log = await repository.git.commits.getLog();
-				const pick = await showCommitPicker(log, 'Explain Commit Changes', 'Choose a commit to explain');
+				const log = await commitsProvider.getLog();
+				const pick = await showCommitPicker(log, this.pickerTitle, 'Choose a commit to explain');
 				if (pick?.sha == null) return;
 				args.rev = pick.sha;
 				commit = pick;
 			} else {
 				// Get the commit
-				commit = await repository.git.commits.getCommit(args.rev);
+				commit = await commitsProvider.getCommit(args.rev);
 				if (commit == null) {
 					void showGenericErrorMessage('Unable to find the specified commit');
 					return;
@@ -93,7 +84,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'commit',
+					type: args.source?.type ?? 'commit',
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining commit...' },
@@ -101,7 +92,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 			);
 
 			if (result == null) {
-				void showGenericErrorMessage('No changes found to explain for commit');
+				void showGenericErrorMessage('Unable to explain commit');
 				return;
 			}
 
