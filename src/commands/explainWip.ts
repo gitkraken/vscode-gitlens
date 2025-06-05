@@ -4,7 +4,6 @@ import type { Container } from '../container';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { showMarkdownPreview } from '../system/-webview/markdown';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { capitalize } from '../system/string';
