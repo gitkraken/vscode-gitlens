@@ -50,6 +50,29 @@ export type IntegrationResult<T> =
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
 
+type SyncReqUsecase = Exclude<
+	| 'getAccountForCommit'
+	| 'getAccountForEmail'
+	| 'getAccountForResource'
+	| 'getCurrentAccount'
+	| 'getDefaultBranch'
+	| 'getIssue'
+	| 'getIssueOrPullRequest'
+	| 'getIssuesForProject'
+	| 'getProjectsForResources'
+	| 'getPullRequest'
+	| 'getPullRequestForBranch'
+	| 'getPullRequestForCommit'
+	| 'getRepositoryMetadata'
+	| 'getResourcesForUser'
+	| 'mergePullRequest'
+	| 'searchMyIssues'
+	| 'searchMyPullRequests'
+	| 'searchPullRequests',
+	// excluding to show explicitly that we don't want to add 'all' key occasionally
+	'all'
+>;
+
 export abstract class IntegrationBase<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
@@ -174,7 +197,7 @@ export abstract class IntegrationBase<
 			void authProvider.deleteSession(this.authProviderDescriptor);
 		}
 
-		this.resetRequestExceptionCount();
+		this.resetRequestExceptionCount('all');
 		this._session = null;
 
 		if (connected) {
@@ -207,14 +230,23 @@ export abstract class IntegrationBase<
 		void this.ensureSession({ createIfNeeded: false });
 	}
 
+	private _syncRequestsPerFailedUsecase = new Set<SyncReqUsecase>();
+	hasSessionSyncRequests(): boolean {
+		return this._syncRequestsPerFailedUsecase.size > 0;
+	}
+	requestSessionSyncForUsecase(syncReqUsecase: SyncReqUsecase): void {
+		this._syncRequestsPerFailedUsecase.add(syncReqUsecase);
+	}
 	private static readonly requestExceptionLimit = 5;
-	private static readonly syncDueToRequestExceptionLimit = 1;
-	private syncCountDueToRequestException = 0;
 	private requestExceptionCount = 0;
 
-	resetRequestExceptionCount(): void {
+	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all'): void {
 		this.requestExceptionCount = 0;
-		this.syncCountDueToRequestException = 0;
+		if (syncReqUsecase === 'all') {
+			this._syncRequestsPerFailedUsecase.clear();
+		} else {
+			this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
+		}
 	}
 
 	/**
@@ -277,14 +309,19 @@ export abstract class IntegrationBase<
 		}
 	}
 
-	protected handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
+	protected handleProviderException<T>(
+		syncReqUsecase: SyncReqUsecase,
+		ex: Error,
+		scope: LogScope | undefined,
+		defaultValue: T,
+	): T {
 		if (ex instanceof CancellationError) return defaultValue;
 
 		Logger.error(ex, scope);
 
 		if (ex instanceof AuthenticationError && this._session?.cloud) {
-			if (this.syncCountDueToRequestException < IntegrationBase.syncDueToRequestExceptionLimit) {
-				this.syncCountDueToRequestException++;
+			if (!this.hasSessionSyncRequests()) {
+				this.requestSessionSyncForUsecase(syncReqUsecase);
 				this._session = {
 					...this._session,
 					expiresAt: new Date(Date.now() - 1),
@@ -436,10 +473,10 @@ export abstract class IntegrationBase<
 				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
 				cancellation,
 			);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('searchMyIssues');
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<IssueShape[] | undefined>(ex, scope, undefined);
+			return this.handleProviderException<IssueShape[] | undefined>('searchMyIssues', ex, scope, undefined);
 		}
 	}
 
@@ -476,10 +513,15 @@ export abstract class IntegrationBase<
 							id,
 							options?.type,
 						);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getIssueOrPullRequest');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
+						return this.handleProviderException<IssueOrPullRequest | undefined>(
+							'getIssueOrPullRequest',
+							ex,
+							scope,
+							undefined,
+						);
 					}
 				})(),
 			}),
@@ -516,10 +558,10 @@ export abstract class IntegrationBase<
 				value: (async () => {
 					try {
 						const result = await this.getProviderIssue(this._session!, resource, id);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getIssue');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<Issue | undefined>(ex, scope, undefined);
+						return this.handleProviderException<Issue | undefined>('getIssue', ex, scope, undefined);
 					}
 				})(),
 			}),
@@ -553,10 +595,15 @@ export abstract class IntegrationBase<
 				value: (async () => {
 					try {
 						const account = await this.getProviderCurrentAccount?.(this._session!, opts);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
-						return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+						return this.handleProviderException<Account | undefined>(
+							'getCurrentAccount',
+							ex,
+							scope,
+							undefined,
+						);
 					}
 				})(),
 			}),
@@ -583,10 +630,15 @@ export abstract class IntegrationBase<
 			value: (async () => {
 				try {
 					const result = await this.getProviderPullRequest?.(this._session!, resource, id);
-					this.resetRequestExceptionCount();
+					this.resetRequestExceptionCount('getPullRequest');
 					return result;
 				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+					return this.handleProviderException<PullRequest | undefined>(
+						'getPullRequest',
+						ex,
+						scope,
+						undefined,
+					);
 				}
 			})(),
 		}));
