@@ -4261,26 +4261,6 @@
 							"preview"
 						]
 					},
-					"gitlens.ai.experimental.generateCommits.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable GitLens' experimental AI Commit Generation features",
-						"scope": "window",
-						"order": 1,
-						"tags": [
-							"experimental"
-						]
-					},
-					"gitlens.ai.experimental.generateRebase.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable GitLens' experimental AI Rebase features",
-						"scope": "window",
-						"order": 1,
-						"tags": [
-							"experimental"
-						]
-					},
 					"gitlens.ai.generateStashMessage.customInstructions": {
 						"type": "string",
 						"default": null,
