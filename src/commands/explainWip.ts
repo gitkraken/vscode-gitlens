@@ -123,6 +123,11 @@ export class ExplainWipCommand extends ExplainCommandBase {
 					subtitle: `${capitalize(label)} Changes (${repoName})`,
 					aiModel: result.model.name,
 				},
+				command: {
+					label: `Explain ${label} Changes`,
+					name: 'gitlens.ai.explainWip',
+					args: { ...args },
+				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainWipCommand', 'execute');

@@ -87,6 +87,11 @@ export class ExplainStashCommand extends ExplainCommandBase {
 					subtitle: commit.message || commit.ref,
 					aiModel: result.model.name,
 				},
+				command: {
+					label: 'Explain Stash Changes',
+					name: 'gitlens.ai.explainStash',
+					args: { repoPath: svc.path, ref: commit.ref, source: args.source },
+				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainStashCommand', 'execute');

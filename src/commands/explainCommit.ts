@@ -101,6 +101,15 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 					aiModel: result.model.name,
 					subtitle: `${commit.summary} (${commit.shortSha})`,
 				},
+				command: {
+					label: 'Explain Commit Summary',
+					name: 'gitlens.ai.explainCommit',
+					args: {
+						repoPath: svc.path,
+						rev: commit.ref,
+						source: args.source,
+					},
+				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainCommitCommand', 'execute');

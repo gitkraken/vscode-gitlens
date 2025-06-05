@@ -7555,6 +7555,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.regenerateMarkdownDocument",
+				"title": "Regenerate",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.reset",
 				"title": "Reset Stored Data...",
 				"category": "GitLens"
@@ -11772,6 +11777,10 @@
 					"when": "resource in gitlens:tabs:tracked"
 				},
 				{
+					"command": "gitlens.regenerateMarkdownDocument",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.revealCommitInView",
 					"when": "resource in gitlens:tabs:blameable"
 				},
@@ -14111,6 +14120,11 @@
 					"group": "navigation@-97"
 				},
 				{
+					"command": "gitlens.regenerateMarkdownDocument",
+					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@0"
+				},
+				{
 					"command": "gitlens.openPatch",
 					"when": "false && editorLangId == diff"
 				}
@@ -14130,6 +14144,11 @@
 					"command": "gitlens.openWorkingFile",
 					"when": "resourceScheme == gitlens && resourceScheme in gitlens:schemes:trackable",
 					"group": "2_a_gitlens@0"
+				},
+				{
+					"command": "gitlens.regenerateMarkdownDocument",
+					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "1_gitlens@0"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",

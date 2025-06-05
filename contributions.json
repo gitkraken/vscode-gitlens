@@ -3672,6 +3672,26 @@
 				]
 			}
 		},
+		"gitlens.regenerateMarkdownDocument": {
+			"label": "Regenerate",
+			"icon": "$(refresh)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 0
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "1_gitlens",
+						"order": 0
+					}
+				]
+			}
+		},
 		"gitlens.reset": {
 			"label": "Reset Stored Data...",
 			"commandPalette": true

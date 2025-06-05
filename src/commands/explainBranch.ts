@@ -125,6 +125,11 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 					subtitle: branch.name,
 					aiModel: result.model.name,
 				},
+				command: {
+					label: 'Explain Branch Changes',
+					name: 'gitlens.ai.explainBranch',
+					args: { repoPath: svc.path, ref: branch.ref, source: args.source },
+				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainBranchCommand', 'execute');

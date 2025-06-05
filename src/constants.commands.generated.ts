@@ -151,6 +151,7 @@ export type ContributedCommands =
 	| 'gitlens.openFolderHistory'
 	| 'gitlens.openPullRequestOnRemote'
 	| 'gitlens.plus.cloudIntegrations.connect'
+	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.showInCommitGraph'
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.showInDetailsView'
