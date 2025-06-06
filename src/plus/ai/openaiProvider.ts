@@ -3,7 +3,7 @@ import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import { openAIModels } from './models/model';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { isAzureUrl } from './utils/-webview/ai.utils';
+import { ensureOrgConfiguredUrl, isAzureUrl } from './utils/-webview/ai.utils';
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = openAIModels(provider);
@@ -22,7 +22,10 @@ export class OpenAIProvider extends OpenAICompatibleProviderBase<typeof provider
 	}
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
-		return configuration.get('ai.openai.url') || 'https://api.openai.com/v1/chat/completions';
+		return (
+			ensureOrgConfiguredUrl(this.id, configuration.get('ai.openai.url')) ||
+			'https://api.openai.com/v1/chat/completions'
+		);
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(

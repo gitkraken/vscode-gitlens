@@ -5,7 +5,7 @@ import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import type { AIChatMessage, AIRequestResult } from './models/provider';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { ensureAccount } from './utils/-webview/ai.utils';
+import { ensureAccount, ensureOrgConfiguredUrl, getOrgAIProviderOfType } from './utils/-webview/ai.utils';
 
 type OllamaModel = AIModel<typeof provider.id>;
 
@@ -20,8 +20,12 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 	};
 
 	override async configured(silent: boolean): Promise<boolean> {
+		const url = await this.getOrPromptBaseUrl(silent);
+		if (url === undefined) {
+			return false;
+		}
 		// Ollama doesn't require an API key, but we'll check if the base URL is reachable
-		return this.validateUrl(await this.getOrPromptBaseUrl(silent), silent);
+		return this.validateUrl(url, silent);
 	}
 
 	override async getApiKey(silent: boolean): Promise<string | undefined> {
@@ -77,7 +81,11 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		return [];
 	}
 
-	private async getOrPromptBaseUrl(silent: boolean): Promise<string> {
+	private async getOrPromptBaseUrl(silent: boolean): Promise<string | undefined> {
+		const orgConf = getOrgAIProviderOfType(this.id);
+		if (!orgConf.enabled) return undefined;
+		if (orgConf.url) return orgConf.url;
+
 		let url = configuration.get('ai.ollama.url') ?? undefined;
 		if (url) {
 			if (silent) return url;
@@ -169,13 +177,14 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		}
 	}
 
-	private getBaseUrl(): string {
+	private getBaseUrl(): string | undefined {
 		// Get base URL from configuration or use default
-		return configuration.get('ai.ollama.url') || defaultBaseUrl;
+		return ensureOrgConfiguredUrl(this.id, configuration.get('ai.ollama.url') || defaultBaseUrl);
 	}
 
-	protected getUrl(_model: AIModel<typeof provider.id>): string {
-		return `${this.getBaseUrl()}/api/chat`;
+	protected getUrl(_model: AIModel<typeof provider.id>): string | undefined {
+		const url = this.getBaseUrl();
+		return url ? `${url}/api/chat` : undefined;
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(
