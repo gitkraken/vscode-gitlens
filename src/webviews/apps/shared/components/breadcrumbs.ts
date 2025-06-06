@@ -45,7 +45,7 @@ export class GlBreadcrumbs extends LitElement {
 				margin-right 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 		}
 
-		::slotted(gl-breadcrumb-item[collapsed]:not(:hover):not(:last-of-type))::after {
+		::slotted(gl-breadcrumb-item[collapsed]:not(:hover):not(:focus-within):not(:last-of-type))::after {
 			left: -1.2rem;
 			margin-right: -1.2rem;
 		}
