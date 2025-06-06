@@ -307,6 +307,10 @@
 			"label": "Switch AI Provider/Model",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
+		"gitlens.ai.undoGenerateRebase": {
+			"label": "Undo AI Generated Changes (Preview)...",
+			"icon": "$(discard)"
+		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
 			"icon": "$(arrow-down)"
