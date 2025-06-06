@@ -174,6 +174,176 @@ export class GenerateRebaseCommand extends GlCommandBase {
 	}
 }
 
+@command()
+export class UndoGenerateRebaseCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.ai.undoGenerateRebase');
+	}
+
+	protected override preExecute(context: CommandContext, args?: UndoGenerateRebaseCommandArgs): Promise<void> {
+		if (isCommandContextViewNodeHasWorktree(context)) {
+			args = { ...args };
+			args.repoPath = context.node.worktree.path;
+			args.source = args.source ?? { source: 'view' };
+		} else if (isCommandContextViewNodeHasRepository(context)) {
+			args = { ...args };
+			args.repoPath = context.node.repo.path;
+			args.source = args.source ?? { source: 'view' };
+		} else if (isCommandContextViewNodeHasRepoPath(context)) {
+			args = { ...args };
+			args.repoPath = context.node.repoPath;
+			args.source = args.source ?? { source: 'view' };
+		}
+
+		return this.execute(args);
+	}
+
+	async execute(args?: UndoGenerateRebaseCommandArgs): Promise<void> {
+		try {
+			if (!args?.undoCommand) {
+				Logger.error(undefined, 'UndoGenerateRebaseCommand', 'execute', 'Missing undoCommand parameter');
+				void window.showErrorMessage('Unable to undo: Missing command information');
+				return;
+			}
+
+			if (args.undoCommand === 'gitlens.ai.generateRebase') {
+				await this.undoGenerateRebase(args);
+			} else if (args.undoCommand === 'gitlens.ai.generateCommits') {
+				await this.undoGenerateCommits(args);
+			} else {
+				const unknownCommand = args.undoCommand as string;
+				Logger.error(
+					undefined,
+					'UndoGenerateRebaseCommand',
+					'execute',
+					`Unknown undoCommand: ${unknownCommand}`,
+				);
+				void window.showErrorMessage(`Unable to undo: Unknown command ${unknownCommand}`);
+			}
+		} catch (ex) {
+			Logger.error(ex, 'UndoGenerateRebaseCommand', 'execute');
+			void showGenericErrorMessage('Unable to undo operation');
+		}
+	}
+
+	private async undoGenerateRebase(args: UndoGenerateRebaseCommandArgs): Promise<void> {
+		// Check required parameters
+		if (!args.repoPath || !args.generatedBranchName) {
+			Logger.error(
+				undefined,
+				'UndoGenerateRebaseCommand',
+				'undoGenerateRebase',
+				'Missing required parameters: repoPath or generatedBranchName',
+			);
+			void window.showErrorMessage('Unable to undo rebase: Missing required information');
+			return;
+		}
+
+		const svc = this.container.git.getRepositoryService(args.repoPath);
+
+		// Warn user and ask for confirmation
+		const confirm = { title: 'Delete Branch' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			`This will delete the branch '${args.generatedBranchName}'. This action cannot be undone.\n\nAre you sure you want to continue?`,
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+
+		if (result !== confirm) return;
+
+		try {
+			// Try to delete the branch
+			await svc.branches.deleteLocalBranch?.(args.generatedBranchName, { force: true });
+			void window.showInformationMessage(
+				`Successfully deleted branch '${args.generatedBranchName}'. Undo completed.`,
+			);
+		} catch (ex) {
+			Logger.error(ex, 'UndoGenerateRebaseCommand', 'undoGenerateRebase');
+
+			// Check if it's because the user is on the branch or other specific errors
+			const errorMessage = ex instanceof Error ? ex.message : String(ex);
+			if (errorMessage.includes('checked out') || errorMessage.includes('current branch')) {
+				void window.showErrorMessage(
+					`Cannot delete branch '${args.generatedBranchName}' because it is currently checked out.`,
+				);
+			} else {
+				void window.showErrorMessage(`Failed to delete branch '${args.generatedBranchName}': ${errorMessage}`);
+			}
+		}
+	}
+
+	private async undoGenerateCommits(args: UndoGenerateRebaseCommandArgs): Promise<void> {
+		// Check required parameters
+		if (!args.repoPath || !args.generatedHeadRef || !args.previousHeadRef || !args.generatedStashRef) {
+			Logger.error(
+				undefined,
+				'UndoGenerateRebaseCommand',
+				'undoGenerateCommits',
+				'Missing required parameters: repoPath, generatedHeadRef, previousHeadRef, or generatedStashRef',
+			);
+			void window.showErrorMessage('Unable to undo commits: Missing required information');
+			return;
+		}
+
+		const svc = this.container.git.getRepositoryService(args.repoPath);
+
+		try {
+			// Check if current HEAD matches the generated HEAD
+			const log = await svc.commits.getLog(undefined, { limit: 1 });
+			const currentCommit = log?.commits.values().next().value;
+			if (!currentCommit || currentCommit.sha !== args.generatedHeadRef.ref) {
+				void window.showErrorMessage(
+					'Cannot undo commits: Your HEAD reference has changed since the commits were generated. Please ensure you are on the correct commit.',
+				);
+				return;
+			}
+
+			// Warn user and ask for confirmation
+			const confirm = { title: 'Undo Commits' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`This will reset your current branch to ${args.previousHeadRef.ref} and restore your previous working changes. Any work done after generating commits will be lost.\n\nAre you sure you want to continue?`,
+				{ modal: true },
+				confirm,
+				cancel,
+			);
+
+			if (result !== confirm) return;
+
+			// Check if there are working tree changes and stash them
+			const status = await svc.status.getStatus();
+			if (status?.files && status.files.length > 0) {
+				await svc.stash?.saveStash(undefined, undefined, { includeUntracked: true });
+			}
+
+			// Reset hard to the previous HEAD
+			await svc.reset(args.previousHeadRef.ref, { hard: true });
+
+			// Apply the generated stash
+			try {
+				await svc.stash?.applyStash(args.generatedStashRef.ref);
+			} catch (ex) {
+				Logger.error(ex, 'UndoGenerateRebaseCommand', 'undoGenerateCommits', 'Failed to apply stash');
+				void window.showWarningMessage(
+					`Reset completed, but failed to apply the original stash: ${
+						ex instanceof Error ? ex.message : String(ex)
+					}`,
+				);
+				return;
+			}
+
+			void window.showInformationMessage(
+				'Successfully undid the generated commits and restored your previous working changes. Undo completed.',
+			);
+		} catch (ex) {
+			Logger.error(ex, 'UndoGenerateRebaseCommand', 'undoGenerateCommits');
+			void window.showErrorMessage(`Failed to undo commits: ${ex instanceof Error ? ex.message : String(ex)}`);
+		}
+	}
+}
+
 export async function generateRebase(
 	container: Container,
 	svc: GitRepositoryService,
