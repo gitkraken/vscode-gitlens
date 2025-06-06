@@ -372,18 +372,62 @@ export async function generateRebase(
 
 		let generateType: 'commits' | 'rebase' = 'rebase';
 		let headRefSlug = head.ref;
+		let generatedBranchName: string | undefined;
+		let previousHeadRef: GitReference | undefined;
+		let generatedHeadRef: GitReference | undefined;
+		let generatedStashRef: GitStashReference | undefined;
+		let stashCommit: GitStashCommit | undefined;
+		let previousStashCommit: GitStashCommit | undefined;
+
 		const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(base.ref, diffInfo);
 		if (shas?.length) {
 			if (head.ref === uncommitted) {
 				generateType = 'commits';
 				headRefSlug = 'uncommitted';
+
+				// Capture the current HEAD before making changes
+				const log = await svc.commits.getLog(undefined, { limit: 1 });
+				if (log?.commits.size) {
+					const currentCommit = log.commits.values().next().value;
+					if (currentCommit) {
+						previousHeadRef = createReference(currentCommit.sha, svc.path, { refType: 'revision' });
+					}
+				}
+
+				let stash = await svc.stash?.getStash();
+				if (stash?.stashes.size) {
+					const latestStash = stash.stashes.values().next().value;
+					if (latestStash) {
+						previousStashCommit = latestStash;
+					}
+				}
+
 				// stash the working changes
 				await svc.stash?.saveStash(undefined, undefined, { includeUntracked: true });
-				// await repo.git.checkout?.(shas[shas.length - 1]);
+
+				// Get the latest stash reference
+				stash = await svc.stash?.getStash();
+				if (stash?.stashes.size) {
+					stashCommit = stash.stashes.values().next().value;
+					if (stashCommit) {
+						generatedStashRef = createReference(stashCommit.ref, svc.path, {
+							refType: 'stash',
+							name: stashCommit.stashName,
+							number: stashCommit.stashNumber,
+							message: stashCommit.message,
+							stashOnRef: stashCommit.stashOnRef,
+						});
+					}
+				}
+
 				// reset the current branch to the new shas
 				await svc.reset(shas[shas.length - 1], { hard: true });
+
+				// Capture the new HEAD after reset
+				generatedHeadRef = createReference(shas[shas.length - 1], svc.path, { refType: 'revision' });
 			} else {
-				await svc.branches.createBranch?.(`rebase/${head.ref}-${Date.now()}`, shas[shas.length - 1]);
+				generatedBranchName = `rebase/${head.ref}-${Date.now()}`;
+				await svc.branches.createBranch?.(generatedBranchName, shas[shas.length - 1]);
 			}
 		}
 
@@ -395,6 +439,40 @@ export async function generateRebase(
 		);
 
 		showMarkdownPreview(documentUri);
+
+		// Show success notification with Undo button
+		const undoButton = { title: 'Undo' };
+		const resultNotification = await window.showInformationMessage(
+			generateType === 'commits'
+				? 'Successfully generated commits from your working changes.'
+				: 'Successfully generated rebase branch.',
+			undoButton,
+		);
+
+		if (resultNotification === undoButton) {
+			if (generateType === 'commits') {
+				// Undo GenerateCommitsCommand
+				void executeCommand('gitlens.ai.undoGenerateRebase', {
+					undoCommand: 'gitlens.ai.generateCommits',
+					repoPath: svc.path,
+					generatedHeadRef: generatedHeadRef,
+					previousHeadRef: previousHeadRef,
+					generatedStashRef:
+						stashCommit != null && stashCommit.ref !== previousStashCommit?.ref
+							? generatedStashRef
+							: undefined,
+					source: source,
+				} satisfies UndoGenerateRebaseCommandArgs);
+			} else {
+				// Undo GenerateRebaseCommand
+				void executeCommand('gitlens.ai.undoGenerateRebase', {
+					undoCommand: 'gitlens.ai.generateRebase',
+					repoPath: svc.path,
+					generatedBranchName: generatedBranchName,
+					source: source,
+				} satisfies UndoGenerateRebaseCommandArgs);
+			}
+		}
 	} catch (ex) {
 		Logger.error(ex, 'GenerateRebaseCommand', 'execute');
 		void showGenericErrorMessage('Unable to parse rebase result');
