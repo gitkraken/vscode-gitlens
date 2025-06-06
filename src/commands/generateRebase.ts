@@ -85,7 +85,11 @@ export class GenerateCommitsCommand extends GlCommandBase {
 				createReference(uncommitted, svc.path, { refType: 'revision' }),
 				createReference('HEAD', svc.path, { refType: 'revision' }),
 				args?.source ?? { source: 'commandPalette' },
-				{ title: 'Generate Commits', progress: { location: ProgressLocation.Notification } },
+				{
+					title: 'Generate Commits',
+					progress: { location: ProgressLocation.Notification },
+					generateCommits: true,
+				},
 			);
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitsCommand', 'execute');
@@ -165,7 +169,12 @@ export async function generateRebase(
 	head: GitReference,
 	base: GitReference,
 	source: Source,
-	options?: { title?: string; cancellation?: CancellationToken; progress?: ProgressOptions },
+	options?: {
+		title?: string;
+		cancellation?: CancellationToken;
+		progress?: ProgressOptions;
+		generateCommits?: boolean;
+	},
 ): Promise<void> {
 	const { title, ...aiOptions } = options ?? {};
 
