@@ -1,18 +1,19 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import { ProgressLocation } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { MarkdownContentMetadata } from '../documents/markdown';
 import { getMarkdownHeaderContent } from '../documents/markdown';
 import type { GitRepositoryService } from '../git/gitRepositoryService';
-import type { GitReference } from '../git/models/reference';
+import type { GitStashCommit } from '../git/models/commit';
+import type { GitReference, GitStashReference } from '../git/models/reference';
 import { uncommitted } from '../git/models/revision';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import type { AIRebaseResult } from '../plus/ai/aiProviderService';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
+import { command, executeCommand } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
 import { escapeMarkdownCodeBlocks } from '../system/markdown';
@@ -33,6 +34,16 @@ export interface GenerateRebaseCommandArgs {
 
 export interface GenerateCommitsCommandArgs {
 	repoPath?: string;
+	source?: Source;
+}
+
+export interface UndoGenerateRebaseCommandArgs {
+	repoPath?: string;
+	generatedHeadRef?: GitReference;
+	previousHeadRef?: GitReference;
+	generatedStashRef?: GitStashReference;
+	generatedBranchName?: string;
+	undoCommand?: `gitlens.ai.generateCommits` | `gitlens.ai.generateRebase`;
 	source?: Source;
 }
 

@@ -21,6 +21,7 @@ export type ContributedCommands =
 	| 'gitlens.ai.generateCommits:views'
 	| 'gitlens.ai.rebaseOntoCommit:graph'
 	| 'gitlens.ai.rebaseOntoCommit:views'
+	| 'gitlens.ai.undoGenerateRebase'
 	| 'gitlens.annotations.nextChange'
 	| 'gitlens.annotations.previousChange'
 	| 'gitlens.computingFileAnnotations'
