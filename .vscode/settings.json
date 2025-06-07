@@ -41,6 +41,8 @@
 			"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 		}
 	],
+	"css.customData": [".vscode/vscode.css-custom-data.json"],
+	"html.customData": [".vscode/vscode.html-custom-data.json"],
 	"[html][javascript][json][jsonc][markdown][scss][svg][typescript][typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},

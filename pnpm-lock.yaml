@@ -193,6 +193,9 @@ importers:
       cssnano-preset-advanced:
         specifier: 7.0.7
         version: 7.0.7(postcss@8.5.4)
+      custom-element-vs-code-integration:
+        specifier: ^1.5.0
+        version: 1.5.0(prettier@3.1.0)
       esbuild:
         specifier: 0.25.5
         version: 0.25.5
@@ -1048,6 +1051,11 @@ packages:
 
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
+
+  '@prettier/sync@0.5.5':
+    resolution: {integrity: sha512-6BMtNr7aQhyNcGzmumkL0tgr1YQGfm9d7ZdmRpWqWuqpc9vZBind4xMe5NMiRECOhjuSiWHfBWLBnXkpeE90bw==}
+    peerDependencies:
+      prettier: '*'
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -2373,6 +2381,9 @@ packages:
 
   cubic2quad@1.2.1:
     resolution: {integrity: sha512-wT5Y7mO8abrV16gnssKdmIhIbA9wSkeMzhh27jAguKrV82i24wER0vL5TGhUJ9dbJNDcigoRZ0IAHFEEEI4THQ==}
+
+  custom-element-vs-code-integration@1.5.0:
+    resolution: {integrity: sha512-dMKlHq7qz1HbNZUXqw/4fVTh8FBLYX/dIQRt9M0M3KX+Z4iXKUzXxCBdNIdLjE18kMiOCZuRLDZly5mBznoCYw==}
 
   custom-elements-manifest@1.0.0:
     resolution: {integrity: sha512-j59k0ExGCKA8T6Mzaq+7axc+KVHwpEphEERU7VZ99260npu/p/9kd+Db+I3cGKxHkM5y6q5gnlXn00mzRQkX2A==}
@@ -3917,6 +3928,9 @@ packages:
   make-fetch-happen@10.2.1:
     resolution: {integrity: sha512-NgOPbRiaQM10DYXvN3/hhGVI2M5MtITFryzBGxHM5p4wnFxsVCbxkrBrDsk+EZ5OB4jEOT7AjDxtdF+KVEFT7w==}
     engines: {node: ^12.13.0 || ^14.15.0 || >=16.0.0}
+
+  make-synchronized@0.4.2:
+    resolution: {integrity: sha512-EwEJSg8gSGLicKXp/VzNi1tvzhdmNBxOzslkkJSoNUCQFZKH/NIUIp7xlfN+noaHrz4BJDN73gne8IHnjl/F/A==}
 
   map-obj@1.0.1:
     resolution: {integrity: sha512-7N/q3lyZ+LVCp7PzuxrJr4KMbBE2hW7BT7YNia330OFxIf4d3r5zVpicP2650l7CPN6RM9zOJRl3NGpqSiw3Eg==}
@@ -6666,6 +6680,11 @@ snapshots:
 
   '@popperjs/core@2.11.8': {}
 
+  '@prettier/sync@0.5.5(prettier@3.1.0)':
+    dependencies:
+      make-synchronized: 0.4.2
+      prettier: 3.1.0
+
   '@protobufjs/aspromise@1.1.2': {}
 
   '@protobufjs/base64@1.1.2': {}
@@ -8184,6 +8203,12 @@ snapshots:
   csstype@3.1.3: {}
 
   cubic2quad@1.2.1: {}
+
+  custom-element-vs-code-integration@1.5.0(prettier@3.1.0):
+    dependencies:
+      '@prettier/sync': 0.5.5(prettier@3.1.0)
+    transitivePeerDependencies:
+      - prettier
 
   custom-elements-manifest@1.0.0: {}
 
@@ -9953,6 +9978,8 @@ snapshots:
     transitivePeerDependencies:
       - bluebird
       - supports-color
+
+  make-synchronized@0.4.2: {}
 
   map-obj@1.0.1: {}
 

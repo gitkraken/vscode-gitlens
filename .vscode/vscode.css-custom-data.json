@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vscode-css-languageservice/main/docs/customData.schema.json",
+  "version": 1.1,
+  "properties": [],
+  "pseudoElements": [
+    {
+      "name": "::part(base)",
+      "description": "Styles the sl-popup element itself"
+    },
+    { "name": "::part(arrow)", "description": "Styles the arrow's container" },
+    { "name": "::part(popup)", "description": "Styles the popup's container" },
+    {
+      "name": "::part(body)",
+      "description": "Styles the element that wraps the content slot"
+    }
+  ]
+}
