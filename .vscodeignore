@@ -38,6 +38,8 @@ CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 contributions.json
 contributions.schema.json
+custom-elements.json
+custom-elements-manifest.config.mjs
 eslint.config.mjs
 pnpm-lock.yaml
 README.pre.md
