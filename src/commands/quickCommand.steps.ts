@@ -110,6 +110,7 @@ import { first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
+import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -2795,21 +2796,23 @@ export async function* ensureAccessStep<
 
 	switch (feature) {
 		case 'launchpad':
-			directives.splice(
-				0,
-				0,
-				createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-					label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-					detail: 'Click to learn more about Launchpad',
-					iconPath: new ThemeIcon('rocket'),
-					onDidSelect: () =>
-						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-							step: 'accelerate-pr-reviews',
-							source: { source: 'launchpad', detail: 'info' },
-						}),
-				}),
-				createQuickPickSeparator(),
-			);
+			if (isWalkthroughSupported()) {
+				directives.splice(
+					0,
+					0,
+					createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+						label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+						detail: 'Click to learn more about Launchpad',
+						iconPath: new ThemeIcon('rocket'),
+						onDidSelect: () =>
+							void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
+								step: 'accelerate-pr-reviews',
+								source: { source: 'launchpad', detail: 'info' },
+							}),
+					}),
+					createQuickPickSeparator(),
+				);
+			}
 			break;
 		case 'startWork':
 			directives.splice(
