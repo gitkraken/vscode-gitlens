@@ -59,7 +59,7 @@ import { log } from './system/decorators/log';
 import { Logger } from './system/logger';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
-import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
+import { isWalkthroughSupported, WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/documentTracker';
 import { LineTracker } from './trackers/lineTracker';
@@ -205,7 +205,9 @@ export class Container {
 		);
 		this._disposables.push((this._uri = new UriService(this)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
-		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
+		if (isWalkthroughSupported()) {
+			this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
+		}
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
@@ -713,8 +715,8 @@ export class Container {
 		return this._usage;
 	}
 
-	private readonly _walkthrough: WalkthroughStateProvider;
-	get walkthrough(): WalkthroughStateProvider {
+	private readonly _walkthrough: WalkthroughStateProvider | undefined;
+	get walkthrough(): WalkthroughStateProvider | undefined {
 		return this._walkthrough;
 	}
 
