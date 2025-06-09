@@ -8847,21 +8847,21 @@
 			"menus": {
 				"gitlens/views/grouped/launchpad": [
 					{
-						"when": "gitlens:views:scm:grouped:view == launchpad",
+						"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:walkthroughSupported",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:views:launchpad",
+						"when": "viewItem == gitlens:views:launchpad && gitlens:walkthroughSupported",
 						"group": "8_info",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.launchpad",
+						"when": "view == gitlens.views.launchpad && gitlens:walkthroughSupported",
 						"group": "8_info",
 						"order": 1
 					}

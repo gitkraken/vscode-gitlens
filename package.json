@@ -15516,7 +15516,7 @@
 			"gitlens/views/grouped/launchpad": [
 				{
 					"command": "gitlens.views.launchpad.info",
-					"when": "gitlens:views:scm:grouped:view == launchpad",
+					"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:walkthroughSupported",
 					"group": "2_gitlens_actions@1"
 				},
 				{
@@ -19008,7 +19008,7 @@
 				},
 				{
 					"command": "gitlens.views.launchpad.info",
-					"when": "viewItem == gitlens:views:launchpad",
+					"when": "viewItem == gitlens:views:launchpad && gitlens:walkthroughSupported",
 					"group": "8_info@1"
 				},
 				{
@@ -21103,7 +21103,7 @@
 				},
 				{
 					"command": "gitlens.views.launchpad.info",
-					"when": "view == gitlens.views.launchpad",
+					"when": "view == gitlens.views.launchpad && gitlens:walkthroughSupported",
 					"group": "8_info@1"
 				},
 				{
