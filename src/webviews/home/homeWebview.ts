@@ -170,7 +170,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChange(this.onIntegrationsChanged, this),
-			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
+			this.container.walkthrough?.onDidChangeProgress(this.onWalkthroughProgressChanged, this) ?? emptyDisposable,
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
@@ -729,7 +729,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getWalkthroughDismissed() {
-		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
+		return (
+			this.container.walkthrough == null || (this.container.storage.get('home:walkthrough:dismissed') ?? false)
+		);
 	}
 
 	private getPreviewCollapsed() {
@@ -806,13 +808,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
-			walkthroughProgress: !this.getWalkthroughDismissed()
-				? {
-						allCount: this.container.walkthrough.walkthroughSize,
-						doneCount: this.container.walkthrough.doneCount,
-						progress: this.container.walkthrough.progress,
-				  }
-				: undefined,
+			walkthroughProgress:
+				!this.getWalkthroughDismissed() && this.container.walkthrough != null
+					? {
+							allCount: this.container.walkthrough.walkthroughSize,
+							doneCount: this.container.walkthrough.doneCount,
+							progress: this.container.walkthrough.progress,
+					  }
+					: undefined,
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
@@ -1205,6 +1208,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private notifyDidChangeProgress() {
+		if (this.container.walkthrough == null) return;
+
 		void this.host.notify(DidChangeWalkthroughProgress, {
 			allCount: this.container.walkthrough.walkthroughSize,
 			doneCount: this.container.walkthrough.doneCount,
