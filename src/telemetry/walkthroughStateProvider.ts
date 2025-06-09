@@ -162,6 +162,8 @@ export class WalkthroughStateProvider implements Disposable {
 	private subscriptionState: SubscriptionState | undefined;
 
 	constructor(private readonly container: Container) {
+		void setContext('gitlens:walkthroughSupported', true);
+
 		this.disposables.push(
 			this._onDidChangeProgress,
 			this.container.usage.onDidChange(this.onUsageChanged, this),

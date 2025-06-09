@@ -11034,6 +11034,10 @@
 					"when": "gitlens:repos:withRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.getStarted",
+					"when": "gitlens:walkthroughSupported"
+				},
+				{
 					"command": "gitlens.ghpr.views.openOrCreateWorktree",
 					"when": "false"
 				},
@@ -14200,7 +14204,7 @@
 			"extension/context": [
 				{
 					"command": "gitlens.getStarted",
-					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
+					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed && gitlens:walkthroughSupported",
 					"group": "9_gitlens@1"
 				},
 				{
