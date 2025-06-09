@@ -1465,11 +1465,11 @@
 		},
 		"gitlens.getStarted": {
 			"label": "Get Started",
-			"commandPalette": true,
+			"commandPalette": "gitlens:walkthroughSupported",
 			"menus": {
 				"extension/context": [
 					{
-						"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
+						"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed && gitlens:walkthroughSupported",
 						"group": "9_gitlens",
 						"order": 1
 					}

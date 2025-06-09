@@ -60,6 +60,7 @@ export type ContextKeys = {
 	'gitlens:views:scm:grouped:welcome': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
+	'gitlens:walkthroughSupported': boolean;
 } & Record<`gitlens:action:${string}`, number> &
 	Record<`gitlens:feature:unsupported:${Features}`, boolean> &
 	Record<`gitlens:key:${Keys}`, boolean> &
