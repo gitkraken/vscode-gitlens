@@ -510,7 +510,7 @@ export class AIProviderService implements Disposable {
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AISummarizeResult | undefined> {
+	): Promise<AISummarizeResult | 'cancelled' | undefined> {
 		const svc = this.container.git.getRepositoryService(commitOrRevision.repoPath);
 		return this.explainChanges(
 			async cancellation => {
@@ -543,7 +543,7 @@ export class AIProviderService implements Disposable {
 			| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'explain-changes'>>),
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AISummarizeResult | undefined> {
+	): Promise<AISummarizeResult | 'cancelled' | undefined> {
 		const { type, ...source } = sourceContext;
 
 		const result = await this.sendRequest(
@@ -588,7 +588,11 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+			  ? { ...result, parsed: parseSummarizeResult(result.content) }
+			  : undefined;
 	}
 
 	async generateCommitMessage(
@@ -600,7 +604,7 @@ export class AIProviderService implements Disposable {
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 		},
-	): Promise<AISummarizeResult | undefined> {
+	): Promise<AISummarizeResult | 'cancelled' | undefined> {
 		const result = await this.sendRequest(
 			'generate-commitMessage',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
@@ -639,7 +643,11 @@ export class AIProviderService implements Disposable {
 			}),
 			{ ...options, modelOptions: { outputTokens: 4096 } },
 		);
-		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+			  ? { ...result, parsed: parseSummarizeResult(result.content) }
+			  : undefined;
 	}
 
 	async generateCreatePullRequest(
@@ -653,7 +661,7 @@ export class AIProviderService implements Disposable {
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 		},
-	): Promise<AISummarizeResult | undefined> {
+	): Promise<AISummarizeResult | 'cancelled' | undefined> {
 		const result = await this.sendRequest(
 			'generate-create-pullRequest',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
@@ -698,7 +706,11 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+			  ? { ...result, parsed: parseSummarizeResult(result.content) }
+			  : undefined;
 	}
 
 	async generateCreateDraft(
@@ -711,7 +723,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 			codeSuggestion?: boolean;
 		},
-	): Promise<AISummarizeResult | undefined> {
+	): Promise<AISummarizeResult | 'cancelled' | undefined> {
 		const { type, ...source } = sourceContext;
 
 		const result = await this.sendRequest(
@@ -762,7 +774,11 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+			  ? { ...result, parsed: parseSummarizeResult(result.content) }
+			  : undefined;
 	}
 
 	async generateStashMessage(
@@ -774,7 +790,7 @@ export class AIProviderService implements Disposable {
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 		},
-	): Promise<AISummarizeResult | undefined> {
+	): Promise<AISummarizeResult | 'cancelled' | undefined> {
 		const result = await this.sendRequest(
 			'generate-stashMessage',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
@@ -813,14 +829,18 @@ export class AIProviderService implements Disposable {
 			}),
 			{ ...options, modelOptions: { outputTokens: 1024 } },
 		);
-		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+			  ? { ...result, parsed: parseSummarizeResult(result.content) }
+			  : undefined;
 	}
 
 	async generateChangelog(
 		changes: Lazy<Promise<AIGenerateChangelogChanges>>,
 		source: Source,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AIResult | undefined> {
+	): Promise<AIResult | 'cancelled' | undefined> {
 		const result = await this.sendRequest(
 			'generate-changelog',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
@@ -858,7 +878,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? { ...result } : undefined;
+		return result === 'cancelled' ? result : result != null ? { ...result } : undefined;
 	}
 
 	async generateRebase(
@@ -873,7 +893,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 			generateCommits?: boolean;
 		},
-	): Promise<AIRebaseResult | undefined> {
+	): Promise<AIRebaseResult | 'cancelled' | undefined> {
 		const result: Mutable<AIRebaseResult> = {
 			diff: undefined!,
 			explanation: undefined!,
@@ -984,9 +1004,13 @@ export class AIProviderService implements Disposable {
 			options,
 		);
 
+		if (rq === 'cancelled') return rq;
+
+		if (rq == null) return undefined;
+
 		try {
 			// if it is wrapped in markdown, we need to strip it
-			const content = rq!.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
+			const content = rq.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
 			// Parse the JSON content from the result
 			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
 		} catch {
@@ -1021,12 +1045,17 @@ export class AIProviderService implements Disposable {
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			progress?: ProgressOptions;
 		},
-	): Promise<AIRequestResult | undefined> {
+	): Promise<AIRequestResult | 'cancelled' | undefined> {
 		if (!(await this.ensureFeatureAccess(action, source))) {
-			return undefined;
+			return 'cancelled';
 		}
 
 		const model = await this.getModel(undefined, source);
+		if (options?.cancellation?.isCancellationRequested) {
+			options?.generating?.cancel();
+			return 'cancelled';
+		}
+
 		if (model == null || options?.cancellation?.isCancellationRequested) {
 			options?.generating?.cancel();
 			return undefined;
@@ -1053,16 +1082,26 @@ export class AIProviderService implements Disposable {
 			);
 
 			options?.generating?.cancel();
-			return undefined;
+			return 'cancelled';
 		}
 
 		const apiKey = await this._provider!.getApiKey(false);
-		if (apiKey == null || cancellation.isCancellationRequested) {
+
+		if (cancellation.isCancellationRequested) {
 			this.container.telemetry.sendEvent(
 				telementry.key,
-				cancellation.isCancellationRequested
-					? { ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' }
-					: { ...telementry.data, failed: true, 'failed.reason': 'error', 'failed.error': 'Not authorized' },
+				{ ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' },
+				source,
+			);
+
+			options?.generating?.cancel();
+			return 'cancelled';
+		}
+
+		if (apiKey == null) {
+			this.container.telemetry.sendEvent(
+				telementry.key,
+				{ ...telementry.data, failed: true, 'failed.reason': 'error', 'failed.error': 'Not authorized' },
 				source,
 			);
 
@@ -1121,7 +1160,7 @@ export class AIProviderService implements Disposable {
 					source,
 				);
 
-				return undefined;
+				return 'cancelled';
 			}
 			if (ex instanceof AIError) {
 				this.container.telemetry.sendEvent(

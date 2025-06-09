@@ -90,6 +90,8 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 				},
 			);
 
+			if (result === 'cancelled') return;
+
 			if (result == null) {
 				void showGenericErrorMessage('Unable to explain commit');
 				return;

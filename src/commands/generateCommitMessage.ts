@@ -74,6 +74,8 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 					progress: { location: ProgressLocation.Notification, title: 'Generating commit message...' },
 				},
 			);
+			if (result === 'cancelled') return;
+
 			if (result == null) return;
 
 			void executeCoreCommand('workbench.view.scm');

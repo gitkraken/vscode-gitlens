@@ -677,6 +677,8 @@ export class StashGitCommand extends QuickCommand<State> {
 						resume?.dispose();
 						input.validationMessage = undefined;
 
+						if (result === 'cancelled') return;
+
 						const message = result?.parsed.summary;
 						if (message != null) {
 							state.message = message;

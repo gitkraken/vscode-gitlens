@@ -62,7 +62,10 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 				},
 			);
 
+			if (result === 'cancelled') return;
+
 			if (result == null) return;
+
 			return `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
 				result.parsed.body ? `\n\n${result.parsed.body}` : ''
 			}`;

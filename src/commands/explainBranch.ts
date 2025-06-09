@@ -114,6 +114,8 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				},
 			);
 
+			if (result === 'cancelled') return;
+
 			if (result == null) {
 				void showGenericErrorMessage(`Unable to explain branch ${branch.name}`);
 				return;

@@ -39,6 +39,8 @@ export async function describePullRequestWithAI(
 				...options,
 			},
 		);
+		if (result === 'cancelled') return undefined;
+
 		return result?.parsed ? { title: result.parsed.summary, description: result.parsed.body } : undefined;
 	} catch (ex) {
 		void window.showErrorMessage(ex.message);
