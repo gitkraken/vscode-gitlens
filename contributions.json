@@ -7868,14 +7868,14 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:views:drafts",
+						"when": "viewItem == gitlens:views:drafts && gitlens:walkthroughSupported",
 						"group": "8_info",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.drafts",
+						"when": "view == gitlens.views.drafts && gitlens:walkthroughSupported",
 						"group": "8_info",
 						"order": 1
 					}
