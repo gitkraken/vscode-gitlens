@@ -51,6 +51,8 @@ jobs:
         needs: check
         runs-on: ubuntu-latest
         if: needs.check.outputs.status == 'changed'
+        permissions:
+            contents: read
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
