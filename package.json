@@ -18793,7 +18793,7 @@
 				},
 				{
 					"command": "gitlens.views.drafts.info",
-					"when": "viewItem == gitlens:views:drafts",
+					"when": "viewItem == gitlens:views:drafts && gitlens:walkthroughSupported",
 					"group": "8_info@1"
 				},
 				{
@@ -20878,7 +20878,7 @@
 				},
 				{
 					"command": "gitlens.views.drafts.info",
-					"when": "view == gitlens.views.drafts",
+					"when": "view == gitlens.views.drafts && gitlens:walkthroughSupported",
 					"group": "8_info@1"
 				},
 				{
