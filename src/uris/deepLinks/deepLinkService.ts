@@ -30,6 +30,7 @@ import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { maybeUri, normalizePath } from '../../system/path';
 import { fromBase64 } from '../../system/string';
+import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
@@ -37,6 +38,7 @@ import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceC
 import {
 	AccountDeepLinkTypes,
 	DeepLinkActionType,
+	DeepLinkCommandType,
 	DeepLinkCommandTypeToCommand,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
@@ -1505,6 +1507,12 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.RunCommand: {
 					if (mainId == null || !isDeepLinkCommandType(mainId)) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Invalid command type.';
+						break;
+					}
+
+					if (mainId === DeepLinkCommandType.Walkthrough && !isWalkthroughSupported()) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Invalid command type.';
 						break;
