@@ -37,6 +37,7 @@ export interface State extends WebviewState {
 	ai: { model: AIModel | undefined };
 	avatar?: string;
 	organizationsCount?: number;
+	walkthroughSupported: boolean;
 	walkthroughProgress?: {
 		doneCount: number;
 		allCount: number;

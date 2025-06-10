@@ -808,6 +808,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
+			walkthroughSupported: this.container.walkthrough != null,
 			walkthroughProgress:
 				!this.getWalkthroughDismissed() && this.container.walkthrough != null
 					? {
