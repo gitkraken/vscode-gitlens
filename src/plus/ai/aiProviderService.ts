@@ -871,6 +871,7 @@ export class AIProviderService implements Disposable {
 			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
+			generateCommits?: boolean;
 		},
 	): Promise<AIRebaseResult | undefined> {
 		const result: Mutable<AIRebaseResult> = {
@@ -880,12 +881,43 @@ export class AIProviderService implements Disposable {
 			commits: [],
 		} as unknown as AIRebaseResult;
 
+		const confirmed = this.container.storage.get(
+			options?.generateCommits ? 'confirm:ai:generateCommits' : 'confirm:ai:generateRebase',
+			false,
+		);
+		if (!confirmed) {
+			const accept: MessageItem = { title: 'Continue' };
+			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+
+			const result = await window.showInformationMessage(
+				`This will ${
+					options?.generateCommits
+						? 'stash all of your changes and commit directly to your current branch'
+						: 'create a new branch at the chosen commit and commit directly to that branch'
+				}.`,
+				{ modal: true },
+				accept,
+				cancel,
+			);
+
+			if (result === cancel) {
+				return undefined;
+			} else if (result === accept) {
+				await this.container.storage.store(
+					options?.generateCommits ? 'confirm:ai:generateCommits' : 'confirm:ai:generateRebase',
+					true,
+				);
+			}
+		}
+
 		const rq = await this.sendRequest(
 			'generate-rebase',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const diff = await repo.git.diff.getDiff?.(headRef, baseRef, { notation: '...' });
 				if (!diff?.contents) {
-					throw new AINoRequestDataError('No changes found to generate a rebase from.');
+					throw new AINoRequestDataError(
+						`No changes found to generate ${options?.generateCommits ? 'commits' : 'a rebase'} from.`,
+					);
 				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
@@ -937,7 +969,7 @@ export class AIProviderService implements Disposable {
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			m => `Generating rebase with ${m.name}...`,
+			m => `Generating ${options?.generateCommits ? 'commits' : 'rebase'} with ${m.name}...`,
 			source,
 			m => ({
 				key: 'ai/generate',
@@ -959,7 +991,7 @@ export class AIProviderService implements Disposable {
 			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
 		} catch {
 			debugger;
-			throw new Error('Unable to parse rebase result');
+			throw new Error(`Unable to parse ${options?.generateCommits ? 'commits' : 'rebase'} result`);
 		}
 
 		return {
@@ -1408,6 +1440,8 @@ export class AIProviderService implements Disposable {
 	resetConfirmations(): void {
 		void this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
 		void this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
+		void this.container.storage.deleteWithPrefix(`confirm:ai:generateCommits`);
+		void this.container.storage.deleteWithPrefix(`confirm:ai:generateRebase`);
 	}
 
 	resetProviderKey(provider: AIProviders, silent?: boolean): void {

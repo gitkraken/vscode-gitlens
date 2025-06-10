@@ -233,17 +233,17 @@
 			}
 		},
 		"gitlens.ai.generateCommits": {
-			"label": "Generate Commits with AI (Experimental)...",
+			"label": "Generate Commits with AI (Preview)...",
 			"icon": "$(sparkle)",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.generateCommits:graph": {
-			"label": "Generate Commits with AI (Experimental)",
+			"label": "Generate Commits with AI (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled",
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -251,12 +251,12 @@
 			}
 		},
 		"gitlens.ai.generateCommits:views": {
-			"label": "Generate Commits with AI (Experimental)",
+			"label": "Generate Commits with AI (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateCommits.enabled",
+						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "3_gitlens_ai",
 						"order": 1
 					}
@@ -264,18 +264,18 @@
 			}
 		},
 		"gitlens.ai.generateRebase": {
-			"label": "Rebase with AI (Experimental)...",
+			"label": "Rebase with AI (Preview)...",
 			"icon": "$(sparkle)",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.rebaseOntoCommit:graph": {
-			"label": "AI Rebase Current Branch onto Commit...",
+			"label": "AI Rebase Current Branch onto Commit (Preview)...",
 			"icon": "$(sparkle)",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions",
 						"order": 6
 					}
@@ -283,20 +283,20 @@
 			}
 		},
 		"gitlens.ai.rebaseOntoCommit:views": {
-			"label": "AI Rebase Current Branch onto Commit...",
+			"label": "AI Rebase Current Branch onto Commit (Preview)...",
 			"icon": "$(sparkle)",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions",
 						"order": 6
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.generateRebase.enabled",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions",
 						"order": 6
 					}

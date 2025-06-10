@@ -217,14 +217,6 @@ interface AIConfig {
 	readonly explainChanges: {
 		readonly customInstructions: string;
 	};
-	readonly experimental: {
-		readonly generateCommits: {
-			readonly enabled: boolean;
-		};
-		readonly generateRebase: {
-			readonly enabled: boolean;
-		};
-	};
 	readonly generateChangelog: {
 		readonly customInstructions: string;
 	};
