@@ -23631,7 +23631,13 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked."
+				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
+				"when": "gitlens:walkthroughSupported"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Launchpad — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
+				"when": "!gitlens:walkthroughSupported"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -23691,7 +23697,12 @@
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
-				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == launchpad"
+				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == launchpad && gitlens:walkthroughSupported"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Launchpad — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
+				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == launchpad && !gitlens:walkthroughSupported"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",

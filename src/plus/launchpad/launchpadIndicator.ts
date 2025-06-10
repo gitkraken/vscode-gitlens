@@ -11,6 +11,7 @@ import { once } from '../../system/event';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
+import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { LaunchpadCommandArgs } from './launchpad';
 import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
@@ -252,11 +253,19 @@ export class LaunchpadIndicator implements Disposable {
 		tooltip.isTrusted = true;
 
 		tooltip.appendMarkdown(`GitLens Launchpad ${proBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`);
-		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`);
+		if (isWalkthroughSupported()) {
+			tooltip.appendMarkdown(
+				`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`,
+			);
+		}
 		tooltip.appendMarkdown('\u00a0');
 		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);
 		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
 		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?%22hide%22 "Hide")`);
+
+		const launchpadLink = isWalkthroughSupported()
+			? '[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "Learn about Launchpad")'
+			: 'Launchpad';
 
 		if (
 			state === 'idle' ||
@@ -266,7 +275,7 @@ export class LaunchpadIndicator implements Disposable {
 		) {
 			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown(
-				'[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+				`${launchpadLink} organizes your pull requests into actionable groups to help you focus and keep your team unblocked.`,
 			);
 			tooltip.appendMarkdown(
 				"\n\nIt's always accessible using the `GitLens: Open Launchpad` command from the Command Palette.",
