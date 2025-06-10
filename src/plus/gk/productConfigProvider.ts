@@ -48,10 +48,12 @@ export class ProductConfigProvider {
 					// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
 					// @ts-ignore
 					const data = (await import('../../../product.json', { with: { type: 'json' } })).default;
-					const config = getConfig(data);
-					if (config != null) return config;
+					if (data != null && Object.keys(data).length > 0) {
+						const config = getConfig(data);
+						if (config != null) return config;
 
-					debugger;
+						debugger;
+					}
 				} catch {}
 			}
 
@@ -180,6 +182,12 @@ function createConfigValidator(): Validator<ConfigJson> {
 	});
 
 	const isContent = createValidator({
+		modal: Is.Optional(isModal),
+		quickpick: isQuickPick,
+		webview: Is.Optional(isWebview),
+	});
+
+	const isContentV2 = createValidator({
 		modal: isModal,
 		quickpick: isQuickPick,
 		webview: Is.Optional(isWebview),
@@ -207,7 +215,7 @@ function createConfigValidator(): Validator<ConfigJson> {
 		expiresOn: Is.Optional(Is.String),
 		startsOn: Is.Optional(Is.String),
 		locations: Is.Optional(Is.Array(isLocation)),
-		content: Is.Optional(isContent),
+		content: Is.Optional(isContentV2),
 		percentile: Is.Optional(Is.Number),
 	});
 

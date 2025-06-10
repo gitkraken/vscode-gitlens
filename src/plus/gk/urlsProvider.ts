@@ -40,6 +40,9 @@ export class UrlsProvider {
 	}
 
 	getGkConfigUrl(...pathSegments: string[]): string {
+		if (this.env === 'dev' || this.env === 'staging') {
+			pathSegments = ['staging', ...pathSegments];
+		}
 		return Uri.joinPath(Uri.parse('https://configs.gitkraken.dev'), 'gitlens', ...pathSegments).toString();
 	}
 

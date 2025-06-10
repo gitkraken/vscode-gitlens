@@ -16,7 +16,7 @@ export interface Promo {
 
 	readonly locations?: PromoLocation[];
 	readonly content?: {
-		readonly modal: { readonly detail: string };
+		readonly modal?: { readonly detail: string };
 		readonly quickpick: { readonly detail: string };
 		readonly webview?: {
 			readonly info?: {
