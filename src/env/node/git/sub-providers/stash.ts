@@ -111,40 +111,38 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			);
 
 			const ancestors = result.stdout.trim().split('\n');
-			if (ancestors?.length && (ancestors.length !== 1 || ancestors[0])) {
-				const reachableCommits = new Set(ancestors);
+			const reachableCommits =
+				ancestors?.length && (ancestors.length !== 1 || ancestors[0]) ? new Set(ancestors) : undefined;
+			if (reachableCommits?.size) {
+				const reachableStashes = new Set<string>();
 
-				if (reachableCommits.size) {
-					const reachableStashes = new Set<string>();
-
-					// First pass: mark directly reachable stashes
-					for (const [sha, s] of stash.stashes) {
-						if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
-							reachableStashes.add(sha);
-						}
+				// First pass: mark directly reachable stashes
+				for (const [sha, s] of stash.stashes) {
+					if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+						reachableStashes.add(sha);
 					}
-
-					// Second pass: mark stashes that build upon reachable stashes
-					let changed;
-					do {
-						changed = false;
-						for (const [sha, s] of stash.stashes) {
-							if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
-								reachableStashes.add(sha);
-								changed = true;
-							}
-						}
-					} while (changed);
-
-					// Remove unreachable stashes
-					for (const [sha] of stash.stashes) {
-						if (!reachableStashes.has(sha)) {
-							stash.stashes.delete(sha);
-						}
-					}
-				} else {
-					stash.stashes.clear();
 				}
+
+				// Second pass: mark stashes that build upon reachable stashes
+				let changed;
+				do {
+					changed = false;
+					for (const [sha, s] of stash.stashes) {
+						if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
+							reachableStashes.add(sha);
+							changed = true;
+						}
+					}
+				} while (changed);
+
+				// Remove unreachable stashes
+				for (const [sha] of stash.stashes) {
+					if (!reachableStashes.has(sha)) {
+						stash.stashes.delete(sha);
+					}
+				}
+			} else {
+				stash.stashes.clear();
 			}
 		}
 
