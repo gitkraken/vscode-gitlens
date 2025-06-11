@@ -6265,6 +6265,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.undoGenerateRebase",
+				"title": "Undo AI Generated Changes (Preview)...",
+				"icon": "$(discard)"
+			},
+			{
 				"command": "gitlens.annotations.nextChange",
 				"title": "Next Change",
 				"icon": "$(arrow-down)"
@@ -10771,6 +10776,10 @@
 				{
 					"command": "gitlens.ai.switchProvider",
 					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.undoGenerateRebase",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.annotations.nextChange",
