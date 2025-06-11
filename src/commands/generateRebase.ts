@@ -180,24 +180,6 @@ export class UndoGenerateRebaseCommand extends GlCommandBase {
 		super('gitlens.ai.undoGenerateRebase');
 	}
 
-	protected override preExecute(context: CommandContext, args?: UndoGenerateRebaseCommandArgs): Promise<void> {
-		if (isCommandContextViewNodeHasWorktree(context)) {
-			args = { ...args };
-			args.repoPath = context.node.worktree.path;
-			args.source = args.source ?? { source: 'view' };
-		} else if (isCommandContextViewNodeHasRepository(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repo.path;
-			args.source = args.source ?? { source: 'view' };
-		} else if (isCommandContextViewNodeHasRepoPath(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repoPath;
-			args.source = args.source ?? { source: 'view' };
-		}
-
-		return this.execute(args);
-	}
-
 	async execute(args?: UndoGenerateRebaseCommandArgs): Promise<void> {
 		try {
 			if (!args?.undoCommand) {
