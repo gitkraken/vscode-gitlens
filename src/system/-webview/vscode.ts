@@ -8,9 +8,10 @@ import { getDistributionGroup } from '../string';
 import { satisfies } from '../version';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
+import { getMachineId } from './machine';
 import { exists } from './vscode/uris';
 
-export const deviceCohortGroup = getDistributionGroup(env.machineId);
+export const deviceCohortGroup = getDistributionGroup(getMachineId());
 
 let _hostExecutablePath: string | undefined;
 export async function getHostExecutablePath(): Promise<string> {
