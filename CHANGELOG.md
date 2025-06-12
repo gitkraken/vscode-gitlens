@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes the _Visual File History_ view from refreshing needlessly when the active editor changes between revisions ([#4325](https://github.com/gitkraken/vscode-gitlens/issues/4325))
+- Fixes cancellation of prompts on certain AI commands causing an error notification ([[#4354](https://github.com/gitkraken/vscode-gitlens/issues/4354)])
 
 ## [17.1.1] - 2025-05-21
 
