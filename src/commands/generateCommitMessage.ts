@@ -74,9 +74,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 					progress: { location: ProgressLocation.Notification, title: 'Generating commit message...' },
 				},
 			);
-			if (result === 'cancelled') return;
-
-			if (result == null) return;
+			if (result == null || result === 'cancelled') return;
 
 			void executeCoreCommand('workbench.view.scm');
 			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${

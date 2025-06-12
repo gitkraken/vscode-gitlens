@@ -343,9 +343,7 @@ export async function generateRebase(
 
 	const repo = svc.getRepository()!;
 	const result = await container.ai.generateRebase(repo, base.ref, head.ref, source, aiOptions);
-	if (result === 'cancelled') return;
-
-	if (result == null) return;
+	if (result == null || result === 'cancelled') return;
 
 	try {
 		// Extract the diff information from the reorganized commits
