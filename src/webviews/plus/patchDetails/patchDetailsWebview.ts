@@ -837,6 +837,8 @@ export class PatchDetailsWebviewProvider
 				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
+			if (result === 'cancelled') throw new Error('Operation was canceled');
+
 			if (result == null) throw new Error('Error retrieving content');
 
 			params = { result: result.parsed };
@@ -879,6 +881,8 @@ export class PatchDetailsWebviewProvider
 				{ source: 'patchDetails', type: 'patch' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
+			if (result === 'cancelled') throw new Error('Operation was canceled');
+
 			if (result == null) throw new Error('Error retrieving content');
 
 			params = {

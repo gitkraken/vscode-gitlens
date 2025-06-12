@@ -1183,6 +1183,8 @@ export class CommitDetailsWebviewProvider
 				{ source: 'inspect', type: 'suggested_pr_change' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
+			if (result === 'cancelled') throw new Error('Operation was canceled');
+
 			if (result == null) throw new Error('Error retrieving content');
 
 			params = {

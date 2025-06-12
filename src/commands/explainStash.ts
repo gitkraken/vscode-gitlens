@@ -76,6 +76,8 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				},
 			);
 
+			if (result === 'cancelled') return;
+
 			if (result == null) {
 				void showGenericErrorMessage('No changes found to explain for stash');
 				return;
