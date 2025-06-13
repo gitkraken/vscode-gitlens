@@ -127,6 +127,13 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		hidden: true,
 	},
 	{
+		id: 'o3-pro',
+		name: 'o3 Pro',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
 		id: 'o3-mini',
 		name: 'o3 mini',
 		maxTokens: { input: 200000, output: 100000 },

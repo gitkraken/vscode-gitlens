@@ -20,10 +20,17 @@ const models: GeminiModel[] = [
 		hidden: true,
 	},
 	{
+		id: 'gemini-2.5-pro-preview-06-05',
+		name: 'Gemini 2.5 Pro (Preview)',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-2.5-pro-preview-03-25',
 		name: 'Gemini 2.5 Pro (Preview)',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.5-pro-exp-03-25',
