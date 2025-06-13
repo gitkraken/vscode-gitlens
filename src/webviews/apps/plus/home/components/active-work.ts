@@ -90,6 +90,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			gl-breadcrumbs {
 				--gl-tooltip-text-transform: none;
 			}
+
 			.heading-branch-breadcrumb {
 				text-transform: none;
 			}
@@ -102,6 +103,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 	@consume({ context: activeOverviewStateContext })
 	private _activeOverviewState!: ActiveOverviewState;
+
+	@state()
+	private repoCollapsed = true;
 
 	get isPro() {
 		return isSubscriptionTrialOrPaidFromState(this._homeState.subscription.state);
@@ -156,13 +160,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		return html`
 			<gl-section ?loading=${isFetching}>
 				<gl-breadcrumbs slot="heading">
-					<gl-breadcrumb-item collapsibleState="collapsed" icon="repo"
+					<gl-breadcrumb-item collapsibleState="none" class="heading-repo-breadcrumb"
 						><gl-repo-button-group
 							.repository=${repo}
-							.icon=${false}
 							?disabled=${!hasMultipleRepositories}
 							?hasMultipleRepositories=${hasMultipleRepositories}
 							.source=${{ source: 'graph' } as const}
+							?expandable=${true}
 							@gl-click=${this.onRepositorySelectorClicked}
 							><span slot="tooltip">
 								Switch to Another Repository...
