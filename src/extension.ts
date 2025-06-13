@@ -23,6 +23,7 @@ import { registerPartnerActionRunners } from './partners';
 import { executeCommand, registerCommands } from './system/-webview/command';
 import { configuration, Configuration } from './system/-webview/configuration';
 import { setContext } from './system/-webview/context';
+import { getMachineId } from './system/-webview/machine';
 import { Storage } from './system/-webview/storage';
 import { deviceCohortGroup } from './system/-webview/vscode';
 import { isTextDocument } from './system/-webview/vscode/documents';
@@ -56,7 +57,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 							env.appName
 						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
 							env.language
-						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.machineId}|${
+						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${getMachineId()}|${
 							env.sessionId
 						})`,
 					);
@@ -110,7 +111,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		log: {
 			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
 				env.language
-			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
+			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${getMachineId()}|${
 				env.sessionId
 			})`,
 			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
