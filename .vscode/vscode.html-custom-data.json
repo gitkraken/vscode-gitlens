@@ -1,0 +1,1282 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vscode-html-languageservice/main/docs/customData.schema.json",
+  "version": 1.1,
+  "tags": [
+    {
+      "name": "gl-home-app",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "name", "values": [] },
+        {
+          "name": "placement",
+          "values": [{ "name": "editor" }, { "name": "view" }]
+        },
+        { "name": "bootstrap", "values": [{ "name": "State" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-commit-details-app",
+      "description": "\n---\n\n\n### **Events:**\n - **state-changed**",
+      "attributes": [
+        { "name": "state", "values": [{ "name": "Serialized<State>" }] },
+        { "name": "explain", "values": [{ "name": "ExplainState" }] },
+        { "name": "generate", "values": [{ "name": "GenerateState" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-commit-details",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "state", "values": [{ "name": "Serialized<State>" }] },
+        { "name": "explain", "values": [{ "name": "ExplainState" }] },
+        { "name": "files", "values": [{ "name": "Files" }] },
+        { "name": "isUncommitted", "values": [] },
+        { "name": "preferences", "values": [{ "name": "Preferences" }] },
+        { "name": "empty-text", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-inspect-nav",
+      "description": "\n---\n\n\n### **Events:**\n ",
+      "attributes": [
+        { "name": "pinned", "values": [] },
+        { "name": "uncommitted", "values": [] },
+        {
+          "name": "navigation",
+          "values": [{ "name": "State['navigationStack']" }]
+        },
+        { "name": "shortSha", "values": [] },
+        { "name": "stashNumber", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-inspect-patch",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "orgSettings",
+          "values": [{ "name": "State['orgSettings']" }]
+        },
+        { "name": "preferences", "values": [{ "name": "Preferences" }] },
+        { "name": "generate", "values": [{ "name": "GenerateState" }] },
+        { "name": "createState", "values": [{ "name": "CreatePatchState" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-status-nav",
+      "description": "\n---\n\n\n### **Events:**\n - **gl-branch-action**",
+      "attributes": [
+        { "name": "wip", "values": [{ "name": "State['wip']" }] },
+        {
+          "name": "preferences",
+          "values": [{ "name": "State['preferences']" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-wip-details",
+      "description": "\n---\n\n\n### **Events:**\n - **gl-inspect-create-suggestions**\n- **data-action**\n- **draft-state-changed**\n- **gl-show-code-suggestion**",
+      "attributes": [
+        { "name": "wip", "values": [{ "name": "Wip" }] },
+        {
+          "name": "orgSettings",
+          "values": [{ "name": "State['orgSettings']" }]
+        },
+        { "name": "draftState", "values": [{ "name": "DraftState" }] },
+        { "name": "generate", "values": [{ "name": "GenerateState" }] },
+        { "name": "files", "values": [{ "name": "Files" }] },
+        { "name": "isUncommitted", "values": [] },
+        { "name": "preferences", "values": [{ "name": "Preferences" }] },
+        { "name": "empty-text", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-ama-banner",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-feature-nav",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "badgeSource", "values": [{ "name": "Source" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-onboarding",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-promo-banner",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-repo-alerts",
+      "description": "\n---\n",
+      "attributes": [{ "name": "has-alerts", "values": [] }],
+      "references": []
+    },
+    {
+      "name": "gl-graph-gate",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-graph-app",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-graph-header",
+      "description": "\n---\n\n\n### **Events:**\n - **gl-select-commits**",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-graph-apphost",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "name", "values": [] },
+        {
+          "name": "placement",
+          "values": [{ "name": "editor" }, { "name": "view" }]
+        },
+        { "name": "bootstrap", "values": [{ "name": "State" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-timeline-app",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "name", "values": [] },
+        {
+          "name": "placement",
+          "values": [{ "name": "editor" }, { "name": "view" }]
+        },
+        { "name": "bootstrap", "values": [{ "name": "State" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-branch-icon",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "branch", "values": [] },
+        { "name": "status", "values": [{ "name": "GitBranchStatus" }] },
+        { "name": "hasChanges", "values": [] },
+        { "name": "upstream", "values": [] },
+        { "name": "worktree", "values": [] },
+        { "name": "is-default", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-branch-name",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "name", "values": [] },
+        { "name": "size", "values": [] },
+        { "name": "worktree", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-breadcrumbs",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-breadcrumb-item",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "collapsed", "values": [] },
+        {
+          "name": "collapsibleState",
+          "values": [{ "name": "CollapsibleState" }]
+        },
+        { "name": "icon", "values": [] },
+        { "name": "iconTooltip", "values": [] },
+        { "name": "shrink", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-breadcrumb-item-child",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "button-container",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "editor", "values": [] },
+        {
+          "name": "layout",
+          "values": [
+            { "name": "shift" },
+            { "name": "editor" },
+            { "name": "full" }
+          ]
+        },
+        {
+          "name": "grouping",
+          "values": [
+            { "name": "gap" },
+            { "name": "split" },
+            { "name": "gap-wide" }
+          ]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-button",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "appearance",
+          "values": [
+            { "name": "alert" },
+            { "name": "secondary" },
+            { "name": "toolbar" },
+            { "name": "input" }
+          ]
+        },
+        { "name": "disabled", "values": [] },
+        {
+          "name": "density",
+          "values": [{ "name": "compact" }, { "name": "tight" }]
+        },
+        { "name": "full", "values": [] },
+        { "name": "href", "values": [] },
+        { "name": "tooltip", "values": [] },
+        {
+          "name": "tooltipPlacement",
+          "values": [{ "name": "GlTooltip['placement']" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "code-icon",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "icon", "values": [] },
+        { "name": "modifier", "values": [] },
+        { "name": "size", "values": [] },
+        {
+          "name": "flip",
+          "values": [{ "name": "inline" }, { "name": "block" }]
+        },
+        { "name": "rotate", "values": [{ "name": "45" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-commit-sha",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "sha", "values": [] },
+        { "name": "size", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-feature-badge",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "cloud", "values": [] },
+        {
+          "name": "placement",
+          "values": [{ "name": "GlPopover['placement']" }]
+        },
+        { "name": "preview", "values": [] },
+        { "name": "source", "values": [{ "name": "Source" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-feature-gate",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "appearance",
+          "values": [{ "name": "alert" }, { "name": "welcome" }]
+        },
+        { "name": "featurePreview", "values": [{ "name": "FeaturePreview" }] },
+        { "name": "featurePreviewCommandLink", "values": [] },
+        { "name": "featureWithArticleIfNeeded", "values": [] },
+        { "name": "source", "values": [{ "name": "Source" }] },
+        { "name": "webroot", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "formatted-date",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "format", "values": [] },
+        {
+          "name": "date-style",
+          "values": [{ "name": "relative" }, { "name": "absolute" }]
+        },
+        { "name": "date", "values": [] },
+        { "name": "tooltip", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gitlens-logo",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "progress-indicator",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "mode", "values": [] },
+        { "name": "active", "values": [] },
+        {
+          "name": "position",
+          "values": [{ "name": "top" }, { "name": "bottom" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-promo",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "promoPromise",
+          "values": [{ "name": "Promise<Promo" }, { "name": "undefined>" }]
+        },
+        { "name": "source", "values": [{ "name": "Source" }] },
+        {
+          "name": "type",
+          "values": [{ "name": "icon" }, { "name": "info" }, { "name": "link" }]
+        },
+        { "name": "has-promo", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-ref-button",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "disabled", "values": [] },
+        { "name": "href", "values": [] },
+        { "name": "icon", "values": [] },
+        { "name": "ref", "values": [{ "name": "GitReference" }] },
+        { "name": "size", "values": [] },
+        { "name": "worktree", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-ref-name",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "icon", "values": [] },
+        { "name": "ref", "values": [{ "name": "GitReference" }] },
+        { "name": "size", "values": [] },
+        { "name": "worktree", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-repo-button-group",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "connectIcon", "values": [] },
+        { "name": "disabled", "values": [] },
+        { "name": "icon", "values": [] },
+        { "name": "repository", "values": [{ "name": "RepositoryShape" }] },
+        { "name": "hasMultipleRepositories", "values": [] },
+        { "name": "source", "values": [{ "name": "Source" }] },
+        { "name": "icons", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "skeleton-loader",
+      "description": "\n---\n",
+      "attributes": [{ "name": "lines", "values": [] }],
+      "references": []
+    },
+    {
+      "name": "gl-snow",
+      "description": "\n---\n",
+      "attributes": [{ "name": "snowing", "values": [] }],
+      "references": []
+    },
+    {
+      "name": "webview-pane",
+      "description": "\n---\n\n\n### **Events:**\n - **expanded-change**",
+      "attributes": [
+        { "name": "collapsable", "values": [] },
+        { "name": "expanded", "values": [] },
+        { "name": "loading", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-git-actions-buttons",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "branchState", "values": [{ "name": "BranchState" }] },
+        { "name": "branchName", "values": [] },
+        { "name": "lastFetched", "values": [{ "name": "Date" }] },
+        { "name": "state", "values": [{ "name": "State" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-fetch-button",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "state", "values": [{ "name": "State" }] },
+        { "name": "fetchedText", "values": [] },
+        { "name": "branchState", "values": [{ "name": "BranchState" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-push-pull-button",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "branchState", "values": [{ "name": "BranchState" }] },
+        { "name": "state", "values": [{ "name": "State" }] },
+        { "name": "fetchedText", "values": [] },
+        { "name": "branchName", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-graph",
+      "description": "A LitElement web component that encapsulates the GraphWrapperReact component.\nThis component mounts the React component once and then updates its state\nwithout remounting on subsequent property changes.\n---\n",
+      "attributes": [
+        {
+          "name": "activeRow",
+          "values": [{ "name": "GraphWrapperProps['activeRow']" }]
+        },
+        {
+          "name": "avatars",
+          "values": [{ "name": "GraphWrapperProps['avatars']" }]
+        },
+        {
+          "name": "columns",
+          "values": [{ "name": "GraphWrapperProps['columns']" }]
+        },
+        {
+          "name": "context",
+          "values": [{ "name": "GraphWrapperProps['context']" }]
+        },
+        {
+          "name": "config",
+          "values": [{ "name": "GraphWrapperProps['config']" }]
+        },
+        {
+          "name": "downstreams",
+          "values": [{ "name": "GraphWrapperProps['downstreams']" }]
+        },
+        { "name": "rows", "values": [{ "name": "GraphWrapperProps['rows']" }] },
+        {
+          "name": "excludeRefs",
+          "values": [{ "name": "GraphWrapperProps['excludeRefs']" }]
+        },
+        {
+          "name": "excludeTypes",
+          "values": [{ "name": "GraphWrapperProps['excludeTypes']" }]
+        },
+        {
+          "name": "paging",
+          "values": [{ "name": "GraphWrapperProps['paging']" }]
+        },
+        {
+          "name": "loading",
+          "values": [{ "name": "GraphWrapperProps['loading']" }]
+        },
+        {
+          "name": "selectedRows",
+          "values": [{ "name": "GraphWrapperProps['selectedRows']" }]
+        },
+        {
+          "name": "windowFocused",
+          "values": [{ "name": "GraphWrapperProps['windowFocused']" }]
+        },
+        {
+          "name": "refsMetadata",
+          "values": [{ "name": "GraphWrapperProps['refsMetadata']" }]
+        },
+        {
+          "name": "includeOnlyRefs",
+          "values": [{ "name": "GraphWrapperProps['includeOnlyRefs']" }]
+        },
+        {
+          "name": "rowsStats",
+          "values": [{ "name": "GraphWrapperProps['rowsStats']" }]
+        },
+        {
+          "name": "rowsStatsLoading",
+          "values": [{ "name": "GraphWrapperProps['rowsStatsLoading']" }]
+        },
+        {
+          "name": "workingTreeStats",
+          "values": [{ "name": "GraphWrapperProps['workingTreeStats']" }]
+        },
+        {
+          "name": "theming",
+          "values": [{ "name": "GraphWrapperProps['theming']" }]
+        },
+        {
+          "name": "searchResults",
+          "values": [{ "name": "GraphWrapperProps['searchResults']" }]
+        },
+        { "name": "filter", "values": [{ "name": "SearchQuery" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-graph-wrapper",
+      "description": "\n---\n\n\n### **Events:**\n - **gl-graph-mouse-leave**\n- **gl-graph-row-context-menu**\n- **gl-graph-row-hover**\n- **gl-graph-row-unhover**\n- **gl-graph-change-selection**\n- **gl-graph-change-visible-days**",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-graph-hover",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "anchor", "values": [{ "name": "Anchor" }] },
+        { "name": "distance", "values": [] },
+        { "name": "open", "values": [] },
+        {
+          "name": "placement",
+          "values": [{ "name": "GlPopover['placement']" }]
+        },
+        {
+          "name": "markdown",
+          "values": [{ "name": "Promise<PromiseSettledResult<string>>" }]
+        },
+        { "name": "skidding", "values": [] },
+        {
+          "name": "requestMarkdown",
+          "values": [
+            { "name": "((row: GraphRow) => Promise<DidGetRowHoverParams>)" }
+          ]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-graph-sidebar",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-graph-minimap-container",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "activeDay", "values": [] },
+        { "name": "disabled", "values": [] },
+        {
+          "name": "dataType",
+          "values": [{ "name": "commits" }, { "name": "lines" }]
+        },
+        { "name": "downstreams", "values": [{ "name": "GraphDownstreams" }] },
+        {
+          "name": "markerTypes",
+          "values": [{ "name": "GraphMinimapMarkerTypes[]" }]
+        },
+        { "name": "refMetadata", "values": [{ "name": "GraphRefsMetadata" }] },
+        { "name": "rows", "values": [{ "name": "GraphRow[]" }] },
+        {
+          "name": "rowsStats",
+          "values": [{ "name": "Record<string, GraphRowStats>" }]
+        },
+        {
+          "name": "searchResults",
+          "values": [
+            { "name": "GraphSearchResults" },
+            { "name": "GraphSearchResultsError" }
+          ]
+        },
+        {
+          "name": "visibleDays",
+          "values": [{ "name": "{ top: number; bottom: number }" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-graph-minimap",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "activeDay", "values": [] },
+        {
+          "name": "data",
+          "values": [
+            { "name": "Map<number, GraphMinimapStats" },
+            { "name": "null>" }
+          ]
+        },
+        {
+          "name": "dataType",
+          "values": [{ "name": "commits" }, { "name": "lines" }]
+        },
+        {
+          "name": "markers",
+          "values": [{ "name": "Map<number, GraphMinimapMarker[]>" }]
+        },
+        {
+          "name": "searchResults",
+          "values": [{ "name": "Map<number, GraphMinimapSearchResultMarker>" }]
+        },
+        {
+          "name": "visibleDays",
+          "values": [{ "name": "{ top: number; bottom: number }" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-active-branch-card",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "repo", "values": [] },
+        { "name": "showUpgrade", "values": [] },
+        { "name": "branch", "values": [{ "name": "GetOverviewBranch" }] },
+        { "name": "busy", "values": [] },
+        { "name": "expanded", "values": [] },
+        { "name": "expandable", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-branch-card",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "repo", "values": [] },
+        { "name": "showUpgrade", "values": [] },
+        { "name": "branch", "values": [{ "name": "GetOverviewBranch" }] },
+        { "name": "busy", "values": [] },
+        { "name": "expanded", "values": [] },
+        { "name": "expandable", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-work-item",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "primary", "values": [] },
+        { "name": "nested", "values": [] },
+        { "name": "indicator", "values": [{ "name": "GlCard['indicator']" }] },
+        { "name": "expanded", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-section",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "loading", "values": [] },
+        {
+          "name": "heading-level",
+          "values": [{ "name": "ARIAMixin['ariaLevel']" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-branch-section",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "label", "values": [] },
+        { "name": "repo", "values": [] },
+        { "name": "branches", "values": [{ "name": "GetOverviewBranch[]" }] },
+        { "name": "isFetching", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-branch-threshold-filter",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "disabled", "values": [] },
+        { "name": "value", "values": [{ "name": "V" }] },
+        { "name": "options", "values": [{ "name": "T[]" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-launchpad",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-merge-target-status",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "branch",
+          "values": [
+            { "name": "Pick<GetOverviewBranch, 'repoPath'" },
+            { "name": "id" },
+            { "name": "name" },
+            { "name": "opened" },
+            { "name": "upstream" },
+            { "name": "'worktree'>" }
+          ]
+        },
+        {
+          "name": "targetPromise",
+          "values": [{ "name": "GetOverviewBranch['mergeTarget']" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-merge-target-upgrade",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-account-chip",
+      "description": "\n---\n",
+      "attributes": [{ "name": "show-upgrade", "values": [] }],
+      "references": []
+    },
+    {
+      "name": "gl-feature-gate-plus-state",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "featurePreview", "values": [{ "name": "FeaturePreview" }] },
+        { "name": "featurePreviewCommandLink", "values": [] },
+        {
+          "name": "appearance",
+          "values": [{ "name": "alert" }, { "name": "welcome" }]
+        },
+        { "name": "featureWithArticleIfNeeded", "values": [] },
+        { "name": "source", "values": [{ "name": "Source" }] },
+        { "name": "webroot", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-home-header",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-integrations-chip",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-merge-rebase-status",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "conflicts", "values": [] },
+        {
+          "name": "pausedOpStatus",
+          "values": [{ "name": "GitPausedOperationStatus" }]
+        },
+        { "name": "skipCommand", "values": [] },
+        { "name": "continueCommand", "values": [] },
+        { "name": "abortCommand", "values": [] },
+        { "name": "openEditorCommand", "values": [] },
+        {
+          "name": "webviewCommandContext",
+          "values": [
+            { "name": "{ webview: string; webviewInstance: string" },
+            { "name": "undefined }" }
+          ]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-draft-details",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "state", "values": [{ "name": "State" }] },
+        { "name": "explain", "values": [{ "name": "ExplainState" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-patch-create",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "state", "values": [{ "name": "Serialized<State>" }] },
+        { "name": "review", "values": [] },
+        { "name": "generate", "values": [{ "name": "GenerateState" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-patch-details-app",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "state", "values": [{ "name": "State" }] },
+        { "name": "explain", "values": [{ "name": "ExplainState" }] },
+        { "name": "generate", "values": [{ "name": "GenerateState" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-avatar-list",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "max", "values": [] },
+        { "name": "avatars", "values": [{ "name": "AvatarShape[]" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-avatar-group",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-avatar",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "src", "values": [] },
+        { "name": "name", "values": [] },
+        { "name": "href", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "action-item",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "href", "values": [] },
+        { "name": "alt-href", "values": [] },
+        { "name": "label", "values": [] },
+        { "name": "alt-label", "values": [] },
+        { "name": "icon", "values": [] },
+        { "name": "alt-icon", "values": [] },
+        { "name": "disabled", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "action-nav",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-badge",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-action-chip",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "href", "values": [] },
+        { "name": "label", "values": [] },
+        {
+          "name": "overlay",
+          "values": [{ "name": "tooltip" }, { "name": "popover" }]
+        },
+        { "name": "icon", "values": [] },
+        { "name": "disabled", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-autolink-chip",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "url", "values": [] },
+        { "name": "name", "values": [] },
+        { "name": "date", "values": [{ "name": "Date" }] },
+        { "name": "dateFormat", "values": [] },
+        { "name": "dateStyle", "values": [] },
+        {
+          "name": "status",
+          "values": [
+            { "name": "opened" },
+            { "name": "closed" },
+            { "name": "merged" }
+          ]
+        },
+        {
+          "name": "type",
+          "values": [
+            { "name": "autolink" },
+            { "name": "issue" },
+            { "name": "pr" }
+          ]
+        },
+        { "name": "identifier", "values": [] },
+        { "name": "details", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-commit-author",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "name", "values": [] },
+        { "name": "url", "values": [] },
+        { "name": "avatarUrl", "values": [] },
+        { "name": "show-avatar", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-commit-date",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "date", "values": [{ "name": "Date" }] },
+        { "name": "dateFormat", "values": [] },
+        {
+          "name": "dateStyle",
+          "values": [{ "name": "relative" }, { "name": "absolute" }]
+        },
+        { "name": "committer", "values": [] },
+        { "name": "actionLabel", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "commit-identity",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "name", "values": [] },
+        { "name": "url", "values": [] },
+        { "name": "date", "values": [{ "name": "Date" }] },
+        { "name": "avatarUrl", "values": [] },
+        { "name": "show-avatar", "values": [] },
+        { "name": "dateFormat", "values": [] },
+        {
+          "name": "dateStyle",
+          "values": [{ "name": "relative" }, { "name": "absolute" }]
+        },
+        { "name": "committer", "values": [] },
+        { "name": "actionLabel", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "commit-stats",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "added", "values": [] },
+        { "name": "modified", "values": [] },
+        { "name": "removed", "values": [] },
+        { "name": "symbol", "values": [{ "name": "icons" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-connect",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "type",
+          "values": [
+            { "name": "text" },
+            { "name": "inline" },
+            { "name": "action" }
+          ]
+        },
+        { "name": "account", "values": [] },
+        { "name": "connected", "values": [] },
+        { "name": "label", "values": [] },
+        { "name": "integration", "values": [] },
+        { "name": "connect-url", "values": [] },
+        { "name": "url", "values": [] },
+        { "name": "icon", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-markdown",
+      "description": "\n---\n",
+      "attributes": [{ "name": "markdown", "values": [] }],
+      "references": []
+    },
+    {
+      "name": "menu-divider",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "menu-item",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "disabled", "values": [] },
+        { "name": "href", "values": [] },
+        { "name": "role", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "menu-label",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "menu-list",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-popover",
+      "description": "\n---\n\n\n### **Events:**\n - **gl-popover-show** - Fired when the popover is shown\n- **gl-popover-after-show** - Fired after the popover is shown\n- **gl-popover-hide** - Fired when the popover is hidden\n- **gl-popover-after-hide** - Fired after the popover is hidden\n\n### **Methods:**\n - **show(triggeredBy: _TriggerType_): _Promise<void>_** - Shows the popover.\n- **hide(): _Promise<void>_** - Hides the popover\n\n### **Slots:**\n - **anchor** - The element that triggers the popover\n- **content** - The content of the popover\n\n### **CSS Parts:**\n - **base** - Styles the sl-popup element itself\n- **arrow** - Styles the arrow's container\n- **popup** - Styles the popup's container\n- **body** - Styles the element that wraps the content slot",
+      "attributes": [
+        { "name": "placement", "values": [{ "name": "SlPopup['placement']" }] },
+        {
+          "name": "anchor",
+          "values": [
+            { "name": "HTMLElement" },
+            {
+              "name": "{ getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> }"
+            }
+          ]
+        },
+        { "name": "disabled", "values": [] },
+        { "name": "distance", "values": [] },
+        { "name": "open", "values": [] },
+        { "name": "arrow", "values": [] },
+        {
+          "name": "skidding",
+          "description": "The distance in pixels from which to offset the popover along its target.",
+          "values": []
+        },
+        { "name": "trigger", "values": [{ "name": "Triggers" }] },
+        {
+          "name": "hoist",
+          "description": "Enable this option to prevent the popover from being clipped when the component is placed inside a container with\n`overflow: auto|hidden|scroll`. Hoisting uses a fixed positioning strategy that works in many, but not all,\nscenarios.",
+          "values": []
+        },
+        { "name": "appearance", "values": [{ "name": "menu" }] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-tooltip",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "content", "values": [] },
+        {
+          "name": "placement",
+          "values": [{ "name": "SlTooltip['placement']" }]
+        },
+        { "name": "disabled", "values": [] },
+        { "name": "distance", "values": [] },
+        { "name": "hoist", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "webview-pane-group",
+      "description": "\n---\n",
+      "attributes": [],
+      "references": []
+    },
+    {
+      "name": "gl-tracking-pill",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "ahead", "values": [] },
+        { "name": "behind", "values": [] },
+        { "name": "working", "values": [] },
+        { "name": "always-show", "values": [] },
+        { "name": "outlined", "values": [] },
+        { "name": "colorized", "values": [] },
+        { "name": "missingUpstream", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "issue-icon",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "state",
+          "values": [{ "name": "opened" }, { "name": "closed" }]
+        },
+        { "name": "issue-id", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "issue-pull-request",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "url", "values": [] },
+        { "name": "name", "values": [] },
+        { "name": "date", "values": [{ "name": "Date" }] },
+        { "name": "dateFormat", "values": [] },
+        { "name": "dateStyle", "values": [] },
+        {
+          "name": "status",
+          "values": [
+            { "name": "opened" },
+            { "name": "closed" },
+            { "name": "merged" }
+          ]
+        },
+        {
+          "name": "type",
+          "values": [
+            { "name": "autolink" },
+            { "name": "issue" },
+            { "name": "pr" }
+          ]
+        },
+        { "name": "identifier", "values": [] },
+        { "name": "compact", "values": [] },
+        { "name": "details", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "pr-icon",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "state",
+          "values": [
+            { "name": "merged" },
+            { "name": "opened" },
+            { "name": "closed" }
+          ]
+        },
+        { "name": "draft", "values": [] },
+        { "name": "pr-id", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-search-box",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "errorMessage", "values": [] },
+        { "name": "value", "values": [] },
+        { "name": "matchAll", "values": [] },
+        { "name": "matchCase", "values": [] },
+        { "name": "matchRegex", "values": [] },
+        { "name": "filter", "values": [] },
+        { "name": "total", "values": [] },
+        { "name": "step", "values": [] },
+        { "name": "more", "values": [] },
+        { "name": "searching", "values": [] },
+        { "name": "valid", "values": [] },
+        { "name": "resultsHidden", "values": [] },
+        { "name": "resultsLabel", "values": [] },
+        { "name": "resultsLoaded", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-search-input",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "value", "values": [] },
+        { "name": "filter", "values": [] },
+        { "name": "matchAll", "values": [] },
+        { "name": "matchCase", "values": [] },
+        { "name": "matchRegex", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-git-status",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "status",
+          "values": [{ "name": "GitFileStatus" }, { "name": "T" }]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-tree-generator",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "guides",
+          "values": [
+            { "name": "none" },
+            { "name": "onHover" },
+            { "name": "always" }
+          ]
+        }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-tree-item",
+      "description": "\n---\n",
+      "attributes": [
+        { "name": "branch", "values": [] },
+        { "name": "expanded", "values": [] },
+        { "name": "path", "values": [] },
+        { "name": "parent-path", "values": [] },
+        { "name": "parent-expanded", "values": [] },
+        { "name": "level", "values": [] },
+        { "name": "size", "values": [] },
+        { "name": "position", "values": [] },
+        { "name": "checkable", "values": [] },
+        { "name": "checked", "values": [] },
+        { "name": "disableCheck", "values": [] },
+        { "name": "showIcon", "values": [] }
+      ],
+      "references": []
+    },
+    {
+      "name": "gl-tree",
+      "description": "\n---\n",
+      "attributes": [
+        {
+          "name": "guides",
+          "values": [
+            { "name": "none" },
+            { "name": "onHover" },
+            { "name": "always" }
+          ]
+        }
+      ],
+      "references": []
+    }
+  ]
+}

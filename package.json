@@ -24369,6 +24369,7 @@
 		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.2",
 		"cssnano-preset-advanced": "7.0.7",
+		"custom-element-vs-code-integration": "^1.5.0",
 		"esbuild": "0.25.5",
 		"esbuild-loader": "4.3.0",
 		"esbuild-node-externals": "1.18.0",
