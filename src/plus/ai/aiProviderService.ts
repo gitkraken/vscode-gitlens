@@ -1024,8 +1024,35 @@ export class AIProviderService implements Disposable {
 			const content = rq.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
 			// Parse the JSON content from the result
 			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
-		} catch {
+
+			const inputHunkIndices = result.hunkMap.map(h => h.index);
+			const outputHunkIndices = new Set(result.commits.flatMap(c => c.hunks.map(h => h.hunk)));
+
+			// Find any missing or extra hunks
+			const missingHunks = inputHunkIndices.filter(i => !outputHunkIndices.has(i));
+			const extraHunks = [...outputHunkIndices].filter(i => !inputHunkIndices.includes(i));
+			if (missingHunks.length > 0 || extraHunks.length > 0) {
+				let hunksMessage = '';
+				if (missingHunks.length > 0) {
+					const pluralize = missingHunks.length > 1 ? 's' : '';
+					hunksMessage += ` ${missingHunks.length} missing hunk${pluralize}.`;
+				}
+				if (extraHunks.length > 0) {
+					const pluralize = extraHunks.length > 1 ? 's' : '';
+					hunksMessage += ` ${extraHunks.length} extra hunk${pluralize}.`;
+				}
+
+				throw new Error(
+					`Invalid response in generating ${
+						options?.generateCommits ? 'commits' : 'rebase'
+					} result.${hunksMessage} Try again or select a different AI model.`,
+				);
+			}
+		} catch (ex) {
 			debugger;
+			if (ex?.message?.includes('Invalid response in generating')) {
+				throw ex;
+			}
 			throw new Error(`Unable to parse ${options?.generateCommits ? 'commits' : 'rebase'} result`);
 		}
 
