@@ -131,8 +131,9 @@ export class OrganizationService implements Disposable {
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
 		if (e.current?.account?.id == null) {
 			this.updateOrganizations(undefined);
+			this._organizationSettings = undefined;
+			await this.clearAllStoredOrganizationsSettings();
 		}
-		await this.clearAllStoredOrganizationsSettings();
 		await this.updateOrganizationPermissions(e.current?.activeOrganization?.id);
 	}
 
@@ -274,7 +275,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	private async clearAllStoredOrganizationsSettings(): Promise<void> {
-		return this.container.storage.deleteWithPrefix(`plus:organization:`);
+		return this.container.storage.deleteWithPrefix(`plus:organization`);
 	}
 
 	private async deleteStoredOrganizationSettings(id: string): Promise<void> {
