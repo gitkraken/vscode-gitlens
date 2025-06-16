@@ -964,7 +964,7 @@ export class AIProviderService implements Disposable {
 
 				// let hunksByNumber= '';
 
-				for (const hunkHeader of diff.contents.matchAll(/@@ -\d+,\d+ \+\d+,\d+ @@(.*)$/gm)) {
+				for (const hunkHeader of diff.contents.matchAll(/@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@(.*)$/gm)) {
 					hunkMap.push({ index: ++counter, hunkHeader: hunkHeader[0] });
 				}
 
