@@ -42,6 +42,10 @@ export class GlRepoButtonGroup extends GlElement {
 				min-width: 7rem;
 			}
 
+			:host([icons='1'][expandable]) {
+				min-width: 0;
+			}
+
 			:host([icons='2']:not([expandable])) {
 				min-width: 9.4rem;
 			}
