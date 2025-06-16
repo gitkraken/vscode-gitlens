@@ -38,31 +38,18 @@ export class GlRepoButtonGroup extends GlElement {
 		refButtonBaseStyles,
 		truncatedButtonStyles,
 		css`
-			:host([icons='1']:not([expandable])) {
+			:host([icons='1']) {
 				min-width: 7rem;
 			}
 
-			:host([icons='2']:not([expandable])) {
+			:host([icons='2']) {
 				min-width: 9.4rem;
-			}
-
-			:host([icons='2'][expandable]) {
-				min-width: 5.6rem;
 			}
 
 			.indicator-dot {
 				--gl-indicator-color: green;
 				--gl-indicator-size: 0.4rem;
 				margin-left: -0.2rem;
-			}
-
-			/* :host([expandable]) .truncated-button {
-				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-			} */
-
-			:host([expandable]:not(:hover, :focus-within)) .truncated-button {
-				min-width: 0;
-				max-width: 0;
 			}
 		`,
 		pickerIconStyles,
@@ -85,9 +72,6 @@ export class GlRepoButtonGroup extends GlElement {
 
 	@property({ type: Object })
 	source?: Source;
-
-	@property({ type: Boolean, reflect: true })
-	expandable = false;
 
 	@property({ type: Number, reflect: true })
 	get icons() {
@@ -154,7 +138,7 @@ export class GlRepoButtonGroup extends GlElement {
 		const { provider } = repo;
 		const connectedIntegration = provider.integration?.connected;
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus">
+		return html`<gl-popover placement="bottom">
 				<gl-button
 					slot="anchor"
 					part="provider-icon"
