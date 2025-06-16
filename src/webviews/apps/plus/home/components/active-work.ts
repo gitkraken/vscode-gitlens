@@ -156,7 +156,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		return html`
 			<gl-section ?loading=${isFetching}>
 				<gl-breadcrumbs slot="heading">
-					<gl-breadcrumb-item collapsibleState="collapsed" icon="repo"
+					<gl-breadcrumb-item collapsibleState="collapsed" icon="repo" .ignoreFocusWithin=${true}
 						><gl-repo-button-group
 							.repository=${repo}
 							.icon=${false}

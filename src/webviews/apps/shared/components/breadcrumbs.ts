@@ -143,6 +143,8 @@ export class GlBreadcrumbItem extends LitElement {
 				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 			}
 
+			:host([collapsed]) .breadcrumb-item:not(:hover).ignore-focus-within .breadcrumb-label,
+			:host([collapsed]) .breadcrumb-item:not(:hover).ignore-focus-within slot[name='children'],
 			:host([collapsed]) .breadcrumb-item:not(:hover):not(:focus-within) .breadcrumb-label,
 			:host([collapsed]) .breadcrumb-item:not(:hover):not(:focus-within) slot[name='children'] {
 				max-width: 0;
@@ -171,6 +173,9 @@ export class GlBreadcrumbItem extends LitElement {
 	icon?: string;
 
 	@property()
+	ignoreFocusWithin?: boolean;
+
+	@property()
 	iconTooltip?: string;
 
 	private _shrink: number = 1;
@@ -186,9 +191,15 @@ export class GlBreadcrumbItem extends LitElement {
 	}
 
 	override render() {
-		const { collapsed, collapsible } = this;
+		const { collapsed, collapsible, ignoreFocusWithin } = this;
 
-		return html`<div class=${classMap({ 'breadcrumb-item': true, collapsible: collapsible })}>
+		return html`<div
+			class=${classMap({
+				'breadcrumb-item': true,
+				collapsible: collapsible,
+				'ignore-focus-within': ignoreFocusWithin ?? false,
+			})}
+		>
 			<span class="breadcrumb-content">
 				${this.renderIcon(collapsible, collapsed)}
 				<slot class="breadcrumb-label"></slot>
