@@ -84,6 +84,8 @@ export async function toRepositoryShapeWithProvider(
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
 			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+			remotePath: remote.path,
+			remoteName: remote.name,
 		};
 	}
 
