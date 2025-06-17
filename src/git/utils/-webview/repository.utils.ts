@@ -94,6 +94,7 @@ export async function toRepositoryShapeWithProvider(
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
 			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+			bestRemoteName: remote.name,
 		};
 		if (provider.integration?.id == null) {
 			provider.integration = undefined;
