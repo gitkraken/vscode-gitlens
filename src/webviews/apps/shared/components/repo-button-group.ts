@@ -64,6 +64,9 @@ export class GlRepoButtonGroup extends GlElement {
 				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 			} */
 
+			:host([expandable]:not(:hover, :focus-within)) .truncated-button .picker-icon::before {
+				visibility: hidden;
+			}
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button {
 				min-width: 0;
 				max-width: 0;
