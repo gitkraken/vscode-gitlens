@@ -817,7 +817,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		try {
-			await this.git.branch(repoPath, 'branch', '-m', oldName, newName);
+			await this.git.branch(repoPath, '-m', oldName, newName);
 		} catch (ex) {
 			if (ex instanceof BranchError) {
 				throw ex.update({ branch: oldName, action: 'rename' });
