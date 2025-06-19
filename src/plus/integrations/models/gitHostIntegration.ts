@@ -57,7 +57,8 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getAccountForEmail');
 			return author;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>('getAccountForEmail', ex, scope, undefined);
+			this.handleProviderException('getAccountForEmail', ex, { scope: scope });
+			return undefined;
 		}
 	}
 
@@ -87,7 +88,8 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getAccountForCommit');
 			return author;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>('getAccountForCommit', ex, scope, undefined);
+			this.handleProviderException('getAccountForCommit', ex, { scope: scope });
+			return undefined;
 		}
 	}
 
@@ -120,12 +122,8 @@ export abstract class GitHostIntegration<
 						this.resetRequestExceptionCount('getDefaultBranch');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<DefaultBranch | undefined>(
-							'getDefaultBranch',
-							ex,
-							scope,
-							undefined,
-						);
+						this.handleProviderException('getDefaultBranch', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -168,12 +166,8 @@ export abstract class GitHostIntegration<
 						this.resetRequestExceptionCount('getRepositoryMetadata');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<RepositoryMetadata | undefined>(
-							'getRepositoryMetadata',
-							ex,
-							scope,
-							undefined,
-						);
+						this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -201,7 +195,8 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('mergePullRequest');
 			return result;
 		} catch (ex) {
-			return this.handleProviderException<boolean>('mergePullRequest', ex, scope, false);
+			this.handleProviderException('mergePullRequest', ex, { scope: scope });
+			return false;
 		}
 	}
 
@@ -237,12 +232,8 @@ export abstract class GitHostIntegration<
 						this.resetRequestExceptionCount('getPullRequestForBranch');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<PullRequest | undefined>(
-							'getPullRequestForBranch',
-							ex,
-							scope,
-							undefined,
-						);
+						this.handleProviderException('getPullRequestForBranch', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -282,12 +273,8 @@ export abstract class GitHostIntegration<
 						this.resetRequestExceptionCount('getPullRequestForCommit');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<PullRequest | undefined>(
-							'getPullRequestForCommit',
-							ex,
-							scope,
-							undefined,
-						);
+						this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -686,10 +673,13 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('searchMyPullRequests');
 			return { value: pullRequests, duration: Date.now() - start };
 		} catch (ex) {
-			return this.handleProviderException('searchMyPullRequests', ex, scope, {
+			this.handleProviderException('searchMyPullRequests', ex, {
+				scope: scope,
+			});
+			return {
 				error: ex,
 				duration: Date.now() - start,
-			});
+			};
 		}
 	}
 
@@ -732,7 +722,8 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('searchPullRequests');
 			return prs;
 		} catch (ex) {
-			return this.handleProviderException<PullRequest[] | undefined>('searchPullRequests', ex, scope, undefined);
+			this.handleProviderException('searchPullRequests', ex, { scope: scope });
+			return undefined;
 		}
 	}
 

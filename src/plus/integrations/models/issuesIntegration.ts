@@ -35,7 +35,8 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getAccountForResource');
 			return account;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>('getAccountForResource', ex, undefined, undefined);
+			this.handleProviderException('getAccountForResource', ex);
+			return undefined;
 		}
 	}
 
@@ -58,7 +59,8 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getResourcesForUser');
 			return resources;
 		} catch (ex) {
-			return this.handleProviderException<T[] | undefined>('getResourcesForUser', ex, undefined, undefined);
+			this.handleProviderException('getResourcesForUser', ex);
+			return undefined;
 		}
 	}
 
@@ -77,7 +79,8 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getProjectsForResources');
 			return projects;
 		} catch (ex) {
-			return this.handleProviderException<T[] | undefined>('getProjectsForResources', ex, undefined, undefined);
+			this.handleProviderException('getProjectsForResources', ex);
+			return undefined;
 		}
 	}
 
@@ -109,12 +112,8 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getIssuesForProject');
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<IssueShape[] | undefined>(
-				'getIssuesForProject',
-				ex,
-				undefined,
-				undefined,
-			);
+			this.handleProviderException('getIssuesForProject', ex);
+			return undefined;
 		}
 	}
 
