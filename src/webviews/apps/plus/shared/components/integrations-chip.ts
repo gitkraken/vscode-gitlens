@@ -356,16 +356,18 @@ export class GlIntegrationsChip extends LitElement {
 			<span class="integration__icon"><code-icon icon="${icon}"></code-icon></span>
 			${this.aiEnabled
 				? html`<span class="integration__content">
-							<span class="integration__title">
-								<span>${model?.provider.name ?? 'AI'}</span>
-								${showProBadge
-									? html` <gl-feature-badge
-											placement="right"
-											.source=${{ source: 'home', detail: 'integrations' } as const}
-											cloud
-									  ></gl-feature-badge>`
-									: nothing}
-							</span>
+							${model?.provider.name
+								? html`<span class="integration__title">
+										<span>${model.provider.name}</span>
+										${showProBadge
+											? html` <gl-feature-badge
+													placement="right"
+													.source=${{ source: 'home', detail: 'integrations' } as const}
+													cloud
+											  ></gl-feature-badge>`
+											: nothing}
+								  </span>`
+								: html`<span class="integration_details">AI</span>`}
 							${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
 						</span>
 						<span class="integration__actions">
