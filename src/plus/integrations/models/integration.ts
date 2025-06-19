@@ -278,7 +278,8 @@ export abstract class IntegrationBase<
 		}
 
 		switch (state) {
-			case 'connected':
+			case 'connected': {
+				const oldSession = this._session;
 				if (forceSync) {
 					// Reset our stored session so that we get a new one from the cloud
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
@@ -301,8 +302,14 @@ export abstract class IntegrationBase<
 
 				// sync option, rather than createIfNeeded, makes sure we don't call connectCloudIntegrations and open a gkdev window
 				// if there was no session or some problem fetching/refreshing the existing session from the cloud api
-				await this.ensureSession({ sync: forceSync });
+				const newSession = await this.ensureSession({ sync: forceSync });
+
+				if (oldSession && newSession && newSession.accessToken !== oldSession.accessToken) {
+					this.resetRequestExceptionCount('all');
+				}
+
 				break;
+			}
 			case 'disconnected':
 				await this.disconnect({ silent: true });
 				break;
