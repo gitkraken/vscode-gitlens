@@ -312,7 +312,7 @@ export abstract class IntegrationBase<
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
-		options?: { scope?: LogScope | undefined },
+		options?: { scope?: LogScope | undefined; silent?: boolean },
 	): void {
 		if (ex instanceof CancellationError) return;
 
@@ -326,10 +326,10 @@ export abstract class IntegrationBase<
 					expiresAt: new Date(Date.now() - 1),
 				};
 			} else {
-				this.trackRequestException();
+				this.trackRequestException(options);
 			}
 		} else if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
-			this.trackRequestException();
+			this.trackRequestException(options);
 		}
 	}
 
@@ -358,11 +358,13 @@ export abstract class IntegrationBase<
 	}
 
 	@debug()
-	trackRequestException(): void {
+	trackRequestException(options?: { silent?: boolean }): void {
 		this.requestExceptionCount++;
 
 		if (this.requestExceptionCount >= IntegrationBase.requestExceptionLimit && this._session !== null) {
-			void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
+			if (!options?.silent) {
+				void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
+			}
 			void this.disconnect({ currentSessionOnly: true });
 		}
 	}

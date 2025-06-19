@@ -675,6 +675,7 @@ export abstract class GitHostIntegration<
 		} catch (ex) {
 			this.handleProviderException('searchMyPullRequests', ex, {
 				scope: scope,
+				silent: true,
 			});
 			return {
 				error: ex,
