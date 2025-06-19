@@ -309,15 +309,14 @@ export abstract class IntegrationBase<
 		}
 	}
 
-	protected handleProviderException<T>(
+	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
-		scope: LogScope | undefined,
-		defaultValue: T,
-	): T {
-		if (ex instanceof CancellationError) return defaultValue;
+		options?: { scope?: LogScope | undefined },
+	): void {
+		if (ex instanceof CancellationError) return;
 
-		Logger.error(ex, scope);
+		Logger.error(ex, options?.scope);
 
 		if (ex instanceof AuthenticationError && this._session?.cloud) {
 			if (!this.hasSessionSyncRequests()) {
@@ -332,7 +331,6 @@ export abstract class IntegrationBase<
 		} else if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
 			this.trackRequestException();
 		}
-		return defaultValue;
 	}
 
 	private missingExpirityReported = false;
@@ -480,7 +478,8 @@ export abstract class IntegrationBase<
 			this.resetRequestExceptionCount('searchMyIssues');
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<IssueShape[] | undefined>('searchMyIssues', ex, scope, undefined);
+			this.handleProviderException('searchMyIssues', ex, { scope: scope });
+			return undefined;
 		}
 	}
 
@@ -520,12 +519,8 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getIssueOrPullRequest');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<IssueOrPullRequest | undefined>(
-							'getIssueOrPullRequest',
-							ex,
-							scope,
-							undefined,
-						);
+						this.handleProviderException('getIssueOrPullRequest', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -565,7 +560,8 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getIssue');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<Issue | undefined>('getIssue', ex, scope, undefined);
+						this.handleProviderException('getIssue', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -602,12 +598,8 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
-						return this.handleProviderException<Account | undefined>(
-							'getCurrentAccount',
-							ex,
-							scope,
-							undefined,
-						);
+						this.handleProviderException('getCurrentAccount', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -637,12 +629,8 @@ export abstract class IntegrationBase<
 					this.resetRequestExceptionCount('getPullRequest');
 					return result;
 				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(
-						'getPullRequest',
-						ex,
-						scope,
-						undefined,
-					);
+					this.handleProviderException('getPullRequest', ex, { scope: scope });
+					return undefined;
 				}
 			})(),
 		}));
