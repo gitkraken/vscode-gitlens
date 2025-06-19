@@ -367,7 +367,7 @@ export class GlIntegrationsChip extends LitElement {
 											  ></gl-feature-badge>`
 											: nothing}
 								  </span>`
-								: html`<span class="integration_details">AI</span>`}
+								: html`<span class="integration_details">Select AI model to enable AI features</span>`}
 							${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
 						</span>
 						<span class="integration__actions">

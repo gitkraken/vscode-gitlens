@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Improves AI status label in integrations popup to "Select AI model to enable AI features" and fixes text brightness ([#4400](https://github.com/gitkraken/vscode-gitlens/issues/4400))
+
 ## [17.2.0] - 2025-06-17
 
 ### Added
