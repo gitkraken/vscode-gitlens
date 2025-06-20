@@ -32,10 +32,11 @@ export abstract class IssuesIntegration<
 
 		try {
 			const account = await this.getProviderAccountForResource(this._session!, resource);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('getAccountForResource');
 			return account;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>(ex, undefined, undefined);
+			this.handleProviderException('getAccountForResource', ex);
+			return undefined;
 		}
 	}
 
@@ -55,10 +56,11 @@ export abstract class IssuesIntegration<
 
 		try {
 			const resources = await this.getProviderResourcesForUser(this._session!);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('getResourcesForUser');
 			return resources;
 		} catch (ex) {
-			return this.handleProviderException<T[] | undefined>(ex, undefined, undefined);
+			this.handleProviderException('getResourcesForUser', ex);
+			return undefined;
 		}
 	}
 
@@ -74,10 +76,11 @@ export abstract class IssuesIntegration<
 
 		try {
 			const projects = await this.getProviderProjectsForResources(this._session!, resources);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('getProjectsForResources');
 			return projects;
 		} catch (ex) {
-			return this.handleProviderException<T[] | undefined>(ex, undefined, undefined);
+			this.handleProviderException('getProjectsForResources', ex);
+			return undefined;
 		}
 	}
 
@@ -106,10 +109,11 @@ export abstract class IssuesIntegration<
 
 		try {
 			const issues = await this.getProviderIssuesForProject(this._session!, project, options);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('getIssuesForProject');
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<IssueShape[] | undefined>(ex, undefined, undefined);
+			this.handleProviderException('getIssuesForProject', ex);
+			return undefined;
 		}
 	}
 
