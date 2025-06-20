@@ -48,6 +48,7 @@ import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
+import { getMachineId } from '../../system/-webview/machine';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { createFromDateDelta, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/-webview/gate';
@@ -1025,7 +1026,7 @@ export class SubscriptionService implements Disposable {
 				id: session.account.id,
 				platform: getPlatform(),
 				gitlensVersion: this.container.version,
-				machineId: env.machineId,
+				machineId: getMachineId(),
 				sessionId: env.sessionId,
 				vscodeEdition: env.appName,
 				vscodeHost: env.appHost,
