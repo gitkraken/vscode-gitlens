@@ -508,21 +508,23 @@ export abstract class ViewBase<
 	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
 		if (!this.grouped || node !== this.root) return promise;
 
-		if (!isPromise(promise)) {
-			if (promise.length && !(promise[0] instanceof GroupedHeaderNode)) {
-				promise.unshift(new GroupedHeaderNode(this as unknown as View, node));
+		const ensureGroupedHeaderNode = (children: ViewNode[]): ViewNode[] => {
+			if (!children.length) return children;
+			if (children[0] instanceof GroupedHeaderNode) return children.length === 1 ? [] : children;
+
+			const index = children.findIndex(n => n instanceof GroupedHeaderNode);
+			if (index === -1) {
+				children.unshift(new GroupedHeaderNode(this as unknown as View, node));
+			} else if (index > 0) {
+				children.unshift(children.splice(index, 1)[0]);
 			}
 
-			return promise;
-		}
+			return children;
+		};
 
-		return promise.then(c => {
-			if (c.length && !(c[0] instanceof GroupedHeaderNode)) {
-				c.unshift(new GroupedHeaderNode(this as unknown as View, node));
-			}
+		if (!isPromise(promise)) return ensureGroupedHeaderNode(promise);
 
-			return c;
-		});
+		return promise.then(c => ensureGroupedHeaderNode(c));
 	}
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
