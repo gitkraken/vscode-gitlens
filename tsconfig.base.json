@@ -1,5 +1,6 @@
 {
 	"compilerOptions": {
+		"allowUnreachableCode": false,
 		"baseUrl": ".",
 		"esModuleInterop": true,
 		"experimentalDecorators": true,

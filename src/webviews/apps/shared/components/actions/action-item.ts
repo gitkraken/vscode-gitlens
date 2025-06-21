@@ -118,13 +118,13 @@ export class ActionItem extends LitElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 		window.addEventListener('keydown', this);
 		window.addEventListener('keyup', this);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 		window.removeEventListener('keydown', this);
 		window.removeEventListener('keyup', this);
 	}

@@ -80,21 +80,21 @@ export class GlBranchSection extends LitElement {
 	private branchCards!: GlBranchCardBase[];
 
 	override connectedCallback(): void {
-		super.connectedCallback();
-		this.addEventListener('gl-branch-card-expand-toggled', this.onCardExpanded.bind(this));
+		super.connectedCallback?.();
+		this.addEventListener('gl-branch-card-expand-toggled', this.onCardExpanded);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-		this.removeEventListener('gl-branch-card-expand-toggled', this.onCardExpanded.bind(this));
+		super.disconnectedCallback?.();
+		this.removeEventListener('gl-branch-card-expand-toggled', this.onCardExpanded);
 	}
 
-	private onCardExpanded(e: GlobalEventHandlersEventMap['gl-branch-card-expand-toggled']) {
+	private readonly onCardExpanded = (e: GlobalEventHandlersEventMap['gl-branch-card-expand-toggled']) => {
 		const path = e.composedPath();
 		const card = path.find(p => (p as HTMLElement).matches('gl-branch-card')) as GlBranchCardBase | undefined;
 
 		this.toggleSiblingCardsDebounced(card);
-	}
+	};
 
 	private toggleSiblingCards(card?: GlBranchCardBase) {
 		if (card?.expanded !== true) return;

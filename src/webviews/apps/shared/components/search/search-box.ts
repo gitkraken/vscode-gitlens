@@ -169,13 +169,13 @@ export class GlSearchBox extends GlElement {
 	private _disposable: Disposable | undefined;
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this._disposable = DOM.on(window, 'keydown', e => this.handleShortcutKeys(e));
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._disposable?.dispose();
 	}

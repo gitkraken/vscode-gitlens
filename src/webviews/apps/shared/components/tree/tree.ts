@@ -19,7 +19,7 @@ export class GlTree extends LitElement {
 	private treeItems!: GlTreeItem[];
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._slotSubscriptionsDisposer?.();
 	}

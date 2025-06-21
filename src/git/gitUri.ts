@@ -209,7 +209,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			query: this.query,
 			fragment: this.fragment,
 		});
-		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
+		// return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
 	equals(uri: Uri | undefined): boolean {

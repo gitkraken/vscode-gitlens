@@ -112,7 +112,7 @@ export class GlGraph extends LitElement {
 			this.reactRoot.unmount();
 			this.reactRoot = null;
 		}
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	private changedProps: Map<string, unknown> = new Map();

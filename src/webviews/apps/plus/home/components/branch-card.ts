@@ -528,12 +528,12 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 		this.attachFocusListener();
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 		this.eventController?.abort();
 	}
 
@@ -544,15 +544,15 @@ export abstract class GlBranchCardBase extends GlElement {
 			if (this.eventController == null) {
 				this.eventController = new AbortController();
 			}
-			this.addEventListener('focusin', this.onFocus.bind(this), { signal: this.eventController.signal });
+			this.addEventListener('focusin', this.onFocus, { signal: this.eventController.signal });
 		}
 	}
 
-	private onFocus(e: FocusEvent) {
+	private readonly onFocus = (e: FocusEvent) => {
 		const actionElement = e.composedPath().some(el => (el as HTMLElement).matches?.('action-item') ?? false);
 		if (actionElement || this.expanded) return;
 		this.toggleExpanded(true);
-	}
+	};
 
 	protected renderIssues(): TemplateResult | NothingType {
 		const { autolinks, issues } = this;

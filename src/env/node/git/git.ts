@@ -1532,7 +1532,6 @@ export class Git implements Disposable {
 			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
 			if (result.stdout.includes('No local changes to save')) {
 				throw new StashPushError(StashPushErrorReason.NothingToSave);
-				return;
 			}
 		} catch (ex) {
 			if (

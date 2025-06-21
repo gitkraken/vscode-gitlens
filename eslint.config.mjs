@@ -1,5 +1,6 @@
 // @ts-check
 import globals from 'globals';
+import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import antiTrojanSource from 'eslint-plugin-anti-trojan-source';
@@ -8,6 +9,7 @@ import importX from 'eslint-plugin-import-x';
 import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
 import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
+import { fileURLToPath } from 'node:url';
 
 /** @type {Awaited<import('typescript-eslint').Config>[number]['languageOptions']} */
 const defaultLanguageOptions = {
@@ -20,15 +22,135 @@ const defaultLanguageOptions = {
 	},
 };
 
+/** File patterns for different environments */
+const filePatterns = {
+	src: ['src/**/*'],
+	envNode: ['src/env/node/**/*'],
+	envBrowser: ['src/env/browser/**/*'],
+	webviewsApps: ['src/webviews/apps/**/*'],
+	webviewsShared: [
+		// Keep in sync with `src/webviews/apps/tsconfig.json`
+		'src/webviews/**/protocol.ts',
+		'src/**/models/**/*.ts',
+		'src/**/utils/**/*.ts',
+		'src/@types/**/*',
+		'src/config.ts',
+		'src/constants.ts',
+		'src/constants.*.ts',
+		'src/env/browser/**/*',
+		'src/features.ts',
+		'src/system/**/*.ts',
+		'**/webview/**/*',
+	],
+	tests: ['tests/**/*'],
+	unitTests: ['src/**/__tests__/**/*'],
+};
+
+/** Ignore patterns for different contexts */
+const ignorePatterns = {
+	default: ['*.*', 'patches', 'scripts', 'src/@types'],
+	extensionOnly: ['**/-webview/**/*'],
+	webviewOnly: ['src/**/webview/**/*', 'src/webviews/apps/**/*'],
+	nodeOnly: ['src/env/node/**/*'],
+	browserOnly: ['src/env/browser/**/*'],
+};
+
+/** Import restriction configurations for different environments */
+/** @type {{ extension: import('eslint').Linter.RuleEntry; webviews: import('eslint').Linter.RuleEntry; envNode: import('eslint').Linter.RuleEntry }} */
+const restrictedImports = {
+	/** Base restrictions that apply to all extension code */
+	extension: [
+		'error',
+		{
+			paths: [
+				// Node.js built-in modules (not allowed in extension context)
+				'assert',
+				'buffer',
+				'child_process',
+				'cluster',
+				'crypto',
+				'dgram',
+				'dns',
+				'domain',
+				'events',
+				'freelist',
+				'fs',
+				'http',
+				'https',
+				'module',
+				'net',
+				'os',
+				'path',
+				'process',
+				'punycode',
+				'querystring',
+				'readline',
+				'repl',
+				'smalloc',
+				'stream',
+				'string_decoder',
+				'sys',
+				'timers',
+				'tls',
+				'tracing',
+				'tty',
+				'url',
+				'util',
+				'vm',
+				'zlib',
+				// Specific import restrictions
+				{ name: 'react-dom', importNames: ['Container'], message: 'Use our Container instead' },
+				{ name: 'vscode', importNames: ['CancellationError'], message: 'Use our CancellationError instead' },
+			],
+			patterns: [
+				{ group: ['**/env/**/*'], message: 'Use @env/ instead' },
+				{ group: ['**/webview/**/*'], message: "Can't use any `webview`-only modules in extension" },
+			],
+		},
+	],
+	/** Restrictions for webview environments */
+	webviews: [
+		'error',
+		{
+			paths: [{ name: 'vscode', message: "Can't use `vscode` in webviews", allowTypeImports: true }],
+			patterns: [
+				{
+					group: ['container'],
+					importNames: ['Container'],
+					message: "Can't use `Container` in webviews",
+					allowTypeImports: true,
+				},
+				{
+					group: ['**/-webview/**/*'],
+					message: "Can't use any `-webview` modules in webviews",
+					allowTypeImports: true,
+				},
+			],
+		},
+	],
+	/** Minimal restrictions for Node.js environment */
+	envNode: [
+		'error',
+		{
+			paths: [
+				{ name: 'react-dom', importNames: ['Container'], message: 'Use our Container instead' },
+				{ name: 'vscode', importNames: ['CancellationError'], message: 'Use our CancellationError instead' },
+			],
+		},
+	],
+};
+
+const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
+
 export default ts.config(
+	includeIgnoreFile(gitignorePath),
+	{ ignores: ignorePatterns.default },
 	js.configs.recommended,
 	...ts.configs.strictTypeChecked,
-	litConfigs['flat/recommended'],
-	wcConfigs['flat/recommended'],
 	{
-		ignores: ['*', '*/', '!src/', '!tests/', 'src/@types/'],
-	},
-	{
+		name: 'all',
+		files: [...filePatterns.src, ...filePatterns.tests],
+		languageOptions: { ...defaultLanguageOptions },
 		linterOptions: { reportUnusedDisableDirectives: true },
 		plugins: {
 			'import-x': importX,
@@ -36,8 +158,11 @@ export default ts.config(
 			'@gitlens': { rules: { 'no-src-imports': noSrcImports } },
 		},
 		rules: {
+			// Custom rules
 			'@gitlens/no-src-imports': 'error',
 			'anti-trojan-source/no-bidi': 'error',
+
+			// Core JavaScript rules
 			curly: ['error', 'multi-line', 'consistent'],
 			eqeqeq: ['error', 'always', { null: 'ignore' }],
 			'no-constant-condition': ['warn', { checkLoops: false }],
@@ -61,31 +186,6 @@ export default ts.config(
 			'no-mixed-spaces-and-tabs': 'off',
 			'no-restricted-globals': ['error', 'process'],
 			'no-restricted-imports': 'off',
-			'no-restricted-syntax': [
-				'error',
-				{
-					selector:
-						'IfStatement:not(:has(BlockStatement)):not(:has(ReturnStatement)):not(:has(BreakStatement)):not(:has(ContinueStatement)):not(:has(YieldExpression)):not(:has(ThrowStatement))',
-					message:
-						'Single-line if statements are only allowed for control flow (return, break, continue, throw, yield).',
-				},
-				{
-					selector: 'WhileStatement:not(:has(BlockStatement))',
-					message: 'Single-line while statements are not allowed.',
-				},
-				{
-					selector: 'ForStatement:not(:has(BlockStatement))',
-					message: 'Single-line for statements are not allowed.',
-				},
-				{
-					selector: 'ForInStatement:not(:has(BlockStatement))',
-					message: 'Single-line for-in statements are not allowed.',
-				},
-				{
-					selector: 'ForOfStatement:not(:has(BlockStatement))',
-					message: 'Single-line for-of statements are not allowed.',
-				},
-			],
 			'no-return-assign': 'error',
 			'no-return-await': 'warn',
 			'no-self-compare': 'error',
@@ -125,6 +225,35 @@ export default ts.config(
 				},
 			],
 			yoda: 'error',
+
+			// Syntax restrictions for code style
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						'IfStatement:not(:has(BlockStatement)):not(:has(ReturnStatement)):not(:has(BreakStatement)):not(:has(ContinueStatement)):not(:has(YieldExpression)):not(:has(ThrowStatement))',
+					message:
+						'Single-line if statements are only allowed for control flow (return, break, continue, throw, yield).',
+				},
+				{
+					selector: 'WhileStatement:not(:has(BlockStatement))',
+					message: 'Single-line while statements are not allowed.',
+				},
+				{
+					selector: 'ForStatement:not(:has(BlockStatement))',
+					message: 'Single-line for statements are not allowed.',
+				},
+				{
+					selector: 'ForInStatement:not(:has(BlockStatement))',
+					message: 'Single-line for-in statements are not allowed.',
+				},
+				{
+					selector: 'ForOfStatement:not(:has(BlockStatement))',
+					message: 'Single-line for-of statements are not allowed.',
+				},
+			],
+
+			// Import rules
 			'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
 			'import-x/default': 'off',
 			'import-x/extensions': 'off',
@@ -146,21 +275,16 @@ export default ts.config(
 			'import-x/order': [
 				'warn',
 				{
-					alphabetize: {
-						order: 'asc',
-						orderImportKind: 'asc',
-						caseInsensitive: true,
-					},
+					alphabetize: { order: 'asc', orderImportKind: 'asc', caseInsensitive: true },
 					groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
 					'newlines-between': 'never',
 				},
 			],
+
+			// TypeScript rules
 			'@typescript-eslint/consistent-type-assertions': [
 				'error',
-				{
-					assertionStyle: 'as',
-					objectLiteralTypeAssertions: 'allow-as-parameter',
-				},
+				{ assertionStyle: 'as', objectLiteralTypeAssertions: 'allow-as-parameter' },
 			],
 			'@typescript-eslint/consistent-type-imports': ['error', { disallowTypeAnnotations: false }],
 			'@typescript-eslint/explicit-module-boundary-types': [
@@ -173,19 +297,13 @@ export default ts.config(
 					selector: 'variable',
 					format: ['camelCase', 'PascalCase'],
 					leadingUnderscore: 'allow',
-					filter: {
-						regex: '^_$',
-						match: false,
-					},
+					filter: { regex: '^_$', match: false },
 				},
 				{
 					selector: 'variableLike',
 					format: ['camelCase'],
 					leadingUnderscore: 'allow',
-					filter: {
-						regex: '^_$',
-						match: false,
-					},
+					filter: { regex: '^_$', match: false },
 				},
 				{
 					selector: 'memberLike',
@@ -207,10 +325,7 @@ export default ts.config(
 				{
 					selector: 'interface',
 					format: ['PascalCase'],
-					custom: {
-						regex: '^I[A-Z]',
-						match: false,
-					},
+					custom: { regex: '^I[A-Z]', match: false },
 				},
 			],
 			'@typescript-eslint/no-confusing-void-expression': [
@@ -226,67 +341,7 @@ export default ts.config(
 			'@typescript-eslint/no-misused-spread': 'off', // Too noisy
 			'@typescript-eslint/no-non-null-assertion': 'off',
 			'@typescript-eslint/no-redundant-type-constituents': 'off',
-			'@typescript-eslint/no-restricted-imports': [
-				'error',
-				{
-					paths: [
-						'assert',
-						'buffer',
-						'child_process',
-						'cluster',
-						'crypto',
-						'dgram',
-						'dns',
-						'domain',
-						'events',
-						'freelist',
-						'fs',
-						'http',
-						'https',
-						'module',
-						'net',
-						'os',
-						'path',
-						'process',
-						'punycode',
-						'querystring',
-						'readline',
-						'repl',
-						'smalloc',
-						'stream',
-						'string_decoder',
-						'sys',
-						'timers',
-						'tls',
-						'tracing',
-						'tty',
-						'url',
-						'util',
-						'vm',
-						'zlib',
-						{
-							name: 'react-dom',
-							importNames: ['Container'],
-							message: 'Use our Container instead',
-						},
-						{
-							name: 'vscode',
-							importNames: ['CancellationError'],
-							message: 'Use our CancellationError instead',
-						},
-					],
-					patterns: [
-						{
-							group: ['**/env/**/*'],
-							message: 'Use @env/ instead',
-						},
-						{
-							group: ['**/webview/**/*'],
-							message: "Can't use any `webview`-only modules in extension",
-						},
-					],
-				},
-			],
+			'@typescript-eslint/no-restricted-imports': restrictedImports.extension,
 			'@typescript-eslint/no-unnecessary-condition': 'off',
 			'@typescript-eslint/no-unnecessary-boolean-literal-compare': 'off',
 			'@typescript-eslint/no-unnecessary-type-parameters': 'off', // https://github.com/typescript-eslint/typescript-eslint/issues/9705
@@ -324,158 +379,81 @@ export default ts.config(
 		},
 		settings: {
 			'import-x/extensions': ['.ts', '.tsx'],
-			'import-x/parsers': {
-				'@typescript-eslint/parser': ['.ts', '.tsx'],
-			},
+			'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
 			'import-x/resolver-next': [createTypeScriptImportResolver()],
 		},
 	},
+
+	// Extension (Node.js)
 	{
 		name: 'extension:node',
-		files: ['src/**/*'],
-		ignores: ['src/**/webview/**/*', 'src/webviews/apps/**/*', 'src/env/browser/**/*'],
+		files: filePatterns.src,
+		ignores: [...ignorePatterns.webviewOnly, ...ignorePatterns.browserOnly],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
 	},
-	{
-		files: ['src/env/node/**/*'],
-		rules: {
-			'@typescript-eslint/no-restricted-imports': [
-				'error',
-				{
-					paths: [
-						{
-							name: 'react-dom',
-							importNames: ['Container'],
-							message: 'Use our Container instead',
-						},
-						{
-							name: 'vscode',
-							importNames: ['CancellationError'],
-							message: 'Use our CancellationError instead',
-						},
-					],
-				},
-			],
-		},
-	},
+
+	// Extension (Browser)
 	{
 		name: 'extension:browser',
-		files: ['src/**/*'],
-		ignores: ['src/**/webview/**/*', 'src/webviews/apps/**/*', 'src/env/node/**/*'],
+		files: filePatterns.src,
+		ignores: [...ignorePatterns.webviewOnly, ...ignorePatterns.nodeOnly],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.worker } },
 	},
+
+	// Node.js environment specific files
 	{
-		name: 'webviews',
-		// Keep in sync with `src/webviews/apps/tsconfig.json`
-		files: [
-			'src/webviews/apps/**/*',
-			'src/webviews/**/protocol.ts',
-			'src/**/models/**/*.ts',
-			'src/**/utils/**/*.ts',
-			'src/@types/**/*',
-			'src/config.ts',
-			'src/constants.ts',
-			'src/constants.*.ts',
-			'src/env/browser/**/*',
-			'src/features.ts',
-			'src/system/**/*.ts',
-			'**/webview/**/*',
-		],
-		ignores: ['**/-webview/**/*'],
+		name: 'extension:node-env',
+		files: filePatterns.envNode,
+		rules: { '@typescript-eslint/no-restricted-imports': restrictedImports.envNode },
+	},
+
+	// Webviews shared code
+	{
+		name: 'webviews:shared',
+		files: filePatterns.webviewsShared,
+		ignores: ignorePatterns.extensionOnly,
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
-			'@typescript-eslint/no-restricted-imports': [
-				'error',
-				{
-					paths: [
-						{
-							name: 'vscode',
-							message: "Can't use `vscode` in webviews",
-							allowTypeImports: true,
-						},
-					],
-					patterns: [
-						{
-							group: ['container'],
-							importNames: ['Container'],
-							message: "Can't use `Container` in webviews",
-							allowTypeImports: true,
-						},
-						{
-							group: ['**/-webview/**/*'],
-							message: "Can't use any `-webview` modules in webviews",
-							allowTypeImports: true,
-						},
-					],
-				},
-			],
-		},
-		settings: {
-			wc: {
-				elementBaseClasses: [
-					'LitElement', // Recognize `LitElement` as a Custom Element base class
-					'GlElement',
-				],
-			},
+			'@typescript-eslint/no-restricted-imports': restrictedImports.webviews,
 		},
 	},
+
+	// Webviews apps
 	{
-		name: 'webviews-apps-only',
-		...litConfigs['flat/recommended'],
-		...wcConfigs['flat/recommended'],
-		...wcConfigs['flat/best-practice'],
-		files: ['src/webviews/apps/**/*'],
-		ignores: ['**/-webview/**/*'],
+		name: 'webviews:apps',
+		files: filePatterns.webviewsApps,
+		ignores: ignorePatterns.extensionOnly,
+		extends: [litConfigs['flat/recommended'], wcConfigs['flat/recommended'], wcConfigs['flat/best-practice']],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
-			// 'lit/quoted-expressions': 'error',
+			'@typescript-eslint/no-restricted-imports': restrictedImports.webviews,
+
+			// Lit-specific rules (only for actual Lit components)
 			'lit/lifecycle-super': 'error',
 			'lit/no-legacy-imports': 'error',
 			'lit/no-native-attributes': 'error',
 			'lit/no-template-bind': 'error',
-			// 'lit/no-template-map': 'warn', // Want to enable this, but it's too noisy right now
 			'lit/no-this-assign-in-render': 'error',
+
+			// Relaxed rules for webview apps
 			'@typescript-eslint/explicit-module-boundary-types': 'off',
-			'@typescript-eslint/no-restricted-imports': [
-				'error',
-				{
-					paths: [{ name: 'vscode', message: "Can't use `vscode` in webviews", allowTypeImports: true }],
-					patterns: [
-						{
-							group: ['container'],
-							importNames: ['Container'],
-							message: "Can't use `Container` in webviews",
-							allowTypeImports: true,
-						},
-						{
-							group: ['**/-webview/**/*'],
-							message: "Can't use any `-webview` modules in webviews",
-							allowTypeImports: true,
-						},
-					],
-				},
-			],
 		},
-		settings: {
-			wc: {
-				elementBaseClasses: [
-					'LitElement', // Recognize `LitElement` as a Custom Element base class
-					'GlElement',
-				],
-			},
-		},
+		settings: { wc: { elementBaseClasses: ['LitElement', 'GlElement'] } },
 	},
+
+	// E2E Tests
 	{
 		name: 'tests:e2e',
-		files: ['tests/**/*'],
+		files: filePatterns.tests,
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
-		rules: {
-			'@typescript-eslint/no-restricted-imports': 'off',
-		},
+		rules: { '@typescript-eslint/no-restricted-imports': 'off' },
 	},
+
+	// Unit Tests
 	{
 		name: 'tests:unit',
-		files: ['src/**/__tests__/**/*'],
+		files: filePatterns.unitTests,
+		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
 		rules: {
 			'no-restricted-imports': 'off',
 			'@typescript-eslint/no-restricted-imports': 'off',

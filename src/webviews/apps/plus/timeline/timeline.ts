@@ -60,7 +60,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		setAbbreviatedShaLength(this.state.config.abbreviatedShaLength);
 	}

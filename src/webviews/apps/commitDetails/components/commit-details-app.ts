@@ -191,7 +191,7 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this._hostIpc = new HostIpc('commit-details');
 
@@ -349,7 +349,7 @@ export class GlCommitDetailsApp extends LitElement {
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	private renderTopInspect() {

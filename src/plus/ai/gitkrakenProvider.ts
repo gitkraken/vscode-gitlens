@@ -166,7 +166,6 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 					AIErrorReason.Unauthorized,
 					new Error(`(${this.name}) ${status}.${code}: ${message}`),
 				);
-				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
 			case 404:
 				// CodeNotFound           = "404.1"
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);

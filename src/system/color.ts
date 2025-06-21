@@ -698,6 +698,7 @@ export function parseColor(value: string): Color | null {
 			return new Color(new HSLA(colors[0], colors[1], colors[2], colors[3]));
 	}
 
+	// @ts-expect-error - Allow this fallback just in case
 	return Color.red;
 }
 

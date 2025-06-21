@@ -93,7 +93,7 @@ export class GlChartScroller extends GlElement {
 		| undefined;
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		// `capture:true` is needed to intercept the event before billboard.js
 		this.addEventListener('wheel', this.onWheel, { passive: true, capture: true });
@@ -103,7 +103,7 @@ export class GlChartScroller extends GlElement {
 		this.onDragEnd();
 		this.removeEventListener('wheel', this.onWheel);
 
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	override willUpdate(_changedProperties: PropertyValues): void {

@@ -52,7 +52,7 @@ export class GlHomeApp extends GlAppHost<State> {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.disposables.push(
 			this._ipc.onReceiveMessage(msg => {

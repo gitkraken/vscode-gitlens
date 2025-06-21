@@ -121,7 +121,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this._disposable.push(
 			this._ipc.onReceiveMessage(msg => {
@@ -137,7 +137,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._disposable.forEach(d => d.dispose());
 	}

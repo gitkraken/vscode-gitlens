@@ -538,13 +538,13 @@ export class GlGraphMinimap extends GlElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.handleDataChanged(false);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._chart?.destroy();
 		this._chart = undefined!;

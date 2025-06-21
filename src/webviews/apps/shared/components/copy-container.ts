@@ -41,11 +41,11 @@ export class GlCopyContainer extends LitElement {
 
 	override disconnectedCallback() {
 		this.cancelResetTimer();
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	override connectedCallback() {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.label = this.copyLabel;
 	}

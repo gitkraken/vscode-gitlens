@@ -259,7 +259,7 @@ export class GlPopover extends GlElement {
 		// Remove this popover from the registry when it's disconnected
 		GlPopover.openPopovers.delete(this);
 
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	override firstUpdated(): void {
@@ -339,7 +339,7 @@ export class GlPopover extends GlElement {
 		return waitForEvent(this, 'gl-popover-after-hide');
 	}
 
-	private handleTriggerBlur = (e: FocusEvent) => {
+	private readonly handleTriggerBlur = (e: FocusEvent) => {
 		if (this.open && this.hasTrigger('focus')) {
 			if (e.relatedTarget && this.contains(e.relatedTarget as Node)) return;
 
@@ -347,7 +347,7 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private handleTriggerClick = (e: MouseEvent) => {
+	private readonly handleTriggerClick = (e: MouseEvent) => {
 		if (this.hasTrigger('click')) {
 			if (this.open && this._triggeredBy !== 'hover') {
 				if (this._skipHideOnClick) {
@@ -366,7 +366,7 @@ export class GlPopover extends GlElement {
 	};
 
 	private _skipHideOnClick = false;
-	private handleTriggerMouseDown = () => {
+	private readonly handleTriggerMouseDown = () => {
 		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
 			this._skipHideOnClick = true;
 		} else {
@@ -374,7 +374,7 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private handleTriggerFocus = () => {
+	private readonly handleTriggerFocus = () => {
 		if (this.hasTrigger('focus')) {
 			if (this.open && this._triggeredBy !== 'hover' && !this.hasPopupFocus()) {
 				void this.hide();
@@ -384,7 +384,7 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private handleDocumentKeyDown = (e: KeyboardEvent) => {
+	private readonly handleDocumentKeyDown = (e: KeyboardEvent) => {
 		// Pressing escape when a popover is open should dismiss it
 		if (e.key === 'Escape') {
 			e.stopPropagation();
@@ -392,25 +392,25 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private handlePopupBlur = (e: FocusEvent) => {
+	private readonly handlePopupBlur = (e: FocusEvent) => {
 		const composedPath = e.composedPath();
 		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
 			void this.hide();
 		}
 	};
 
-	private handleWebviewBlur = () => {
+	private readonly handleWebviewBlur = () => {
 		void this.hide();
 	};
 
-	private handleWebviewMouseDown = (e: MouseEvent) => {
+	private readonly handleWebviewMouseDown = (e: MouseEvent) => {
 		const composedPath = e.composedPath();
 		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
 			void this.hide();
 		}
 	};
 
-	private handleMouseOver = () => {
+	private readonly handleMouseOver = () => {
 		if (this.hasTrigger('hover')) {
 			clearTimeout(this.hoverTimeout);
 
@@ -419,7 +419,7 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private handleMouseOut = (e: MouseEvent) => {
+	private readonly handleMouseOut = (e: MouseEvent) => {
 		if (this.hasTrigger('hover')) {
 			clearTimeout(this.hoverTimeout);
 

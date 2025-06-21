@@ -74,7 +74,7 @@ export abstract class GlAppHost<
 	protected onWebviewVisibilityChanged?(visible: boolean): void;
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this._logger = new LoggerContext(this.name);
 		this._logger.log('connected');
@@ -137,7 +137,7 @@ export abstract class GlAppHost<
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._logger.log('disconnected');
 

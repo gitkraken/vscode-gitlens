@@ -96,7 +96,7 @@ export class GlGraphSideBar extends LitElement {
 	});
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this._disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
@@ -114,7 +114,7 @@ export class GlGraphSideBar extends LitElement {
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._disposable?.dispose();
 	}

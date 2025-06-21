@@ -140,7 +140,7 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		document.addEventListener('keydown', this.onDocumentKeyDown);
 		document.addEventListener('keyup', this.onDocumentKeyUp);
@@ -155,7 +155,7 @@ export class GlTimelineChart extends GlElement {
 		this._chart?.destroy();
 		this._chart = undefined;
 
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	override update(changedProperties: PropertyValues): void {

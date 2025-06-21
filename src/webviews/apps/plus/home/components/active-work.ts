@@ -112,7 +112,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		if (this._homeState.repositories.openCount > 0) {
 			this._activeOverviewState.run();
@@ -264,7 +264,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	];
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.toggleExpanded(true);
 	}

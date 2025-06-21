@@ -37,7 +37,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private _inactiveOverviewState!: InactiveOverviewState;
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		if (this._homeState.repositories.openCount > 0) {
 			this._inactiveOverviewState.run();

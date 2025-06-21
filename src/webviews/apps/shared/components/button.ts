@@ -221,7 +221,7 @@ export class GlButton extends LitElement {
 	tooltipPlacement?: GlTooltip['placement'] = 'bottom';
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.setAttribute('role', this.href ? 'link' : 'button');
 		if (this.disabled) {
