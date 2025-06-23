@@ -8212,6 +8212,11 @@
 						"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:canPin && gitlens:views:fileHistory:editorFollowing",
 						"group": "inline",
 						"order": 10
+					},
+					{
+						"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:canPin && gitlens:views:fileHistory:editorFollowing",
+						"group": "1_gitlens",
+						"order": 10
 					}
 				],
 				"view/title": [
@@ -8238,6 +8243,11 @@
 					{
 						"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:editorFollowing",
 						"group": "inline",
+						"order": 10
+					},
+					{
+						"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:editorFollowing",
+						"group": "1_gitlens",
 						"order": 10
 					}
 				],
@@ -8267,6 +8277,11 @@
 						"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:mode == contributors",
 						"group": "inline",
 						"order": 12
+					},
+					{
+						"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+						"group": "1_gitlens_1",
+						"order": 12
 					}
 				],
 				"view/title": [
@@ -8294,6 +8309,11 @@
 					{
 						"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:mode != contributors",
 						"group": "inline",
+						"order": 12
+					},
+					{
+						"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+						"group": "1_gitlens_1",
 						"order": 12
 					}
 				],
@@ -8372,7 +8392,7 @@
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-						"group": "1_gitlens_1",
+						"group": "1_gitlens_2",
 						"order": 1
 					}
 				],
@@ -8399,7 +8419,7 @@
 				"view/item/context": [
 					{
 						"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-						"group": "1_gitlens_1",
+						"group": "1_gitlens_2",
 						"order": 2
 					}
 				],

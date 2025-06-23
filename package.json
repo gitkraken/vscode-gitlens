@@ -18838,6 +18838,16 @@
 					"group": "1_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setEditorFollowingOff",
+					"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:canPin && gitlens:views:fileHistory:editorFollowing",
+					"group": "1_gitlens@10"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
+					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:editorFollowing",
+					"group": "1_gitlens@10"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
 					"when": "viewItem == gitlens:views:fileHistory && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_@11"
@@ -18848,14 +18858,24 @@
 					"group": "1_gitlens_@11"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setModeCommits",
+					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens_1@12"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setModeContributors",
+					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens_1@12"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
 					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-					"group": "1_gitlens_1@1"
+					"group": "1_gitlens_2@1"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
 					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-					"group": "1_gitlens_1@2"
+					"group": "1_gitlens_2@2"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
