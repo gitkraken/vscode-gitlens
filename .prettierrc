@@ -6,6 +6,7 @@
 	"singleQuote": true,
 	"tabWidth": 4,
 	"useTabs": true,
+	"plugins": ["@prettier/plugin-oxc"],
 	"overrides": [
 		{
 			"files": ".prettierrc",
