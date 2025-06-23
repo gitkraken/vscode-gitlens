@@ -12,7 +12,7 @@
 			"options": { "parser": "json" }
 		},
 		{
-			"files": "*.md",
+			"files": "**/*.md",
 			"options": { "tabWidth": 2 }
 		}
 	]
