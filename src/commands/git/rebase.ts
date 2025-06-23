@@ -197,10 +197,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						log == null
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
-							  })}`
+								})}`
 							: `Choose a commit to rebase ${getReferenceLabel(context.branch, {
 									icon: false,
-							  })} onto`,
+								})} onto`,
 					picked: state.destination?.ref,
 				});
 				if (result === StepResultBreak) continue;
@@ -301,7 +301,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						? createDirectiveQuickPickItem(Directive.Noop, false, {
 								label: 'No Conflicts Detected',
 								iconPath: new ThemeIcon('check'),
-						  })
+							})
 						: createDirectiveQuickPickItem(Directive.Noop, false, {
 								label: 'Conflicts Detected',
 								detail: `Will result in ${pluralize(
@@ -309,7 +309,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 									conflict.files.length,
 								)} that will need to be resolved`,
 								iconPath: new ThemeIcon('warning'),
-						  }),
+							}),
 				);
 
 				if (step.quickpick != null) {

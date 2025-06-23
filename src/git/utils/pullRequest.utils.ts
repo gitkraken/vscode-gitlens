@@ -127,7 +127,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 						url: value.refs.base.url,
 					},
 					isCrossRepository: value.refs.isCrossRepository,
-			  }
+				}
 			: undefined,
 		isDraft: value.isDraft,
 		additions: value.additions,
@@ -143,7 +143,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 					name: value.project.name,
 					resourceId: value.project.resourceId,
 					resourceName: value.project.resourceName,
-			  }
+				}
 			: undefined,
 	};
 	return serialized;

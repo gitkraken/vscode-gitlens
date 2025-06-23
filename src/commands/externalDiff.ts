@@ -77,7 +77,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 						? {
 								uri: r.resourceUri,
 								staged: (r as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
-						  }
+							}
 						: undefined,
 				);
 			}

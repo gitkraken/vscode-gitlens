@@ -17,7 +17,7 @@ export function serializeAutolink(value: Autolink): Autolink {
 					name: value.provider.name,
 					domain: value.provider.domain,
 					icon: value.provider.icon,
-			  }
+				}
 			: undefined,
 		id: value.id,
 		prefix: value.prefix,

@@ -344,9 +344,9 @@ export class Repository implements Disposable {
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
-				  /(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|REVERT_HEAD|config|refs\/(?:heads|remotes|stash|tags))/.exec(
+					/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|REVERT_HEAD|config|refs\/(?:heads|remotes|stash|tags))/.exec(
 						this.container.git.getRelativePath(uri, base),
-				  )
+					)
 				: undefined;
 
 		if (match != null) {
@@ -612,10 +612,10 @@ export class Repository implements Disposable {
 											id: remote.provider.id,
 											name: remote.provider.name,
 											domain: remote.provider.domain,
-									  }
+										}
 									: undefined,
 							url: remote.url,
-					  }
+						}
 					: { name: remoteName },
 			branch: {
 				name: branch.name,

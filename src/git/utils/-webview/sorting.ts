@@ -31,7 +31,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(options.openedWorktreesByBranch
 						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
-						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
+							(options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(options.groupByType ? (b.remote ? -1 : 1) - (a.remote ? -1 : 1) : 0) ||
@@ -45,7 +45,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(options.openedWorktreesByBranch
 						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
-						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
+							(options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -61,7 +61,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(options.openedWorktreesByBranch
 						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
-						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
+							(options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -78,7 +78,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(options.openedWorktreesByBranch
 						? (options.openedWorktreesByBranch.has(a.id) ? -1 : 1) -
-						  (options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
+							(options.openedWorktreesByBranch.has(b.id) ? -1 : 1)
 						: 0) ||
 					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 					(options.groupByType ? (b.remote ? -1 : 1) - (a.remote ? -1 : 1) : 0) ||

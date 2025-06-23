@@ -143,7 +143,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 									}
 
 									return token;
-							  });
+								});
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let ownerAndRepo: string;

@@ -211,7 +211,7 @@ export class GitRepositoryService implements IGitRepositoryService {
 
 	@log()
 	getRevisionUri(rev: string, pathOrFile: string | GitFile): Uri {
-		const path = typeof pathOrFile === 'string' ? pathOrFile : pathOrFile?.originalPath ?? pathOrFile?.path ?? '';
+		const path = typeof pathOrFile === 'string' ? pathOrFile : (pathOrFile?.originalPath ?? pathOrFile?.path ?? '');
 		return this._provider.getRevisionUri(this.path, rev, this._provider.getRelativePath(path, this.path));
 	}
 

@@ -70,10 +70,10 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 				pending
 					? 'loading~spin'
 					: autolink.type == null
-					  ? 'link'
-					  : autolink.type === 'pullrequest'
-					    ? 'git-pull-request'
-					    : 'issues',
+						? 'link'
+						: autolink.type === 'pullrequest'
+							? 'git-pull-request'
+							: 'issues',
 			);
 			item.contextValue = ContextValues.AutolinkedItem;
 			item.tooltip = new MarkdownString(
@@ -84,9 +84,9 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 								autolink.type == null
 									? 'Autolinked'
 									: autolink.type === 'pullrequest'
-									  ? 'Autolinked Pull Request'
-									  : 'Autolinked Issue'
-						  } ${autolink.prefix}${autolink.id}`
+										? 'Autolinked Pull Request'
+										: 'Autolinked Issue'
+							} ${autolink.prefix}${autolink.id}`
 				} \\\n[${autolink.url}](${autolink.url}${autolink.title != null ? ` "${autolink.title}"` : ''})`,
 			);
 			return item;

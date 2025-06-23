@@ -139,7 +139,7 @@ export class GlRepoButtonGroup extends GlElement {
 							class="picker-icon"
 							icon="chevron-down"
 							aria-hidden="true"
-					  ></code-icon>`
+						></code-icon>`
 					: nothing}
 				<slot name="tooltip" slot="tooltip">${this.displayName}</slot>
 			</gl-button>

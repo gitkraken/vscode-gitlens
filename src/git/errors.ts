@@ -573,8 +573,8 @@ export class BranchError extends Error {
 	}
 
 	update(changes: { branch?: string; action?: string }): this {
-		this._branch = changes.branch === null ? undefined : changes.branch ?? this._branch;
-		this._action = changes.action === null ? undefined : changes.action ?? this._action;
+		this._branch = changes.branch === null ? undefined : (changes.branch ?? this._branch);
+		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
 		this.message = BranchError.buildErrorMessage(this.reason, this._branch, this._action);
 		return this;
 	}
@@ -650,8 +650,8 @@ export class TagError extends Error {
 	}
 
 	update(changes: { tag?: string; action?: string }): this {
-		this._tag = changes.tag === null ? undefined : changes.tag ?? this._tag;
-		this._action = changes.action === null ? undefined : changes.action ?? this._action;
+		this._tag = changes.tag === null ? undefined : (changes.tag ?? this._tag);
+		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
 		this.message = TagError.buildErrorMessage(this.reason, this._tag, this._action);
 		return this;
 	}

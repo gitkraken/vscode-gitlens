@@ -1263,7 +1263,7 @@ export class PatchDetailsWebviewProvider
 									located: isRepoLocated(p.repository),
 								},
 							})),
-					  )
+						)
 					: undefined,
 				users: draftUserState.users,
 				userSelections: draftUserState.selections,

@@ -722,8 +722,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			merges: options?.merges
 				? true
 				: options?.merges == null
-				  ? configuration.get('advanced.fileHistoryShowMergeCommits')
-				  : false,
+					? configuration.get('advanced.fileHistoryShowMergeCommits')
+					: false,
 			renames: options?.renames ?? configuration.get('advanced.fileHistoryFollowsRenames'),
 		};
 

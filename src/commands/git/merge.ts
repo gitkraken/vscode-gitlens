@@ -187,10 +187,10 @@ export class MergeGitCommand extends QuickCommand<State> {
 						log == null
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
-							  })}`
+								})}`
 							: `Choose a commit to merge into ${getReferenceLabel(context.destination, {
 									icon: false,
-							  })}`,
+								})}`,
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) continue;
@@ -307,7 +307,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 						? createDirectiveQuickPickItem(Directive.Noop, false, {
 								label: 'No Conflicts Detected',
 								iconPath: new ThemeIcon('check'),
-						  })
+							})
 						: createDirectiveQuickPickItem(Directive.Noop, false, {
 								label: 'Conflicts Detected',
 								detail: `Will result in ${pluralize(
@@ -315,7 +315,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 									conflict.files.length,
 								)} that will need to be resolved`,
 								iconPath: new ThemeIcon('warning'),
-						  }),
+							}),
 				);
 
 				if (step.quickpick != null) {

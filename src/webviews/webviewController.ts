@@ -51,14 +51,14 @@ const utf8TextEncoder = new TextEncoder();
 type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
 	? WebviewPanelDescriptor<T>
 	: T extends WebviewViewIds
-	  ? WebviewViewDescriptor<T>
-	  : never;
+		? WebviewViewDescriptor<T>
+		: never;
 
 type GetWebviewParent<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
 	? WebviewPanel
 	: T extends WebviewViewIds
-	  ? WebviewView
-	  : never;
+		? WebviewView
+		: never;
 
 type WebviewPanelController<
 	ID extends WebviewIds,
@@ -207,7 +207,7 @@ export class WebviewController<
 								this.viewColumn != null && this.viewColumn !== viewColumn,
 							);
 							this._viewColumn = viewColumn;
-					  })
+						})
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible, this.active)),
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
@@ -867,7 +867,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 						bootstrap != null
 							? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
 									bootstrap,
-							  )};</script>`
+								)};</script>`
 							: ''
 					}${endOfBody ?? ''}`;
 				case 'webviewId':

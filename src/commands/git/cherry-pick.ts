@@ -255,10 +255,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 							log == null
 								? `No pickable commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 										icon: false,
-								  })}`
+									})}`
 								: `Choose commits to cherry-pick into ${getReferenceLabel(context.destination, {
 										icon: false,
-								  })}`,
+									})}`,
 					},
 				);
 				if (result === StepResultBreak) continue;

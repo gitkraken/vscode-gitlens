@@ -116,12 +116,12 @@ export class GlCommitDetailsApp extends LitElement {
 			behind > 0 && ahead > 0
 				? 'both'
 				: behind > 0
-				  ? 'behind'
-				  : ahead > 0
-				    ? 'ahead'
-				    : working > 0
-				      ? 'working'
-				      : undefined;
+					? 'behind'
+					: ahead > 0
+						? 'ahead'
+						: working > 0
+							? 'working'
+							: undefined;
 
 		const branchName = wip.repositoryCount > 1 ? `${wip.repo.name}:${branch.name}` : branch.name;
 

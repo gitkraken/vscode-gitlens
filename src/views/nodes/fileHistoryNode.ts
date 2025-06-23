@@ -308,14 +308,14 @@ export class FileHistoryNode
 									this.branch,
 									getBranchAndTagTips,
 									{ allowFilteredFiles: true, expand: false },
-							  )
+								)
 							: c.file != null
-							  ? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
+								? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
 										branch: this.branch,
 										getBranchAndTagTips: getBranchAndTagTips,
 										unpublished: unpublishedCommits?.has(c.ref),
-							    })
-							  : undefined,
+									})
+								: undefined,
 					),
 					this,
 				),

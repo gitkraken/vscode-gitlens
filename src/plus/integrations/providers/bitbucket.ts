@@ -183,7 +183,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 							email: user.email ?? undefined,
 							avatarUrl: user.avatarUrl ?? undefined,
 							username: user.username ?? undefined,
-					  }
+						}
 					: undefined,
 			);
 		}

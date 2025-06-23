@@ -245,12 +245,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					firstCommitTimestamp =
 						firstCommitTimestamp != null
 							? Math.min(firstCommitTimestamp, firstTimestamp ?? Infinity, latestTimestamp ?? Infinity)
-							: firstTimestamp ?? latestTimestamp;
+							: (firstTimestamp ?? latestTimestamp);
 
 					latestCommitTimestamp =
 						latestCommitTimestamp != null
 							? Math.max(latestCommitTimestamp, firstTimestamp ?? -Infinity, latestTimestamp ?? -Infinity)
-							: latestTimestamp ?? firstTimestamp;
+							: (latestTimestamp ?? firstTimestamp);
 				}
 			}
 

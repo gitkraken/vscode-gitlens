@@ -1090,7 +1090,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				options?.reference != null
 					? `${options.reference.ref}:${
 							options?.publish != null ? 'refs/heads/' : ''
-					  }${branch.getNameWithoutRemote()}`
+						}${branch.getNameWithoutRemote()}`
 					: branch.name;
 			remoteName = branch.getRemoteName() ?? options?.publish?.remote;
 			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
@@ -2221,7 +2221,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						? '\u2022 no existing repository found, opening repository...'
 						: `\u2022 existing, non-matching repository '${repo.rootUri.toString(
 								true,
-						  )}' found, opening repository...`,
+							)}' found, opening repository...`,
 				);
 				repo = await gitApi.openRepository?.(uri);
 			}

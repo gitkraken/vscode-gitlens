@@ -37,7 +37,7 @@ export class GlGraphGate extends GlElement {
 							this.state.webviewId,
 							this.state.webviewInstanceId,
 							{ feature: this.state.featurePreview.feature },
-					  )
+						)
 					: undefined,
 			)}
 			appearance="alert"

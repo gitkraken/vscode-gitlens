@@ -190,7 +190,7 @@ export class BranchTrackingStatusNode
 					? `missing upstream $(git-branch) \`${this.status.upstream!.name}\``
 					: `up to date with $(git-branch) \`${this.status.upstream!.name}\`${
 							remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-					  }`,
+						}`,
 				expand: true,
 				icons: true,
 				separator: ', ',

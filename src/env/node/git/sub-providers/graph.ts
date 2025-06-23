@@ -353,8 +353,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 									worktreesByBranch?.has(branchId)
 										? '+worktree'
 										: branchIdOfMainWorktree === branchId
-										  ? '+checkedout'
-										  : ''
+											? '+checkedout'
+											: ''
 								}`,
 								webviewItemValue: {
 									type: 'branch',
@@ -380,7 +380,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										? {
 												name: branch.upstream.name,
 												id: getBranchId(repoPath, true, branch.upstream.name),
-										  }
+											}
 										: undefined,
 								worktreeId: worktree != null ? getWorktreeId(repoPath, worktree.name) : undefined,
 							};

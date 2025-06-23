@@ -228,7 +228,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								),
 								pathspec: file,
 							},
-					  }
+						}
 					: undefined,
 				{
 					files: commit.changedFiles ?? 0,
@@ -351,7 +351,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
-							  }
+								}
 							: undefined,
 						{
 							files: commit.changedFiles ?? 0,
@@ -702,7 +702,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 											additions: commit.additions ?? 0,
 											deletions: commit.deletions ?? 0,
 											changes: 0,
-									  }
+										}
 									: undefined,
 							),
 						);
@@ -938,8 +938,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					options?.ordering === 'date'
 						? 'committer-date'
 						: options?.ordering === 'author-date'
-						  ? 'author-date'
-						  : undefined,
+							? 'author-date'
+							: undefined,
 			});
 			if (result == null) return undefined;
 
@@ -985,7 +985,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
-							  }
+								}
 							: undefined,
 						{
 							files: commit.changedFiles ?? 0,

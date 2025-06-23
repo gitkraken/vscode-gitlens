@@ -319,7 +319,7 @@ export class LineAnnotationController implements Disposable {
 					commit,
 					// await GitUri.fromUri(editor.document.uri),
 					// l,
-					commit.isUncommitted ? cfg.uncommittedChangesFormat ?? cfg.format : cfg.format,
+					commit.isUncommitted ? (cfg.uncommittedChangesFormat ?? cfg.format) : cfg.format,
 					{
 						dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 						getBranchAndTagTips: getBranchAndTagTips,
@@ -383,7 +383,7 @@ export class LineAnnotationController implements Disposable {
 
 						void updateDecorations(this.container, editor, getBranchAndTagTips, prs);
 					},
-			  )
+				)
 			: undefined;
 
 		const [getBranchAndTagTipsResult] = await Promise.allSettled([

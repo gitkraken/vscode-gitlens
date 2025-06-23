@@ -31,10 +31,10 @@ _onDidFetchAvatar.event(
 											uri: avatar.uri.toString(),
 											timestamp: avatar.timestamp,
 										},
-								  ] as [string, StoredAvatar])
+									] as [string, StoredAvatar])
 								: undefined,
 						),
-				  ]
+					]
 				: undefined;
 		void Container.instance.storage.store('avatars', avatars).catch();
 	}, 1000),
@@ -147,7 +147,7 @@ function getAvatarUriCore(
 		return query ?? avatar.fallback!;
 	}
 
-	return options?.cached ? avatar.uri : avatar.uri ?? avatar.fallback!;
+	return options?.cached ? avatar.uri : (avatar.uri ?? avatar.fallback!);
 }
 
 function createOrUpdateAvatar(

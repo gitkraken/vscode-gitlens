@@ -243,7 +243,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	private getRefName(ref: string | StoredNamedRef): string {
 		return typeof ref === 'string'
 			? shortenRevision(ref, { strings: { working: 'Working Tree' } })
-			: ref.label ?? shortenRevision(ref.ref);
+			: (ref.label ?? shortenRevision(ref.ref));
 	}
 
 	private removeComparePicker(silent: boolean = false) {

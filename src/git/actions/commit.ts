@@ -73,7 +73,7 @@ export async function applyChanges(
 				create = true;
 
 				// If restoring a deleted file (e.g. a newly added file), swap the refs to restore from the previous commit
-				[ref1, ref2] = [ref2 === '' ? 'HEAD' : ref2 ?? `${ref1}^`, ref1];
+				[ref1, ref2] = [ref2 === '' ? 'HEAD' : (ref2 ?? `${ref1}^`), ref1];
 			}
 		}
 	}
@@ -305,7 +305,7 @@ export async function openChanges(
 				rhs: commitOrRefs.sha,
 				// Don't need to worry about verifying the previous sha, as the DiffWith command will
 				lhs: commitOrRefs.unresolvedPreviousSha,
-		  }
+			}
 		: commitOrRefs;
 
 	const rhsUri = GitUri.fromFile(file, refs.repoPath);
@@ -533,7 +533,7 @@ export async function openFileAtRevision(
 		uri = Container.instance.git
 			.getRepositoryService(commit.repoPath)
 			.getRevisionUri(
-				file.status === 'D' ? (await commit.getPreviousSha()) ?? deletedOrMissing : commit.sha,
+				file.status === 'D' ? ((await commit.getPreviousSha()) ?? deletedOrMissing) : commit.sha,
 				file,
 			);
 	}

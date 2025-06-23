@@ -391,8 +391,8 @@ export class ViewCommands implements Disposable {
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node?.is('tracking-status')
-				  ? node.branch
-				  : undefined;
+					? node.branch
+					: undefined;
 		if (from == null) {
 			const repo = node?.repoPath
 				? this.container.git.getRepository(node.repoPath)
@@ -424,10 +424,10 @@ export class ViewCommands implements Disposable {
 											id: remote.provider.id,
 											name: remote.provider.name,
 											domain: remote.provider.domain,
-									  }
+										}
 									: undefined,
 							url: remote.url,
-					  }
+						}
 					: undefined,
 			branch: {
 				name: node.branch.name,
@@ -445,8 +445,8 @@ export class ViewCommands implements Disposable {
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node?.is('tracking-status')
-				  ? node.branch
-				  : undefined;
+					? node.branch
+					: undefined;
 		if (from == null) {
 			const repo = node?.repoPath
 				? this.container.git.getRepository(node.repoPath)

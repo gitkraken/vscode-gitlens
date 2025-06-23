@@ -807,9 +807,9 @@ export abstract class GlBranchCardBase extends GlElement {
 												source: { source: 'home', detail: 'create-pr' },
 											},
 										)}"
-								  >
+									>
 										<code-icon icon="sparkle"></code-icon>
-								  </gl-button>`
+									</gl-button>`
 								: nothing}
 						</button-container>
 					</div>
@@ -819,7 +819,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		}
 
 		const indicator: GlCard['indicator'] = this.branch.opened
-			? getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base'
+			? (getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base')
 			: undefined;
 
 		const actions = this.renderPrActions();
@@ -883,7 +883,7 @@ export abstract class GlBranchCardBase extends GlElement {
 						slot="summary"
 						><gl-tooltip placement="bottom" content="${groupLabel}"
 							><code-icon icon="${groupIconString}"></code-icon></gl-tooltip
-				  ></span>`
+					></span>`
 				: nothing}`;
 	}
 
@@ -1002,7 +1002,7 @@ export class GlBranchCard extends GlBranchCardBase {
 						? this.wip.workingTreeState.added +
 								this.wip.workingTreeState.changed +
 								this.wip.workingTreeState.deleted >
-						  0
+							0
 						: false;
 				if (hasWip) {
 					actions.push(

@@ -682,9 +682,9 @@ async function parseRebaseTodo(
 									date: ontoCommit.formatDate(defaultDateFormat),
 									dateFromNow: ontoCommit.formatDateFromNow(),
 									message: emojify(ontoCommit.message || 'root'),
-							  }
+								}
 							: undefined,
-			  }
+				}
 			: undefined,
 		entries: entries,
 		authors: context.authors != null ? Object.fromEntries(context.authors) : {},

@@ -72,7 +72,7 @@ export class GlRefName extends LitElement {
 						class="icon${className ? ` ${className}` : ''}"
 						icon="${icon}"
 						size="${this.size}"
-				  ></code-icon>`
+					></code-icon>`
 				: nothing}<span class="label">${this.ref.name}</span>`;
 	}
 }

@@ -218,7 +218,7 @@ export class GitProviderService implements Disposable {
 						if (workspace.isTrusted && workspace.workspaceFolders?.length) {
 							void this.discoverRepositories(workspace.workspaceFolders, { force: true });
 						}
-				  })
+					})
 				: emptyDisposable,
 			...this.registerCommands(),
 		);

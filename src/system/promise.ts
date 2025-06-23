@@ -305,7 +305,7 @@ export function pauseOnCancelOrTimeout<T>(
 					setTimeout(() => continuation(r), 0);
 				}
 				return r;
-		  });
+			});
 }
 
 export async function pauseOnCancelOrTimeoutMap<Id, T>(
@@ -445,7 +445,7 @@ export async function pauseOnCancelOrTimeoutMapTuple<Id, T, U extends unknown[]>
 						promise.catch(() => undefined),
 						cancellation,
 						timeout,
-				  ).then(result => [id, [result as MaybePausedResult<T | undefined> | undefined, ...rest]] as const),
+					).then(result => [id, [result as MaybePausedResult<T | undefined> | undefined, ...rest]] as const),
 		),
 	);
 

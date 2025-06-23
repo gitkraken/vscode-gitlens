@@ -151,7 +151,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 						comparison: behind,
 						direction: 'behind',
 						files: {
-							ref1: behind.ref1 === '' ? '' : mergeBase ?? behind.ref1,
+							ref1: behind.ref1 === '' ? '' : (mergeBase ?? behind.ref1),
 							ref2: behind.ref2,
 							query: this.getBehindFilesQuery.bind(this),
 						},

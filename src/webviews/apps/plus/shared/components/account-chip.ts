@@ -457,7 +457,7 @@ export class GlAccountChip extends LitElement {
 											${this.renderPromo('advanced', 'info')}
 										</span>
 									</gl-button>
-							  </div>`
+								</div>`
 							: nothing}
 					</span>`,
 			)}
@@ -502,7 +502,7 @@ export class GlAccountChip extends LitElement {
 								See
 								<a href="${urls.releaseNotes}">what's new</a>
 								in GitLens.
-						  </p>`
+							</p>`
 						: nothing}
 					<p>
 						You have

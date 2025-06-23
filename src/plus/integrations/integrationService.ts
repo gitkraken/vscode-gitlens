@@ -564,7 +564,7 @@ export class IntegrationService implements Disposable {
 					: [
 							...Object.values(GitCloudHostIntegrationId),
 							...Object.values(GitSelfManagedHostIntegrationId),
-					  ]) {
+						]) {
 					if (
 						remoteIntegration.id === integrationId &&
 						remote.provider?.owner != null &&
@@ -590,7 +590,7 @@ export class IntegrationService implements Disposable {
 					...Object.values(GitCloudHostIntegrationId),
 					...Object.values(IssuesCloudHostIntegrationId),
 					...Object.values(GitSelfManagedHostIntegrationId),
-			  ]) {
+				]) {
 			const integration = await this.get(integrationId);
 			const isInvalidIntegration =
 				(options?.openRepositoriesOnly &&

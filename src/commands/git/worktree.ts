@@ -519,7 +519,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				: Uri.joinPath(
 						state.uri,
 						...(state.createBranch ?? state.reference.name).replace(/\\/g, '/').split('/'),
-				  );
+					);
 
 			let worktree: GitWorktree | undefined;
 			try {
@@ -729,8 +729,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				label: isRemoteBranch
 					? 'Create Worktree from New Local Branch'
 					: isBranch
-					  ? 'Create Worktree from Branch'
-					  : context.title,
+						? 'Create Worktree from Branch'
+						: context.title,
 				description: '',
 				detail: `Will create worktree in $(folder) ${
 					state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
@@ -756,8 +756,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							label: isRemoteBranch
 								? 'Create Worktree from Local Branch'
 								: isBranch
-								  ? 'Create Worktree from Branch'
-								  : context.title,
+									? 'Create Worktree from Branch'
+									: context.title,
 							description: '',
 							detail: `Will create worktree directly in $(folder) ${truncateLeft(
 								pickedFriendlyPath,
@@ -1028,7 +1028,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								description: 'includes ANY UNCOMMITTED changes',
 								detail: `Will forcibly ${descriptionWithBranchDelete}`,
 							}),
-					  ]),
+						]),
 			],
 			context,
 		);

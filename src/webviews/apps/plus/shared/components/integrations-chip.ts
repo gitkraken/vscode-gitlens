@@ -289,7 +289,7 @@ export class GlIntegrationsChip extends LitElement {
 								placement="right"
 								.source=${{ source: 'home', detail: 'integrations' } as const}
 								cloud
-						  ></gl-feature-badge>`
+							></gl-feature-badge>`
 						: nothing}
 				</span>
 				<span class="integration__details">${getIntegrationDetails(integration)}</span>
@@ -306,15 +306,15 @@ export class GlIntegrationsChip extends LitElement {
 							tooltip="Unlock ${integration.name} features with GitLens Pro"
 							aria-label="Unlock ${integration.name} features with GitLens Pro"
 							><code-icon class="status-indicator" icon="lock"></code-icon
-					  ></gl-button>`
+						></gl-button>`
 					: integration.connected
-					  ? html`<gl-tooltip
+						? html`<gl-tooltip
 								class="status-indicator status--connected"
 								placement="bottom"
 								content="Connected"
 								><code-icon class="status-indicator" icon="check"></code-icon
-					    ></gl-tooltip>`
-					  : html`<gl-button
+							></gl-tooltip>`
+						: html`<gl-button
 								appearance="toolbar"
 								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 									'gitlens.plus.cloudIntegrations.connect',
@@ -326,7 +326,7 @@ export class GlIntegrationsChip extends LitElement {
 								tooltip="Connect ${integration.name}"
 								aria-label="Connect ${integration.name}"
 								><code-icon icon="plug"></code-icon
-					    ></gl-button>`}
+							></gl-button>`}
 			</span>
 		</div>`;
 	}
@@ -364,9 +364,9 @@ export class GlIntegrationsChip extends LitElement {
 													placement="right"
 													.source=${{ source: 'home', detail: 'integrations' } as const}
 													cloud
-											  ></gl-feature-badge>`
+												></gl-feature-badge>`
 											: nothing}
-								  </span>`
+									</span>`
 								: html`<span class="integration_details">Select AI model to enable AI features</span>`}
 							${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
 						</span>
@@ -397,7 +397,7 @@ export class GlIntegrationsChip extends LitElement {
 										aria-label="Re-enable AI Features"
 										><code-icon icon="unlock"></code-icon
 									></gl-button>
-							  </span>`
+								</span>`
 							: nothing}`}
 		</div>`;
 	}

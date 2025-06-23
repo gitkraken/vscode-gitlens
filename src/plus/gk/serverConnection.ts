@@ -61,8 +61,8 @@ export class ServerConnection implements Disposable {
 		return this.container.debugging
 			? 'gitlens-vsc-debug'
 			: this.container.prerelease
-			  ? 'gitlens-vsc-pre'
-			  : 'gitlens-vsc';
+				? 'gitlens-vsc-pre'
+				: 'gitlens-vsc';
 	}
 
 	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {

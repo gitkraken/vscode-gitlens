@@ -40,11 +40,11 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 						? `$(file) ${basename(options.file.path)}${options.file.formatStats('expanded', {
 								separator: ', ',
 								prefix: ` ${GlyphChars.Dot} `,
-						  })}`
+							})}`
 						: `$(files) ${commit.formatStats('expanded', {
 								separator: ', ',
 								empty: 'No files changed',
-						  })}`
+							})}`
 				}${options?.hint != null ? `${pad(GlyphChars.Dash, 4, 2, GlyphChars.Space)}${options.hint}` : ''}`,
 				alwaysShow: true,
 				picked: options?.picked ?? true,

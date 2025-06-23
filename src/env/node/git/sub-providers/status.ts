@@ -200,7 +200,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 												refType: 'branch',
 												name: possibleSourceBranches[0],
 												remote: false,
-										  })
+											})
 										: createReference(mergeHead, repoPath, { refType: 'revision' }),
 							} satisfies GitMergeStatus;
 						}
@@ -293,14 +293,14 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 											'HEAD',
 											undefined,
 											cancellation,
-									  )
+										)
 									: this.provider.refs.getMergeBase(
 											repoPath,
 											onto,
 											origHead,
 											undefined,
 											cancellation,
-									  ),
+										),
 								this.provider.branches.getBranchesWithCommits(
 									repoPath,
 									[onto],
@@ -370,7 +370,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 												? createReference(rebaseHead, repoPath, {
 														refType: 'revision',
 														message: getSettledValue(stepsMessageResult),
-												  })
+													})
 												: undefined,
 									},
 									total: getSettledValue(stepsTotalResult) ?? 0,

@@ -101,7 +101,7 @@ export class GlFetchButton extends LitElement {
 						? html`
 								<hr />
 								Last fetched ${this.fetchedText}
-						  `
+							`
 						: nothing}
 				</span>
 			</gl-tooltip>
@@ -231,7 +231,7 @@ export class PushPullButton extends LitElement {
 											${this.branchState.behind}
 											<code-icon icon="arrow-down"></code-icon>
 										</span>
-								  `
+									`
 								: ''}
 							${this.isAhead
 								? html`
@@ -239,7 +239,7 @@ export class PushPullButton extends LitElement {
 											${this.isBehind ? html`&nbsp;&nbsp;` : ''} ${this.branchState.ahead}
 											<code-icon icon="arrow-up"></code-icon>
 										</span>
-								  `
+									`
 								: ''}
 						</span>
 					</span>
@@ -271,7 +271,7 @@ export class PushPullButton extends LitElement {
 								${this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : ''}
 							</span>
 						</gl-tooltip>
-				  `
+					`
 				: ''}
 		`;
 	}

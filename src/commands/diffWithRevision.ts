@@ -107,7 +107,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 									title: newTitle,
 								};
 							},
-					  }
+						}
 					: undefined,
 				picked: gitUri.sha,
 				keyboard: {

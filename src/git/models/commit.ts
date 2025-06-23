@@ -457,9 +457,9 @@ export class GitCommit implements GitRevisionReference {
 						type === 'added'
 							? 'var(--vscode-gitDecoration-addedResourceForeground)'
 							: type === 'deleted'
-							  ? 'var(--vscode-gitDecoration-deletedResourceForeground)'
-							  : 'var(--vscode-gitDecoration-modifiedResourceForeground)'
-				  };">${label}</span>`
+								? 'var(--vscode-gitDecoration-deletedResourceForeground)'
+								: 'var(--vscode-gitDecoration-modifiedResourceForeground)'
+					};">${label}</span>`
 				: label;
 		}
 
@@ -599,8 +599,8 @@ export class GitCommit implements GitRevisionReference {
 		// If we are "allowing" filtered files, prioritize them (allowing here really means "use" filtered files if they exist)
 		const commits = (
 			options?.allowFilteredFiles
-				? this.fileset?.filtered?.files ?? this.fileset?.files
-				: this.fileset?.files ?? this.fileset?.filtered?.files
+				? (this.fileset?.filtered?.files ?? this.fileset?.files)
+				: (this.fileset?.files ?? this.fileset?.filtered?.files)
 		)?.map(f => this.with({ fileset: { ...this.fileset!, filtered: { files: [f], pathspec: f.path } } }));
 		return commits ?? [];
 	}

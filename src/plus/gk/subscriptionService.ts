@@ -853,7 +853,7 @@ export class SubscriptionService implements Disposable {
 						);
 					},
 					{ once: true },
-			  )
+				)
 			: undefined;
 
 		const hasAccount = this._subscription.account != null;

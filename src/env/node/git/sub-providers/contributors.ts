@@ -171,8 +171,8 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					cancelled: signal?.aborted
 						? { reason: 'timedout' }
 						: cancellation?.isCancellationRequested
-						  ? { reason: 'cancelled' }
-						  : undefined,
+							? { reason: 'cancelled' }
+							: undefined,
 				};
 			} catch (ex) {
 				cancellable?.cancel();

@@ -64,7 +64,7 @@ export class GenerateChangelogCommand extends GlCommandBase {
 										mergeBase === result.base.ref
 											? `\`${shortenRevision(mergeBase)}\``
 											: `\`${result.base.ref}@${shortenRevision(mergeBase)}\``,
-							  }
+								}
 							: { ref: result.base.ref, label: `\`${result.base.ref}\`` },
 						head: { ref: result.head.ref, label: `\`${result.head.ref}\`` },
 					};

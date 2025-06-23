@@ -81,10 +81,10 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 					useFileRevisionAsCommit
 						? new FileRevisionAsCommitNode(this.view, this, c.file!, c, {
 								getBranchAndTagTips: getBranchAndTagTips,
-						  })
+							})
 						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
 								allowFilteredFiles: hasPathspec,
-						  }),
+							}),
 				),
 				this,
 			),
@@ -103,11 +103,11 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			this.contributor.stats != null
 				? ` (${pluralize('file', this.contributor.stats.files)}, +${formatNumeric(
 						this.contributor.stats.additions,
-				  )} -${formatNumeric(this.contributor.stats.deletions)} ${pluralize(
+					)} -${formatNumeric(this.contributor.stats.deletions)} ${pluralize(
 						'line',
 						this.contributor.stats.additions + this.contributor.stats.deletions,
 						{ only: true },
-				  )})`
+					)})`
 				: '';
 
 		const item = new TreeItem(
@@ -158,7 +158,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 				? `\\\n${pluralize('file', this.contributor.stats.files)} changed, ${pluralize(
 						'addition',
 						this.contributor.stats.additions,
-				  )}, ${pluralize('deletion', this.contributor.stats.deletions)}`
+					)}, ${pluralize('deletion', this.contributor.stats.deletions)}`
 				: '';
 
 		const link = this.contributor.email

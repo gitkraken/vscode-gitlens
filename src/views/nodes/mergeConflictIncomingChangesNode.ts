@@ -54,12 +54,12 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 				? ` (${getReferenceLabel(this.status.steps.current.commit, {
 						expand: false,
 						icon: false,
-				  })})`
+					})})`
 				: ` (${getReferenceLabel(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
-			  new ThemeIcon('diff')
+			? ((await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
+				new ThemeIcon('diff'))
 			: new ThemeIcon('diff');
 		item.command = this.getCommand();
 
@@ -120,11 +120,11 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 					? `\n\n${getReferenceLabel(this.status.steps.current.commit, {
 							capitalize: true,
 							label: false,
-					  })}`
+						})}`
 					: `\n\n${getReferenceLabel(this.status.HEAD, {
 							capitalize: true,
 							label: false,
-					  })}`,
+						})}`,
 			);
 			return markdown;
 		}

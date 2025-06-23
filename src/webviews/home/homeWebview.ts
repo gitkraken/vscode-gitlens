@@ -815,7 +815,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 							allCount: this.container.walkthrough.walkthroughSize,
 							doneCount: this.container.walkthrough.doneCount,
 							progress: this.container.walkthrough.progress,
-					  }
+						}
 					: undefined,
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
@@ -1105,10 +1105,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						supportedCloudDescriptor?.supports != null
 							? supportedCloudDescriptor.supports
 							: providersMetadata[i.integrationId].type === 'git'
-							  ? ['prs', 'issues']
-							  : providersMetadata[i.integrationId].type === 'issues'
-							    ? ['issues']
-							    : [],
+								? ['prs', 'issues']
+								: providersMetadata[i.integrationId].type === 'issues'
+									? ['issues']
+									: [],
 					requiresPro: supportedCloudDescriptor?.requiresPro ?? false,
 				} satisfies IntegrationState;
 			});
@@ -1277,7 +1277,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
-		const worktree = branch.worktree === false ? undefined : branch.worktree ?? (await branch.getWorktree());
+		const worktree = branch.worktree === false ? undefined : (branch.worktree ?? (await branch.getWorktree()));
 
 		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
 			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
@@ -1363,7 +1363,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					? {
 							name: ref.branchUpstreamName,
 							missing: false,
-					  }
+						}
 					: undefined,
 			},
 		});
@@ -1473,10 +1473,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 												id: remote.provider.id,
 												name: remote.provider.name,
 												domain: remote.provider.domain,
-										  }
+											}
 										: undefined,
 								url: remote.url,
-						  }
+							}
 						: undefined,
 				branch: {
 					name: branch.name,
@@ -1687,7 +1687,7 @@ function enrichOverviewBranchesCore(
 							icon: r.provider.icon === 'remote' ? 'cloud' : r.provider.icon,
 							url: await r.provider.url({ type: RemoteResourceType.Repo }),
 							supportedFeatures: r.provider.supportedFeatures,
-					  }
+						}
 					: undefined,
 			};
 		});

@@ -981,10 +981,10 @@ export type TelemetryEventsFromWebviewApp = {
 		keyof (K extends `commitDetails/${string}` | `graphDetails/${string}`
 			? InspectTelemetryContext
 			: K extends `graph/${string}`
-			  ? GraphTelemetryContext
-			  : K extends `timeline/${string}`
-			    ? TimelineTelemetryContext
-			    : WebviewTelemetryContext)
+				? GraphTelemetryContext
+				: K extends `timeline/${string}`
+					? TimelineTelemetryContext
+					: WebviewTelemetryContext)
 	>;
 };
 

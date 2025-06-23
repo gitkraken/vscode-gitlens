@@ -144,7 +144,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				branch != null && !branch.remote
 					? getBranchAheadRange(svc, branch).then(range =>
 							range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
-					  )
+						)
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
@@ -184,7 +184,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 									unpublishedCommits?.has(c.ref),
 									branch,
 									getBranchAndTagTips,
-							  ),
+								),
 					),
 					this,
 				),
@@ -220,9 +220,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						this.worktree.isDefault
 							? `_default${this.worktree.opened ? ', active_' : '_'}`
 							: this.worktree.opened
-							  ? '_active_'
-							  : ''
-				  })`
+								? '_active_'
+								: ''
+					})`
 				: '';
 
 		let status: GitStatus | undefined;
@@ -415,8 +415,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.worktree.opened
-				  ? new ThemeIcon('check')
-				  : icon;
+					? new ThemeIcon('check')
+					: icon;
 		item.tooltip = tooltip;
 		item.resourceUri = createViewDecorationUri('worktree', { hasChanges: hasChanges, missing: missing });
 

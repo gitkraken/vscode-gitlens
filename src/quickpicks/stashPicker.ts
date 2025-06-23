@@ -66,7 +66,7 @@ export async function showStashPicker(
 	if (!stash?.stashes.size || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
 		quickpick.placeholder = !stash?.stashes.size
 			? 'No stashes found'
-			: options?.empty ?? `No matching stashes found`;
+			: (options?.empty ?? `No matching stashes found`);
 		quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 	}
 

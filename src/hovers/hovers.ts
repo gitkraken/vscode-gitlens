@@ -92,21 +92,21 @@ export async function changesMessage(
 			compareUris.previous.sha == null || compareUris.previous.isUncommitted
 				? `  &nbsp;_${shortenRevision(compareUris.previous.sha, {
 						strings: { working: 'Working Tree' },
-				  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
+					})}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 				: `  &nbsp;[$(git-commit) ${shortenRevision(
 						compareUris.previous.sha || '',
-				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
+					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 						compareUris.previous.sha || '',
-				  )} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
+					)} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
 		current =
 			compareUris.current.sha == null || compareUris.current.isUncommitted
 				? `_${shortenRevision(compareUris.current.sha, { strings: { working: 'Working Tree' } })}_`
 				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
-				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
+					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 						compareUris.current.sha || '',
-				  )} "Show Commit")`;
+					)} "Show Commit")`;
 	} else {
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range)} "Open Changes")`;
 
@@ -240,21 +240,21 @@ export async function detailsMessage(
 						options?.enrichedAutolinks ?? commit.getEnrichedAutolinks(remote),
 						options?.cancellation,
 						options?.timeout,
-				  )
+					)
 				: undefined,
 			prs
 				? pauseOnCancelOrTimeout(
 						options?.pullRequest ?? commit.getAssociatedPullRequest(remote),
 						options?.cancellation,
 						options?.timeout,
-				  )
+					)
 				: undefined,
 			container.vsls.active
 				? pauseOnCancelOrTimeout(
 						container.vsls.getContactPresence(commit.author.email),
 						options?.cancellation,
 						Math.min(options?.timeout ?? 250, 250),
-				  )
+					)
 				: undefined,
 			commit.isUncommitted
 				? commit.getPreviousComparisonUrisForRange(editorLineToDiffRange(editorLine), uri.sha)

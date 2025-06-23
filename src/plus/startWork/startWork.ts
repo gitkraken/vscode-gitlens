@@ -378,10 +378,10 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
 				{
 					placeholder: hasConnectedIntegration
-						? this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
-						  'Connect additional integrations to Start Work'
-						: this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
-						  'Connect an integration to get started with Start Work',
+						? (this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
+							'Connect additional integrations to Start Work')
+						: (this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
+							'Connect an integration to get started with Start Work'),
 					buttons: [],
 					ignoreFocusOut: true,
 				},

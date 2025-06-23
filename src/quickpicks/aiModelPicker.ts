@@ -55,11 +55,11 @@ export async function showAIProviderPicker(
 
 	try {
 		const pickedProvider =
-			current?.provider ?? providers.get('vscode')?.configured
+			(current?.provider ?? providers.get('vscode')?.configured)
 				? 'vscode'
 				: providers.get('gitkraken')?.configured
-				  ? 'gitkraken'
-				  : undefined;
+					? 'gitkraken'
+					: undefined;
 
 		let addedRequiredKeySeparator = false;
 		while (true) {
@@ -79,8 +79,8 @@ export async function showAIProviderPicker(
 						p.id === current?.provider && currentModelName
 							? `      ${currentModelName}`
 							: p.id === 'gitkraken'
-							  ? '      Models provided by GitKraken'
-							  : undefined,
+								? '      Models provided by GitKraken'
+								: undefined,
 					buttons: !p.primary ? (p.configured ? [ClearAIKeyButton] : [ConfigureAIKeyButton]) : undefined,
 					description:
 						p.id === 'gitkraken'

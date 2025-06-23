@@ -490,15 +490,15 @@ export class LaunchpadProvider implements Disposable {
 			options?.startCodeSuggestion
 				? DeepLinkActionType.SwitchToAndSuggestPullRequest
 				: options?.openInWorktree
-				  ? DeepLinkActionType.SwitchToPullRequestWorktree
-				  : DeepLinkActionType.SwitchToPullRequest,
+					? DeepLinkActionType.SwitchToPullRequestWorktree
+					: DeepLinkActionType.SwitchToPullRequest,
 		);
 		if (deepLinkUrl == null) return;
 
 		const prRepo = options?.openInWorktree
 			? await getOrOpenPullRequestRepository(this.container, item.underlyingPullRequest, {
 					skipVirtual: true,
-			  })
+				})
 			: undefined;
 		this._codeSuggestions?.delete(item.uuid);
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false, prRepo);
@@ -742,7 +742,7 @@ export class LaunchpadProvider implements Disposable {
 							!ignoredRepositories.has(
 								`${pr.repository.owner.toLowerCase()}/${pr.repository.repo.toLowerCase()}`,
 							),
-				  );
+					);
 
 			// There was a conversation https://github.com/gitkraken/vscode-gitlens/pull/3200#discussion_r1563347675
 			// that was related to this piece of code.
@@ -759,10 +759,10 @@ export class LaunchpadProvider implements Disposable {
 				const enrichProviderId = !isSupportedLaunchpadIntegrationId(providerId)
 					? undefined
 					: isEnrichableIntegrationId(providerId)
-					  ? convertIntegrationIdToEnrichProvider(providerId)
-					  : isEnrichableRemoteProviderId(providerId)
-					    ? convertRemoteProviderIdToEnrichProvider(providerId)
-					    : undefined;
+						? convertIntegrationIdToEnrichProvider(providerId)
+						: isEnrichableRemoteProviderId(providerId)
+							? convertRemoteProviderIdToEnrichProvider(providerId)
+							: undefined;
 
 				if (!enrichProviderId) {
 					Logger.warn(`Unsupported provider ${providerId}`);

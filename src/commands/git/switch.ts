@@ -237,7 +237,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 													capitalize: true,
 													icon: false,
 												})} is linked to a worktree`,
-										  },
+											},
 								},
 								onWorkspaceChanging: state.onWorkspaceChanging,
 								repo: state.repos[0],

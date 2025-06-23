@@ -230,7 +230,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 							? `No results for ${state.query}`
 							: `${pluralize('result', log.count, {
 									format: c => (log.hasMore ? `${c}+` : String(c)),
-							  })} for ${state.query}`,
+								})} for ${state.query}`,
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
@@ -334,7 +334,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 						buttons: [UseFilePickerQuickInputButton, UseFolderPickerQuickInputButton],
 						alwaysShow: true,
 						item: 'file:' as const,
-				  },
+					},
 			context.hasVirtualFolders
 				? undefined
 				: {
@@ -342,7 +342,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 						description: 'change: pattern or ~: pattern',
 						alwaysShow: true,
 						item: 'change:' as const,
-				  },
+					},
 			context.hasVirtualFolders
 				? undefined
 				: {
@@ -350,7 +350,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 						description: 'type: stash or is: stash',
 						alwaysShow: true,
 						item: 'type:' as const,
-				  },
+					},
 		].filter(<T>(i?: T): i is T => i != null);
 
 		const matchCaseButton = new MatchCaseToggleQuickInputButton(state.matchCase);

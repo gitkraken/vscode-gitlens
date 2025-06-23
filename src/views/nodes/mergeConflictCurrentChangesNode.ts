@@ -48,8 +48,8 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 			commit != null ? ` (${getReferenceLabel(commit, { expand: false, icon: false })})` : ' (HEAD)'
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
-			  new ThemeIcon('diff')
+			? ((await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
+				new ThemeIcon('diff'))
 			: new ThemeIcon('diff');
 		item.command = this.getCommand();
 

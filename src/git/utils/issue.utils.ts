@@ -50,7 +50,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						owner: value.repository.owner,
 						repo: value.repository.repo,
 						url: value.repository.url,
-				  },
+					},
 		project:
 			value.project == null
 				? undefined
@@ -59,7 +59,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						name: value.project.name,
 						resourceId: value.project.resourceId,
 						resourceName: value.project.resourceName,
-				  },
+					},
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,
 			name: assignee.name,
@@ -72,7 +72,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 				: value.labels.map(label => ({
 						color: label.color,
 						name: label.name,
-				  })),
+					})),
 		commentsCount: value.commentsCount,
 		thumbsUpCount: value.thumbsUpCount,
 		body: value.body,

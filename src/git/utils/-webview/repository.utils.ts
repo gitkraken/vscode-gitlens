@@ -80,7 +80,7 @@ export async function toRepositoryShapeWithProvider(
 				? {
 						id: convertRemoteProviderIdToIntegrationId(remote.provider.id)!,
 						connected: remote.maybeIntegrationConnected ?? false,
-				  }
+					}
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
 			url: await remote.provider.url({ type: RemoteResourceType.Repo }),

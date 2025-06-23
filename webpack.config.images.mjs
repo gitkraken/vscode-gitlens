@@ -37,7 +37,7 @@ export default function (env, argv) {
 						},
 					},
 				},
-		  }
+			}
 		: {
 				type: 'asset',
 				implementation: ImageMinimizerPlugin.imageminGenerate,
@@ -54,7 +54,7 @@ export default function (env, argv) {
 						],
 					],
 				},
-		  };
+			};
 
 	/** @type WebpackConfig['plugins'] */
 	const plugins = [

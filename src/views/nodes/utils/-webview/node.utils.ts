@@ -88,8 +88,8 @@ type FilterNodesByType<T extends keyof TreeViewNodesByType | (keyof TreeViewNode
 	T extends keyof TreeViewNodesByType
 		? TreeViewNodesByType[T]
 		: T extends (keyof TreeViewNodesByType)[]
-		  ? TreeViewNodesByType[T[number]]
-		  : never;
+			? TreeViewNodesByType[T[number]]
+			: never;
 
 export const markers: [number, string][] = [
 	[0, 'Less than a week ago'],

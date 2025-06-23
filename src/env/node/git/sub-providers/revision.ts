@@ -165,7 +165,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			return {
 				sha: commit?.sha ?? deletedOrMissing,
 				// If it looks like non-sha like then preserve it as the friendly name
-				revision: isRevisionWithSuffix(ref) ? commit?.sha ?? ref : ref,
+				revision: isRevisionWithSuffix(ref) ? (commit?.sha ?? ref) : ref,
 			};
 		}
 
@@ -173,7 +173,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			return {
 				sha: commit?.sha ?? deletedOrMissing,
 				// If it looks like non-sha like then preserve it as the friendly name
-				revision: isRevisionWithSuffix(ref) ? commit?.sha ?? ref : ref,
+				revision: isRevisionWithSuffix(ref) ? (commit?.sha ?? ref) : ref,
 				status: file.status as GitFileStatus,
 				originalPath: file.originalPath,
 			};
@@ -196,14 +196,14 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				return {
 					sha: commit?.sha ?? deletedOrMissing,
 					// If it looks like non-sha like then preserve it as the friendly name
-					revision: isRevisionWithSuffix(ref) ? commit?.sha ?? ref : ref,
+					revision: isRevisionWithSuffix(ref) ? (commit?.sha ?? ref) : ref,
 				};
 			}
 
 			return {
 				sha: commit?.sha ?? deletedOrMissing,
 				// If it looks like non-sha like without a suffix then preserve it as the friendly name
-				revision: isRevisionWithSuffix(ref) ? commit?.sha ?? ref : ref,
+				revision: isRevisionWithSuffix(ref) ? (commit?.sha ?? ref) : ref,
 				status: file?.status as GitFileStatus,
 				path: file?.path,
 				originalPath: file?.originalPath,
@@ -213,7 +213,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return {
 			sha: commit?.sha ?? deletedOrMissing,
 			// If it looks like non-sha like then preserve it as the friendly name
-			revision: isRevisionWithSuffix(ref) ? commit?.sha ?? ref : ref,
+			revision: isRevisionWithSuffix(ref) ? (commit?.sha ?? ref) : ref,
 			status: file.status as GitFileStatus,
 			originalPath: file.originalPath,
 		};

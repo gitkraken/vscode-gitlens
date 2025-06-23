@@ -280,13 +280,13 @@ export function getIssueOwner(
 				key: `${issue.repository.owner}/${issue.repository.repo}`,
 				owner: issue.repository.owner,
 				name: issue.repository.repo,
-		  }
+			}
 		: issue.project
-		  ? {
+			? {
 					key: isAzure ? issue.project.id : issue.project.resourceId,
 					id: isAzure ? issue.project.id : issue.project.resourceId,
 					owner: isAzure ? issue.project.resourceName : undefined,
 					name: isAzure ? issue.project.name : issue.project.resourceName,
-		    }
-		  : undefined;
+				}
+			: undefined;
 }

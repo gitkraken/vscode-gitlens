@@ -132,11 +132,11 @@ export class ActionMessageNode extends CommandMessageNode {
 		resourceUri?: Uri | null;
 	}): void {
 		this.message = options.message ?? this.message;
-		this.description = options.description === null ? undefined : options.description ?? this.description;
-		this.tooltip = options.tooltip === null ? undefined : options.tooltip ?? this.tooltip;
-		this.iconPath = options.iconPath === null ? undefined : options.iconPath ?? this.iconPath;
-		this.contextValue = options.contextValue === null ? undefined : options.contextValue ?? this.contextValue;
-		this.resourceUri = options.resourceUri === null ? undefined : options.resourceUri ?? this.resourceUri;
+		this.description = options.description === null ? undefined : (options.description ?? this.description);
+		this.tooltip = options.tooltip === null ? undefined : (options.tooltip ?? this.tooltip);
+		this.iconPath = options.iconPath === null ? undefined : (options.iconPath ?? this.iconPath);
+		this.contextValue = options.contextValue === null ? undefined : (options.contextValue ?? this.contextValue);
+		this.resourceUri = options.resourceUri === null ? undefined : (options.resourceUri ?? this.resourceUri);
 		this.view.triggerNodeChange(this);
 	}
 }

@@ -225,9 +225,9 @@ export class AutolinksProvider implements Disposable {
 					link.provider instanceof IntegrationBase
 						? link.provider.id
 						: // TODO: Tighten the typing on ProviderReference to be specific to a remote provider, and then have a separate "integration" property (on autolinks and elsewhere)
-						  // that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
-						  // Either way, this converting/casting hackery needs to go away.
-						  convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId);
+							// that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
+							// Either way, this converting/casting hackery needs to go away.
+							convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId);
 				if (integrationId == null) {
 					// Fall back to the old logic assuming that integration id might be saved as provider id.
 					// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
@@ -255,12 +255,12 @@ export class AutolinksProvider implements Disposable {
 							link.descriptor ?? remote.provider.repoDesc,
 							this.getAutolinkEnrichableId(link),
 							{ type: link.type },
-					  )
+						)
 					: link.descriptor != null
-					  ? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link), {
+						? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link), {
 								type: link.type,
-					    })
-					  : undefined;
+							})
+						: undefined;
 			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
 		}
 
@@ -529,9 +529,9 @@ export class AutolinksProvider implements Disposable {
 												? 'Loading...'
 												: `${issueResult.value.title}  ${GlyphChars.Dot}  ${capitalize(
 														issueResult.value.state,
-												  )}, ${fromNow(
+													)}, ${fromNow(
 														issueResult.value.closedDate ?? issueResult.value.createdDate,
-												  )}`
+													)}`
 										}`,
 									);
 								}

@@ -896,7 +896,7 @@ async function handleBadDraftResponse(message: string, rsp?: any, scope?: LogSco
 	try {
 		json = (await rsp?.json()) as { error?: { message?: string } } | { error?: string } | undefined;
 	} catch {}
-	const rspErrorMessage = typeof json?.error === 'string' ? json.error : json?.error?.message ?? rsp?.statusText;
+	const rspErrorMessage = typeof json?.error === 'string' ? json.error : (json?.error?.message ?? rsp?.statusText);
 	const errorMessage = rsp != null ? `${message}: (${rsp?.status}) ${rspErrorMessage}` : message;
 	Logger.error(undefined, scope, errorMessage);
 	throw new Error(errorMessage);

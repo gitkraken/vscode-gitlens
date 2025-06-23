@@ -78,8 +78,8 @@ export class ResetGitCommand extends QuickCommand<State> {
 				state.flags.includes('--hard')
 					? { hard: true }
 					: state.flags.includes('--soft')
-					  ? { soft: true }
-					  : undefined,
+						? { soft: true }
+						: undefined,
 			);
 		} catch (ex) {
 			Logger.error(ex, this.title);

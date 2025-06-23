@@ -77,7 +77,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 							repo: gitUri.repoPath,
 							reference: args?.reference ?? 'HEAD',
 							fileName: gitUri.relativePath,
-					  }
+						}
 					: {},
 		});
 	}

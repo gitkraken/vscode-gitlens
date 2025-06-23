@@ -111,11 +111,9 @@ export class GitDocumentTracker implements Disposable {
 
 		const docs = workspace.textDocuments
 			.filter(d => this.container.git.supportedSchemes.has(d.uri.scheme))
-			.map<[TextDocument, visible: boolean, active: boolean]>(d => [
-				d,
-				isVisibleTextDocument(d),
-				activeDocument === d,
-			]);
+			.map<
+				[TextDocument, visible: boolean, active: boolean]
+			>(d => [d, isVisibleTextDocument(d), activeDocument === d]);
 
 		// Sort by active and then by visible
 		docs.sort(([, aVisible, aActive], [, bVisible, bActive]) => {

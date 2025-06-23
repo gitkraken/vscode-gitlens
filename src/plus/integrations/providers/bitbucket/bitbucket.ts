@@ -363,7 +363,7 @@ export class BitbucketApi implements Disposable {
 							? {
 									owner: repo.parent.workspace.slug,
 									name: repo.parent.slug,
-							  }
+								}
 							: undefined,
 					};
 				});

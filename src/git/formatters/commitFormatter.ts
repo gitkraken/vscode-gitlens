@@ -123,7 +123,7 @@ export interface CommitFormatOptions extends FormatOptions {
 }
 
 export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
-	protected declare _options: RequiredTokenOptions<CommitFormatOptions> &
+	declare protected _options: RequiredTokenOptions<CommitFormatOptions> &
 		Required<Pick<CommitFormatOptions, 'outputFormat'>>;
 
 	override reset(item: GitCommit, options?: CommitFormatOptions): void {
@@ -350,7 +350,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 						this._options.htmlFormat?.classes?.avatar
 							? ` class="${this._options.htmlFormat.classes.avatar}"`
 							: ''
-				  } />`
+					} />`
 				: `![${title}](${src}|width=${size},height=${size} "${title}")`,
 			this._options.tokenOptions.avatar,
 		);
@@ -362,7 +362,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					this._options.htmlFormat?.classes?.avatarPresence
 						? ` class="${this._options.htmlFormat.classes.avatarPresence}"`
 						: ''
-			  }/>`
+				}/>`
 			: `![${title}](${getPresenceDataUri(presence.status)} "${title}")`;
 	}
 
@@ -732,7 +732,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		let message = (
-			this._options.messageTruncateAtNewLine ? this._item.summary : this._item.message ?? this._item.summary
+			this._options.messageTruncateAtNewLine ? this._item.summary : (this._item.message ?? this._item.summary)
 		)
 			.trim()
 			.replace(/\r?\n/g, '\n');
@@ -828,8 +828,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					? `[PR $(loading~spin)](${createMarkdownCommandLink(
 							'gitlens.refreshHover',
 							undefined,
-					  )} "Searching for a Pull Request (if any) that introduced this commit...")`
-					: this._options?.pullRequestPendingMessage ?? '';
+						)} "Searching for a Pull Request (if any) that introduced this commit...")`
+					: (this._options?.pullRequestPendingMessage ?? '');
 		} else {
 			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
 		}
@@ -852,7 +852,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	get pullRequestState(): string {
 		const { pullRequest: pr } = this._options;
 		return this._padOrTruncate(
-			pr == null || !isPullRequest(pr) ? '' : pr.state ?? '',
+			pr == null || !isPullRequest(pr) ? '' : (pr.state ?? ''),
 			this._options.tokenOptions.pullRequestState,
 		);
 	}
@@ -880,10 +880,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._options.outputFormat === 'markdown'
 					? true
 					: this._options.outputFormat === 'html'
-					  ? this._options.htmlFormat?.classes?.tips
+						? this._options.htmlFormat?.classes?.tips
 							? { cssClass: this._options.htmlFormat.classes.tips }
 							: true
-					  : false,
+						: false,
 		});
 		return this._padOrTruncate(branchAndTagTips ?? '', this._options.tokenOptions.tips);
 	}

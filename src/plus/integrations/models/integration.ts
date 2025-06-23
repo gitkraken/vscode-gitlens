@@ -353,7 +353,7 @@ export abstract class IntegrationBase<
 							createIfNeeded: createIfNeeded,
 							forceNewSession: forceNewSession,
 							source: source,
-					  },
+						},
 			);
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);

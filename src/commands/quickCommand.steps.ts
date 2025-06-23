@@ -319,7 +319,7 @@ export async function getBranchesAndOrTags(
 				? repo.git.branches.getBranches({
 						filter: filter?.branches,
 						sort: typeof sort === 'boolean' ? sort : sort?.branches,
-				  })
+					})
 				: undefined,
 			include.includes('tags') ? repo.git.tags.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
@@ -339,7 +339,7 @@ export async function getBranchesAndOrTags(
 								sort: typeof sort === 'boolean' ? sort : sort?.branches,
 							}),
 						),
-				  )
+					)
 				: undefined,
 			include.includes('tags')
 				? Promise.allSettled(
@@ -349,7 +349,7 @@ export async function getBranchesAndOrTags(
 								sort: typeof sort === 'boolean' ? sort : sort?.tags,
 							}),
 						),
-				  )
+					)
 				: undefined,
 		]);
 
@@ -825,10 +825,10 @@ export function* pickOrResetBranchStep<
 									description: reset.description,
 									detail: reset.detail,
 								}),
-						  ]
+							]
 						: []),
 					...branches,
-			  ],
+				],
 	);
 
 	const resetButton: QuickInputButton = {
@@ -908,7 +908,7 @@ export function* pickBranchesStep<
 	const step = createPickStep<BranchQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? emptyPlaceholder ?? `No branches found in ${state.repo.name}` : placeholder),
+		placeholder: count => (!count ? (emptyPlaceholder ?? `No branches found in ${state.repo.name}`) : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
@@ -982,7 +982,7 @@ export function* pickBranchOrTagStep<
 				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.name}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
-				  } (or enter a revision using #)`,
+					} (or enter a revision using #)`,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value,
@@ -1020,7 +1020,7 @@ export function* pickBranchOrTagStep<
 							? `${state.repo.name} has no branches${context.showTags ? ' or tags' : ''}`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
-							  } (or enter a revision using #)`;
+								} (or enter a revision using #)`;
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
@@ -1099,8 +1099,8 @@ export function* pickBranchOrTagStepMultiRepo<
 		branchesAndOrTags.length === 0
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: allowCreate
-			  ? [createNewBranchItem, choosePullRequestItem, ...branchesAndOrTags]
-			  : [choosePullRequestItem, ...branchesAndOrTags],
+				? [createNewBranchItem, choosePullRequestItem, ...branchesAndOrTags]
+				: [choosePullRequestItem, ...branchesAndOrTags],
 	);
 
 	const step = createPickStep<ReferencesQuickPickItem | typeof createNewBranchItem | typeof choosePullRequestItem>({
@@ -1109,10 +1109,10 @@ export function* pickBranchOrTagStepMultiRepo<
 			!count
 				? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 						context.showTags ? ' or tags' : ''
-				  } found in ${state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`}`
+					} found in ${state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
-				  } (or enter a revision using #)`,
+					} (or enter a revision using #)`,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value ?? (isRevisionReference(state.reference) ? state.reference.ref : undefined),
@@ -1149,12 +1149,12 @@ export function* pickBranchOrTagStepMultiRepo<
 						branchesAndOrTags.length === 0
 							? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 									context.showTags ? ' or tags' : ''
-							  } found in ${
+								} found in ${
 									state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`
-							  }`
+								}`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
-							  } (or enter a revision using #)`;
+								} (or enter a revision using #)`;
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
@@ -1645,7 +1645,7 @@ export async function* pickRepositoryStep<
 							label: 'Cancel',
 							detail: 'No opened repositories found',
 						}),
-				  ]
+					]
 				: Promise.all(
 						context.repos.map(r =>
 							createRepositoryQuickPickItem(r, r.id === active?.id, {
@@ -1655,7 +1655,7 @@ export async function* pickRepositoryStep<
 								status: true,
 							}),
 						),
-				  ),
+					),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void RepositoryActions.reveal(item.path, context.associatedView, {
@@ -1716,7 +1716,7 @@ export async function* pickRepositoriesStep<
 							label: 'Cancel',
 							detail: 'No opened repositories found',
 						}),
-				  ]
+					]
 				: Promise.all(
 						context.repos.map(repo =>
 							createRepositoryQuickPickItem(
@@ -1730,7 +1730,7 @@ export async function* pickRepositoriesStep<
 								},
 							),
 						),
-				  ),
+					),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void RepositoryActions.reveal(item.path, context.associatedView, {
@@ -1795,7 +1795,7 @@ export function* pickStashStep<
 							},
 						),
 					),
-			  ],
+				],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === ShowDetailsViewQuickInputButton) {
 				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
@@ -1853,7 +1853,7 @@ export function* pickStashesStep<
 							},
 						),
 					),
-			  ],
+				],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === ShowDetailsViewQuickInputButton) {
 				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
@@ -2179,7 +2179,7 @@ async function getShowCommitOrStashStepItems<
 			branch != null
 				? state.repo.git.branches.getBranchesWithCommits([state.reference.ref], branch.name, {
 						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
-				  })
+					})
 				: undefined,
 			!branch?.remote && branch?.upstream != null ? state.reference.isPushed() : undefined,
 		]);
@@ -2611,7 +2611,7 @@ function getShowRepositoryStatusStepItems<
 			computed.unstaged
 				? `${computed.staged ? ', ' : ''}${pluralize('unstaged file', computed.unstaged)} (${
 						computed.unstagedStatus
-				  })`
+					})`
 				: ''
 		}`;
 	}

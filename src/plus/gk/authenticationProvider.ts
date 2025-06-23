@@ -302,8 +302,8 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 				account: {
 					label:
 						session.account != null
-							? session.account.label ?? session.account.displayName ?? '<unknown>'
-							: userInfo?.accountName ?? '<unknown>',
+							? (session.account.label ?? session.account.displayName ?? '<unknown>')
+							: (userInfo?.accountName ?? '<unknown>'),
 					id: session.account?.id ?? userInfo?.id ?? '<unknown>',
 				},
 				scopes: session.scopes,

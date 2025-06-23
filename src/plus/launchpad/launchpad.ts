@@ -512,15 +512,15 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					i.provider.id === GitCloudHostIntegrationId.AzureDevOps
 						? new ThemeIcon('account')
 						: i.author?.avatarUrl != null
-						  ? Uri.parse(i.author.avatarUrl)
-						  : new ThemeIcon('account'),
+							? Uri.parse(i.author.avatarUrl)
+							: new ThemeIcon('account'),
 				item: i,
 				picked:
 					i.graphQLId != null
 						? i.graphQLId === picked || i.graphQLId === topItem?.graphQLId
 						: i.uuid != null
-						  ? i.uuid === picked || i.uuid === topItem?.uuid
-						  : false,
+							? i.uuid === picked || i.uuid === topItem?.uuid
+							: false,
 				group: ui,
 			};
 		};
@@ -539,9 +539,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					!selectTopItem || picked != null
 						? undefined
 						: uiGroups.get('mergeable')?.[0] ||
-						  uiGroups.get('blocked')?.[0] ||
-						  uiGroups.get('follow-up')?.[0] ||
-						  uiGroups.get('needs-review')?.[0];
+							uiGroups.get('blocked')?.[0] ||
+							uiGroups.get('follow-up')?.[0] ||
+							uiGroups.get('needs-review')?.[0];
 				for (let [ui, groupItems] of uiGroups) {
 					if (context.inSearch) {
 						groupItems = groupItems.filter(i => i.isSearched);
@@ -943,8 +943,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							state.item.provider.id === GitCloudHostIntegrationId.AzureDevOps
 								? new ThemeIcon('account')
 								: state.item.author?.avatarUrl != null
-								  ? Uri.parse(state.item.author.avatarUrl)
-								  : undefined,
+									? Uri.parse(state.item.author.avatarUrl)
+									: undefined,
 						buttons: [
 							...gitProviderWebButtons,
 							...(state.item.isSearched
@@ -952,7 +952,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								: [
 										state.item.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
 										state.item.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-								  ]),
+									]),
 						],
 					},
 					'soft-open',
@@ -1190,7 +1190,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								}),
 						}),
 						createQuickPickSeparator(),
-				  ]
+					]
 				: [];
 
 		for (const integration of supportedLaunchpadIntegrations) {
@@ -1265,7 +1265,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 									}),
 							}),
 							createQuickPickSeparator(),
-					  ]),
+						]),
 				createQuickPickItemOfT(
 					{
 						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
@@ -1497,8 +1497,8 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 			item.provider.id === GitCloudHostIntegrationId.AzureDevOps
 				? new ThemeIcon('account')
 				: review.reviewer.avatarUrl != null
-				  ? Uri.parse(review.reviewer.avatarUrl)
-				  : new ThemeIcon('account');
+					? Uri.parse(review.reviewer.avatarUrl)
+					: new ThemeIcon('account');
 		switch (review.state) {
 			case ProviderPullRequestReviewState.Approved:
 				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;

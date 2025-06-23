@@ -121,7 +121,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 									additions: f.additions ?? 0,
 									deletions: f.deletions ?? 0,
 									changes: f.changes ?? 0,
-							  },
+								},
 					),
 			);
 		} catch (ex) {
@@ -226,7 +226,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 								relativePath,
 								result.values[offset + skip - 1]?.oid ?? deletedOrMissing,
 							),
-					  );
+						);
 			if (current == null || current.sha === deletedOrMissing) return undefined;
 
 			return {

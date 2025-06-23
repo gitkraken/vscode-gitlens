@@ -255,7 +255,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								? {
 										name: headBranch.upstream.name,
 										id: getBranchId(repoPath, true, headBranch.upstream.name),
-								  }
+									}
 								: undefined,
 					},
 				];
@@ -567,8 +567,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						options?.ordering === 'date'
 							? 'committer-date'
 							: options?.ordering === 'author-date'
-							  ? 'author-date'
-							  : undefined,
+								? 'author-date'
+								: undefined,
 				});
 
 				if (result == null || cancellation?.isCancellationRequested) {
@@ -593,7 +593,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						? {
 								limit: limit,
 								hasMore: true,
-						  }
+							}
 						: undefined,
 					more: async (limit: number): Promise<GitGraphSearch> => searchGraphCore.call(this, limit, cursor),
 				};

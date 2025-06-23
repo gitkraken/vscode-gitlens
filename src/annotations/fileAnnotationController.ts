@@ -788,7 +788,7 @@ export class FileAnnotationController implements Disposable {
 								',',
 							)})' x='13' y='0' width='3' height='18'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
@@ -807,7 +807,7 @@ export class FileAnnotationController implements Disposable {
 								',',
 							)})' x='13' y='0' width='3' height='18'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
@@ -824,7 +824,7 @@ export class FileAnnotationController implements Disposable {
 								',',
 							)})' points='13,10 13,18 17,14'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
@@ -849,7 +849,7 @@ export class FileAnnotationController implements Disposable {
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined;
 
 			Decorations.gutterBlameHighlight = window.createTextEditorDecorationType({

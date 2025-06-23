@@ -77,8 +77,8 @@ export function shortenRevision(
 	if (!rev) return options?.strings?.working ?? '';
 	if (isUncommitted(rev)) {
 		return isUncommittedStaged(rev)
-			? options?.strings?.uncommittedStaged ?? 'Index'
-			: options?.strings?.uncommitted ?? 'Working Tree';
+			? (options?.strings?.uncommittedStaged ?? 'Index')
+			: (options?.strings?.uncommitted ?? 'Working Tree');
 	}
 	if (isRevisionRange(rev) || !isShaWithOptionalRevisionSuffix(rev)) return rev;
 

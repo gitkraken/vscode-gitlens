@@ -261,7 +261,9 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 
 	private async showInputStep(step: QuickInputStep, rootStep: QuickWizardRootStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut') ? true : step.ignoreFocusOut ?? false;
+		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
+			? true
+			: (step.ignoreFocusOut ?? false);
 
 		const disposables: Disposable[] = [];
 
@@ -396,7 +398,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 		const quickpick = window.createQuickPick();
 		quickpick.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
 			? true
-			: step.ignoreFocusOut ?? false;
+			: (step.ignoreFocusOut ?? false);
 
 		const disposables: Disposable[] = [];
 

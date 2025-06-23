@@ -211,7 +211,7 @@ function createSearchQuery(
 		const resultsType =
 			typeof queryLabel === 'string'
 				? { singular: 'search result', plural: 'search results' }
-				: queryLabel.resultsType ?? { singular: 'search result', plural: 'search results' };
+				: (queryLabel.resultsType ?? { singular: 'search result', plural: 'search results' });
 
 		const label = `${pluralize(resultsType.singular, count, {
 			format: c => (log?.hasMore ? `${c}+` : String(c)),

@@ -312,12 +312,12 @@ export function fromBitbucketParticipantToReviewer(
 		state: prt.approved
 			? PullRequestReviewState.Approved
 			: prt.state === 'changes_requested'
-			  ? PullRequestReviewState.ChangesRequested
-			  : prt.participated_on != null
-			    ? PullRequestReviewState.Commented
-			    : prt.user.uuid === closedBy?.uuid && prState === 'DECLINED'
-			      ? PullRequestReviewState.Dismissed
-			      : PullRequestReviewState.ReviewRequested,
+				? PullRequestReviewState.ChangesRequested
+				: prt.participated_on != null
+					? PullRequestReviewState.Commented
+					: prt.user.uuid === closedBy?.uuid && prState === 'DECLINED'
+						? PullRequestReviewState.Dismissed
+						: PullRequestReviewState.ReviewRequested,
 	};
 }
 
@@ -384,7 +384,7 @@ export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider): I
 					name: issue.repository.project.name,
 					resourceId: issue.repository.project.uuid,
 					resourceName: issue.repository.project.name,
-			  },
+				},
 	);
 }
 

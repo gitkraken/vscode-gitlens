@@ -164,7 +164,7 @@ export class DiffWithCommand extends GlCommandBase {
 			const title =
 				lhsTitle != null && rhsTitle != null
 					? `${lhsTitle} ${GlyphChars.ArrowLeftRightLong} ${rhsTitle}`
-					: lhsTitle ?? rhsTitle;
+					: (lhsTitle ?? rhsTitle);
 
 			if (args.range != null) {
 				showOptions.selection = diffRangeToSelection(args.range);

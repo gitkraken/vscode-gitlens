@@ -334,10 +334,10 @@ class AccountDebug {
 			planId === 'enterprise'
 				? 'gitkraken_v1-hosted-enterprise'
 				: planId === 'teams'
-				  ? 'gitkraken_v1-teams'
-				  : planId === 'advanced'
-				    ? 'gitkraken_v1-advanced'
-				    : 'gitkraken_v1-pro',
+					? 'gitkraken_v1-teams'
+					: planId === 'advanced'
+						? 'gitkraken_v1-advanced'
+						: 'gitkraken_v1-pro',
 			{
 				organizationId: activeOrganizationId,
 				trial: { reactivatedTrial: reactivatedTrial },
@@ -434,11 +434,11 @@ function getSimulatedCheckInResponse(
 	const paidLicenseData =
 		targetSubscriptionState === SubscriptionState.Paid
 			? // TODO: Update this line once we support a Paid Expired state
-			  getSimulatedPaidLicenseResponse(
+				getSimulatedPaidLicenseResponse(
 					options?.organizationId,
 					targetSubscriptionType,
 					options?.expiredPaid ? 'cancelled' : 'active',
-			  )
+				)
 			: {};
 	let trialLicenseStatus: 'active-new' | 'active-reactivated' | 'expired' | 'expired-reactivatable' = 'active-new';
 	switch (targetSubscriptionState) {
@@ -461,7 +461,7 @@ function getSimulatedCheckInResponse(
 					targetSubscriptionType,
 					trialLicenseStatus,
 					options?.trial?.durationDays,
-			  )
+				)
 			: {};
 	return {
 		user: user,

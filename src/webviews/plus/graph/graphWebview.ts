@@ -1572,7 +1572,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								ids: Object.fromEntries(search.results),
 								count: search.results.size,
 								paging: { hasMore: search.paging?.hasMore ?? false },
-						  }
+							}
 						: undefined,
 				};
 			}
@@ -1624,7 +1624,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						ids: Object.fromEntries(search.results),
 						count: search.results.size,
 						paging: { hasMore: search.paging?.hasMore ?? false },
-				  }
+					}
 				: { count: 0 },
 			selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 		};
@@ -2676,7 +2676,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					? {
 							startingCursor: data.paging?.startingCursor,
 							hasMore: data.paging?.hasMore ?? false,
-					  }
+						}
 					: undefined,
 			columns: columnSettings,
 			config: this.getComponentConfig(),
@@ -2827,7 +2827,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							name: currentBranch.getNameWithoutRemote(),
 							owner: currentBranch.getRemoteName(),
 						},
-				  ]
+					]
 				: [
 						currentBranch.id,
 						{
@@ -2835,7 +2835,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							type: 'head',
 							name: currentBranch.name,
 						},
-				  ],
+					],
 		]);
 
 		if (currentBranch.upstream != null && !currentBranch.upstream.missing) {
@@ -3673,10 +3673,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 												id: remote.provider.id,
 												name: remote.provider.name,
 												domain: remote.provider.domain,
-										  }
+											}
 										: undefined,
 								url: remote.url,
-						  }
+							}
 						: undefined,
 				branch: {
 					name: ref.name,

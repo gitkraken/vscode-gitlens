@@ -403,8 +403,8 @@ export type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Re
 			: never
 		: never
 	: P extends keyof T
-	  ? T[P]
-	  : never;
+		? T[P]
+		: never;
 
 export type ConfigPath = Path<Config>;
 export type ConfigPathValue<P extends ConfigPath> = PathValue<Config, P>;

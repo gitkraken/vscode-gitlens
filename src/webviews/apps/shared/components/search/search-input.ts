@@ -524,7 +524,7 @@ export class GlSearchInput extends GlElement {
 						? html`<span
 								>Message: use quotes to search for phrases, e.g.
 								<code>message:"Updates dependencies"</code></span
-						  >`
+							>`
 						: ''}
 					${this.helpType === 'author:'
 						? html`<span>Author: use a user's account, e.g. <code>author:eamodio</code></span>`
@@ -536,7 +536,7 @@ export class GlSearchInput extends GlElement {
 						? html`<span
 								>File: use a filename with extension, e.g. <code>file:package.json</code>, or a glob
 								pattern, e.g. <code>file:*graph*</code></span
-						  >`
+							>`
 						: ''}
 					${this.helpType === 'change:'
 						? html`<span>Change: use a regex pattern, e.g. <code>change:update&#92;(param</code></span>`
@@ -544,7 +544,7 @@ export class GlSearchInput extends GlElement {
 					${this.helpType === 'type:'
 						? html`<span
 								>Type: use <code>stash</code> to search only stashes, e.g. <code>type:stash</code></span
-						  >`
+							>`
 						: ''}
 				</div>
 			</div>

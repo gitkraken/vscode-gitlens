@@ -237,10 +237,10 @@ export class GlTimelineChart extends GlElement {
 						appearance="toolbar"
 						@click=${(e: MouseEvent) => (e.shiftKey || e.altKey ? this.resetZoom() : this.zoom(-1))}
 						aria-label="Zoom Out"
-				  >
+					>
 						<code-icon icon="zoom-out"></code-icon>
 						<span slot="tooltip">Zoom Out<br />[Alt] Reset Zoom</span>
-				  </gl-button>`
+					</gl-button>`
 				: nothing}
 			<gl-button appearance="toolbar" @click=${() => this.zoom(0.5)} tooltip="Zoom In" aria-label="Zoom In">
 				<code-icon icon="zoom-in"></code-icon>
@@ -859,7 +859,7 @@ export class GlTimelineChart extends GlElement {
 							const branchesSection = commit.branches?.length
 								? /*html*/ `<section class="branches"><code-icon icon="git-branch"></code-icon> ${commit.branches.join(
 										', ',
-								  )}</section>`
+									)}</section>`
 								: '';
 
 							return /*html*/ `<div class="bb-tooltip">

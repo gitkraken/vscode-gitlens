@@ -1611,7 +1611,7 @@ export class Git implements Disposable {
 		try {
 			const bytes = await workspace.fs.readFile(Uri.joinPath(gitDir.uri, ...pathParts));
 			let contents = textDecoder.decode(bytes);
-			contents = options?.trim ?? true ? contents.trim() : contents;
+			contents = (options?.trim ?? true) ? contents.trim() : contents;
 
 			if (options?.numeric) {
 				const number = Number.parseInt(contents, 10);

@@ -157,7 +157,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 									used: data.usage.gk.used,
 									limit: data.usage.gk.limit,
 									resetsOn: new Date(data.usage.gk.resets_on),
-							  }
+								}
 							: undefined,
 				},
 			};

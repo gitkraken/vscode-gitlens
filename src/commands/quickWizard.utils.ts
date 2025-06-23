@@ -97,7 +97,7 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 				: new SwitchGitCommand(
 						container,
 						args?.command === 'switch' || args?.command === 'checkout' ? args : undefined,
-				  ),
+					),
 			readonly ? undefined : new TagGitCommand(container, args?.command === 'tag' ? args : undefined),
 			hasVirtualFolders
 				? undefined

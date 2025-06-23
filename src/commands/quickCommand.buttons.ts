@@ -22,7 +22,7 @@ export class ToggleQuickInputButton implements QuickInputButton {
 			? {
 					dark: Uri.file(Container.instance.context.asAbsolutePath(`images/dark/${icon}.svg`)),
 					light: Uri.file(Container.instance.context.asAbsolutePath(`images/light/${icon}.svg`)),
-			  }
+				}
 			: icon;
 	}
 

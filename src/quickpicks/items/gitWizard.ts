@@ -138,8 +138,8 @@ export async function createBranchQuickPickItem(
 		iconPath: branch.starred
 			? new ThemeIcon('star-full')
 			: options?.worktree
-			  ? getWorktreeBranchIconPath(Container.instance, branch)
-			  : getBranchIconPath(Container.instance, branch),
+				? getWorktreeBranchIconPath(Container.instance, branch)
+				: getBranchIconPath(Container.instance, branch),
 	};
 
 	return item;

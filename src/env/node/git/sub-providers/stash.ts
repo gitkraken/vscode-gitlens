@@ -219,7 +219,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 										additions: f.additions ?? 0,
 										deletions: f.deletions ?? 0,
 										changes: 0,
-								  }
+									}
 								: undefined,
 						),
 				) ?? []

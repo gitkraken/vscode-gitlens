@@ -49,7 +49,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			this.child = new BranchNode(
 				this.uri,
 				this.view,
-				this.splatted ? this.parent ?? this : this,
+				this.splatted ? (this.parent ?? this) : this,
 				this.repo,
 				branch,
 				true,

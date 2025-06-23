@@ -133,20 +133,20 @@ export abstract class RepositoryFolderNode<
 									? `missing upstream $(git-branch) ${branch.upstream.name}`
 									: `up to date with $(git-branch) ${branch.upstream.name}${
 											providerName ? ` on ${providerName}` : ''
-									  }`,
+										}`,
 								expand: true,
 								icons: true,
 								separator: ', ',
 								suffix: ` $(git-branch) ${branch.upstream.name}${
 									providerName ? ` on ${providerName}` : ''
 								}`,
-						  })}`
+							})}`
 						: `hasn't been published to ${providerName ?? 'a remote'}`
 				}`,
 				true,
 			);
 		} else {
-			item.tooltip = this.repo.name ? `${this.repo.name}\n${this.uri.repoPath}` : this.uri.repoPath ?? '';
+			item.tooltip = this.repo.name ? `${this.repo.name}\n${this.uri.repoPath}` : (this.uri.repoPath ?? '');
 		}
 
 		return item;
@@ -211,7 +211,7 @@ export abstract class RepositoryFolderNode<
 
 		if (this.changed(e)) {
 			// If we are sorting by last fetched, then we need to trigger the parent to resort
-			const node = !this.loaded || this.repo.orderByLastFetched ? this.parent ?? this : this;
+			const node = !this.loaded || this.repo.orderByLastFetched ? (this.parent ?? this) : this;
 			void node.triggerChange(true);
 		}
 	}

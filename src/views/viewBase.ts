@@ -270,7 +270,7 @@ export abstract class ViewBase<
 		if (this.container.debugging || configuration.get('debug')) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				item.tooltip ??= new MarkdownString(
-					item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
+					item.label != null && typeof item.label !== 'string' ? item.label.label : (item.label ?? ''),
 				);
 
 				if (typeof item.tooltip === 'string') {
@@ -565,8 +565,8 @@ export abstract class ViewBase<
 			(this.grouped
 				? `${this.name.toLocaleLowerCase()}${count != null ? ` (${count})` : ''}`
 				: count != null
-				  ? `(${count})`
-				  : '') || undefined
+					? `(${count})`
+					: '') || undefined
 		);
 	}
 

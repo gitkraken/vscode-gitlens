@@ -386,7 +386,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						state.subcommand === 'pop'
 							? `Will delete ${getReferenceLabel(
 									state.reference,
-							  )} and apply the changes to the working tree`
+								)} and apply the changes to the working tree`
 							: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
 					item: state.subcommand,
 				},
@@ -398,7 +398,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							? `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`
 							: `Will delete ${getReferenceLabel(
 									state.reference,
-							  )} and apply the changes to the working tree`,
+								)} and apply the changes to the working tree`,
 					item: state.subcommand === 'pop' ? 'apply' : 'pop',
 				},
 			],
@@ -631,7 +631,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							state.uris.length === 1
 								? formatPath(state.uris[0], { fileOnly: true })
 								: `${state.uris.length} files`
-					  }`
+						}`
 					: undefined,
 			),
 			placeholder: 'Please provide a stash message',

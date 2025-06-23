@@ -85,7 +85,6 @@ _{prefix}/r/{repoId}/b/{branchName}?{baseQuery}(&action={action})_
 - _{branchName}_ is the name of the branch. Note that the remote name should not be included. Instead, _{remoteUrl}_ is used to determine the remote for the branch. So if the branch _test_ is located on _origin_, for example, _{branchName}_ should just be _test_ and the remote url of _origin_ should be used for the _{remoteUrl}_ parameter. You should not set _{branchName}_ to _origin/test_ in this example.
 
 - _{action}_ is an optional query parameter that represents the action to take on the branch target. By default, the action on all repository item deep links, including branch deep links, is to open the commit graph and select the row pertaining to the item. This parameter allows the link to complete other actions instead:
-
   - _switch_: Switch to the branch (with options to checkout, create a new local branch if desired, or create/open a worktree).
 
   - _switch-to-pr_: Does everything that the _switch_ action does, but also opens the inspect overview, which contains details about pull requests related to the branch.
@@ -203,7 +202,6 @@ _{prefix}/drafts/{draftId}(?patch={patchId})(&type=suggested_pr_change&prEntityI
 - _{patchId}_ is an optional query parameter used to access a specific revision/patch within the cloud patch. If not set, the most recent is used.
 
 - _type=suggested_pr_change&prEntityId={prEntityId}_ should be included in the query for deep links to code suggestions. These parameters should not be included for standard cloud patch links.
-
   - _{prEntityId}_ refers to the GK entity identifier for the Pull Request related to the code suggestion.
 
 #### Example Usage
@@ -247,7 +245,6 @@ _vscode://eamodio.gitlens/login?code={code}(&state={state})(&context={context})_
 - _{state}_ is an optional parameter representing the state used to retrieve the code, if applicable. If a state was used to retrieve the code, it must be included in the link or the login will fail.
 
 - _{context}_ is an optional parameter representing the context of the login. Currently supported values include:
-
   - _start_trial_ - Log in to start a Pro trial.
 
 #### Example Usage
@@ -269,7 +266,6 @@ _{prefix}/command/{command}_
 #### References
 
 - _{command}_ is the name of the command to run. Currently supported values include:
-
   - _cloud-patches_ - Runs the `GitLens: Show Cloud Patches View` command.
 
   - _graph_ - Runs the `GitLens: Show Graph` command.

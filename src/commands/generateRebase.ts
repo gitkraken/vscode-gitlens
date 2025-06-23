@@ -637,8 +637,8 @@ function extractHunkContent(originalDiff: string, diffHeader: string, hunkHeader
 		nextHunkIndex !== -1 && (nextHunkIndex < nextDiffIndex || nextDiffIndex === -1)
 			? nextHunkIndex
 			: nextDiffIndex > 0
-			  ? nextDiffIndex - 1
-			  : undefined;
+				? nextDiffIndex - 1
+				: undefined;
 
 	// Extract the content lines (excluding the hunk header)
 	const result = originalDiff.substring(hunkIndex, nextIndex);

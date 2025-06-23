@@ -144,7 +144,7 @@ export class WorkspacesService implements Disposable {
 							? {
 									organizationId: workspace.azure_organization_id ?? undefined,
 									project: workspace.azure_project ?? undefined,
-							  }
+								}
 							: undefined,
 						repositories,
 						localPath,
@@ -260,7 +260,7 @@ export class WorkspacesService implements Disposable {
 						? repoDescriptors.map(descriptor => ({
 								...descriptor,
 								workspaceId: workspaceData.data.project.id,
-						  }))
+							}))
 						: [];
 				currentWorkspace = new CloudWorkspace(
 					this.container,
@@ -274,7 +274,7 @@ export class WorkspacesService implements Disposable {
 						? {
 								organizationId: workspaceData.data.project.azure_organization_id ?? undefined,
 								project: workspaceData.data.project.azure_project ?? undefined,
-						  }
+							}
 						: undefined,
 					repositories,
 					workspace.workspaceFile?.fsPath,
@@ -735,7 +735,7 @@ export class WorkspacesService implements Disposable {
 						? {
 								organizationId: createdProjectData.azure_organization_id ?? undefined,
 								project: createdProjectData.azure_project ?? undefined,
-						  }
+							}
 						: undefined,
 					[],
 					localPath,
@@ -1024,7 +1024,7 @@ export class WorkspacesService implements Disposable {
 		const workspace =
 			workspaceOrId instanceof CloudWorkspace || workspaceOrId instanceof LocalWorkspace
 				? workspaceOrId
-				: this.getLocalWorkspace(workspaceOrId) ?? this.getCloudWorkspace(workspaceOrId);
+				: (this.getLocalWorkspace(workspaceOrId) ?? this.getCloudWorkspace(workspaceOrId));
 		if (workspace == null) return workspaceRepositoriesByName;
 
 		const repoDescriptors = await workspace.getRepositoryDescriptors();

@@ -143,7 +143,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
 								allowFilteredFiles: allowFilteredFiles,
 								expand: this._options.expand && log.count === 1,
-						  }),
+							}),
 				),
 				this,
 				undefined,
@@ -178,8 +178,8 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 				state = !log?.commits.size
 					? TreeItemCollapsibleState.None
 					: this._options.expand //|| log.count === 1
-					  ? TreeItemCollapsibleState.Expanded
-					  : TreeItemCollapsibleState.Collapsed;
+						? TreeItemCollapsibleState.Expanded
+						: TreeItemCollapsibleState.Collapsed;
 			} else {
 				queueMicrotask(async () => {
 					try {

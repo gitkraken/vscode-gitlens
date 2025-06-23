@@ -19,7 +19,7 @@ export class LoggerContext {
 							? function () {} // if debugging, don't log to the console, because the logger already will
 							: function (value: string) {
 									console.log(`[${padOrTruncateEnd(name, 13)}] ${value}`);
-							  },
+								},
 					};
 				},
 			},

@@ -116,10 +116,9 @@ export class AuthenticationConnection implements Disposable {
 				new Promise<string>((resolve, reject) =>
 					this.openCompletionInputFallback(this._cancellationSource!.token, resolve, reject),
 				),
-				new Promise<string>(
-					(_, reject) =>
-						// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-						this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
+				new Promise<string>((_, reject) =>
+					// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+					this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
 				),
 				new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 			]);
@@ -253,7 +252,7 @@ export class AuthenticationConnection implements Disposable {
 			redirectPath != null
 				? await env.asExternalUri(
 						Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${redirectPath}`),
-				  )
+					)
 				: undefined;
 
 		const rsp = await this.connection.fetchGkApi('v1/login/auth-exchange', {

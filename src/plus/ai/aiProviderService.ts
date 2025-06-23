@@ -373,7 +373,7 @@ export class AIProviderService implements Disposable {
 						'model.id': model.id,
 						'model.provider.id': model.provider.id,
 						'model.provider.name': model.provider.name,
-				  }
+					}
 				: { failed: true },
 			source,
 		);
@@ -602,8 +602,8 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-			  ? { ...result, parsed: parseSummarizeResult(result.content) }
-			  : undefined;
+				? { ...result, parsed: parseSummarizeResult(result.content) }
+				: undefined;
 	}
 
 	async generateCommitMessage(
@@ -657,8 +657,8 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-			  ? { ...result, parsed: parseSummarizeResult(result.content) }
-			  : undefined;
+				? { ...result, parsed: parseSummarizeResult(result.content) }
+				: undefined;
 	}
 
 	async generateCreatePullRequest(
@@ -720,8 +720,8 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-			  ? { ...result, parsed: parseSummarizeResult(result.content) }
-			  : undefined;
+				? { ...result, parsed: parseSummarizeResult(result.content) }
+				: undefined;
 	}
 
 	async generateCreateDraft(
@@ -788,8 +788,8 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-			  ? { ...result, parsed: parseSummarizeResult(result.content) }
-			  : undefined;
+				? { ...result, parsed: parseSummarizeResult(result.content) }
+				: undefined;
 	}
 
 	async generateStashMessage(
@@ -843,8 +843,8 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-			  ? { ...result, parsed: parseSummarizeResult(result.content) }
-			  : undefined;
+				? { ...result, parsed: parseSummarizeResult(result.content) }
+				: undefined;
 	}
 
 	async generateChangelog(
@@ -1168,7 +1168,7 @@ export class AIProviderService implements Disposable {
 							token.onCancellationRequested(() => cancellationSource.cancel());
 							return promise;
 						},
-				  )
+					)
 				: promise);
 
 			telementry.data['output.length'] = result?.content?.length;
