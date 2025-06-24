@@ -1,5 +1,6 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs';
 import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch';
 import type { GitDiffFileStats } from '../../git/models/diff';
@@ -44,6 +45,7 @@ export interface State extends WebviewState {
 		doneCount: number;
 		allCount: number;
 		progress: number;
+		state: Record<WalkthroughContextKeys, boolean>;
 	};
 	previewEnabled: boolean;
 	newInstall: boolean;
@@ -302,6 +304,7 @@ export interface DidChangeProgressParams {
 	progress: number;
 	doneCount: number;
 	allCount: number;
+	state: Record<WalkthroughContextKeys, boolean>;
 }
 export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgressParams>(
 	scope,
