@@ -616,10 +616,19 @@ export class Views implements Disposable {
 		this._scmGroupedViews = getScmGroupedViewsFromConfig();
 
 		if (this._scmGroupedViews.size) {
-			if (this._scmGroupedView == null) {
-				this._scmGroupedView = new ScmGroupedView(this.container, this);
-			} else {
-				void this.setScmGroupedView(this.lastSelectedScmGroupedView ?? first(this._scmGroupedViews.keys())!);
+			if (this._welcomeDismissed || bypassWelcomeView) {
+				// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
+				if (!this._welcomeDismissed && bypassWelcomeView) {
+					void this.showWelcomeNotification();
+				}
+
+				if (this._scmGroupedView == null) {
+					this._scmGroupedView = new ScmGroupedView(this.container, this);
+				} else {
+					void this.setScmGroupedView(
+						this.lastSelectedScmGroupedView ?? first(this._scmGroupedViews.keys())!,
+					);
+				}
 			}
 		} else {
 			this._scmGroupedView?.dispose();
@@ -701,13 +710,6 @@ export class Views implements Disposable {
 		} else {
 			this._worktreesView?.dispose();
 			this._worktreesView = undefined;
-		}
-
-		if (!this._welcomeDismissed) {
-			if (!bypassWelcomeView) return;
-
-			// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
-			void this.showWelcomeNotification();
 		}
 	}
 
