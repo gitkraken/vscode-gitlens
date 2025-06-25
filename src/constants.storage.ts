@@ -63,6 +63,8 @@ export type DeprecatedGlobalStorage = {
 };
 
 export type GlobalStorage = {
+	'ai:mcp:attemptInstall': string;
+	'ai:mcp:installPath': string;
 	avatars: [string, StoredAvatar][];
 	'confirm:ai:generateCommits': boolean;
 	'confirm:ai:generateRebase': boolean;
@@ -83,6 +85,7 @@ export type GlobalStorage = {
 	// Value based on `currentOnboardingVersion` in composer's protocol
 	'composer:onboarding:dismissed': string;
 	'composer:onboarding:stepReached': number;
+	'gk:cli:installedPath': string;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
