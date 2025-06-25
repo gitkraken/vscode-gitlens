@@ -115,11 +115,13 @@ import {
 	DidChangeWalkthroughProgress,
 	DidCompleteDiscoveringRepositories,
 	DidFocusAccount,
+	DismissAiAllAccessBannerCommand,
 	DismissWalkthroughSection,
 	GetActiveOverview,
 	GetInactiveOverview,
 	GetLaunchpadSummary,
 	GetOverviewFilterState,
+	OpenAiAllAccessCommand,
 	OpenInGraphCommand,
 	SetOverviewFilter,
 	TogglePreviewEnabledCommand,
@@ -337,6 +339,22 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand(
+				`${this.host.id}.ai.allAccess.open`,
+				() => {
+					// TODO: Add telemetry tracking for AI All Access banner click
+					void openUrl('https://gitkraken.dev/opt-in/ai_all_access');
+				},
+				this,
+			),
+			registerCommand(
+				`${this.host.id}.ai.allAccess.dismiss`,
+				() => {
+					// TODO: Add telemetry tracking for AI All Access banner dismiss
+					this.dismissAiAllAccessBanner();
+				},
+				this,
+			),
 			registerCommand('gitlens.home.changeBranchMergeTarget', this.changeBranchMergeTarget, this),
 			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
 			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
@@ -380,6 +398,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 			case DismissWalkthroughSection.is(e):
 				this.dismissWalkthrough();
+				break;
+			case OpenAiAllAccessCommand.is(e):
+				// TODO: Add telemetry tracking for AI All Access banner click
+				void openUrl('https://gitkraken.dev/opt-in/ai_all_access');
+				break;
+			case DismissAiAllAccessBannerCommand.is(e):
+				// TODO: Add telemetry tracking for AI All Access banner dismiss
+				this.dismissAiAllAccessBanner();
 				break;
 			case SetOverviewFilter.is(e):
 				this.setOverviewFilter(e.params);
@@ -752,6 +778,27 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
 	}
 
+	private getAiAllAccessBannerCollapsed() {
+		// AI All Access promotion runs from July 8th through July 12th, 2025
+		const now = Date.now();
+		const startDate = new Date('2025-07-08T00:00:00-00:00').getTime(); // July 8th, 2025 UTC
+		const endDate = new Date('2025-07-12T23:59:59-00:00').getTime(); // July 12th, 2025 UTC
+
+		// Hide banner if outside the promotion period
+		if (now < startDate || now > endDate) return true;
+
+		return this.container.storage.get('home:sections:collapsed')?.includes('aiAllAccessBanner') ?? false;
+	}
+
+	@log()
+	private dismissAiAllAccessBanner() {
+		const collapsed = this.container.storage.get('home:sections:collapsed') ?? [];
+		if (!collapsed.includes('aiAllAccessBanner')) {
+			void this.container.storage.store('home:sections:collapsed', [...collapsed, 'aiAllAccessBanner']).catch();
+			// TODO: Add telemetry tracking for AI All Access banner dismiss
+		}
+	}
+
 	private getOrgSettings(): State['orgSettings'] {
 		return {
 			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
@@ -805,6 +852,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			aiEnabled: this.getAiEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
+			aiAllAccessBannerCollapsed: this.getAiAllAccessBannerCollapsed(),
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,

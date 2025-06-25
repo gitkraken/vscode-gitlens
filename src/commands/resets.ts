@@ -12,6 +12,7 @@ const resetTypes = [
 	'ai',
 	'ai:confirmations',
 	'avatars',
+	'homeSections',
 	'integrations',
 	'previews',
 	'repositoryAccess',
@@ -45,6 +46,11 @@ export class ResetCommand extends GlCommandBase {
 				label: 'Avatars...',
 				detail: 'Clears the stored avatar cache',
 				item: 'avatars',
+			},
+			{
+				label: 'Home Sections...',
+				detail: 'Clears dismissed home view banners and sections',
+				item: 'homeSections',
 			},
 			{
 				label: 'Integrations (Authentication)...',
@@ -188,6 +194,11 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'avatars':
 				resetAvatarCache('all');
+				break;
+
+			case 'homeSections':
+				await this.container.storage.delete('home:sections:collapsed');
+				await this.container.storage.delete('home:walkthrough:dismissed');
 				break;
 
 			case 'integrations':

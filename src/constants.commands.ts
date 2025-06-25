@@ -69,6 +69,8 @@ type InternalHomeWebviewCommands =
 
 type InternalHomeWebviewViewCommands =
 	| 'gitlens.views.home.account.resync'
+	| 'gitlens.views.home.ai.allAccess.open'
+	| 'gitlens.views.home.ai.allAccess.dismiss'
 	| 'gitlens.views.home.publishBranch'
 	| 'gitlens.views.home.pull'
 	| 'gitlens.views.home.push';
