@@ -1,4 +1,3 @@
-import type { CssVariables } from '@gitkraken/gitkraken-components';
 import { ContextProvider, createContext } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import type { SearchQuery } from '../../../../constants.search';
@@ -46,7 +45,6 @@ interface AppState {
 		top: number;
 		bottom: number;
 	};
-	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
 }
 
 function getSearchResultModel(searchResults: State['searchResults']): {
@@ -80,9 +78,6 @@ export class GraphAppState implements AppState {
 
 	@signalObjectState()
 	accessor visibleDays: AppState['visibleDays'];
-
-	@signalObjectState()
-	accessor theming: AppState['theming'];
 
 	@signalObjectState(
 		{ query: '' },

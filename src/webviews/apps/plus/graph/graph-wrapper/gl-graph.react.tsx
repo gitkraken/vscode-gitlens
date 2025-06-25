@@ -1,5 +1,6 @@
 import type {
 	CommitType,
+	CssVariables,
 	ExcludeRefsById,
 	ExternalIconKeys,
 	GetExternalIcon,
@@ -59,7 +60,7 @@ export type GraphWrapperProps = Pick<
 	| 'rowsStatsLoading'
 	| 'workingTreeStats'
 > &
-	Pick<GraphAppState, 'activeRow' | 'theming' | 'searchResults' | 'filter'>;
+	Pick<GraphAppState, 'activeRow' | 'searchResults' | 'filter'> & { theming?: GraphWrapperTheming };
 
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;
@@ -197,6 +198,8 @@ interface GraphWrapperAPI {
 	setRef: (refObject: GraphContainer) => void;
 }
 
+export type GraphWrapperTheming = { cssVariables: CssVariables; themeOpacityFactor: number };
+
 export type GraphWrapperSubscriberProps = GraphWrapperProps & GraphWrapperAPI;
 export type GraphWrapperInitProps = GraphWrapperProps &
 	GraphWrapperEvents &
@@ -206,7 +209,7 @@ export type GraphWrapperInitProps = GraphWrapperProps &
 
 const emptyRows: GraphRow[] = [];
 
-export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
+export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const [graph, _graphRef] = useState<GraphContainer | null>(null);
 	const [context, setContext] = useState(initProps.context);
 	const [props, setProps] = useState(initProps);
