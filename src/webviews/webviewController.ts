@@ -9,6 +9,7 @@ import { isCancellationError } from '../errors';
 import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { sequentialize } from '../system/decorators/serialize';
@@ -382,7 +383,7 @@ export class WebviewController<
 				);
 			}
 		} else if (this.is('view')) {
-			await executeCoreCommand(`${this.id}.focus`, options);
+			await executeCoreCommand(getViewFocusCommand(this.id), options);
 			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
 			}

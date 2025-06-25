@@ -81,8 +81,10 @@ export class ScmGroupedView implements Disposable {
 			// Force a "refresh" of the tree to blank it out
 			this._cleared?.cancel();
 			this._cleared = defer<void>();
-			this._onDidChangeTreeData?.fire(undefined);
-			await this._cleared.promise.catch(() => {}).finally(() => (this._cleared = undefined));
+			if (this._tree?.visible) {
+				this._onDidChangeTreeData?.fire(undefined);
+				await this._cleared.promise.catch(() => {}).finally(() => (this._cleared = undefined));
+			}
 			this._cleared = undefined;
 		}
 	}

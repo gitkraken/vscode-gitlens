@@ -760,7 +760,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-tooltip>
 						<gl-tooltip placement="bottom">
 							<a
-								href=${'command:gitlens.views.home.focus'}
+								href=${'command:gitlens.showHomeView'}
 								class="action-button"
 								aria-label=${`Open GitLens Home View`}
 							>

@@ -39,6 +39,7 @@ import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function/debounce';
@@ -911,7 +912,7 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			const command = `${this.grouped ? 'gitlens.views.scm.grouped' : this.id}.focus` as const;
+			const command = getViewFocusCommand(this.grouped ? 'gitlens.views.scm.grouped' : this.id);
 			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
 			if (this.initialized.pending) {
 				void executeCoreCommand(command, options);

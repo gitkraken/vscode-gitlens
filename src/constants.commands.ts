@@ -184,7 +184,7 @@ export type CoreCommands =
 	| 'workbench.view.extension.gitlensInspect'
 	| 'workbench.view.scm'
 	| `${ViewContainerIds | CoreViewContainerIds}.resetViewContainerLocation`
-	| `${ViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
+	| `${ViewIds}.${'focus' | 'open' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
 export type CoreGitCommands =
 	| 'git.fetch'

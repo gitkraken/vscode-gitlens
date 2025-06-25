@@ -14,6 +14,7 @@ import type { GitWorktree } from '../git/models/worktree';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { getContext, setContext } from '../system/-webview/context';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { once } from '../system/function';
 import { first } from '../system/iterable';
 import { compare } from '../system/version';
@@ -139,9 +140,9 @@ export class Views implements Disposable {
 			const disposable = once(container.onReady)(() => {
 				disposable?.dispose();
 				setTimeout(() => {
-					executeCoreCommand(`gitlens.views.scm.grouped.focus`, { preserveFocus: true });
+					executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'), { preserveFocus: true });
 					if (newInstall) {
-						executeCoreCommand(`gitlens.views.home.focus`, { preserveFocus: true });
+						executeCoreCommand(getViewFocusCommand('gitlens.views.home'), { preserveFocus: true });
 					}
 				}, 0);
 			});
@@ -531,6 +532,10 @@ export class Views implements Disposable {
 
 			// Restore the last selection for this view type (if any)
 			if (view) {
+				if (!view.visible) {
+					await view.show({ preserveFocus: !focus });
+				}
+
 				const selection = this._lastSelectedByView.get(type);
 				if (selection != null) {
 					setTimeout(async () => {
@@ -549,7 +554,7 @@ export class Views implements Disposable {
 		this.lastSelectedScmGroupedView = type;
 
 		if (focus) {
-			void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
+			void executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'), { preserveFocus: false });
 		}
 
 		return undefined;
@@ -597,7 +602,7 @@ export class Views implements Disposable {
 		await updateScmGroupedViewsInConfig(this._scmGroupedViews);
 
 		// Show the view after the configuration change has been applied
-		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
+		setTimeout(() => executeCoreCommand(getViewFocusCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}`), 1));
 	}
 
 	private toggleScmViewVisibility(type: GroupableTreeViewTypes, visible: boolean) {
@@ -988,7 +993,7 @@ export class Views implements Disposable {
 			case 'workspaces':
 				return this.workspaces.show();
 			case 'scm.grouped':
-				return void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
+				return void executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'));
 		}
 	}
 }
