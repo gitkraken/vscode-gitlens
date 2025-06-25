@@ -22,10 +22,7 @@ import { registerViewCommand } from './viewCommands';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new StashesNode(this.uri, this.view, this, this.repo);
-		}
-
+		this.child ??= new StashesNode(this.uri, this.view, this, this.repo);
 		return this.child.getChildren();
 	}
 

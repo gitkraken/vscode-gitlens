@@ -73,80 +73,89 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		let stash = this.cache.stashes?.get(repoPath);
-		if (stash == null) {
-			const parser = getStashLogParser();
-			const args = [...parser.arguments];
+		let stashPromise = this.cache.stashes?.get(repoPath);
+		if (stashPromise == null) {
+			async function load(this: StashGitSubProvider): Promise<GitStash> {
+				const parser = getStashLogParser();
+				const args = [...parser.arguments];
 
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+				const similarityThreshold = configuration.get('advanced.similarityThreshold');
+				args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 
-			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
+				const result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation },
+					'stash',
+					'list',
+					...args,
+				);
 
-			const stashes = new Map<string, GitStashCommit>();
+				const stashes = new Map<string, GitStashCommit>();
 
-			for (const s of parser.parse(result.stdout)) {
-				stashes.set(s.sha, createStash(this.container, s, repoPath));
+				for (const s of parser.parse(result.stdout)) {
+					stashes.set(s.sha, createStash(this.container, s, repoPath));
+				}
+
+				return { repoPath: repoPath, stashes: stashes };
 			}
 
-			stash = { repoPath: repoPath, stashes: stashes };
-
-			this.cache.stashes?.set(repoPath, stash);
+			stashPromise = load.call(this);
+			this.cache.stashes?.set(repoPath, stashPromise);
 		}
+
+		const stash = await stashPromise;
+		if (!options?.reachableFrom || !stash?.stashes.size) return stash;
 
 		// Return only reachable stashes from the given ref
-		if (options?.reachableFrom && stash?.stashes.size) {
-			// Create a copy because we are going to modify it and we don't want to mutate the cache
-			stash = { ...stash, stashes: new Map(stash.stashes) };
+		// Create a copy because we are going to modify it and we don't want to mutate the cache
+		const stashes = new Map(stash.stashes);
 
-			const oldestStashDate = new Date(min(stash.stashes.values(), c => c.date.getTime())).toISOString();
+		const oldestStashDate = new Date(min(stash.stashes.values(), c => c.date.getTime())).toISOString();
 
-			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
-				'rev-list',
-				`--since="${oldestStashDate}"`,
-				'--date-order',
-				options.reachableFrom,
-				'--',
-			);
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			'rev-list',
+			`--since="${oldestStashDate}"`,
+			'--date-order',
+			options.reachableFrom,
+			'--',
+		);
 
-			const ancestors = result.stdout.trim().split('\n');
-			const reachableCommits =
-				ancestors?.length && (ancestors.length !== 1 || ancestors[0]) ? new Set(ancestors) : undefined;
-			if (reachableCommits?.size) {
-				const reachableStashes = new Set<string>();
+		const ancestors = result.stdout.trim().split('\n');
+		const reachableCommits =
+			ancestors?.length && (ancestors.length !== 1 || ancestors[0]) ? new Set(ancestors) : undefined;
+		if (reachableCommits?.size) {
+			const reachableStashes = new Set<string>();
 
-				// First pass: mark directly reachable stashes
-				for (const [sha, s] of stash.stashes) {
-					if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
-						reachableStashes.add(sha);
-					}
+			// First pass: mark directly reachable stashes
+			for (const [sha, s] of stash.stashes) {
+				if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+					reachableStashes.add(sha);
 				}
-
-				// Second pass: mark stashes that build upon reachable stashes
-				let changed;
-				do {
-					changed = false;
-					for (const [sha, s] of stash.stashes) {
-						if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
-							reachableStashes.add(sha);
-							changed = true;
-						}
-					}
-				} while (changed);
-
-				// Remove unreachable stashes
-				for (const [sha] of stash.stashes) {
-					if (!reachableStashes.has(sha)) {
-						stash.stashes.delete(sha);
-					}
-				}
-			} else {
-				stash.stashes.clear();
 			}
+
+			// Second pass: mark stashes that build upon reachable stashes
+			let changed;
+			do {
+				changed = false;
+				for (const [sha, s] of stash.stashes) {
+					if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
+						reachableStashes.add(sha);
+						changed = true;
+					}
+				}
+			} while (changed);
+
+			// Remove unreachable stashes
+			for (const [sha] of stash.stashes) {
+				if (!reachableStashes.has(sha)) {
+					stashes.delete(sha);
+				}
+			}
+		} else {
+			stashes.clear();
 		}
 
-		return stash;
+		return { ...stash, stashes: stashes };
 	}
 
 	@log()
@@ -342,7 +351,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	}
 }
 
-export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, GitStashCommit> | undefined): {
+export function convertStashesToStdin(stashOrStashes: GitStash | ReadonlyMap<string, GitStashCommit> | undefined): {
 	readonly stdin: string | undefined;
 	readonly stashes: Map<string, GitStashCommit>;
 	readonly remappedIds: Map<string, string>;
@@ -351,40 +360,23 @@ export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, Git
 	if (stashOrStashes == null) return { stdin: undefined, stashes: new Map(), remappedIds: remappedIds };
 
 	let stdin: string | undefined;
-	let stashes: Map<string, GitStashCommit>;
+	const original = 'stashes' in stashOrStashes ? stashOrStashes.stashes : stashOrStashes;
+	const stashes = new Map<string, GitStashCommit>(original);
 
-	if ('stashes' in stashOrStashes) {
-		stashes = new Map(stashOrStashes.stashes);
-		if (stashOrStashes.stashes.size) {
-			stdin = '';
-			for (const stash of stashOrStashes.stashes.values()) {
-				stdin += `${stash.sha.substring(0, 9)}\n`;
-				// Include the stash's 2nd (index files) and 3rd (untracked files) parents
-				for (const p of skip(stash.parents, 1)) {
-					remappedIds.set(p, stash.sha);
+	if (original.size) {
+		stdin = '';
+		for (const stash of original.values()) {
+			stdin += `${stash.sha.substring(0, 9)}\n`;
+			// Include the stash's 2nd (index files) and 3rd (untracked files) parents (if they aren't already in the map)
+			for (const p of skip(stash.parents, 1)) {
+				remappedIds.set(p, stash.sha);
 
+				if (!stashes.has(p)) {
 					stashes.set(p, stash);
 					stdin += `${p.substring(0, 9)}\n`;
 				}
 			}
 		}
-	} else {
-		if (stashOrStashes.size) {
-			stdin = '';
-			for (const stash of stashOrStashes.values()) {
-				stdin += `${stash.sha.substring(0, 9)}\n`;
-				// Include the stash's 2nd (index files) and 3rd (untracked files) parents (if they aren't already in the map)
-				for (const p of skip(stash.parents, 1)) {
-					remappedIds.set(p, stash.sha);
-
-					if (!stashOrStashes.has(p)) {
-						stashOrStashes.set(p, stash);
-						stdin += `${p.substring(0, 9)}\n`;
-					}
-				}
-			}
-		}
-		stashes = stashOrStashes;
 	}
 
 	return { stdin: stdin || undefined, stashes: stashes, remappedIds: remappedIds };

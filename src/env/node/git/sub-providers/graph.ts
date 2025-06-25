@@ -136,7 +136,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const gitStash = getSettledValue(stashResult);
-		const { stdin, stashes, remappedIds } = convertStashesToStdin(gitStash?.stashes);
+		const { stdin, remappedIds } = convertStashesToStdin(gitStash?.stashes);
 
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
@@ -584,7 +584,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					branches: branchMap,
 					remotes: remoteMap,
 					downstreams: downstreamMap,
-					stashes: stashes,
+					stashes: gitStash?.stashes,
 					worktrees: worktrees,
 					worktreesByBranch: worktreesByBranch,
 					rows: rows,
