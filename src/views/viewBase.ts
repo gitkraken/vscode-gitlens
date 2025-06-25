@@ -277,12 +277,12 @@ export abstract class ViewBase<
 				if (typeof item.tooltip === 'string') {
 					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
 						item.contextValue
-					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}`;
+					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}\nid: ${node.id}`;
 				} else {
 					item.tooltip.appendMarkdown(
 						`\n\n---\n\ncontext: \`${
 							item.contextValue
-						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\``,
+						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\` \\\nid: \`${node.id}\``,
 					);
 				}
 			}
