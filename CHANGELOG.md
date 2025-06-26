@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes editing search result in Search & Compare view failure ([#4431](https://github.com/gitkraken/vscode-gitlens/issues/4431))
+
 ## [17.2.1] - 2025-06-26
 
 ### Changed
