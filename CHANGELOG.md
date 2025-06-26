@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes disabled GitLens view tabs on clean install ([#4416](https://github.com/gitkraken/vscode-gitlens/issues/4416))
 - Fixes Stashes view errors w/ ID already exists ([#4427](https://github.com/gitkraken/vscode-gitlens/issues/4427))
+- Fixes showing GitLens view tabs when the view is hidden ([#4426](https://github.com/gitkraken/vscode-gitlens/issues/4426), [#4389](https://github.com/gitkraken/vscode-gitlens/issues/4389))
 
 ## [17.2.0] - 2025-06-17
 
