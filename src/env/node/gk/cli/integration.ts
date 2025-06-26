@@ -1,6 +1,6 @@
 import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { Disposable, env, ProgressLocation, Uri, window, workspace  } from 'vscode';
 import type { Container } from '../../../../container';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -231,13 +231,33 @@ export class GkCliIntegrationProvider implements Disposable {
 						throw new Error(errorMsg);
 					}
 
+					// Get the app name
+					let appName = 'vscode';
+					switch (env.appName) {
+						case 'Visual Studio Code':
+						case 'Visual Studio Code - Insiders':
+							appName = 'vscode';
+							break;
+						case 'Cursor':
+							appName = 'cursor';
+							break;
+						case 'Windsurf':
+							appName = 'windsurf';
+							break;
+						default: {
+							const errorMsg = `Failed to install MCP: unsupported app name - ${env.appName}`;
+							Logger.error(errorMsg);
+							throw new Error(errorMsg);
+						}
+					}
+
 					// Get the VS Code settings.json file path
-					// TODO: Make this path point to the current vscode profile's settings.json once the API supports it
-					const settingsPath = `${this.container.context.globalStorageUri.fsPath}\\..\\..\\settings.json`;
+					// TODO: Use this path to point to the current vscode profile's settings.json once the API supports it.
+					// const settingsPath = `${this.container.context.globalStorageUri.fsPath}\\..\\..\\settings.json`;
 
 					// Configure the MCP server in settings.json
 					try {
-						await run(mcpExtractedPath.fsPath, ['mcp', 'install', 'vscode', '--file-path', settingsPath], 'utf8');
+						await run('gk.exe', ['mcp', 'install', appName/*, '--file-path', settingsPath*/], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
 					} catch {
 						// Try alternative execution methods based on platform
 						try {
@@ -251,9 +271,9 @@ export class GkCliIntegrationProvider implements Disposable {
 										`"${mcpExtractedPath.fsPath}"`,
 										'mcp',
 										'install',
-										'vscode',
-										'--file-path',
-										`"${settingsPath}"`,
+										appName,
+										/*'--file-path',
+										settingsPath,*/
 									],
 									'utf8',
 								);
@@ -261,7 +281,8 @@ export class GkCliIntegrationProvider implements Disposable {
 								// On Unix-like systems, try running with sh
 								await run(
 									'/bin/sh',
-									['-c', `"${mcpExtractedPath.fsPath}" mcp install vscode --file-path "${settingsPath}"`],
+									// ['-c', `"${mcpExtractedPath.fsPath}" mcp install vscode --file-path "${settingsPath}"`],
+									['-c', `"${mcpExtractedPath.fsPath}" mcp install ${appName}`],
 									'utf8',
 								);
 							}
@@ -273,28 +294,14 @@ export class GkCliIntegrationProvider implements Disposable {
 					}
 
 					// Verify that the MCP server was actually configured in settings.json
-					try {
-						const settingsUri = Uri.file(settingsPath);
-						const settingsData = await workspace.fs.readFile(settingsUri);
-						const settingsJson = JSON.parse(settingsData.toString());
-
-						if (!settingsJson?.['mcp']?.['servers']?.['GitKraken']) {
-							const errorMsg = 'MCP server configuration verification failed: Unable to update MCP settings';
-							Logger.error(errorMsg);
-							throw new Error(errorMsg);
-						}
-
-						Logger.log('MCP configured successfully - GitKraken server verified in settings.json');
-					} catch (verifyError) {
-						if (verifyError instanceof Error && verifyError.message.includes('verification failed')) {
-							// Re-throw verification errors as-is
-							throw verifyError;
-						}
-						// Handle file read/parse errors
-						const errorMsg = `Failed to verify MCP configuration in settings.json: ${verifyError}`;
+					const setting = workspace.getConfiguration('mcp.servers.GitKraken');
+					if (!setting?.get('type') || !setting?.get('args') || !setting?.get('command')) {
+						const errorMsg = 'MCP server configuration verification failed: Unable to update MCP settings';
 						Logger.error(errorMsg);
 						throw new Error(errorMsg);
 					}
+
+					Logger.log('MCP configured successfully - GitKraken server verified in settings.json');
 				} finally {
 					// Always clean up downloaded/extracted files, even if something failed
 					if (mcpInstallerPath != null) {
