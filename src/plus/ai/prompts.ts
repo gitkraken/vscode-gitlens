@@ -394,10 +394,11 @@ Your task is to group the hunks in unified_diff into a set of commits, ordered i
 
 1. Only organize the hunks themselves, not individual lines within hunks.
 2. Group hunks into logical units that make sense together and can be applied atomically.
-3. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
-4. Write meaningful commit messages that accurately describe the changes in each commit.
-5. Provide a detailed explanation of the changes in each commit.
-6. Make sure the new commit history is easy to review and understand.
+3. Use each hunk only once. Use all hunks.
+4. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+5. Write meaningful commit messages that accurately describe the changes in each commit.
+6. Provide a detailed explanation of the changes in each commit.
+7. Make sure the new commit history is easy to review and understand.
 
 Output your new commit history as a JSON array. Each commit in the array should be an object representing a grouping of hunks forming that commit, with the following properties:
 - "message": A string containing the commit message.
@@ -428,5 +429,7 @@ Remember to base your organization of commits solely on the provided unified_dif
 
 \${instructions}
 
-Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.`,
+Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.
+Do not include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
+`,
 };
