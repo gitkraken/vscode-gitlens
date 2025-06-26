@@ -71,6 +71,51 @@ import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provid
 import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
+/**
+ * Removes common leading whitespace from each line in a template string.
+ * This allows you to write indented template strings but have them trimmed in the result.
+ *
+ * @param template The template string to dedent
+ * @returns The dedented string
+ *
+ * @example
+ * ```typescript
+ * const str = dedent(`
+ *     Hello
+ *     World
+ *     Test
+ * `);
+ * // Result: "Hello\nWorld\nTest"
+ * ```
+ */
+function dedent(template: string): string {
+	const lines = template.split('\n');
+
+	// Remove leading and trailing empty lines
+	while (lines.length > 0 && lines[0].trim() === '') {
+		lines.shift();
+	}
+	while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+		lines.pop();
+	}
+
+	if (lines.length === 0) return '';
+
+	// Find the minimum indentation (excluding empty lines)
+	const nonEmptyLines = lines.filter(line => line.trim() !== '');
+	if (nonEmptyLines.length === 0) return '';
+
+	const minIndent = Math.min(
+		...nonEmptyLines.map(line => {
+			const match = line.match(/^(\s*)/);
+			return match ? match[1].length : 0;
+		}),
+	);
+
+	// Remove the common indentation from all lines
+	return lines.map(line => line.slice(minIndent)).join('\n');
+}
+
 export interface AIResult {
 	readonly id?: string;
 	readonly content: string;
