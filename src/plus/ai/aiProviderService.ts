@@ -1264,6 +1264,7 @@ export class AIProviderService implements Disposable {
 			const errorMessage = `Unable to parse ${options?.generateCommits ? 'commits' : 'rebase'} result`;
 			const retryPrompt = dedent(`
 					Your previous response could not be parsed as valid JSON. Please ensure your response is a valid JSON array of commits with the correct structure.
+					Don't include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
 
 					Here was your previous response:
 					${rq.content}
@@ -1334,7 +1335,8 @@ export class AIProviderService implements Disposable {
 						Here was your previous response:
 						${rq.content}
 
-						Please provide the corrected JSON array of commits:
+						Please provide the corrected JSON array of commits.
+						Don't include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
 					`);
 
 				return {
