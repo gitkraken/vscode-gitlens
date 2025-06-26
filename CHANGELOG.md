@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.2.1] - 2025-06-26
+
 ### Changed
 
 - Improves AI status label in integrations popup to "Select AI model to enable AI features" and fixes text brightness ([#4400](https://github.com/gitkraken/vscode-gitlens/issues/4400))
@@ -6213,7 +6215,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...HEAD
+[17.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...gitkraken:v17.2.1
 [17.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...gitkraken:v17.2.0
 [17.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...gitkraken:v17.1.1
 [17.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.3...gitkraken:v17.1.0
