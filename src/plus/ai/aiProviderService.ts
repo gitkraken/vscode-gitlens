@@ -981,6 +981,18 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled' ? result : result != null ? { ...result } : undefined;
 	}
 
+	/**
+	 * Generates a rebase using AI to organize code changes into logical commits.
+	 *
+	 * This method includes automatic retry logic that validates the AI response and
+	 * continues the conversation if the response has issues like:
+	 * - Missing hunks that were in the original diff
+	 * - Extra hunks that weren't in the original diff
+	 * - Duplicate hunks used multiple times
+	 *
+	 * The method will retry up to 3 times, providing specific feedback to the AI
+	 * about what was wrong with the previous response.
+	 */
 	async generateRebase(
 		repo: Repository,
 		baseRef: string,
@@ -1030,6 +1042,121 @@ export class AIProviderService implements Disposable {
 			}
 		}
 
+		const rq = await this.sendRebaseRequestWithRetry(repo, baseRef, headRef, source, result, options);
+
+		if (rq === 'cancelled') return rq;
+
+		if (rq == null) return undefined;
+
+		return {
+			...rq,
+			...result,
+		};
+	}
+
+	private async sendRebaseRequestWithRetry(
+		repo: Repository,
+		baseRef: string,
+		headRef: string,
+		source: Source,
+		result: Mutable<AIRebaseResult>,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+			generateCommits?: boolean;
+		},
+	): Promise<AIRequestResult | 'cancelled' | undefined> {
+		let conversationMessages: AIChatMessage[] = [];
+		let attempt = 0;
+		const maxAttempts = 4;
+
+		// First attempt - setup diff and hunk map
+		const firstAttemptResult = await this.sendRebaseFirstAttempt(repo, baseRef, headRef, source, result, options);
+
+		if (firstAttemptResult === 'cancelled' || firstAttemptResult == null) {
+			return firstAttemptResult;
+		}
+
+		conversationMessages = firstAttemptResult.conversationMessages;
+		let rq = firstAttemptResult.response;
+
+		while (attempt < maxAttempts) {
+			const validationResult = this.validateRebaseResponse(rq, result.hunkMap, options);
+			if (validationResult.isValid) {
+				result.commits = validationResult.commits;
+				return rq;
+			}
+
+			Logger.warn(
+				undefined,
+				'AIProviderService',
+				'sendRebaseRequestWithRetry',
+				`Validation failed on attempt ${attempt + 1}: ${validationResult.errorMessage}`,
+			);
+
+			// If this was the last attempt, throw the error
+			if (attempt === maxAttempts - 1) {
+				throw new Error(validationResult.errorMessage);
+			}
+
+			// Prepare retry message for conversation
+			conversationMessages.push(
+				{ role: 'assistant', content: rq.content },
+				{ role: 'user', content: validationResult.retryPrompt },
+			);
+
+			attempt++;
+
+			// Send retry request
+			const currentAttempt = attempt;
+			const retryResult = await this.sendRequest(
+				'generate-rebase',
+				async () => Promise.resolve(conversationMessages),
+				m =>
+					`Generating ${options?.generateCommits ? 'commits' : 'rebase'} with ${m.name}... (attempt ${
+						currentAttempt + 1
+					})`,
+				source,
+				m => ({
+					key: 'ai/generate',
+					data: {
+						type: 'rebase',
+						'model.id': m.id,
+						'model.provider.id': m.provider.id,
+						'model.provider.name': m.provider.name,
+						'retry.count': currentAttempt,
+					},
+				}),
+				options,
+			);
+
+			if (retryResult === 'cancelled' || retryResult == null) {
+				return retryResult;
+			}
+
+			rq = retryResult;
+		}
+
+		return undefined;
+	}
+
+	private async sendRebaseFirstAttempt(
+		repo: Repository,
+		baseRef: string,
+		headRef: string,
+		source: Source,
+		result: Mutable<AIRebaseResult>,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+			generateCommits?: boolean;
+		},
+	): Promise<{ response: AIRequestResult; conversationMessages: AIChatMessage[] } | 'cancelled' | undefined> {
+		let storedPrompt = '';
 		const rq = await this.sendRequest(
 			'generate-rebase',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
@@ -1086,6 +1213,9 @@ export class AIProviderService implements Disposable {
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
+				// Store the prompt for later use in conversation messages
+				storedPrompt = prompt;
+
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
@@ -1108,47 +1238,141 @@ export class AIProviderService implements Disposable {
 
 		if (rq == null) return undefined;
 
+		return {
+			response: rq,
+			conversationMessages: [{ role: 'user', content: storedPrompt }],
+		};
+	}
+
+	private validateRebaseResponse(
+		rq: AIRequestResult,
+		inputHunkMap: { index: number; hunkHeader: string }[],
+		options?: {
+			generateCommits?: boolean;
+		},
+	):
+		| { isValid: false; errorMessage: string; retryPrompt: string }
+		| { isValid: true; commits: AIRebaseResult['commits'] } {
+		// if it is wrapped in markdown, we need to strip it
+		const content = rq.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
+
+		let commits: AIRebaseResult['commits'];
 		try {
-			// if it is wrapped in markdown, we need to strip it
-			const content = rq.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
 			// Parse the JSON content from the result
-			result.commits = JSON.parse(content) as AIRebaseResult['commits'];
+			commits = JSON.parse(content) as AIRebaseResult['commits'];
+		} catch {
+			const errorMessage = `Unable to parse ${options?.generateCommits ? 'commits' : 'rebase'} result`;
+			const retryPrompt = dedent(`
+					Your previous response could not be parsed as valid JSON. Please ensure your response is a valid JSON array of commits with the correct structure.
 
-			const inputHunkIndices = result.hunkMap.map(h => h.index);
-			const outputHunkIndices = new Set(result.commits.flatMap(c => c.hunks.map(h => h.hunk)));
+					Here was your previous response:
+					${rq.content}
 
-			// Find any missing or extra hunks
-			const missingHunks = inputHunkIndices.filter(i => !outputHunkIndices.has(i));
-			const extraHunks = [...outputHunkIndices].filter(i => !inputHunkIndices.includes(i));
-			if (missingHunks.length > 0 || extraHunks.length > 0) {
-				let hunksMessage = '';
-				if (missingHunks.length > 0) {
-					const pluralize = missingHunks.length > 1 ? 's' : '';
-					hunksMessage += ` ${missingHunks.length} missing hunk${pluralize}.`;
-				}
-				if (extraHunks.length > 0) {
-					const pluralize = extraHunks.length > 1 ? 's' : '';
-					hunksMessage += ` ${extraHunks.length} extra hunk${pluralize}.`;
-				}
+					Please provide a valid JSON array of commits following this structure:
+					[
+					  {
+					    "message": "commit message",
+					    "explanation": "detailed explanation",
+					    "hunks": [{"hunk": 1}, {"hunk": 2}]
+					  }
+					]
+				`);
 
-				throw new Error(
-					`Invalid response in generating ${
-						options?.generateCommits ? 'commits' : 'rebase'
-					} result.${hunksMessage} Try again or select a different AI model.`,
-				);
-			}
-		} catch (ex) {
-			debugger;
-			if (ex?.message?.includes('Invalid response in generating')) {
-				throw ex;
-			}
-			throw new Error(`Unable to parse ${options?.generateCommits ? 'commits' : 'rebase'} result`);
+			return {
+				isValid: false,
+				errorMessage: errorMessage,
+				retryPrompt: retryPrompt,
+			};
 		}
 
-		return {
-			...rq,
-			...result,
-		};
+		// Validate the structure and hunk assignments
+		try {
+			const inputHunkIndices = inputHunkMap.map(h => h.index);
+			const allOutputHunks = commits.flatMap(c => c.hunks.map(h => h.hunk));
+			const outputHunkIndices = new Map(allOutputHunks.map((hunk, index) => [hunk, index]));
+			const missingHunks = inputHunkIndices.filter(i => !outputHunkIndices.has(i));
+
+			if (missingHunks.length > 0 || allOutputHunks.length > inputHunkIndices.length) {
+				const errorParts: string[] = [];
+				const retryParts: string[] = [];
+
+				if (missingHunks.length > 0) {
+					const pluralize = missingHunks.length > 1 ? 's' : '';
+					errorParts.push(`${missingHunks.length} missing hunk${pluralize}`);
+					retryParts.push(`You missed hunk${pluralize} ${missingHunks.join(', ')} in your response`);
+				}
+				const extraHunks = [...outputHunkIndices.keys()].filter(i => !inputHunkIndices.includes(i));
+				if (extraHunks.length > 0) {
+					const pluralize = extraHunks.length > 1 ? 's' : '';
+					errorParts.push(`${extraHunks.length} extra hunk${pluralize}`);
+					retryParts.push(
+						`You included hunk${pluralize} ${extraHunks.join(', ')} which ${
+							extraHunks.length > 1 ? 'were' : 'was'
+						} not in the original diff`,
+					);
+				}
+				const duplicateHunks = allOutputHunks.filter((hunk, index) => outputHunkIndices.get(hunk)! !== index);
+				const uniqueDuplicates = [...new Set(duplicateHunks)];
+				if (uniqueDuplicates.length > 0) {
+					const pluralize = uniqueDuplicates.length > 1 ? 's' : '';
+					errorParts.push(`${uniqueDuplicates.length} duplicate hunk${pluralize}`);
+					retryParts.push(`You used hunk${pluralize} ${uniqueDuplicates.join(', ')} multiple times`);
+				}
+
+				const errorMessage = `Invalid response in generating ${
+					options?.generateCommits ? 'commits' : 'rebase'
+				} result. ${errorParts.join(', ')}.`;
+
+				const retryPrompt = dedent(`
+						Your previous response had issues: ${retryParts.join(', ')}.
+
+						Please provide a corrected JSON response that:
+						1. Includes ALL hunks from 1 to ${Math.max(...inputHunkIndices)} exactly once
+						2. Does not include any hunk numbers outside this range
+						3. Does not use any hunk more than once
+
+						Here was your previous response:
+						${rq.content}
+
+						Please provide the corrected JSON array of commits:
+					`);
+
+				return {
+					isValid: false,
+					errorMessage: errorMessage,
+					retryPrompt: retryPrompt,
+				};
+			}
+
+			// If validation passes, return the commits
+			return { isValid: true, commits: commits };
+		} catch {
+			// Handle any errors during hunk validation (e.g., malformed commit structure)
+			const errorMessage = `Invalid commit structure in ${
+				options?.generateCommits ? 'commits' : 'rebase'
+			} result`;
+			const retryPrompt = dedent(`
+					Your previous response has an invalid commit structure. Each commit must have "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
+
+					Here was your previous response:
+					${rq.content}
+
+					Please provide a valid JSON array of commits following this structure:
+					[
+					  {
+					    "message": "commit message",
+					    "explanation": "detailed explanation",
+					    "hunks": [{"hunk": 1}, {"hunk": 2}]
+					  }
+					]
+				`);
+
+			return {
+				isValid: false,
+				errorMessage: errorMessage,
+				retryPrompt: retryPrompt,
+			};
+		}
 	}
 
 	private async sendRequest<T extends AIActionType>(
@@ -1654,22 +1878,32 @@ export class AIProviderService implements Disposable {
 		const alreadyCompleted = this.container.storage.get(`gk:promo:${userId}:ai:allAccess:dismissed`, false);
 		if (notificationShown || alreadyCompleted) return;
 
-		const hasAdvancedOrHigher = subscription.plan &&
+		const hasAdvancedOrHigher =
+			subscription.plan &&
 			(compareSubscriptionPlans(subscription.plan.actual.id, 'advanced') >= 0 ||
-			 compareSubscriptionPlans(subscription.plan.effective.id, 'advanced') >= 0);
+				compareSubscriptionPlans(subscription.plan.effective.id, 'advanced') >= 0);
 
 		let body = 'All Access Week - now until July 11th!';
-		const detail = hasAdvancedOrHigher ? 'Opt in now to get unlimited GitKraken AI until July 11th!' : 'Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!';
+		const detail = hasAdvancedOrHigher
+			? 'Opt in now to get unlimited GitKraken AI until July 11th!'
+			: 'Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!';
 
 		if (!usingGkProvider) {
 			body += ` ${detail}`;
 		}
 
-		const optInButton: MessageItem = usingGkProvider ? { title: 'Opt in for Unlimited AI' } : { title: 'Opt in and Switch to GitKraken AI' };
+		const optInButton: MessageItem = usingGkProvider
+			? { title: 'Opt in for Unlimited AI' }
+			: { title: 'Opt in and Switch to GitKraken AI' };
 		const dismissButton: MessageItem = { title: 'No, Thanks', isCloseAffordance: true };
 
 		// Show the notification
-		const result = await window.showInformationMessage(body, { modal: usingGkProvider, detail: detail }, optInButton, dismissButton);
+		const result = await window.showInformationMessage(
+			body,
+			{ modal: usingGkProvider, detail: detail },
+			optInButton,
+			dismissButton,
+		);
 
 		// Mark notification as shown regardless of user action
 		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:notified`, true);
@@ -1692,7 +1926,10 @@ export class AIProviderService implements Disposable {
 					await configuration.updateEffective('ai.model', 'gitkraken');
 					await configuration.updateEffective(`ai.gitkraken.model`, defaultModel.id);
 				} else {
-					await configuration.updateEffective('ai.model', `gitkraken:${defaultModel.id}` as SupportedAIModels);
+					await configuration.updateEffective(
+						'ai.model',
+						`gitkraken:${defaultModel.id}` as SupportedAIModels,
+					);
 				}
 
 				this._onDidChangeModel.fire({ model: defaultModel });
@@ -1700,8 +1937,6 @@ export class AIProviderService implements Disposable {
 		}
 	}
 }
-
-
 
 async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 	const confirmed = storage.get(`confirm:ai:tos`, false) || storage.getWorkspace(`confirm:ai:tos`, false);
