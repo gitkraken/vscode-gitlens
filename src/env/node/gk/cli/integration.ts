@@ -293,15 +293,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						}
 					}
 
-					// Verify that the MCP server was actually configured in settings.json
-					const setting = workspace.getConfiguration('mcp.servers.GitKraken');
-					if (!setting?.get('type') || !setting?.get('args') || !setting?.get('command')) {
-						const errorMsg = 'MCP server configuration verification failed: Unable to update MCP settings';
-						Logger.error(errorMsg);
-						throw new Error(errorMsg);
-					}
-
-					Logger.log('MCP configured successfully - GitKraken server verified in settings.json');
+					Logger.log('MCP configuration completed');
 				} finally {
 					// Always clean up downloaded/extracted files, even if something failed
 					if (mcpInstallerPath != null) {
