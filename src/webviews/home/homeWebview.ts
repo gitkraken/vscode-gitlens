@@ -121,7 +121,7 @@ import {
 	GetInactiveOverview,
 	GetLaunchpadSummary,
 	GetOverviewFilterState,
-	OpenAiAllAccessCommand,
+
 	OpenInGraphCommand,
 	SetOverviewFilter,
 	TogglePreviewEnabledCommand,
@@ -339,14 +339,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
-			registerCommand(
-				`${this.host.id}.ai.allAccess.open`,
-				() => {
-					// TODO: Add telemetry tracking for AI All Access banner click
-					void openUrl('https://gitkraken.dev/opt-in/ai_all_access');
-				},
-				this,
-			),
+
 			registerCommand(
 				`${this.host.id}.ai.allAccess.dismiss`,
 				() => {
@@ -399,10 +392,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			case DismissWalkthroughSection.is(e):
 				this.dismissWalkthrough();
 				break;
-			case OpenAiAllAccessCommand.is(e):
-				// TODO: Add telemetry tracking for AI All Access banner click
-				void openUrl('https://gitkraken.dev/opt-in/ai_all_access');
-				break;
+
 			case DismissAiAllAccessBannerCommand.is(e):
 				// TODO: Add telemetry tracking for AI All Access banner dismiss
 				this.dismissAiAllAccessBanner();

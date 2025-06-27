@@ -74,6 +74,7 @@ import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
 import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
 import {
+	AiAllAccessOptInPathPrefix,
 	assertSubscriptionState,
 	compareSubscriptionPlans,
 	computeSubscriptionState,
@@ -140,6 +141,7 @@ export class SubscriptionService implements Disposable {
 				}
 			}),
 			container.uri.onDidReceiveSubscriptionUpdatedUri(() => this.checkUpdatedSubscription(undefined), this),
+			container.uri.onDidReceiveAiAllAccessOptInUri(this.onAiAllAccessOptInUri, this),
 			container.uri.onDidReceiveLoginUri(this.onLoginUri, this),
 		);
 
@@ -348,6 +350,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.upgrade', (args?: SubscriptionUpgradeCommandArgs) =>
 				this.upgrade(args?.plan, args ? { source: args.source, detail: args.detail } : undefined),
 			),
+			registerCommand('gitlens.plus.aiAllAccess.optIn', (src?: Source) => this.aiAllAccessOptIn(src)),
 
 			registerCommand('gitlens.plus.hide', (src?: Source) => this.setProFeaturesVisibility(false, src)),
 			registerCommand('gitlens.plus.restore', (src?: Source) => this.setProFeaturesVisibility(true, src)),
@@ -1662,6 +1665,105 @@ export class SubscriptionService implements Disposable {
 		}
 
 		return this._subscription.state;
+	}
+
+	@log()
+	async aiAllAccessOptIn(source: Source | undefined): Promise<boolean> {
+		const scope = getLogScope();
+
+		if (!(await ensurePlusFeaturesEnabled())) return false;
+
+		let aborted = false;
+		const hasAccount = this._session != null;
+
+		const query = new URLSearchParams();
+		query.set('source', 'gitlens');
+
+		try {
+			if (hasAccount) {
+				try {
+					const token = await this.container.accountAuthentication.getExchangeToken(
+						AiAllAccessOptInPathPrefix,
+					);
+					query.set('token', token);
+				} catch (ex) {
+					Logger.error(ex, scope);
+				}
+			} else {
+				const callbackUri = await env.asExternalUri(
+					Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AiAllAccessOptInPathPrefix}`),
+				);
+				query.set('redirect_uri', encodeURIComponent(callbackUri.toString(true)));
+			}
+
+			aborted = !(await openUrl(this.container.urls.getGkDevUrl('all_access', query)));
+
+			if (aborted) {
+				return false;
+			}
+		} catch (ex) {
+			Logger.error(ex, scope);
+			aborted = true;
+			return false;
+		}
+
+		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
+
+		if (hasAccount) {
+			completionPromises.push(
+				new Promise<boolean>(resolve =>
+					take(
+						window.onDidChangeWindowState,
+						2,
+					)(e => {
+						if (e.focused) {
+							resolve(true);
+						}
+					}),
+				),
+				new Promise<boolean>(resolve =>
+					once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
+				),
+			);
+		} else {
+			completionPromises.push(
+				new Promise<boolean>(resolve => once(this.container.uri.onDidReceiveAiAllAccessOptInUri)(() => resolve(false))),
+			);
+		}
+
+		const refresh = await Promise.race(completionPromises);
+
+		if (refresh) {
+			void this.checkUpdatedSubscription(source);
+		}
+
+		// If we succeeded, dismiss the AI All Access banner
+		if (!aborted) {
+			// Dismiss the banner by adding it to collapsed sections
+			const collapsed = this.container.storage.get('home:sections:collapsed') ?? [];
+			if (!collapsed.includes('aiAllAccessBanner')) {
+				void this.container.storage.store('home:sections:collapsed', [...collapsed, 'aiAllAccessBanner']).catch();
+			}
+
+			// Send success telemetry
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('aiAllAccess/optedIn', undefined, source);
+			}
+		}
+
+		return true;
+	}
+
+	private async onAiAllAccessOptInUri(uri: Uri): Promise<void> {
+		const queryParams = new URLSearchParams(uri.query);
+		const code = queryParams.get('code');
+
+		if (code == null) return;
+
+		// If we don't have an account and received a code, login with the code
+		if (this._session == null) {
+			await this.loginWithCode({ code: code }, { source: 'subscription' });
+		}
 	}
 }
 

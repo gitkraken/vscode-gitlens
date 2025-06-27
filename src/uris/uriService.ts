@@ -2,7 +2,7 @@ import type { Event, Uri, UriHandler } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
 import { AuthenticationUriPathPrefix, LoginUriPathPrefix } from '../plus/gk/authenticationConnection';
-import { SubscriptionUpdatedUriPathPrefix } from '../plus/gk/utils/subscription.utils';
+import { AiAllAccessOptInPathPrefix, SubscriptionUpdatedUriPathPrefix } from '../plus/gk/utils/subscription.utils';
 import { CloudIntegrationAuthenticationUriPathPrefix } from '../plus/integrations/authentication/models';
 import { log } from '../system/decorators/log';
 
@@ -30,6 +30,11 @@ export class UriService implements Disposable, UriHandler {
 		return this._onDidReceiveSubscriptionUpdatedUri.event;
 	}
 
+	private _onDidReceiveAiAllAccessOptInUri: EventEmitter<Uri> = new EventEmitter<Uri>();
+	get onDidReceiveAiAllAccessOptInUri(): Event<Uri> {
+		return this._onDidReceiveAiAllAccessOptInUri.event;
+	}
+
 	private _onDidReceiveUri: EventEmitter<Uri> = new EventEmitter<Uri>();
 	get onDidReceiveUri(): Event<Uri> {
 		return this._onDidReceiveUri.event;
@@ -43,6 +48,7 @@ export class UriService implements Disposable, UriHandler {
 			this._onDidReceiveCloudIntegrationAuthenticationUri,
 			this._onDidReceiveLoginUri,
 			this._onDidReceiveSubscriptionUpdatedUri,
+			this._onDidReceiveAiAllAccessOptInUri,
 			this._onDidReceiveUri,
 			window.registerUriHandler(this),
 		);
@@ -63,6 +69,9 @@ export class UriService implements Disposable, UriHandler {
 			return;
 		} else if (type === SubscriptionUpdatedUriPathPrefix) {
 			this._onDidReceiveSubscriptionUpdatedUri.fire(uri);
+			return;
+		} else if (type === AiAllAccessOptInPathPrefix) {
+			this._onDidReceiveAiAllAccessOptInUri.fire(uri);
 			return;
 		} else if (type === LoginUriPathPrefix) {
 			this._onDidReceiveLoginUri.fire(uri);

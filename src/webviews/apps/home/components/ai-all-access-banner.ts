@@ -2,8 +2,9 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SubscriptionState } from '../../../../constants.subscription';
+import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
-import { DismissAiAllAccessBannerCommand, OpenAiAllAccessCommand } from '../../../home/protocol';
+import { DismissAiAllAccessBannerCommand } from '../../../home/protocol';
 import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
@@ -63,17 +64,14 @@ export class GlAiAllAccessBanner extends LitElement {
 				banner-title="All Access Week - now until July 11th!"
 				body="Join now to try all Advanced GitLens features with unlimited AI tokens for FREE!"
 				primary-button="Try Advanced for Free"
+				primary-button-href="${createCommandLink(
+					'gitlens.plus.aiAllAccess.optIn',
+					{ source: 'home' },
+				)}"
 				secondary-button="Dismiss"
-				@gl-banner-primary-click=${this.onPrimaryClick}
 				@gl-banner-secondary-click=${this.onSecondaryClick}
 			></gl-banner>
 		`;
-	}
-
-	private onPrimaryClick() {
-		console.log('AI All Access Banner: Primary button clicked, sending command...');
-		this._ipc.sendCommand(OpenAiAllAccessCommand, undefined);
-		console.log('AI All Access Banner: Command sent');
 	}
 
 	private onSecondaryClick() {
