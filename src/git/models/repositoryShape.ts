@@ -14,5 +14,7 @@ export interface RepositoryShape {
 		integration?: { id: SupportedCloudIntegrationIds; connected: boolean };
 		supportedFeatures: RemoteProviderSupportedFeatures;
 		url?: string;
+		remotePath?: string;
+		remoteName?: string;
 	};
 }
