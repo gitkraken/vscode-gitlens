@@ -1,13 +1,14 @@
 import type { WalkthroughSteps } from '../constants';
 import { urls } from '../constants';
 import type { GlCommands } from '../constants.commands';
-import type { Source, Sources } from '../constants.telemetry';
+import type { Source, Sources, TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
 import { openUrl } from '../system/-webview/vscode/uris';
+import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider';
 import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations';
 import { GlCommandBase } from './commandBase';
 import type { WorktreeGitCommandArgs } from './git/worktree';
@@ -42,9 +43,34 @@ export class OpenWalkthroughCommand extends GlCommandBase {
 	}
 }
 
+const helpCenterWalkthroughUrls = new Map<WalkthroughSteps, string>([
+	['welcome-in-trial', urls.getStarted],
+	['welcome-paid', urls.getStarted],
+	['welcome-in-trial-expired-eligible', urls.communityVsPro],
+	['welcome-in-trial-expired', urls.communityVsPro],
+	['get-started-community', urls.getStarted],
+	['visualize-code-history', urls.interactiveCodeHistory],
+	['accelerate-pr-reviews', urls.acceleratePrReviews],
+	['streamline-collaboration', urls.streamlineCollaboration],
+	['improve-workflows-with-integrations', urls.startIntegrations],
+]);
+
 function openWalkthrough(container: Container, args?: OpenWalkthroughCommandArgs) {
+	const walkthroughSupported = isWalkthroughSupported();
 	if (container.telemetry.enabled) {
-		container.telemetry.sendEvent('walkthrough', { step: args?.step }, args?.source);
+		const walkthroughEvent: TelemetryEvents['walkthrough'] = { step: args?.step };
+		if (!walkthroughSupported) {
+			walkthroughEvent.usingFallbackUrl = false;
+		}
+		container.telemetry.sendEvent('walkthrough', walkthroughEvent, args?.source);
+	}
+
+	if (!walkthroughSupported) {
+		const url = args?.step ? helpCenterWalkthroughUrls.get(args.step) : undefined;
+		if (url !== null) {
+			void openUrl(url);
+		}
+		return;
 	}
 
 	void openWalkthroughCore(container.context.extension.id, 'welcome', args?.step, false);
