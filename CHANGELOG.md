@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes editing search result in Search & Compare view failure ([#4431](https://github.com/gitkraken/vscode-gitlens/issues/4431))
+- Improves experience for invalid AI rebase responses by implementing conversational retry logic that provides specific feedback to the AI about missing, extra, or duplicate hunks and automatically retries up to 3 times ([#4395](https://github.com/gitkraken/vscode-gitlens/issues/4395))
 
 ## [17.2.1] - 2025-06-26
 
