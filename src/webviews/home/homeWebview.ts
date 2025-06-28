@@ -1502,12 +1502,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		openWorkspace(worktree.uri, location ? { location: location } : undefined);
 	}
 
-	@log<HomeWebviewProvider['switchToBranch']>({ args: { 0: r => r.branchId } })
-	private async switchToBranch(ref: BranchRef) {
+	@log<HomeWebviewProvider['switchToBranch']>({ args: { 0: r => r?.branchId } })
+	private async switchToBranch(ref: BranchRef | { repoPath: string; branchName?: never; branchId?: never }) {
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
-		if (branch == null) return;
-
-		void RepoActions.switchTo(repo, getReferenceFromBranch(branch));
+		void RepoActions.switchTo(repo, branch ? getReferenceFromBranch(branch) : undefined);
 	}
 
 	@log<HomeWebviewProvider['fetch']>({ args: { 0: r => r?.branchId } })
@@ -1560,10 +1558,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getRepoInfoFromRef(
-		ref: BranchRef,
+		ref: BranchRef | { repoPath: string; branchName?: string },
 	): Promise<{ repo: Repository; branch: GitBranch | undefined } | { repo: undefined; branch: undefined }> {
 		const repo = this.container.git.getRepository(ref.repoPath);
 		if (repo == null) return { repo: undefined, branch: undefined };
+		if (!ref.branchName) return { repo: repo, branch: undefined };
 
 		const branch = await repo.git.branches.getBranch(ref.branchName);
 		return { repo: repo, branch: branch };

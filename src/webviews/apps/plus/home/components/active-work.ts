@@ -15,8 +15,10 @@ import type {
 	OpenInTimelineParams,
 	State,
 } from '../../../../home/protocol';
+import { ExecuteCommand } from '../../../../protocol';
 import { stateContext } from '../../../home/context';
 import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
+import { ipcContext } from '../../../shared/contexts/ipc';
 import { linkStyles, ruleStyles } from '../../shared/components/vscode.css';
 import { branchCardStyles, GlBranchCardBase } from './branch-card';
 import type { ActiveOverviewState } from './overviewState';
@@ -31,6 +33,7 @@ import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/menu/menu-label';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/pills/tracking';
+import '../../../shared/components/ref-button';
 import '../../../shared/components/repo-button-group';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
@@ -104,6 +107,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	@consume({ context: activeOverviewStateContext })
 	private _activeOverviewState!: ActiveOverviewState;
 
+	@consume({ context: ipcContext })
+	private _ipc!: typeof ipcContext.__context__;
+
 	@state()
 	private repoCollapsed = true;
 
@@ -117,6 +123,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (this._homeState.repositories.openCount > 0) {
 			this._activeOverviewState.run();
 		}
+	}
+
+	private onBranchSelectorClicked() {
+		this._ipc.sendCommand(ExecuteCommand, {
+			command: 'gitlens.home.switchToBranch',
+			args: [{ repoPath: this._activeOverviewState.state?.active.repoPath }],
+		});
 	}
 
 	override render(): unknown {
@@ -176,7 +189,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						></gl-breadcrumb-item
 					>
 					<gl-breadcrumb-item collapsibleState="none" icon="git-branch" class="heading-branch-breadcrumb"
-						>${activeBranch.name}</gl-breadcrumb-item
+						><gl-ref-button .ref=${activeBranch.reference} @click=${this.onBranchSelectorClicked}
+							><span slot="tooltip">Switch to Another Branch... </span></gl-ref-button
+						></gl-breadcrumb-item
 					>
 				</gl-breadcrumbs>
 				<span class="section-heading-actions" slot="heading-actions">
@@ -546,18 +561,19 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 			return html`<div class="branch-item__row" full>
 				<span class="branch-item__missing" full>Current work item</span>
-				<gl-tooltip hoist content="Associate an issue">
-					<a
-						href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
-							'gitlens.associateIssueWithBranch',
-							{
-								branch: this.branch.reference,
-								source: 'home',
-							},
-						)}
-						><span class="branch-item__icon"> <issue-icon></issue-icon> </span
-					></a>
-				</gl-tooltip>
+				<gl-button
+					appearance="toolbar"
+					href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
+						'gitlens.associateIssueWithBranch',
+						{
+							branch: this.branch.reference,
+							source: 'home',
+						},
+					)}
+					tooltip="Associate Issue with Branch"
+					aria-label="Associate Issue with Branch"
+					><issue-icon></issue-icon>
+				</gl-button>
 			</div>`;
 		}
 		return super.renderIssuesItem();
