@@ -5,7 +5,7 @@ import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import { StashApplyError, StashApplyErrorReason } from '../../../../git/errors';
 import type { GitStashSubProvider } from '../../../../git/gitProvider';
-import type { GitStashCommit } from '../../../../git/models/commit';
+import type { GitStashCommit, GitStashParentInfo } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import { GitFileChange } from '../../../../git/models/fileChange';
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
@@ -13,7 +13,11 @@ import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus';
 import { RepositoryChange } from '../../../../git/models/repository';
 import type { GitStash } from '../../../../git/models/stash';
 import type { ParsedStash } from '../../../../git/parsers/logParser';
-import { getStashFilesOnlyLogParser, getStashLogParser } from '../../../../git/parsers/logParser';
+import {
+	getShaAndDatesLogParser,
+	getStashFilesOnlyLogParser,
+	getStashLogParser,
+} from '../../../../git/parsers/logParser';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
 import { countStringLength } from '../../../../system/array';
@@ -90,9 +94,62 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				);
 
 				const stashes = new Map<string, GitStashCommit>();
+				const parentShas = new Set<string>();
 
+				// First pass: create stashes and collect parent SHAs
 				for (const s of parser.parse(result.stdout)) {
 					stashes.set(s.sha, createStash(this.container, s, repoPath));
+					// Collect all parent SHAs for timestamp lookup
+					if (s.parents) {
+						for (const parentSha of s.parents.split(' ')) {
+							if (parentSha.trim()) {
+								parentShas.add(parentSha.trim());
+							}
+						}
+					}
+				}
+
+				// Second pass: fetch parent timestamps if we have any parents
+				const parentTimestamps = new Map<string, { authorDate: number; committerDate: number }>();
+				if (parentShas.size > 0) {
+					try {
+						const datesParser = getShaAndDatesLogParser();
+						const parentResult = await this.git.exec(
+							{
+								cwd: repoPath,
+								cancellation: cancellation,
+								stdin: Array.from(parentShas).join('\n'),
+							},
+							'log',
+							...datesParser.arguments,
+							'--no-walk',
+							'--stdin',
+						);
+
+						for (const entry of datesParser.parse(parentResult.stdout)) {
+							parentTimestamps.set(entry.sha, {
+								authorDate: Number(entry.authorDate),
+								committerDate: Number(entry.committerDate),
+							});
+						}
+					} catch (_ex) {
+						// If we can't get parent timestamps, continue without them
+						// This could happen if some parent commits are not available
+					}
+				}
+
+				// Third pass: update stashes with parent timestamp information
+				for (const sha of stashes.keys()) {
+					const stash = stashes.get(sha);
+					if (stash?.parents.length) {
+						const parentsWithTimestamps: GitStashParentInfo[] = stash.parents.map(parentSha => ({
+							sha: parentSha,
+							authorDate: parentTimestamps.get(parentSha)?.authorDate,
+							committerDate: parentTimestamps.get(parentSha)?.committerDate,
+						}));
+						// Store the parent timestamp information on the stash
+						stashes.set(sha, stash.with({ parentTimestamps: parentsWithTimestamps }));
+					}
 				}
 
 				return { repoPath: repoPath, stashes: stashes };
