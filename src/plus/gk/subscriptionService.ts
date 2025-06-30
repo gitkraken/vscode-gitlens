@@ -1678,6 +1678,7 @@ export class SubscriptionService implements Disposable {
 
 		const query = new URLSearchParams();
 		query.set('source', 'gitlens');
+		query.set('product', 'gitlens');
 
 		try {
 			if (hasAccount) {
@@ -1696,7 +1697,7 @@ export class SubscriptionService implements Disposable {
 				query.set('redirect_uri', encodeURIComponent(callbackUri.toString(true)));
 			}
 
-			aborted = !(await openUrl(this.container.urls.getGkDevUrl('all_access', query)));
+			aborted = !(await openUrl(this.container.urls.getGkDevUrl('all-access', query)));
 
 			if (aborted) {
 				return false;
