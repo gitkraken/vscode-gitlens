@@ -1,7 +1,7 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { SubscriptionState } from '../../../../constants.subscription';
+import { compareSubscriptionPlans } from '../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { DismissAiAllAccessBannerCommand } from '../../../home/protocol';
@@ -40,17 +40,21 @@ export class GlAiAllAccessBanner extends LitElement {
 	private closed = false;
 
 	private get shouldShow(): boolean {
-		// Show for Community users and expired trial users
-		const subscriptionState = this._state.subscription.state;
-		const shouldShowForSubscription =
-			subscriptionState === SubscriptionState.Community ||
-			subscriptionState === SubscriptionState.TrialExpired ||
-			subscriptionState === SubscriptionState.TrialReactivationEligible;
-
 		// Don't show if dismissed or closed
-		const isDismissed = this._state.aiAllAccessBannerCollapsed || this.closed;
+		return !(this._state.aiAllAccessBannerCollapsed || this.closed);
+	}
 
-		return shouldShowForSubscription && !isDismissed;
+	private get bodyLabel(): string {
+		return this.hasAdvancedOrHigher ? 'Join now and get unlimited AI tokens in GitLens until July 11th!' : 'oin now to try all Advanced GitLens features with unlimited AI tokens for FREE!';
+
+	}
+
+	private get primaryButtonLabel(): string {
+		return this.hasAdvancedOrHigher ? 'Get Unlimited AI Tokens' : 'Try Advanced for Free';
+	}
+
+	private get hasAdvancedOrHigher(): boolean {
+		return this._state.subscription.plan && compareSubscriptionPlans(this._state.subscription.plan.actual.id, 'advanced') >= 0 || compareSubscriptionPlans(this._state.subscription.plan.effective.id, 'advanced') >= 0;
 	}
 
 	override render(): unknown {
@@ -62,8 +66,8 @@ export class GlAiAllAccessBanner extends LitElement {
 			<gl-banner
 				display="gradient"
 				banner-title="All Access Week - now until July 11th!"
-				body="Join now to try all Advanced GitLens features with unlimited AI tokens for FREE!"
-				primary-button="Try Advanced for Free"
+				body="${this.bodyLabel}"
+				primary-button="${this.primaryButtonLabel}"
 				primary-button-href="${createCommandLink(
 					'gitlens.plus.aiAllAccess.optIn',
 					{ source: 'home' },
