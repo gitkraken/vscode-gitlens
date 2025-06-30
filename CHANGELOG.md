@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes stashes with parent commits older than the oldest stash not being visible on branches ([#4401](https://github.com/gitkraken/vscode-gitlens/issues/4401))
 - Fixes editing search result in Search & Compare view failure ([#4431](https://github.com/gitkraken/vscode-gitlens/issues/4431))
 - Fixes search results not paging properly on the _Commit Graph_ when the first page of results is contained within the already loaded commits
 
