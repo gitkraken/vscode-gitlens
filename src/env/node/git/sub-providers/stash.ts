@@ -166,7 +166,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		// Create a copy because we are going to modify it and we don't want to mutate the cache
 		const stashes = new Map(stash.stashes);
 
-		const oldestStashDate = new Date(min(stash.stashes.values(), c => c.date.getTime())).toISOString();
+		const oldestStashDate = new Date(findOldestStashTimestamp(stash.stashes.values())).toISOString();
 
 		const result = await this.git.exec(
 			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
@@ -480,4 +480,23 @@ function createStash(container: Container, s: ParsedStash, repoPath: string): Gi
 		s.stashName,
 		onRef,
 	) as GitStashCommit;
+}
+
+/**
+ * Finds the oldest timestamp among stash commits and their parent commits.
+ * This includes both the stash commit dates and all parent commit timestamps (author and committer dates).
+ *
+ * @param stashes - Collection of stash commits to analyze
+ * @returns The oldest timestamp in milliseconds, or Infinity if no stashes provided
+ */
+export function findOldestStashTimestamp(stashes: Iterable<GitStashCommit>): number {
+	return min(stashes, c => {
+		return Math.min(
+			c.date.getTime(),
+			...(c.parentTimestamps
+				?.flatMap(p => [p.authorDate, p.committerDate])
+				.filter((x): x is number => x != null)
+				.map(x => x * 1000) ?? []),
+		);
+	});
 }
