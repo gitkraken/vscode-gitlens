@@ -1618,6 +1618,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.setSelectedRows(firstResult);
 		}
 
+		// Check if all search results are visible and we have more available
+		// If so, proactively load more search results to ensure pagination works
+		while (
+			search.paging?.hasMore &&
+			search.more != null &&
+			search.results.size &&
+			graph.ids.has(last(search.results.keys())!)
+		) {
+			// Automatically load more search results since all current ones are visible
+			const searchMore = await search.more(configuration.get('graph.searchItemLimit') ?? 100);
+			if (searchMore != null) {
+				this._search = search = searchMore;
+				// Ensure the new results are visible if needed
+				void (await this.ensureSearchStartsInRange(graph, search));
+			}
+		}
+
 		return {
 			results: search.results.size
 				? {
