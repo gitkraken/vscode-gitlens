@@ -152,7 +152,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 				try {
 					// Download the MCP proxy installer
-					const proxyUrl = `https://api.gitkraken.dev/releases/gkcli-proxy/production/${platformName}/${architecture}/active`;
+					const proxyUrl = this.container.urls.getGkApiUrl('releases', 'gkcli-proxy', 'production', platformName, architecture, 'active');
 
 					let response = await fetch(proxyUrl);
 					if (!response.ok) {
