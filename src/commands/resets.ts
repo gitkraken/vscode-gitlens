@@ -212,7 +212,7 @@ export class ResetCommand extends GlCommandBase {
 				break;
 
 			case 'promoOptIns':
-				await this.container.storage.deleteWithPrefix('ai:allAccess:');
+				await this.container.storage.deleteWithPrefix('gk:promo');
 				break;
 
 			case 'repositoryAccess':

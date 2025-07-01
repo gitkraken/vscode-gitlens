@@ -1716,7 +1716,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (action !== 'cancel') {
-			void this.container.storage.store(`ai:allAccess:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:completed`, true).catch();
+			void this.container.storage.store(`gk:promo:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:ai:allAccess:dismissed`, true).catch();
 
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('aiAllAccess/optedIn', undefined, source);

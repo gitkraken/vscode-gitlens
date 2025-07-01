@@ -1605,8 +1605,8 @@ export class AIProviderService implements Disposable {
 		const userId = subscription?.account?.id ?? '00000000';
 
 		// Check if notification has already been shown or if user already completed opt-in
-		const notificationShown = this.container.storage.get(`ai:allAccess:${userId}:notificationShown`, false);
-		const alreadyCompleted = this.container.storage.get(`ai:allAccess:${userId}:completed`, false);
+		const notificationShown = this.container.storage.get(`gk:promo:${userId}:ai:allAccess:notified`, false);
+		const alreadyCompleted = this.container.storage.get(`gk:promo:${userId}:ai:allAccess:dismissed`, false);
 		if (notificationShown || alreadyCompleted) return;
 
 		const hasAdvancedOrHigher = subscription.plan &&
@@ -1625,7 +1625,7 @@ export class AIProviderService implements Disposable {
 		const result = await window.showInformationMessage(message, { modal: usingGkProvider }, buttonText);
 
 		// Mark notification as shown regardless of user action
-		void this.container.storage.store(`ai:allAccess:${userId}:notificationShown`, true);
+		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:notified`, true);
 
 		// If user clicked the button, trigger the opt-in command
 		if (result === buttonText) {

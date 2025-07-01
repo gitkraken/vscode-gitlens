@@ -773,7 +773,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// Hide banner if outside the promotion period
 		if (!isAiAllAccessPromotionActive()) return true;
 
-		return this.container.storage.get(`ai:allAccess:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:completed`, false);
+		return this.container.storage.get(`gk:promo:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:ai:allAccess:dismissed`, false);
 	}
 
 	private async getAiAllAccessUserId(): Promise<string> {
@@ -784,7 +784,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@log()
 	private async dismissAiAllAccessBanner() {
 		const userId = await this.getAiAllAccessUserId();
-		void this.container.storage.store(`ai:allAccess:${userId}:completed`, true).catch();
+		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:dismissed`, true).catch();
 		// TODO: Add telemetry tracking for AI All Access banner dismiss
 	}
 
