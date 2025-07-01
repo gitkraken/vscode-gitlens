@@ -39,6 +39,7 @@ import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiMode
 import { Directive, isDirective } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
 import type { Storage } from '../../system/-webview/storage';
+import { isAiAllAccessPromotionActive } from '../../system/date';
 import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
 import type { Lazy } from '../../system/lazy';
@@ -51,6 +52,7 @@ import { PromiseCache } from '../../system/promiseCache';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
 import { compareSubscriptionPlans, getSubscriptionPlanName, isSubscriptionPaid } from '../gk/utils/subscription.utils';
+import { GitKrakenProvider } from './gitkrakenProvider';
 import type {
 	AIActionType,
 	AIModel,
@@ -1149,6 +1151,11 @@ export class AIProviderService implements Disposable {
 		}
 		const cancellation = cancellationSource.token;
 
+		const isGkModel = model.provider.id === 'gitkraken';
+		if (isGkModel) {
+			await this.showAiAllAccessNotificationIfNeeded(true);
+		}
+
 		const confirmed = await showConfirmAIProviderToS(this.container.storage);
 		if (!confirmed || cancellation.isCancellationRequested) {
 			this.container.telemetry.sendEvent(
@@ -1225,6 +1232,10 @@ export class AIProviderService implements Disposable {
 				{ ...telementry.data, duration: Date.now() - start },
 				source,
 			);
+
+			if (!isGkModel) {
+				void this.showAiAllAccessNotificationIfNeeded();
+			}
 
 			return result;
 		} catch (ex) {
@@ -1583,6 +1594,59 @@ export class AIProviderService implements Disposable {
 
 	switchModel(source?: Source): Promise<AIModel | undefined> {
 		return this.getModel({ force: true }, source);
+	}
+
+	private async showAiAllAccessNotificationIfNeeded(usingGkProvider?: boolean): Promise<void> {
+		// Only show during the AI All Access promotion period
+		if (!isAiAllAccessPromotionActive()) return;
+
+		// Get current subscription to determine user ID
+		const subscription = await this.container.subscription.getSubscription(true);
+		const userId = subscription?.account?.id ?? '00000000';
+
+		// Check if notification has already been shown or if user already completed opt-in
+		const notificationShown = this.container.storage.get(`ai:allAccess:${userId}:notificationShown`, false);
+		const alreadyCompleted = this.container.storage.get(`ai:allAccess:${userId}:completed`, false);
+		if (notificationShown || alreadyCompleted) return;
+
+		const hasAdvancedOrHigher = subscription.plan &&
+			(compareSubscriptionPlans(subscription.plan.actual.id, 'advanced') >= 0 ||
+			 compareSubscriptionPlans(subscription.plan.effective.id, 'advanced') >= 0);
+
+		const message = hasAdvancedOrHigher
+			? 'Get unlimited AI tokens in GitLens until July 11th!'
+			: 'Get unlimited AI tokens and try all GitLens Advanced features for free until July 11th!';
+
+		const buttonText = hasAdvancedOrHigher
+			? 'Get Unlimited AI Tokens'
+			: 'Try Advanced for Free';
+
+		// Show the notification
+		const result = await window.showInformationMessage(message, { modal: usingGkProvider }, buttonText);
+
+		// Mark notification as shown regardless of user action
+		void this.container.storage.store(`ai:allAccess:${userId}:notificationShown`, true);
+
+		// If user clicked the button, trigger the opt-in command
+		if (result === buttonText) {
+			const optIn = await this.container.subscription.aiAllAccessOptIn({ source: 'notification' });
+		if (optIn && !usingGkProvider && isProviderEnabledByOrg('gitkraken')) {
+				const gkProvider = new GitKrakenProvider(this.container, this.connection);
+				const defaultModel = (await gkProvider.getModels()).find(m => m.default);
+				if (defaultModel != null) {
+					this._provider = gkProvider;
+					this._model = defaultModel;
+					if (isPrimaryAIProviderModel(defaultModel)) {
+						await configuration.updateEffective('ai.model', 'gitkraken');
+						await configuration.updateEffective(`ai.gitkraken.model`, defaultModel.id);
+					} else {
+						await configuration.updateEffective('ai.model', `gitkraken:${defaultModel.id}` as SupportedAIModels);
+					}
+
+					this._onDidChangeModel.fire({ model: defaultModel });
+				}
+			}
+		}
 	}
 }
 

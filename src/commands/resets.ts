@@ -15,6 +15,7 @@ const resetTypes = [
 	'homeSections',
 	'integrations',
 	'previews',
+	'promoOptIns',
 	'repositoryAccess',
 	'subscription',
 	'suppressedWarnings',
@@ -77,6 +78,7 @@ export class ResetCommand extends GlCommandBase {
 				detail: 'Clears stored data associated with the current workspace',
 				item: 'workspace',
 			},
+			{ label: 'Promo Opt-Ins...', detail: 'Clears any locally stored promo opt-ins', item: 'promoOptIns' },
 			createQuickPickSeparator(),
 			{
 				label: 'Everything...',
@@ -138,6 +140,10 @@ export class ResetCommand extends GlCommandBase {
 			case 'previews':
 				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
 				confirm.title = 'Reset Feature Previews';
+				break;
+			case 'promoOptIns':
+				confirmationMessage = 'Are you sure you want to reset all of the locally stored promo opt-ins?';
+				confirm.title = 'Reset Promo Opt-Ins';
 				break;
 			case 'repositoryAccess':
 				confirmationMessage = 'Are you sure you want to reset the repository access cache?';
@@ -203,6 +209,10 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'integrations':
 				await this.container.integrations.reset();
+				break;
+
+			case 'promoOptIns':
+				await this.container.storage.deleteWithPrefix('ai:allAccess:');
 				break;
 
 			case 'repositoryAccess':

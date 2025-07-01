@@ -67,6 +67,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces';
+import { isAiAllAccessPromotionActive } from '../../system/date';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
@@ -344,7 +345,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				`${this.host.id}.ai.allAccess.dismiss`,
 				() => {
 					// TODO: Add telemetry tracking for AI All Access banner dismiss
-					this.dismissAiAllAccessBanner();
+					void this.dismissAiAllAccessBanner();
 				},
 				this,
 			),
@@ -395,7 +396,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			case DismissAiAllAccessBannerCommand.is(e):
 				// TODO: Add telemetry tracking for AI All Access banner dismiss
-				this.dismissAiAllAccessBanner();
+				void this.dismissAiAllAccessBanner();
 				break;
 			case SetOverviewFilter.is(e):
 				this.setOverviewFilter(e.params);
@@ -768,25 +769,23 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
 	}
 
-	private getAiAllAccessBannerCollapsed() {
-		// AI All Access promotion runs from July 8th through July 12th, 2025
-		const now = Date.now();
-		const startDate = new Date('2025-07-08T00:00:00-00:00').getTime(); // July 8th, 2025 UTC
-		const endDate = new Date('2025-07-12T23:59:59-00:00').getTime(); // July 12th, 2025 UTC
-
+	private async getAiAllAccessBannerCollapsed() {
 		// Hide banner if outside the promotion period
-		if (now < startDate || now > endDate) return true;
+		if (!isAiAllAccessPromotionActive()) return true;
 
-		return this.container.storage.get('home:sections:collapsed')?.includes('aiAllAccessBanner') ?? false;
+		return this.container.storage.get(`ai:allAccess:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:completed`, false);
+	}
+
+	private async getAiAllAccessUserId(): Promise<string> {
+		const subscription = await this.container.subscription.getSubscription();
+		return subscription.account?.id ?? '00000000';
 	}
 
 	@log()
-	private dismissAiAllAccessBanner() {
-		const collapsed = this.container.storage.get('home:sections:collapsed') ?? [];
-		if (!collapsed.includes('aiAllAccessBanner')) {
-			void this.container.storage.store('home:sections:collapsed', [...collapsed, 'aiAllAccessBanner']).catch();
-			// TODO: Add telemetry tracking for AI All Access banner dismiss
-		}
+	private async dismissAiAllAccessBanner() {
+		const userId = await this.getAiAllAccessUserId();
+		void this.container.storage.store(`ai:allAccess:${userId}:completed`, true).catch();
+		// TODO: Add telemetry tracking for AI All Access banner dismiss
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -816,10 +815,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const [subResult, integrationResult, aiModelResult] = await Promise.allSettled([
+		const [subResult, integrationResult, aiModelResult, aiAllAccessBannerCollapsed] = await Promise.allSettled([
 			this.getSubscriptionState(subscription),
 			this.getIntegrationStates(true),
 			this.container.ai.getModel({ silent: true }, { source: 'home' }),
+			this.getAiAllAccessBannerCollapsed(),
 		]);
 
 		if (subResult.status === 'rejected') {
@@ -842,7 +842,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			aiEnabled: this.getAiEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
-			aiAllAccessBannerCollapsed: this.getAiAllAccessBannerCollapsed(),
+			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, true),
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,

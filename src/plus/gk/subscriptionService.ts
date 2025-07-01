@@ -1673,7 +1673,6 @@ export class SubscriptionService implements Disposable {
 
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
-		let aborted = false;
 		const hasAccount = this._session != null;
 
 		const query = new URLSearchParams();
@@ -1697,62 +1696,36 @@ export class SubscriptionService implements Disposable {
 				query.set('redirect_uri', encodeURIComponent(callbackUri.toString(true)));
 			}
 
-			aborted = !(await openUrl(this.container.urls.getGkDevUrl('all-access', query)));
-
-			if (aborted) {
+			if(!(await openUrl(this.container.urls.getGkDevUrl('all-access', query)))) {
 				return false;
 			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			aborted = true;
 			return false;
 		}
 
-		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
+		const completionPromises = [
+			new Promise<string>(resolve => setTimeout(() => resolve('cancel'), 5 * 60 * 1000)),
+			new Promise<string>(resolve => once(this.container.uri.onDidReceiveAiAllAccessOptInUri)(() => resolve(hasAccount ? 'update' : 'login'))),
+		];
 
-		if (hasAccount) {
-			completionPromises.push(
-				new Promise<boolean>(resolve =>
-					take(
-						window.onDidChangeWindowState,
-						2,
-					)(e => {
-						if (e.focused) {
-							resolve(true);
-						}
-					}),
-				),
-				new Promise<boolean>(resolve =>
-					once(this.container.uri.onDidReceiveSubscriptionUpdatedUri)(() => resolve(false)),
-				),
-			);
-		} else {
-			completionPromises.push(
-				new Promise<boolean>(resolve => once(this.container.uri.onDidReceiveAiAllAccessOptInUri)(() => resolve(false))),
-			);
-		}
+		const action = await Promise.race(completionPromises);
 
-		const refresh = await Promise.race(completionPromises);
-
-		if (refresh) {
+		if (action === 'update') {
 			void this.checkUpdatedSubscription(source);
 		}
 
-		// If we succeeded, dismiss the AI All Access banner
-		if (!aborted) {
-			// Dismiss the banner by adding it to collapsed sections
-			const collapsed = this.container.storage.get('home:sections:collapsed') ?? [];
-			if (!collapsed.includes('aiAllAccessBanner')) {
-				void this.container.storage.store('home:sections:collapsed', [...collapsed, 'aiAllAccessBanner']).catch();
-			}
+		if (action !== 'cancel') {
+			void this.container.storage.store(`ai:allAccess:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:completed`, true).catch();
 
-			// Send success telemetry
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('aiAllAccess/optedIn', undefined, source);
 			}
+
+			return true;
 		}
 
-		return true;
+		return false;
 	}
 
 	private async onAiAllAccessOptInUri(uri: Uri): Promise<void> {
