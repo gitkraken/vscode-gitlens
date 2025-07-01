@@ -73,8 +73,8 @@ importers:
         specifier: 0.0.36
         version: 0.0.36
       billboard.js:
-        specifier: 3.15.1
-        version: 3.15.1
+        specifier: 3.16.0
+        version: 3.16.0
       https-proxy-agent:
         specifier: 5.0.1
         version: 5.0.1
@@ -85,8 +85,8 @@ importers:
         specifier: 3.3.0
         version: 3.3.0
       marked:
-        specifier: 15.0.12
-        version: 15.0.12
+        specifier: 16.0.0
+        version: 16.0.0
       node-fetch:
         specifier: 2.7.0
         version: 2.7.0(encoding@0.1.13)
@@ -2137,8 +2137,8 @@ packages:
   big.js@5.2.2:
     resolution: {integrity: sha512-vyL2OymJxmarO8gxMr0mhChsO9QGwhynfuu4+MHTAW6czfq9humCB7rKpUjDd9YUiDPU4mzpyupFSvOClAwbmQ==}
 
-  billboard.js@3.15.1:
-    resolution: {integrity: sha512-Avqd8VWF5EuVx46AVSuH+AvUlYKbaRpk/rxufmNqG6P/iAzeIMl3Nq2Gyyx60iTqM25EIDkpas2rrZmcb2MvAg==}
+  billboard.js@3.16.0:
+    resolution: {integrity: sha512-+TfMVZAC3QKzTbhlhStzwSF6MTxWUh2mIqkCcUBx51VmewDLDF85rMV2V8/FHFwc8VosbrSziJ2JPxjnosVkGQ==}
 
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
@@ -4141,9 +4141,9 @@ packages:
     resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
     hasBin: true
 
-  marked@15.0.12:
-    resolution: {integrity: sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA==}
-    engines: {node: '>= 18'}
+  marked@16.0.0:
+    resolution: {integrity: sha512-MUKMXDjsD/eptB7GPzxo4xcnLS6oo7/RHimUMHEDRhUooPwmN9BEpMl7AEOJv3bmso169wHI2wUF9VQgL7zfmA==}
+    engines: {node: '>= 20'}
     hasBin: true
 
   math-intrinsics@1.1.0:
@@ -8020,7 +8020,7 @@ snapshots:
 
   big.js@5.2.2: {}
 
-  billboard.js@3.15.1:
+  billboard.js@3.16.0:
     dependencies:
       '@types/d3-selection': 3.0.11
       '@types/d3-transition': 3.0.9
@@ -10328,7 +10328,7 @@ snapshots:
       punycode.js: 2.3.1
       uc.micro: 2.1.0
 
-  marked@15.0.12: {}
+  marked@16.0.0: {}
 
   math-intrinsics@1.1.0: {}
 

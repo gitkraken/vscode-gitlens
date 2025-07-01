@@ -714,12 +714,6 @@ export class GlTimelineChart extends GlElement {
 						setTimeout(() => loading?.fulfill(), 0);
 					},
 					onrendered: this.getOnRenderedCallback(this),
-					// Restore the zoomed domain when the chart is resized, because it gets lost
-					onresized: () => {
-						if (this._chart == null || this.zoomedRange == null) return;
-
-						this._chart.zoom(this.zoomedRange);
-					},
 
 					clipPath: true,
 					data: {
