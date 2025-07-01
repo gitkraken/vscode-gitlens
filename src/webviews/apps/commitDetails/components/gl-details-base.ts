@@ -1,11 +1,11 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
+import { createCommandLink } from '../../../../system/commands';
 import { pluralize } from '../../../../system/string';
 import type { Preferences, State } from '../../../commitDetails/protocol';
 import type {
@@ -103,22 +103,47 @@ export class GlDetailsBase extends LitElement {
 						icon="${icon}"
 					></action-item>
 				</action-nav>
-				${when(
-					fileCount > 0 && this.tab === 'wip',
-					() =>
-						html`<div class="section section--actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button full href="command:workbench.view.scm"
-										>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
-									></gl-button>
-								</span>
-							</p>
-						</div>`,
-				)}
-				${this.renderTreeFileModel(treeModel)}
+				${this.renderChangedFilesActions()} ${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
+	}
+
+	protected renderChangedFilesActions(): TemplateResult<1> | undefined {
+		if (this.tab !== 'wip' || !this.files?.length) return undefined;
+
+		if (this.preferences?.aiEnabled) {
+			return html`<div class="section section--actions">
+				<p class="button-container">
+					<span class="button-group button-group--single">
+						<gl-button
+							full
+							.href=${createCommandLink('gitlens.ai.generateCommits', {
+								
+							})}
+							tooltip="Generate Commits with AI (Preview) — organize working changes into meaningful commits"
+							.tooltipPlacement=${'top'}
+							>Commit with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
+						></gl-button>
+					</span>
+				</p>
+				<p class="button-container">
+					<span class="button-group button-group--single">
+						<gl-button appearance="secondary" full href="command:workbench.view.scm"
+							>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="prefix"></code-icon
+						></gl-button>
+					</span>
+				</p>
+			</div>`;
+		}
+		return html`<div class="section section--actions">
+			<p class="button-container">
+				<span class="button-group button-group--single">
+					<gl-button full href="command:workbench.view.scm"
+						>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
+					></gl-button>
+				</span>
+			</p>
+		</div>`;
 	}
 
 	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean): void {
