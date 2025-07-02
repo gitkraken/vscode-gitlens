@@ -16,8 +16,8 @@ export const bannerStyles = css`
 		--gl-banner-gap: 0.8rem;
 		--gl-banner-border-radius: 0.4rem;
 
-		/* Button customization - use 8px padding for better visual spacing */
-		--gl-banner-button-padding: 0.8rem;
+		/* Button customization - use 8px horizontal padding, keep original vertical padding */
+		--gl-banner-button-padding: 0.4rem 0.8rem;
 
 		display: block;
 		margin-block-end: 1.2rem;
