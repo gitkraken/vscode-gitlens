@@ -23,6 +23,9 @@ export class GlAiAllAccessBanner extends LitElement {
 		css`
 			:host {
 				display: block;
+			}
+
+			gl-banner {
 				margin-bottom: 1.2rem;
 			}
 		`,
