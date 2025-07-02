@@ -8,6 +8,7 @@ import { GitUri } from '../git/gitUri';
 import type { AIExplainSource, AISummarizeResult } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { showMarkdownPreview } from '../system/-webview/markdown';
+import type { AIFeedbackContext } from './aiFeedback';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
@@ -55,7 +56,8 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 	}
 
 	protected openDocument(result: AISummarizeResult, path: string, metadata: MarkdownContentMetadata): void {
-		const content = `${getMarkdownHeaderContent(metadata)}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+		const headerContent = getMarkdownHeaderContent(metadata, this.container.telemetry.enabled);
+		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
 
 		const documentUri = this.container.markdown.openDocument(content, path, metadata.header.title, metadata);
 

@@ -12,6 +12,8 @@ export type ContributedCommands =
 	| 'gitlens.ai.explainStash:views'
 	| 'gitlens.ai.explainWip:graph'
 	| 'gitlens.ai.explainWip:views'
+	| 'gitlens.ai.feedback.negative'
+	| 'gitlens.ai.feedback.positive'
 	| 'gitlens.ai.generateChangelog:views'
 	| 'gitlens.ai.generateChangelogFrom:graph'
 	| 'gitlens.ai.generateChangelogFrom:views'
