@@ -97,6 +97,7 @@ export class GlBanner extends LitElement {
 			<gl-button
 				class="banner__button banner__button--primary"
 				href=${ifDefined(this.primaryButtonHref)}
+				truncate
 				@click=${this.onPrimaryButtonClick}
 			>
 				${this.primaryButton}

@@ -16,6 +16,9 @@ export const bannerStyles = css`
 		--gl-banner-gap: 0.8rem;
 		--gl-banner-border-radius: 0.4rem;
 
+		/* Button customization - use 8px padding for better visual spacing */
+		--gl-banner-button-padding: 0.8rem;
+
 		display: block;
 		margin-block-end: 1.2rem;
 	}
@@ -103,6 +106,7 @@ export const bannerStyles = css`
 		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
 		--button-foreground: var(--gl-banner-text-color);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
+		--button-padding: var(--gl-banner-button-padding);
 		font-size: 1.2em;
 	}
 
@@ -130,26 +134,40 @@ export const bannerStyles = css`
 		--gl-banner-secondary-emphasis-background: color-mix(in lab, var(--vscode-button-secondaryBackground) 40%, #fff 60%);
 	}
 
+	/* Override text color for high contrast light theme specifically */
+	:host-context(.vscode-high-contrast-light) {
+		--gl-banner-text-color: #000;
+	}
+
 	:host-context(.vscode-dark) .banner__button--primary,
-	:host-context(.vscode-high-contrast) .banner__button--primary {
+	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .banner__button--primary {
 		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
-		--button-foreground: var(--gl-banner-text-color);
+		--button-foreground: #fff;
 	}
 
 	:host-context(.vscode-light) .banner__button--primary,
 	:host-context(.vscode-high-contrast-light) .banner__button--primary {
 		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 8%, #fff 25%);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 15%, #fff 35%);
-		--button-foreground: color-mix(in lab, var(--gl-banner-text-color) 20%, #000 80%);
+		--button-foreground: #000;
 	}
 
 	/* Make banner text darker in light themes */
-	:host-context(.vscode-light) .banner__title,
 	:host-context(.vscode-light) .banner__body,
-	:host-context(.vscode-high-contrast-light) .banner__title,
 	:host-context(.vscode-high-contrast-light) .banner__body {
 		color: color-mix(in lab, var(--gl-banner-text-color) 20%, #000 80%);
+	}
+
+	/* Strong colors for banner title - pure black/white for maximum contrast */
+	:host-context(.vscode-light) .banner__title,
+	:host-context(.vscode-high-contrast-light) .banner__title {
+		color: #000 !important;
+	}
+
+	:host-context(.vscode-dark) .banner__title,
+	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .banner__title {
+		color: #fff !important;
 	}
 
 	/* Responsive adjustments */
@@ -162,5 +180,54 @@ export const bannerStyles = css`
 		.banner__button {
 			width: 100%;
 		}
+	}
+
+	/* More aggressive responsive layout for narrow sidebars */
+	@media (max-width: 400px) {
+		.banner__buttons {
+			display: flex;
+			flex-direction: column;
+			gap: 0.6rem;
+			margin-top: 0.8rem;
+			align-items: center;
+			width: 100%;
+		}
+
+		.banner__button--primary,
+		.banner__button--secondary {
+			grid-column: unset;
+			justify-self: unset;
+			width: 100%;
+			max-width: 200px;
+		}
+
+		.banner__button--primary {
+			order: 1;
+		}
+
+		.banner__button--secondary {
+			order: 2;
+		}
+	}
+
+	/* Support for custom banner buttons layout */
+	:host([data-banner-buttons-layout='column']) .banner__buttons,
+	.banner__buttons[data-layout='column'] {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		margin-top: 0.8rem;
+		align-items: center;
+		width: 100%;
+	}
+
+	:host([data-banner-buttons-layout='column']) .banner__button--primary,
+	:host([data-banner-buttons-layout='column']) .banner__button--secondary,
+	.banner__buttons[data-layout='column'] .banner__button--primary,
+	.banner__buttons[data-layout='column'] .banner__button--secondary {
+		grid-column: unset;
+		justify-self: unset;
+		width: 100%;
+		max-width: 200px;
 	}
 `;
