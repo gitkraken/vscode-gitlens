@@ -1,11 +1,13 @@
 import { Avatar, defineGkElement } from '@gitkraken/shared-web-components';
-import type { PropertyValueMap } from 'lit';
+import type { PropertyValueMap, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { GenerateCommitsCommandArgs } from '../../../../commands/generateRebase';
+import { createCommandLink } from '../../../../system/commands';
 import { equalsIgnoreCase } from '../../../../system/string';
-import type { DraftState, State, Wip } from '../../../commitDetails/protocol';
+import type { DraftState, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
@@ -29,9 +31,6 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	wip?: Wip;
-
-	@property({ type: Object })
-	orgSettings?: State['orgSettings'];
 
 	@property({ type: Object })
 	draftState?: DraftState;
@@ -121,6 +120,45 @@ export class GlWipDetails extends GlDetailsBase {
 
 	override get filesChangedPaneLabel(): string {
 		return 'Working Changes';
+	}
+
+	protected override renderChangedFilesActions(): TemplateResult<1> | undefined {
+		if (!this.files?.length) return undefined;
+
+		if (this.preferences?.aiEnabled && this.orgSettings?.ai) {
+			return html`<div class="section section--actions">
+				<p class="button-container">
+					<span class="button-group button-group--single">
+						<gl-button
+							full
+							.href=${createCommandLink('gitlens.ai.generateCommits', {
+								repoPath: this.wip?.repo.path,
+								source: { source: 'inspect' },
+							} as GenerateCommitsCommandArgs)}
+							tooltip="Generate Commits with AI (Preview) — organize working changes into meaningful commits"
+							.tooltipPlacement=${'top'}
+							>Commit with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
+						></gl-button>
+					</span>
+				</p>
+				<p class="button-container">
+					<span class="button-group button-group--single">
+						<gl-button appearance="secondary" full href="command:workbench.view.scm"
+							>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="prefix"></code-icon
+						></gl-button>
+					</span>
+				</p>
+			</div>`;
+		}
+		return html`<div class="section section--actions">
+			<p class="button-container">
+				<span class="button-group button-group--single">
+					<gl-button full href="command:workbench.view.scm"
+						>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
+					></gl-button>
+				</span>
+			</p>
+		</div>`;
 	}
 
 	private renderSecondaryAction() {
