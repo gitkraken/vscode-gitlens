@@ -66,6 +66,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when switching ai models */
 	'ai/switchModel': AISwitchModelEvent;
 
+	/** Sent when a user provides feedback (rating and optional details) for an AI feature */
+	'ai/feedback': AIFeedbackEvent;
+
 	/** Sent when user dismisses the AI All Access banner */
 	'aiAllAccess/bannerDismissed': void;
 
@@ -397,6 +400,34 @@ type AIGenerateEvent =
 export type AISwitchModelEvent =
 	| { 'model.id': string; 'model.provider.id': AIProviders; 'model.provider.name': string }
 	| { failed: true };
+
+export interface AIFeedbackEvent {
+	/** The AI feature that feedback was submitted for */
+	feature: string;
+	/** The original rating that led to this feedback */
+	rating: 'positive' | 'negative';
+	/** Type of feedback provided */
+	feedbackType: 'preset' | 'writeIn' | 'both';
+	/** Preset reason selected (if any) */
+	presetReason?: string;
+	/** Length of write-in feedback if provided */
+	'writeInFeedback.length'?: number;
+	'writeInFeedback.text'?: string;
+	/** Model information */
+	'model.id': string;
+	'model.provider.id': AIProviders;
+	'model.provider.name': string;
+
+	/** Token usage information if available */
+	'usage.promptTokens'?: number;
+	'usage.completionTokens'?: number;
+	'usage.totalTokens'?: number;
+	'usage.limits.used'?: number;
+	'usage.limits.limit'?: number;
+	'usage.limits.resetsOn'?: string;
+
+	'output.length'?: number;
+}
 
 interface CloudIntegrationsConnectingEvent {
 	'integration.ids': string | undefined;
@@ -1024,6 +1055,7 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
+	| 'markdown-preview'
 	| 'merge-target'
 	| 'notification'
 	| 'patchDetails'

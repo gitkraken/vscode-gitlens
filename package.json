@@ -6193,6 +6193,16 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.ai.feedback.negative",
+				"title": "AI Feedback: Negative",
+				"icon": "$(thumbsdown)"
+			},
+			{
+				"command": "gitlens.ai.feedback.positive",
+				"title": "AI Feedback: Positive",
+				"icon": "$(thumbsup)"
+			},
+			{
 				"command": "gitlens.ai.generateChangelog",
 				"title": "Generate Changelog (Preview)...",
 				"category": "GitLens"
@@ -10723,6 +10733,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.ai.feedback.negative",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.positive",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.ai.generateChangelog",
 					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
@@ -14117,6 +14135,16 @@
 					"command": "gitlens.regenerateMarkdownDocument",
 					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "navigation@0"
+				},
+				{
+					"command": "gitlens.ai.feedback.positive",
+					"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.negative",
+					"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.openPatch",

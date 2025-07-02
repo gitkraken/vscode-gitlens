@@ -222,7 +222,7 @@ export class Container {
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._launchpadProvider = new LaunchpadProvider(this)));
-		this._disposables.push((this._markdownProvider = new MarkdownContentProvider()));
+		this._disposables.push((this._markdownProvider = new MarkdownContentProvider(this)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));

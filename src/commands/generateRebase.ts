@@ -17,6 +17,7 @@ import { command, executeCommand } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
 import { escapeMarkdownCodeBlocks } from '../system/markdown';
+import type { AIFeedbackContext } from './aiFeedback';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
 import {
@@ -349,8 +350,21 @@ export async function generateRebase(
 		// Extract the diff information from the reorganized commits
 		const diffInfo = extractRebaseDiffInfo(result.commits, result.diff, result.hunkMap);
 
+		// Create feedback context for telemetry
+		const feedbackContext: AIFeedbackContext = {
+			feature: 'generateRebase',
+			model: {
+				id: result.model.id,
+				providerId: result.model.provider.id,
+				providerName: result.model.provider.name,
+			},
+			usage: result.usage,
+			outputLength: result.content?.length,
+		};
+		const telemetryEnabled = container.telemetry.enabled;
+
 		// Generate the markdown content that shows each commit and its diffs
-		const { content, metadata } = generateRebaseMarkdown(result, title);
+		const { content, metadata } = generateRebaseMarkdown(result, title, telemetryEnabled, feedbackContext);
 
 		let generateType: 'commits' | 'rebase' = 'rebase';
 		let headRefSlug = head.ref;
@@ -522,8 +536,10 @@ export function extractRebaseDiffInfo(
 function generateRebaseMarkdown(
 	result: AIRebaseResult,
 	title = 'Rebase Commits',
+	telemetryEnabled: boolean,
+	feedbackContext?: AIFeedbackContext,
 ): { content: string; metadata: MarkdownContentMetadata } {
-	const metadata = {
+	const metadata: MarkdownContentMetadata = {
 		header: {
 			title: title,
 			aiModel: result.model.name,
@@ -531,11 +547,19 @@ function generateRebaseMarkdown(
 		},
 	};
 
+	// Always store feedback context if available, but only show UI when telemetry is enabled
+	if (feedbackContext) {
+		metadata.feedbackContext = feedbackContext as unknown as Record<string, unknown>;
+	}
+
 	let markdown = '';
 	if (result.commits.length === 0) {
 		markdown = 'No Commits Generated';
 
-		return { content: `${getMarkdownHeaderContent(metadata)}\n\n${markdown}`, metadata: metadata };
+		return {
+			content: `${getMarkdownHeaderContent(metadata, telemetryEnabled)}\n\n${markdown}`,
+			metadata: metadata,
+		};
 	}
 	const { commits, diff: originalDiff, hunkMap } = result;
 
@@ -602,7 +626,7 @@ function generateRebaseMarkdown(
 	// markdown += `\n\n----\n\n## Raw commits\n\n\`\`\`${escapeMarkdownCodeBlocks(JSON.stringify(commits))}\`\`\``;
 	// markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${escapeMarkdownCodeBlocks(originalDiff)}\`\`\`\n`;
 
-	return { content: `${getMarkdownHeaderContent(metadata)}\n\n${markdown}`, metadata: metadata };
+	return { content: `${getMarkdownHeaderContent(metadata, telemetryEnabled)}\n\n${markdown}`, metadata: metadata };
 }
 
 /**
