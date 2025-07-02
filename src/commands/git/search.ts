@@ -11,7 +11,7 @@ import type { Repository } from '../../git/models/repository';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { ActionQuickPickItem } from '../../quickpicks/items/common';
+import { ActionQuickPickItem, createQuickPickSeparator } from '../../quickpicks/items/common';
 import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext } from '../../system/-webview/context';
@@ -33,6 +33,7 @@ import {
 	MatchAllToggleQuickInputButton,
 	MatchCaseToggleQuickInputButton,
 	MatchRegexToggleQuickInputButton,
+	MatchWholeWordToggleQuickInputButton,
 	ShowResultsInSideBarQuickInputButton,
 } from '../quickCommand.buttons';
 import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
@@ -88,7 +89,12 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 	['file:', 'Search by File'],
 	['~:', 'Search by Changes'],
 	['change:', 'Search by Changes'],
+	['is:', 'Search by Type'],
 	['type:', 'Search by Type'],
+	['after:', 'Search After Date'],
+	['since:', 'Search After Date'],
+	['before:', 'Search Before Date'],
+	['until:', 'Search Before Date'],
 ]);
 
 type SearchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
@@ -140,18 +146,11 @@ export class SearchGitCommand extends QuickCommand<State> {
 		};
 
 		const cfg = configuration.get('gitCommands.search');
-		if (state.matchAll == null) {
-			state.matchAll = cfg.matchAll;
-		}
-		if (state.matchCase == null) {
-			state.matchCase = cfg.matchCase;
-		}
-		if (state.matchRegex == null) {
-			state.matchRegex = cfg.matchRegex;
-		}
-		if (state.showResultsInSideBar == null) {
-			state.showResultsInSideBar = cfg.showResultsInSideBar ?? undefined;
-		}
+		state.matchAll ??= cfg.matchAll;
+		state.matchCase ??= cfg.matchCase;
+		state.matchRegex ??= cfg.matchRegex;
+		state.matchWholeWord ??= cfg.matchWholeWord;
+		state.showResultsInSideBar ??= cfg.showResultsInSideBar ?? undefined;
 
 		let skippedStepOne = false;
 
@@ -197,6 +196,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				matchAll: state.matchAll,
 				matchCase: state.matchCase,
 				matchRegex: state.matchRegex,
+				matchWholeWord: state.matchWholeWord,
 			};
 			const searchKey = getSearchQueryComparisonKey(search);
 
@@ -326,36 +326,49 @@ export class SearchGitCommand extends QuickCommand<State> {
 				alwaysShow: true,
 				item: 'commit:' as const,
 			},
-			context.hasVirtualFolders
-				? undefined
-				: {
-						label: searchOperatorToTitleMap.get('file:')!,
-						description: 'file: glob or ?: glob',
-						buttons: [UseFilePickerQuickInputButton, UseFolderPickerQuickInputButton],
-						alwaysShow: true,
-						item: 'file:' as const,
-					},
-			context.hasVirtualFolders
-				? undefined
-				: {
-						label: searchOperatorToTitleMap.get('change:')!,
-						description: 'change: pattern or ~: pattern',
-						alwaysShow: true,
-						item: 'change:' as const,
-					},
-			context.hasVirtualFolders
-				? undefined
-				: {
-						label: searchOperatorToTitleMap.get('type:')!,
-						description: 'type: stash or is: stash',
-						alwaysShow: true,
-						item: 'type:' as const,
-					},
-		].filter(<T>(i?: T): i is T => i != null);
+		];
+		if (!context.hasVirtualFolders) {
+			items.push(
+				{
+					label: searchOperatorToTitleMap.get('type:')!,
+					description: 'type:stash or is:stash',
+					alwaysShow: true,
+					item: 'type:' as const,
+				},
+				createQuickPickSeparator(),
+				{
+					label: searchOperatorToTitleMap.get('file:')!,
+					description: 'file: glob or ?: glob',
+					buttons: [UseFilePickerQuickInputButton, UseFolderPickerQuickInputButton],
+					alwaysShow: true,
+					item: 'file:' as const,
+				},
+				{
+					label: searchOperatorToTitleMap.get('change:')!,
+					description: 'change: pattern or ~: pattern',
+					alwaysShow: true,
+					item: 'change:' as const,
+				},
+				createQuickPickSeparator(),
+				{
+					label: searchOperatorToTitleMap.get('after:')!,
+					description: 'after: date or since: date',
+					alwaysShow: true,
+					item: 'after:' as const,
+				},
+				{
+					label: searchOperatorToTitleMap.get('before:')!,
+					description: 'before: date or until: date',
+					alwaysShow: true,
+					item: 'before:' as const,
+				},
+			);
+		}
 
 		const matchCaseButton = new MatchCaseToggleQuickInputButton(state.matchCase);
 		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
 		const matchRegexButton = new MatchRegexToggleQuickInputButton(state.matchRegex);
+		const matchWholeWordButton = new MatchWholeWordToggleQuickInputButton(state.matchWholeWord);
 
 		const step = createPickStep<QuickPickItemOfT<SearchOperatorsLongForm>>({
 			title: appendReposToTitle(context.title, state, context),
@@ -363,7 +376,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			ignoreFocusOut: true,
 			matchOnDescription: true,
 			matchOnDetail: true,
-			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
+			additionalButtons: [matchCaseButton, matchWholeWordButton, matchRegexButton, matchAllButton],
 			items: items,
 			value: state.query,
 			selectValueWhenShown: false,
@@ -376,15 +389,18 @@ export class SearchGitCommand extends QuickCommand<State> {
 				return false;
 			},
 			onDidClickButton: (_quickpick, button) => {
-				if (button === matchCaseButton) {
-					state.matchCase = !state.matchCase;
-					matchCaseButton.on = state.matchCase;
-				} else if (button === matchAllButton) {
+				if (button === matchAllButton) {
 					state.matchAll = !state.matchAll;
 					matchAllButton.on = state.matchAll;
+				} else if (button === matchCaseButton) {
+					state.matchCase = !state.matchCase;
+					matchCaseButton.on = state.matchCase;
 				} else if (button === matchRegexButton) {
 					state.matchRegex = !state.matchRegex;
 					matchRegexButton.on = state.matchRegex;
+				} else if (button === matchWholeWordButton) {
+					state.matchWholeWord = !state.matchWholeWord;
+					matchWholeWordButton.on = state.matchWholeWord;
 				}
 			},
 			onDidClickItemButton: async function (quickpick, button, item) {
@@ -405,9 +421,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 				const operations = parseSearchQuery({
 					query: value,
-					matchCase: state.matchCase,
 					matchAll: state.matchAll,
+					matchCase: state.matchCase,
 					matchRegex: state.matchRegex,
+					matchWholeWord: state.matchWholeWord,
 				});
 
 				quickpick.title = appendReposToTitle(
@@ -464,8 +481,10 @@ async function updateSearchQuery(
 ) {
 	const ops = parseSearchQuery({
 		query: quickpick.value,
-		matchCase: state.matchCase,
 		matchAll: state.matchAll,
+		matchCase: state.matchCase,
+		matchRegex: state.matchRegex,
+		matchWholeWord: state.matchWholeWord,
 	});
 
 	let append = false;

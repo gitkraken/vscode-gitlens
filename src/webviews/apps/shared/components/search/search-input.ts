@@ -1,5 +1,6 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../../../../constants.search';
 import { searchOperationHelpRegex, searchOperatorsToLongFormMap } from '../../../../../constants.search';
 import type { Deferrable } from '../../../../../system/function/debounce';
@@ -47,6 +48,8 @@ export class GlSearchInput extends GlElement {
 				--vscode-editor-placeholder\\\.foreground,
 				var(--vscode-input-placeholderForeground)
 			);
+			--gl-search-input-buttons-left: 2;
+			--gl-search-input-buttons-right: 4;
 
 			display: inline-flex;
 			flex-direction: row;
@@ -55,6 +58,10 @@ export class GlSearchInput extends GlElement {
 			position: relative;
 
 			flex: auto 1 1;
+		}
+
+		:host([data-has-input]) {
+			--gl-search-input-buttons-right: 5;
 		}
 
 		label {
@@ -87,15 +94,19 @@ export class GlSearchInput extends GlElement {
 
 		input {
 			width: 100%;
-			height: 2.4rem;
+			height: 2.7rem;
 			background-color: var(--gl-search-input-background);
 			color: var(--gl-search-input-foreground);
 			border: 1px solid var(--gl-search-input-border);
 			border-radius: 0.25rem;
-			padding: 0 6.8rem 1px 5.6rem; /* Adjust padding to make space for the button */
+			padding-top: 0;
+			padding-bottom: 1px;
+			padding-left: calc(1.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
+			padding-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
 			font-family: inherit;
 			font-size: inherit;
 		}
+
 		input:focus {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: -1px;
@@ -223,18 +234,11 @@ export class GlSearchInput extends GlElement {
 	@query('input') input!: HTMLInputElement;
 	@query('gl-popover') popoverEl!: GlPopover;
 
-	@state() errorMessage = '';
-	@state() helpType?: SearchOperatorsLongForm;
-
-	private get label() {
-		return this.filter ? 'Filter' : 'Search';
-	}
-
-	private get placeholder() {
-		return `${this.label} commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
-	}
-
-	@state() _value!: string;
+	@property({ type: Boolean }) filter = false;
+	@property({ type: Boolean }) matchAll = false;
+	@property({ type: Boolean }) matchCase = false;
+	@property({ type: Boolean }) matchRegex = true;
+	@property({ type: Boolean }) matchWholeWord = false;
 	@property({ type: String })
 	get value() {
 		return this._value;
@@ -244,17 +248,34 @@ export class GlSearchInput extends GlElement {
 		this._value = value;
 	}
 
-	@property({ type: Boolean }) filter = false;
-	@property({ type: Boolean }) matchAll = false;
-	@property({ type: Boolean }) matchCase = false;
-	@property({ type: Boolean }) matchRegex = true;
+	@state() private errorMessage = '';
+	@state() private helpType?: SearchOperatorsLongForm;
+	@state() private _value!: string;
+
+	private get label() {
+		return this.filter ? 'Filter' : 'Search';
+	}
 
 	get matchCaseOverride(): boolean {
 		return this.matchRegex ? this.matchCase : true;
 	}
 
+	get matchWholeWordOverride(): boolean {
+		return this.matchRegex ? this.matchWholeWord : false;
+	}
+
+	private get placeholder() {
+		return `${this.label} commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
+	}
+
 	override focus(options?: FocusOptions): void {
 		this.input.focus(options);
+	}
+
+	override updated(changedProperties: Map<PropertyKey, unknown>) {
+		this.toggleAttribute('data-has-input', Boolean(this._value?.length));
+
+		super.updated(changedProperties);
 	}
 
 	private handleFocus(_e: Event) {
@@ -269,10 +290,7 @@ export class GlSearchInput extends GlElement {
 
 	private _updateHelpTextDebounced: Deferrable<GlSearchInput['updateHelpText']> | undefined;
 	private updateHelpText() {
-		if (this._updateHelpTextDebounced == null) {
-			this._updateHelpTextDebounced = debounce(this.updateHelpTextCore.bind(this), 200);
-		}
-
+		this._updateHelpTextDebounced ??= debounce(this.updateHelpTextCore.bind(this), 200);
 		this._updateHelpTextDebounced();
 	}
 
@@ -323,7 +341,12 @@ export class GlSearchInput extends GlElement {
 		this.debouncedOnSearchChanged();
 	}
 
-	private handleFilter(_e: Event) {
+	private handleMatchWholeWord(_e: Event) {
+		this.matchWholeWord = !this.matchWholeWord;
+		this.debouncedOnSearchChanged();
+	}
+
+	private handleFilterClick(_e: Event) {
 		this.filter = !this.filter;
 		this.emit('gl-search-modechange', { searchMode: this.filter ? 'filter' : 'normal' });
 		this.debouncedOnSearchChanged();
@@ -376,6 +399,7 @@ export class GlSearchInput extends GlElement {
 			matchAll: this.matchAll,
 			matchCase: this.matchCase,
 			matchRegex: this.matchRegex,
+			matchWholeWord: this.matchWholeWord,
 		};
 		this.emit('gl-search-inputchange', search);
 	}
@@ -412,96 +436,12 @@ export class GlSearchInput extends GlElement {
 						aria-checked="${this.filter}"
 						tooltip="Filter Commits"
 						aria-label="Filter Commits"
-						@click="${this.handleFilter}"
+						@click="${this.handleFilterClick}"
 						@focus="${this.handleFocus}"
 					>
 						<code-icon icon="list-filter"></code-icon>
 					</gl-button>
-					<gl-popover
-						class="popover"
-						trigger="click focus"
-						hoist
-						placement="bottom-start"
-						.arrow=${false}
-						distance="0"
-					>
-						<gl-button
-							slot="anchor"
-							appearance="input"
-							tooltip="${this.label} By"
-							tooltipPlacement="top"
-							aria-label="${this.label} By"
-						>
-							<code-icon icon="search" size="14" aria-hidden="true"></code-icon>
-							<code-icon slot="suffix" icon="chevron-down" size="10" aria-hidden="true"></code-icon>
-						</gl-button>
-						<div slot="content">
-							<menu-label>${this.label} By</menu-label>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('@me')}"
-								>
-									My changes <small>@me</small>
-								</button>
-							</menu-item>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('message:')}"
-								>
-									Message <small>message: or =:</small>
-								</button>
-							</menu-item>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('author:')}"
-								>
-									Author <small>author: or @:</small>
-								</button>
-							</menu-item>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('commit:')}"
-								>
-									Commit SHA <small>commit: or #:</small>
-								</button>
-							</menu-item>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('file:')}"
-								>
-									File <small>file: or ?:</small>
-								</button>
-							</menu-item>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('change:')}"
-								>
-									Change <small>change: or ~:</small>
-								</button>
-							</menu-item>
-							<menu-item role="none">
-								<button
-									class="menu-button"
-									type="button"
-									@click="${() => this.handleInsertToken('type:stash')}"
-								>
-									Type <small>type:stash or is:stash</small>
-								</button>
-							</menu-item>
-						</div>
-					</gl-popover>
+					${this.renderSearchByPopover()}
 				</div>
 				<input
 					id="search"
@@ -518,40 +458,12 @@ export class GlSearchInput extends GlElement {
 					@click="${this.handleInputClick}"
 					@focus="${this.handleFocus}"
 				/>
-				<div class="message" id="help-text" aria-live="polite">
-					${this.errorMessage !== '' ? html`${this.errorMessage}${this.helpType ? html`<br />` : ''}` : ''}
-					${this.helpType === 'message:'
-						? html`<span
-								>Message: use quotes to search for phrases, e.g.
-								<code>message:"Updates dependencies"</code></span
-							>`
-						: ''}
-					${this.helpType === 'author:'
-						? html`<span>Author: use a user's account, e.g. <code>author:eamodio</code></span>`
-						: ''}
-					${this.helpType === 'commit:'
-						? html`<span>Commit: use a full or short Commit SHA, e.g. <code>commit:4ce3a</code></span>`
-						: ''}
-					${this.helpType === 'file:'
-						? html`<span
-								>File: use a filename with extension, e.g. <code>file:package.json</code>, or a glob
-								pattern, e.g. <code>file:*graph*</code></span
-							>`
-						: ''}
-					${this.helpType === 'change:'
-						? html`<span>Change: use a regex pattern, e.g. <code>change:update&#92;(param</code></span>`
-						: ''}
-					${this.helpType === 'type:'
-						? html`<span
-								>Type: use <code>stash</code> to search only stashes, e.g. <code>type:stash</code></span
-							>`
-						: ''}
-				</div>
+				${this.renderHelpText()}
 			</div>
 			<div class="controls">
 				<gl-button
 					appearance="input"
-					class="${this.value ? '' : ' is-hidden'}"
+					class="${ifDefined(this.value ? undefined : 'is-hidden')}"
 					tooltip="Clear"
 					aria-label="Clear"
 					@click="${this.handleClear}"
@@ -559,44 +471,183 @@ export class GlSearchInput extends GlElement {
 				>
 					<code-icon icon="close"></code-icon>
 				</gl-button>
-				<gl-button
-					appearance="input"
-					role="checkbox"
-					aria-checked="${this.matchAll}"
-					tooltip="Match All"
-					aria-label="Match All"
-					@click="${this.handleMatchAll}"
-					@focus="${this.handleFocus}"
-				>
-					<code-icon icon="whole-word"></code-icon>
-				</gl-button>
-				<gl-button
-					appearance="input"
-					role="checkbox"
-					aria-checked="${this.matchCaseOverride}"
-					tooltip="Match Case${this.matchCaseOverride && !this.matchCase
-						? ' (always on without regular expressions)'
-						: ''}"
-					aria-label="Match Case${this.matchCaseOverride && !this.matchCase
-						? ' (always on without regular expressions)'
-						: ''}"
-					?disabled="${!this.matchRegex}"
-					@click="${this.handleMatchCase}"
-					@focus="${this.handleFocus}"
-				>
-					<code-icon icon="case-sensitive"></code-icon>
-				</gl-button>
-				<gl-button
-					appearance="input"
-					role="checkbox"
-					aria-checked="${this.matchRegex}"
-					tooltip="Use Regular Expression"
-					aria-label="Use Regular Expression"
-					@click="${this.handleMatchRegex}"
-					@focus="${this.handleFocus}"
-				>
-					<code-icon icon="regex"></code-icon>
-				</gl-button>
+				${this.renderSearchOptions()}
 			</div>`;
+	}
+
+	private renderHelpText() {
+		return html`<div class="message" id="help-text" aria-live="polite">
+			${this.renderSpecificHelpText(this.helpType)}
+		</div>`;
+	}
+
+	private renderSpecificHelpText(type?: SearchOperatorsLongForm) {
+		if (this.errorMessage) {
+			return html`<span>${this.errorMessage}</span>`;
+		}
+
+		switch (type) {
+			case 'message:':
+				return html`<span
+					>Message: use quotes to search for phrases, e.g. <code>message:"Updates dependencies"</code></span
+				>`;
+			case 'author:':
+				return html`<span>Author: use a user's account, e.g. <code>author:eamodio</code></span>`;
+			case 'commit:':
+				return html`<span>Commit: use a full or short Commit SHA, e.g. <code>commit:4ce3a</code></span>`;
+			case 'type:':
+				return html`<span
+					>Type: use <code>stash</code> to search only stashes, e.g. <code>type:stash</code></span
+				>`;
+			case 'file:':
+				return html`<span
+					>File: use a filename with extension, e.g. <code>file:package.json</code> or a glob pattern, e.g.
+					<code>file:*graph*</code></span
+				>`;
+			case 'change:':
+				return html`<span>Change: use a regex pattern, e.g. <code>change:update&#92;(param</code></span>`;
+			case 'after:':
+				return html`<span
+					>After Date: use a date string, e.g. <code>after:2022-01-01</code> or a relative date, e.g.
+					<code>since:6.months.ago</code></span
+				>`;
+			case 'before:':
+				return html`<span
+					>Before Date: use a date string, e.g. <code>before:2022-01-01</code> or a relative date, e.g.
+					<code>until:6.months.ago</code></span
+				>`;
+		}
+
+		return nothing;
+	}
+
+	private renderSearchByPopover() {
+		return html`<gl-popover
+			class="popover"
+			trigger="click focus"
+			hoist
+			placement="bottom-start"
+			.arrow=${false}
+			distance="0"
+		>
+			<gl-button
+				style="height:100%;"
+				slot="anchor"
+				appearance="input"
+				tooltip="${this.label} By"
+				tooltipPlacement="top"
+				aria-label="${this.label} By"
+			>
+				<code-icon icon="search" size="14" aria-hidden="true"></code-icon>
+				<code-icon slot="suffix" icon="chevron-down" size="10" aria-hidden="true"></code-icon>
+			</gl-button>
+			<div slot="content">
+				<menu-label>${this.label} By</menu-label>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('@me')}">
+						My changes <small>@me</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('message:')}">
+						Message <small>message: or =:</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('author:')}">
+						Author <small>author: or @:</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('commit:')}">
+						Commit SHA <small>commit: or #:</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('type:stash')}">
+						Type <small>type:stash or is:stash</small>
+					</button>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('file:')}">
+						File <small>file: or ?:</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('change:')}">
+						Change <small>change: or ~:</small>
+					</button>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('after:')}">
+						After Date <small>after: or since:</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('before:')}">
+						Before Date <small>before: or until:</small>
+					</button>
+				</menu-item>
+			</div>
+		</gl-popover>`;
+	}
+
+	private renderSearchOptions() {
+		return html`<gl-button
+				appearance="input"
+				role="checkbox"
+				aria-checked="${this.matchCaseOverride}"
+				tooltip="Match Case${this.matchCaseOverride && !this.matchCase
+					? ' (always on without regular expressions)'
+					: ''}"
+				aria-label="Match Case${this.matchCaseOverride && !this.matchCase
+					? ' (always on without regular expressions)'
+					: ''}"
+				?disabled="${!this.matchRegex}"
+				@click="${this.handleMatchCase}"
+				@focus="${this.handleFocus}"
+			>
+				<code-icon icon="case-sensitive"></code-icon>
+			</gl-button>
+			<gl-button
+				appearance="input"
+				role="checkbox"
+				aria-checked="${this.matchWholeWordOverride}"
+				tooltip="Match Whole Word${this.matchWholeWordOverride && !this.matchWholeWord
+					? ' (requires regular expressions)'
+					: ''}"
+				aria-label="Match Whole Word${this.matchWholeWordOverride && !this.matchWholeWord
+					? ' (requires regular expressions)'
+					: ''}"
+				?disabled="${!this.matchRegex}"
+				@click="${this.handleMatchWholeWord}"
+				@focus="${this.handleFocus}"
+			>
+				<code-icon icon="whole-word"></code-icon>
+			</gl-button>
+			<gl-button
+				appearance="input"
+				role="checkbox"
+				aria-checked="${this.matchRegex}"
+				tooltip="Use Regular Expression"
+				aria-label="Use Regular Expression"
+				@click="${this.handleMatchRegex}"
+				@focus="${this.handleFocus}"
+			>
+				<code-icon icon="regex"></code-icon>
+			</gl-button>
+			<gl-button
+				appearance="input"
+				role="checkbox"
+				aria-checked="${this.matchAll}"
+				tooltip="Match All"
+				aria-label="Match All"
+				@click="${this.handleMatchAll}"
+				@focus="${this.handleFocus}"
+			>
+				<code-icon icon="check-all"></code-icon>
+			</gl-button>`;
 	}
 }

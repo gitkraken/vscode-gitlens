@@ -367,6 +367,7 @@ interface GitCommandsConfig {
 		readonly matchAll: boolean;
 		readonly matchCase: boolean;
 		readonly matchRegex: boolean;
+		readonly matchWholeWord: boolean;
 		readonly showResultsInSideBar: boolean | null;
 	};
 	readonly skipConfirmations: string[];

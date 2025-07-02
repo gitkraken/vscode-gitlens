@@ -1065,7 +1065,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log<CommitsGitSubProvider['searchCommits']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
 					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
 				}`,
 		},
@@ -1078,7 +1078,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
 
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		try {
 			const currentUser = await this.provider.config.getCurrentUser(repoPath);

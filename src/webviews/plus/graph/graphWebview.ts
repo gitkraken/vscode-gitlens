@@ -1529,6 +1529,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} catch (ex) {
 			exception = ex;
 			void this.host.respond(requestType, msg, {
+				search: msg.params.search,
 				results: isCancellationError(ex)
 					? undefined
 					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
@@ -1553,7 +1554,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getSearchResults(e: SearchParams): Promise<DidSearchParams> {
 		if (e.search == null) {
 			this.resetSearchState();
-			return { results: undefined };
+			return { search: e.search, results: undefined };
 		}
 
 		let search: GitGraphSearch | undefined = this._search;
@@ -1567,6 +1568,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void (await this.ensureSearchStartsInRange(graph, search));
 
 				return {
+					search: e.search,
 					results: search.results.size
 						? {
 								ids: Object.fromEntries(search.results),
@@ -1577,11 +1579,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				};
 			}
 
-			return { results: undefined };
+			return { search: e.search, results: undefined };
 		}
 
 		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
-			if (this.repository == null) return { results: { error: 'No repository' } };
+			if (this.repository == null) return { search: e.search, results: { error: 'No repository' } };
 
 			if (this.repository.etag !== this._etagRepository) {
 				this.updateState(true);
@@ -1636,6 +1638,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return {
+			search: e.search,
 			results: search.results.size
 				? {
 						ids: Object.fromEntries(search.results),
@@ -2656,7 +2659,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
-
 		const featurePreview = this.getFeaturePreview();
 
 		return {
@@ -3153,6 +3155,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (ex instanceof CancellationError) return;
 
 						void this.host.notify(DidSearchNotification, {
+							search: search.query,
 							results: {
 								error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
 							},

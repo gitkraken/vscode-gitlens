@@ -110,10 +110,23 @@ export class GlSearchBox extends GlElement {
 		}
 	`;
 
-	@property({ type: String })
-	errorMessage = '';
+	@query('gl-search-input') searchInput!: GlSearchInput;
 
-	@state() _value!: string;
+	@property({ type: String }) errorMessage = '';
+	@property({ type: Boolean }) filter = false;
+	@property({ type: Boolean }) matchAll = false;
+	@property({ type: Boolean }) matchCase = false;
+	@property({ type: Boolean }) matchRegex = true;
+	@property({ type: Boolean }) matchWholeWord = false;
+	@property({ type: Boolean }) more = false;
+	@property({ type: Boolean }) naturalLanguage = false;
+	@property({ type: Boolean }) resultsHidden = false;
+	@property({ type: String }) resultsLabel = 'result';
+	@property({ type: Boolean }) resultsLoaded = false;
+	@property({ type: Boolean }) searching = false;
+	@property({ type: Number }) step = 0;
+	@property({ type: Number }) total = 0;
+	@property({ type: Boolean }) valid = false;
 	@property({ type: String })
 	get value() {
 		return this._value;
@@ -123,48 +136,11 @@ export class GlSearchBox extends GlElement {
 		this._value = value;
 	}
 
-	@property({ type: Boolean })
-	matchAll = false;
+	@state() private _value!: string;
 
-	@property({ type: Boolean })
-	matchCase = false;
-
-	@property({ type: Boolean })
-	matchRegex = true;
-
-	@property({ type: Boolean })
-	filter = false;
-
-	@property({ type: Number })
-	total = 0;
-
-	@property({ type: Number })
-	step = 0;
-
-	@property({ type: Boolean })
-	more = false;
-
-	@property({ type: Boolean })
-	searching = false;
-
-	@property({ type: Boolean })
-	valid = false;
-
-	@property({ type: Boolean })
-	resultsHidden = false;
-
-	@property({ type: String })
-	resultsLabel = 'result';
-
-	@property({ type: Boolean })
-	resultsLoaded = false;
-
-	get hasResults(): boolean {
+	private get hasResults(): boolean {
 		return this.total >= 1;
 	}
-
-	@query('gl-search-input')
-	searchInput!: GlSearchInput;
 
 	private _disposable: Disposable | undefined;
 
@@ -274,10 +250,11 @@ export class GlSearchBox extends GlElement {
 				id="search-input"
 				exportparts="search: search"
 				.errorMessage="${this.errorMessage}"
-				.filter=${this.filter}
-				.matchAll="${this.matchAll}"
-				.matchCase="${this.matchCase}"
-				.matchRegex="${this.matchRegex}"
+				?filter=${this.filter}
+				?matchAll="${this.matchAll}"
+				?matchCase="${this.matchCase}"
+				?matchRegex="${this.matchRegex}"
+				?matchWholeWord="${this.matchWholeWord}"
 				.value="${this._value ?? ''}"
 				@gl-search-navigate="${(e: CustomEvent<SearchNavigationEventDetail>) => {
 					e.stopImmediatePropagation();

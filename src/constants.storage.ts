@@ -385,6 +385,7 @@ export interface StoredSearchQuery {
 	matchAll?: boolean;
 	matchCase?: boolean;
 	matchRegex?: boolean;
+	matchWholeWord?: boolean;
 }
 
 export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;

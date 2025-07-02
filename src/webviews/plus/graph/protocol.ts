@@ -365,6 +365,7 @@ export interface GraphSearchResultsError {
 	error: string;
 }
 export interface DidSearchParams {
+	search: SearchQuery | undefined;
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
 	selectedRows?: GraphSelectedRows;
 }

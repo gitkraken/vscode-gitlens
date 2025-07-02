@@ -889,7 +889,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log<CommitsGitSubProvider['searchCommits']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
 					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
 				}`,
 		},
@@ -903,6 +903,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
+
+		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const operations = parseSearchQuery(search);
 
@@ -922,7 +924,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 
 		const queryArgs = await getQueryArgsFromSearchQuery(this.provider, search, operations, repoPath);
-		if (queryArgs.length === 0) return undefined;
+		if (!queryArgs.length) return undefined;
 
 		const limit = this.provider.getPagingLimit(options?.limit);
 

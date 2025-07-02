@@ -353,8 +353,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				search: this.searchValid ? { ...this.appState.filter } : undefined /*limit: options?.limit*/,
 			});
 
-			if (rsp.results && this.appState.filter.query) {
-				this.searchEl.logSearch({ ...this.appState.filter });
+			if (rsp.search && rsp.results) {
+				this.searchEl.logSearch(rsp.search);
 			}
 
 			this.appState.searchResultsResponse = rsp.results;
