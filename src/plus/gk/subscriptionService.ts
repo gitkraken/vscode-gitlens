@@ -1693,7 +1693,7 @@ export class SubscriptionService implements Disposable {
 				const callbackUri = await env.asExternalUri(
 					Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AiAllAccessOptInPathPrefix}`),
 				);
-				query.set('redirect_uri', encodeURIComponent(callbackUri.toString(true)));
+				query.set('redirect_uri', callbackUri.toString(true));
 			}
 
 			if(!(await openUrl(this.container.urls.getGkDevUrl('all-access', query)))) {
@@ -1711,13 +1711,13 @@ export class SubscriptionService implements Disposable {
 
 		const action = await Promise.race(completionPromises);
 
-		if (action === 'update') {
+		if (action === 'update' && hasAccount) {
 			void this.checkUpdatedSubscription(source);
+			void this.container.storage.store(`gk:promo:${this._session?.account.id ?? '00000000'}:ai:allAccess:dismissed`, true).catch();
+			void this.container.views.home.refresh();
 		}
 
 		if (action !== 'cancel') {
-			void this.container.storage.store(`gk:promo:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:ai:allAccess:dismissed`, true).catch();
-
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('aiAllAccess/optedIn', undefined, source);
 			}
@@ -1737,6 +1737,11 @@ export class SubscriptionService implements Disposable {
 		// If we don't have an account and received a code, login with the code
 		if (this._session == null) {
 			await this.loginWithCode({ code: code }, { source: 'subscription' });
+			const newSession = await this.getAuthenticationSession();
+			if (newSession?.account?.id != null) {
+				await this.container.storage.store(`gk:promo:${newSession.account.id}:ai:allAccess:dismissed`, true).catch();
+				void this.container.views.home.refresh();
+			}
 		}
 	}
 }

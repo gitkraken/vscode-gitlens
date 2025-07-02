@@ -16,6 +16,7 @@ import type { GlHomeHeader } from '../plus/shared/components/home-header';
 import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { HostIpc } from '../shared/ipc';
+import type { GlAiAllAccessBanner } from './components/ai-all-access-banner';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
 import '../plus/shared/components/home-header';
@@ -44,6 +45,9 @@ export class GlHomeApp extends GlAppHost<State> {
 	@query('gl-home-header')
 	private _header!: GlHomeHeader;
 
+	@query('gl-ai-all-access-banner')
+	private allAccessPromoBanner!: GlAiAllAccessBanner;
+
 	private badgeSource = { source: 'home', detail: 'badge' };
 
 	protected override createStateProvider(state: State, ipc: HostIpc): HomeStateProvider {
@@ -64,6 +68,7 @@ export class GlHomeApp extends GlAppHost<State> {
 						break;
 					case DidChangeSubscription.is(msg):
 						this._header.refreshPromo();
+						this.refreshAiAllAccessPromo();
 						break;
 				}
 			}),
@@ -95,5 +100,9 @@ export class GlHomeApp extends GlAppHost<State> {
 				</main>
 			</div>
 		`;
+	}
+
+	refreshAiAllAccessPromo(): void {
+		this.allAccessPromoBanner?.requestUpdate();
 	}
 }

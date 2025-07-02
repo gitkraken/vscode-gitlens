@@ -104,6 +104,7 @@ import type {
 import {
 	ChangeOverviewRepositoryCommand,
 	CollapseSectionCommand,
+	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
 	DidChangeLaunchpad,
 	DidChangeOrgSettings,
@@ -772,8 +773,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async getAiAllAccessBannerCollapsed() {
 		// Hide banner if outside the promotion period
 		if (!isAiAllAccessPromotionActive()) return true;
-
-		return this.container.storage.get(`gk:promo:${(await this.container.subscription.getSubscription(true))?.account?.id ?? '00000000'}:ai:allAccess:dismissed`, false);
+		const userId = await this.getAiAllAccessUserId();
+		return this.container.storage.get(`gk:promo:${userId}:ai:allAccess:dismissed`, false);
 	}
 
 	private async getAiAllAccessUserId(): Promise<string> {
@@ -786,6 +787,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const userId = await this.getAiAllAccessUserId();
 		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:dismissed`, true).catch();
 		// TODO: Add telemetry tracking for AI All Access banner dismiss
+		await this.onAiAllAccessBannerChanged();
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -812,6 +814,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		) {
 			this.onOverviewRepoChanged();
 		}
+
+		await this.onAiAllAccessBannerChanged();
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
@@ -842,7 +846,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			aiEnabled: this.getAiEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
-			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, true),
+			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, false),
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
@@ -1086,6 +1090,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (!this.host.visible) return;
 
 		this.notifyDidChangeRepositories();
+	}
+
+	private async onAiAllAccessBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeAiAllAccessBanner, await this.getAiAllAccessBannerCollapsed());
 	}
 
 	private getSelectedRepository() {

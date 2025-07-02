@@ -36,12 +36,9 @@ export class GlAiAllAccessBanner extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
-	@state()
-	private closed = false;
-
 	private get shouldShow(): boolean {
 		// Don't show if dismissed or closed
-		return !(this._state.aiAllAccessBannerCollapsed || this.closed);
+		return !(this._state.aiAllAccessBannerCollapsed);
 	}
 
 	private get bodyLabel(): string {
@@ -79,7 +76,6 @@ export class GlAiAllAccessBanner extends LitElement {
 	}
 
 	private onSecondaryClick() {
-		this.closed = true;
 		this._ipc.sendCommand(DismissAiAllAccessBannerCommand, undefined);
 	}
 }
