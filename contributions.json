@@ -143,6 +143,32 @@
 				]
 			}
 		},
+		"gitlens.ai.feedback.negative": {
+			"label": "AI Feedback: Negative",
+			"icon": "$(thumbsdown)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.ai.feedback.positive": {
+			"label": "AI Feedback: Positive",
+			"icon": "$(thumbsup)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.ai.generateChangelog": {
 			"label": "Generate Changelog (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
