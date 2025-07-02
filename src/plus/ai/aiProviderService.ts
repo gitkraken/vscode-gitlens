@@ -39,7 +39,6 @@ import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiMode
 import { Directive, isDirective } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
 import type { Storage } from '../../system/-webview/storage';
-import { isAiAllAccessPromotionActive } from '../../system/date';
 import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
 import type { Lazy } from '../../system/lazy';
@@ -51,6 +50,7 @@ import { getSettledValue, getSettledValues } from '../../system/promise';
 import { PromiseCache } from '../../system/promiseCache';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
+import { isAiAllAccessPromotionActive } from '../gk/utils/-webview/promo.utils';
 import { compareSubscriptionPlans, getSubscriptionPlanName, isSubscriptionPaid } from '../gk/utils/subscription.utils';
 import { GitKrakenProvider } from './gitkrakenProvider';
 import type {
