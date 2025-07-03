@@ -78,7 +78,6 @@ export class ResetCommand extends GlCommandBase {
 				detail: 'Clears stored data associated with the current workspace',
 				item: 'workspace',
 			},
-			...(this.container.debugging ? [{ label: 'Promo Opt-Ins...', detail: 'Clears any locally stored promo opt-ins', item: 'promoOptIns' }]  satisfies ResetQuickPickItem[] : []),
 			createQuickPickSeparator(),
 			{
 				label: 'Everything...',
@@ -100,6 +99,11 @@ export class ResetCommand extends GlCommandBase {
 					label: 'Reset Feature Previews...',
 					detail: 'Resets the stored state for feature previews',
 					item: 'previews',
+				},
+				{
+					label: 'Promo Opt-Ins...',
+					detail: 'Clears any locally stored promo opt-ins',
+					item: 'promoOptIns'
 				},
 			);
 		}
