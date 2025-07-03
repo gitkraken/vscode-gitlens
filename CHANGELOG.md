@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Updates promo banners and content
+
 ## [17.2.1] - 2025-06-26
 
 ### Changed
