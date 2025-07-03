@@ -1613,42 +1613,50 @@ export class AIProviderService implements Disposable {
 			(compareSubscriptionPlans(subscription.plan.actual.id, 'advanced') >= 0 ||
 			 compareSubscriptionPlans(subscription.plan.effective.id, 'advanced') >= 0);
 
-		const message = hasAdvancedOrHigher
-			? 'Get unlimited AI tokens in GitLens until July 11th!'
-			: 'Get unlimited AI tokens and try all GitLens Advanced features for free until July 11th!';
+		let body = 'All Access Week - now until July 11th!';
+		const detail = hasAdvancedOrHigher ? 'Opt in now to get unlimited GitKraken AI until July 11th!' : 'Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!';
 
-		const buttonText = hasAdvancedOrHigher
-			? 'Get Unlimited AI Tokens'
-			: 'Try Advanced for Free';
+		if (!usingGkProvider) {
+			body += ` ${detail}`;
+		}
+
+		const optInButton: MessageItem = usingGkProvider ? { title: 'Opt in for Unlimited AI' } : { title: 'Opt in and Switch to GitKraken AI' };
+		const dismissButton: MessageItem = { title: 'No, Thanks', isCloseAffordance: true };
 
 		// Show the notification
-		const result = await window.showInformationMessage(message, { modal: usingGkProvider }, buttonText);
+		const result = await window.showInformationMessage(body, { modal: usingGkProvider, detail: detail }, optInButton, dismissButton);
 
 		// Mark notification as shown regardless of user action
 		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:notified`, true);
 
 		// If user clicked the button, trigger the opt-in command
-		if (result === buttonText) {
-			const optIn = await this.container.subscription.aiAllAccessOptIn({ source: 'notification' });
-		if (optIn && !usingGkProvider && isProviderEnabledByOrg('gitkraken')) {
-				const gkProvider = new GitKrakenProvider(this.container, this.connection);
-				const defaultModel = (await gkProvider.getModels()).find(m => m.default);
-				if (defaultModel != null) {
-					this._provider = gkProvider;
-					this._model = defaultModel;
-					if (isPrimaryAIProviderModel(defaultModel)) {
-						await configuration.updateEffective('ai.model', 'gitkraken');
-						await configuration.updateEffective(`ai.gitkraken.model`, defaultModel.id);
-					} else {
-						await configuration.updateEffective('ai.model', `gitkraken:${defaultModel.id}` as SupportedAIModels);
-					}
+		if (result === optInButton) {
+			void this.allAccessOptIn(usingGkProvider);
+		}
+	}
 
-					this._onDidChangeModel.fire({ model: defaultModel });
+	private async allAccessOptIn(usingGkProvider?: boolean): Promise<void> {
+		const optIn = await this.container.subscription.aiAllAccessOptIn({ source: 'notification' });
+		if (optIn && !usingGkProvider && isProviderEnabledByOrg('gitkraken')) {
+			const gkProvider = new GitKrakenProvider(this.container, this.connection);
+			const defaultModel = (await gkProvider.getModels()).find(m => m.default);
+			if (defaultModel != null) {
+				this._provider = gkProvider;
+				this._model = defaultModel;
+				if (isPrimaryAIProviderModel(defaultModel)) {
+					await configuration.updateEffective('ai.model', 'gitkraken');
+					await configuration.updateEffective(`ai.gitkraken.model`, defaultModel.id);
+				} else {
+					await configuration.updateEffective('ai.model', `gitkraken:${defaultModel.id}` as SupportedAIModels);
 				}
+
+				this._onDidChangeModel.fire({ model: defaultModel });
 			}
 		}
 	}
 }
+
+
 
 async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 	const confirmed = storage.get(`confirm:ai:tos`, false) || storage.getWorkspace(`confirm:ai:tos`, false);

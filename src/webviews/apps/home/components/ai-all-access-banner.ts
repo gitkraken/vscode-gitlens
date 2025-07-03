@@ -45,12 +45,12 @@ export class GlAiAllAccessBanner extends LitElement {
 	}
 
 	private get bodyLabel(): string {
-		return this.hasAdvancedOrHigher ? 'Join now and get unlimited AI tokens in GitLens until July 11th!' : 'Join now to try all Advanced GitLens features with unlimited AI tokens for FREE!';
+		return this.hasAdvancedOrHigher ? 'Opt in now to get unlimited GitKraken AI until July 11th!' : 'Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!';
 
 	}
 
 	private get primaryButtonLabel(): string {
-		return this.hasAdvancedOrHigher ? 'Get Unlimited AI Tokens' : 'Try Advanced for Free';
+		return 'Opt In Now';
 	}
 
 	private get hasAdvancedOrHigher(): boolean {
