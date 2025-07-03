@@ -14132,11 +14132,6 @@
 					"group": "navigation@-97"
 				},
 				{
-					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
-					"group": "navigation@0"
-				},
-				{
 					"command": "gitlens.ai.feedback.positive",
 					"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "navigation@1"
@@ -14145,6 +14140,11 @@
 					"command": "gitlens.ai.feedback.negative",
 					"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.regenerateMarkdownDocument",
+					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@3"
 				},
 				{
 					"command": "gitlens.openPatch",

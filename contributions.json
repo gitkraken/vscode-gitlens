@@ -3710,7 +3710,7 @@
 					{
 						"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
-						"order": 0
+						"order": 3
 					}
 				],
 				"editor/title/context": [
