@@ -240,6 +240,9 @@ interface AIConfig {
 	readonly generateCreatePullRequest: {
 		readonly customInstructions: string;
 	};
+	readonly generateSearchQuery: {
+		readonly customInstructions: string;
+	};
 	readonly gitkraken: {
 		readonly model: AIProviderAndModel | null;
 	};

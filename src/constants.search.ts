@@ -61,6 +61,8 @@ export const searchOperationHelpRegex =
 
 export interface SearchQuery {
 	query: string;
+	naturalLanguage?: boolean | { query: string; processedQuery?: string; error?: string };
+
 	filter?: boolean;
 	matchAll?: boolean;
 	matchCase?: boolean;

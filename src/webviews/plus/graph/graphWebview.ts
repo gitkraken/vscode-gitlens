@@ -24,6 +24,7 @@ import type {
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
+import type { ContextKeys } from '../../../constants.context';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -79,7 +80,11 @@ import type {
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
 import type { GitGraphSearch } from '../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
+import {
+	getSearchQueryComparisonKey,
+	parseSearchQuery,
+	processNaturalLanguageToSearchQuery,
+} from '../../../git/search';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
 import { getBranchMergeTargetInfo } from '../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
@@ -197,6 +202,7 @@ import {
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
+	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -324,6 +330,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
 				if (this._etag !== this.container.git.etag) {
@@ -874,6 +881,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
+		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -918,9 +926,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		if (
+			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
+			configuration.changed(e, 'ai.enabled') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateStyle') ||
-			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
 			configuration.changed(e, 'graph')
 		) {
 			void this.notifyDidChangeConfiguration();
@@ -936,6 +945,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateState();
 			}
 		}
+	}
+
+	@debug({ args: false })
+	private onContextChanged(key: keyof ContextKeys) {
+		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
+			this.notifyDidChangeOrgSettings();
+		}
+	}
+
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			ai: getContext('gitlens:gk:organization:ai:enabled', true),
+			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
+		};
 	}
 
 	@debug({ args: false })
@@ -1517,6 +1540,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
+		if (msg.params.search?.naturalLanguage) {
+			msg.params.search = await processNaturalLanguageToSearchQuery(this.container, msg.params.search, {
+				source: 'graph',
+			});
+		}
+
 		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
 		const types = query != null ? join(query?.keys(), ',') : '';
 
@@ -2038,6 +2067,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private notifyDidChangeOrgSettings() {
+		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
+	}
+
+	@debug()
 	private async notifyDidChangeState() {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeNotification, this._ipcNotificationMap, this);
@@ -2385,6 +2419,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
+			aiEnabled: configuration.get('ai.enabled'),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -2659,6 +2694,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
+		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch') ?? false;
 		const featurePreview = this.getFeaturePreview();
 
 		return {
@@ -2709,7 +2745,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			defaultSearchMode: defaultSearchMode,
+			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
+			orgSettings: this.getOrgSettings(),
 		};
 	}
 

@@ -87,6 +87,7 @@ export type GlobalStorage = {
 	'launchpad:indicator:hasInteracted': string;
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
+	'graph:useNaturalLanguageSearch': boolean;
 	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
 } & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
@@ -386,6 +387,7 @@ export interface StoredSearchQuery {
 	matchCase?: boolean;
 	matchRegex?: boolean;
 	matchWholeWord?: boolean;
+	naturalLanguage?: boolean | { query: string; processedQuery?: string };
 }
 
 export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;

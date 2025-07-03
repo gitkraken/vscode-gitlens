@@ -1,5 +1,6 @@
 import type { CancellationToken, Range, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../constants.search';
+import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
@@ -14,6 +15,7 @@ import type {
 	GitSearchCommitsOptions,
 	IncomingActivityOptions,
 	LeftRightCommitCountResult,
+	SearchCommitsResult,
 } from '../../../../git/gitProvider';
 import { GitUri } from '../../../../git/gitUri';
 import type { GitBlame } from '../../../../git/models/blame';
@@ -41,7 +43,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
 import type { SearchQueryFilters } from '../../../../git/search';
-import { parseSearchQueryCommand } from '../../../../git/search';
+import { parseSearchQueryCommand, processNaturalLanguageToSearchQuery } from '../../../../git/search';
 import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils';
 import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
@@ -1073,12 +1075,19 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async searchCommits(
 		repoPath: string,
 		search: SearchQuery,
+		source: Source,
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
-	): Promise<GitLog | undefined> {
+	): Promise<SearchCommitsResult> {
 		const scope = getLogScope();
 
 		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
+		if (
+			search.naturalLanguage &&
+			(typeof search.naturalLanguage !== 'object' || !search.naturalLanguage.processedQuery)
+		) {
+			search = await processNaturalLanguageToSearchQuery(this.container, search, source);
+		}
 
 		try {
 			const currentUser = await this.provider.config.getCurrentUser(repoPath);
@@ -1167,7 +1176,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				limit: limit,
 				hasMore: count - countStashChildCommits > commits.size,
 				query: (limit: number | undefined) =>
-					this.searchCommits(repoPath, search, { ...options, limit: limit }),
+					this.searchCommits(repoPath, search, source, { ...options, limit: limit }).then(r => r.log),
 			};
 
 			if (log.hasMore) {
@@ -1178,11 +1187,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					return async (limit: number | undefined) => {
 						limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
-						const moreLog = await this.searchCommits(log.repoPath, search, {
-							...options,
-							limit: limit,
-							skip: log.count,
-						});
+						const moreLog = (
+							await this.searchCommits(log.repoPath, search, source, {
+								...options,
+								limit: limit,
+								skip: log.count,
+							})
+						).log;
 						// If we can't find any more, assume we have everything
 						if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
@@ -1197,7 +1208,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							limit: (log.limit ?? 0) + limit,
 							hasMore: moreLog.hasMore,
 							query: (limit: number | undefined) =>
-								this.searchCommits(log.repoPath, search, { ...options, limit: limit }),
+								this.searchCommits(log.repoPath, search, source, { ...options, limit: limit }).then(
+									r => r.log,
+								),
 						};
 						if (mergedLog.hasMore) {
 							mergedLog.more = searchCommitsCore.call(this, mergedLog);
@@ -1210,12 +1223,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				log.more = searchCommitsCore.call(this, log);
 			}
 
-			return log;
+			return { search: search, log: log };
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (isCancellationError(ex)) throw ex;
 
-			return undefined;
+			return { search: search, log: undefined };
 		}
 	}
 }

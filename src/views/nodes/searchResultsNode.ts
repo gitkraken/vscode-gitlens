@@ -187,15 +187,16 @@ function createSearchQuery(
 		| GitLog
 		| undefined,
 ): (limit: number | undefined) => Promise<CommitsQueryResults> {
-	if (typeof searchQueryOrLog === 'function') {
-		return searchQueryOrLog;
-	}
+	if (typeof searchQueryOrLog === 'function') return searchQueryOrLog;
 
 	// Create a search query function
 	return async (limit: number | undefined) => {
 		let log = searchQueryOrLog;
 		if (log == null) {
-			log = await view.container.git.getRepositoryService(repoPath).commits.searchCommits(search);
+			log = await view.container.git
+				.getRepositoryService(repoPath)
+				.commits.searchCommits(search, { source: 'view', detail: 'search&compare' })
+				.then(r => r.log);
 		} else if (log instanceof Promise) {
 			log = await log;
 		}

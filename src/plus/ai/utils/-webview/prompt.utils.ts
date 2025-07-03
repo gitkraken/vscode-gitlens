@@ -14,6 +14,7 @@ import {
 	generateCreateCodeSuggest,
 	generateCreatePullRequest,
 	generateRebase,
+	generateSearchQuery,
 	generateStashMessage,
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
@@ -35,12 +36,12 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return generateCreateCodeSuggest as PromptTemplate<T>;
 		case 'generate-create-pullRequest':
 			return generateCreatePullRequest as PromptTemplate<T>;
+		case 'generate-searchQuery':
+			return generateSearchQuery as PromptTemplate<T>;
 		case 'generate-rebase':
 			return generateRebase as PromptTemplate<T>;
 		case 'explain-changes':
 			return explainChanges as PromptTemplate<T>;
-		default:
-			return undefined;
 	}
 }
 

@@ -1,6 +1,10 @@
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search';
 import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search';
 import type { StoredSearchQuery } from '../constants.storage';
+import type { Source } from '../constants.telemetry';
+import type { Container } from '../container';
+import type { NaturalLanguageSearchOptions } from '../plus/search/naturalLanguageSearchProcessor';
+import { NaturalLanguageSearchProcessor } from '../plus/search/naturalLanguageSearchProcessor';
 import type { GitRevisionReference } from './models/reference';
 import type { GitUser } from './models/user';
 import { isSha, shortenRevision } from './utils/revision.utils';
@@ -32,6 +36,12 @@ export function getSearchQuery(search: StoredSearchQuery): SearchQuery {
 		matchCase: search.matchCase,
 		matchRegex: search.matchRegex,
 		matchWholeWord: search.matchWholeWord,
+		naturalLanguage:
+			typeof search.naturalLanguage === 'object'
+				? { ...search.naturalLanguage }
+				: typeof search.naturalLanguage === 'boolean'
+					? search.naturalLanguage
+					: undefined,
 	};
 }
 
@@ -42,13 +52,19 @@ export function getStoredSearchQuery(search: SearchQuery): StoredSearchQuery {
 		matchCase: search.matchCase,
 		matchRegex: search.matchRegex,
 		matchWholeWord: search.matchWholeWord,
+		naturalLanguage:
+			typeof search.naturalLanguage === 'object'
+				? { query: search.naturalLanguage.query, processedQuery: search.naturalLanguage.processedQuery }
+				: typeof search.naturalLanguage === 'boolean'
+					? search.naturalLanguage
+					: undefined,
 	};
 }
 
 export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQuery): string {
 	return `${'query' in search ? search.query : search.pattern}|${search.matchAll ? 'A' : ''}${
 		search.matchCase ? 'C' : ''
-	}${search.matchRegex ? 'R' : ''}${search.matchWholeWord ? 'W' : ''}`;
+	}${search.matchRegex ? 'R' : ''}${search.matchWholeWord ? 'W' : ''}${search.naturalLanguage ? 'NL' : ''}`;
 }
 
 export function createSearchQueryForCommit(ref: string): string;
@@ -283,12 +299,12 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 					break;
 
 				case 'file:':
-					for (let value of values) {
+					for (const value of values) {
 						if (!value) continue;
 
 						if (value.startsWith('"') && value.endsWith('"')) {
-							value = value.slice(1, -1);
-							if (!value) continue;
+							// value = value.slice(1, -1);
+							// if (!value) continue;
 
 							filters.files = true;
 							files.push(value);
@@ -349,4 +365,14 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 		shas: shas,
 		filters: filters,
 	};
+}
+
+/** Converts natural language to a structured search query */
+export async function processNaturalLanguageToSearchQuery(
+	container: Container,
+	search: SearchQuery,
+	source: Source,
+	options?: NaturalLanguageSearchOptions,
+): Promise<SearchQuery> {
+	return new NaturalLanguageSearchProcessor(container).processNaturalLanguageToSearchQuery(search, source, options);
 }

@@ -26,6 +26,8 @@ export function ensureAccount(container: Container, silent: boolean): Promise<bo
 
 export function getActionName(action: AIActionType): string {
 	switch (action) {
+		case 'explain-changes':
+			return 'Explain Changes';
 		case 'generate-commitMessage':
 			return 'Generate Commit Message';
 		case 'generate-stashMessage':
@@ -40,10 +42,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Pull Request Details (Preview)';
 		case 'generate-rebase':
 			return 'Generate Rebase (Preview)';
-		case 'explain-changes':
-			return 'Explain Changes';
-		default:
-			return 'Unknown Action';
+		case 'generate-searchQuery':
+			return 'Generate Search Query (Preview)';
 	}
 }
 

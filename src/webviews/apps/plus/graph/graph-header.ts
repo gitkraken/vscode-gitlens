@@ -2,8 +2,9 @@ import type { GraphRefOptData } from '@gitkraken/gitkraken-components';
 import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
+import type { PropertyValues } from 'lit';
 import { html, LitElement } from 'lit';
-import { customElement, query } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -134,6 +135,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext })
 	appState!: typeof graphStateContext.__context__;
 
+	@state() private aiAllowed = true;
+
 	get hasFilters() {
 		if (this.hostState.config?.onlyFollowFirstParent) return true;
 		if (this.hostState.excludeTypes == null) return false;
@@ -143,6 +146,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	get excludeRefs() {
 		return Object.values(this.hostState.excludeRefs ?? {}).sort(compareGraphRefOpts);
+	}
+
+	override updated(changedProperties: PropertyValues): void {
+		this.aiAllowed = (this.hostState.config?.aiEnabled ?? true) && (this.hostState.orgSettings?.ai ?? true);
+		super.updated(changedProperties);
 	}
 
 	private async onJumpToRefPromise(alt: boolean): Promise<{ name: string; sha: string } | undefined> {
@@ -540,7 +548,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	handleSearchModeChanged(e: CustomEvent) {
-		this._ipc.sendCommand(UpdateGraphSearchModeCommand, { searchMode: e.detail.searchMode });
+		this._ipc.sendCommand(UpdateGraphSearchModeCommand, {
+			searchMode: e.detail.searchMode,
+			useNaturalLanguage: e.detail.useNaturalLanguage,
+		});
 	}
 
 	handleMinimapToggled() {
@@ -850,9 +861,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									</sl-select>
 								</gl-tooltip>
 								<div
-									class=${`shrink ${
-										!Object.values(this.hostState.excludeRefs ?? {}).length && 'hidden'
-									}`}
+									class=${`shrink ${!Object.values(this.hostState.excludeRefs ?? {}).length && 'hidden'}`}
 								>
 									<gl-popover
 										class="popover"
@@ -996,16 +1005,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									<span class="action-divider"></span>
 								</span>
 								<gl-search-box
+									?aiAllowed=${this.aiAllowed}
+									errorMessage=${this.appState.searchResultsError?.error ?? ''}
+									?filter=${this.hostState.defaultSearchMode === 'filter'}
+									?naturalLanguage=${Boolean(this.hostState.useNaturalLanguageSearch)}
+									?more=${searchResults?.paging?.hasMore ?? false}
+									?resultsHidden=${this.appState.searchResultsHidden}
+									?resultsLoaded=${searchResults != null}
+									?searching=${this.appState.searching}
 									step=${this.searchPosition}
 									total=${searchResults?.count ?? 0}
 									?valid=${this.searchValid}
-									?more=${searchResults?.paging?.hasMore ?? false}
-									?searching=${this.appState.searching}
-									?filter=${this.hostState.defaultSearchMode === 'filter'}
 									value=${this.appState.filter.query}
-									errorMessage=${this.appState.searchResultsError?.error ?? ''}
-									?resultsHidden=${this.appState.searchResultsHidden}
-									?resultsLoaded=${searchResults != null}
 									@gl-search-inputchange=${this.handleSearchInput}
 									@gl-search-navigate=${this.handleSearchNavigation}
 									@gl-search-openinview=${this.onSearchOpenInView}

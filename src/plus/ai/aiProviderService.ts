@@ -17,7 +17,7 @@ import {
 	vscodeProviderDescriptor,
 	xAIProviderDescriptor,
 } from '../../constants.ai';
-import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
+import type { AIGenerateCreateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import {
 	AIError,
@@ -726,7 +726,7 @@ export class AIProviderService implements Disposable {
 
 	async generateCreateDraft(
 		changesOrRepo: string | string[] | Repository,
-		sourceContext: Source & { type: AIGenerateDraftEventData['draftType'] },
+		sourceContext: Source & { type: AIGenerateCreateDraftEventData['draftType'] },
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -881,6 +881,48 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'changelog',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+		return result === 'cancelled' ? result : result != null ? { ...result } : undefined;
+	}
+
+	async generateSearchQuery(
+		search: { query: string; context: string | undefined },
+		source: Source,
+		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	): Promise<AIResult | 'cancelled' | undefined> {
+		const result = await this.sendRequest(
+			'generate-searchQuery',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				const { prompt } = await this.getPrompt(
+					'generate-searchQuery',
+					model,
+					{
+						query: search.query,
+						context: search.context,
+						instructions: configuration.get('ai.generateSearchQuery.customInstructions'),
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				return messages;
+			},
+			m => `Generating search query with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'searchQuery',
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,

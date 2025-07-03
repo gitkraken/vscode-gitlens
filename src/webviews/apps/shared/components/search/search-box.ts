@@ -112,6 +112,7 @@ export class GlSearchBox extends GlElement {
 
 	@query('gl-search-input') searchInput!: GlSearchInput;
 
+	@property({ type: Boolean }) aiAllowed = true;
 	@property({ type: String }) errorMessage = '';
 	@property({ type: Boolean }) filter = false;
 	@property({ type: Boolean }) matchAll = false;
@@ -249,12 +250,15 @@ export class GlSearchBox extends GlElement {
 		return html`<gl-search-input
 				id="search-input"
 				exportparts="search: search"
+				?aiAllowed="${this.aiAllowed}"
 				.errorMessage="${this.errorMessage}"
 				?filter=${this.filter}
 				?matchAll="${this.matchAll}"
 				?matchCase="${this.matchCase}"
 				?matchRegex="${this.matchRegex}"
 				?matchWholeWord="${this.matchWholeWord}"
+				?naturalLanguage="${this.naturalLanguage}"
+				?searching="${this.searching}"
 				.value="${this._value ?? ''}"
 				@gl-search-navigate="${(e: CustomEvent<SearchNavigationEventDetail>) => {
 					e.stopImmediatePropagation();

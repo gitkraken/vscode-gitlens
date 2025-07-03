@@ -347,45 +347,46 @@ interface AIExplainEvent extends AIEventDataBase {
 	changeType: 'wip' | 'stash' | 'commit' | 'branch' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
 }
 
-export interface AIGenerateCommitEventData extends AIEventDataBase {
-	type: 'commitMessage';
-}
-
-export interface AIGenerateDraftEventData extends AIEventDataBase {
-	type: 'draftMessage';
-	draftType: 'patch' | 'stash' | 'suggested_pr_change';
-}
-
-export interface AIGenerateStashEventData extends AIEventDataBase {
-	type: 'stashMessage';
-}
-
 export interface AIGenerateChangelogEventData extends AIEventDataBase {
 	type: 'changelog';
+}
+
+export interface AIGenerateCommitMessageEventData extends AIEventDataBase {
+	type: 'commitMessage';
 }
 
 export interface AIGenerateCreatePullRequestEventData extends AIEventDataBase {
 	type: 'createPullRequest';
 }
 
+export interface AIGenerateCreateDraftEventData extends AIEventDataBase {
+	type: 'draftMessage';
+	draftType: 'patch' | 'stash' | 'suggested_pr_change';
+}
+
 export interface AIGenerateRebaseEventData extends AIEventDataBase {
 	type: 'rebase';
 }
 
+export interface AIGenerateSearchQueryEventData extends AIEventDataBase {
+	type: 'searchQuery';
+}
+
+export interface AIGenerateStashMessageEventData extends AIEventDataBase {
+	type: 'stashMessage';
+}
+
 type AIGenerateEvent =
-	| AIGenerateCommitEventData
-	| AIGenerateDraftEventData
-	| AIGenerateStashEventData
-	| AIGenerateCreatePullRequestEventData
 	| AIGenerateChangelogEventData
-	| AIGenerateRebaseEventData;
+	| AIGenerateCommitMessageEventData
+	| AIGenerateCreateDraftEventData
+	| AIGenerateCreatePullRequestEventData
+	| AIGenerateRebaseEventData
+	| AIGenerateSearchQueryEventData
+	| AIGenerateStashMessageEventData;
 
 export type AISwitchModelEvent =
-	| {
-			'model.id': string;
-			'model.provider.id': AIProviders;
-			'model.provider.name': string;
-	  }
+	| { 'model.id': string; 'model.provider.id': AIProviders; 'model.provider.name': string }
 	| { failed: true };
 
 interface CloudIntegrationsConnectingEvent {
@@ -999,8 +1000,8 @@ export type Sources =
 	| 'ai'
 	| 'ai:picker'
 	| 'associateIssueWithBranch'
-	| 'code-suggest'
 	| 'cloud-patches'
+	| 'code-suggest'
 	| 'commandPalette'
 	| 'deeplink'
 	| 'editor:hover'
@@ -1019,13 +1020,14 @@ export type Sources =
 	| 'patchDetails'
 	| 'prompt'
 	| 'quick-wizard'
+	| 'rebaseEditor'
 	| 'remoteProvider'
+	| 'scm-input'
 	| 'settings'
 	| 'startWork'
+	| 'subscription'
 	| 'timeline'
 	| 'trial-indicator'
-	| 'scm-input'
-	| 'subscription'
 	| 'view'
 	| 'walkthrough'
 	| 'whatsnew'

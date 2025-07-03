@@ -120,10 +120,12 @@ export interface State extends WebviewState {
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
 	defaultSearchMode?: GraphSearchMode;
+	useNaturalLanguageSearch?: boolean;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 	featurePreview?: FeaturePreview;
+	orgSettings?: { ai: boolean; drafts: boolean };
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -178,6 +180,7 @@ export type GraphTag = Tag;
 export type GraphBranch = Head;
 
 export interface GraphComponentConfig {
+	aiEnabled?: boolean;
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
@@ -297,6 +300,7 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 
 export interface UpdateGraphSearchModeParams {
 	searchMode: GraphSearchMode;
+	useNaturalLanguage: boolean;
 }
 export const UpdateGraphSearchModeCommand = new IpcCommand<UpdateGraphSearchModeParams>(scope, 'search/update/mode');
 
@@ -402,6 +406,11 @@ export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSu
 	scope,
 	'subscription/didChange',
 );
+
+export interface DidChangeOrgSettingsParams {
+	orgSettings: State['orgSettings'];
+}
+export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
 
 export interface DidChangeAvatarsParams {
 	avatars: GraphAvatars;
