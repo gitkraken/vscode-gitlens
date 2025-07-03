@@ -344,7 +344,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand(
 				`${this.host.id}.ai.allAccess.dismiss`,
 				() => {
-					// TODO: Add telemetry tracking for AI All Access banner dismiss
 					void this.dismissAiAllAccessBanner();
 				},
 				this,
@@ -395,7 +394,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 
 			case DismissAiAllAccessBannerCommand.is(e):
-				// TODO: Add telemetry tracking for AI All Access banner dismiss
 				void this.dismissAiAllAccessBanner();
 				break;
 			case SetOverviewFilter.is(e):
@@ -783,6 +781,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@log()
 	private async dismissAiAllAccessBanner() {
+		this.container.telemetry.sendEvent('aiAllAccess/bannerDismissed', undefined, { source: 'home' });
 		const userId = await this.getAiAllAccessUserId();
 		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:dismissed`, true).catch();
 		// TODO: Add telemetry tracking for AI All Access banner dismiss

@@ -66,6 +66,12 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when switching ai models */
 	'ai/switchModel': AISwitchModelEvent;
 
+	/** Sent when user dismisses the AI All Access banner */
+	'aiAllAccess/bannerDismissed': void;
+
+	/** Sent when user opens the AI All Access page */
+	'aiAllAccess/opened': void;
+
 	/** Sent when user opts in to AI All Access */
 	'aiAllAccess/optedIn': void;
 

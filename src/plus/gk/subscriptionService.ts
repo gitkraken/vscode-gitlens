@@ -1696,6 +1696,10 @@ export class SubscriptionService implements Disposable {
 				query.set('redirect_uri', callbackUri.toString(true));
 			}
 
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('aiAllAccess/opened', undefined, source);
+			}
+
 			if(!(await openUrl(this.container.urls.getGkDevUrl('all-access', query)))) {
 				return false;
 			}
