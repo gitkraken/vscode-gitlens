@@ -16,6 +16,7 @@ import type { GlHomeHeader } from '../plus/shared/components/home-header';
 import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { HostIpc } from '../shared/ipc';
+import type { GlAiAllAccessBanner } from './components/ai-all-access-banner';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
 import '../plus/shared/components/home-header';
@@ -23,11 +24,13 @@ import '../plus/home/components/active-work';
 import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
+import './components/ai-all-access-banner';
 import './components/ama-banner';
 import './components/integration-banner';
 import './components/preview-banner';
 import './components/promo-banner';
 import './components/repo-alerts';
+import '../shared/components/banner/banner';
 
 @customElement('gl-home-app')
 export class GlHomeApp extends GlAppHost<State> {
@@ -41,6 +44,9 @@ export class GlHomeApp extends GlAppHost<State> {
 
 	@query('gl-home-header')
 	private _header!: GlHomeHeader;
+
+	@query('gl-ai-all-access-banner')
+	private allAccessPromoBanner!: GlAiAllAccessBanner;
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
@@ -62,6 +68,7 @@ export class GlHomeApp extends GlAppHost<State> {
 						break;
 					case DidChangeSubscription.is(msg):
 						this._header.refreshPromo();
+						this.refreshAiAllAccessPromo();
 						break;
 				}
 			}),
@@ -80,14 +87,22 @@ export class GlHomeApp extends GlAppHost<State> {
 						this.state?.previewEnabled === true,
 						() => html`
 							<gl-preview-banner></gl-preview-banner>
+							<gl-ai-all-access-banner></gl-ai-all-access-banner>
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>
 							<gl-overview></gl-overview>
 						`,
-						() => html`<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>`,
+						() => html`
+							<gl-ai-all-access-banner></gl-ai-all-access-banner>
+							<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
+						`,
 					)}
 				</main>
 			</div>
 		`;
+	}
+
+	refreshAiAllAccessPromo(): void {
+		this.allAccessPromoBanner?.requestUpdate();
 	}
 }

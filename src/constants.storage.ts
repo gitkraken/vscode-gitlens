@@ -95,6 +95,10 @@ export type GlobalStorage = {
 	>;
 } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
+} & {
+	[key in `gk:promo:${string}:ai:allAccess:dismissed`]: boolean;
+} & {
+	[key in `gk:promo:${string}:ai:allAccess:notified`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
 } & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {

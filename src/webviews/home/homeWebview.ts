@@ -49,6 +49,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
+import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
 import { providersMetadata } from '../../plus/integrations/providers/models';
@@ -103,6 +104,7 @@ import type {
 import {
 	ChangeOverviewRepositoryCommand,
 	CollapseSectionCommand,
+	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
 	DidChangeLaunchpad,
 	DidChangeOrgSettings,
@@ -115,6 +117,7 @@ import {
 	DidChangeWalkthroughProgress,
 	DidCompleteDiscoveringRepositories,
 	DidFocusAccount,
+	DismissAiAllAccessBannerCommand,
 	DismissWalkthroughSection,
 	GetActiveOverview,
 	GetInactiveOverview,
@@ -337,6 +340,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+
+			registerCommand(
+				`${this.host.id}.ai.allAccess.dismiss`,
+				() => {
+					void this.dismissAiAllAccessBanner();
+				},
+				this,
+			),
 			registerCommand('gitlens.home.changeBranchMergeTarget', this.changeBranchMergeTarget, this),
 			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
 			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
@@ -380,6 +391,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 			case DismissWalkthroughSection.is(e):
 				this.dismissWalkthrough();
+				break;
+
+			case DismissAiAllAccessBannerCommand.is(e):
+				void this.dismissAiAllAccessBanner();
 				break;
 			case SetOverviewFilter.is(e):
 				this.setOverviewFilter(e.params);
@@ -752,6 +767,27 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
 	}
 
+	private async getAiAllAccessBannerCollapsed() {
+		// Hide banner if outside the promotion period
+		if (!isAiAllAccessPromotionActive()) return true;
+		const userId = await this.getAiAllAccessUserId();
+		return this.container.storage.get(`gk:promo:${userId}:ai:allAccess:dismissed`, false);
+	}
+
+	private async getAiAllAccessUserId(): Promise<string> {
+		const subscription = await this.container.subscription.getSubscription();
+		return subscription.account?.id ?? '00000000';
+	}
+
+	@log()
+	private async dismissAiAllAccessBanner() {
+		this.container.telemetry.sendEvent('aiAllAccess/bannerDismissed', undefined, { source: 'home' });
+		const userId = await this.getAiAllAccessUserId();
+		void this.container.storage.store(`gk:promo:${userId}:ai:allAccess:dismissed`, true).catch();
+		// TODO: Add telemetry tracking for AI All Access banner dismiss
+		await this.onAiAllAccessBannerChanged();
+	}
+
 	private getOrgSettings(): State['orgSettings'] {
 		return {
 			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
@@ -776,13 +812,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		) {
 			this.onOverviewRepoChanged();
 		}
+
+		await this.onAiAllAccessBannerChanged();
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const [subResult, integrationResult, aiModelResult] = await Promise.allSettled([
+		const [subResult, integrationResult, aiModelResult, aiAllAccessBannerCollapsed] = await Promise.allSettled([
 			this.getSubscriptionState(subscription),
 			this.getIntegrationStates(true),
 			this.container.ai.getModel({ silent: true }, { source: 'home' }),
+			this.getAiAllAccessBannerCollapsed(),
 		]);
 
 		if (subResult.status === 'rejected') {
@@ -805,6 +844,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			aiEnabled: this.getAiEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
+			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, false),
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
@@ -1048,6 +1088,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (!this.host.visible) return;
 
 		this.notifyDidChangeRepositories();
+	}
+
+	private async onAiAllAccessBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeAiAllAccessBanner, await this.getAiAllAccessBannerCollapsed());
 	}
 
 	private getSelectedRepository() {
