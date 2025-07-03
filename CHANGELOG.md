@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.2.2] - 2025-07-03
+
 ### Changed
 
 - Updates promo banners and content
@@ -6219,7 +6221,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.2...HEAD
+[17.2.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.2.2
 [17.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...gitkraken:v17.2.1
 [17.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...gitkraken:v17.2.0
 [17.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...gitkraken:v17.1.1
