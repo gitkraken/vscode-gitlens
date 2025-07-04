@@ -359,6 +359,7 @@ export async function generateRebase(
 				providerName: result.model.provider.name,
 			},
 			usage: result.usage,
+			aiRequestId: result.id,
 			outputLength: result.content?.length,
 		};
 		const telemetryEnabled = container.telemetry.enabled;

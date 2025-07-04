@@ -145,6 +145,7 @@
 
 ```typescript
 {
+  'ai.request.id': string,
   // The AI feature that feedback was submitted for
   'feature': string,
   // Type of feedback provided
