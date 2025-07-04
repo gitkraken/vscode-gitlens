@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
-    <circle stroke="#424242" stroke-width="1.5" stroke-linejoin="bevel" cx="6.5" cy="7.5" r="4"/>
-    <path stroke="#424242" stroke-width="1.25" stroke-linejoin="bevel" d="M2.5 7.5H0"/>
-    <path fill="#424242" d="M13.5 10.35l2.5-2.5v-.7l-2.5-2.5-.71.7 1.515 1.529H10V8.12h4.305L12.78 9.65l.72.7z"/>
-</svg>

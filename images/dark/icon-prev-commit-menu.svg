@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
-    <path fill="#C5C5C5" d="M6 14.5a1 1 0 11-2 0 1 1 0 012 0zM10 14.5a1 1 0 11-2 0 1 1 0 012 0zM14 14.5a1 1 0 11-2 0 1 1 0 012 0z"/>
-    <circle stroke="#C5C5C5" stroke-width="1.5" stroke-linejoin="bevel" r="4" transform="matrix(-1 0 0 1 9.5 7.5)"/>
-    <path stroke="#C5C5C5" stroke-width="1.25" stroke-linejoin="bevel" d="M13.5 7.5H16"/>
-    <path fill="#C5C5C5" d="M2.5 10.35L0 7.85v-.7l2.5-2.5.71.7-1.515 1.529H6V8.12H1.695L3.22 9.65l-.72.7z"/>
-</svg>
