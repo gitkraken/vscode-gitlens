@@ -69,6 +69,7 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 				providerName: result.model.provider.name,
 			},
 			usage: result.usage,
+			aiRequestId: result.id,
 			outputLength: result.content?.length,
 		};
 

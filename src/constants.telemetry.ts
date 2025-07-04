@@ -425,6 +425,7 @@ export interface AIFeedbackEvent {
 	'usage.limits.used'?: number;
 	'usage.limits.limit'?: number;
 	'usage.limits.resetsOn'?: string;
+	'ai.request.id'?: string;
 
 	'output.length'?: number;
 }
