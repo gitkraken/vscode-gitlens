@@ -27,6 +27,7 @@ export interface AIFeedbackContext {
 			resetsOn: Date;
 		};
 	};
+	aiRequestId: string | undefined;
 	outputLength: number;
 }
 
@@ -203,6 +204,7 @@ function sendFeedbackEvent(
 		'usage.limits.used': context.usage?.limits?.used,
 		'usage.limits.limit': context.usage?.limits?.limit,
 		'usage.limits.resetsOn': context.usage?.limits?.resetsOn?.toISOString(),
+		'ai.request.id': context.aiRequestId,
 		'output.length': context.outputLength,
 	};
 
