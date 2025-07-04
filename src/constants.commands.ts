@@ -126,6 +126,8 @@ type InternalGlCommands =
 	| 'gitlens.diffWith'
 	| 'gitlens.ai.explainCommit:editor'
 	| 'gitlens.ai.explainWip:editor'
+	| 'gitlens.ai.feedback.positive'
+	| 'gitlens.ai.feedback.negative'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.refreshHover'

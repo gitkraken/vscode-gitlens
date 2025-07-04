@@ -8,6 +8,7 @@ import { GitUri } from '../git/gitUri';
 import type { AIExplainSource, AISummarizeResult } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { showMarkdownPreview } from '../system/-webview/markdown';
+import type { AIFeedbackContext } from './aiFeedback';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
@@ -54,10 +55,38 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 		return svc;
 	}
 
-	protected openDocument(result: AISummarizeResult, path: string, metadata: MarkdownContentMetadata): void {
-		const content = `${getMarkdownHeaderContent(metadata)}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+	protected openDocument(
+		result: AISummarizeResult,
+		path: string,
+		metadata: Omit<MarkdownContentMetadata, 'feedbackContext'>,
+	): void {
+		// Add feedback context to metadata
+		const feedbackContext: AIFeedbackContext = {
+			feature: this.constructor.name,
+			model: {
+				id: result.model.id,
+				providerId: result.model.provider.id,
+				providerName: result.model.provider.name,
+			},
+			usage: result.usage,
+			aiRequestId: result.id,
+			outputLength: result.content?.length,
+		};
 
-		const documentUri = this.container.markdown.openDocument(content, path, metadata.header.title, metadata);
+		const enrichedMetadata = {
+			...metadata,
+			feedbackContext: feedbackContext as unknown as Record<string, unknown>,
+		};
+
+		const headerContent = getMarkdownHeaderContent(enrichedMetadata, this.container.telemetry.enabled);
+		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+
+		const documentUri = this.container.markdown.openDocument(
+			content,
+			path,
+			metadata.header.title,
+			enrichedMetadata,
+		);
 
 		showMarkdownPreview(documentUri);
 	}
