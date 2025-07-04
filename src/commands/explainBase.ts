@@ -55,11 +55,37 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 		return svc;
 	}
 
-	protected openDocument(result: AISummarizeResult, path: string, metadata: MarkdownContentMetadata): void {
-		const headerContent = getMarkdownHeaderContent(metadata, this.container.telemetry.enabled);
+	protected openDocument(
+		result: AISummarizeResult,
+		path: string,
+		metadata: Omit<MarkdownContentMetadata, 'feedbackContext'>,
+	): void {
+		// Add feedback context to metadata
+		const feedbackContext: AIFeedbackContext = {
+			feature: this.constructor.name,
+			model: {
+				id: result.model.id,
+				providerId: result.model.provider.id,
+				providerName: result.model.provider.name,
+			},
+			usage: result.usage,
+			outputLength: result.content?.length,
+		};
+
+		const enrichedMetadata = {
+			...metadata,
+			feedbackContext: feedbackContext as unknown as Record<string, unknown>,
+		};
+
+		const headerContent = getMarkdownHeaderContent(enrichedMetadata, this.container.telemetry.enabled);
 		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
 
-		const documentUri = this.container.markdown.openDocument(content, path, metadata.header.title, metadata);
+		const documentUri = this.container.markdown.openDocument(
+			content,
+			path,
+			metadata.header.title,
+			enrichedMetadata,
+		);
 
 		showMarkdownPreview(documentUri);
 	}

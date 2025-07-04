@@ -537,7 +537,7 @@ function generateRebaseMarkdown(
 	result: AIRebaseResult,
 	title = 'Rebase Commits',
 	telemetryEnabled: boolean,
-	feedbackContext?: AIFeedbackContext,
+	feedbackContext: AIFeedbackContext,
 ): { content: string; metadata: MarkdownContentMetadata } {
 	const metadata: MarkdownContentMetadata = {
 		header: {
@@ -545,12 +545,8 @@ function generateRebaseMarkdown(
 			aiModel: result.model.name,
 			subtitle: 'Explanation',
 		},
+		feedbackContext: feedbackContext as unknown as Record<string, unknown>,
 	};
-
-	// Always store feedback context if available, but only show UI when telemetry is enabled
-	if (feedbackContext) {
-		metadata.feedbackContext = feedbackContext as unknown as Record<string, unknown>;
-	}
 
 	let markdown = '';
 	if (result.commits.length === 0) {
