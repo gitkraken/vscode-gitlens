@@ -61,40 +61,7 @@ export class AIFeedbackPositiveCommand extends ActiveEditorCommand {
 	}
 
 	private extractFeedbackContext(editor?: TextEditor, uri?: Uri): AIFeedbackContext | undefined {
-		uri = getCommandUri(uri, editor);
-		if (uri?.scheme !== Schemes.GitLensMarkdown) return undefined;
-
-		const authority = uri.authority;
-		if (!authority) return undefined;
-
-		try {
-			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
-
-			// Extract feedback context from metadata
-			if (metadata.feedbackContext) {
-				const context = metadata.feedbackContext as unknown as AIFeedbackContext;
-
-				// Convert resetsOn string back to Date if it exists
-				if (context.usage?.limits?.resetsOn && typeof context.usage.limits.resetsOn === 'string') {
-					const parsedDate = new Date(context.usage.limits.resetsOn);
-					// Check if the parsed date is valid
-					if (!isNaN(parsedDate.getTime())) {
-						context.usage.limits.resetsOn = parsedDate;
-					} else {
-						// If invalid date, set to undefined to avoid errors
-						(context.usage.limits as any).resetsOn = undefined;
-						Logger.warn('AIFeedbackPositiveCommand', 'Invalid resetsOn date string, setting to undefined');
-					}
-				}
-
-				return context;
-			}
-
-			return undefined;
-		} catch (ex) {
-			Logger.error(ex, 'AIFeedbackPositiveCommand', 'extractFeedbackContext');
-			return undefined;
-		}
+		return extractFeedbackContext(editor, uri, 'AIFeedbackPositiveCommand');
 	}
 }
 
@@ -117,40 +84,7 @@ export class AIFeedbackNegativeCommand extends ActiveEditorCommand {
 	}
 
 	private extractFeedbackContext(editor?: TextEditor, uri?: Uri): AIFeedbackContext | undefined {
-		uri = getCommandUri(uri, editor);
-		if (uri?.scheme !== Schemes.GitLensMarkdown) return undefined;
-
-		const authority = uri.authority;
-		if (!authority) return undefined;
-
-		try {
-			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
-
-			// Extract feedback context from metadata
-			if (metadata.feedbackContext) {
-				const context = metadata.feedbackContext as unknown as AIFeedbackContext;
-
-				// Convert resetsOn string back to Date if it exists
-				if (context.usage?.limits?.resetsOn && typeof context.usage.limits.resetsOn === 'string') {
-					const parsedDate = new Date(context.usage.limits.resetsOn);
-					// Check if the parsed date is valid
-					if (!isNaN(parsedDate.getTime())) {
-						context.usage.limits.resetsOn = parsedDate;
-					} else {
-						// If invalid date, set to undefined to avoid errors
-						(context.usage.limits as any).resetsOn = undefined;
-						Logger.warn('AIFeedbackNegativeCommand', 'Invalid resetsOn date string, setting to undefined');
-					}
-				}
-
-				return context;
-			}
-
-			return undefined;
-		} catch (ex) {
-			Logger.error(ex, 'AIFeedbackNegativeCommand', 'extractFeedbackContext');
-			return undefined;
-		}
+		return extractFeedbackContext(editor, uri, 'AIFeedbackNegativeCommand');
 	}
 }
 
@@ -194,6 +128,46 @@ async function showDetailedFeedbackForm(container: Container, context: AIFeedbac
 	);
 
 	void window.showInformationMessage('Thank you for your feedback!');
+}
+
+function extractFeedbackContext(editor?: TextEditor, uri?: Uri, commandName?: string): AIFeedbackContext | undefined {
+	uri = getCommandUri(uri, editor);
+	if (uri?.scheme !== Schemes.GitLensMarkdown) return undefined;
+
+	const authority = uri.authority;
+	if (!authority) return undefined;
+
+	try {
+		const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
+
+		// Extract feedback context from metadata
+		if (metadata.feedbackContext) {
+			const context = metadata.feedbackContext as unknown as AIFeedbackContext;
+
+			// Convert resetsOn string back to Date if it exists
+			if (context.usage?.limits?.resetsOn && typeof context.usage.limits.resetsOn === 'string') {
+				const parsedDate = new Date(context.usage.limits.resetsOn);
+				// Check if the parsed date is valid
+				if (!isNaN(parsedDate.getTime())) {
+					context.usage.limits.resetsOn = parsedDate;
+				} else {
+					// If invalid date, set to undefined to avoid errors
+					(context.usage.limits as any).resetsOn = undefined;
+					Logger.warn(
+						commandName || 'AIFeedbackCommand',
+						'Invalid resetsOn date string, setting to undefined',
+					);
+				}
+			}
+
+			return context;
+		}
+
+		return undefined;
+	} catch (ex) {
+		Logger.error(ex, commandName || 'AIFeedbackCommand', 'extractFeedbackContext');
+		return undefined;
+	}
 }
 
 function sendFeedbackEvent(
