@@ -149,7 +149,7 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 2
 					}
@@ -162,7 +162,7 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 1
 					}
