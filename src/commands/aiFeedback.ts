@@ -72,7 +72,22 @@ export class AIFeedbackPositiveCommand extends ActiveEditorCommand {
 
 			// Extract feedback context from metadata
 			if (metadata.feedbackContext) {
-				return metadata.feedbackContext as unknown as AIFeedbackContext;
+				const context = metadata.feedbackContext as unknown as AIFeedbackContext;
+
+				// Convert resetsOn string back to Date if it exists
+				if (context.usage?.limits?.resetsOn && typeof context.usage.limits.resetsOn === 'string') {
+					const parsedDate = new Date(context.usage.limits.resetsOn);
+					// Check if the parsed date is valid
+					if (!isNaN(parsedDate.getTime())) {
+						context.usage.limits.resetsOn = parsedDate;
+					} else {
+						// If invalid date, set to undefined to avoid errors
+						(context.usage.limits as any).resetsOn = undefined;
+						Logger.warn('AIFeedbackPositiveCommand', 'Invalid resetsOn date string, setting to undefined');
+					}
+				}
+
+				return context;
 			}
 
 			return undefined;
@@ -113,7 +128,22 @@ export class AIFeedbackNegativeCommand extends ActiveEditorCommand {
 
 			// Extract feedback context from metadata
 			if (metadata.feedbackContext) {
-				return metadata.feedbackContext as unknown as AIFeedbackContext;
+				const context = metadata.feedbackContext as unknown as AIFeedbackContext;
+
+				// Convert resetsOn string back to Date if it exists
+				if (context.usage?.limits?.resetsOn && typeof context.usage.limits.resetsOn === 'string') {
+					const parsedDate = new Date(context.usage.limits.resetsOn);
+					// Check if the parsed date is valid
+					if (!isNaN(parsedDate.getTime())) {
+						context.usage.limits.resetsOn = parsedDate;
+					} else {
+						// If invalid date, set to undefined to avoid errors
+						(context.usage.limits as any).resetsOn = undefined;
+						Logger.warn('AIFeedbackNegativeCommand', 'Invalid resetsOn date string, setting to undefined');
+					}
+				}
+
+				return context;
 			}
 
 			return undefined;
