@@ -366,13 +366,12 @@ export class GkCliIntegrationProvider implements Disposable {
 						await installationTask();
 					}
 				);
-
-				// Show success notification if not silent
-				void window.showInformationMessage('MCP integration installed successfully');
 			} else {
 				await installationTask();
 			}
 
+			// Show success notification if not silent
+			void window.showInformationMessage('GitKraken MCP integration installed successfully');
 		} catch (error) {
 			Logger.error(`Error during MCP installation: ${error}`);
 
