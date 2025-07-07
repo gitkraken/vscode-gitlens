@@ -11,11 +11,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for using natural language to search for commits on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command using AI ([#4471](https://github.com/gitkraken/vscode-gitlens/issues/4471))
 - Adds support for time-based commit searches on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command
 
+### Changed
+
+- Improves experience for invalid AI rebase responses by implementing conversational retry logic that provides specific feedback to the AI about missing, extra, or duplicate hunks and automatically retries up to 3 times ([#4395](https://github.com/gitkraken/vscode-gitlens/issues/4395))
+
 ### Fixed
 
 - Fixes editing search result in Search & Compare view failure ([#4431](https://github.com/gitkraken/vscode-gitlens/issues/4431))
 - Fixes search results not paging properly on the _Commit Graph_ when the first page of results is contained within the already loaded commits
-- Improves experience for invalid AI rebase responses by implementing conversational retry logic that provides specific feedback to the AI about missing, extra, or duplicate hunks and automatically retries up to 3 times ([#4395](https://github.com/gitkraken/vscode-gitlens/issues/4395))
 
 ## [17.2.1] - 2025-06-26
 
