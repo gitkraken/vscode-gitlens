@@ -6193,14 +6193,24 @@
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.feedback.negative",
-				"title": "AI Feedback: Negative",
+				"command": "gitlens.ai.feedback.helpful",
+				"title": "Helpful",
+				"icon": "$(thumbsup)"
+			},
+			{
+				"command": "gitlens.ai.feedback.helpful.chosen",
+				"title": "Helpful",
+				"icon": "$(thumbsup-filled)"
+			},
+			{
+				"command": "gitlens.ai.feedback.unhelpful",
+				"title": "Unhelpful",
 				"icon": "$(thumbsdown)"
 			},
 			{
-				"command": "gitlens.ai.feedback.positive",
-				"title": "AI Feedback: Positive",
-				"icon": "$(thumbsup)"
+				"command": "gitlens.ai.feedback.unhelpful.chosen",
+				"title": "Unhelpful",
+				"icon": "$(thumbsdown-filled)"
 			},
 			{
 				"command": "gitlens.ai.generateChangelog",
@@ -10733,11 +10743,19 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.feedback.negative",
+					"command": "gitlens.ai.feedback.helpful",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.feedback.positive",
+					"command": "gitlens.ai.feedback.helpful.chosen",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful.chosen",
 					"when": "false"
 				},
 				{
@@ -14038,11 +14056,6 @@
 			],
 			"editor/title": [
 				{
-					"command": "gitlens.graph.refresh",
-					"when": "activeWebviewPanelId === gitlens.graph",
-					"group": "navigation@-99"
-				},
-				{
 					"command": "gitlens.timeline.refresh",
 					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
@@ -14051,11 +14064,6 @@
 					"submenu": "gitlens/graph/configuration",
 					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-98"
-				},
-				{
-					"command": "gitlens.graph.split",
-					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
-					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.timeline.split",
@@ -14071,6 +14079,37 @@
 					"command": "gitlens.computingFileAnnotations",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated == computing || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.diffWithPrevious",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@97",
+					"alt": "gitlens.diffWithRevision"
+				},
+				{
+					"command": "gitlens.showQuickRevisionDetails",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.diffWithNext",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.diffWithWorking",
+					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.graph.refresh",
+					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.graph.split",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
+					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.toggleFileBlame",
@@ -14096,30 +14135,9 @@
 					"group": "navigation@100"
 				},
 				{
-					"command": "gitlens.diffWithPrevious",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@97",
-					"alt": "gitlens.diffWithRevision"
-				},
-				{
-					"command": "gitlens.showQuickRevisionDetails",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@98"
-				},
-				{
-					"command": "gitlens.diffWithNext",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@99"
-				},
-				{
 					"command": "gitlens.openWorkingFile",
 					"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
 					"group": "navigation@-98"
-				},
-				{
-					"command": "gitlens.diffWithWorking",
-					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.openWorkingFile",
@@ -14132,18 +14150,28 @@
 					"group": "navigation@-97"
 				},
 				{
-					"command": "gitlens.ai.feedback.positive",
-					"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"command": "gitlens.ai.feedback.helpful",
+					"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.ai.feedback.negative",
-					"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"command": "gitlens.ai.feedback.helpful.chosen",
+					"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful",
+					"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful.chosen",
+					"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "navigation@3"
 				},
 				{
@@ -14169,7 +14197,7 @@
 				},
 				{
 					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
 					"group": "1_gitlens@0"
 				},
 				{
@@ -23625,7 +23653,7 @@
 				}
 			},
 			{
-				"scheme": "gitlens-markdown",
+				"scheme": "gitlens-ai-markdown",
 				"authority": "*",
 				"formatting": {
 					"label": "${query.label}"

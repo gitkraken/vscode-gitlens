@@ -143,28 +143,54 @@
 				]
 			}
 		},
-		"gitlens.ai.feedback.negative": {
-			"label": "AI Feedback: Negative",
+		"gitlens.ai.feedback.helpful": {
+			"label": "Helpful",
+			"icon": "$(thumbsup)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.ai.feedback.helpful.chosen": {
+			"label": "Helpful",
+			"icon": "$(thumbsup-filled)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.ai.feedback.unhelpful": {
+			"label": "Unhelpful",
 			"icon": "$(thumbsdown)",
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 2
 					}
 				]
 			}
 		},
-		"gitlens.ai.feedback.positive": {
-			"label": "AI Feedback: Positive",
-			"icon": "$(thumbsup)",
+		"gitlens.ai.feedback.unhelpful.chosen": {
+			"label": "Unhelpful",
+			"icon": "$(thumbsdown-filled)",
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == gitlens-markdown && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -3708,14 +3734,14 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 3
 					}
 				],
 				"editor/title/context": [
 					{
-						"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "1_gitlens",
 						"order": 0
 					}

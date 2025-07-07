@@ -1,216 +1,140 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import { Schemes } from '../constants';
-import type { AIFeedbackEvent, Source } from '../constants.telemetry';
+import type { AIFeedbackEvent, AIFeedbackUnhelpfulReasons, Source } from '../constants.telemetry';
 import type { Container } from '../container';
-import type { MarkdownContentMetadata } from '../documents/markdown';
-import { decodeGitLensRevisionUriAuthority } from '../git/gitUri.authority';
+import type { AIResultContext } from '../plus/ai/aiProviderService';
+import { extractAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
+import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { command } from '../system/-webview/command';
+import { setContext } from '../system/-webview/context';
+import { UriMap } from '../system/-webview/uriMap';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
+import { filterMap, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
-export interface AIFeedbackContext {
-	feature: AIFeedbackEvent['feature'];
-	model: {
-		id: string;
-		providerId: string;
-		providerName: string;
-	};
-	usage?: {
-		promptTokens?: number;
-		completionTokens?: number;
-		totalTokens?: number;
-		limits?: {
-			used: number;
-			limit: number;
-			resetsOn: Date;
-		};
-	};
-	aiRequestId: string | undefined;
-	outputLength: number;
-}
-
 @command()
-export class AIFeedbackPositiveCommand extends ActiveEditorCommand {
+export class AIFeedbackHelpfulCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.ai.feedback.positive');
-	}
-
-	execute(editor?: TextEditor, uri?: Uri): void {
-		const context = this.extractFeedbackContext(editor, uri);
-		if (!context) return;
-
-		try {
-			// For positive feedback, just send the event immediately without showing any form
-			sendFeedbackEvent(
-				this.container,
-				context,
-				'positive',
-				{
-					presetReasons: [],
-					writeInFeedback: '',
-				},
-				{ source: 'markdown-preview' },
-			);
-
-			void window.showInformationMessage('Thank you for your feedback!');
-		} catch (ex) {
-			Logger.error(ex, 'AIFeedbackPositiveCommand', 'execute');
-		}
-	}
-
-	private extractFeedbackContext(editor?: TextEditor, uri?: Uri): AIFeedbackContext | undefined {
-		return extractFeedbackContext(editor, uri, 'AIFeedbackPositiveCommand');
-	}
-}
-
-@command()
-export class AIFeedbackNegativeCommand extends ActiveEditorCommand {
-	constructor(private readonly container: Container) {
-		super('gitlens.ai.feedback.negative');
+		super(['gitlens.ai.feedback.helpful', 'gitlens.ai.feedback.helpful.chosen']);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
-		const context = this.extractFeedbackContext(editor, uri);
-		if (!context) return;
+		uri = getCommandUri(uri, editor);
+		if (uri == null) return;
 
-		try {
-			// For negative feedback, always show the detailed form directly
-			await showDetailedFeedbackForm(this.container, context);
-		} catch (ex) {
-			Logger.error(ex, 'AIFeedbackNegativeCommand', 'execute');
-		}
-	}
-
-	private extractFeedbackContext(editor?: TextEditor, uri?: Uri): AIFeedbackContext | undefined {
-		return extractFeedbackContext(editor, uri, 'AIFeedbackNegativeCommand');
+		await sendFeedback(this.container, uri, 'helpful');
 	}
 }
 
-async function showDetailedFeedbackForm(container: Container, context: AIFeedbackContext): Promise<void> {
-	const negativeReasons = [
-		'Inaccurate or incorrect response',
-		'Too generic or not specific enough',
-		'Poor code quality',
-		'Missing important details',
-		'Difficult to understand',
-		'Not relevant to my needs',
+@command()
+export class AIFeedbackUnhelpfulCommand extends ActiveEditorCommand {
+	constructor(private readonly container: Container) {
+		super(['gitlens.ai.feedback.unhelpful', 'gitlens.ai.feedback.unhelpful.chosen']);
+	}
+
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
+		uri = getCommandUri(uri, editor);
+		if (uri == null) return;
+
+		await sendFeedback(this.container, uri, 'unhelpful');
+	}
+}
+
+type UnhelpfulResult = { reasons?: AIFeedbackUnhelpfulReasons[]; custom?: string };
+
+const uriResponses = new UriMap<AIFeedbackEvent['sentiment']>();
+let _updateContextDebounced: Deferrable<() => void> | undefined;
+
+async function sendFeedback(container: Container, uri: Uri, sentiment: AIFeedbackEvent['sentiment']): Promise<void> {
+	const context = extractAIResultContext(uri);
+	if (!context) return;
+
+	try {
+		const previous = uriResponses.get(uri);
+		if (sentiment === previous) return;
+
+		let unhelpful: UnhelpfulResult | undefined;
+		if (sentiment === 'unhelpful') {
+			unhelpful = await showUnhelpfulFeedbackPicker();
+		}
+
+		uriResponses.set(uri, sentiment);
+		_updateContextDebounced ??= debounce(() => {
+			void setContext('gitlens:tabs:ai:helpful', [
+				...filterMap(uriResponses, ([uri, sentiment]) => (sentiment === 'helpful' ? uri : undefined)),
+			]);
+			void setContext('gitlens:tabs:ai:unhelpful', [
+				...filterMap(uriResponses, ([uri, sentiment]) => (sentiment === 'unhelpful' ? uri : undefined)),
+			]);
+		}, 100);
+		_updateContextDebounced();
+
+		sendFeedbackEvent(container, { source: 'ai:markdown-preview' }, context, sentiment, unhelpful);
+	} catch (ex) {
+		Logger.error(ex, 'AIFeedback.sendFeedback');
+	}
+}
+
+const negativeReasonsMap: Map<AIFeedbackUnhelpfulReasons, string> = new Map([
+	['suggestionInaccurate', 'Inaccurate or incorrect'],
+	['notRelevant', 'Not relevant'],
+	['missedImportantContext', 'Missing important context'],
+	['unclearOrPoorlyFormatted', 'Unclear or poorly formatted'],
+	['genericOrRepetitive', 'Too generic or not detailed enough'],
+	['other', 'Other'],
+]);
+
+async function showUnhelpfulFeedbackPicker(): Promise<UnhelpfulResult | undefined> {
+	const items: QuickPickItemOfT<AIFeedbackUnhelpfulReasons>[] = [
+		...map(negativeReasonsMap, ([type, reason]) => ({ label: reason, picked: false, item: type })),
 	];
 
 	// Show quick pick for preset reasons
-	const selectedReasons = await window.showQuickPick(
-		negativeReasons.map(reason => ({ label: reason, picked: false })),
-		{
-			title: 'What specifically could be improved?',
-			canPickMany: true,
-			placeHolder: 'Select all that apply (optional)',
-		},
-	);
-
-	// Show input box for additional feedback
-	const writeInFeedback = await window.showInputBox({
-		title: 'Additional feedback (optional)',
-		placeHolder: 'Tell us more about your experience...',
-		prompt: 'Your feedback helps us improve our AI features',
+	const selectedReasons = await window.showQuickPick<QuickPickItemOfT<AIFeedbackUnhelpfulReasons>>(items, {
+		title: 'What could be improved?',
+		canPickMany: true,
+		placeHolder: 'Select all that apply (optional)',
 	});
 
-	// Always send feedback submission telemetry for negative feedback
-	sendFeedbackEvent(
-		container,
-		context,
-		'negative',
-		{
-			presetReasons: selectedReasons?.map(r => r.label),
-			writeInFeedback: writeInFeedback,
-		},
-		{ source: 'markdown-preview' },
-	);
-
-	void window.showInformationMessage('Thank you for your feedback!');
-}
-
-function extractFeedbackContext(editor?: TextEditor, uri?: Uri, commandName?: string): AIFeedbackContext | undefined {
-	uri = getCommandUri(uri, editor);
-	if (uri?.scheme !== Schemes.GitLensMarkdown) return undefined;
-
-	const authority = uri.authority;
-	if (!authority) return undefined;
-
-	try {
-		const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
-
-		// Extract feedback context from metadata
-		if (metadata.feedbackContext) {
-			const context = metadata.feedbackContext as unknown as AIFeedbackContext;
-
-			// Convert resetsOn string back to Date if it exists
-			if (context.usage?.limits?.resetsOn && typeof context.usage.limits.resetsOn === 'string') {
-				const parsedDate = new Date(context.usage.limits.resetsOn);
-				// Check if the parsed date is valid
-				if (!isNaN(parsedDate.getTime())) {
-					context.usage.limits.resetsOn = parsedDate;
-				} else {
-					// If invalid date, set to undefined to avoid errors
-					(context.usage.limits as any).resetsOn = undefined;
-					Logger.warn(
-						commandName || 'AIFeedbackCommand',
-						'Invalid resetsOn date string, setting to undefined',
-					);
-				}
-			}
-
-			return context;
-		}
-
-		return undefined;
-	} catch (ex) {
-		Logger.error(ex, commandName || 'AIFeedbackCommand', 'extractFeedbackContext');
-		return undefined;
+	let otherCustom;
+	// Show input box for additional feedback
+	if (selectedReasons?.find(r => r.item === 'other')) {
+		otherCustom = await window.showInputBox({
+			title: 'Other feedback',
+			placeHolder: 'Describe your experience...',
+			prompt: 'Enter your feedback to help us improve our AI features (optional).',
+		});
 	}
+
+	return { reasons: selectedReasons?.map(r => r.item), custom: otherCustom };
 }
 
 function sendFeedbackEvent(
 	container: Container,
-	context: AIFeedbackContext,
-	rating: 'positive' | 'negative',
-	feedback: {
-		presetReasons?: string[];
-		writeInFeedback?: string;
-	},
 	source: Source,
+	context: AIResultContext,
+	sentiment: AIFeedbackEvent['sentiment'],
+	unhelpful?: { reasons?: AIFeedbackUnhelpfulReasons[]; custom?: string },
 ): void {
-	const hasPresetReasons = feedback.presetReasons && feedback.presetReasons.length > 0;
-	const writeInFeedback = feedback.writeInFeedback?.trim() ?? undefined;
-
-	let feedbackType: 'preset' | 'writeIn' | 'both';
-	if (hasPresetReasons && writeInFeedback?.length) {
-		feedbackType = 'both';
-	} else if (hasPresetReasons) {
-		feedbackType = 'preset';
-	} else {
-		feedbackType = 'writeIn';
-	}
-
 	const eventData: AIFeedbackEvent = {
-		feature: context.feature,
-		rating: rating,
-		feedbackType: feedbackType,
-		presetReason: hasPresetReasons ? feedback.presetReasons!.join(', ') : undefined,
-		'writeInFeedback.length': writeInFeedback?.length ?? undefined,
-		'writeInFeedback.text': writeInFeedback?.length ? writeInFeedback : undefined,
+		type: context.type,
+		sentiment: sentiment,
+		'unhelpful.reasons': unhelpful?.reasons?.length ? unhelpful.reasons.join(',') : undefined,
+		'unhelpful.custom': unhelpful?.custom?.trim() ?? undefined,
+
+		id: context.id,
 		'model.id': context.model.id,
-		'model.provider.id': context.model.providerId as any,
-		'model.provider.name': context.model.providerName,
+		'model.provider.id': context.model.provider.id,
+		'model.provider.name': context.model.provider.name,
 		'usage.promptTokens': context.usage?.promptTokens,
 		'usage.completionTokens': context.usage?.completionTokens,
 		'usage.totalTokens': context.usage?.totalTokens,
 		'usage.limits.used': context.usage?.limits?.used,
 		'usage.limits.limit': context.usage?.limits?.limit,
-		'usage.limits.resetsOn': context.usage?.limits?.resetsOn?.toISOString(),
-		'ai.request.id': context.aiRequestId,
-		'output.length': context.outputLength,
+		'usage.limits.resetsOn': context.usage?.limits?.resetsOn,
 	};
-
 	container.telemetry.sendEvent('ai/feedback', eventData, source);
 }

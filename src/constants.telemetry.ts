@@ -7,6 +7,7 @@ import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { AIActionType } from './plus/ai/models/model';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
@@ -327,19 +328,25 @@ interface ActivateEvent extends ConfigEventData {
 }
 
 interface AIEventDataBase {
+	id: string | undefined;
+
 	'model.id': string;
 	'model.provider.id': AIProviders;
 	'model.provider.name': string;
-	'retry.count': number;
-	duration?: number;
-	'input.length'?: number;
-	'output.length'?: number;
+
 	'usage.promptTokens'?: number;
 	'usage.completionTokens'?: number;
 	'usage.totalTokens'?: number;
 	'usage.limits.used'?: number;
 	'usage.limits.limit'?: number;
 	'usage.limits.resetsOn'?: string;
+}
+
+interface AIEventDataSendBase extends AIEventDataBase {
+	'retry.count': number;
+	duration?: number;
+	'input.length'?: number;
+	'output.length'?: number;
 
 	'config.largePromptThreshold'?: number;
 	'config.usedCustomInstructions'?: boolean;
@@ -354,37 +361,37 @@ interface AIEventDataBase {
 	'failed.error.detail'?: string;
 }
 
-interface AIExplainEvent extends AIEventDataBase {
+interface AIExplainEvent extends AIEventDataSendBase {
 	type: 'change';
 	changeType: 'wip' | 'stash' | 'commit' | 'branch' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
 }
 
-export interface AIGenerateChangelogEventData extends AIEventDataBase {
+export interface AIGenerateChangelogEventData extends AIEventDataSendBase {
 	type: 'changelog';
 }
 
-export interface AIGenerateCommitMessageEventData extends AIEventDataBase {
+export interface AIGenerateCommitMessageEventData extends AIEventDataSendBase {
 	type: 'commitMessage';
 }
 
-export interface AIGenerateCreatePullRequestEventData extends AIEventDataBase {
+export interface AIGenerateCreatePullRequestEventData extends AIEventDataSendBase {
 	type: 'createPullRequest';
 }
 
-export interface AIGenerateCreateDraftEventData extends AIEventDataBase {
+export interface AIGenerateCreateDraftEventData extends AIEventDataSendBase {
 	type: 'draftMessage';
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 }
 
-export interface AIGenerateRebaseEventData extends AIEventDataBase {
+export interface AIGenerateRebaseEventData extends AIEventDataSendBase {
 	type: 'rebase';
 }
 
-export interface AIGenerateSearchQueryEventData extends AIEventDataBase {
+export interface AIGenerateSearchQueryEventData extends AIEventDataSendBase {
 	type: 'searchQuery';
 }
 
-export interface AIGenerateStashMessageEventData extends AIEventDataBase {
+export interface AIGenerateStashMessageEventData extends AIEventDataSendBase {
 	type: 'stashMessage';
 }
 
@@ -401,33 +408,22 @@ export type AISwitchModelEvent =
 	| { 'model.id': string; 'model.provider.id': AIProviders; 'model.provider.name': string }
 	| { failed: true };
 
-export interface AIFeedbackEvent {
+export type AIFeedbackUnhelpfulReasons =
+	| 'suggestionInaccurate'
+	| 'notRelevant'
+	| 'missedImportantContext'
+	| 'unclearOrPoorlyFormatted'
+	| 'genericOrRepetitive'
+	| 'other';
+
+export interface AIFeedbackEvent extends AIEventDataBase {
 	/** The AI feature that feedback was submitted for */
-	feature: string;
-	/** The original rating that led to this feedback */
-	rating: 'positive' | 'negative';
-	/** Type of feedback provided */
-	feedbackType: 'preset' | 'writeIn' | 'both';
-	/** Preset reason selected (if any) */
-	presetReason?: string;
-	/** Length of write-in feedback if provided */
-	'writeInFeedback.length'?: number;
-	'writeInFeedback.text'?: string;
-	/** Model information */
-	'model.id': string;
-	'model.provider.id': AIProviders;
-	'model.provider.name': string;
-
-	/** Token usage information if available */
-	'usage.promptTokens'?: number;
-	'usage.completionTokens'?: number;
-	'usage.totalTokens'?: number;
-	'usage.limits.used'?: number;
-	'usage.limits.limit'?: number;
-	'usage.limits.resetsOn'?: string;
-	'ai.request.id'?: string;
-
-	'output.length'?: number;
+	type: AIActionType;
+	sentiment: 'helpful' | 'unhelpful';
+	/** Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values */
+	'unhelpful.reasons'?: string;
+	/** Custom feedback provided (if any) */
+	'unhelpful.custom'?: string;
 }
 
 interface CloudIntegrationsConnectingEvent {
@@ -1039,6 +1035,7 @@ export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'w
 export type Sources =
 	| 'account'
 	| 'ai'
+	| 'ai:markdown-preview'
 	| 'ai:picker'
 	| 'associateIssueWithBranch'
 	| 'cloud-patches'
@@ -1056,7 +1053,6 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
-	| 'markdown-preview'
 	| 'merge-target'
 	| 'notification'
 	| 'patchDetails'

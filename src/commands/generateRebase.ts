@@ -11,13 +11,13 @@ import { uncommitted } from '../git/models/revision';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import type { AIRebaseResult } from '../plus/ai/aiProviderService';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
 import { escapeMarkdownCodeBlocks } from '../system/markdown';
-import type { AIFeedbackContext } from './aiFeedback';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
 import {
@@ -350,22 +350,8 @@ export async function generateRebase(
 		// Extract the diff information from the reorganized commits
 		const diffInfo = extractRebaseDiffInfo(result.commits, result.diff, result.hunkMap);
 
-		// Create feedback context for telemetry
-		const feedbackContext: AIFeedbackContext = {
-			feature: 'generateRebase',
-			model: {
-				id: result.model.id,
-				providerId: result.model.provider.id,
-				providerName: result.model.provider.name,
-			},
-			usage: result.usage,
-			aiRequestId: result.id,
-			outputLength: result.content?.length,
-		};
-		const telemetryEnabled = container.telemetry.enabled;
-
 		// Generate the markdown content that shows each commit and its diffs
-		const { content, metadata } = generateRebaseMarkdown(result, title, telemetryEnabled, feedbackContext);
+		const { content, metadata } = generateRebaseMarkdown(result, title, container.telemetry.enabled);
 
 		let generateType: 'commits' | 'rebase' = 'rebase';
 		let headRefSlug = head.ref;
@@ -538,19 +524,14 @@ function generateRebaseMarkdown(
 	result: AIRebaseResult,
 	title = 'Rebase Commits',
 	telemetryEnabled: boolean,
-	feedbackContext: AIFeedbackContext,
 ): { content: string; metadata: MarkdownContentMetadata } {
 	const metadata: MarkdownContentMetadata = {
-		header: {
-			title: title,
-			aiModel: result.model.name,
-			subtitle: 'Explanation',
-		},
-		feedbackContext: feedbackContext as unknown as Record<string, unknown>,
+		context: getAIResultContext(result),
+		header: { title: title, subtitle: 'Explanation' },
 	};
 
 	let markdown = '';
-	if (result.commits.length === 0) {
+	if (!result.commits.length) {
 		markdown = 'No Commits Generated';
 
 		return {
