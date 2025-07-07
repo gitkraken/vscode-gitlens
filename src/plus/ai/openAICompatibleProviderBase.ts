@@ -1,4 +1,5 @@
 import type { CancellationToken } from 'vscode';
+import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import type { Role } from '../../@types/vsls';
@@ -144,7 +145,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 
 			const data: ChatCompletionResponse = await rsp.json();
 			const result: AIRequestResult = {
-				id: data.id,
+				id: data.id ?? uuid(),
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
 				model: model,
 				usage: {

@@ -48,6 +48,7 @@ import { getLogScope } from '../../system/logger.scope';
 import type { Deferred } from '../../system/promise';
 import { getSettledValue, getSettledValues } from '../../system/promise';
 import { PromiseCache } from '../../system/promiseCache';
+import type { Serialized } from '../../system/serialize';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
 import { isAiAllAccessPromotionActive } from '../gk/utils/-webview/promo.utils';
@@ -117,7 +118,8 @@ function dedent(template: string): string {
 }
 
 export interface AIResult {
-	readonly id?: string;
+	readonly id: string;
+	readonly type: AIActionType;
 	readonly content: string;
 	readonly model: AIModel;
 	readonly usage?: {
@@ -125,29 +127,20 @@ export interface AIResult {
 		readonly completionTokens?: number;
 		readonly totalTokens?: number;
 
-		readonly limits?: {
-			readonly used: number;
-			readonly limit: number;
-			readonly resetsOn: Date;
-		};
+		readonly limits?: { readonly used: number; readonly limit: number; readonly resetsOn: Date };
 	};
 }
 
+export interface AIResultContext extends Serialized<Omit<AIResult, 'content'>, string> {}
+
 export interface AISummarizeResult extends AIResult {
-	readonly parsed: {
-		readonly summary: string;
-		readonly body: string;
-	};
+	readonly parsed: { readonly summary: string; readonly body: string };
 }
 
 export interface AIRebaseResult extends AIResult {
 	readonly diff: string;
 	readonly hunkMap: { index: number; hunkHeader: string }[];
-	readonly commits: {
-		readonly message: string;
-		readonly explanation: string;
-		readonly hunks: { hunk: number }[];
-	}[];
+	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];
 }
 
 export interface AIGenerateChangelogChange {
@@ -638,6 +631,7 @@ export class AIProviderService implements Disposable {
 				data: {
 					type: 'change',
 					changeType: type,
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -649,7 +643,7 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, parsed: parseSummarizeResult(result.content) }
+				? { ...result, type: 'explain-changes', parsed: parseSummarizeResult(result.content) }
 				: undefined;
 	}
 
@@ -693,6 +687,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'commitMessage',
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -704,7 +699,7 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, parsed: parseSummarizeResult(result.content) }
+				? { ...result, type: 'generate-commitMessage', parsed: parseSummarizeResult(result.content) }
 				: undefined;
 	}
 
@@ -756,6 +751,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'createPullRequest',
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -767,7 +763,7 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, parsed: parseSummarizeResult(result.content) }
+				? { ...result, type: 'generate-create-pullRequest', parsed: parseSummarizeResult(result.content) }
 				: undefined;
 	}
 
@@ -824,6 +820,7 @@ export class AIProviderService implements Disposable {
 				data: {
 					type: 'draftMessage',
 					draftType: type,
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -835,7 +832,11 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, parsed: parseSummarizeResult(result.content) }
+				? {
+						...result,
+						type: options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
+						parsed: parseSummarizeResult(result.content),
+					}
 				: undefined;
 	}
 
@@ -879,6 +880,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'stashMessage',
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -890,7 +892,7 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, parsed: parseSummarizeResult(result.content) }
+				? { ...result, type: 'generate-stashMessage', parsed: parseSummarizeResult(result.content) }
 				: undefined;
 	}
 
@@ -928,6 +930,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'changelog',
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -936,7 +939,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result === 'cancelled' ? result : result != null ? { ...result } : undefined;
+		return result === 'cancelled' ? result : result != null ? { ...result, type: 'generate-changelog' } : undefined;
 	}
 
 	async generateSearchQuery(
@@ -970,6 +973,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'searchQuery',
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -978,7 +982,11 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result === 'cancelled' ? result : result != null ? { ...result } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+				? { ...result, type: 'generate-searchQuery' }
+				: undefined;
 	}
 
 	/**
@@ -1123,6 +1131,7 @@ export class AIProviderService implements Disposable {
 					key: 'ai/generate',
 					data: {
 						type: 'rebase',
+						id: undefined,
 						'model.id': m.id,
 						'model.provider.id': m.provider.id,
 						'model.provider.name': m.provider.name,
@@ -1225,6 +1234,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'rebase',
+					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
@@ -1500,7 +1510,7 @@ export class AIProviderService implements Disposable {
 			telementry.data['usage.limits.resetsOn'] = result?.usage?.limits?.resetsOn?.toISOString();
 			this.container.telemetry.sendEvent(
 				telementry.key,
-				{ ...telementry.data, duration: Date.now() - start },
+				{ ...telementry.data, duration: Date.now() - start, id: result?.id },
 				source,
 			);
 

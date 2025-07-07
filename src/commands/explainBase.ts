@@ -6,9 +6,9 @@ import { getMarkdownHeaderContent } from '../documents/markdown';
 import type { GitRepositoryService } from '../git/gitRepositoryService';
 import { GitUri } from '../git/gitUri';
 import type { AIExplainSource, AISummarizeResult } from '../plus/ai/aiProviderService';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { showMarkdownPreview } from '../system/-webview/markdown';
-import type { AIFeedbackContext } from './aiFeedback';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
@@ -58,34 +58,18 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 	protected openDocument(
 		result: AISummarizeResult,
 		path: string,
-		metadata: Omit<MarkdownContentMetadata, 'feedbackContext'>,
+		metadata: Omit<MarkdownContentMetadata, 'context'>,
 	): void {
-		// Add feedback context to metadata
-		const feedbackContext: AIFeedbackContext = {
-			feature: this.constructor.name,
-			model: {
-				id: result.model.id,
-				providerId: result.model.provider.id,
-				providerName: result.model.provider.name,
-			},
-			usage: result.usage,
-			aiRequestId: result.id,
-			outputLength: result.content?.length,
-		};
+		const metadataWithContext: MarkdownContentMetadata = { ...metadata, context: getAIResultContext(result) };
 
-		const enrichedMetadata = {
-			...metadata,
-			feedbackContext: feedbackContext as unknown as Record<string, unknown>,
-		};
-
-		const headerContent = getMarkdownHeaderContent(enrichedMetadata, this.container.telemetry.enabled);
+		const headerContent = getMarkdownHeaderContent(metadataWithContext, this.container.telemetry.enabled);
 		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
 
 		const documentUri = this.container.markdown.openDocument(
 			content,
 			path,
 			metadata.header.title,
-			enrichedMetadata,
+			metadataWithContext,
 		);
 
 		showMarkdownPreview(documentUri);
