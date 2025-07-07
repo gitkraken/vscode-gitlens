@@ -233,10 +233,12 @@ export class GkCliIntegrationProvider implements Disposable {
 
 					// Get the app name
 					let appName = 'vscode';
+					let isInsiders = false;
 					switch (env.appName) {
 						case 'Visual Studio Code':
+							break;
 						case 'Visual Studio Code - Insiders':
-							appName = 'vscode';
+							isInsiders = true;
 							break;
 						case 'Cursor':
 							appName = 'cursor';
@@ -251,13 +253,42 @@ export class GkCliIntegrationProvider implements Disposable {
 						}
 					}
 
-					// Get the VS Code settings.json file path
+					// Get the VS Code settings.json file path in case we are on VSCode Insiders
 					// TODO: Use this path to point to the current vscode profile's settings.json once the API supports it.
-					// const settingsPath = `${this.container.context.globalStorageUri.fsPath}\\..\\..\\settings.json`;
+					const settingsPath = `${this.container.context.globalStorageUri.fsPath}\\..\\..\\settings.json`;
 
 					// Configure the MCP server in settings.json
 					try {
-						await run('gk.exe', ['mcp', 'install', appName/*, '--file-path', settingsPath*/], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+						const installOutput = await run('gk.exe', ['install'], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+						const directory = installOutput.match(/Directory: (.*)/);
+						if (directory != null) {
+							try {
+								const directoryPath = directory[1];
+								await this.container.storage.store('gk:cli:installedPath', directoryPath);
+								if (platform === 'windows') {
+									await run(
+										'powershell.exe',
+										[
+											'-Command',
+											`[Environment]::SetEnvironmentVariable('Path', $env:Path + ';${directoryPath}', [EnvironmentVariableTarget]::User)`,
+										],
+										'utf8',
+									);
+								} else {
+									await run(
+										'export',
+										[`PATH=$PATH:${directoryPath}`],
+										'utf8',
+									);
+								}
+							} catch (error) {
+								Logger.warn(`Failed to add GK directory to PATH: ${error}`);
+							}
+						} else {
+							Logger.warn('Failed to find directory in GK install output');
+						}
+
+						await run('gk.exe', ['mcp', 'install', appName, ...isInsiders ? ['--file-path', settingsPath] : []], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
 					} catch {
 						// Try alternative execution methods based on platform
 						try {

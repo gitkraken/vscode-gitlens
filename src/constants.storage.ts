@@ -81,6 +81,7 @@ export type GlobalStorage = {
 	preVersion: string;
 	'product:config': Stored<StoredProductConfig>;
 	'confirm:draft:storage': boolean;
+	'gk:cli:installedPath': string;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
