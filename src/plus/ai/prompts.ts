@@ -340,8 +340,8 @@ Based on the provided commit messages and associated issues, create a set of mar
 };
 
 export const generateSearchQuery: PromptTemplate<'generate-searchQuery'> = {
-	id: 'generate-searchQuery',
-	variables: ['query', 'context', 'instructions'],
+	id: 'generate-searchQuery_v2',
+	variables: ['query', 'date', 'context', 'instructions'],
 	template: `You are an advanced AI assistant that converts natural language queries into structured Git search operators. Your task is to analyze a user's natural language query about their Git repository history and convert it into the appropriate search operators.
 
 Available search operators:
@@ -351,26 +351,23 @@ Available search operators:
 - 'file:' - Search by file path (e.g. 'file:"package.json"', 'file:"*.ts"'); maps to \`git log -- <value>\`
 - 'change:' - Search by specific code changes using regular expressions (e.g. 'change:"function.*auth"', 'change:"import.*react"'); maps to \`git log -G<value>\`
 - 'type:' - Search by type -- only stash is currently supported (e.g. 'type:stash')
-- 'after:' - Search for commits after a certain date or range (e.g. 'after:2023-01-01', 'after:"6 months ago"'); maps to \`git log --since=<value>\`
-- 'before:' - Search for commits before a certain date or range (e.g. 'before:2023-01-01', 'before:"6 months ago"'); maps to \`git log --until=<value>\`
+- 'after:' - Search for commits after a certain date or range (e.g. 'after:2023-01-01', 'after:"6 months ago"', 'after:"last Tuesday"', 'after:"noon"', 'after:"1 month 2 days ago"'); maps to \`git log --since=<value>\`
+- 'before:' - Search for commits before a certain date or range (e.g. 'before:2023-01-01', 'before:"6 months ago"', 'before:"yesterday"', 'before:"3PM GMT"'); maps to \`git log --until=<value>\`
 
-File and change values should be double-quoted. Time-based searches should be converted to appropriate after or before operators. You can use multiple message, author, file, and change operators at the same time if needed.
+File and change values should be double-quoted. You can use multiple message, author, file, and change operators at the same time if needed.
 
-Examples:
-- 'Show me all commits from the last six months that touched the authentication system' → 'message:"auth" file:"*auth*" after:"6 months ago"'
-- 'Find commits by John from last week' → 'author:"john" after:"1 week ago"'
-- 'Show me all commits that modified package.json in the last month' → 'file:"package.json" after:"1 month ago"'
-- 'Find my recent commits about fixing bugs' → 'author:"@me" message:"fix" message:"bug" after:"2 weeks ago"'
-- 'Show commits that added React imports' → 'change:"import.*react"'
-- 'Find the PR where react-query dependency was first introduced' → 'change:"react-query" file:"package.json"'
+Temporal queries should be converted to appropriate after and/or before operators, leveraging Git's powerful 'approxidate' parser, which understands a wide array of human-centric relative date expressions, including simple terms ("yesterday", "5 minutes ago"), combinations of time units ("1 month 2 days ago"), days of the week ("last Tuesday"), named times ("noon"), and explicit timezones ("3PM GMT").
+For specific temporal ranges, e.g. commits made last week, or commits in the last month, use the 'after:' and 'before:' operators with appropriate relative values or calculate absolute dates, using the current date provided below.
+For ambiguous time periods like "this week" or "this month", prefer simple relative expressions like "1 week ago" or absolute dates using the current date provided below.
+
+The current date is \${date}
+\${context}
 
 User Query: \${query}
 
-\${context}
-
 \${instructions}
 
-Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search.`,
+Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
 };
 
 export const generateRebase: PromptTemplate<'generate-rebase'> = {

@@ -955,6 +955,7 @@ export class AIProviderService implements Disposable {
 					model,
 					{
 						query: search.query,
+						date: new Date().toISOString().split('T')[0],
 						context: search.context,
 						instructions: configuration.get('ai.generateSearchQuery.customInstructions'),
 					},

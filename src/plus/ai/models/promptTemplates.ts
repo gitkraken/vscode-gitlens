@@ -44,6 +44,7 @@ interface RebasePromptTemplateContext {
 
 interface SearchQueryPromptTemplateContext {
 	query: string;
+	date: string;
 	context?: string;
 	instructions?: string;
 }
