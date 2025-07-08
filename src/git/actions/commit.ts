@@ -690,7 +690,7 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(ref, { path: path });
 }
 
-export function reveal(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealCommit(commit, options);
 }
 
@@ -715,7 +715,7 @@ export async function showDetailsQuickPick(commit: GitCommit, fileOrUri?: string
 	}));
 }
 
-export function showDetailsView(
+export function showCommitInDetailsView(
 	commit: GitRevisionReference | GitCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
@@ -723,7 +723,7 @@ export function showDetailsView(
 	return Container.instance.views.commitDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
-export function showGraphDetailsView(
+export function showCommitInGraphDetailsView(
 	commit: GitRevisionReference | GitCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
@@ -731,7 +731,7 @@ export function showGraphDetailsView(
 	return Container.instance.views.graphDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
-export async function showInCommitGraph(
+export async function showCommitInGraph(
 	commit: GitRevisionReference | GitCommit,
 	options?: { preserveFocus?: boolean },
 ): Promise<void> {

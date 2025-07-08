@@ -50,6 +50,6 @@ export async function remove(repo: string | Repository, remote: string): Promise
 	});
 }
 
-export function reveal(remote: GitRemote | undefined, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealRemote(remote: GitRemote | undefined, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealRemote(remote, options);
 }

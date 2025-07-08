@@ -42,7 +42,7 @@ import {
 	openFiles,
 	openFilesAtRevision,
 	openOnlyChangedFiles,
-	showGraphDetailsView,
+	showCommitInGraphDetailsView,
 	undoCommit,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -3406,7 +3406,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		if (this.host.is('view')) {
-			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
+			return void showCommitInGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 		}
 
 		return executeCommand<InspectCommandArgs>('gitlens.showInDetailsView', { ref: ref });

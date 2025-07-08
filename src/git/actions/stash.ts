@@ -62,11 +62,11 @@ export function push(
 	});
 }
 
-export function reveal(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealStash(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealStash(stash, options);
 }
 
-export function showDetailsView(
+export function showStashInDetailsView(
 	stash: GitStashReference | GitStashCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean },
 ): Promise<void> {

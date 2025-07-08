@@ -40,6 +40,6 @@ export function rename(repo?: string | Repository, ref?: GitBranchReference, nam
 	});
 }
 
-export function reveal(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealBranch(branch, options);
 }

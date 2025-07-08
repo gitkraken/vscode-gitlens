@@ -15,6 +15,6 @@ export function addAuthors(
 	});
 }
 
-export function reveal(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealContributor(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealContributor(contributor, options);
 }

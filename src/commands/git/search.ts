@@ -3,7 +3,7 @@ import { ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../constants.search';
 import type { Container } from '../../container';
-import { showDetailsView } from '../../git/actions/commit';
+import { showCommitInDetailsView } from '../../git/actions/commit';
 import type { SearchCommitsResult } from '../../git/gitProvider';
 import type { GitCommit } from '../../git/models/commit';
 import type { Repository } from '../../git/models/repository';
@@ -272,7 +272,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			let result: StepResult<ReturnType<typeof getSteps>>;
 			if (state.openPickInView) {
-				void showDetailsView(context.commit, { pin: false, preserveFocus: false });
+				void showCommitInDetailsView(context.commit, { pin: false, preserveFocus: false });
 				result = StepResultBreak;
 			} else {
 				result = yield* getSteps(

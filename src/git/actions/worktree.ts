@@ -81,7 +81,7 @@ export function remove(repo?: string | Repository, uris?: Uri[]): Promise<void> 
 	});
 }
 
-export function reveal(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealWorktree(worktree, options);
 }
 

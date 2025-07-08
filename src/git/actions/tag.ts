@@ -28,6 +28,6 @@ export function remove(repo?: string | Repository, refs?: GitTagReference | GitT
 	});
 }
 
-export function reveal(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
+export function revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealTag(tag, options);
 }

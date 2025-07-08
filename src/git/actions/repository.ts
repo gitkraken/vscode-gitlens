@@ -86,7 +86,7 @@ export function switchTo(
 	});
 }
 
-export function reveal(
+export function revealRepository(
 	repoPath: string,
 	view?: ViewsWithRepositoryFolders,
 	options?: RevealOptions,
