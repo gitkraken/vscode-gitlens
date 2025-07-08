@@ -1,5 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import { getChangelogFeedbackContext } from '../../../../commands/generateChangelog';
 import { Schemes } from '../../../../constants';
 import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
@@ -283,16 +284,27 @@ export function getAIResultContext(result: AIResult): AIResultContext {
 }
 
 export function extractAIResultContext(uri: Uri | undefined): AIResultContext | undefined {
-	if (uri?.scheme !== Schemes.GitLensAIMarkdown) return undefined;
+	if (uri?.scheme === Schemes.GitLensAIMarkdown) {
+		const { authority } = uri;
+		if (!authority) return undefined;
 
-	const { authority } = uri;
-	if (!authority) return undefined;
-
-	try {
-		const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
-		return metadata.context;
-	} catch (ex) {
-		Logger.error(ex, 'extractResultContext');
-		return undefined;
+		try {
+			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
+			return metadata.context;
+		} catch (ex) {
+			Logger.error(ex, 'extractResultContext');
+			return undefined;
+		}
 	}
+
+	// Check for untitled documents with stored changelog feedback context
+	if (uri?.scheme === 'untitled') {
+		try {
+			return getChangelogFeedbackContext(uri.toString());
+		} catch {
+			return undefined;
+		}
+	}
+
+	return undefined;
 }
