@@ -275,6 +275,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			gl-work-item {
 				--gl-card-vertical-padding: 0.4rem;
 			}
+
+			.associate-issue-action {
+				--button-padding: 0.2rem;
+				--button-line-height: 1.2rem;
+			}
 		`,
 	];
 
@@ -562,6 +567,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			return html`<div class="branch-item__row" full>
 				<span class="branch-item__missing" full>Current work item</span>
 				<gl-button
+					class="associate-issue-action"
 					appearance="toolbar"
 					href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
 						'gitlens.associateIssueWithBranch',
