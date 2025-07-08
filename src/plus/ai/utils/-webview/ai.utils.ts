@@ -303,7 +303,7 @@ export function extractAIResultContext(container: Container, uri: Uri | undefine
 	// Check for untitled documents with stored changelog feedback context
 	if (uri?.scheme === 'untitled') {
 		try {
-			return container.aiFeedback.getChangelogFeedback(uri.toString());
+			return container.aiFeedback.getChangelogDocument(uri.toString());
 		} catch {
 			return undefined;
 		}
