@@ -1,4 +1,4 @@
-import type { CancellationToken, ProgressOptions, Uri } from 'vscode';
+import type { CancellationToken, ProgressOptions } from 'vscode';
 import { ProgressLocation, window, workspace } from 'vscode';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
@@ -6,13 +6,10 @@ import type { GitReference } from '../git/models/reference';
 import { getChangesForChangelog } from '../git/utils/-webview/log.utils';
 import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
-import type { AIGenerateChangelogChanges, AIResultContext } from '../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChanges } from '../plus/ai/aiProviderService';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { command } from '../system/-webview/command';
-import { setContext } from '../system/-webview/context';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
 import type { Lazy } from '../system/lazy';
 import { lazy } from '../system/lazy';
 import { Logger } from '../system/logger';
@@ -23,36 +20,6 @@ export interface GenerateChangelogCommandArgs {
 	repoPath?: string;
 	head?: GitReference;
 	source?: Source;
-}
-
-// Storage for AI feedback context associated with changelog documents
-const changelogFeedbackContexts = new Map<string, AIResultContext>();
-export function getChangelogFeedbackContext(documentUri: string): AIResultContext | undefined {
-	return changelogFeedbackContexts.get(documentUri);
-}
-function setChangelogFeedbackContext(documentUri: string, context: AIResultContext): void {
-	changelogFeedbackContexts.set(documentUri, context);
-}
-function clearChangelogFeedbackContext(documentUri: string): void {
-	changelogFeedbackContexts.delete(documentUri);
-}
-
-// Storage for changelog document URIs
-const changelogUris = new Set<Uri>();
-let _updateChangelogContextDebounced: Deferrable<() => void> | undefined;
-function updateChangelogContext(): void {
-	_updateChangelogContextDebounced ??= debounce(() => {
-		void setContext('gitlens:tabs:ai:changelog', [...changelogUris]);
-	}, 100);
-	_updateChangelogContextDebounced();
-}
-function addChangelogUri(uri: Uri): void {
-	changelogUris.add(uri);
-	updateChangelogContext();
-}
-function removeChangelogUri(uri: Uri): void {
-	changelogUris.delete(uri);
-	updateChangelogContext();
 }
 
 @command()
@@ -158,17 +125,7 @@ export async function generateChangelogAndOpenMarkdownDocument(
 	const document = await workspace.openTextDocument({ language: 'markdown', content: content });
 	if (feedbackContext) {
 		// Store feedback context for this document
-		setChangelogFeedbackContext(document.uri.toString(), feedbackContext);
-		// Add to changelog URIs context even for no-results documents
-		addChangelogUri(document.uri);
-		// Clean up context when document is closed
-		const disposable = workspace.onDidCloseTextDocument(closedDoc => {
-			if (closedDoc.uri.toString() === document.uri.toString()) {
-				clearChangelogFeedbackContext(document.uri.toString());
-				removeChangelogUri(document.uri);
-				disposable.dispose();
-			}
-		});
+		container.aiFeedback.addChangelogDocument(document.uri, feedbackContext);
 	}
 	await window.showTextDocument(document);
 }

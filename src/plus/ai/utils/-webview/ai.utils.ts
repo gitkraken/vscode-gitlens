@@ -1,7 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { getMarkdownDocument } from '../../../../commands/aiFeedback';
-import { getChangelogFeedbackContext } from '../../../../commands/generateChangelog';
 import { Schemes } from '../../../../constants';
 import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
@@ -284,7 +283,7 @@ export function getAIResultContext(result: AIResult): AIResultContext {
 	};
 }
 
-export function extractAIResultContext(uri: Uri | undefined): AIResultContext | undefined {
+export function extractAIResultContext(container: Container, uri: Uri | undefined): AIResultContext | undefined {
 	if (uri?.scheme === Schemes.GitLensAIMarkdown) {
 		const { authority } = uri;
 		if (!authority) return undefined;
@@ -304,7 +303,7 @@ export function extractAIResultContext(uri: Uri | undefined): AIResultContext | 
 	// Check for untitled documents with stored changelog feedback context
 	if (uri?.scheme === 'untitled') {
 		try {
-			return getChangelogFeedbackContext(uri.toString());
+			return container.aiFeedback.getChangelogFeedback(uri.toString());
 		} catch {
 			return undefined;
 		}
