@@ -15,6 +15,7 @@ import { gate } from '../system/decorators/-webview/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
@@ -217,12 +218,12 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		const { repoPath, uri } = worktree;
 		const url = uri.toString();
 
-		return this.findNode(n => n instanceof WorktreeNode && worktree.uri.toString() === url, {
+		return this.findNode(n => n instanceof WorktreeNode && n.worktree.uri.toString() === url, {
 			maxDepth: 2,
 			canTraverse: n => {
 				if (n instanceof WorktreesViewNode) return true;
 
-				if (n instanceof WorktreesRepositoryNode) {
+				if (n instanceof WorktreesRepositoryNode || n instanceof BranchOrTagFolderNode) {
 					return n.repoPath === repoPath;
 				}
 

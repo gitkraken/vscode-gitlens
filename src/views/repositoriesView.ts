@@ -507,13 +507,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		const { repoPath, uri } = worktree;
 		const url = uri.toString();
 
-		return this.findNode(n => n instanceof WorktreeNode && worktree.uri.toString() === url, {
+		return this.findNode(n => n instanceof WorktreeNode && n.worktree.uri.toString() === url, {
 			maxDepth: 2,
 			canTraverse: n => {
 				// Only search for worktree nodes in the same repo within WorktreesNode
 				if (n instanceof RepositoriesNode) return true;
 
-				if (n instanceof RepositoryNode || n instanceof WorktreesNode) {
+				if (n instanceof RepositoryNode || n instanceof WorktreesNode || n instanceof BranchOrTagFolderNode) {
 					return n.repoPath === repoPath;
 				}
 
