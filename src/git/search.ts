@@ -299,12 +299,12 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 					break;
 
 				case 'file:':
-					for (const value of values) {
+					for (let value of values) {
 						if (!value) continue;
 
 						if (value.startsWith('"') && value.endsWith('"')) {
-							// value = value.slice(1, -1);
-							// if (!value) continue;
+							value = value.slice(1, -1);
+							if (!value) continue;
 
 							filters.files = true;
 							files.push(value);
