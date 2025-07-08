@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.3.0] - 2025-07-08
+
 ### Added
 
 - Adds support for using natural language to search for commits on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command using AI ([#4471](https://github.com/gitkraken/vscode-gitlens/issues/4471))
@@ -6232,7 +6234,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...HEAD
+[17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.3.0
 [17.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...gitkraken:v17.2.1
 [17.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...gitkraken:v17.2.0
 [17.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...gitkraken:v17.1.1
