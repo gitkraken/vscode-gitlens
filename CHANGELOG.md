@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for using natural language to search for commits on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command using AI ([#4471](https://github.com/gitkraken/vscode-gitlens/issues/4471))
 - Adds support for time-based commit searches on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command
 - Adds 👍 "Helpful" and 👎 "Unhelpful" feedback buttons to AI-generated markdown previews such as Commit Composer and Explain Changes ([#4449](https://github.com/gitkraken/vscode-gitlens/issues/4449))
+- Adds a _Commit with AI (Preview)_ button to the _Inspect Overview_ tab of the _Commit Graph_ and _Inspect_ views
 
 ### Changed
 
