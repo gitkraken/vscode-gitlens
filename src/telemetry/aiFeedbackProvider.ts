@@ -1,9 +1,12 @@
 import type { Disposable, Uri } from 'vscode';
 import { workspace } from 'vscode';
+import type { AIFeedbackEvent } from '../constants.telemetry';
 import type { AIResultContext } from '../plus/ai/aiProviderService';
 import { setContext } from '../system/-webview/context';
+import { UriMap } from '../system/-webview/uriMap';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';
+import { filterMap } from '../system/iterable';
 
 export class AIFeedbackProvider implements Disposable {
 	constructor() {
@@ -26,8 +29,10 @@ export class AIFeedbackProvider implements Disposable {
 	private readonly _disposables: Disposable[] = [];
 	dispose(): void {
 		this._disposables.forEach(d => void d.dispose());
+		this._uriResponses.clear();
 		this._changelogFeedbacks.clear();
 		this._changelogUris.clear();
+		this._updateFeedbackContextDebounced = undefined;
 		this._updateChangelogContextDebounced = undefined;
 	}
 
@@ -63,5 +68,30 @@ export class AIFeedbackProvider implements Disposable {
 	}
 	private deleteChangelogFeedback(documentUri: string): void {
 		this._changelogFeedbacks.delete(documentUri);
+	}
+
+	// Storage for AI feedback responses by URI
+	private readonly _uriResponses = new UriMap<AIFeedbackEvent['sentiment']>();
+	private _updateFeedbackContextDebounced: Deferrable<() => void> | undefined;
+	private updateFeedbackContext(): void {
+		this._updateFeedbackContextDebounced ??= debounce(() => {
+			void setContext('gitlens:tabs:ai:helpful', [
+				...filterMap(this._uriResponses, ([uri, sentiment]) => (sentiment === 'helpful' ? uri : undefined)),
+			]);
+			void setContext('gitlens:tabs:ai:unhelpful', [
+				...filterMap(this._uriResponses, ([uri, sentiment]) => (sentiment === 'unhelpful' ? uri : undefined)),
+			]);
+		}, 100);
+		this._updateFeedbackContextDebounced();
+	}
+	setFeedbackResponse(uri: Uri, sentiment: AIFeedbackEvent['sentiment']): void {
+		const previous = this._uriResponses.get(uri);
+		if (sentiment === previous) return;
+
+		this._uriResponses.set(uri, sentiment);
+		this.updateFeedbackContext();
+	}
+	getFeedbackResponse(uri: Uri): AIFeedbackEvent['sentiment'] | undefined {
+		return this._uriResponses.get(uri);
 	}
 }
