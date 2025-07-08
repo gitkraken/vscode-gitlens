@@ -14171,7 +14171,7 @@
 				},
 				{
 					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
 					"group": "navigation@3"
 				},
 				{
@@ -14197,7 +14197,7 @@
 				},
 				{
 					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
 					"group": "1_gitlens@0"
 				},
 				{

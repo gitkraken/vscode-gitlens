@@ -3734,14 +3734,14 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
 						"group": "navigation",
 						"order": 3
 					}
 				],
 				"editor/title/context": [
 					{
-						"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+						"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
 						"group": "1_gitlens",
 						"order": 0
 					}
