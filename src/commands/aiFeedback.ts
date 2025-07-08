@@ -75,7 +75,7 @@ const uriResponses = new UriMap<AIFeedbackEvent['sentiment']>();
 let _updateContextDebounced: Deferrable<() => void> | undefined;
 
 async function sendFeedback(container: Container, uri: Uri, sentiment: AIFeedbackEvent['sentiment']): Promise<void> {
-	const context = extractAIResultContext(uri);
+	const context = extractAIResultContext(container, uri);
 	if (!context) return;
 
 	try {
