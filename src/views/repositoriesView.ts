@@ -36,7 +36,7 @@ import { StashesNode } from './nodes/stashesNode';
 import { TagsNode } from './nodes/tagsNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -524,14 +524,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealBranch(
-		branch: GitBranchReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -553,14 +546,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealBranches(
-		repoPath: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranches(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof BranchesNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -583,14 +569,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -612,14 +591,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealContributor(
-		contributor: GitContributor,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealContributor(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -638,14 +610,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealRemote(
-		remote: GitRemote,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealRemote(remote: GitRemote, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -664,14 +629,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof RepositoriesNode,
@@ -685,14 +643,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealStash(
-		stash: GitStashReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealStash(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -714,14 +665,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealStashes(
-		repoPath: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealStashes(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof StashesNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -744,14 +688,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealTag(
-		tag: GitTagReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -773,14 +710,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealTags(
-		repoPath: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealTags(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof TagsNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -803,14 +733,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealWorktree(
-		worktree: GitWorktree,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -829,14 +752,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	async revealWorktrees(
-		repoPath: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealWorktrees(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof WorktreesNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {

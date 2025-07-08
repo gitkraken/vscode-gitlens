@@ -1,5 +1,6 @@
 import { Container } from '../../container';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitBranchReference, GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -39,13 +40,6 @@ export function rename(repo?: string | Repository, ref?: GitBranchReference, nam
 	});
 }
 
-export function reveal(
-	branch: GitBranchReference,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
-): Promise<ViewNode | undefined> {
+export function reveal(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealBranch(branch, options);
 }

@@ -19,6 +19,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { getOrOpenTextEditor, openChangesEditor, openTextEditors } from '../../system/-webview/vscode/editors';
 import { getSettledValue } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
@@ -689,14 +690,7 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(ref, { path: path });
 }
 
-export function reveal(
-	commit: GitRevisionReference,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
-): Promise<ViewNode | undefined> {
+export function reveal(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealCommit(commit, options);
 }
 

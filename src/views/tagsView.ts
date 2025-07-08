@@ -16,7 +16,7 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { TagsNode } from './nodes/tagsNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -183,10 +183,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
@@ -200,14 +197,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	async revealTag(
-		tag: GitTagReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

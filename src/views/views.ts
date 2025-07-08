@@ -42,7 +42,7 @@ import { ScmGroupedView } from './scmGroupedView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
-import type { TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
+import type { RevealOptions, TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
 import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
@@ -823,14 +823,7 @@ export class Views implements Disposable {
 		return this._workspacesView;
 	}
 
-	async revealBranch(
-		branch: GitBranchReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const branches = branch.remote ? this.remotes : this.branches;
 		const view = branches.canReveal ? branches : this.repositories;
 
@@ -839,14 +832,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { commits } = this;
 		const view = commits.canReveal ? commits : this.repositories;
 
@@ -855,14 +841,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealContributor(
-		contributor: GitContributor,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealContributor(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { contributors } = this;
 		const view = contributors.canReveal ? contributors : this.repositories;
 
@@ -871,14 +850,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealRemote(
-		remote: GitRemote | undefined,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealRemote(remote: GitRemote | undefined, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { remotes } = this;
 		const view = remotes.canReveal ? remotes : this.repositories;
 
@@ -890,11 +862,7 @@ export class Views implements Disposable {
 	async revealRepository(
 		repoPath: string,
 		useView?: ViewsWithRepositoryFolders,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
+		options?: RevealOptions,
 	): Promise<ViewNode | undefined> {
 		const view = useView == null || useView.canReveal === false ? this.repositories : useView;
 
@@ -903,14 +871,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealStash(
-		stash: GitStashReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealStash(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { stashes } = this;
 		const view = stashes.canReveal ? stashes : this.repositories;
 
@@ -919,14 +880,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealTag(
-		tag: GitTagReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { tags } = this;
 		const view = tags.canReveal ? tags : this.repositories;
 
@@ -935,14 +889,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealWorktree(
-		worktree: GitWorktree,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { worktrees } = this;
 		const view = worktrees.canReveal ? worktrees : this.repositories;
 

@@ -18,7 +18,7 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -265,10 +265,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof ContributorsViewNode || n instanceof RepositoryFolderNode,
@@ -282,14 +279,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	@gate(() => '')
-	async revealContributor(
-		contributor: GitContributor,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealContributor(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

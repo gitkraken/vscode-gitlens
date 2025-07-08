@@ -827,10 +827,7 @@ export abstract class ViewBase<
 	}
 
 	@log<ViewBase<Type, RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
-	async reveal(
-		node: ViewNode,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void> {
+	async reveal(node: ViewNode, options?: RevealOptions): Promise<void> {
 		if (this.initialized.pending) {
 			await this.initialized.promise;
 		}
@@ -838,15 +835,8 @@ export abstract class ViewBase<
 		return this.revealCore(node, undefined, options);
 	}
 
-	async revealDeep(
-		node: ViewNode,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void>;
-	async revealDeep(
-		node: ViewNode,
-		parents: ViewNode[],
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void>;
+	async revealDeep(node: ViewNode, options?: RevealOptions): Promise<void>;
+	async revealDeep(node: ViewNode, parents: ViewNode[], options?: RevealOptions): Promise<void>;
 	@log<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
 		args: {
 			0: n => n.toString(),
@@ -855,8 +845,8 @@ export abstract class ViewBase<
 	})
 	async revealDeep(
 		node: ViewNode,
-		parents: ViewNode[] | { expand?: boolean | number; focus?: boolean; select?: boolean } | undefined,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
+		parents: ViewNode[] | RevealOptions | undefined,
+		options?: RevealOptions,
 	): Promise<void> {
 		if (this.initialized.pending) {
 			await this.initialized.promise;
@@ -884,11 +874,7 @@ export abstract class ViewBase<
 		return this.revealCore(node, root, options);
 	}
 
-	private async revealCore(
-		node: ViewNode,
-		root: ViewNode | undefined,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void> {
+	private async revealCore(node: ViewNode, root: ViewNode | undefined, options?: RevealOptions): Promise<void> {
 		if (this.tree == null) return;
 
 		const scope = getLogScope();
@@ -1187,4 +1173,10 @@ export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren
 			child.dispose();
 		}
 	}
+}
+
+export interface RevealOptions {
+	expand?: boolean | number;
+	focus?: boolean;
+	select?: boolean;
 }

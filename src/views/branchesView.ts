@@ -20,7 +20,7 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -281,14 +281,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	@gate(() => '')
-	async revealBranch(
-		branch: GitBranchReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -310,14 +303,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	@gate(() => '')
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -339,10 +325,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof BranchesViewNode || n instanceof RepositoryFolderNode,

@@ -23,7 +23,7 @@ import { ContextValues, ViewNode } from './nodes/abstract/viewNode';
 import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compareResultsNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -389,17 +389,8 @@ export class SearchAndCompareView extends ViewBase<
 			label,
 			reveal,
 		}: {
-			label:
-				| string
-				| {
-						label: string;
-						resultsType?: { singular: string; plural: string };
-				  };
-			reveal?: {
-				select?: boolean;
-				focus?: boolean;
-				expand?: boolean | number;
-			};
+			label: string | { label: string; resultsType?: { singular: string; plural: string } };
+			reveal?: RevealOptions;
 		},
 		results?: Promise<GitLog | undefined> | GitLog,
 		updateNode?: SearchResultsNode,
@@ -474,10 +465,7 @@ export class SearchAndCompareView extends ViewBase<
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof SearchAndCompareViewNode || n instanceof RepositoryFolderNode,
@@ -492,7 +480,7 @@ export class SearchAndCompareView extends ViewBase<
 
 	private async addResultsNode<T extends CompareResultsNode | SearchResultsNode>(
 		resultsNodeFn: () => T,
-		reveal?: { expand?: boolean | number; focus?: boolean; select?: boolean } | false,
+		reveal?: RevealOptions | false,
 	): Promise<T> {
 		reveal ??= { expand: true, focus: true, select: true };
 		const root = this.ensureRoot();
