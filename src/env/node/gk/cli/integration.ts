@@ -289,6 +289,12 @@ export class GkCliIntegrationProvider implements Disposable {
 						}
 
 						await run('gk.exe', ['mcp', 'install', appName, ...isInsiders ? ['--file-path', settingsPath] : []], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+
+						const gkAuth = (await this.container.subscription.getAuthenticationSession())?.accessToken;
+						if (gkAuth != null) {
+							const output = await run('gk.exe', ['auth', 'login', '-t', gkAuth], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+							console.log(output);
+						}
 					} catch {
 						// Try alternative execution methods based on platform
 						try {
