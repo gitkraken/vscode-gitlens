@@ -54,6 +54,7 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.switchToBranch'
 	| 'gitlens.home.fetch'
 	| 'gitlens.home.openInGraph'
+	| 'gitlens.openInView.branch:home'
 	| 'gitlens.home.createBranch'
 	| 'gitlens.home.mergeIntoCurrent'
 	| 'gitlens.home.rebaseCurrentOnto'

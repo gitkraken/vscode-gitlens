@@ -475,7 +475,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	get isWorktree(): boolean {
-		return this.branch.worktree != null;
+		return this.branch.worktree != null && !this.branch.worktree.isDefault;
 	}
 
 	get cardIndicator(): GlCard['indicator'] {
@@ -951,7 +951,7 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getCollapsedActions(): TemplateResult[] {
 		const actions = [];
 
-		if (this.branch.worktree) {
+		if (this.isWorktree) {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
@@ -974,6 +974,22 @@ export class GlBranchCard extends GlBranchCardBase {
 			);
 		}
 
+		actions.push(
+			html`<action-item
+				label="Open in Commit Graph"
+				icon="gl-graph"
+				href=${createCommandLink('gitlens.home.openInGraph', {
+					...this.branchRef,
+					type: 'branch',
+				} satisfies OpenInGraphParams)}
+			></action-item>`,
+			html`<action-item
+				label=${this.isWorktree ? 'Open in Worktrees View' : 'Open in Branches View'}
+				icon="arrow-right"
+				href=${this.createCommandLink('gitlens.openInView.branch:home')}
+			></action-item>`,
+		);
+
 		return actions;
 	}
 
@@ -982,7 +998,7 @@ export class GlBranchCard extends GlBranchCardBase {
 
 		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
 
-		if (this.branch.worktree) {
+		if (this.isWorktree) {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
@@ -1069,6 +1085,11 @@ export class GlBranchCard extends GlBranchCardBase {
 					...this.branchRef,
 					type: 'branch',
 				} satisfies OpenInGraphParams)}
+			></action-item>`,
+			html`<action-item
+				label=${this.isWorktree ? 'Open in Worktrees View' : 'Open in Branches View'}
+				icon="arrow-right"
+				href=${this.createCommandLink('gitlens.openInView.branch:home')}
 			></action-item>`,
 		);
 

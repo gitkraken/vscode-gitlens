@@ -20,9 +20,11 @@ import {
 import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
+import { revealBranch } from '../../git/actions/branch';
 import { openComparisonChanges } from '../../git/actions/commit';
 import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../../git/actions/pausedOperation';
 import * as RepoActions from '../../git/actions/repository';
+import { revealWorktree } from '../../git/actions/worktree';
 import type { BranchContributionsOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileChangeShape } from '../../git/models/fileChange';
@@ -363,6 +365,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
 			registerCommand('gitlens.visualizeHistory.repo:home', this.openInTimeline, this),
 			registerCommand('gitlens.visualizeHistory.branch:home', this.openInTimeline, this),
+			registerCommand('gitlens.openInView.branch:home', this.openInView, this),
 			registerCommand('gitlens.home.createBranch', this.createBranch, this),
 			registerCommand('gitlens.home.mergeIntoCurrent', this.mergeIntoCurrent, this),
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
@@ -524,6 +527,22 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					head: getReferenceFromBranch(branch),
 				});
 			}
+		}
+	}
+
+	@log<HomeWebviewProvider['openInView']>({
+		args: { 0: p => `repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
+	})
+	private async openInView(params: BranchRef) {
+		const { repo, branch } = await this.getRepoInfoFromRef(params);
+		if (repo == null || branch == null) return;
+
+		// Show in the Worktrees or Branches view depending
+		const worktree = await branch.getWorktree();
+		if (worktree != null && !worktree.isDefault) {
+			await revealWorktree(worktree, { select: true, focus: true, expand: true });
+		} else {
+			await revealBranch(branch, { select: true, focus: true, expand: true });
 		}
 	}
 
