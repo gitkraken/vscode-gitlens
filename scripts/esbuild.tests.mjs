@@ -24,6 +24,9 @@ async function buildTests(target) {
 		external: ['vscode'],
 		format: 'cjs',
 		logLevel: 'info',
+		logOverride: {
+			'duplicate-case': 'silent',
+		},
 		mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 		metafile: false,
 		minify: false,
