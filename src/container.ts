@@ -57,6 +57,7 @@ import type { Storage } from './system/-webview/storage';
 import { memoize } from './system/decorators/-webview/memoize';
 import { log } from './system/decorators/log';
 import { Logger } from './system/logger';
+import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
 import { isWalkthroughSupported, WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
@@ -363,6 +364,14 @@ export class Container {
 			this._disposables.push((this._ai = new AIProviderService(this, this._connection)));
 		}
 		return this._ai;
+	}
+
+	private _aiFeedback: AIFeedbackProvider | undefined;
+	get aiFeedback(): AIFeedbackProvider {
+		if (this._aiFeedback == null) {
+			this._disposables.push((this._aiFeedback = new AIFeedbackProvider()));
+		}
+		return this._aiFeedback;
 	}
 
 	private _autolinks: AutolinksProvider | undefined;
