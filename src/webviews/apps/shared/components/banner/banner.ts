@@ -53,18 +53,13 @@ export class GlBanner extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`
-			<div part="base" class=${classMap(this.classNames)}>
-				${this.renderContent()}
-			</div>
-		`;
+		return html` <div part="base" class=${classMap(this.classNames)}>${this.renderContent()}</div> `;
 	}
 
 	private renderContent() {
 		return html`
 			<div class="banner__content">
-				${this.bannerTitle ? this.renderTitle() : ''}
-				${this.body ? this.renderBody() : ''}
+				${this.bannerTitle ? this.renderTitle() : ''} ${this.body ? this.renderBody() : ''}
 				${this.renderButtons()}
 			</div>
 		`;
@@ -86,8 +81,7 @@ export class GlBanner extends LitElement {
 
 		return html`
 			<div class="banner__buttons">
-				${hasPrimary ? this.renderPrimaryButton() : ''}
-				${hasSecondary ? this.renderSecondaryButton() : ''}
+				${hasPrimary ? this.renderPrimaryButton() : ''} ${hasSecondary ? this.renderSecondaryButton() : ''}
 			</div>
 		`;
 	}
