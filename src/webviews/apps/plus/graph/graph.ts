@@ -1,28 +1,23 @@
-import { provide } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '../../../../system/color';
 import type { State } from '../../../plus/graph/protocol';
-import type { StateProvider } from '../../shared/appHost';
 import { GlAppHost } from '../../shared/appHost';
 import type { HostIpc } from '../../shared/ipc';
 import type { ThemeChangeEvent } from '../../shared/theme';
 import type { GraphApp } from './graph-app';
-import { GraphAppState, graphStateContext, GraphStateProvider } from './stateProvider';
+import { GraphStateProvider } from './stateProvider';
 import './graph-app';
 import './graph.scss';
 
 @customElement('gl-graph-apphost')
-export class GraphAppHost extends GlAppHost<State> {
+export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;
 	}
 
 	@query('gl-graph-app')
 	private appElement!: GraphApp;
-
-	@provide({ context: graphStateContext })
-	private readonly _graphState: typeof graphStateContext.__context__ = new GraphAppState();
 
 	@state()
 	searching: string = '';
@@ -38,20 +33,11 @@ export class GraphAppHost extends GlAppHost<State> {
 		return html`<gl-graph-app></gl-graph-app>`;
 	}
 
-	protected override createStateProvider(state: State, ipc: HostIpc): StateProvider<State> {
+	protected override createStateProvider(state: State, ipc: HostIpc): GraphStateProvider {
 		return new GraphStateProvider(this, state, ipc, this._logger, {
 			onStateUpdate: partial => {
-				if ('loading' in partial) {
-					this._graphState.loading = partial.loading ?? false;
-				}
 				if ('rows' in partial) {
 					this.appElement.resetHover();
-				}
-				if ('selectedRows' in partial) {
-					this._graphState.selectedRows = partial.selectedRows;
-				}
-				if ('searchResults' in partial) {
-					this._graphState.searchResultsResponse = partial.searchResults;
 				}
 			},
 		});
