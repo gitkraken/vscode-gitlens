@@ -2,6 +2,7 @@ import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, ProgressLocation, Uri, window, workspace  } from 'vscode';
 import type { Container } from '../../../../container';
+import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getContext } from '../../../../system/-webview/context';
@@ -27,6 +28,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			...this.registerCommands(),
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 
 		this.onConfigurationChanged();
@@ -71,12 +73,11 @@ export class GkCliIntegrationProvider implements Disposable {
 
 	private async installMCPIfNeeded(silent?: boolean): Promise<void> {
 		try {
-			if (silent && this.container.storage.get('ai:mcp:attemptInstall', false)) {
+			if (silent && this.container.storage.get('ai:mcp:attemptInstall')) {
 				return;
 			}
 
-			// Store the flag to indicate that we have made the attempt
-			await this.container.storage.store('ai:mcp:attemptInstall', true);
+			await this.container.storage.store('ai:mcp:attemptInstall', 'attempted');
 
 			if (configuration.get('ai.enabled') === false) {
 				const message = 'Cannot install MCP: AI is disabled in settings';
@@ -292,8 +293,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 						const gkAuth = (await this.container.subscription.getAuthenticationSession())?.accessToken;
 						if (gkAuth != null) {
-							const output = await run('gk.exe', ['auth', 'login', '-t', gkAuth], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
-							console.log(output);
+							await run('gk.exe', ['auth', 'login', '-t', gkAuth], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
 						}
 					} catch {
 						// Try alternative execution methods based on platform
@@ -377,6 +377,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			// Show success notification if not silent
+			await this.container.storage.store('ai:mcp:attemptInstall', 'completed');
 			void window.showInformationMessage('GitKraken MCP integration installed successfully');
 		} catch (error) {
 			Logger.error(`Error during MCP installation: ${error}`);
@@ -388,7 +389,24 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 	}
 
-		private registerCommands(): Disposable[] {
-			return [registerCommand('gitlens.ai.mcp.install', () => this.installMCPIfNeeded())];
+	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
+		const mcpInstallStatus = this.container.storage.get('ai:mcp:attemptInstall');
+		if (e.current?.account?.id !== e.previous?.account?.id && mcpInstallStatus === 'completed') {
+			try {
+				await run('gk', ['auth', 'logout'], 'utf8');
+			} catch {}
+			if (e.current?.account?.id !== null) {
+				const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
+				if (currentSessionToken != null) {
+					try {
+						await run('gk', ['auth', 'login', '-t', currentSessionToken], 'utf8');
+					} catch {}
+				}
+			}
 		}
+	}
+
+	private registerCommands(): Disposable[] {
+		return [registerCommand('gitlens.ai.mcp.install', () => this.installMCPIfNeeded())];
+	}
 }
