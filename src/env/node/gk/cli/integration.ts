@@ -2,7 +2,6 @@ import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, ProgressLocation, Uri, window, workspace  } from 'vscode';
 import type { Container } from '../../../../container';
-import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getContext } from '../../../../system/-webview/context';
@@ -28,7 +27,6 @@ export class GkCliIntegrationProvider implements Disposable {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			...this.registerCommands(),
-			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 
 		this.onConfigurationChanged();
@@ -145,6 +143,8 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 			}
 
+			const mcpFileName = platform === 'windows' ? 'gk.exe' : 'gk';
+
 			// Wrap the main installation process with progress indicator if not silent
 			const installationTask = async () => {
 				let mcpInstallerPath: Uri | undefined;
@@ -219,10 +219,10 @@ export class GkCliIntegrationProvider implements Disposable {
 								'utf8',
 							);
 						}
-						// The gk.exe file should be in a subfolder named after the installer file name
+						// The gk file should be in a subfolder named after the installer file name
 						const extractedFolderName = installerFileName.replace(/\.zip$/, '');
 						mcpExtractedFolderPath = Uri.joinPath(this.container.context.globalStorageUri, extractedFolderName);
-						mcpExtractedPath = Uri.joinPath(mcpExtractedFolderPath, 'gk.exe');
+						mcpExtractedPath = Uri.joinPath(mcpExtractedFolderPath, mcpFileName);
 
 						// Check using stat to make sure the newly extracted file exists.
 						await workspace.fs.stat(mcpExtractedPath);
@@ -260,7 +260,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 					// Configure the MCP server in settings.json
 					try {
-						const installOutput = await run('gk.exe', ['install'], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+						const installOutput = await run(mcpFileName, ['install'], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
 						const directory = installOutput.match(/Directory: (.*)/);
 						if (directory != null) {
 							try {
@@ -289,11 +289,11 @@ export class GkCliIntegrationProvider implements Disposable {
 							Logger.warn('Failed to find directory in GK install output');
 						}
 
-						await run('gk.exe', ['mcp', 'install', appName, ...isInsiders ? ['--file-path', settingsPath] : []], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+						await run(mcpFileName, ['mcp', 'install', appName, ...isInsiders ? ['--file-path', settingsPath] : []], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
 
 						const gkAuth = (await this.container.subscription.getAuthenticationSession())?.accessToken;
 						if (gkAuth != null) {
-							await run('gk.exe', ['auth', 'login', '-t', gkAuth], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+							await run(mcpFileName, ['auth', 'login', '-t', gkAuth], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
 						}
 					} catch {
 						// Try alternative execution methods based on platform
@@ -309,8 +309,7 @@ export class GkCliIntegrationProvider implements Disposable {
 										'mcp',
 										'install',
 										appName,
-										/*'--file-path',
-										settingsPath,*/
+										...isInsiders ? ['--file-path', settingsPath] : [],
 									],
 									'utf8',
 								);
@@ -319,7 +318,7 @@ export class GkCliIntegrationProvider implements Disposable {
 								await run(
 									'/bin/sh',
 									// ['-c', `"${mcpExtractedPath.fsPath}" mcp install vscode --file-path "${settingsPath}"`],
-									['-c', `"${mcpExtractedPath.fsPath}" mcp install ${appName}`],
+									['-c', `"${mcpExtractedPath.fsPath}" mcp install ${appName} ${isInsiders ? `--file-path ${settingsPath}` : ''}`],
 									'utf8',
 								);
 							}
@@ -385,23 +384,6 @@ export class GkCliIntegrationProvider implements Disposable {
 			// Show error notification if not silent
 			if (silent !== true) {
 				void window.showErrorMessage(`Failed to install MCP integration: ${error instanceof Error ? error.message : String(error)}`);
-			}
-		}
-	}
-
-	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
-		const mcpInstallStatus = this.container.storage.get('ai:mcp:attemptInstall');
-		if (e.current?.account?.id !== e.previous?.account?.id && mcpInstallStatus === 'completed') {
-			try {
-				await run('gk', ['auth', 'logout'], 'utf8');
-			} catch {}
-			if (e.current?.account?.id !== null) {
-				const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
-				if (currentSessionToken != null) {
-					try {
-						await run('gk', ['auth', 'login', '-t', currentSessionToken], 'utf8');
-					} catch {}
-				}
 			}
 		}
 	}
