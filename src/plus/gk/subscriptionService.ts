@@ -1682,16 +1682,17 @@ export class SubscriptionService implements Disposable {
 		try {
 			if (hasAccount) {
 				try {
-					const token = await this.container.accountAuthentication.getExchangeToken(
-						AiAllAccessOptInPathPrefix,
-					);
+					const token =
+						await this.container.accountAuthentication.getExchangeToken(AiAllAccessOptInPathPrefix);
 					query.set('token', token);
 				} catch (ex) {
 					Logger.error(ex, scope);
 				}
 			} else {
 				const callbackUri = await env.asExternalUri(
-					Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${AiAllAccessOptInPathPrefix}`),
+					Uri.parse(
+						`${env.uriScheme}://${this.container.context.extension.id}/${AiAllAccessOptInPathPrefix}`,
+					),
 				);
 				query.set('redirect_uri', callbackUri.toString(true));
 			}
@@ -1700,7 +1701,7 @@ export class SubscriptionService implements Disposable {
 				this.container.telemetry.sendEvent('aiAllAccess/opened', undefined, source);
 			}
 
-			if(!(await openUrl(this.container.urls.getGkDevUrl('all-access', query)))) {
+			if (!(await openUrl(this.container.urls.getGkDevUrl('all-access', query)))) {
 				return false;
 			}
 		} catch (ex) {
@@ -1710,14 +1711,20 @@ export class SubscriptionService implements Disposable {
 
 		const completionPromises = [
 			new Promise<string>(resolve => setTimeout(() => resolve('cancel'), 5 * 60 * 1000)),
-			new Promise<string>(resolve => once(this.container.uri.onDidReceiveAiAllAccessOptInUri)(() => resolve(hasAccount ? 'update' : 'login'))),
+			new Promise<string>(resolve =>
+				once(this.container.uri.onDidReceiveAiAllAccessOptInUri)(() =>
+					resolve(hasAccount ? 'update' : 'login'),
+				),
+			),
 		];
 
 		const action = await Promise.race(completionPromises);
 
 		if (action === 'update' && hasAccount) {
 			void this.checkUpdatedSubscription(source);
-			void this.container.storage.store(`gk:promo:${this._session?.account.id ?? '00000000'}:ai:allAccess:dismissed`, true).catch();
+			void this.container.storage
+				.store(`gk:promo:${this._session?.account.id ?? '00000000'}:ai:allAccess:dismissed`, true)
+				.catch();
 			void this.container.views.home.refresh();
 		}
 
@@ -1743,7 +1750,9 @@ export class SubscriptionService implements Disposable {
 			await this.loginWithCode({ code: code }, { source: 'subscription' });
 			const newSession = await this.getAuthenticationSession();
 			if (newSession?.account?.id != null) {
-				await this.container.storage.store(`gk:promo:${newSession.account.id}:ai:allAccess:dismissed`, true).catch();
+				await this.container.storage
+					.store(`gk:promo:${newSession.account.id}:ai:allAccess:dismissed`, true)
+					.catch();
 				void this.container.views.home.refresh();
 			}
 		}

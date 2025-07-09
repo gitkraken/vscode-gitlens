@@ -51,21 +51,42 @@ export const bannerStyles = css`
 			var(--gl-banner-primary-emphasis-background) 0%,
 			var(--gl-banner-secondary-emphasis-background) 100%
 		);
-		border: 1px solid color-mix(in lab, var(--gl-banner-primary-emphasis-background) 50%, var(--gl-banner-secondary-emphasis-background) 50%);
+		border: 1px solid
+			color-mix(
+				in lab,
+				var(--gl-banner-primary-emphasis-background) 50%,
+				var(--gl-banner-secondary-emphasis-background) 50%
+			);
 	}
 
 	/* Gradient transparent display mode - same gradient but with transparency */
 	.banner--gradient-transparent {
 		background: linear-gradient(
 			to right,
-			color-mix(in lab, var(--gl-banner-primary-emphasis-background) calc(100% * (1 - var(--gl-banner-transparency))), transparent) 0%,
-			color-mix(in lab, var(--gl-banner-secondary-emphasis-background) calc(100% * (1 - var(--gl-banner-transparency))), transparent) 100%
+			color-mix(
+					in lab,
+					var(--gl-banner-primary-emphasis-background) calc(100% * (1 - var(--gl-banner-transparency))),
+					transparent
+				)
+				0%,
+			color-mix(
+					in lab,
+					var(--gl-banner-secondary-emphasis-background) calc(100% * (1 - var(--gl-banner-transparency))),
+					transparent
+				)
+				100%
 		);
-		border: 1px solid color-mix(
-			in lab,
-			color-mix(in lab, var(--gl-banner-primary-emphasis-background) 50%, var(--gl-banner-secondary-emphasis-background) 50%) calc(100% * (1 - var(--gl-banner-transparency))),
-			transparent
-		);
+		border: 1px solid
+			color-mix(
+				in lab,
+				color-mix(
+						in lab,
+						var(--gl-banner-primary-emphasis-background) 50%,
+						var(--gl-banner-secondary-emphasis-background) 50%
+					)
+					calc(100% * (1 - var(--gl-banner-transparency))),
+				transparent
+			);
 	}
 
 	.banner__content {
@@ -131,7 +152,11 @@ export const bannerStyles = css`
 	:host-context(.vscode-light),
 	:host-context(.vscode-high-contrast-light) {
 		--gl-banner-primary-emphasis-background: color-mix(in lab, var(--vscode-button-background) 40%, #fff 60%);
-		--gl-banner-secondary-emphasis-background: color-mix(in lab, var(--vscode-button-secondaryBackground) 40%, #fff 60%);
+		--gl-banner-secondary-emphasis-background: color-mix(
+			in lab,
+			var(--vscode-button-secondaryBackground) 40%,
+			#fff 60%
+		);
 	}
 
 	/* Override text color for high contrast light theme specifically */

@@ -103,7 +103,7 @@ export class ResetCommand extends GlCommandBase {
 				{
 					label: 'Promo Opt-Ins...',
 					detail: 'Clears any locally stored promo opt-ins',
-					item: 'promoOptIns'
+					item: 'promoOptIns',
 				},
 			);
 		}
