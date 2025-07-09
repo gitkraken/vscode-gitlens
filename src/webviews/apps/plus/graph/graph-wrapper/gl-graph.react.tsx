@@ -37,7 +37,7 @@ import type {
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react';
-import type { GraphAppState } from '../stateProvider';
+import type { GraphStateProvider } from '../stateProvider';
 
 export type GraphWrapperProps = Pick<
 	State,
@@ -60,7 +60,7 @@ export type GraphWrapperProps = Pick<
 	| 'rowsStatsLoading'
 	| 'workingTreeStats'
 > &
-	Pick<GraphAppState, 'activeRow' | 'searchResults' | 'filter'> & { theming?: GraphWrapperTheming };
+	Pick<GraphStateProvider, 'activeRow' | 'searchResults' | 'filter'> & { theming?: GraphWrapperTheming };
 
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;

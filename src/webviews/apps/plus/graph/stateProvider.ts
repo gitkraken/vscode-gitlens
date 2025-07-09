@@ -1,6 +1,7 @@
 import { ContextProvider, createContext } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import type { SearchQuery } from '../../../../constants.search';
+import { debounce } from '../../../../system/function/debounce';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import type {
 	GraphSearchResults,
@@ -34,7 +35,6 @@ import { signalObjectState, signalState } from '../../shared/components/signal-u
 import type { LoggerContext } from '../../shared/contexts/logger';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from './context';
 
 type ReactiveElementHost = Partial<ReactiveControllerHost> & HTMLElement;
 
@@ -63,7 +63,18 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	return { results: results, resultsError: resultsError };
 }
 
-export class GraphAppState implements AppState {
+export const graphStateContext = createContext<GraphStateProvider>('graph-state-context');
+
+export class GraphStateProvider implements StateProvider<State>, AppState {
+	private readonly disposable: Disposable;
+	private readonly provider: ContextProvider<{ __context__: GraphStateProvider }, ReactiveElementHost>;
+
+	private readonly _state: State;
+	get state() {
+		return this._state;
+	}
+
+	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: number | undefined;
 
@@ -92,40 +103,51 @@ export class GraphAppState implements AppState {
 	@signalState(false)
 	accessor searchResultsHidden = false;
 
+	@signalState<GraphSearchResults | GraphSearchResultsError | undefined>(undefined, {
+		afterChange: (target, value) => {
+			const { results, resultsError } = getSearchResultModel(value);
+			target.searchResults = results;
+			target.searchResultsError = resultsError;
+		},
+	})
+	accessor searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
+
 	@signalState()
-	accessor searchResultsResponse: undefined | GraphSearchResults | GraphSearchResultsError;
+	accessor searchResults: GraphSearchResults | undefined;
 
-	get searchResults() {
-		return getSearchResultModel(this.searchResultsResponse).results;
-	}
-
-	get searchResultsError() {
-		return getSearchResultModel(this.searchResultsResponse).resultsError;
-	}
+	@signalState()
+	accessor searchResultsError: GraphSearchResultsError | undefined;
 
 	@signalState()
 	accessor selectedRows: undefined | GraphSelectedRows;
-}
-
-export const graphStateContext = createContext<GraphAppState>('graphState');
-
-export class GraphStateProvider implements StateProvider<State> {
-	private readonly disposable: Disposable;
-	private readonly provider: ContextProvider<{ __context__: State }, ReactiveElementHost>;
-
-	private readonly _state: State;
-	get state() {
-		return this._state;
-	}
 
 	private updateState(partial: Partial<State>) {
 		for (const key in partial) {
 			// @ts-expect-error dynamic object key ejection doesn't work in typescript
 			this._state[key] = partial[key];
+
+			// this should probably only happen the first time the state is set or when the state is reset
+			switch (key) {
+				case 'loading':
+					this.loading = partial.loading ?? false;
+					break;
+				case 'selectedRows':
+					this.selectedRows = partial.selectedRows;
+					break;
+				case 'searchResults':
+					this.searchResultsResponse = partial.searchResults;
+					break;
+			}
 		}
 		this.options.onStateUpdate?.(partial);
-		this.provider.setValue(this._state, true);
+		// console.count('GraphStateProvider.updateState');
+		this.fireProviderUpdate();
 	}
+
+	private fireProviderUpdate = debounce(() => {
+		// console.countReset('GraphStateProvider.updateState');
+		this.provider.setValue(this, true);
+	}, 100);
 
 	constructor(
 		host: ReactiveElementHost,
@@ -135,7 +157,7 @@ export class GraphStateProvider implements StateProvider<State> {
 		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
 	) {
 		this._state = state;
-		this.provider = new ContextProvider(host, { context: stateContext, initialValue: state });
+		this.provider = new ContextProvider(host, { context: graphStateContext, initialValue: this });
 
 		this.disposable = this._ipc.onReceiveMessage(msg => {
 			const scope = getLogScope();

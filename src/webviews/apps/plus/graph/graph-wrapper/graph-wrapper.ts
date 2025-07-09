@@ -26,7 +26,6 @@ import { telemetryContext } from '../../../shared/contexts/telemetry';
 import type { Disposable } from '../../../shared/events';
 import type { ThemeChangeEvent } from '../../../shared/theme';
 import { onDidChangeTheme } from '../../../shared/theme';
-import { stateContext } from '../context';
 import { graphStateContext } from '../stateProvider';
 import type { GlGraph } from './gl-graph';
 import type { GraphWrapperTheming } from './gl-graph.react';
@@ -80,11 +79,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private disposables: Disposable[] = [];
 
-	@consume({ context: graphStateContext })
-	private readonly graphAppState!: typeof graphStateContext.__context__;
-
-	@consume({ context: stateContext, subscribe: true })
-	private readonly hostState!: typeof stateContext.__context__;
+	@consume({ context: graphStateContext, subscribe: true })
+	private readonly graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
@@ -124,31 +120,31 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		const { graphAppState, hostState } = this;
+		const { graphState } = this;
 
 		return html`<gl-graph
 			.setRef=${this.onSetRef}
-			.activeRow=${graphAppState.activeRow}
-			.avatars=${hostState.avatars}
-			.columns=${hostState.columns}
-			.config=${hostState.config}
-			.context=${hostState.context}
-			.downstreams=${hostState.downstreams}
-			.excludeRefs=${hostState.excludeRefs}
-			.excludeTypes=${hostState.excludeTypes}
-			.filter=${graphAppState.filter}
-			.includeOnlyRefs=${hostState.includeOnlyRefs}
-			?loading=${graphAppState.loading}
-			nonce=${ifDefined(hostState.nonce)}
-			.paging=${hostState.paging}
-			.refsMetadata=${hostState.refsMetadata}
-			.rows=${hostState.rows}
-			.rowsStats=${hostState.rowsStats}
-			.searchResults=${graphAppState.searchResults}
-			.selectedRows=${graphAppState.selectedRows}
+			.activeRow=${graphState.activeRow}
+			.avatars=${graphState.state.avatars}
+			.columns=${graphState.state.columns}
+			.config=${graphState.state.config}
+			.context=${graphState.state.context}
+			.downstreams=${graphState.state.downstreams}
+			.excludeRefs=${graphState.state.excludeRefs}
+			.excludeTypes=${graphState.state.excludeTypes}
+			.filter=${graphState.filter}
+			.includeOnlyRefs=${graphState.state.includeOnlyRefs}
+			?loading=${graphState.loading}
+			nonce=${ifDefined(graphState.state.nonce)}
+			.paging=${graphState.state.paging}
+			.refsMetadata=${graphState.state.refsMetadata}
+			.rows=${graphState.state.rows}
+			.rowsStats=${graphState.state.rowsStats}
+			.searchResults=${graphState.searchResults}
+			.selectedRows=${graphState.selectedRows}
 			.theming=${this.theming}
-			?windowFocused=${hostState.windowFocused}
-			.workingTreeStats=${hostState.workingTreeStats}
+			?windowFocused=${graphState.state.windowFocused}
+			.workingTreeStats=${graphState.state.workingTreeStats}
 			@changecolumns=${this.onColumnsChanged}
 			@changerefsvisibility=${this.onRefsVisibilityChanged}
 			@changeselection=${this.onSelectionChanged}
@@ -174,7 +170,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onGetMoreRows({ detail: sha }: CustomEventType<'graph-morerows'>) {
-		this.graphAppState.loading = true;
+		this.graphState.loading = true;
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: sha });
 	}
 
@@ -229,8 +225,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		const active = rows[rows.length - 1];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
-		this.graphAppState.activeRow = activeKey;
-		this.graphAppState.activeDay = active?.date;
+		this.graphState.activeRow = activeKey;
+		this.graphState.activeDay = active?.date;
 
 		this.dispatchEvent(new CustomEvent('gl-graph-change-selection', { detail: { selection: selection } }));
 		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
