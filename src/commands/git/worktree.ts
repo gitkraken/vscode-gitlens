@@ -5,7 +5,7 @@ import { proBadge, proBadgeSuperscript } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { executeGitCommand } from '../../git/actions';
-import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
+import { convertLocationToOpenFlags, convertOpenFlagsToLocation, revealWorktree } from '../../git/actions/worktree';
 import {
 	ApplyPatchCommitError,
 	ApplyPatchCommitErrorReason,
@@ -597,7 +597,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.reveal !== false) {
 				setTimeout(() => {
 					if (this.container.views.worktrees.visible) {
-						void reveal(worktree, { select: true, focus: false });
+						void revealWorktree(worktree, { select: true, focus: false });
 					}
 				}, 100);
 			}

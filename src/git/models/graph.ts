@@ -43,12 +43,12 @@ export interface GitGraph {
 	/** A set of all "seen" commit ids */
 	readonly ids: Set<string>;
 	readonly includes: { stats?: boolean } | undefined;
-	readonly branches: Map<string, GitBranch>;
-	readonly remotes: Map<string, GitRemote>;
-	readonly downstreams: Map<string, string[]>;
-	readonly stashes: Map<string, GitStashCommit> | undefined;
-	readonly worktrees: GitWorktree[] | undefined;
-	readonly worktreesByBranch: Map<string, GitWorktree> | undefined;
+	readonly branches: ReadonlyMap<string, GitBranch>;
+	readonly remotes: ReadonlyMap<string, GitRemote>;
+	readonly downstreams: ReadonlyMap<string, string[]>;
+	readonly stashes: ReadonlyMap<string, GitStashCommit> | undefined;
+	readonly worktrees: ReadonlyArray<GitWorktree> | undefined;
+	readonly worktreesByBranch: ReadonlyMap<string, GitWorktree> | undefined;
 
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];

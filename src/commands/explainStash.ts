@@ -84,11 +84,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			}
 
 			this.openDocument(result, `/explain/stash/${commit.ref}/${result.model.id}`, {
-				header: {
-					title: 'Stash Summary',
-					subtitle: commit.message || commit.ref,
-					aiModel: result.model.name,
-				},
+				header: { title: 'Stash Summary', subtitle: commit.message || commit.ref },
 				command: {
 					label: 'Explain Stash Changes',
 					name: 'gitlens.ai.explainStash',

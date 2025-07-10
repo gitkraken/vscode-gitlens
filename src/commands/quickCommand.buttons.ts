@@ -100,6 +100,12 @@ export const MatchRegexToggleQuickInputButton = class extends SelectableQuickInp
 	}
 };
 
+export const MatchWholeWordToggleQuickInputButton = class extends SelectableQuickInputButton {
+	constructor(on = false) {
+		super('Match Whole Word', { off: 'icon-match-wholeword', on: 'icon-match-wholeword-selected' }, on);
+	}
+};
+
 export const PickCommitQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('git-commit'),
 	tooltip: 'Choose a Specific Commit',

@@ -14,6 +14,7 @@ import type { GitWorktree } from '../git/models/worktree';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { getContext, setContext } from '../system/-webview/context';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { once } from '../system/function';
 import { first } from '../system/iterable';
 import { compare } from '../system/version';
@@ -41,7 +42,7 @@ import { ScmGroupedView } from './scmGroupedView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
-import type { TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
+import type { RevealOptions, TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
 import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
@@ -139,9 +140,9 @@ export class Views implements Disposable {
 			const disposable = once(container.onReady)(() => {
 				disposable?.dispose();
 				setTimeout(() => {
-					executeCoreCommand(`gitlens.views.scm.grouped.focus`, { preserveFocus: true });
+					executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'), { preserveFocus: true });
 					if (newInstall) {
-						executeCoreCommand(`gitlens.views.home.focus`, { preserveFocus: true });
+						executeCoreCommand(getViewFocusCommand('gitlens.views.home'), { preserveFocus: true });
 					}
 				}, 0);
 			});
@@ -531,6 +532,10 @@ export class Views implements Disposable {
 
 			// Restore the last selection for this view type (if any)
 			if (view) {
+				if (!view.visible) {
+					await view.show({ preserveFocus: !focus });
+				}
+
 				const selection = this._lastSelectedByView.get(type);
 				if (selection != null) {
 					setTimeout(async () => {
@@ -549,7 +554,7 @@ export class Views implements Disposable {
 		this.lastSelectedScmGroupedView = type;
 
 		if (focus) {
-			void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
+			void executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'), { preserveFocus: false });
 		}
 
 		return undefined;
@@ -597,7 +602,7 @@ export class Views implements Disposable {
 		await updateScmGroupedViewsInConfig(this._scmGroupedViews);
 
 		// Show the view after the configuration change has been applied
-		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
+		setTimeout(() => executeCoreCommand(getViewFocusCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}`), 1));
 	}
 
 	private toggleScmViewVisibility(type: GroupableTreeViewTypes, visible: boolean) {
@@ -818,14 +823,7 @@ export class Views implements Disposable {
 		return this._workspacesView;
 	}
 
-	async revealBranch(
-		branch: GitBranchReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const branches = branch.remote ? this.remotes : this.branches;
 		const view = branches.canReveal ? branches : this.repositories;
 
@@ -834,14 +832,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { commits } = this;
 		const view = commits.canReveal ? commits : this.repositories;
 
@@ -850,14 +841,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealContributor(
-		contributor: GitContributor,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealContributor(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { contributors } = this;
 		const view = contributors.canReveal ? contributors : this.repositories;
 
@@ -866,14 +850,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealRemote(
-		remote: GitRemote | undefined,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealRemote(remote: GitRemote | undefined, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { remotes } = this;
 		const view = remotes.canReveal ? remotes : this.repositories;
 
@@ -885,11 +862,7 @@ export class Views implements Disposable {
 	async revealRepository(
 		repoPath: string,
 		useView?: ViewsWithRepositoryFolders,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
+		options?: RevealOptions,
 	): Promise<ViewNode | undefined> {
 		const view = useView == null || useView.canReveal === false ? this.repositories : useView;
 
@@ -898,14 +871,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealStash(
-		stash: GitStashReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealStash(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { stashes } = this;
 		const view = stashes.canReveal ? stashes : this.repositories;
 
@@ -914,14 +880,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealTag(
-		tag: GitTagReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { tags } = this;
 		const view = tags.canReveal ? tags : this.repositories;
 
@@ -930,14 +889,7 @@ export class Views implements Disposable {
 		return node;
 	}
 
-	async revealWorktree(
-		worktree: GitWorktree,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const { worktrees } = this;
 		const view = worktrees.canReveal ? worktrees : this.repositories;
 
@@ -988,7 +940,7 @@ export class Views implements Disposable {
 			case 'workspaces':
 				return this.workspaces.show();
 			case 'scm.grouped':
-				return void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
+				return void executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'));
 		}
 	}
 }

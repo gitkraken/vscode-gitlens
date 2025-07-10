@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { Container } from '../container';
-import { reveal, showDetailsView } from '../git/actions/commit';
+import { revealCommit, showCommitInDetailsView } from '../git/actions/commit';
 import type { GitCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/-webview/configuration';
@@ -219,9 +219,9 @@ export async function showCommitPicker(
 					}
 
 					if (e.button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(e.item.item, { pin: false, preserveFocus: true });
+						void showCommitInDetailsView(e.item.item, { pin: false, preserveFocus: true });
 					} else if (e.button === RevealInSideBarQuickInputButton) {
-						void reveal(e.item.item, { select: true, focus: false, expand: true });
+						void revealCommit(e.item.item, { select: true, focus: false, expand: true });
 					}
 				}),
 			);

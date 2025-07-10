@@ -82,7 +82,7 @@ export const WebviewFocusChangedCommand = new IpcCommand<WebviewFocusChangedPara
 
 export interface ExecuteCommandParams {
 	command: GlCommands;
-	args?: [];
+	args?: unknown[];
 }
 export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'command/execute');
 

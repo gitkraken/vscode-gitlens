@@ -25,12 +25,13 @@ export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, M
 }
 
 export type AIActionType =
+	| 'explain-changes'
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
 	| 'generate-rebase'
-	| 'explain-changes';
+	| 'generate-searchQuery';
 
 export interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 	new (container: Container, connection: ServerConnection): AIProvider<Provider>;

@@ -14,6 +14,7 @@ import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from 
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCoreCommand, registerCommand } from '../system/-webview/command';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { debug } from '../system/decorators/log';
 import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
@@ -255,7 +256,7 @@ export class WebviewsController implements Disposable {
 					await onBeforeShow?.(...args);
 				}
 
-				return void executeCoreCommand(`${descriptor.id}.focus`, options);
+				return void executeCoreCommand(getViewFocusCommand(descriptor.id), options);
 			},
 		} satisfies WebviewViewProxy<ID, ShowingArgs, SerializedState>;
 	}

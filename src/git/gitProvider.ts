@@ -3,6 +3,7 @@ import type { Commit, InputBox } from '../@types/vscode.git';
 import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { GitConfigKeys } from '../constants';
 import type { SearchQuery } from '../constants.search';
+import type { Source } from '../constants.telemetry';
 import type { Features } from '../features';
 import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
@@ -103,6 +104,11 @@ export interface NextComparisonUrisResult {
 export interface PreviousComparisonUrisResult {
 	current: GitUri;
 	previous: GitUri | undefined;
+}
+
+export interface SearchCommitsResult {
+	readonly search: SearchQuery;
+	readonly log: GitLog | undefined;
 }
 
 export interface DiffRange {
@@ -381,9 +387,10 @@ export interface GitCommitsSubProvider {
 	searchCommits(
 		repoPath: string,
 		search: SearchQuery,
+		source: Source,
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
-	): Promise<GitLog | undefined>;
+	): Promise<SearchCommitsResult>;
 }
 
 export interface GitConfigSubProvider {

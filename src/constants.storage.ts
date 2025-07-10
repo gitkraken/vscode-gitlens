@@ -87,6 +87,7 @@ export type GlobalStorage = {
 	'launchpad:indicator:hasInteracted': string;
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
+	'graph:useNaturalLanguageSearch': boolean;
 	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
 } & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
@@ -95,6 +96,10 @@ export type GlobalStorage = {
 	>;
 } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
+} & {
+	[key in `gk:promo:${string}:ai:allAccess:dismissed`]: boolean;
+} & {
+	[key in `gk:promo:${string}:ai:allAccess:notified`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
 } & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
@@ -385,6 +390,8 @@ export interface StoredSearchQuery {
 	matchAll?: boolean;
 	matchCase?: boolean;
 	matchRegex?: boolean;
+	matchWholeWord?: boolean;
+	naturalLanguage?: boolean | { query: string; processedQuery?: string };
 }
 
 export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;

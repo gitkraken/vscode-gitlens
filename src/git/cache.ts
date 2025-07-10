@@ -116,9 +116,9 @@ export class GitCache implements Disposable {
 		return (this._repoInfoCache ??= new Map<RepoPath, RepositoryInfo>());
 	}
 
-	private _stashesCache: Map<RepoPath, GitStash> | undefined;
-	get stashes(): Map<RepoPath, GitStash> | undefined {
-		return this.useCaching ? (this._stashesCache ??= new Map<RepoPath, GitStash>()) : undefined;
+	private _stashesCache: Map<RepoPath, Promise<GitStash>> | undefined;
+	get stashes(): Map<RepoPath, Promise<GitStash>> | undefined {
+		return this.useCaching ? (this._stashesCache ??= new Map<RepoPath, Promise<GitStash>>()) : undefined;
 	}
 
 	private _tagsCache: Map<RepoPath, Promise<PagedResult<GitTag>>> | undefined;

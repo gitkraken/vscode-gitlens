@@ -66,6 +66,7 @@ export class GitCommit implements GitRevisionReference {
 	readonly stashNumber: string | undefined;
 	readonly stashOnRef: string | undefined;
 	readonly tips: string[] | undefined;
+	readonly parentTimestamps?: GitStashParentInfo[] | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -82,10 +83,12 @@ export class GitCommit implements GitRevisionReference {
 		tips?: string[],
 		stashName?: string | undefined,
 		stashOnRef?: string | undefined,
+		parentTimestamps?: GitStashParentInfo[] | undefined,
 	) {
 		this.ref = sha;
 		this.shortSha = sha.substring(0, this.container.CommitShaFormatting.length);
 		this.tips = tips;
+		this.parentTimestamps = parentTimestamps;
 
 		if (stashName) {
 			this.refType = 'stash';
@@ -689,6 +692,7 @@ export class GitCommit implements GitRevisionReference {
 		fileset?: GitCommitFileset | null;
 		lines?: GitCommitLine[] | null;
 		stats?: GitCommitStats | null;
+		parentTimestamps?: GitStashParentInfo[] | null;
 	}): T {
 		return new GitCommit(
 			this.container,
@@ -705,6 +709,7 @@ export class GitCommit implements GitRevisionReference {
 			this.tips,
 			this.stashName,
 			this.stashOnRef,
+			this.getChangedValue(changes.parentTimestamps, this.parentTimestamps),
 		) as T;
 	}
 
@@ -763,10 +768,17 @@ export interface GitCommitStats<Files extends number | GitDiffFileStats = number
 	readonly deletions: number;
 }
 
+export interface GitStashParentInfo {
+	readonly sha: string;
+	readonly authorDate?: number;
+	readonly committerDate?: number;
+}
+
 export interface GitStashCommit extends GitCommit {
 	readonly refType: GitStashReference['refType'];
 	readonly stashName: string;
 	readonly stashNumber: string;
+	readonly parentTimestamps?: GitStashParentInfo[];
 }
 
 export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;

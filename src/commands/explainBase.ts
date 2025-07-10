@@ -6,6 +6,7 @@ import { getMarkdownHeaderContent } from '../documents/markdown';
 import type { GitRepositoryService } from '../git/gitRepositoryService';
 import { GitUri } from '../git/gitUri';
 import type { AIExplainSource, AISummarizeResult } from '../plus/ai/aiProviderService';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { GlCommandBase } from './commandBase';
@@ -54,10 +55,22 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 		return svc;
 	}
 
-	protected openDocument(result: AISummarizeResult, path: string, metadata: MarkdownContentMetadata): void {
-		const content = `${getMarkdownHeaderContent(metadata)}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+	protected openDocument(
+		result: AISummarizeResult,
+		path: string,
+		metadata: Omit<MarkdownContentMetadata, 'context'>,
+	): void {
+		const metadataWithContext: MarkdownContentMetadata = { ...metadata, context: getAIResultContext(result) };
 
-		const documentUri = this.container.markdown.openDocument(content, path, metadata.header.title, metadata);
+		const headerContent = getMarkdownHeaderContent(metadataWithContext, this.container.telemetry.enabled);
+		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+
+		const documentUri = this.container.markdown.openDocument(
+			content,
+			path,
+			metadata.header.title,
+			metadataWithContext,
+		);
 
 		showMarkdownPreview(documentUri);
 	}

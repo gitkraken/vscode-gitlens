@@ -41,7 +41,7 @@ export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string 
 
 export async function getLocalBranchByUpstream(
 	remoteBranchName: string,
-	branches: PageableResult<GitBranch> | Map<unknown, GitBranch>,
+	branches: PageableResult<GitBranch> | ReadonlyMap<unknown, GitBranch>,
 ): Promise<GitBranch | undefined> {
 	let qualifiedRemoteBranchName;
 	if (remoteBranchName.startsWith('remotes/')) {

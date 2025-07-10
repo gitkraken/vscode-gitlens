@@ -2,7 +2,7 @@ import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { reveal, showDetailsView } from '../../git/actions/stash';
+import { revealStash, showStashInDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
@@ -408,15 +408,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, expand: true });
 					}
 				},
 			},
@@ -860,15 +854,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, expand: true });
 					}
 				},
 			},

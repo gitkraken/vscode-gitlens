@@ -18,9 +18,9 @@ export class RegenerateMarkdownDocumentCommand extends ActiveEditorCommand {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
-		// Only work with gitlens-markdown scheme documents
-		if (uri.scheme !== Schemes.GitLensMarkdown) {
-			void window.showErrorMessage('This action can only be used on GitLens markdown documents.');
+		// Only work with gitlens-ai-markdown scheme documents
+		if (uri.scheme !== Schemes.GitLensAIMarkdown) {
+			void window.showErrorMessage('This action can only be used on GitLens AI markdown documents.');
 			return;
 		}
 

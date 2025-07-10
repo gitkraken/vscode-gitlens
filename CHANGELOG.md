@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.3.0] - 2025-07-08
+
+### Added
+
+- Adds support for using natural language to search for commits on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command using AI ([#4471](https://github.com/gitkraken/vscode-gitlens/issues/4471))
+- Adds support for time-based commit searches on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command
+- Adds 👍 "Helpful" and 👎 "Unhelpful" feedback buttons to AI-generated markdown previews such as Commit Composer and Explain Changes ([#4449](https://github.com/gitkraken/vscode-gitlens/issues/4449))
+- Adds a _Commit with AI (Preview)_ button to the _Inspect Overview_ tab of the _Commit Graph_ and _Inspect_ views
+
+### Changed
+
+- Improves experience for invalid AI rebase responses by implementing conversational retry logic that provides specific feedback to the AI about missing, extra, or duplicate hunks and automatically retries up to 3 times ([#4395](https://github.com/gitkraken/vscode-gitlens/issues/4395))
+
+### Fixed
+
+- Fixes stashes with parent commits older than the oldest stash not being visible on branches ([#4401](https://github.com/gitkraken/vscode-gitlens/issues/4401))
+- Fixes editing search result in Search & Compare view failure ([#4431](https://github.com/gitkraken/vscode-gitlens/issues/4431))
+- Fixes search results not paging properly on the _Commit Graph_ when the first page of results is contained within the already loaded commits
+
+## [17.2.1] - 2025-06-26
+
 ### Changed
 
 - Improves AI status label in integrations popup to "Select AI model to enable AI features" and fixes text brightness ([#4400](https://github.com/gitkraken/vscode-gitlens/issues/4400))
@@ -13,6 +34,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes disabled GitLens view tabs on clean install ([#4416](https://github.com/gitkraken/vscode-gitlens/issues/4416))
+- Fixes Stashes view errors w/ ID already exists ([#4427](https://github.com/gitkraken/vscode-gitlens/issues/4427))
+- Fixes showing GitLens view tabs when the view is hidden ([#4426](https://github.com/gitkraken/vscode-gitlens/issues/4426), [#4389](https://github.com/gitkraken/vscode-gitlens/issues/4389))
 
 ## [17.2.0] - 2025-06-17
 
@@ -6211,7 +6234,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...HEAD
+[17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.3.0
+[17.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...gitkraken:v17.2.1
 [17.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...gitkraken:v17.2.0
 [17.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...gitkraken:v17.1.1
 [17.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.3...gitkraken:v17.1.0

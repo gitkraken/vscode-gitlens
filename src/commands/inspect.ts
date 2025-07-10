@@ -1,6 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
-import { showDetailsView } from '../git/actions/commit';
+import { showCommitInDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitRevisionReference } from '../git/models/reference';
 import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils';
@@ -85,6 +85,6 @@ export class InspectCommand extends ActiveEditorCommand {
 			}
 		}
 
-		return showDetailsView(args.ref);
+		return showCommitInDetailsView(args.ref);
 	}
 }
