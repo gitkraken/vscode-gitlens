@@ -17,6 +17,7 @@ import { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
+import type { RevealOptions } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -119,14 +120,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		});
 	}
 
-	async revealWorkspaceNode(
-		workspaceId: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealWorkspaceNode(workspaceId: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

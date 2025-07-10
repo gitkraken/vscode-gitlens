@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { PushFlags } from '../../commands/git/stash';
 import { Container } from '../../container';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitStashCommit } from '../models/commit';
 import type { GitStashReference } from '../models/reference';
@@ -61,18 +62,11 @@ export function push(
 	});
 }
 
-export function reveal(
-	stash: GitStashReference,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
-): Promise<ViewNode | undefined> {
+export function revealStash(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealStash(stash, options);
 }
 
-export function showDetailsView(
+export function showStashInDetailsView(
 	stash: GitStashReference | GitStashCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean },
 ): Promise<void> {

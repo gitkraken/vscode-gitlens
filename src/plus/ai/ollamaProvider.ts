@@ -1,5 +1,6 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { window } from 'vscode';
+import { uuid } from '@env/crypto';
 import { ollamaProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
@@ -253,6 +254,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 				}
 
 				return {
+					id: uuid(),
 					content: data.message.content,
 					model: model,
 					usage: {

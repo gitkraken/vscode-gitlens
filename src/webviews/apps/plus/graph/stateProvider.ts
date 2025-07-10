@@ -15,6 +15,7 @@ import {
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
+	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -325,6 +326,10 @@ export class GraphStateProvider implements StateProvider<State> {
 						subscription: msg.params.subscription,
 						allowed: msg.params.allowed,
 					});
+					break;
+
+				case DidChangeOrgSettings.is(msg):
+					this.updateState({ orgSettings: msg.params.orgSettings });
 					break;
 
 				case DidChangeWorkingTreeNotification.is(msg):

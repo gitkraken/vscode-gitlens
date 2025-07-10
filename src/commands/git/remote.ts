@@ -1,6 +1,6 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import { reveal } from '../../git/actions/remote';
+import { revealRemote } from '../../git/actions/remote';
 import type { GitRemote } from '../../git/models/remote';
 import { Repository } from '../../git/models/repository';
 import { showGenericErrorMessage } from '../../messages';
@@ -334,10 +334,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 				state.flags.includes('-f') ? { fetch: true } : undefined,
 			);
 			if (state.reveal !== false) {
-				void reveal(remote, {
-					focus: true,
-					select: true,
-				});
+				void revealRemote(remote, { focus: true, select: true });
 			}
 		}
 	}

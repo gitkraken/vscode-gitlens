@@ -4,9 +4,9 @@ import { RevealInSideBarQuickInputButton } from '../commands/quickCommand.button
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand.steps';
 import type { Keys } from '../constants';
 import { Container } from '../container';
-import { reveal as revealBranch } from '../git/actions/branch';
-import { showDetailsView } from '../git/actions/commit';
-import { reveal as revealTag } from '../git/actions/tag';
+import { revealBranch } from '../git/actions/branch';
+import { showCommitInDetailsView } from '../git/actions/commit';
+import { revealTag } from '../git/actions/tag';
 import type { GitBranch } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
@@ -189,10 +189,7 @@ export async function showReferencePicker2(
 						} else if (isTagReference(item.item)) {
 							void revealTag(item.item, { select: true, expand: true });
 						} else if (isRevisionReference(item.item)) {
-							void showDetailsView(item.item, {
-								pin: false,
-								preserveFocus: true,
-							});
+							void showCommitInDetailsView(item.item, { pin: false, preserveFocus: true });
 						}
 					}
 				}),

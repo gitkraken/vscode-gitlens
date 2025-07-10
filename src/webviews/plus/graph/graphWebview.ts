@@ -24,6 +24,7 @@ import type {
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
+import type { ContextKeys } from '../../../constants.context';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -41,7 +42,7 @@ import {
 	openFiles,
 	openFilesAtRevision,
 	openOnlyChangedFiles,
-	showGraphDetailsView,
+	showCommitInGraphDetailsView,
 	undoCommit,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -79,7 +80,11 @@ import type {
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
 import type { GitGraphSearch } from '../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
+import {
+	getSearchQueryComparisonKey,
+	parseSearchQuery,
+	processNaturalLanguageToSearchQuery,
+} from '../../../git/search';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
 import { getBranchMergeTargetInfo } from '../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
@@ -197,6 +202,7 @@ import {
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
+	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -324,6 +330,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
 				if (this._etag !== this.container.git.etag) {
@@ -874,6 +881,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
+		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -918,9 +926,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		if (
+			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
+			configuration.changed(e, 'ai.enabled') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateStyle') ||
-			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
 			configuration.changed(e, 'graph')
 		) {
 			void this.notifyDidChangeConfiguration();
@@ -936,6 +945,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateState();
 			}
 		}
+	}
+
+	@debug({ args: false })
+	private onContextChanged(key: keyof ContextKeys) {
+		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
+			this.notifyDidChangeOrgSettings();
+		}
+	}
+
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			ai: getContext('gitlens:gk:organization:ai:enabled', true),
+			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
+		};
 	}
 
 	@debug({ args: false })
@@ -1517,6 +1540,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
+		if (msg.params.search?.naturalLanguage) {
+			msg.params.search = await processNaturalLanguageToSearchQuery(this.container, msg.params.search, {
+				source: 'graph',
+			});
+		}
+
 		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
 		const types = query != null ? join(query?.keys(), ',') : '';
 
@@ -1529,6 +1558,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} catch (ex) {
 			exception = ex;
 			void this.host.respond(requestType, msg, {
+				search: msg.params.search,
 				results: isCancellationError(ex)
 					? undefined
 					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
@@ -1553,7 +1583,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getSearchResults(e: SearchParams): Promise<DidSearchParams> {
 		if (e.search == null) {
 			this.resetSearchState();
-			return { results: undefined };
+			return { search: e.search, results: undefined };
 		}
 
 		let search: GitGraphSearch | undefined = this._search;
@@ -1567,6 +1597,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void (await this.ensureSearchStartsInRange(graph, search));
 
 				return {
+					search: e.search,
 					results: search.results.size
 						? {
 								ids: Object.fromEntries(search.results),
@@ -1577,11 +1608,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				};
 			}
 
-			return { results: undefined };
+			return { search: e.search, results: undefined };
 		}
 
 		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
-			if (this.repository == null) return { results: { error: 'No repository' } };
+			if (this.repository == null) return { search: e.search, results: { error: 'No repository' } };
 
 			if (this.repository.etag !== this._etagRepository) {
 				this.updateState(true);
@@ -1618,7 +1649,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.setSelectedRows(firstResult);
 		}
 
+		// Check if all search results are visible and we have more available
+		// If so, proactively load more search results to ensure pagination works
+		while (
+			search.paging?.hasMore &&
+			search.more != null &&
+			search.results.size &&
+			graph.ids.has(last(search.results.keys())!)
+		) {
+			// Automatically load more search results since all current ones are visible
+			const searchMore = await search.more(configuration.get('graph.searchItemLimit') ?? 100);
+			if (searchMore != null) {
+				this._search = search = searchMore;
+				// Ensure the new results are visible if needed
+				void (await this.ensureSearchStartsInRange(graph, search));
+			}
+		}
+
 		return {
+			search: e.search,
 			results: search.results.size
 				? {
 						ids: Object.fromEntries(search.results),
@@ -2018,6 +2067,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private notifyDidChangeOrgSettings() {
+		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
+	}
+
+	@debug()
 	private async notifyDidChangeState() {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeNotification, this._ipcNotificationMap, this);
@@ -2365,6 +2419,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
+			aiEnabled: configuration.get('ai.enabled'),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -2639,7 +2694,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
-
+		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch') ?? false;
 		const featurePreview = this.getFeaturePreview();
 
 		return {
@@ -2690,7 +2745,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			defaultSearchMode: defaultSearchMode,
+			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
+			orgSettings: this.getOrgSettings(),
 		};
 	}
 
@@ -3136,6 +3193,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (ex instanceof CancellationError) return;
 
 						void this.host.notify(DidSearchNotification, {
+							search: search.query,
 							results: {
 								error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
 							},
@@ -3348,7 +3406,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		if (this.host.is('view')) {
-			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
+			return void showCommitInGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 		}
 
 		return executeCommand<InspectCommandArgs>('gitlens.showInDetailsView', { ref: ref });

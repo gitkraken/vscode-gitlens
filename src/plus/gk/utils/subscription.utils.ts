@@ -18,6 +18,7 @@ const orderedPlans: SubscriptionPlanIds[] = [
 ];
 const orderedPaidPlans: PaidSubscriptionPlanIds[] = ['pro', 'advanced', 'teams', 'enterprise'];
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
+export const AiAllAccessOptInPathPrefix = 'ai-all-access-opt-in';
 
 export function compareSubscriptionPlans(
 	planA: SubscriptionPlanIds | undefined,

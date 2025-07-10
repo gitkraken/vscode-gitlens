@@ -32,6 +32,7 @@ export interface State extends WebviewState {
 	aiEnabled: boolean;
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
+	aiAllAccessBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
 	integrations: IntegrationState[];
 	ai: { model: AIModel | undefined };
@@ -246,6 +247,9 @@ export interface CollapseSectionParams {
 export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scope, 'section/collapse');
 
 export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
+
+export const DidChangeAiAllAccessBanner = new IpcNotification<boolean>(scope, 'ai/allAccess/didChange');
+export const DismissAiAllAccessBannerCommand = new IpcCommand<void>(scope, 'ai/allAccess/dismiss');
 
 export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
 

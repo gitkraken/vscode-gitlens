@@ -487,7 +487,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	@log<GraphGitSubProvider['searchGraph']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
 					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
 				}`,
 			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
@@ -503,7 +503,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitGraphSearch> {
 		// const scope = getLogScope();
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 

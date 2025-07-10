@@ -1,5 +1,6 @@
 import { Container } from '../../container';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitRemote } from '../models/remote';
 import type { Repository } from '../models/repository';
@@ -49,13 +50,6 @@ export async function remove(repo: string | Repository, remote: string): Promise
 	});
 }
 
-export function reveal(
-	remote: GitRemote | undefined,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
-): Promise<ViewNode | undefined> {
+export function revealRemote(remote: GitRemote | undefined, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealRemote(remote, options);
 }

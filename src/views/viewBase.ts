@@ -39,6 +39,7 @@ import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function/debounce';
@@ -276,12 +277,12 @@ export abstract class ViewBase<
 				if (typeof item.tooltip === 'string') {
 					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
 						item.contextValue
-					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}`;
+					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}\nid: ${node.id}`;
 				} else {
 					item.tooltip.appendMarkdown(
 						`\n\n---\n\ncontext: \`${
 							item.contextValue
-						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\``,
+						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\` \\\nid: \`${node.id}\``,
 					);
 				}
 			}
@@ -826,10 +827,7 @@ export abstract class ViewBase<
 	}
 
 	@log<ViewBase<Type, RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
-	async reveal(
-		node: ViewNode,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void> {
+	async reveal(node: ViewNode, options?: RevealOptions): Promise<void> {
 		if (this.initialized.pending) {
 			await this.initialized.promise;
 		}
@@ -837,15 +835,8 @@ export abstract class ViewBase<
 		return this.revealCore(node, undefined, options);
 	}
 
-	async revealDeep(
-		node: ViewNode,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void>;
-	async revealDeep(
-		node: ViewNode,
-		parents: ViewNode[],
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void>;
+	async revealDeep(node: ViewNode, options?: RevealOptions): Promise<void>;
+	async revealDeep(node: ViewNode, parents: ViewNode[], options?: RevealOptions): Promise<void>;
 	@log<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
 		args: {
 			0: n => n.toString(),
@@ -854,8 +845,8 @@ export abstract class ViewBase<
 	})
 	async revealDeep(
 		node: ViewNode,
-		parents: ViewNode[] | { expand?: boolean | number; focus?: boolean; select?: boolean } | undefined,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
+		parents: ViewNode[] | RevealOptions | undefined,
+		options?: RevealOptions,
 	): Promise<void> {
 		if (this.initialized.pending) {
 			await this.initialized.promise;
@@ -883,11 +874,7 @@ export abstract class ViewBase<
 		return this.revealCore(node, root, options);
 	}
 
-	private async revealCore(
-		node: ViewNode,
-		root: ViewNode | undefined,
-		options?: { expand?: boolean | number; focus?: boolean; select?: boolean },
-	): Promise<void> {
+	private async revealCore(node: ViewNode, root: ViewNode | undefined, options?: RevealOptions): Promise<void> {
 		if (this.tree == null) return;
 
 		const scope = getLogScope();
@@ -911,7 +898,7 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			const command = `${this.grouped ? 'gitlens.views.scm.grouped' : this.id}.focus` as const;
+			const command = getViewFocusCommand(this.grouped ? 'gitlens.views.scm.grouped' : this.id);
 			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
 			if (this.initialized.pending) {
 				void executeCoreCommand(command, options);
@@ -1186,4 +1173,10 @@ export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren
 			child.dispose();
 		}
 	}
+}
+
+export interface RevealOptions {
+	expand?: boolean | number;
+	focus?: boolean;
+	select?: boolean;
 }

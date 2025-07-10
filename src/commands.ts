@@ -1,4 +1,5 @@
 import './commands/addAuthors';
+import './commands/aiFeedback';
 import './commands/browseRepoAtRevision';
 import './commands/closeUnchangedFiles';
 import './commands/cloudIntegrations';

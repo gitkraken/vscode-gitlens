@@ -11,7 +11,7 @@ export interface AIChatMessage<T extends AIChatMessageRole = 'assistant' | 'user
 }
 
 export interface AIRequestResult {
-	readonly id?: string;
+	readonly id: string;
 	readonly content: string;
 	readonly model: AIModel;
 	readonly usage?: {

@@ -1,5 +1,6 @@
 import { Container } from '../../container';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitReference, GitTagReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -27,13 +28,6 @@ export function remove(repo?: string | Repository, refs?: GitTagReference | GitT
 	});
 }
 
-export function reveal(
-	tag: GitTagReference,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
-): Promise<ViewNode | undefined> {
+export function revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealTag(tag, options);
 }
