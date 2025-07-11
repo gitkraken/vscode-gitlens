@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?3614d4fae1d1a9c07c67436aad657680') format('woff2');
+			}
+		</style>
+		<script type="application/javascript" nonce="#{cspNonce}">
+			window.webpackResourceBasePath = '#{webroot}/';
+		</script>
+	</head>
+
+	<body
+		class="scrollable"
+		data-placement="#{placement}"
+		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
+		<gl-composer-apphost name="ComposerView" placement="#{placement}" bootstrap="#{state}">
+			<gl-composer-app></gl-composer-app>
+		</gl-composer-apphost>
+		#{endOfBody}
+	</body>
+</html>

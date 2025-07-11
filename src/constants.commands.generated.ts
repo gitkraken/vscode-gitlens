@@ -795,6 +795,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showCommitSearch'
 	| 'gitlens.showCommitsInView'
 	| 'gitlens.showCommitsView'
+	| 'gitlens.showComposerPage'
 	| 'gitlens.showContributorsView'
 	| 'gitlens.showDraftsView'
 	| 'gitlens.showFileHistoryView'
