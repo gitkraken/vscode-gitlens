@@ -79,11 +79,16 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			if (result === 'cancelled') return;
 
 			if (result == null) {
-				void showGenericErrorMessage('No changes found to explain for stash');
+				void showGenericErrorMessage('Unable to explain stash');
 				return;
 			}
 
-			this.openDocument(result, `/explain/stash/${commit.ref}/${result.model.id}`, {
+			const {
+				aiPromise,
+				info: { model },
+			} = result;
+
+			this.openDocument(aiPromise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
 				header: { title: 'Stash Summary', subtitle: commit.message || commit.ref },
 				command: {
 					label: 'Explain Stash Changes',
