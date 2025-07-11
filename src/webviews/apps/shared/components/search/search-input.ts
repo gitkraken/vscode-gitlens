@@ -138,9 +138,6 @@ export class GlSearchInput extends GlElement {
 			display: none;
 		}
 
-		input[aria-describedby='help-text'] {
-			border-color: var(--vscode-inputValidation-infoBorder);
-		}
 		input[aria-describedby='help-text']:focus {
 			outline-color: var(--vscode-inputValidation-infoBorder);
 			border-bottom-left-radius: 0;
@@ -329,6 +326,7 @@ export class GlSearchInput extends GlElement {
 	private handleClear(_e: Event) {
 		this.focus();
 		this._value = '';
+		this.errorMessage = '';
 		this.processedQuery = undefined;
 		this.debouncedOnSearchChanged();
 	}
@@ -367,6 +365,7 @@ export class GlSearchInput extends GlElement {
 	}
 
 	private handleInput(e: InputEvent) {
+		this.errorMessage = '';
 		this.processedQuery = undefined;
 
 		const value = (e.target as HTMLInputElement)?.value;
@@ -619,7 +618,10 @@ export class GlSearchInput extends GlElement {
 					if (this.searching) {
 						return html`<span>Query: <code-icon icon="loading" modifier="spin"></code-icon></span>`;
 					}
-					return html`<span>Type your natural language query and press Enter</span>`;
+					return html`<span
+						>Type your natural language query and press Enter. Click
+						<code-icon icon="sparkle"></code-icon> to toggle modes.</span
+					>`;
 				}
 
 				return html`<span> Query: <code>${this.processedQuery}</code></span>`;

@@ -541,16 +541,20 @@ export class AIProviderService implements Disposable {
 		if (!(await ensureAccess())) return false;
 
 		if (feature === 'generate-commitMessage') return true;
-		if (
-			!(await ensureFeatureAccess(
-				this.container,
-				isAdvancedFeature(feature)
-					? 'This AI feature requires GitLens Advanced or a Pro trial'
-					: 'This AI feature requires GitLens Pro or a Pro trial',
-				feature,
-				source,
-			))
-		) {
+		const suffix = isAdvancedFeature(feature)
+			? 'requires GitLens Advanced or a trial'
+			: 'requires GitLens Pro or a trial';
+		let label;
+		switch (feature) {
+			case 'generate-searchQuery':
+				label = `AI-powered search (preview) ${suffix}`;
+				break;
+
+			default:
+				label = isAdvancedFeature(feature) ? `This AI preview feature ${suffix}` : `This AI feature ${suffix}`;
+		}
+
+		if (!(await ensureFeatureAccess(this.container, label, feature, source))) {
 			return false;
 		}
 

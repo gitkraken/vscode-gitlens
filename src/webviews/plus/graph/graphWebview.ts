@@ -2693,8 +2693,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 
-		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
-		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch') ?? false;
+		const defaultSearchMode = this.container.storage.get('graph:searchMode', 'normal');
+		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
 		return {

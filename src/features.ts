@@ -113,7 +113,7 @@ export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFea
 		case 'generate-create-codeSuggestion':
 		case 'generate-create-pullRequest':
 		case 'generate-rebase':
-		case 'generate-searchQuery':
+			// case 'generate-searchQuery':
 			return true;
 		default:
 			return false;
