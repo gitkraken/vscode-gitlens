@@ -119,7 +119,12 @@ export class ExplainWipCommand extends ExplainCommandBase {
 				return;
 			}
 
-			this.openDocument(result, `/explain/wip/${svc.path}/${result.model.id}`, {
+			const {
+				aiPromise,
+				info: { model },
+			} = result;
+
+			this.openDocument(aiPromise, `/explain/wip/${svc.path}/${model.id}`, model, 'explain-wip', {
 				header: {
 					title: `${capitalize(label)} Changes Summary`,
 					subtitle: `${capitalize(label)} Changes (${repoName})`,

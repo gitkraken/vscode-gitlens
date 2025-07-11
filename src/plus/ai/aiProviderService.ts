@@ -566,7 +566,11 @@ export class AIProviderService implements Disposable {
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AISummarizeResult | 'cancelled' | undefined> {
+	): Promise<
+		| undefined
+		| 'cancelled'
+		| { aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined>; info: { model: AIModel } }
+	> {
 		const svc = this.container.git.getRepositoryService(commitOrRevision.repoPath);
 		return this.explainChanges(
 			async cancellation => {
@@ -599,10 +603,14 @@ export class AIProviderService implements Disposable {
 			| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'explain-changes'>>),
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AISummarizeResult | 'cancelled' | undefined> {
+	): Promise<
+		| undefined
+		| 'cancelled'
+		| { aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined>; info: { model: AIModel } }
+	> {
 		const { type, ...source } = sourceContext;
 
-		const result = await this.sendRequest(
+		const complexResult = await this.sendRequestAndGetPartialRequestInfo(
 			'explain-changes',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				if (typeof promptContext === 'function') {
@@ -645,16 +653,27 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result === 'cancelled'
-			? result
-			: result != null
-				? {
-						...result,
-						type: 'explain-changes',
-						feature: `explain-${type}`,
-						parsed: parseSummarizeResult(result.content),
-					}
-				: undefined;
+
+		if (complexResult === 'cancelled') return complexResult;
+		if (complexResult == null) return undefined;
+
+		const aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined> = complexResult.aiPromise.then(result =>
+			result === 'cancelled'
+				? result
+				: result != null
+					? {
+							...result,
+							type: 'explain-changes',
+							feature: `explain-${type}`,
+							parsed: parseSummarizeResult(result.content),
+						}
+					: undefined,
+		);
+
+		return {
+			aiPromise: aiPromise,
+			info: complexResult.info,
+		};
 	}
 
 	async generateCommitMessage(
@@ -1422,6 +1441,56 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
+	private async sendRequestAndGetPartialRequestInfo<T extends AIActionType>(
+		action: T,
+		getMessages: (
+			model: AIModel,
+			reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+			cancellation: CancellationToken,
+			maxCodeCharacters: number,
+			retries: number,
+		) => Promise<AIChatMessage[]>,
+		getProgressTitle: (model: AIModel) => string,
+		source: Source,
+		getTelemetryInfo: (model: AIModel) => {
+			key: 'ai/generate' | 'ai/explain';
+			data: TelemetryEvents['ai/generate' | 'ai/explain'];
+		},
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			progress?: ProgressOptions;
+		},
+	): Promise<
+		| undefined
+		| 'cancelled'
+		| {
+				aiPromise: Promise<AIRequestResult | 'cancelled' | undefined>;
+				info: { model: AIModel };
+		  }
+	> {
+		if (!(await this.ensureFeatureAccess(action, source))) {
+			return 'cancelled';
+		}
+		const model = await this.getModel(undefined, source);
+		if (model == null || options?.cancellation?.isCancellationRequested) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		const aiPromise = this.sendRequestWithModel(
+			model,
+			action,
+			getMessages,
+			getProgressTitle,
+			source,
+			getTelemetryInfo,
+			options,
+		);
+		return { aiPromise: aiPromise, info: { model: model } };
+	}
+
 	private async sendRequest<T extends AIActionType>(
 		action: T,
 		getMessages: (
@@ -1449,6 +1518,44 @@ export class AIProviderService implements Disposable {
 		}
 
 		const model = await this.getModel(undefined, source);
+		return this.sendRequestWithModel(
+			model,
+			action,
+			getMessages,
+			getProgressTitle,
+			source,
+			getTelemetryInfo,
+			options,
+		);
+	}
+
+	private async sendRequestWithModel<T extends AIActionType>(
+		model: AIModel | undefined,
+		action: T,
+		getMessages: (
+			model: AIModel,
+			reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+			cancellation: CancellationToken,
+			maxCodeCharacters: number,
+			retries: number,
+		) => Promise<AIChatMessage[]>,
+		getProgressTitle: (model: AIModel) => string,
+		source: Source,
+		getTelemetryInfo: (model: AIModel) => {
+			key: 'ai/generate' | 'ai/explain';
+			data: TelemetryEvents['ai/generate' | 'ai/explain'];
+		},
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			progress?: ProgressOptions;
+		},
+	): Promise<AIRequestResult | 'cancelled' | undefined> {
+		if (!(await this.ensureFeatureAccess(action, source))) {
+			return 'cancelled';
+		}
+
 		if (options?.cancellation?.isCancellationRequested) {
 			options?.generating?.cancel();
 			return 'cancelled';
