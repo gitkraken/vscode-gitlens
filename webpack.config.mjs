@@ -333,6 +333,7 @@ function getWebviewsConfigs(mode, env) {
 		getWebviewConfig(
 			{
 				commitDetails: { entry: './commitDetails/commitDetails.ts' },
+				composer: { entry: './plus/composer/composer.ts', plus: true },
 				graph: { entry: './plus/graph/graph.ts', plus: true },
 				home: { entry: './home/home.ts' },
 				rebase: { entry: './rebase/rebase.ts' },

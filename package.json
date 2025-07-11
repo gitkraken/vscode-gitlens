@@ -55,6 +55,7 @@
 		"onUri",
 		"onWebviewPanel:gitlens.graph",
 		"onWebviewPanel:gitlens.patchDetails",
+		"onWebviewPanel:gitlens.composer",
 		"onWebviewPanel:gitlens.settings",
 		"onWebviewPanel:gitlens.timeline",
 		"onStartupFinished"
@@ -7665,6 +7666,12 @@
 				"command": "gitlens.showCommitsView",
 				"title": "Show Commits View",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showComposerPage",
+				"title": "Open Composer",
+				"category": "GitLens",
+				"icon": "$(edit)"
 			},
 			{
 				"command": "gitlens.showContributorsView",

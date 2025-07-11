@@ -867,6 +867,33 @@ or
 }
 ```
 
+### composer/showAborted
+
+```typescript
+{
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
+### composer/shown
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
 ### graph/action/jumpTo
 
 > Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph

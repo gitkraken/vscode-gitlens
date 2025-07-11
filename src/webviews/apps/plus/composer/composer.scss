@@ -1,0 +1,42 @@
+@use '../../shared/styles/properties';
+@use '../../shared/styles/theme';
+@use '../../shared/styles/scrollbars';
+// @use '../../shared/styles/utils';
+
+// @include utils.dark-theme {
+// }
+// @include utils.light-theme {
+// }
+
+* {
+	box-sizing: border-box;
+}
+
+// avoids FOUC for elements not yet called with `define()`
+:not(:defined) {
+	visibility: hidden;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+	text-size-adjust: 100%;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	padding: 0;
+	background-color: var(--color-view-background);
+	color: var(--color-view-foreground);
+	font-family: var(--font-family);
+	min-height: 100%;
+	line-height: 1.4;
+	font-size: var(--vscode-font-size);
+}
+
+@include scrollbars.scrollbarFix();
