@@ -441,9 +441,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async createBranch(repoPath: string, name: string, sha: string): Promise<void> {
+	async createBranch(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void> {
 		try {
-			await this.git.branch(repoPath, name, sha);
+			const args = options?.noTracking ? ['--no-track'] : [];
+			await this.git.branch(repoPath, name, sha, ...args);
 		} catch (ex) {
 			if (ex instanceof BranchError) {
 				throw ex.update({ branch: name, action: 'create' });

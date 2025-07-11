@@ -379,18 +379,23 @@ export class BranchGitCommand extends QuickCommand {
 				state.reference = result;
 			}
 
+			const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
+			const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
+
 			if (state.counter < 4 || state.name == null || state.suggestNameOnly) {
+				let value: string | undefined = state.name;
+				// if it's a remote branch, pre-fill the name (if it doesn't already exist)
+				if (!state.name && isRemoteBranch && !(await state.repo.git.branches.getBranch(remoteBranchName))) {
+					value = remoteBranchName;
+				}
+
 				const result = yield* inputBranchNameStep(state, context, {
 					title: `${context.title} from ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
 						label: state.reference.refType !== 'branch',
 					})}`,
-					value:
-						state.name ?? // if it's a remote branch, pre-fill the name
-						(isBranchReference(state.reference) && state.reference.remote
-							? getReferenceNameWithoutRemote(state.reference)
-							: undefined),
+					value: value,
 				});
 				if (result === StepResultBreak) continue;
 
@@ -430,7 +435,11 @@ export class BranchGitCommand extends QuickCommand {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
 				try {
-					await state.repo.git.branches.createBranch?.(state.name, state.reference.ref);
+					await state.repo.git.branches.createBranch?.(
+						state.name,
+						state.reference.ref,
+						isRemoteBranch && state.name !== remoteBranchName ? { noTracking: true } : undefined,
+					);
 				} catch (ex) {
 					Logger.error(ex, context.title);
 					// TODO likely need some better error handling here

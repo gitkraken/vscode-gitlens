@@ -249,7 +249,7 @@ export interface GitBranchesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<string | undefined>;
 
-	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
+	createBranch?(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void>;
 	deleteLocalBranch?(repoPath: string, name: string, options?: { force?: boolean }): Promise<void>;
 	deleteRemoteBranch?(repoPath: string, name: string, remote: string): Promise<void>;
 	/**
