@@ -37,7 +37,7 @@ export type GroupableTreeViewTypes = Extract<
 >;
 export type GroupableTreeViewIds<T extends GroupableTreeViewTypes = GroupableTreeViewTypes> = TreeViewIds<T>;
 
-export type WebviewTypes = 'graph' | 'patchDetails' | 'settings' | 'timeline';
+export type WebviewTypes = 'composer' | 'graph' | 'patchDetails' | 'settings' | 'timeline';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
 
 export type WebviewViewTypes = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'patchDetails' | 'timeline';
