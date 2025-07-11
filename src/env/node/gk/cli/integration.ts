@@ -1,13 +1,15 @@
 import { homedir } from 'os';
 import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, env, ProgressLocation, Uri, window, workspace  } from 'vscode';
+import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getContext } from '../../../../system/-webview/context';
+import { openUrl } from '../../../../system/-webview/vscode/uris';
 import { Logger } from '../../../../system/logger';
+import { compare } from '../../../../system/version';
 import { run } from '../../git/shell';
 import { getPlatform, isWeb } from '../../platform';
 import { CliCommandHandlers } from './commands';
@@ -33,9 +35,12 @@ export class GkCliIntegrationProvider implements Disposable {
 		);
 
 		this.onConfigurationChanged();
-		setTimeout(() => {
-			void this.installMCPIfNeeded(true);
-		}, 10000 + Math.floor(Math.random() * 20000));
+		setTimeout(
+			() => {
+				void this.installMCPIfNeeded(true);
+			},
+			10000 + Math.floor(Math.random() * 20000),
+		);
 	}
 
 	dispose(): void {
@@ -74,6 +79,16 @@ export class GkCliIntegrationProvider implements Disposable {
 
 	private async installMCPIfNeeded(silent?: boolean): Promise<void> {
 		try {
+			if (
+				(env.appName === 'Visual Studio Code' || env.appName === 'Visual Studio Code - Insiders') &&
+				compare(codeVersion, '1.102') < 0
+			) {
+				if (!silent) {
+					void window.showInformationMessage('Use of this command requires VS Code 1.102 or later.');
+				}
+				return;
+			}
+
 			if (silent && this.container.storage.get('ai:mcp:attemptInstall')) {
 				return;
 			}
@@ -89,7 +104,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				return;
 			}
 
-			if ( getContext('gitlens:gk:organization:ai:enabled', true) !== true) {
+			if (getContext('gitlens:gk:organization:ai:enabled', true) !== true) {
 				const message = 'Cannot install MCP: AI is disabled by your organization';
 				Logger.log(message);
 				if (silent !== true) {
@@ -140,7 +155,9 @@ export class GkCliIntegrationProvider implements Disposable {
 					const message = `Skipping MCP installation: unsupported platform ${platform}`;
 					Logger.log(message);
 					if (silent !== true) {
-						void window.showErrorMessage(`Cannot install MCP integration: unsupported platform ${platform}`);
+						void window.showErrorMessage(
+							`Cannot install MCP integration: unsupported platform ${platform}`,
+						);
 					}
 					return;
 				}
@@ -156,7 +173,14 @@ export class GkCliIntegrationProvider implements Disposable {
 
 				try {
 					// Download the MCP proxy installer
-					const proxyUrl = this.container.urls.getGkApiUrl('releases', 'gkcli-proxy', 'production', platformName, architecture, 'active');
+					const proxyUrl = this.container.urls.getGkApiUrl(
+						'releases',
+						'gkcli-proxy',
+						'production',
+						platformName,
+						architecture,
+						'active',
+					);
 
 					let response = await fetch(proxyUrl);
 					if (!response.ok) {
@@ -167,7 +191,8 @@ export class GkCliIntegrationProvider implements Disposable {
 
 					let downloadUrl: string | undefined;
 					try {
-						const mcpInstallerInfo: { version?: string; packages?: { zip?: string } } | undefined = await response.json() as any;
+						const mcpInstallerInfo: { version?: string; packages?: { zip?: string } } | undefined =
+							(await response.json()) as any;
 						downloadUrl = mcpInstallerInfo?.packages?.zip;
 					} catch (ex) {
 						const errorMsg = `Failed to parse MCP installer info: ${ex}`;
@@ -211,7 +236,10 @@ export class GkCliIntegrationProvider implements Disposable {
 							// On Windows, use PowerShell to extract the zip file
 							await run(
 								'powershell.exe',
-								['-Command', `Expand-Archive -Path "${mcpInstallerPath.fsPath}" -DestinationPath "${this.container.context.globalStorageUri.fsPath}"`],
+								[
+									'-Command',
+									`Expand-Archive -Path "${mcpInstallerPath.fsPath}" -DestinationPath "${this.container.context.globalStorageUri.fsPath}"`,
+								],
 								'utf8',
 							);
 						} else {
@@ -224,7 +252,10 @@ export class GkCliIntegrationProvider implements Disposable {
 						}
 						// The gk file should be in a subfolder named after the installer file name
 						const extractedFolderName = installerFileName.replace(/\.zip$/, '');
-						mcpExtractedFolderPath = Uri.joinPath(this.container.context.globalStorageUri, extractedFolderName);
+						mcpExtractedFolderPath = Uri.joinPath(
+							this.container.context.globalStorageUri,
+							extractedFolderName,
+						);
 						mcpExtractedPath = Uri.joinPath(mcpExtractedFolderPath, mcpFileName);
 
 						// Check using stat to make sure the newly extracted file exists.
@@ -263,12 +294,19 @@ export class GkCliIntegrationProvider implements Disposable {
 
 					// Configure the MCP server in settings.json
 					try {
-						const installOutput = await run(platform === 'windows' ? mcpFileName : `./${mcpFileName}`, ['install'], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+						const installOutput = await run(
+							platform === 'windows' ? mcpFileName : `./${mcpFileName}`,
+							['install'],
+							'utf8',
+							{ cwd: mcpExtractedFolderPath.fsPath },
+						);
 						const directory = installOutput.match(/Directory: (.*)/);
+						let directoryPath;
 						if (directory != null) {
 							try {
-								const directoryPath = directory[1];
+								directoryPath = directory[1];
 								await this.container.storage.store('gk:cli:installedPath', directoryPath);
+								// Add to PATH
 								if (platform === 'windows') {
 									await run(
 										'powershell.exe',
@@ -279,32 +317,35 @@ export class GkCliIntegrationProvider implements Disposable {
 										'utf8',
 									);
 								} else {
-									 // For Unix-like systems, detect and modify the appropriate shell profile
-                                    const homeDir = homedir();
-                                    // Try to detect which shell profile exists and is in use
-                                    const possibleProfiles = [
-                                        { path: `${homeDir}/.zshrc`, shell: 'zsh' },
+									// For Unix-like systems, detect and modify the appropriate shell profile
+									const homeDir = homedir();
+									// Try to detect which shell profile exists and is in use
+									const possibleProfiles = [
+										{ path: `${homeDir}/.zshrc`, shell: 'zsh' },
 										{ path: `${homeDir}/.zprofile`, shell: 'zsh' },
-                                        { path: `${homeDir}/.bashrc`, shell: 'bash' },
-                                        { path: `${homeDir}/.profile`, shell: 'sh' }
-                                    ];
+										{ path: `${homeDir}/.bashrc`, shell: 'bash' },
+										{ path: `${homeDir}/.profile`, shell: 'sh' },
+									];
 
-                                    // Find the first profile that exists
-                                    let shellProfile;
-                                    for (const profile of possibleProfiles) {
-                                        try {
-                                            await workspace.fs.stat(Uri.file(profile.path));
-                                            shellProfile = profile.path;
-                                            break;
-                                        } catch {
-                                            // Profile doesn't exist, try next one
-                                        }
-                                    }
+									// Find the first profile that exists
+									let shellProfile;
+									for (const profile of possibleProfiles) {
+										try {
+											await workspace.fs.stat(Uri.file(profile.path));
+											shellProfile = profile.path;
+											break;
+										} catch {
+											// Profile doesn't exist, try next one
+										}
+									}
 
 									if (shellProfile != null) {
 										await run(
 											'sh',
-											['-c', `echo '# Added by GitLens for MCP support' >> ${shellProfile} && echo 'export PATH="$PATH:${directoryPath}"' >> ${shellProfile}`],
+											[
+												'-c',
+												`echo '# Added by GitLens for MCP support' >> ${shellProfile} && echo 'export PATH="$PATH:${directoryPath}"' >> ${shellProfile}`,
+											],
 											'utf8',
 										);
 									} else {
@@ -316,12 +357,37 @@ export class GkCliIntegrationProvider implements Disposable {
 							}
 						} else {
 							Logger.warn('MCP Install: Failed to find directory in install output');
+							if (appName === 'vscode') {
+								throw new Error('MCP command path not availavle');
+							}
 						}
 
-						await run(platform === 'windows' ? mcpFileName : `./${mcpFileName}`, ['mcp', 'install', appName, ...isInsiders ? ['--file-path', settingsPath] : []], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+						if (appName === 'vscode') {
+							const config = {
+								name: 'GitKraken',
+								command: Uri.file(`${directoryPath}\\${mcpFileName}`).fsPath,
+								args: ['mcp'],
+								type: 'stdio',
+							};
+							const installDeepLinkUrl = `${isInsiders ? 'vscode-insiders' : 'vscode'}:mcp/install?${encodeURIComponent(JSON.stringify(config))}`;
+							await openUrl(installDeepLinkUrl);
+						} else {
+							await run(
+								platform === 'windows' ? mcpFileName : `./${mcpFileName}`,
+								['mcp', 'install', appName, ...(isInsiders ? ['--file-path', settingsPath] : [])],
+								'utf8',
+								{ cwd: mcpExtractedFolderPath.fsPath },
+							);
+						}
+
 						const gkAuth = (await this.container.subscription.getAuthenticationSession())?.accessToken;
 						if (gkAuth != null) {
-							await run(platform === 'windows' ? mcpFileName : `./${mcpFileName}`, ['auth', 'login', '-t', gkAuth], 'utf8', { cwd: mcpExtractedFolderPath.fsPath });
+							await run(
+								platform === 'windows' ? mcpFileName : `./${mcpFileName}`,
+								['auth', 'login', '-t', gkAuth],
+								'utf8',
+								{ cwd: mcpExtractedFolderPath.fsPath },
+							);
 						}
 
 						Logger.log('MCP configuration completed');
@@ -369,7 +435,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					},
 					async () => {
 						await installationTask();
-					}
+					},
 				);
 			} else {
 				await installationTask();
@@ -383,7 +449,9 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			// Show error notification if not silent
 			if (silent !== true) {
-				void window.showErrorMessage(`Failed to install MCP integration: ${error instanceof Error ? error.message : String(error)}`);
+				void window.showErrorMessage(
+					`Failed to install MCP integration: ${error instanceof Error ? error.message : String(error)}`,
+				);
 			}
 		}
 	}
@@ -392,16 +460,25 @@ export class GkCliIntegrationProvider implements Disposable {
 		const mcpInstallStatus = this.container.storage.get('ai:mcp:attemptInstall');
 		const mcpDirectoryPath = this.container.storage.get('gk:cli:installedPath');
 		const platform = getPlatform();
-		if (e.current?.account?.id != null && e.current.account.id !== e.previous?.account?.id && mcpInstallStatus === 'completed' && mcpDirectoryPath != null) {
+		if (
+			e.current?.account?.id != null &&
+			e.current.account.id !== e.previous?.account?.id &&
+			mcpInstallStatus === 'completed' &&
+			mcpDirectoryPath != null
+		) {
 			const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
 			if (currentSessionToken != null) {
 				try {
-					await run(platform === 'windows' ? 'gk.exe' : './gk', ['auth', 'login', '-t', currentSessionToken], 'utf8', { cwd: mcpDirectoryPath });
+					await run(
+						platform === 'windows' ? 'gk.exe' : './gk',
+						['auth', 'login', '-t', currentSessionToken],
+						'utf8',
+						{ cwd: mcpDirectoryPath },
+					);
 				} catch {}
 			}
 		}
 	}
-
 
 	private registerCommands(): Disposable[] {
 		return [registerCommand('gitlens.ai.mcp.install', () => this.installMCPIfNeeded())];
