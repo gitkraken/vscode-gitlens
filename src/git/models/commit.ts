@@ -305,8 +305,6 @@ export class GitCommit implements GitRevisionReference {
 					let files = status.files.flatMap(f => f.getPseudoFileChanges());
 					if (isUncommittedStaged(this.sha)) {
 						files = files.filter(f => f.staged);
-					} else {
-						files = files.filter(f => !f.staged);
 					}
 
 					const pathspec = this.fileset?.filtered?.pathspec;
