@@ -805,3 +805,11 @@ function _parseHexDigit(charCode: CharCode): number {
 	}
 	return 0;
 }
+
+export function getCssMixedColorValue(color1: string, color2: string, percent: number): string {
+	return `color-mix(in srgb, ${color1} ${percent}%, ${color2})`;
+}
+
+export function getCssOpacityColorValue(color: string, percent: number): string {
+	return getCssMixedColorValue(color, 'transparent', percent);
+}

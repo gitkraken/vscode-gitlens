@@ -1,5 +1,4 @@
 import type {
-	CssVariables,
 	ExcludeByType,
 	ExcludeRefsById,
 	GraphColumnSetting,
@@ -134,7 +133,6 @@ export interface State extends WebviewState {
 		top: number;
 		bottom: number;
 	};
-	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
 }
 
 export interface BranchState extends GitTrackingState {
@@ -220,11 +218,7 @@ export type GraphRowStats = RowStats;
 
 export type InternalNotificationType = 'didChangeTheme';
 
-export type UpdateStateCallback = (
-	state: State,
-	type?: IpcNotification<any> | InternalNotificationType,
-	themingChanged?: boolean,
-) => void;
+export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | InternalNotificationType) => void;
 
 // COMMANDS
 
