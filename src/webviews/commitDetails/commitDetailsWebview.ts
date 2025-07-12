@@ -1851,6 +1851,28 @@ export class CommitDetailsWebviewProvider
 		return commit != null ? [commit, commit.file!] : undefined;
 	}
 
+	private async getFileCommitFromParamsForStaging(
+		params: ExecuteFileActionParams,
+	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
+		let commit: GitCommit | undefined;
+		// For staging/unstaging operations, always work with the working tree
+		if (this.mode === 'wip') {
+			const uri = this._context.wip?.changes?.repository.uri;
+			if (uri == null) return;
+
+			commit = await this.container.git.getRepositoryService(Uri.parse(uri)).commits.getCommit(uncommitted);
+		} else {
+			// Even in inspect mode, staging/unstaging should work with the current working tree
+			const repoPath = this._context.commit?.repoPath;
+			if (repoPath == null) return;
+
+			commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(uncommitted);
+		}
+
+		commit = await commit?.getCommitForFile(params.path, params.staged);
+		return commit != null ? [commit, commit.file!] : undefined;
+	}
+
 	private showCommitPicker() {
 		void executeGitCommand({
 			command: 'log',
@@ -1965,8 +1987,12 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async stageFile(params: ExecuteFileActionParams) {
-		const result = await this.getFileCommitFromParams(params);
-		if (result == null) return;
+		const result = await this.getFileCommitFromParamsForStaging(params);
+		if (result == null) {
+			// Log the issue for debugging
+			Logger.warn(`Failed to get commit/file for staging: ${params.path}`, getLogScope());
+			return;
+		}
 
 		const [commit, file] = result;
 
@@ -1974,8 +2000,12 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async unstageFile(params: ExecuteFileActionParams) {
-		const result = await this.getFileCommitFromParams(params);
-		if (result == null) return;
+		const result = await this.getFileCommitFromParamsForStaging(params);
+		if (result == null) {
+			// Log the issue for debugging
+			Logger.warn(`Failed to get commit/file for unstaging: ${params.path}`, getLogScope());
+			return;
+		}
 
 		const [commit, file] = result;
 
