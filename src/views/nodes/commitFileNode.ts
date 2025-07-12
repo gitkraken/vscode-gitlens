@@ -1,4 +1,4 @@
-import type { Command, Selection } from 'vscode';
+import type { Command, Selection, TextDocumentShowOptions } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { OpenFileAtRevisionCommandArgs } from '../../commands/openFileAtRevision';
@@ -167,16 +167,17 @@ export abstract class CommitFileNodeBase<
 			range = this.commit.file?.range ?? selectionToDiffRange(this.options?.selection);
 		}
 
+		const showOptions: TextDocumentShowOptions = { preserveFocus: true, preview: true };
+
 		const filesConfig = this.view.config.files;
 		if ('openDiffOnClick' in filesConfig && filesConfig.openDiffOnClick === false) {
-			return createCommand<[undefined, OpenFileAtRevisionCommandArgs]>(
-				'gitlens.openFileRevision',
-				'Open File',
-				undefined,
+			return createCommand<[CommitFileNodeBase<Type, TView>, OpenFileAtRevisionCommandArgs]>(
+				'gitlens.views.openFileRevision',
+				'Open File at Revision',
+				this,
 				{
-					revisionUri: GitUri.fromFile(this.file, this.commit.repoPath, this.ref.ref),
 					range: range,
-					showOptions: { preserveFocus: true, preview: true },
+					showOptions: showOptions,
 				},
 			);
 		}
@@ -189,7 +190,7 @@ export abstract class CommitFileNodeBase<
 				commit: this.commit,
 				uri: GitUri.fromFile(this.file, this.commit.repoPath),
 				range: range,
-				showOptions: { preserveFocus: true, preview: true },
+				showOptions: showOptions,
 			},
 		);
 	}
