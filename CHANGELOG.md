@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the option to open a file instead of showing a diff when clicking in _Search & Compare_ ([#1651](https://github.com/gitkraken/vscode-gitlens/issues/1651))
+
 ### Changed
 
 - Changes branch creation to avoid setting an upstream branch if the new branch name and remote branch name don't match ([#4477](https://github.com/gitkraken/vscode-gitlens/issues/4477))
@@ -18,7 +22,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for time-based commit searches on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command
 - Adds 👍 "Helpful" and 👎 "Unhelpful" feedback buttons to AI-generated markdown previews such as Commit Composer and Explain Changes ([#4449](https://github.com/gitkraken/vscode-gitlens/issues/4449))
 - Adds a _Commit with AI (Preview)_ button to the _Inspect Overview_ tab of the _Commit Graph_ and _Inspect_ views
-- Adds the option to open a file instead of showing a diff when clicking in _Search & Compare_ ([#1651](https://github.com/gitkraken/vscode-gitlens/issues/1651))
 
 ### Changed
 
