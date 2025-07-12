@@ -1,11 +1,12 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
 import type { Container } from '../container';
-import { UriComparer } from '../system/comparers';
+import { configuration } from '../system/-webview/configuration';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
-import { configuration } from '../system/vscode/configuration';
+import { areUrisEqual } from '../system/uri';
 import type { LinesChangeEvent } from '../trackers/lineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 
@@ -23,7 +24,7 @@ export class LineHoverController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.unregister();
 
 		this.container.lineTracker.unsubscribe(this);
@@ -81,6 +82,8 @@ export class LineHoverController implements Disposable {
 			1: position => `${position.line}:${position.character}`,
 			2: false,
 		},
+		exit: r => (r != null ? 'provided' : 'skipped'),
+		singleLine: true,
 	})
 	async provideDetailsHover(
 		document: TextDocument,
@@ -141,6 +144,8 @@ export class LineHoverController implements Disposable {
 			1: position => `${position.line}:${position.character}`,
 			2: false,
 		},
+		exit: r => (r != null ? 'provided' : 'skipped'),
+		singleLine: true,
 	})
 	async provideChangesHover(
 		document: TextDocument,
@@ -191,13 +196,13 @@ export class LineHoverController implements Disposable {
 	}
 
 	private isRegistered(uri: Uri | undefined) {
-		return this._hoverProviderDisposable != null && UriComparer.equals(this._uri, uri);
+		return this._hoverProviderDisposable != null && areUrisEqual(this._uri, uri);
 	}
 
 	private register(editor: TextEditor | undefined) {
 		this.unregister();
 
-		if (editor == null) return;
+		if (editor == null || !isTrackableTextEditor(editor)) return;
 
 		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.currentLine.enabled || (!cfg.currentLine.details && !cfg.currentLine.changes)) return;

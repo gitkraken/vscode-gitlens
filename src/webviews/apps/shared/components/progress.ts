@@ -79,11 +79,11 @@ export class ProgressIndicator extends LitElement {
 	@property()
 	position: 'top' | 'bottom' = 'bottom';
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.setAttribute('role', 'progressbar');
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<div class="progress-bar"></div>`;
 	}
 }

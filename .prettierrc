@@ -6,13 +6,14 @@
 	"singleQuote": true,
 	"tabWidth": 4,
 	"useTabs": true,
+	"plugins": ["@prettier/plugin-oxc"],
 	"overrides": [
 		{
 			"files": ".prettierrc",
 			"options": { "parser": "json" }
 		},
 		{
-			"files": "*.md",
+			"files": "**/*.md",
 			"options": { "tabWidth": 2 }
 		}
 	]

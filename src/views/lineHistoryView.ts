@@ -1,12 +1,12 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { LineHistoryViewConfig } from '../config';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
@@ -21,14 +21,14 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	protected override get showCollapseAll(): boolean {
 		return false;
 	}
 
-	protected getRoot() {
+	protected getRoot(): LineHistoryTrackerNode {
 		return new LineHistoryTrackerNode(this);
 	}
 
@@ -36,7 +36,7 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
@@ -56,7 +56,7 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

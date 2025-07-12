@@ -1,20 +1,22 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { showDetailsView } from '../git/actions/commit';
+import { showCommitInDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitRevisionReference } from '../git/models/reference';
-import { createReference, getReferenceFromRevision } from '../git/models/reference';
+import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils';
+import { createReference } from '../git/utils/reference.utils';
 import {
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface InspectCommandArgs {
 	ref?: GitRevisionReference;
@@ -29,14 +31,14 @@ export class InspectCommand extends ActiveEditorCommand {
 			typeof argsOrSha === 'string'
 				? { ref: createReference(argsOrSha, repoPath!, { refType: 'revision' }), repoPath: repoPath }
 				: argsOrSha;
-		return createMarkdownCommandLink<InspectCommandArgs>(Commands.ShowCommitInView, args);
+		return createMarkdownCommandLink<InspectCommandArgs>('gitlens.showCommitInView', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.ShowCommitInView, Commands.ShowInDetailsView, Commands.ShowLineCommitInView]);
+		super(['gitlens.showCommitInView', 'gitlens.showInDetailsView', 'gitlens.showLineCommitInView']);
 	}
 
-	protected override preExecute(context: CommandContext, args?: InspectCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: InspectCommandArgs): Promise<void> {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			if (isCommandContextViewNodeHasCommit(context)) {
@@ -47,7 +49,7 @@ export class InspectCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: InspectCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: InspectCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (args.ref == null) {
@@ -83,6 +85,6 @@ export class InspectCommand extends ActiveEditorCommand {
 			}
 		}
 
-		return showDetailsView(args.ref);
+		return showCommitInDetailsView(args.ref);
 	}
 }

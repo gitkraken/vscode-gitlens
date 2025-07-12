@@ -1,15 +1,16 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { Commands } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { createReference } from '../../git/models/reference';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createReference } from '../../git/utils/reference.utils';
+import { createCommand } from '../../system/-webview/command';
+import { relativeDir } from '../../system/-webview/path';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
-import { relativeDir } from '../../system/vscode/path';
 import type { View } from '../viewBase';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -79,7 +80,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description === undefined) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -93,7 +94,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName === undefined) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -101,7 +102,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label === undefined) {
 			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,
@@ -125,33 +126,33 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	override getCommand(): Command | undefined {
-		const commandArgs: DiffWithCommandArgs = {
-			lhs: {
-				sha: this.ref1,
-				uri:
-					(this.file.status === 'R' || this.file.status === 'C') && this.direction === 'behind'
-						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
-						: this.uri,
-			},
-			rhs: {
-				sha: this.ref2,
-				uri:
-					(this.file.status === 'R' || this.file.status === 'C') && this.direction !== 'behind'
-						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
-						: this.uri,
-			},
+		let lhsUri;
+		let rhsUri;
+		if (this.file.status === 'R' || this.file.status === 'C') {
+			if (this.direction === 'behind') {
+				lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
+				rhsUri = this.uri;
+			} else {
+				if (this.direction == null) {
+					lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref1, true);
+				} else {
+					lhsUri = this.uri;
+				}
+				rhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
+			}
+		} else {
+			lhsUri = this.uri;
+			rhsUri = this.uri;
+		}
+
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
+			lhs: { sha: this.ref1, uri: lhsUri },
+			rhs: { sha: this.ref2, uri: rhsUri },
 			repoPath: this.uri.repoPath!,
 
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
-		};
-		return {
-			title: 'Open Changes',
-			command: Commands.DiffWith,
-			arguments: [commandArgs],
-		};
+			fromComparison: true,
+			range: editorLineToDiffRange(0),
+			showOptions: { preserveFocus: true, preview: true },
+		});
 	}
 }

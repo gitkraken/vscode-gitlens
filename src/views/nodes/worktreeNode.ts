@@ -6,18 +6,21 @@ import type { GitBranch } from '../../git/models/branch';
 import { isStash } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
-import { shortenRevision } from '../../git/models/reference';
-import { getHighlanderProviderName } from '../../git/models/remote';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getBranchIconPath } from '../../git/utils/branch-utils';
-import { gate } from '../../system/decorators/gate';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
+import { getBranchIconPath } from '../../git/utils/-webview/icons';
+import { getHighlanderProviderName } from '../../git/utils/remote.utils';
+import { shortenRevision } from '../../git/utils/revision.utils';
+import { getContext } from '../../system/-webview/context';
+import { getBestPath } from '../../system/-webview/path';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
+import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
-import { defer, getSettledValue } from '../../system/promise';
+import { defer, getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
 import { pad } from '../../system/string';
-import { getContext } from '../../system/vscode/context';
 import type { ViewsWithWorktrees } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
@@ -26,10 +29,10 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
-import { insertDateMarkers } from './helpers';
 import { PullRequestNode } from './pullRequestNode';
 import { StashNode } from './stashNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -44,9 +47,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	constructor(
 		uri: GitUri,
 		view: ViewsWithWorktrees,
-		protected override readonly parent: ViewNode,
+		public override parent: ViewNode,
 		public readonly worktree: GitWorktree,
-		private readonly worktreeStatus: { status: GitStatus | undefined; missing: boolean } | undefined,
 	) {
 		super('worktree', uri, view, parent);
 
@@ -65,6 +67,21 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 	get repoPath(): string {
 		return this.uri.repoPath!;
+	}
+
+	compacted: boolean = false;
+
+	private get avoidCompacting(): boolean {
+		return this.worktree.isDefault || this.worktree.opened;
+	}
+
+	get treeHierarchy(): string[] {
+		// If this is a branch worktree, use the branch name for the hierarchy
+		if (this.worktree.type === 'branch' && !this.avoidCompacting) {
+			return this.worktree.branch?.getNameWithoutRemote().split('/') || [this.worktree.name];
+		}
+		// For other types of worktrees or those that shouldn't be compacted, use the worktree name
+		return [this.worktree.name];
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -119,18 +136,15 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				}
 			}
 
+			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+
 			const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+				svc.getBranchesAndTagsTipsLookup(),
 				branch != null && !branch.remote
-					? this.view.container.git.getBranchAheadRange(branch).then(range =>
-							range
-								? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
-										limit: 0,
-										ref: range,
-								  })
-								: undefined,
-					  )
+					? getBranchAheadRange(svc, branch).then(range =>
+							range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
+						)
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
@@ -155,7 +169,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				);
 			}
 
-			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
+			const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
 			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
 			children.push(
@@ -170,7 +184,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 									unpublishedCommits?.has(c.ref),
 									branch,
 									getBranchAndTagTips,
-							  ),
+								),
 					),
 					this,
 				),
@@ -180,8 +194,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
-			if (this.worktreeStatus?.status?.hasChanges) {
-				children.unshift(new UncommittedFilesNode(this.view, this, this.worktreeStatus.status, undefined));
+			const { status } = await this.getStatus();
+			if (status?.hasChanges) {
+				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
 			this.children = children;
@@ -192,8 +207,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
 		let description = '';
 		let icon: IconPath | undefined;
 		let hasChanges = false;
@@ -207,16 +220,30 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						this.worktree.isDefault
 							? `_default${this.worktree.opened ? ', active_' : '_'}`
 							: this.worktree.opened
-							  ? '_active_'
-							  : ''
-				  })`
+								? '_active_'
+								: ''
+					})`
 				: '';
 
-		const status = this.worktreeStatus?.status;
+		let status: GitStatus | undefined;
+		let missing = false;
+
+		const result = await pauseOnCancelOrTimeout(this.getStatus(), undefined, 1);
+		if (!result.paused) {
+			({ status, missing } = result.value);
+		} else {
+			queueMicrotask(() => {
+				void result.value.then(() => {
+					this.view.triggerNodeChange(this);
+				});
+			});
+		}
 
 		const folder = `\\\n$(folder) [\`${
 			this.worktree.friendlyPath
 		}\`](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "Reveal in Explorer")`;
+
+		const { viewAs } = this.view.config.worktrees;
 
 		switch (this.worktree.type) {
 			case 'bare':
@@ -272,8 +299,16 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							}
 
 							description = `${branch.getTrackingStatus({
-								empty: pad(arrows, 0, 2),
-								suffix: pad(arrows, 2, 2),
+								empty: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
+									arrows,
+									viewAs !== 'name' ? 2 : 0,
+									2,
+								)}`,
+								suffix: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
+									arrows,
+									2,
+									2,
+								)}`,
 							})}${branch.upstream.name}`;
 
 							tooltip.appendMarkdown(
@@ -293,7 +328,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							);
 						} else {
 							const providerName = getHighlanderProviderName(
-								await this.view.container.git.getRemotesWithProviders(branch.repoPath),
+								await this.view.container.git
+									.getRepositoryService(branch.repoPath)
+									.remotes.getRemotesWithProviders(),
 							);
 
 							tooltip.appendMarkdown(
@@ -344,23 +381,42 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
 		}
 
-		const missing = this.worktreeStatus?.missing ?? false;
 		if (missing) {
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
 		}
 
-		const item = new TreeItem(this.worktree.name, TreeItemCollapsibleState.Collapsed);
+		let label: string;
+		switch (viewAs) {
+			case 'path':
+				label = getBestPath(this.worktree.uri);
+				break;
+			case 'relativePath':
+				label = this.worktree.friendlyPath;
+				break;
+			case 'name':
+			default:
+				// Use basename for display if we're using tree layout and the node is compacted
+				label =
+					this.view.config.files.layout === 'tree' && this.compacted && !this.avoidCompacting
+						? this.worktree.type === 'branch' && this.worktree.branch
+							? this.worktree.branch.getBasename()
+							: this.worktree.name
+						: this.worktree.name;
+				break;
+		}
+
+		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${
 			this.worktree.opened ? '+active' : ''
-		}`;
+		}${hasChanges ? '+working' : ''}`;
 		item.iconPath =
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.worktree.opened
-				  ? new ThemeIcon('check')
-				  : icon;
+					? new ThemeIcon('check')
+					: icon;
 		item.tooltip = tooltip;
 		item.resourceUri = createViewDecorationUri('worktree', { hasChanges: hasChanges, missing: missing });
 
@@ -368,13 +424,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	@debug()
-	override refresh(reset?: boolean) {
-		super.refresh(true);
-
+	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
 		}
+		return super.refresh(reset);
 	}
 
 	private async getAssociatedPullRequest(
@@ -402,22 +457,38 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
-				ref: this.worktree.sha,
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				stashes: this.view.config.showStashes,
-			});
+			this._log = await this.view.container.git
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(this.worktree.sha, {
+					limit: this.limit ?? this.view.config.defaultItemLimit,
+					stashes: this.view.config.showStashes,
+				});
 		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	private _status: { status: GitStatus | undefined; missing: boolean } | undefined;
+	private async getStatus() {
+		if (this._status == null) {
+			try {
+				const status = await this.worktree.getStatus();
+				this._status = { status: status, missing: false };
+			} catch (ex) {
+				Logger.error(ex, `Worktree status failed: ${this.worktree.uri.toString(true)}`);
+				this._status = { status: undefined, missing: true };
+			}
+		}
+
+		return this._status;
+	}
+
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

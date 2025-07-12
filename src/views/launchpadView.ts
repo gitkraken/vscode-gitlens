@@ -3,29 +3,28 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window 
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
 import { proBadge } from '../constants';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
-import { PlusFeatures } from '../features';
 import { GitUri, unknownGitUri } from '../git/gitUri';
-import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
+import type { PullRequest } from '../git/models/pullRequest';
+import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
-import type { LaunchpadGroup, LaunchpadItem } from '../plus/launchpad/launchpadProvider';
-import {
-	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadGroupLabelMap,
-} from '../plus/launchpad/launchpadProvider';
-import { createCommand, executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import type { LaunchpadItem } from '../plus/launchpad/launchpadProvider';
+import { groupAndSortLaunchpadItems } from '../plus/launchpad/launchpadProvider';
+import type { LaunchpadGroup } from '../plus/launchpad/models/launchpad';
+import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../plus/launchpad/models/launchpad';
+import { createCommand, executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
 import type { GroupingNode } from './nodes/groupingNode';
 import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
+import type { GroupedViewContext } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item', LaunchpadView> {
@@ -64,7 +63,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		return this.item.url ?? this.item.underlyingPullRequest.url;
 	}
 
-	get pullRequest() {
+	get pullRequest(): PullRequest | undefined {
 		return this.item.type === 'pullrequest' ? this.item.underlyingPullRequest : undefined;
 	}
 
@@ -97,7 +96,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		}`;
 		item.iconPath = lpi.author?.avatarUrl != null ? Uri.parse(lpi.author.avatarUrl) : undefined;
 		item.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
-			Commands.ShowLaunchpad,
+			'gitlens.showLaunchpad',
 			'Open in Launchpad',
 			{
 				source: 'launchpad-view',
@@ -134,7 +133,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this.disposable?.dispose();
 		super.dispose();
 	}
@@ -145,7 +144,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		}
 	}
 
-	override refresh() {
+	override refresh(): void {
 		if (this.children == null) return;
 
 		disposeChildren(this.children);
@@ -159,15 +158,13 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access(PlusFeatures.Launchpad);
+			const access = await this.view.container.git.access('launchpad');
 			if (!access.allowed) return [];
 
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];
 
 			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
-			if (!hasIntegrations) {
-				return [];
-			}
+			if (!hasIntegrations) return [];
 
 			try {
 				const result = await this.view.container.launchpad.getCategorizedItems();
@@ -192,15 +189,17 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 					children.push(
 						new LaunchpadViewGroupingNode(
 							this.view,
+							this,
 							launchpadGroupLabelMap.get(ui)!,
 							ui,
-							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
-							ui === 'current-branch' || expanded.get(ui)
-								? TreeItemCollapsibleState.Expanded
-								: TreeItemCollapsibleState.Collapsed,
-							undefined,
-							undefined,
-							new ThemeIcon(icon.substring(2, icon.length - 1)),
+							p => groupItems.map(i => new LaunchpadItemNode(this.view, p, ui, i)),
+							{
+								collapsibleState:
+									ui === 'current-branch' || expanded.get(ui)
+										? TreeItemCollapsibleState.Expanded
+										: TreeItemCollapsibleState.Collapsed,
+								iconPath: new ThemeIcon(icon.substring(2, icon.length - 1)),
+							},
 						),
 					);
 				}
@@ -224,11 +223,11 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	protected readonly configKey = 'launchpad';
 	private _disposable: Disposable | undefined;
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'launchpad', 'Launchpad', 'launchpadView', grouped);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
@@ -238,13 +237,14 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
 	}
 
-	protected getRoot() {
+	protected getRoot(): LaunchpadViewNode {
 		return new LaunchpadViewNode(this);
 	}
 
 	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (this._disposable == null) {
 			this._disposable = Disposable.from(
+				this.container.integrations.onDidChange(() => this.refresh(), this),
 				this.container.integrations.onDidChangeConnectionState(() => this.refresh(), this),
 				this.container.launchpad.onDidRefresh(() => this.refresh(), this),
 			);
@@ -267,16 +267,15 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 						step: 'accelerate-pr-reviews',
-						source: 'launchpad-view',
-						detail: 'info',
+						source: { source: 'launchpad-view', detail: 'info' },
 					}),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(
@@ -307,7 +306,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

@@ -1,43 +1,42 @@
 import { window } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
-import { command, executeCoreCommand } from '../system/vscode/command';
+import { command, executeCoreCommand } from '../system/-webview/command';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
-import type { CommandContext } from './base';
-import { Command } from './base';
+import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 
 @command()
-export class ShowViewCommand extends Command {
+export class ShowViewCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.ShowAccountView,
-			Commands.ShowBranchesView,
-			Commands.ShowCommitDetailsView,
-			Commands.ShowCommitsView,
-			Commands.ShowContributorsView,
-			Commands.ShowDraftsView,
-			Commands.ShowFileHistoryView,
-			Commands.ShowGraphView,
-			Commands.ShowHomeView,
-			Commands.ShowLaunchpadView,
-			Commands.ShowLineHistoryView,
-			Commands.ShowRemotesView,
-			Commands.ShowRepositoriesView,
-			Commands.ShowSearchAndCompareView,
-			Commands.ShowStashesView,
-			Commands.ShowTagsView,
-			Commands.ShowTimelineView,
-			Commands.ShowWorktreesView,
-			Commands.ShowWorkspacesView,
+			'gitlens.showAccountView',
+			'gitlens.showBranchesView',
+			'gitlens.showCommitDetailsView',
+			'gitlens.showCommitsView',
+			'gitlens.showContributorsView',
+			'gitlens.showDraftsView',
+			'gitlens.showFileHistoryView',
+			'gitlens.showGraphView',
+			'gitlens.showHomeView',
+			'gitlens.showLaunchpadView',
+			'gitlens.showLineHistoryView',
+			'gitlens.showRemotesView',
+			'gitlens.showRepositoriesView',
+			'gitlens.showSearchAndCompareView',
+			'gitlens.showStashesView',
+			'gitlens.showTagsView',
+			'gitlens.showTimelineView',
+			'gitlens.showWorktreesView',
+			'gitlens.showWorkspacesView',
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, ...args: unknown[]) {
+	protected override preExecute(context: CommandContext, ...args: unknown[]): Promise<void> {
 		return this.execute(context, ...args);
 	}
 
-	async notifyWhenNoRepository(featureName?: string) {
+	async notifyWhenNoRepository(featureName?: string): Promise<void> {
 		if (this.container.git.openRepositoryCount > 0) {
 			return;
 		}
@@ -53,51 +52,51 @@ export class ShowViewCommand extends Command {
 		}
 	}
 
-	async execute(context: CommandContext, ...args: unknown[]) {
-		const command = context.command as Commands;
+	async execute(context: CommandContext, ...args: unknown[]): Promise<void> {
+		const command = context.command;
 		switch (command) {
-			case Commands.ShowAccountView:
+			case 'gitlens.showAccountView':
 				return this.container.views.home.show(
 					undefined,
 					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),
 				);
-			case Commands.ShowBranchesView:
+			case 'gitlens.showBranchesView':
 				return this.container.views.showView('branches');
-			case Commands.ShowCommitDetailsView:
+			case 'gitlens.showCommitDetailsView':
 				void this.notifyWhenNoRepository('Inspect');
 				return this.container.views.commitDetails.show();
-			case Commands.ShowCommitsView:
+			case 'gitlens.showCommitsView':
 				return this.container.views.showView('commits');
-			case Commands.ShowContributorsView:
+			case 'gitlens.showContributorsView':
 				return this.container.views.showView('contributors');
-			case Commands.ShowDraftsView:
+			case 'gitlens.showDraftsView':
 				return this.container.views.showView('drafts');
-			case Commands.ShowFileHistoryView:
+			case 'gitlens.showFileHistoryView':
 				return this.container.views.showView('fileHistory');
-			case Commands.ShowGraphView:
+			case 'gitlens.showGraphView':
 				void this.notifyWhenNoRepository('the Commit Graph');
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
-			case Commands.ShowHomeView:
+			case 'gitlens.showHomeView':
 				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));
-			case Commands.ShowLaunchpadView:
+			case 'gitlens.showLaunchpadView':
 				return this.container.views.showView('launchpad');
-			case Commands.ShowLineHistoryView:
+			case 'gitlens.showLineHistoryView':
 				return this.container.views.showView('lineHistory');
-			case Commands.ShowRemotesView:
+			case 'gitlens.showRemotesView':
 				return this.container.views.showView('remotes');
-			case Commands.ShowRepositoriesView:
+			case 'gitlens.showRepositoriesView':
 				return this.container.views.showView('repositories');
-			case Commands.ShowSearchAndCompareView:
+			case 'gitlens.showSearchAndCompareView':
 				return this.container.views.showView('searchAndCompare');
-			case Commands.ShowStashesView:
+			case 'gitlens.showStashesView':
 				return this.container.views.showView('stashes');
-			case Commands.ShowTagsView:
+			case 'gitlens.showTagsView':
 				return this.container.views.showView('tags');
-			case Commands.ShowTimelineView:
+			case 'gitlens.showTimelineView':
 				return this.container.views.timeline.show();
-			case Commands.ShowWorktreesView:
+			case 'gitlens.showWorktreesView':
 				return this.container.views.showView('worktrees');
-			case Commands.ShowWorkspacesView:
+			case 'gitlens.showWorkspacesView':
 				return this.container.views.showView('workspaces');
 		}
 

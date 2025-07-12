@@ -1,14 +1,14 @@
-import { md5 } from '@env/crypto';
 import type { TreeCheckboxChangeEvent } from 'vscode';
 import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants.storage';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import { createRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
-import { gate } from '../../system/decorators/gate';
+import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { pluralize } from '../../system/string';
@@ -20,8 +20,6 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
-let instanceId = 0;
-
 type State = {
 	filterCommits: GitUser[] | undefined;
 };
@@ -32,8 +30,6 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	ViewNode,
 	State
 > {
-	private _instanceId: number;
-
 	constructor(
 		view: SearchAndCompareView,
 		protected override readonly parent: ViewNode,
@@ -44,9 +40,8 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	) {
 		super('compare-results', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._instanceId = instanceId++;
 		this.updateContext({
-			comparisonId: `${_ref.ref}+${_compareWith.ref}+${this._instanceId}`,
+			comparisonId: `${_ref.ref}+${_compareWith.ref}`,
 			storedComparisonId: this.getStorageId(),
 		});
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -54,7 +49,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		// If this is a new comparison, save it
 		if (this._storedAt === 0) {
 			this._storedAt = Date.now();
-			void this.store(true);
+			void this.store(true).catch();
 		}
 	}
 
@@ -105,47 +100,45 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return authors;
 	}
 
+	@debug()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return Disposable.from(
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
-			weakEvent(
-				this.view.container.integrations.onDidChangeConnectionState,
-				this.onIntegrationConnectionStateChanged,
-				this,
-			),
 		);
-	}
-
-	private onIntegrationConnectionStateChanged() {
-		this.view.triggerNodeChange(this.parent);
 	}
 
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
 		const prefix = getComparisonStoragePrefix(this.getStorageId());
 		if (e.items.some(([n]) => n.id?.startsWith(prefix))) {
-			void this.store(true);
+			void this.store(true).catch();
 		}
 	}
 
-	dismiss() {
+	dismiss(): void {
 		void this.remove(true);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const ahead = this.ahead;
-			const behind = this.behind;
+			const ahead = {
+				...this.ahead,
+				range: createRevisionRange(this.ahead.ref1, this.ahead.ref2, '..'),
+			};
+			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
-			const counts = await this.view.container.git.getLeftRightCommitCount(
-				this.repoPath,
+			const svc = this.view.container.git.getRepositoryService(this.repoPath);
+
+			const counts = await svc.commits.getLeftRightCommitCount(
 				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
-				{ authors: this.filterByAuthors },
+				{
+					authors: this.filterByAuthors,
+				},
 			);
 
 			const mergeBase =
-				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
+				(await svc.refs.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
+				})) ?? (await svc.refs.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
@@ -154,11 +147,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Behind',
 					{
-						query: this.getCommitsQuery(createRevisionRange(behind.ref1, behind.ref2, '..')),
+						query: this.getCommitsQuery(behind.range),
 						comparison: behind,
 						direction: 'behind',
 						files: {
-							ref1: behind.ref1 === '' ? '' : mergeBase ?? behind.ref1,
+							ref1: behind.ref1 === '' ? '' : (mergeBase ?? behind.ref1),
 							ref2: behind.ref2,
 							query: this.getBehindFilesQuery.bind(this),
 						},
@@ -174,7 +167,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(createRevisionRange(ahead.ref1, ahead.ref2, '..')),
+						query: this.getCommitsQuery(ahead.range),
 						comparison: ahead,
 						direction: 'ahead',
 						files: {
@@ -215,7 +208,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		let description;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.repoPath ? this.view.container.git.getRepository(this.repoPath) : undefined;
-			description = repo?.formattedName ?? this.repoPath;
+			description = repo?.name ?? this.repoPath;
 		}
 
 		const item = new TreeItem(
@@ -250,13 +243,13 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 
 	@log()
-	clearReviewed() {
+	clearReviewed(): void {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());
-		void this.store();
+		void this.store().catch();
 	}
 
 	@log()
-	async swap() {
+	async swap(): Promise<void> {
 		if (this._ref.ref === '') {
 			void window.showErrorMessage('Cannot swap comparisons with the working tree');
 			return;
@@ -318,7 +311,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return this.store(silent);
 	}
 
-	store(silent = false) {
+	store(silent = false): Promise<void> {
 		const storageId = this.getStorageId();
 		const checkedFiles = getComparisonCheckedFiles(this.view, storageId);
 
@@ -337,11 +330,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 }
 
-export function getComparisonStoragePrefix(storageId: string) {
+export function getComparisonStoragePrefix(storageId: string): string {
 	return `${storageId}|`;
 }
 
-export function getComparisonCheckedFiles(view: View, storageId: string) {
+export function getComparisonCheckedFiles(view: View, storageId: string): string[] {
 	const checkedFiles = [];
 
 	const checked = view.nodeState.get<TreeItemCheckboxState>(getComparisonStoragePrefix(storageId), 'checked');
@@ -353,11 +346,11 @@ export function getComparisonCheckedFiles(view: View, storageId: string) {
 	return checkedFiles;
 }
 
-export function resetComparisonCheckedFiles(view: View, storageId: string) {
+export function resetComparisonCheckedFiles(view: View, storageId: string): void {
 	view.nodeState.delete(getComparisonStoragePrefix(storageId), 'checked');
 }
 
-export function restoreComparisonCheckedFiles(view: View, checkedFiles: string[] | undefined) {
+export function restoreComparisonCheckedFiles(view: View, checkedFiles: string[] | undefined): void {
 	if (checkedFiles?.length) {
 		for (const id of checkedFiles) {
 			view.nodeState.storeState(id, 'checked', TreeItemCheckboxState.Checked, true);

@@ -2,15 +2,16 @@ import type { Disposable, TextDocument } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
-import type { GitDiffFile } from '../git/models/diff';
+import type { ParsedGitDiffHunks } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
+import { configuration } from '../system/-webview/configuration';
+import { isActiveTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents';
+import { getOpenTextEditorIfVisible } from '../system/-webview/vscode/editors';
 import { debug, logName } from '../system/decorators/log';
-import type { Deferrable } from '../system/function';
-import { debounce } from '../system/function';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
-import { configuration } from '../system/vscode/configuration';
-import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/vscode/utils';
 import type { DocumentBlameStateChangeEvent, GitDocumentTracker } from './documentTracker';
 
 interface CachedItem<T> {
@@ -19,7 +20,7 @@ interface CachedItem<T> {
 }
 
 export type CachedBlame = CachedItem<GitBlame>;
-export type CachedDiff = CachedItem<GitDiffFile>;
+export type CachedDiff = CachedItem<ParsedGitDiffHunks>;
 export type CachedLog = CachedItem<GitLog>;
 
 export class GitDocumentState {
@@ -63,7 +64,7 @@ export class GitDocumentState {
 		return this.logCache.get(key);
 	}
 
-	setBlame(key: string, value: CachedBlame | undefined) {
+	setBlame(key: string, value: CachedBlame | undefined): void {
 		if (value == null) {
 			this.blameCache.delete(key);
 			return;
@@ -71,7 +72,7 @@ export class GitDocumentState {
 		this.blameCache.set(key, value);
 	}
 
-	setDiff(key: string, value: CachedDiff | undefined) {
+	setDiff(key: string, value: CachedDiff | undefined): void {
 		if (value == null) {
 			this.diffCache.delete(key);
 			return;
@@ -79,7 +80,7 @@ export class GitDocumentState {
 		this.diffCache.set(key, value);
 	}
 
-	setLog(key: string, value: CachedLog | undefined) {
+	setLog(key: string, value: CachedLog | undefined): void {
 		if (value == null) {
 			this.logCache.delete(key);
 			return;
@@ -95,7 +96,7 @@ export interface TrackedGitDocumentStatus {
 	dirtyIdle?: boolean;
 }
 
-@logName<TrackedGitDocument>((c, name) => `${name}(${Logger.toLoggable(c.document)})`)
+@logName<TrackedGitDocument>(c => `TrackedGitDocument(${Logger.toLoggable(c.document)})`)
 export class TrackedGitDocument implements Disposable {
 	static async create(
 		container: Container,
@@ -104,7 +105,7 @@ export class TrackedGitDocument implements Disposable {
 		onDidBlameStateChange: (e: DocumentBlameStateChangeEvent) => void,
 		visible: boolean,
 		dirty: boolean,
-	) {
+	): Promise<TrackedGitDocument> {
 		const doc = new TrackedGitDocument(container, tracker, document, onDidBlameStateChange, dirty);
 		await doc.initialize(visible);
 		return doc;
@@ -127,7 +128,7 @@ export class TrackedGitDocument implements Disposable {
 		public dirty: boolean,
 	) {}
 
-	dispose() {
+	dispose(): void {
 		this.state = undefined;
 
 		this._disposed = true;
@@ -166,7 +167,7 @@ export class TrackedGitDocument implements Disposable {
 	}
 
 	private _forceDirtyStateChangeOnNextDocumentChange: boolean = false;
-	get forceDirtyStateChangeOnNextDocumentChange() {
+	get forceDirtyStateChangeOnNextDocumentChange(): boolean {
 		return this._forceDirtyStateChangeOnNextDocumentChange;
 	}
 
@@ -190,12 +191,12 @@ export class TrackedGitDocument implements Disposable {
 		};
 	}
 
-	is(document: TextDocument) {
+	is(document: TextDocument): boolean {
 		return document === this.document;
 	}
 
 	@debug()
-	refresh(reason: 'changed' | 'saved' | 'visible' | 'repositoryChanged') {
+	refresh(reason: 'changed' | 'saved' | 'visible' | 'repositoryChanged'): void {
 		if (this._pendingUpdates == null && reason === 'visible') return;
 
 		const scope = getLogScope();
@@ -221,16 +222,16 @@ export class TrackedGitDocument implements Disposable {
 		}
 
 		// Only update the active document immediately if this isn't a "visible" change, since visible changes need to be debounced (vscode fires too many)
-		if (isActiveDocument(this.document) && reason !== 'visible') {
+		if (isActiveTextDocument(this.document) && reason !== 'visible') {
 			void this.update();
-		} else if (isVisibleDocument(this.document)) {
+		} else if (isVisibleTextDocument(this.document)) {
 			this._updateDebounced ??= debounce(this.update.bind(this), 100);
 			void this._updateDebounced();
 		}
 	}
 
 	private _blameFailure: Error | undefined;
-	setBlameFailure(ex: Error) {
+	setBlameFailure(ex: Error): void {
 		const wasBlameable = this.blameable;
 
 		this._blameFailure = ex;
@@ -238,17 +239,17 @@ export class TrackedGitDocument implements Disposable {
 		if (wasBlameable) {
 			this._pendingUpdates = { ...this._pendingUpdates, reason: 'blame-failed', forceBlameChange: true };
 
-			if (isActiveDocument(this.document)) {
+			if (isActiveTextDocument(this.document)) {
 				void this.update();
 			}
 		}
 	}
 
-	resetForceDirtyStateChangeOnNextDocumentChange() {
+	resetForceDirtyStateChangeOnNextDocumentChange(): void {
 		this._forceDirtyStateChangeOnNextDocumentChange = false;
 	}
 
-	setForceDirtyStateChangeOnNextDocumentChange() {
+	setForceDirtyStateChangeOnNextDocumentChange(): void {
 		this._forceDirtyStateChangeOnNextDocumentChange = true;
 	}
 
@@ -274,7 +275,7 @@ export class TrackedGitDocument implements Disposable {
 
 		if (!this._loading && wasBlameable !== this.blameable) {
 			const e: DocumentBlameStateChangeEvent = {
-				editor: getEditorIfVisible(this.document),
+				editor: getOpenTextEditorIfVisible(this.document),
 				document: this,
 				blameable: this.blameable,
 			};
@@ -290,6 +291,6 @@ export async function createTrackedGitDocument(
 	onDidChangeBlameState: (e: DocumentBlameStateChangeEvent) => void,
 	visible: boolean,
 	dirty: boolean,
-) {
+): Promise<TrackedGitDocument> {
 	return TrackedGitDocument.create(container, tracker, document, onDidChangeBlameState, visible, dirty);
 }

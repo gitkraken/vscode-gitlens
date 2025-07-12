@@ -3,7 +3,8 @@ import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFileWithCommit } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
-import type { GitStatus, GitStatusFile } from '../../git/models/status';
+import type { GitStatus } from '../../git/models/status';
+import type { GitStatusFile } from '../../git/models/statusFile';
 import { makeHierarchical } from '../../system/array';
 import { filter, flatMap, groupBy, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -41,11 +42,11 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await this.view.container.git.getLog(repoPath, { limit: 0, ref: this.range });
+			log = await this.view.container.git.getRepositoryService(repoPath).commits.getLog(this.range, { limit: 0 });
 			if (log != null) {
 				await Promise.allSettled(
 					map(
-						filter(log.commits.values(), c => c.files == null),
+						filter(log.commits.values(), c => c.fileset?.files == null),
 						c => c.ensureFullDetails(),
 					),
 				);
@@ -53,7 +54,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 				files = [
 					...flatMap(
 						log.commits.values(),
-						c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
+						c => c.fileset?.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
 					),
 				];
 			}
@@ -97,12 +98,11 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 			this.view.type === 'worktrees' || this.view.config.includeWorkingTree ? this.status.files.length : 0;
 
 		if (this.range != null) {
-			if (this.status.upstream != null && this.status.state.ahead > 0) {
+			if (this.status.upstream?.state.ahead) {
 				if (files > 0) {
-					const aheadFiles = await this.view.container.git.getDiffStatus(
-						this.repoPath,
-						`${this.status.upstream?.name}...`,
-					);
+					const aheadFiles = await this.view.container.git
+						.getRepositoryService(this.repoPath)
+						.diff.getDiffStatus(`${this.status.upstream?.name}...`);
 
 					if (aheadFiles != null) {
 						const uniques = new Set();
@@ -116,12 +116,11 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 						files = uniques.size;
 					}
 				} else {
-					const stats = await this.view.container.git.getChangedFilesCount(
-						this.repoPath,
-						`${this.status.upstream?.name}...`,
-					);
+					const stats = await this.view.container.git
+						.getRepositoryService(this.repoPath)
+						.diff.getChangedFilesCount(`${this.status.upstream?.name}...`);
 					if (stats != null) {
-						files += stats.changedFiles;
+						files += stats.files;
 					} else {
 						files = -1;
 					}

@@ -2,14 +2,17 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import { Commands } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
+import type { GitCommit } from '../../git/models/commit';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { getGitFileStatusIcon, isGitFileChange } from '../../git/models/file';
-import { shortenRevision } from '../../git/models/reference';
+import { isGitFileChange } from '../../git/models/fileChange';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { shortenRevision } from '../../git/utils/revision.utils';
+import { createCommand } from '../../system/-webview/command';
+import { relativeDir } from '../../system/-webview/path';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
-import { relativeDir } from '../../system/vscode/path';
 import type { ViewsWithCommits } from '../viewBase';
 import { getFileTooltip, ViewFileNode } from './abstract/viewFileNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -140,7 +143,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description == null) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -157,7 +160,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName == null) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -165,7 +168,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label == null) {
 			this._label = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.label,
@@ -181,7 +184,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 		return this._label;
 	}
 
-	get commit() {
+	get commit(): GitCommit {
 		return this._files[0]?.commit;
 	}
 
@@ -204,20 +207,17 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 
 	override getCommand(): Command | undefined {
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this._files.length === 1) {
-			const commandArgs: DiffWithPreviousCommandArgs = {
-				commit: this.commit,
-				uri: GitUri.fromFile(this.file, this.repoPath),
-				line: 0,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
+			return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+				'gitlens.diffWithPrevious',
+				'Open Changes with Previous Revision',
+				undefined,
+				{
+					commit: this.commit,
+					uri: GitUri.fromFile(this.file, this.repoPath),
+					range: editorLineToDiffRange(0),
+					showOptions: { preserveFocus: true, preview: true },
 				},
-			};
-			return {
-				title: 'Open Changes with Previous Revision',
-				command: Commands.DiffWithPrevious,
-				arguments: [undefined, commandArgs],
-			};
+			);
 		}
 
 		let commandArgs: DiffWithCommandArgs;
@@ -231,7 +231,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 					lhs: {
 						sha: `${lhs.sha}^`,
 						uri: GitUri.fromFile(
-							lhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							lhs.fileset?.files?.find(f => f.path === this.file.path) ?? this.file.path,
 							this.repoPath,
 							`${lhs.sha}^`,
 							true,
@@ -240,23 +240,20 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 					rhs: {
 						sha: rhs.sha,
 						uri: GitUri.fromFile(
-							rhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							rhs.fileset?.files?.find(f => f.path === this.file.path) ?? this.file.path,
 							this.repoPath,
 							rhs.sha,
 						),
 					},
 					repoPath: this.repoPath,
-					line: 0,
-					showOptions: {
-						preserveFocus: true,
-						preview: true,
-					},
+					range: editorLineToDiffRange(0),
+					showOptions: { preserveFocus: true, preview: true },
 				};
 				break;
 			}
 			default: {
 				const commit = this._files[this._files.length - 1].commit;
-				const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
+				const file = commit.fileset?.files?.find(f => f.path === this.file.path) ?? this.file;
 				commandArgs = {
 					lhs: {
 						sha: `${commit.sha}^`,
@@ -267,7 +264,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 						uri: GitUri.fromFile(this.file, this.repoPath),
 					},
 					repoPath: this.repoPath,
-					line: 0,
+					range: editorLineToDiffRange(0),
 					showOptions: {
 						preserveFocus: true,
 						preview: true,
@@ -277,10 +274,6 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 			}
 		}
 
-		return {
-			title: 'Open Changes',
-			command: Commands.DiffWith,
-			arguments: [commandArgs],
-		};
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', commandArgs);
 	}
 }

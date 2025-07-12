@@ -1,13 +1,15 @@
 import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
-import { getLines } from '../../system/string';
+import { iterateByDelimiter } from '../../system/string';
 import type { GitBlame, GitBlameAuthor } from '../models/blame';
 import type { GitCommitLine } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
-import { uncommitted } from '../models/constants';
-import { GitFileChange, GitFileIndexStatus } from '../models/file';
-import { isUncommitted } from '../models/reference';
+import { GitFileChange } from '../models/fileChange';
+import { GitFileIndexStatus } from '../models/fileStatus';
+import { uncommitted } from '../models/revision';
 import type { GitUser } from '../models/user';
+import { isUncommitted } from '../utils/revision.utils';
+import { isUserMatch } from '../utils/user.utils';
 
 interface BlameEntry {
 	sha: string;
@@ -42,7 +44,10 @@ export function parseGitBlame(
 	modifiedTime?: number,
 ): GitBlame | undefined {
 	using sw = maybeStopWatch(`Git.parseBlame(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const authors = new Map<string, GitBlameAuthor>();
 	const commits = new Map<string, GitCommit>();
@@ -53,7 +58,7 @@ export function parseGitBlame(
 	let line: string;
 	let lineParts: string[];
 
-	for (line of getLines(data)) {
+	for (line of iterateByDelimiter(data, '\n')) {
 		lineParts = line.split(' ');
 		if (lineParts.length < 2) continue;
 
@@ -201,20 +206,12 @@ function parseBlameEntry(
 	commits: Map<string, GitCommit>,
 	authors: Map<string, GitBlameAuthor>,
 	lines: GitCommitLine[],
-	currentUser: { name?: string; email?: string } | undefined,
+	currentUser: GitUser | undefined,
 ) {
 	let commit = commits.get(entry.sha);
 	if (commit == null) {
 		if (entry.author != null) {
-			if (
-				currentUser != null &&
-				// Name or e-mail is configured
-				(currentUser.name != null || currentUser.email != null) &&
-				// Match on name if configured
-				(currentUser.name == null || currentUser.name === entry.author) &&
-				// Match on email if configured
-				(currentUser.email == null || currentUser.email === entry.authorEmail)
-			) {
+			if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
 				entry.author = 'You';
 			}
 
@@ -228,6 +225,10 @@ function parseBlameEntry(
 			}
 		}
 
+		if (entry.committer != null && isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
+			entry.committer = 'You';
+		}
+
 		commit = new GitCommit(
 			container,
 			repoPath,
@@ -237,13 +238,22 @@ function parseBlameEntry(
 			entry.summary!,
 			[],
 			undefined,
-			new GitFileChange(
-				repoPath,
-				entry.path,
-				GitFileIndexStatus.Modified,
-				entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
-				entry.previousSha,
-			),
+			{
+				files: undefined,
+				filtered: {
+					files: [
+						new GitFileChange(
+							container,
+							repoPath,
+							entry.path,
+							GitFileIndexStatus.Modified,
+							entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
+							entry.previousSha,
+						),
+					],
+					pathspec: entry.path,
+				},
+			},
 			undefined,
 			[],
 		);

@@ -1,21 +1,20 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { copyMessageToClipboard } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
 import { first } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import {
-	ActiveEditorCommand,
-	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
-} from './base';
+} from './commandContext.utils';
 
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;
@@ -26,10 +25,13 @@ export interface CopyMessageToClipboardCommandArgs {
 @command()
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.CopyMessageToClipboard);
+		super('gitlens.copyMessageToClipboard');
 	}
 
-	protected override async preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
+	protected override async preExecute(
+		context: CommandContext,
+		args?: CopyMessageToClipboardCommandArgs,
+	): Promise<void> {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
@@ -55,7 +57,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyMessageToClipboardCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyMessageToClipboardCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 
@@ -66,14 +68,12 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 					return;
 				}
 
-				let repoPath;
-
 				// If we don't have an editor then get the message of the last commit to the branch
 				if (uri == null) {
-					repoPath = this.container.git.getBestRepository(editor)?.path;
-					if (!repoPath) return;
+					const repo = this.container.git.getBestRepository(editor);
+					if (repo == null) return;
 
-					const log = await this.container.git.getLog(repoPath, { limit: 1 });
+					const log = await repo.git.commits.getLog(undefined, { limit: 1 });
 					if (log == null) return;
 
 					const commit = first(log.commits.values());
@@ -82,7 +82,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 					args.message = commit.message;
 				} else if (args.message == null) {
 					const gitUri = await GitUri.fromUri(uri);
-					repoPath = gitUri.repoPath;
+					const repoPath = gitUri.repoPath;
 					if (!repoPath) return;
 
 					if (args.sha == null) {

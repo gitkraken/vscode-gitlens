@@ -5,92 +5,104 @@ import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
-import { DidFocusAccount } from '../../home/protocol';
-import { OverviewState, overviewStateContext } from '../plus/home/components/overviewState';
-import type { GLHomeAccountContent } from '../plus/shared/components/home-account-content';
-import { GlApp } from '../shared/app';
+import { DidChangeSubscription, DidFocusAccount } from '../../home/protocol';
+import {
+	ActiveOverviewState,
+	activeOverviewStateContext,
+	InactiveOverviewState,
+	inactiveOverviewStateContext,
+} from '../plus/home/components/overviewState';
+import type { GlHomeHeader } from '../plus/shared/components/home-header';
+import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
-import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
+import type { GlAiAllAccessBanner } from './components/ai-all-access-banner';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
-import '../plus/shared/components/home-account-content';
+import '../plus/shared/components/home-header';
 import '../plus/home/components/active-work';
 import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
+import './components/ai-all-access-banner';
+import './components/ama-banner';
 import './components/integration-banner';
-import './components/onboarding';
 import './components/preview-banner';
 import './components/promo-banner';
 import './components/repo-alerts';
+import '../shared/components/banner/banner';
 
 @customElement('gl-home-app')
-export class GlHomeApp extends GlApp<State> {
+export class GlHomeApp extends GlAppHost<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
-	private disposable: Disposable[] = [];
 
-	@provide({ context: overviewStateContext })
-	private _overviewState!: OverviewState;
+	@provide({ context: activeOverviewStateContext })
+	private _activeOverviewState!: ActiveOverviewState;
 
-	@query('#account-content')
-	private accountContentEl!: GLHomeAccountContent;
+	@provide({ context: inactiveOverviewStateContext })
+	private _inactiveOverviewState!: InactiveOverviewState;
+
+	@query('gl-home-header')
+	private _header!: GlHomeHeader;
+
+	@query('gl-ai-all-access-banner')
+	private allAccessPromoBanner!: GlAiAllAccessBanner;
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
-	protected override createStateProvider(state: State, ipc: HostIpc) {
-		this.disposable.push((this._overviewState = new OverviewState(ipc)));
+	protected override createStateProvider(state: State, ipc: HostIpc): HomeStateProvider {
+		this.disposables.push((this._activeOverviewState = new ActiveOverviewState(ipc)));
+		this.disposables.push((this._inactiveOverviewState = new InactiveOverviewState(ipc)));
 
 		return new HomeStateProvider(this, state, ipc);
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
-		this.disposable.push(
+		this.disposables.push(
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidFocusAccount.is(msg):
-						this.accountContentEl.show();
+						this._header.show();
+						break;
+					case DidChangeSubscription.is(msg):
+						this._header.refreshPromo();
+						this.refreshAiAllAccessPromo();
 						break;
 				}
 			}),
 		);
 	}
 
-	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-
-		this.disposable.forEach(d => d.dispose());
-	}
-
-	override render() {
+	override render(): unknown {
 		return html`
 			<div class="home scrollable">
-				<aside class="home__aux">
-					<gl-promo-banner></gl-promo-banner>
-					${when(!this.state.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
-				</aside>
+				<gl-home-header class="home__header"></gl-home-header>
+				${when(!this.state?.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
+				${when(this.state?.amaBannerCollapsed === false, () => html`<gl-ama-banner></gl-ama-banner>`)}
 				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
-					<gl-onboarding></gl-onboarding>
 					${when(
 						this.state?.previewEnabled === true,
 						() => html`
 							<gl-preview-banner></gl-preview-banner>
-							<gl-integration-banner></gl-integration-banner>
+							<gl-ai-all-access-banner></gl-ai-all-access-banner>
 							<gl-active-work></gl-active-work>
 							<gl-launchpad></gl-launchpad>
 							<gl-overview></gl-overview>
 						`,
-						() => html`<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>`,
+						() => html`
+							<gl-ai-all-access-banner></gl-ai-all-access-banner>
+							<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
+						`,
 					)}
 				</main>
-
-				<footer class="home__footer">
-					<gl-home-account-content id="account-content"> </gl-home-account-content>
-				</footer>
 			</div>
 		`;
+	}
+
+	refreshAiAllAccessPromo(): void {
+		this.allAccessPromoBanner?.requestUpdate();
 	}
 }

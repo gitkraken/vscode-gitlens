@@ -1,22 +1,25 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
+import type { DiffRange } from '../git/gitProvider';
 import { GitUri } from '../git/gitUri';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/constants';
-import { createReference } from '../git/models/reference';
+import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
+import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
+import { command, executeCommand } from '../system/-webview/command';
+import { getOrOpenTextEditor, selectionToDiffRange } from '../system/-webview/vscode/editors';
+import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import { findOrOpenEditor } from '../system/vscode/utils';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { areUrisEqual } from '../system/uri';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithWorkingCommandArgs {
-	inDiffRightEditor?: boolean;
 	uri?: Uri;
-	line?: number;
+
+	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
 	lhsTitle?: string;
 }
@@ -24,7 +27,7 @@ export interface DiffWithWorkingCommandArgs {
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.DiffWithWorking, Commands.DiffWithWorkingInDiffLeft, Commands.DiffWithWorkingInDiffRight]);
+		super('gitlens.diffWithWorking');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {
@@ -35,20 +38,26 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 		} else {
 			uri = args.uri;
 		}
+		args.range ??= selectionToDiffRange(editor?.selection);
 
 		let gitUri = await GitUri.fromUri(uri);
+		let isInRightSideOfDiffEditor = false;
 
-		if (args.line == null) {
-			args.line = editor?.selection.active.line ?? 0;
+		// Figure out if we are in a diff editor and if so, which side
+		const [tab] = getVisibleTabs(uri);
+		if (tab != null) {
+			const uris = getTabUris(tab);
+			// If there is an original, then we are in a diff editor -- modified is right, original is left
+			if (uris.original != null && areUrisEqual(uri, uris.modified)) {
+				isInRightSideOfDiffEditor = true;
+			}
 		}
 
-		if (args.inDiffRightEditor) {
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
+
+		if (isInRightSideOfDiffEditor) {
 			try {
-				const diffUris = await this.container.git.getPreviousComparisonUris(
-					gitUri.repoPath!,
-					gitUri,
-					gitUri.sha,
-				);
+				const diffUris = await svc.diff.getPreviousComparisonUris(gitUri, gitUri.sha);
 				gitUri = diffUris?.previous ?? gitUri;
 			} catch (ex) {
 				Logger.error(
@@ -76,19 +85,13 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If we are a fake "staged" sha, check the status
 		if (gitUri.isUncommittedStaged) {
-			const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri);
+			const status = await svc.status.getStatusForFile?.(gitUri, { renames: false });
 			if (status?.indexStatus != null) {
-				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 					repoPath: gitUri.repoPath,
-					lhs: {
-						sha: uncommittedStaged,
-						uri: gitUri.documentUri(),
-					},
-					rhs: {
-						sha: '',
-						uri: gitUri.documentUri(),
-					},
-					line: args.line,
+					lhs: { sha: uncommittedStaged, uri: gitUri.documentUri() },
+					rhs: { sha: '', uri: gitUri.documentUri() },
+					range: args.range,
 					showOptions: args.showOptions,
 				}));
 
@@ -98,9 +101,9 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		uri = gitUri.toFileUri();
 
-		let workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
+		let workingUri = await svc.getWorkingUri(uri);
 		if (workingUri == null) {
-			const pickedUri = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
+			const picked = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
 				ignoreFocusOut: true,
 				initialPath: gitUri.relativePath,
 				title: `Open File \u2022 Unable to open '${gitUri.relativePath}'`,
@@ -108,16 +111,16 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (_key, uri) => {
-						await findOrOpenEditor(uri, { ...args.showOptions, preserveFocus: true, preview: true });
+						await getOrOpenTextEditor(uri, { ...args.showOptions, preserveFocus: true, preview: true });
 					},
 				},
 			});
-			if (pickedUri == null) return;
+			if (picked == null) return;
 
-			workingUri = pickedUri;
+			workingUri = picked?.uri;
 		}
 
-		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+		void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 			repoPath: gitUri.repoPath,
 			lhs: {
 				sha: gitUri.sha,
@@ -128,7 +131,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 				sha: '',
 				uri: workingUri,
 			},
-			line: args.line,
+			range: args.range,
 			showOptions: args.showOptions,
 		}));
 	}

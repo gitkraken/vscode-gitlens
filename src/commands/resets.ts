@@ -1,19 +1,21 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import { resetAvatarCache } from '../avatars';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
-import { command } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { Command } from './base';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { GlCommandBase } from './commandBase';
 
 const resetTypes = [
 	'ai',
+	'ai:confirmations',
 	'avatars',
+	'homeSections',
 	'integrations',
 	'previews',
+	'promoOptIns',
 	'repositoryAccess',
 	'subscription',
 	'suppressedWarnings',
@@ -23,11 +25,11 @@ const resetTypes = [
 type ResetType = 'all' | (typeof resetTypes)[number];
 
 @command()
-export class ResetCommand extends Command {
+export class ResetCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.Reset);
+		super('gitlens.reset');
 	}
-	async execute() {
+	async execute(): Promise<void> {
 		type ResetQuickPickItem = QuickPickItemOfT<ResetType>;
 
 		const items: ResetQuickPickItem[] = [
@@ -37,9 +39,19 @@ export class ResetCommand extends Command {
 				item: 'ai',
 			},
 			{
+				label: 'AI Confirmations...',
+				detail: 'Clears any accepted AI confirmations',
+				item: 'ai:confirmations',
+			},
+			{
 				label: 'Avatars...',
 				detail: 'Clears the stored avatar cache',
 				item: 'avatars',
+			},
+			{
+				label: 'Home Sections...',
+				detail: 'Clears dismissed home view banners and sections',
+				item: 'homeSections',
 			},
 			{
 				label: 'Integrations (Authentication)...',
@@ -88,6 +100,11 @@ export class ResetCommand extends Command {
 					detail: 'Resets the stored state for feature previews',
 					item: 'previews',
 				},
+				{
+					label: 'Promo Opt-Ins...',
+					detail: 'Clears any locally stored promo opt-ins',
+					item: 'promoOptIns',
+				},
 			);
 		}
 
@@ -112,6 +129,10 @@ export class ResetCommand extends Command {
 				confirmationMessage = 'Are you sure you want to reset all of the stored AI keys?';
 				confirm.title = 'Reset AI Keys';
 				break;
+			case 'ai:confirmations':
+				confirmationMessage = 'Are you sure you want to reset all AI confirmations?';
+				confirm.title = 'Reset AI Confirmations';
+				break;
 			case 'avatars':
 				confirmationMessage = 'Are you sure you want to reset the avatar cache?';
 				confirm.title = 'Reset Avatars';
@@ -123,6 +144,10 @@ export class ResetCommand extends Command {
 			case 'previews':
 				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
 				confirm.title = 'Reset Feature Previews';
+				break;
+			case 'promoOptIns':
+				confirmationMessage = 'Are you sure you want to reset all of the locally stored promo opt-ins?';
+				confirm.title = 'Reset Promo Opt-Ins';
 				break;
 			case 'repositoryAccess':
 				confirmationMessage = 'Are you sure you want to reset the repository access cache?';
@@ -170,15 +195,28 @@ export class ResetCommand extends Command {
 				break;
 
 			case 'ai':
-				await (await this.container.ai)?.reset(true);
+				await this.container.ai.reset(true);
+				break;
+
+			case 'ai:confirmations':
+				this.container.ai.resetConfirmations();
 				break;
 
 			case 'avatars':
 				resetAvatarCache('all');
 				break;
 
+			case 'homeSections':
+				await this.container.storage.delete('home:sections:collapsed');
+				await this.container.storage.delete('home:walkthrough:dismissed');
+				break;
+
 			case 'integrations':
 				await this.container.integrations.reset();
+				break;
+
+			case 'promoOptIns':
+				await this.container.storage.deleteWithPrefix('gk:promo');
 				break;
 
 			case 'repositoryAccess':
@@ -209,16 +247,5 @@ export class ResetCommand extends Command {
 				}
 				break;
 		}
-	}
-}
-
-@command()
-export class ResetAIKeyCommand extends Command {
-	constructor(private readonly container: Container) {
-		super(Commands.ResetAIKey);
-	}
-
-	async execute() {
-		await (await this.container.ai)?.reset();
 	}
 }

@@ -1,5 +1,5 @@
-import type { GitFileStatus } from '../../../../../git/models/file';
-import type { DraftPatchFileChange } from '../../../../../gk/models/drafts';
+import type { GitFileStatus } from '../../../../../git/models/fileStatus';
+import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts';
 
 export interface TreeItemBase {
 	// node properties

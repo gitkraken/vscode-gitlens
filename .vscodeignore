@@ -7,8 +7,7 @@
 .yarn/**
 docs/**
 emoji/**
-images/docs/sponsors/**
-images/docs/gitlens-preview.gif
+images/docs
 images/icons/**
 images/originals/**
 node_modules/**
@@ -17,7 +16,6 @@ patches/**
 resources/**
 scripts/**
 src/**
-test/**
 tests/**
 **/*.map
 **/*.pdn
@@ -38,6 +36,10 @@ tests/**
 BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
+contributions.json
+contributions.schema.json
+custom-elements.json
+custom-elements-manifest.config.mjs
 eslint.config.mjs
 pnpm-lock.yaml
 README.pre.md
@@ -46,3 +48,4 @@ tsconfig*.json
 tsconfig*.tsbuildinfo
 webpack.config*.mjs
 yarn.lock
+.wdio-vscode-service

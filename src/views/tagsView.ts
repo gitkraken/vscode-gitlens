@@ -1,22 +1,24 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitTagReference } from '../git/models/reference';
-import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { gate } from '../system/decorators/gate';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { getReferenceLabel } from '../git/utils/reference.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { TagsNode } from './nodes/tagsNode';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
@@ -28,7 +30,7 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 		return this.child.getChildren();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		return e.changed(RepositoryChange.Tags, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
 	}
 }
@@ -39,31 +41,31 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			if (this.view.container.git.isDiscoveringRepositories) {
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (!repositories.length) {
+				this.view.message = 'No tags could be found.';
+				return [];
+			}
+
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
 			}
 
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading tags...'
-					: 'No tags could be found.';
-
-				return [];
-			}
-
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const tags = await child.repo.git.getTags();
-			if (tags.values.length === 0) {
+			const tags = await child.repo.git.tags.getTags();
+			if (!tags.values.length) {
 				this.view.message = 'No tags could be found.';
 				void child.ensureSubscription();
 
@@ -87,7 +89,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'tags', 'Tags', 'tagsView', grouped);
 	}
 
@@ -96,10 +98,10 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
-	protected getRoot() {
+	protected getRoot(): TagsViewNode {
 		return new TagsViewNode(this);
 	}
 
@@ -107,7 +109,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(
@@ -140,7 +142,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -161,7 +163,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		return true;
 	}
 
-	findTag(tag: GitTagReference, token?: CancellationToken) {
+	findTag(tag: GitTagReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = tag;
 
 		return this.findNode((n: any) => n.tag?.ref === tag.ref, {
@@ -181,10 +183,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
@@ -198,14 +197,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	revealTag(
-		tag: GitTagReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
+	async revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -219,7 +211,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

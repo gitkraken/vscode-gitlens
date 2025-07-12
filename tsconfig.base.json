@@ -1,14 +1,16 @@
 {
 	"compilerOptions": {
+		"allowUnreachableCode": false,
 		"baseUrl": ".",
 		"esModuleInterop": true,
 		"experimentalDecorators": true,
 		"forceConsistentCasingInFileNames": true,
 		"incremental": true,
 		"isolatedModules": true,
-		"lib": ["es2022", "esnext.disposable"],
+		"lib": ["es2023"],
+		"libReplacement": false,
 		"module": "esnext",
-		"moduleResolution": "Bundler",
+		"moduleResolution": "bundler",
 		"noFallthroughCasesInSwitch": true,
 		"noImplicitOverride": true,
 		"noImplicitReturns": true,
@@ -19,7 +21,7 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"target": "es2022",
+		"target": "es2023",
 		"useDefineForClassFields": true,
 		"useUnknownInCatchVariables": false
 	}

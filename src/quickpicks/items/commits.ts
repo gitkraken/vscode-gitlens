@@ -4,15 +4,36 @@ import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyCha
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../commands/quickCommand.buttons';
 import type { Keys } from '../../constants';
 import { GlyphChars } from '../../constants';
-import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
 import { browseAtRevision } from '../../git/actions';
-import * as CommitActions from '../../git/actions/commit';
+import {
+	applyChanges,
+	copyIdToClipboard,
+	copyMessageToClipboard,
+	explainCommit,
+	openChanges,
+	openChangesInDiffTool,
+	openChangesWithWorking,
+	openCommitChanges,
+	openCommitChangesInDiffTool,
+	openCommitChangesWithWorking,
+	openDirectoryCompareWithPrevious,
+	openDirectoryCompareWithWorking,
+	openFile,
+	openFileAtRevision,
+	openFiles,
+	openFilesAtRevision,
+	restoreFile,
+	showCommitInDetailsView,
+	showCommitInGraph,
+} from '../../git/actions/commit';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
-import type { GitFile, GitFileChange } from '../../git/models/file';
-import { getGitFileFormattedDirectory, getGitFileStatusThemeIcon } from '../../git/models/file';
-import type { GitStatusFile } from '../../git/models/status';
+import type { GitFile } from '../../git/models/file';
+import type { GitFileChange } from '../../git/models/fileChange';
+import type { GitStatusFile } from '../../git/models/statusFile';
+import { getGitFileFormattedDirectory } from '../../git/utils/-webview/file.utils';
+import { getGitFileStatusThemeIcon } from '../../git/utils/-webview/icons';
 import { basename } from '../../system/path';
 import { pad } from '../../system/string';
 import type { CompareResultsNode } from '../../views/nodes/compareResultsNode';
@@ -36,16 +57,14 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 				}`,
 				detail: `${
 					options?.file != null
-						? `$(file) ${basename(options.file.path)}${options.file.formatStats({
-								expand: true,
+						? `$(file) ${basename(options.file.path)}${options.file.formatStats('expanded', {
 								separator: ', ',
 								prefix: ` ${GlyphChars.Dot} `,
-						  })}`
-						: `$(files) ${commit.formatStats({
-								expand: true,
+							})}`
+						: `$(files) ${commit.formatStats('expanded', {
 								separator: ', ',
 								empty: 'No files changed',
-						  })}`
+							})}`
 				}${options?.hint != null ? `${pad(GlyphChars.Dash, 4, 2, GlyphChars.Space)}${options.hint}` : ''}`,
 				alwaysShow: true,
 				picked: options?.picked ?? true,
@@ -85,7 +104,7 @@ export class CommitFileQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openChanges(this.file, this.commit, options);
+		return openChanges(this.file, this.commit, options);
 		// const fileCommit = await this.commit.getCommitForFile(this.file)!;
 
 		// if (fileCommit.previousSha === undefined) {
@@ -156,7 +175,7 @@ export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.copyIdToClipboard(this.commit);
+		return copyIdToClipboard(this.commit);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
@@ -171,7 +190,7 @@ export class CommitCopyMessageQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.copyMessageToClipboard(this.commit);
+		return copyMessageToClipboard(this.commit);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
@@ -188,7 +207,7 @@ export class CommitOpenAllChangesCommandQuickPickItem extends CommandQuickPickIt
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openAllChanges(this.commit, options);
+		return openCommitChanges(Container.instance, this.commit, undefined, options);
 	}
 }
 
@@ -198,7 +217,7 @@ export class CommitOpenAllChangesWithDiffToolCommandQuickPickItem extends Comman
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.openAllChangesWithDiffTool(this.commit);
+		return openCommitChangesInDiffTool(this.commit);
 	}
 }
 
@@ -208,7 +227,7 @@ export class CommitOpenAllChangesWithWorkingCommandQuickPickItem extends Command
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openAllChangesWithWorking(this.commit, options);
+		return openCommitChangesWithWorking(Container.instance, this.commit, undefined, options);
 	}
 }
 
@@ -221,7 +240,7 @@ export class CommitOpenChangesCommandQuickPickItem extends CommandQuickPickItem 
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openChanges(this.file, this.commit, options);
+		return openChanges(this.file, this.commit, options);
 	}
 }
 
@@ -234,7 +253,7 @@ export class CommitOpenChangesWithDiffToolCommandQuickPickItem extends CommandQu
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.openChangesWithDiffTool(this.file, this.commit);
+		return openChangesInDiffTool(this.file, this.commit);
 	}
 }
 
@@ -247,7 +266,7 @@ export class CommitOpenChangesWithWorkingCommandQuickPickItem extends CommandQui
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openChangesWithWorking(this.file, this.commit, options);
+		return openChangesWithWorking(this.file, this.commit, options);
 	}
 }
 
@@ -257,7 +276,7 @@ export class CommitOpenDirectoryCompareCommandQuickPickItem extends CommandQuick
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.openDirectoryCompareWithPrevious(this.commit);
+		return openDirectoryCompareWithPrevious(this.commit);
 	}
 }
 
@@ -267,7 +286,7 @@ export class CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem extends C
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.openDirectoryCompareWithWorking(this.commit);
+		return openDirectoryCompareWithWorking(this.commit);
 	}
 }
 
@@ -277,7 +296,7 @@ export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem 
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.showDetailsView(this.commit, { preserveFocus: options?.preserveFocus });
+		return showCommitInDetailsView(this.commit, { preserveFocus: options?.preserveFocus });
 	}
 }
 
@@ -287,7 +306,17 @@ export class CommitOpenInGraphCommandQuickPickItem extends CommandQuickPickItem 
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.showInCommitGraph(this.commit, { preserveFocus: options?.preserveFocus });
+		return showCommitInGraph(this.commit, { preserveFocus: options?.preserveFocus });
+	}
+}
+
+export class CommitExplainCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitCommit) {
+		super('Explain Changes', new ThemeIcon('sparkle'));
+	}
+
+	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return explainCommit(this.commit, { source: { source: 'commandPalette' } });
 	}
 }
 
@@ -297,7 +326,7 @@ export class CommitOpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openFiles(this.commit);
+		return openFiles(this.commit);
 	}
 }
 
@@ -310,7 +339,7 @@ export class CommitOpenFileCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openFile(this.file, this.commit, options);
+		return openFile(this.file, this.commit, options);
 	}
 }
 
@@ -320,7 +349,7 @@ export class CommitOpenRevisionsCommandQuickPickItem extends CommandQuickPickIte
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openFilesAtRevision(this.commit);
+		return openFilesAtRevision(this.commit);
 	}
 }
 
@@ -333,7 +362,7 @@ export class CommitOpenRevisionCommandQuickPickItem extends CommandQuickPickItem
 	}
 
 	override execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.openFileAtRevision(this.file, this.commit, options);
+		return openFileAtRevision(this.file, this.commit, options);
 	}
 }
 
@@ -346,7 +375,7 @@ export class CommitApplyFileChangesCommandQuickPickItem extends CommandQuickPick
 	}
 
 	override async execute(): Promise<void> {
-		return CommitActions.applyChanges(this.file, this.commit);
+		return applyChanges(this.file, this.commit);
 	}
 }
 
@@ -362,7 +391,7 @@ export class CommitRestoreFileChangesCommandQuickPickItem extends CommandQuickPi
 	}
 
 	override execute(): Promise<void> {
-		return CommitActions.restoreFile(this.file, this.commit);
+		return restoreFile(this.file, this.commit);
 	}
 }
 
@@ -372,7 +401,7 @@ export class OpenChangedFilesCommandQuickPickItem extends CommandQuickPickItem {
 			uris: files.map(f => f.uri),
 		};
 
-		super(label ?? 'Open All Changed Files', new ThemeIcon('files'), Commands.OpenChangedFiles, [commandArgs]);
+		super(label ?? 'Open All Changed Files', new ThemeIcon('files'), 'gitlens.openChangedFiles', [commandArgs]);
 	}
 }
 
@@ -382,7 +411,7 @@ export class OpenOnlyChangedFilesCommandQuickPickItem extends CommandQuickPickIt
 			uris: files.map(f => f.uri),
 		};
 
-		super(label ?? 'Open Changed & Close Unchanged Files', new ThemeIcon('files'), Commands.OpenOnlyChangedFiles, [
+		super(label ?? 'Open Changed & Close Unchanged Files', new ThemeIcon('files'), 'gitlens.openOnlyChangedFiles', [
 			commandArgs,
 		]);
 	}

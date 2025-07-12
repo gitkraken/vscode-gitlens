@@ -2,7 +2,8 @@
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
 import type { AutolinkConfig } from '../../../config';
-import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import type { IssuesCloudHostIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import { createCommandLink } from '../../../system/commands';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
@@ -15,7 +16,7 @@ import {
 import { App } from '../shared/appBase';
 import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
-// import { Snow } from '../shared/snow';
+import type { Disposable } from '../shared/events';
 import '../shared/components/feature-badge';
 import '../shared/components/gitlens-logo';
 
@@ -38,7 +39,7 @@ export class SettingsApp extends App<State> {
 		super('SettingsApp');
 	}
 
-	protected override onInitialize() {
+	protected override onInitialize(): void {
 		// Add scopes if available
 		const scopes = document.getElementById('scopes') as HTMLSelectElement;
 		if (scopes != null && this.state.scopes.length > 1) {
@@ -85,7 +86,7 @@ export class SettingsApp extends App<State> {
 		}
 	}
 
-	protected override onBind() {
+	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 
 		disposables.push(
@@ -137,7 +138,7 @@ export class SettingsApp extends App<State> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(msg: IpcMessage) {
+	protected override onMessageReceived(msg: IpcMessage): void {
 		switch (true) {
 			case DidOpenAnchorNotification.is(msg):
 				this.scrollToAnchor(msg.params.anchor, msg.params.scrollBehavior);
@@ -804,15 +805,18 @@ export class SettingsApp extends App<State> {
 		if ($root == null) return;
 
 		const { hasAccount, hasConnectedJira } = this.state;
-		let message = `<a href="command:gitlens.plus.cloudIntegrations.connect?${encodeURIComponent(
-			JSON.stringify({
-				integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
-				source: 'settings',
-				detail: {
-					action: 'connect',
-					integration: 'jira',
+		let message = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+			'gitlens.plus.cloudIntegrations.connect',
+			{
+				integrationIds: ['jira' as IssuesCloudHostIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+				source: {
+					source: 'settings',
+					detail: {
+						action: 'connect',
+						integration: 'jira',
+					},
 				},
-			} satisfies ConnectCloudIntegrationsCommandArgs),
+			},
 		)}">Connect to Jira Cloud</a> &mdash; ${
 			hasAccount ? '' : 'sign up and '
 		}get access to automatic rich Jira autolinks.`;
@@ -1014,4 +1018,3 @@ function fromCheckboxValue(elementValue: unknown) {
 }
 
 new SettingsApp();
-// requestAnimationFrame(() => new Snow());

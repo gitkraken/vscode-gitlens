@@ -8,6 +8,7 @@ export const baseStyles = css`
     */
 
 	.indicator {
+		box-sizing: border-box;
 		display: inline-block;
 		border-radius: calc(var(--gl-indicator-size, 0.8rem) * 2);
 		width: var(--gl-indicator-size, 0.8rem);

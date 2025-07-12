@@ -1,5 +1,6 @@
 import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
+import type { GlCommands } from '../constants.commands';
 import type { Source, TelemetryEvents, TelemetryEventsFromWebviewApp } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
@@ -9,7 +10,8 @@ import type {
 	WebviewViewIds,
 	WebviewViewTypes,
 } from '../constants.views';
-import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/vscode/configuration';
+import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
 
@@ -79,10 +81,22 @@ export interface WebviewFocusChangedParams {
 export const WebviewFocusChangedCommand = new IpcCommand<WebviewFocusChangedParams>('core', 'webview/focus/changed');
 
 export interface ExecuteCommandParams {
-	command: string;
-	args?: [];
+	command: GlCommands;
+	args?: unknown[];
 }
 export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'command/execute');
+
+export interface ApplicablePromoRequestParams {
+	plan?: PromoPlans;
+	location?: PromoLocation;
+}
+export interface ApplicablePromoResponse {
+	promo: Promo | undefined;
+}
+export const ApplicablePromoRequest = new IpcRequest<ApplicablePromoRequestParams, ApplicablePromoResponse>(
+	'core',
+	'promos/applicable',
+);
 
 export interface UpdateConfigurationParams {
 	changes: {
@@ -105,6 +119,28 @@ export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams
 
 // NOTIFICATIONS
 
+export interface IpcPromise {
+	__ipc: 'promise';
+	__promise: Promise<unknown>;
+	id: string;
+	method: string;
+}
+
+export function isIpcPromise(value: unknown): value is IpcPromise {
+	return (
+		value != null &&
+		typeof value === 'object' &&
+		'__ipc' in value &&
+		value.__ipc === 'promise' &&
+		'id' in value &&
+		typeof value.id === 'string' &&
+		'method' in value &&
+		typeof value.method === 'string'
+	);
+}
+
+export const ipcPromiseSettled = new IpcNotification<PromiseSettledResult<unknown>>('core', 'ipc/promise/settled');
+
 export interface DidChangeHostWindowFocusParams {
 	focused: boolean;
 }
@@ -119,6 +155,14 @@ export interface DidChangeWebviewFocusParams {
 export const DidChangeWebviewFocusNotification = new IpcCommand<DidChangeWebviewFocusParams>(
 	'core',
 	'webview/focus/didChange',
+);
+
+export interface DidChangeWebviewVisibilityParams {
+	visible: boolean;
+}
+export const DidChangeWebviewVisibilityNotification = new IpcNotification<DidChangeWebviewVisibilityParams>(
+	'core',
+	'webview/visibility/didChange',
 );
 
 export interface DidChangeConfigurationParams {

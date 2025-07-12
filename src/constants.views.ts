@@ -26,6 +26,7 @@ export type GroupableTreeViewTypes = Extract<
 	| 'branches'
 	| 'commits'
 	| 'contributors'
+	| 'fileHistory'
 	| 'launchpad'
 	| 'remotes'
 	| 'repositories'
@@ -86,14 +87,29 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 ]);
 
 export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';
+export const treeViewRefNodeTypes: TreeViewRefNodeTypes[] = ['branch', 'commit', 'stash', 'tag'];
 export type TreeViewRefFileNodeTypes = 'commit-file' | 'file-commit' | 'results-file' | 'stash-file';
+export const treeViewRefFileNodeTypes: TreeViewRefFileNodeTypes[] = [
+	'commit-file',
+	'file-commit',
+	'results-file',
+	'stash-file',
+];
 export type TreeViewFileNodeTypes =
 	| TreeViewRefFileNodeTypes
 	| 'conflict-file'
-	| 'folder'
+	// | 'folder'
 	| 'status-file'
 	| 'uncommitted-file';
+export const treeViewFileNodeTypes: TreeViewFileNodeTypes[] = [
+	...treeViewRefFileNodeTypes,
+	'conflict-file',
+	// 'folder',
+	'status-file',
+	'uncommitted-file',
+];
 export type TreeViewSubscribableNodeTypes =
+	| 'autolinks'
 	| 'commits-current-branch'
 	| 'compare-branch'
 	| 'compare-results'
@@ -111,7 +127,6 @@ export type TreeViewNodeTypes =
 	| TreeViewFileNodeTypes
 	| TreeViewSubscribableNodeTypes
 	| 'autolink'
-	| 'autolinks'
 	| 'branch-tag-folder'
 	| 'branches'
 	| 'compare-picker'
@@ -123,14 +138,14 @@ export type TreeViewNodeTypes =
 	| 'draft'
 	| 'drafts'
 	| 'drafts-code-suggestions'
+	| 'folder'
 	| 'grouping'
 	| 'launchpad'
 	| 'launchpad-item'
-	| 'merge-status'
 	| 'message'
 	| 'pager'
+	| 'paused-operation-status'
 	| 'pullrequest'
-	| 'rebase-status'
 	| 'reflog'
 	| 'reflog-record'
 	| 'remote'

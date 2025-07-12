@@ -1,17 +1,20 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { FileHistoryViewConfig } from '../config';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
+import type { GroupedViewContext } from './viewBase';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
+
+export type FileHistoryMode = 'commits' | 'contributors';
 
 export class FileHistoryView extends ViewBase<
 	'fileHistory',
@@ -23,15 +26,23 @@ export class FileHistoryView extends ViewBase<
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
-	constructor(container: Container) {
-		super(container, 'fileHistory', 'File History', 'fileHistoryView');
+	constructor(container: Container, grouped?: GroupedViewContext) {
+		super(container, 'fileHistory', 'File History', 'fileHistoryView', grouped);
 
 		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
 		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
+		void setContext(
+			'gitlens:views:fileHistory:mode',
+			configuration.get('views.fileHistory.mode', undefined, 'commits'),
+		);
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
+	}
+
+	get mode(): FileHistoryMode {
+		return configuration.get('views.fileHistory.mode', undefined, 'commits');
 	}
 
 	protected override get showCollapseAll(): boolean {
@@ -46,7 +57,7 @@ export class FileHistoryView extends ViewBase<
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
@@ -69,6 +80,12 @@ export class FileHistoryView extends ViewBase<
 			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
+				this,
+			),
+			registerViewCommand(this.getQualifiedCommand('setModeCommits'), () => this.setMode('commits'), this),
+			registerViewCommand(
+				this.getQualifiedCommand('setModeContributors'),
+				() => this.setMode('contributors'),
 				this,
 			),
 			registerViewCommand(
@@ -106,7 +123,7 @@ export class FileHistoryView extends ViewBase<
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -127,7 +144,7 @@ export class FileHistoryView extends ViewBase<
 		return true;
 	}
 
-	async showHistoryForUri(uri: GitUri) {
+	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setCursorFollowing(false);
 
 		const root = this.ensureRoot(true);
@@ -145,13 +162,28 @@ export class FileHistoryView extends ViewBase<
 		void this.root?.changeBase();
 	}
 
+	private setMode(mode: FileHistoryMode) {
+		void setContext('gitlens:views:fileHistory:mode', mode);
+		return configuration.updateEffective('views.fileHistory.mode', mode);
+	}
+
 	private setCursorFollowing(enabled: boolean) {
 		const uri = !this._followEditor && this.root?.hasUri ? this.root.uri : undefined;
+
+		// Reset to commits mode since we don't support line ranges for contributors
+		if (enabled && this.mode === 'contributors') {
+			void this.setMode('commits');
+		}
 
 		this._followCursor = enabled;
 		void setContext('gitlens:views:fileHistory:cursorFollowing', enabled);
 
-		this.title = this._followCursor ? 'Line History' : 'File History';
+		if (this.grouped) {
+			this.groupedLabel = (this._followCursor ? 'Line History' : 'File History').toLocaleLowerCase();
+			this.description = this.groupedLabel;
+		} else {
+			this.title = this._followCursor ? 'Line History' : 'File History';
+		}
 
 		const root = this.ensureRoot(true);
 		if (uri != null) {

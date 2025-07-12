@@ -1,12 +1,8 @@
-import { IssueIntegrationId } from '../../../constants.integrations';
-import { CloudIntegrationAuthenticationProvider } from './integrationAuthentication';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
+import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider';
 
-export class JiraAuthenticationProvider extends CloudIntegrationAuthenticationProvider<IssueIntegrationId.Jira> {
-	protected override get authProviderId(): IssueIntegrationId.Jira {
-		return IssueIntegrationId.Jira;
-	}
-
-	protected override getCompletionInputTitle(): string {
-		return 'Connect to Jira';
+export class JiraAuthenticationProvider extends CloudIntegrationAuthenticationProvider<IssuesCloudHostIntegrationId.Jira> {
+	protected override get authProviderId(): IssuesCloudHostIntegrationId.Jira {
+		return IssuesCloudHostIntegrationId.Jira;
 	}
 }

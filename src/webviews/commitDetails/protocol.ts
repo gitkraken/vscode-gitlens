@@ -1,16 +1,16 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import type { Autolink } from '../../autolinks';
+import type { Autolink } from '../../autolinks/models/autolinks';
 import type { Config, DateStyle } from '../../config';
 import type { Sources } from '../../constants.telemetry';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
-import type { GitFileChangeShape } from '../../git/models/file';
-import type { IssueOrPullRequest } from '../../git/models/issue';
+import type { GitFileChangeShape } from '../../git/models/fileChange';
+import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
-import type { Draft, DraftVisibility } from '../../gk/models/drafts';
-import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
+import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
 import type { DateTimeFormat } from '../../system/date';
-import type { Serialized } from '../../system/vscode/serialize';
+import type { Serialized } from '../../system/serialize';
+import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
@@ -39,7 +39,6 @@ export interface CommitDetails extends CommitSummary {
 }
 
 export interface Preferences {
-	autolinksExpanded: boolean;
 	pullRequestExpanded: boolean;
 	avatars: boolean;
 	dateFormat: DateTimeFormat | string;
@@ -47,8 +46,9 @@ export interface Preferences {
 	files: Config['views']['commitDetails']['files'];
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
+	aiEnabled: boolean;
 }
-export type UpdateablePreferences = Partial<Pick<Preferences, 'autolinksExpanded' | 'pullRequestExpanded' | 'files'>>;
+export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 
 export interface WipChange {
 	branchName: string;
@@ -102,12 +102,13 @@ export interface State extends WebviewState {
 	includeRichContent?: boolean;
 
 	commit?: CommitDetails;
+	autolinksEnabled: boolean;
 	autolinkedIssues?: IssueOrPullRequest[];
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
 	inReview?: boolean;
-	hasConnectedJira: boolean;
 	hasAccount: boolean;
+	hasIntegrationsConnected: boolean;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
@@ -234,14 +235,6 @@ export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrg
 	'org/settings/didChange',
 );
 
-export interface DidChangeConnectedJiraParams {
-	hasConnectedJira: boolean;
-}
-export const DidChangeConnectedJiraNotification = new IpcNotification<DidChangeConnectedJiraParams>(
-	scope,
-	'didChange/jira',
-);
-
 export interface DidChangeHasAccountParams {
 	hasAccount: boolean;
 }
@@ -254,3 +247,11 @@ export interface DidChangeDraftStateParams {
 	inReview: boolean;
 }
 export const DidChangeDraftStateNotification = new IpcNotification<DidChangeDraftStateParams>(scope, 'didChange/patch');
+
+export interface DidChangeIntegrationsParams {
+	hasIntegrationsConnected: boolean;
+}
+export const DidChangeIntegrationsNotification = new IpcNotification<DidChangeIntegrationsParams>(
+	scope,
+	'didChange/integrations',
+);

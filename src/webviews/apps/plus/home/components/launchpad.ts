@@ -1,18 +1,17 @@
 import { consume } from '@lit/context';
-import { SignalWatcher } from '@lit-labs/signals';
+import { signal, SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { Commands } from '../../../../../constants.commands';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
-import type { StartWorkCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
-import { GetLaunchpadSummary } from '../../../../home/protocol';
+import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
-import { ipcContext } from '../../../shared/context';
+import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
@@ -104,65 +103,58 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
-	private _disposable: Disposable | undefined;
+	private _disposable: Disposable[] = [];
+
+	private _summary = signal<GetLaunchpadSummaryResponse | undefined>(undefined);
 
 	private _summaryState = new AsyncComputedState<LaunchpadSummary>(async _abortSignal => {
 		const rsp = await this._ipc.sendRequest(GetLaunchpadSummary, {});
 		return rsp;
 	});
 
-	get startWorkCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
-			command: 'startWork',
-			source: 'home',
-			type: 'issue',
-		});
+	get startWorkCommand(): string {
+		return createCommandLink<undefined>('gitlens.home.startWork', undefined);
 	}
 
-	get createBranchCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
-			command: 'startWork',
-			source: 'home',
-			type: 'branch',
-		});
-		// TODO: Switch to using the base git command once we support sending source telemetry to that command, and then clean up start work
-		// command to just be for issues and remove "type" param
-		/*return createCommandLink<BranchGitCommandArgs>(Commands.GitCommands, {
-			command: 'branch',
-			state: {
-				subcommand: 'create',
-				suggestNameOnly: true,
-				suggestRepoOnly: true,
-				confirmOptions: ['--switch', '--worktree'],
-			},
-		});*/
+	get createBranchCommand(): string {
+		return createCommandLink<undefined>('gitlens.home.createBranch', undefined);
 	}
 
-	override connectedCallback() {
-		super.connectedCallback();
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+
+		this._disposable.push(
+			this._ipc.onReceiveMessage(msg => {
+				switch (true) {
+					case DidChangeLaunchpad.is(msg):
+						this._summaryState.run(true);
+						break;
+				}
+			}),
+		);
 
 		this._summaryState.run();
 	}
 
-	override disconnectedCallback() {
-		super.disconnectedCallback();
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
 
-		this._disposable?.dispose();
+		this._disposable.forEach(d => d.dispose());
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
-			<gl-section>
-				<span slot="heading">GitLens Launchpad</span>
+			<gl-section ?loading=${this._summaryState.computed.status === 'pending'}>
+				<span slot="heading">Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
-				<button-container gap="wide">
+				<button-container grouping="gap-wide">
 					<gl-button full class="start-work" href=${this.startWorkCommand}>Start Work on an Issue</gl-button>
 					<gl-button
 						appearance="secondary"
 						density="compact"
 						class="start-work"
 						href=${this.createBranchCommand}
-						tooltip="Create a new branch"
+						tooltip="Create New Branch"
 						><code-icon icon="custom-start-work"></code-icon
 					></gl-button>
 				</button-container>
@@ -176,7 +168,10 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				<li>
 					<a
 						class="launchpad-action"
-						href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+						href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+							'gitlens.plus.cloudIntegrations.connect',
+							{ source: { source: 'home' } },
+						)}"
 					>
 						<code-icon class="launchpad-action__icon" icon="plug"></code-icon>
 						<span>Connect to see PRs and Issue here</span>
@@ -209,6 +204,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
+
+		if ('error' in summary) {
+			return html`<ul class="menu">
+				<li>Unable to load items</li>
+			</ul>`;
+		}
+
 		if (summary.total === 0) {
 			return html`<ul class="menu">
 				<li>You are all caught up!</li>

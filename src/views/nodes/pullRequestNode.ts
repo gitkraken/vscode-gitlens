@@ -1,25 +1,32 @@
-import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
-import {
-	ensurePullRequestRefs,
-	getComparisonRefsForPullRequest,
-	getOrOpenPullRequestRepository,
-} from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import { createRevisionRange } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons';
+import {
+	ensurePullRequestRefs,
+	ensurePullRequestRemote,
+	getOrOpenPullRequestRepository,
+} from '../../git/utils/-webview/pullRequest.utils';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+} from '../../git/utils/pullRequest.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
+import { createCommand } from '../../system/-webview/command';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CodeSuggestionsNode } from './codeSuggestionsNode';
-import { MessageNode } from './common';
+import { CommandMessageNode, MessageNode } from './common';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 
@@ -138,7 +145,7 @@ export async function getPullRequestChildren(
 	parent: ViewNode,
 	pullRequest: PullRequest,
 	repoOrPath?: Repository | string,
-) {
+): Promise<ViewNode[]> {
 	let repo: Repository | undefined;
 	if (repoOrPath == null) {
 		repo = await getOrOpenPullRequestRepository(view.container, pullRequest, { promptIfNeeded: true });
@@ -162,9 +169,33 @@ export async function getPullRequestChildren(
 
 	const repoPath = repo.path;
 	const refs = getComparisonRefsForPullRequest(repoPath, pullRequest.refs!);
+	const identity = getRepositoryIdentityForPullRequest(pullRequest);
+	if (!(await ensurePullRequestRemote(pullRequest, repo, { silent: true }))) {
+		return [
+			new CommandMessageNode(
+				view,
+				parent,
+				createCommand<[ViewNode, PullRequest, Repository]>(
+					'gitlens.views.addPullRequestRemote',
+					'Add Pull Request Remote...',
+					parent,
+					pullRequest,
+					repo,
+				),
+				`Unable to find a remote for '${identity.provider.repoDomain}'`,
+				undefined,
+				`Click to add a remote for '${identity.provider.repoDomain}'`,
+				new ThemeIcon(
+					'question',
+					new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
+				),
+				undefined,
+				createViewDecorationUri('remote', { state: 'missing' }),
+			),
+		];
+	}
 
 	const counts = await ensurePullRequestRefs(
-		view.container,
 		pullRequest,
 		repo,
 		{ promptMessage: `Unable to open details for PR #${pullRequest.id} because of a missing remote.` },
@@ -177,6 +208,7 @@ export async function getPullRequestChildren(
 	const comparison = {
 		ref1: refs.base.ref,
 		ref2: refs.head.ref,
+		range: createRevisionRange(refs.base.ref, refs.head.ref, '..'),
 	};
 
 	const children = [
@@ -186,11 +218,7 @@ export async function getPullRequestChildren(
 			repoPath,
 			'Commits',
 			{
-				query: getCommitsQuery(
-					view.container,
-					repoPath,
-					createRevisionRange(comparison.ref1, comparison.ref2, '..'),
-				),
+				query: getCommitsQuery(view.container, repoPath, comparison.range),
 				comparison: comparison,
 			},
 			{
@@ -223,7 +251,7 @@ export async function getPullRequestChildren(
 export function getPullRequestTooltip(
 	pullRequest: PullRequest,
 	context?: { commit?: GitCommit; idPrefix?: string; codeSuggestionsCount?: number },
-) {
+): MarkdownString {
 	const tooltip = new MarkdownString('', true);
 	tooltip.supportHtml = true;
 	tooltip.isTrusted = true;

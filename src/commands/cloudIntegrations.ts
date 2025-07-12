@@ -1,47 +1,39 @@
-import { Commands } from '../constants.commands';
 import type { SupportedCloudIntegrationIds } from '../constants.integrations';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
-import { createMarkdownCommandLink } from '../system/commands';
-import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
-export interface ManageCloudIntegrationsCommandArgs extends Source {}
+export interface ManageCloudIntegrationsCommandArgs {
+	source?: Source;
+}
 
-export interface ConnectCloudIntegrationsCommandArgs extends Source {
+export interface ConnectCloudIntegrationsCommandArgs {
 	integrationIds?: SupportedCloudIntegrationIds[];
+	source?: Source;
 }
 
 @command()
-export class ManageCloudIntegrationsCommand extends Command {
+export class ManageCloudIntegrationsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.PlusManageCloudIntegrations);
+		super('gitlens.plus.cloudIntegrations.manage');
 	}
 
-	async execute(args?: ManageCloudIntegrationsCommandArgs) {
-		await this.container.integrations.manageCloudIntegrations(
-			args?.source ? { source: args.source, detail: args?.detail } : undefined,
-		);
+	async execute(args?: ManageCloudIntegrationsCommandArgs): Promise<void> {
+		await this.container.integrations.manageCloudIntegrations(args?.source);
 	}
 }
 
 @command()
-export class ConnectCloudIntegrationsCommand extends Command {
-	static createMarkdownCommandLink(args: ConnectCloudIntegrationsCommandArgs): string {
-		return createMarkdownCommandLink<ConnectCloudIntegrationsCommandArgs>(
-			Commands.PlusConnectCloudIntegrations,
-			args,
-		);
-	}
-
+export class ConnectCloudIntegrationsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.PlusConnectCloudIntegrations);
+		super('gitlens.plus.cloudIntegrations.connect');
 	}
 
-	async execute(args?: ConnectCloudIntegrationsCommandArgs) {
+	async execute(args?: ConnectCloudIntegrationsCommandArgs): Promise<void> {
 		await this.container.integrations.connectCloudIntegrations(
 			args?.integrationIds ? { integrationIds: args.integrationIds } : undefined,
-			args?.source ? { source: args.source, detail: args?.detail } : undefined,
+			args?.source,
 		);
 	}
 }

@@ -1,15 +1,16 @@
-import { hrtime } from '@env/hrtime';
 import type {
 	WidthOptions as StringWidthOptions,
 	TruncationOptions as StringWidthTruncationOptions,
 	Result as TruncatedStringWidthResult,
 } from '@gk-nzaytsev/fast-string-truncated-width';
 import getTruncatedStringWidth from '@gk-nzaytsev/fast-string-truncated-width';
+import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
+import { getNumericFormat } from './date';
 
 export { fromBase64, base64 } from '@env/base64';
 
-export function capitalize(s: string) {
+export function capitalize(s: string): string {
 	return `${s[0].toLocaleUpperCase()}${s.slice(1)}`;
 }
 
@@ -111,6 +112,21 @@ export function compareSubstringIgnoreCase(
 	return 0;
 }
 
+export function countOccurrences(s: string, search: string): number {
+	let count = 0;
+	let position = 0;
+
+	while (true) {
+		position = s.indexOf(search, position);
+		if (position === -1) break;
+
+		count++;
+		position += search.length;
+	}
+
+	return count;
+}
+
 export function encodeHtmlWeak(s: string): string;
 export function encodeHtmlWeak(s: string | undefined): string | undefined;
 export function encodeHtmlWeak(s: string | undefined): string | undefined {
@@ -130,59 +146,34 @@ export function encodeHtmlWeak(s: string | undefined): string | undefined {
 	});
 }
 
-export function escapeRegex(s: string) {
+export function escapeRegex(s: string): string {
 	return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
 
-export function getDurationMilliseconds(start: [number, number]) {
+export function getDurationMilliseconds(start: [number, number]): number {
 	const [secs, nanosecs] = hrtime(start);
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
-export function* getLines(data: string | string[], char: string = '\n'): IterableIterator<string> {
-	if (typeof data === 'string') {
-		let i = 0;
-		while (i < data.length) {
-			let j = data.indexOf(char, i);
-			if (j === -1) {
-				j = data.length;
-			}
-
-			yield data.substring(i, j);
-			i = j + 1;
-		}
-
-		return;
+/**
+ * Distributes a value into one of 100 groups based on a hash of the value
+ * @param value The value to distribute (e.g., machine ID)
+ * @returns A number between 1-100 representing the distribution group
+ */
+export function getDistributionGroup(value: string): number {
+	// Simple hash function
+	let hash = 0;
+	for (let i = 0; i < value.length; i++) {
+		hash = (hash << 5) - hash + value.charCodeAt(i);
+		hash = hash & hash; // Convert to 32-bit integer
 	}
 
-	let count = 0;
-	let leftover: string | undefined;
-	for (let s of data) {
-		count++;
-		if (leftover) {
-			s = leftover + s;
-			leftover = undefined;
-		}
-
-		let i = 0;
-		while (i < s.length) {
-			let j = s.indexOf(char, i);
-			if (j === -1) {
-				if (count === data.length) {
-					j = s.length;
-				} else {
-					leftover = s.substring(i);
-					break;
-				}
-			}
-
-			yield s.substring(i, j);
-			i = j + 1;
-		}
-	}
+	// Convert hash to a number between 1-100
+	const group = Math.abs(hash % 100) + 1;
+	return group;
 }
 
-export function getPossessiveForm(name: string) {
+export function getPossessiveForm(name: string): string {
 	return name.endsWith('s') ? `${name}'` : `${name}'s`;
 }
 
@@ -223,7 +214,7 @@ export function getWidth(s: string): number {
 
 const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
 
-export function getSuperscript(num: number) {
+export function getSuperscript(num: number): string {
 	return superscripts[num - 1] ?? '';
 }
 
@@ -410,6 +401,111 @@ export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
 	return tokens;
 }
 
+export function* iterateByDelimiter(data: string | Iterable<string>, delimiter: string): IterableIterator<string> {
+	const delimiterLen = delimiter.length;
+	let i = 0;
+	let j;
+
+	if (typeof data === 'string') {
+		while (i < data.length) {
+			j = data.indexOf(delimiter, i);
+			if (j === -1) {
+				j = data.length;
+			}
+
+			yield data.substring(i, j);
+			i = j + delimiterLen;
+		}
+
+		return;
+	}
+
+	if (Array.isArray(data)) {
+		let count = 0;
+		let leftover: string | undefined;
+		for (let s of data as string[]) {
+			count++;
+			if (leftover) {
+				s = leftover + s;
+				leftover = undefined;
+			}
+
+			i = 0;
+			while (i < s.length) {
+				j = s.indexOf(delimiter, i);
+				if (j === -1) {
+					if (count === data.length) {
+						j = s.length;
+					} else {
+						leftover = s.substring(i);
+						break;
+					}
+				}
+
+				yield s.substring(i, j);
+				i = j + delimiterLen;
+			}
+		}
+
+		return;
+	}
+
+	let buffer = '';
+	for (const chunk of data) {
+		buffer += chunk;
+
+		i = 0;
+		while (i < buffer.length) {
+			j = buffer.indexOf(delimiter, i);
+			if (j === -1) {
+				break;
+			}
+
+			yield buffer.substring(i, j);
+			i = j + delimiterLen;
+		}
+
+		if (i > 0) {
+			buffer = buffer.substring(i);
+		}
+	}
+
+	// Yield any remaining content
+	if (buffer.length > 0) {
+		yield buffer;
+	}
+}
+
+export async function* iterateAsyncByDelimiter(data: AsyncIterable<string>, delimiter: string): AsyncGenerator<string> {
+	const delimiterLen = delimiter.length;
+	let i = 0;
+	let j;
+	let buffer = '';
+	for await (const chunk of data) {
+		buffer += chunk;
+
+		i = 0;
+		while (i < buffer.length) {
+			j = buffer.indexOf(delimiter, i);
+			if (j === -1) {
+				break;
+			}
+
+			yield buffer.substring(i, j);
+			i = j + delimiterLen;
+		}
+
+		if (i > 0) {
+			buffer = buffer.substring(i);
+		}
+	}
+
+	// Yield any remaining content
+	if (buffer.length > 0) {
+		yield buffer;
+	}
+}
+
 export function interpolate(template: string, context: object | undefined): string {
 	if (template == null || template.length === 0) return template;
 	if (context == null) return template.replace(tokenSanitizeRegex, '');
@@ -467,17 +563,19 @@ export function isUpperAsciiLetter(code: number): boolean {
 	return code >= CharCode.A && code <= CharCode.Z;
 }
 
-export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {
+export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0'): string {
 	if (before === 0 && after === 0) return s;
 
 	return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
 }
 
-export function padOrTruncateEnd(s: string, maxLength: number, fillString?: string) {
+export function padOrTruncateEnd(s: string, maxLength: number, fillString?: string): string {
 	if (s.length === maxLength) return s;
 	if (s.length > maxLength) return s.substring(0, maxLength);
 	return s.padEnd(maxLength, fillString);
 }
+
+let numericFormat: ReturnType<typeof getNumericFormat> | undefined;
 
 export function pluralize(
 	s: string,
@@ -486,7 +584,7 @@ export function pluralize(
 		/** Controls the character/string between the count and the string */
 		infix?: string;
 		/** Formats the count */
-		format?: (count: number) => string | undefined;
+		format?: false | ((count: number) => string | undefined);
 		/** Controls if only the string should be included */
 		only?: boolean;
 		/** Controls the plural version of the string */
@@ -494,32 +592,47 @@ export function pluralize(
 		/** Controls the string for a zero value */
 		zero?: string;
 	},
-) {
-	if (options == null) return `${count} ${s}${count === 1 ? '' : 's'}`;
+): string {
+	if (options == null) {
+		numericFormat ??= getNumericFormat();
+		return `${numericFormat(count)} ${s}${count === 1 ? '' : 's'}`;
+	}
 
-	const suffix = count === 1 ? s : options.plural ?? `${s}s`;
+	const suffix = count === 1 ? s : (options.plural ?? `${s}s`);
 	if (options.only) return suffix;
 
-	return `${count === 0 ? options.zero ?? count : options.format?.(count) ?? count}${options.infix ?? ' '}${suffix}`;
+	let result;
+	if (count === 0) {
+		result = options.zero ?? count;
+	} else if (options.format === false) {
+		result = count;
+	} else if (options.format != null) {
+		result = options.format(count);
+	} else {
+		numericFormat ??= getNumericFormat();
+		result = numericFormat(count);
+	}
+
+	return `${result}${options.infix ?? ' '}${suffix}`;
 }
 
 // Removes \ / : * ? " < > | and C0 and C1 control codes
 // eslint-disable-next-line no-control-regex
 const illegalCharsForFSRegex = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 
-export function sanitizeForFileSystem(s: string, replacement: string = '_') {
+export function sanitizeForFileSystem(s: string, replacement: string = '_'): string {
 	if (!s) return s;
 	return s.replace(illegalCharsForFSRegex, replacement);
 }
 
-export function splitLast(s: string, splitter: string) {
+export function splitLast(s: string, splitter: string): string[] {
 	const index = s.lastIndexOf(splitter);
 	if (index === -1) return [s];
 
 	return [s.substring(index), s.substring(0, index - 1)];
 }
 
-export function splitSingle(s: string, splitter: string) {
+export function splitSingle(s: string, splitter: string): string[] {
 	const index = s.indexOf(splitter);
 	if (index === -1) return [s];
 
@@ -528,7 +641,7 @@ export function splitSingle(s: string, splitter: string) {
 	return rest != null ? [start, rest] : [start];
 }
 
-export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
+export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number): string {
 	if (!s) return s;
 	if (truncateTo <= 1) return ellipsis;
 
@@ -550,7 +663,7 @@ export function truncate(s: string, truncateTo: number, ellipsis: string = '\u20
 	return `${s.substring(0, chars)}${ellipsis}`;
 }
 
-export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
+export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number): string {
 	if (!s) return s;
 	if (truncateTo <= 1) return ellipsis;
 
@@ -572,7 +685,7 @@ export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '
 	return `${ellipsis}${s.substring(s.length - chars)}`;
 }
 
-export function truncateMiddle(s: string, truncateTo: number, ellipsis: string = '\u2026') {
+export function truncateMiddle(s: string, truncateTo: number, ellipsis: string = '\u2026'): string {
 	if (!s) return s;
 	if (truncateTo <= 1) return ellipsis;
 
@@ -598,7 +711,7 @@ const base64ReverseMap = new Uint8Array([
 	33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
 ]);
 
-export function decompressFromBase64LZString(input: string | undefined) {
+export function decompressFromBase64LZString(input: string | undefined): string {
 	if (input == null || input === '') return '';
 
 	const result = _decompressLZString(input, 32) ?? '';

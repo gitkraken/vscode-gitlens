@@ -1,7 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { debug } from '../../system/decorators/log';
 import type { ViewsWithRemotesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -32,12 +31,15 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const remotes = await this.repo.git.getRemotes({ sort: true });
-			if (remotes.length === 0) {
+			const remotes = await this.repo.git.remotes.getRemotes({ sort: true });
+			if (!remotes.length) {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
 
-			this.children = remotes.map(r => new RemoteNode(this.uri, this.view, this, this.repo, r));
+			const expand = remotes.length === 1;
+			this.children = remotes.map(
+				r => new RemoteNode(this.uri, this.view, this, this.repo, r, { expand: expand }),
+			);
 		}
 
 		return this.children;
@@ -50,10 +52,5 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 		item.iconPath = new ThemeIcon('cloud');
 
 		return item;
-	}
-
-	@debug()
-	override refresh() {
-		super.refresh(true);
 	}
 }

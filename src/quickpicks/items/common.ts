@@ -1,7 +1,8 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { commands, QuickPickItemKind } from 'vscode';
 import type { Keys } from '../../constants';
-import type { Commands } from '../../constants.commands';
+import type { GlCommands } from '../../constants.commands';
+import type { Directive } from './directive';
 
 declare module 'vscode' {
 	interface QuickPickItem {
@@ -18,18 +19,20 @@ export function createQuickPickSeparator<T = QuickPickSeparator>(label?: string)
 	return { kind: QuickPickItemKind.Separator, label: label ?? '' } as unknown as T;
 }
 
-export interface QuickPickItemOfT<T = any> extends QuickPickItem {
+export interface QuickPickItemOfT<T = unknown> extends QuickPickItem {
 	readonly item: T;
 }
 
-export function createQuickPickItemOfT<T = any>(labelOrItem: string | QuickPickItem, item: T): QuickPickItemOfT<T> {
+export function createQuickPickItemOfT<T = unknown>(labelOrItem: string | QuickPickItem, item: T): QuickPickItemOfT<T> {
 	return typeof labelOrItem === 'string' ? { label: labelOrItem, item: item } : { ...labelOrItem, item: item };
 }
 
+export type QuickPickResult<T> = { value: T | undefined; directive?: never } | { directive: Directive; value?: never };
+
 export class CommandQuickPickItem<Arguments extends any[] = any[]> implements QuickPickItem {
-	static fromCommand<T>(label: string, command: Commands, args?: T): CommandQuickPickItem;
-	static fromCommand<T>(item: QuickPickItem, command: Commands, args?: T): CommandQuickPickItem;
-	static fromCommand<T>(labelOrItem: string | QuickPickItem, command: Commands, args?: T): CommandQuickPickItem {
+	static fromCommand<T>(label: string, command: GlCommands, args?: T): CommandQuickPickItem;
+	static fromCommand<T>(item: QuickPickItem, command: GlCommands, args?: T): CommandQuickPickItem;
+	static fromCommand<T>(labelOrItem: string | QuickPickItem, command: GlCommands, args?: T): CommandQuickPickItem {
 		return new CommandQuickPickItem(
 			typeof labelOrItem === 'string' ? { label: labelOrItem } : labelOrItem,
 			undefined,
@@ -50,7 +53,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	constructor(
 		label: string,
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
-		command?: Commands,
+		command?: GlCommands,
 		args?: Arguments,
 		options?: {
 			onDidPressKey?: (key: Keys, result: Thenable<unknown>) => void;
@@ -60,7 +63,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	constructor(
 		item: QuickPickItem,
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
-		command?: Commands,
+		command?: GlCommands,
 		args?: Arguments,
 		options?: {
 			onDidPressKey?: (key: Keys, result: Thenable<unknown>) => void;
@@ -70,7 +73,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	constructor(
 		labelOrItem: string | QuickPickItem,
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
-		command?: Commands,
+		command?: GlCommands,
 		args?: Arguments,
 		options?: {
 			onDidPressKey?: (key: Keys, result: Thenable<unknown>) => void;
@@ -80,7 +83,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	constructor(
 		labelOrItem: string | QuickPickItem,
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon | undefined,
-		protected readonly command?: Commands,
+		protected readonly command?: GlCommands,
 		protected readonly args?: Arguments,
 		protected readonly options?: {
 			// onDidExecute?: (

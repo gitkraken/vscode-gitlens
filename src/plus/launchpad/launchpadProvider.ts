@@ -1,184 +1,96 @@
-import { md5 } from '@env/crypto';
 import type {
 	CodeSuggestionsCountByPrUuid,
 	EnrichedItemsByUniqueId,
 	PullRequestWithUniqueID,
-} from '@gitkraken/provider-apis';
-import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+} from '@gitkraken/provider-apis/providers';
+import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
-import { Commands } from '../../constants.commands';
-import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId } from '../../constants.integrations';
+import { md5 } from '@env/crypto';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
-import { getLocalBranchByUpstream } from '../../git/models/branch';
-import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
+import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitRemote } from '../../git/models/remote';
+import type { ProviderReference } from '../../git/models/remoteProvider';
+import type { Repository } from '../../git/models/repository';
+import type { RepositoryDescriptor } from '../../git/models/resourceDescriptor';
+import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
+import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
 import {
 	getComparisonRefsForPullRequest,
-	getOrOpenPullRequestRepository,
+	getPullRequestIdentityFromMaybeUrl,
 	getRepositoryIdentityForPullRequest,
-} from '../../git/models/pullRequest';
-import { getPullRequestIdentityValuesFromSearch } from '../../git/models/pullRequest.utils';
-import type { GitRemote } from '../../git/models/remote';
-import type { Repository } from '../../git/models/repository';
-import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
-import { gate } from '../../system/decorators/gate';
+	isMaybeNonSpecificPullRequestSearchUrl,
+} from '../../git/utils/pullRequest.utils';
+import { getCancellationTokenId } from '../../system/-webview/cancellation';
+import { executeCommand, registerCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { setContext } from '../../system/-webview/context';
+import { openUrl } from '../../system/-webview/vscode/uris';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, groupByMap, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { TimedResult } from '../../system/promise';
 import { getSettledValue, timedWithSlowThreshold } from '../../system/promise';
-import { executeCommand, registerCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { setContext } from '../../system/vscode/context';
-import { openUrl } from '../../system/vscode/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
-import type { IntegrationResult } from '../integrations/integration';
+import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import type { GitHubRepositoryDescriptor } from '../integrations/providers/github';
+import type { GitHostIntegration } from '../integrations/models/gitHostIntegration';
+import type { IntegrationResult } from '../integrations/models/integration';
+import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
+import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
-	fromProviderPullRequest,
 	getActionablePullRequests,
+	supportsCodeSuggest,
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
-import type { EnrichableItem, EnrichedItem } from './enrichmentService';
-import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
+import {
+	convertIntegrationIdToEnrichProvider,
+	convertRemoteProviderIdToEnrichProvider,
+	isEnrichableIntegrationId,
+	isEnrichableRemoteProviderId,
+} from './enrichmentService';
+import type { EnrichableItem, EnrichedItem } from './models/enrichedItem';
+import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad';
+import {
+	launchpadActionCategories,
+	launchpadCategoryToGroupMap,
+	launchpadGroups,
+	prActionsMap,
+	sharedCategoryToLaunchpadActionCategoryMap,
+} from './models/launchpad';
 
-export const launchpadActionCategories = [
-	'mergeable',
-	'unassigned-reviewers',
-	'failed-checks',
-	'conflicts',
-	'needs-my-review',
-	'code-suggestions',
-	'changes-requested',
-	'reviewer-commented',
-	'waiting-for-review',
-	'draft',
-	'other',
-] as const;
-export type LaunchpadActionCategory = (typeof launchpadActionCategories)[number];
-
-export const launchpadGroups = [
-	'current-branch',
-	'pinned',
-	'mergeable',
-	'blocked',
-	'follow-up',
-	'needs-review',
-	'waiting-for-review',
-	'draft',
-	'other',
-	'snoozed',
-] as const;
-export type LaunchpadGroup = (typeof launchpadGroups)[number];
-
-export const launchpadPriorityGroups = [
-	'mergeable',
-	'blocked',
-	'follow-up',
-	'needs-review',
-] satisfies readonly LaunchpadPriorityGroup[] as readonly LaunchpadGroup[];
-export type LaunchpadPriorityGroup = Extract<LaunchpadGroup, 'mergeable' | 'blocked' | 'follow-up' | 'needs-review'>;
-
-export const launchpadGroupIconMap = new Map<LaunchpadGroup, `$(${string})`>([
-	['current-branch', '$(git-branch)'],
-	['pinned', '$(pinned)'],
-	['mergeable', '$(rocket)'],
-	['blocked', '$(error)'], //bracket-error
-	['follow-up', '$(report)'],
-	['needs-review', '$(comment-unresolved)'], // feedback
-	['waiting-for-review', '$(gitlens-clock)'],
-	['draft', '$(git-pull-request-draft)'],
-	['other', '$(ellipsis)'],
-	['snoozed', '$(bell-slash)'],
-]);
-
-export const launchpadGroupLabelMap = new Map<LaunchpadGroup, string>([
-	['current-branch', 'Current Branch'],
-	['pinned', 'Pinned'],
-	['mergeable', 'Ready to Merge'],
-	['blocked', 'Blocked'],
-	['follow-up', 'Requires Follow-up'],
-	['needs-review', 'Needs Your Review'],
-	['waiting-for-review', 'Waiting for Review'],
-	['draft', 'Draft'],
-	['other', 'Other'],
-	['snoozed', 'Snoozed'],
-]);
-
-export const launchpadCategoryToGroupMap = new Map<LaunchpadActionCategory, LaunchpadGroup>([
-	['mergeable', 'mergeable'],
-	['conflicts', 'blocked'],
-	['failed-checks', 'blocked'],
-	['unassigned-reviewers', 'blocked'],
-	['needs-my-review', 'needs-review'],
-	['code-suggestions', 'follow-up'],
-	['changes-requested', 'follow-up'],
-	['reviewer-commented', 'follow-up'],
-	['waiting-for-review', 'waiting-for-review'],
-	['draft', 'draft'],
-	['other', 'other'],
-]);
-
-export const sharedCategoryToLaunchpadActionCategoryMap = new Map<string, LaunchpadActionCategory>([
-	['readyToMerge', 'mergeable'],
-	['unassignedReviewers', 'unassigned-reviewers'],
-	['failingCI', 'failed-checks'],
-	['conflicts', 'conflicts'],
-	['needsMyReview', 'needs-my-review'],
-	['changesRequested', 'changes-requested'],
-	['reviewerCommented', 'reviewer-commented'],
-	['waitingForReview', 'waiting-for-review'],
-	['draft', 'draft'],
-	['other', 'other'],
-]);
-
-export type LaunchpadAction =
-	| 'merge'
-	| 'open'
-	| 'soft-open'
-	| 'switch'
-	| 'switch-and-code-suggest'
-	| 'open-worktree'
-	| 'code-suggest'
-	| 'show-overview'
-	| 'open-changes'
-	| 'open-in-graph';
-
-export type LaunchpadTargetAction = {
-	action: 'open-suggestion';
-	target: string;
-};
-
-const prActionsMap = new Map<LaunchpadActionCategory, LaunchpadAction[]>([
-	['mergeable', ['merge']],
-	['unassigned-reviewers', ['open']],
-	['failed-checks', ['open']],
-	['conflicts', ['open']],
-	['needs-my-review', ['open']],
-	['code-suggestions', ['open']],
-	['changes-requested', ['open']],
-	['reviewer-commented', ['open']],
-	['waiting-for-review', ['open']],
-	['draft', ['open']],
-	['other', []],
-]);
-
-export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
+export function getSuggestedActions(
+	category: LaunchpadActionCategory,
+	provider: ProviderReference,
+	isCurrentBranch: boolean,
+): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 	if (isCurrentBranch) {
-		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
+		actions.push('show-overview', 'open-changes');
+		if (supportsCodeSuggest(provider)) {
+			actions.push('code-suggest');
+		}
+
+		actions.push('open-in-graph');
 	} else {
-		actions.push('open-worktree', 'switch', 'switch-and-code-suggest', 'open-in-graph');
+		actions.push('open-worktree', 'switch');
+		if (supportsCodeSuggest(provider)) {
+			actions.push('switch-and-code-suggest');
+		}
+
+		actions.push('open-in-graph');
 	}
 	return actions;
 }
@@ -200,7 +112,7 @@ export type LaunchpadItem = LaunchpadPullRequest & {
 
 export type OpenRepository = {
 	repo: Repository;
-	remote: GitRemote;
+	remote?: GitRemote;
 	localBranch?: GitBranch;
 };
 
@@ -212,13 +124,21 @@ type CachedLaunchpadPromise<T> = {
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
 
 type PullRequestsWithSuggestionCounts = {
-	prs: IntegrationResult<SearchedPullRequest[] | undefined> | undefined;
+	prs: IntegrationResult<PullRequest[] | undefined> | undefined;
 	suggestionCounts: TimedResult<CodeSuggestionCounts | undefined> | undefined;
 };
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
-export const supportedLaunchpadIntegrations = [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab];
+export const supportedLaunchpadIntegrations: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[] = [
+	GitCloudHostIntegrationId.GitHub,
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitCloudHostIntegrationId.GitLab,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitCloudHostIntegrationId.Bitbucket,
+	GitSelfManagedHostIntegrationId.BitbucketServer,
+];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
 	return supportedLaunchpadIntegrations.includes(id as SupportedLaunchpadIntegrationIds);
@@ -243,12 +163,12 @@ export interface LaunchpadCategorizedTimings {
 
 export class LaunchpadProvider implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
-	get onDidChange() {
+	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
 	}
 
 	private readonly _onDidRefresh = new EventEmitter<LaunchpadRefreshEvent>();
-	get onDidRefresh() {
+	get onDidRefresh(): Event<LaunchpadCategorizedResult> {
 		return this._onDidRefresh.event;
 	}
 
@@ -256,13 +176,15 @@ export class LaunchpadProvider implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidRefresh,
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 			...this.registerCommands(),
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -309,7 +231,9 @@ export class LaunchpadProvider implements Disposable {
 		if (prs?.value?.length && subscription?.account != null) {
 			try {
 				suggestionCounts = await withDurationAndSlowEventOnTimeout(
-					this.container.drafts.getCodeSuggestionCounts(prs.value.map(pr => pr.pullRequest)),
+					this.container.drafts.getCodeSuggestionCounts(
+						prs.value.filter(pr => supportsCodeSuggest(pr.provider)),
+					),
 					'getCodeSuggestionCounts',
 					this.container,
 				);
@@ -322,44 +246,78 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
-		// TODO: This needs to be generalized to work outside of GitHub,
-		// The current idea is that we should iterate the connected integrations and apply their parsing.
-		// Probably we even want to build a map like this: { integrationId: identity }
-		// Then we iterate connected integrations and search in each of them with the corresponding identity.
-		const { ownerAndRepo, prNumber } = getPullRequestIdentityValuesFromSearch(search);
-		let result: TimedResult<SearchedPullRequest[] | undefined> | undefined;
+		const connectedIntegrations = await this.getConnectedIntegrations();
+		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromSearch(
+			search,
+			connectedIntegrations,
+		);
+		const result: { readonly value: PullRequest[]; duration: number } = {
+			value: [],
+			duration: 0,
+		};
 
-		if (prNumber != null && ownerAndRepo != null) {
-			// TODO: This needs to be generalized to work outside of GitHub
-			const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
-			const [owner, repo] = ownerAndRepo.split('/', 2);
-			const descriptor: GitHubRepositoryDescriptor = {
-				key: ownerAndRepo,
-				owner: owner,
-				name: repo,
-			};
-			const pr = await withDurationAndSlowEventOnTimeout(
-				integration?.getPullRequest(descriptor, prNumber),
-				'getPullRequest',
-				this.container,
-			);
-			if (pr?.value != null) {
-				result = { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
-				return { prs: result, suggestionCounts: undefined };
+		const findByPrIdentity = async (
+			integration: GitHostIntegration,
+		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
+			const { provider, ownerAndRepo, prNumber } = prUrlIdentity ?? {};
+			const providerMatch = provider == null || provider === integration.id;
+			if (providerMatch && prNumber != null && ownerAndRepo != null) {
+				const [owner, repo] = ownerAndRepo.split('/', 2);
+				const descriptor: RepositoryDescriptor = {
+					key: ownerAndRepo,
+					owner: owner,
+					name: repo,
+				};
+				const pr = await withDurationAndSlowEventOnTimeout(
+					integration?.getPullRequest(descriptor, prNumber),
+					'getPullRequest',
+					this.container,
+				);
+				if (pr?.value != null) {
+					return { value: [pr.value], duration: pr.duration };
+				}
 			}
-		} else {
-			const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			return undefined;
+		};
+
+		const findByQuery = async (
+			integration: GitHostIntegration,
+		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const prs = await withDurationAndSlowEventOnTimeout(
 				integration?.searchPullRequests(search, undefined, cancellation),
 				'searchPullRequests',
 				this.container,
 			);
 			if (prs != null) {
-				result = { value: prs.value?.map(pr => ({ pullRequest: pr, reasons: [] })), duration: prs.duration };
-				return { prs: result, suggestionCounts: undefined };
+				return { value: prs.value, duration: prs.duration };
 			}
-		}
-		return { prs: undefined, suggestionCounts: undefined };
+			return undefined;
+		};
+
+		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
+
+		await Promise.allSettled(
+			[...connectedIntegrations.keys()]
+				.filter(
+					(id: IntegrationIds): id is SupportedLaunchpadIntegrationIds =>
+						(connectedIntegrations.get(id) && isSupportedLaunchpadIntegrationId(id)) ?? false,
+				)
+				.map(async (id: SupportedLaunchpadIntegrationIds) => {
+					const integration = await this.container.integrations.get(id);
+					if (integration == null) return;
+
+					const searchResult = await searchIntegrationPRs(integration);
+					const prs = searchResult?.value;
+					if (prs) {
+						result.value?.push(...prs);
+						result.duration = Math.max(result.duration, searchResult.duration);
+					}
+				}),
+		);
+		return {
+			prs: result,
+			suggestionCounts: undefined,
+		};
 	}
 
 	private _enrichedItems: CachedLaunchpadPromise<TimedResult<EnrichedItem[]>> | undefined;
@@ -396,7 +354,7 @@ export class LaunchpadProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			const providerId = item.provider.id;
-			if (!isSupportedLaunchpadIntegrationId(providerId)) {
+			if (!isSupportedLaunchpadIntegrationId(providerId) || !supportsCodeSuggest(item.provider)) {
 				return undefined;
 			}
 
@@ -416,7 +374,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log()
-	refresh() {
+	refresh(): void {
 		this._prs = undefined;
 		this._enrichedItems = undefined;
 		this._codeSuggestions = undefined;
@@ -425,7 +383,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['pin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async pin(item: LaunchpadItem) {
+	async pin(item: LaunchpadItem): Promise<void> {
 		item.viewer.pinned = true;
 		this._onDidChange.fire();
 
@@ -435,7 +393,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['unpin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async unpin(item: LaunchpadItem) {
+	async unpin(item: LaunchpadItem): Promise<void> {
 		item.viewer.pinned = false;
 		this._onDidChange.fire();
 
@@ -448,7 +406,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['snooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async snooze(item: LaunchpadItem) {
+	async snooze(item: LaunchpadItem): Promise<void> {
 		item.viewer.snoozed = true;
 		this._onDidChange.fire();
 
@@ -458,7 +416,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['unsnooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async unsnooze(item: LaunchpadItem) {
+	async unsnooze(item: LaunchpadItem): Promise<void> {
 		item.viewer.snoozed = false;
 		this._onDidChange.fire();
 
@@ -472,7 +430,7 @@ export class LaunchpadProvider implements Disposable {
 
 	@log<LaunchpadProvider['merge']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async merge(item: LaunchpadItem): Promise<void> {
-		if (item.graphQLId == null || item.headRef?.oid == null) return;
+		if (item.headRef?.oid == null) return;
 		const integrationId = item.provider.id;
 		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
 		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
@@ -482,8 +440,9 @@ export class LaunchpadProvider implements Disposable {
 		});
 		if (confirm !== 'Merge') return;
 		const integration = await this.container.integrations.get(integrationId);
-		const pr: PullRequest = fromProviderPullRequest(item, integration);
-		await integration.mergePullRequest(pr);
+		if (integration == null) return;
+
+		await integration.mergePullRequest(item.underlyingPullRequest);
 		this.refresh();
 	}
 
@@ -495,26 +454,26 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['openCodeSuggestion']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	openCodeSuggestion(item: LaunchpadItem, target: string) {
+	openCodeSuggestion(item: LaunchpadItem, target: string): void {
 		const draft = item.codeSuggestions?.value?.find(d => d.id === target);
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
-		void executeCommand(Commands.OpenCloudPatch, {
+		void executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {
 			type: 'code_suggestion',
 			draft: draft,
 		});
 	}
 
 	@log()
-	openCodeSuggestionInBrowser(target: string) {
+	openCodeSuggestionInBrowser(target: string): void {
 		void openUrl(this.container.drafts.generateWebUrl(target));
 	}
 
 	@log<LaunchpadProvider['switchTo']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async switchTo(
 		item: LaunchpadItem,
-		options?: { skipWorktreeConfirmations?: boolean; startCodeSuggestion?: boolean },
+		options?: { openInWorktree?: boolean; startCodeSuggestion?: boolean },
 	): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
 			void showInspectView({
@@ -530,21 +489,23 @@ export class LaunchpadProvider implements Disposable {
 			item,
 			options?.startCodeSuggestion
 				? DeepLinkActionType.SwitchToAndSuggestPullRequest
-				: options?.skipWorktreeConfirmations
-				  ? DeepLinkActionType.SwitchToPullRequestWorktree
-				  : DeepLinkActionType.SwitchToPullRequest,
+				: options?.openInWorktree
+					? DeepLinkActionType.SwitchToPullRequestWorktree
+					: DeepLinkActionType.SwitchToPullRequest,
 		);
 		if (deepLinkUrl == null) return;
 
-		const prRepo = await getOrOpenPullRequestRepository(this.container, item.underlyingPullRequest, {
-			skipVirtual: true,
-		});
+		const prRepo = options?.openInWorktree
+			? await getOrOpenPullRequestRepository(this.container, item.underlyingPullRequest, {
+					skipVirtual: true,
+				})
+			: undefined;
 		this._codeSuggestions?.delete(item.uuid);
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false, prRepo);
 	}
 
 	@log<LaunchpadProvider['openChanges']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async openChanges(item: LaunchpadItem) {
+	async openChanges(item: LaunchpadItem): Promise<void> {
 		if (!item.openRepository?.localBranch?.current) return;
 
 		await this.switchTo(item);
@@ -563,7 +524,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['openInGraph']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async openInGraph(item: LaunchpadItem) {
+	async openInGraph(item: LaunchpadItem): Promise<void> {
 		const deepLinkUrl = this.getItemBranchDeepLink(item);
 		if (deepLinkUrl == null) return;
 
@@ -571,7 +532,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	generateWebUrl(): string {
-		return this.container.generateWebGkDevUrl('/launchpad');
+		return this.container.urls.getGkDevUrl('launchpad');
 	}
 
 	private getItemBranchDeepLink(item: LaunchpadItem, action?: DeepLinkActionType): Uri | undefined {
@@ -586,10 +547,10 @@ export class LaunchpadProvider implements Disposable {
 
 		return getPullRequestBranchDeepLink(
 			this.container,
+			item.underlyingPullRequest,
 			branchName,
 			item.repoIdentity.remote.url,
 			action,
-			item.underlyingPullRequest,
 		);
 	}
 
@@ -599,17 +560,21 @@ export class LaunchpadProvider implements Disposable {
 	): Promise<OpenRepository | undefined> {
 		if (pr.repoIdentity.remote.url == null) return undefined;
 
-		const match =
-			matchingRemoteMap.get(pr.repoIdentity.remote.url) ??
-			(pr.underlyingPullRequest?.refs?.base?.url
-				? matchingRemoteMap.get(pr.underlyingPullRequest.refs.base.url)
-				: undefined);
-		if (match == null) return undefined;
+		let match = matchingRemoteMap.get(pr.repoIdentity.remote.url);
+		if (match == null) {
+			if (pr.underlyingPullRequest?.refs?.base?.url == null) return undefined;
+
+			match = matchingRemoteMap.get(pr.underlyingPullRequest.refs.base.url);
+			if (match == null) return undefined;
+
+			const [repo] = match;
+			return { repo: repo };
+		}
 
 		const [repo, remote] = match;
 
 		const remoteBranchName = `${remote.name}/${pr.refs?.head.branch ?? pr.headRef?.name}`;
-		const matchingLocalBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
+		const matchingLocalBranch = await repo.git.branches.getLocalBranchByUpstream?.(remoteBranchName);
 
 		return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
 	}
@@ -628,7 +593,7 @@ export class LaunchpadProvider implements Disposable {
 		async function matchRemotes(repo: Repository) {
 			if (uniqueRemoteUrls.size === 0) return;
 
-			const remotes = await repo.git.getRemotes();
+			const remotes = await repo.git.remotes.getRemotes();
 
 			for (const remote of remotes) {
 				if (uniqueRemoteUrls.size === 0) return;
@@ -659,20 +624,52 @@ export class LaunchpadProvider implements Disposable {
 		return repoRemotes;
 	}
 
-	@gate<LaunchpadProvider['getCategorizedItems']>(o => `${o?.force ?? false}`)
+	isMaybeSupportedLaunchpadPullRequestSearchUrl(search: string): boolean {
+		return (
+			isMaybeGitHubPullRequestUrl(search) ||
+			isMaybeGitLabPullRequestUrl(search) ||
+			isMaybeNonSpecificPullRequestSearchUrl(search)
+		);
+	}
+
+	async getPullRequestIdentityFromSearch(
+		search: string,
+		connectedIntegrations: Map<IntegrationIds, boolean>,
+	): Promise<PullRequestUrlIdentity | undefined> {
+		for (const integrationId of supportedLaunchpadIntegrations) {
+			if (connectedIntegrations.get(integrationId)) {
+				const integration = await this.container.integrations.get(integrationId);
+				if (integration == null) continue;
+
+				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
+				if (prIdentity) return prIdentity;
+			}
+		}
+		return getPullRequestIdentityFromMaybeUrl(search);
+	}
+
+	@gate<LaunchpadProvider['getCategorizedItems']>(
+		(o, c) =>
+			`${o?.force ?? false}|${
+				o?.search != null && typeof o.search !== 'string' ? o.search.map(pr => pr.url).join(',') : o?.search
+			}${getCancellationTokenId(c)}`,
+	)
 	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
-		options?: { force?: boolean; search?: string },
+		options?: { force?: boolean; search?: string | PullRequest[] },
 		cancellation?: CancellationToken,
 	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
-		const isSearching = ((o?: { search?: string }): o is { search: string } => Boolean(o?.search))(options);
 
+		const isSearching = ((o): o is RequireSome<NonNullable<typeof options>, 'search'> => Boolean(o?.search))(
+			options,
+		);
 		const fireRefresh = !isSearching && (options?.force || this._prs == null);
 
 		const ignoredRepositories = new Set(
 			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
 		);
+
 		const staleThreshold = configuration.get('launchpad.staleThreshold');
 		let staleDate: Date | undefined;
 		if (staleThreshold != null) {
@@ -690,7 +687,9 @@ export class LaunchpadProvider implements Disposable {
 				this.container.git.isDiscoveringRepositories,
 				this.getEnrichedItems({ force: options?.force, cancellation: cancellation }),
 				isSearching
-					? this.getSearchedPullRequests(options.search, cancellation)
+					? typeof options.search === 'string'
+						? this.getSearchedPullRequests(options.search, cancellation)
+						: { prs: { value: options.search, duration: 0 }, suggestionCounts: undefined }
 					: this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
 			]);
 
@@ -741,9 +740,9 @@ export class LaunchpadProvider implements Disposable {
 				: prs.value.filter(
 						pr =>
 							!ignoredRepositories.has(
-								`${pr.pullRequest.repository.owner.toLowerCase()}/${pr.pullRequest.repository.repo.toLowerCase()}`,
+								`${pr.repository.owner.toLowerCase()}/${pr.repository.repo.toLowerCase()}`,
 							),
-				  );
+					);
 
 			// There was a conversation https://github.com/gitkraken/vscode-gitlens/pull/3200#discussion_r1563347675
 			// that was related to this piece of code.
@@ -753,11 +752,19 @@ export class LaunchpadProvider implements Disposable {
 				await this.container.integrations.getMyCurrentAccounts(supportedLaunchpadIntegrations);
 
 			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
-				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
+				const providerPr = toProviderPullRequestWithUniqueId(pr);
 
-				const providerId = pr.pullRequest.provider.id;
+				const providerId = pr.provider.id;
 
-				if (!isSupportedLaunchpadIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
+				const enrichProviderId = !isSupportedLaunchpadIntegrationId(providerId)
+					? undefined
+					: isEnrichableIntegrationId(providerId)
+						? convertIntegrationIdToEnrichProvider(providerId)
+						: isEnrichableRemoteProviderId(providerId)
+							? convertRemoteProviderIdToEnrichProvider(providerId)
+							: undefined;
+
+				if (!enrichProviderId) {
 					Logger.warn(`Unsupported provider ${providerId}`);
 					return undefined;
 				}
@@ -765,21 +772,21 @@ export class LaunchpadProvider implements Disposable {
 				const enrichable = {
 					type: 'pr',
 					id: providerPr.uuid,
-					url: pr.pullRequest.url,
-					provider: convertRemoteProviderIdToEnrichProvider(providerId),
+					url: pr.url,
+					provider: enrichProviderId,
 				} satisfies EnrichableItem;
 
-				const repoIdentity = getRepositoryIdentityForPullRequest(pr.pullRequest);
+				const repoIdentity = getRepositoryIdentityForPullRequest(pr);
 
 				return {
 					...providerPr,
 					type: 'pullrequest',
 					uuid: providerPr.uuid,
-					provider: pr.pullRequest.provider,
+					provider: pr.provider,
 					enrichable: enrichable,
 					repoIdentity: repoIdentity,
-					refs: pr.pullRequest.refs,
-					underlyingPullRequest: pr.pullRequest,
+					refs: pr.refs,
+					underlyingPullRequest: pr,
 				} satisfies EnrichablePullRequest;
 			}) satisfies (EnrichablePullRequest | undefined)[];
 
@@ -815,6 +822,7 @@ export class LaunchpadProvider implements Disposable {
 
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
+						item.provider,
 						openRepository?.localBranch?.current ?? false,
 					);
 
@@ -822,7 +830,7 @@ export class LaunchpadProvider implements Disposable {
 						...item,
 						currentViewer: myAccounts.get(item.provider.id)!,
 						codeSuggestionsCount: codeSuggestionsCount,
-						isNew: this.isItemNewInGroup(item, actionableCategory),
+						isNew: isSearching ? false : this.isItemNewInGroup(item, actionableCategory),
 						isSearched: isSearching,
 						actionableCategory: actionableCategory,
 						suggestedActions: suggestedActions,
@@ -907,25 +915,37 @@ export class LaunchpadProvider implements Disposable {
 	async hasConnectedIntegration(): Promise<boolean> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			const integration = await this.container.integrations.get(integrationId);
+			if (integration == null) continue;
+
 			if (integration.maybeConnected ?? (await integration.isConnected())) {
+				void setContext('gitlens:launchpad:connected', true);
 				return true;
 			}
 		}
 
-		void setContext('gitlens:launchpad:connect', true);
+		void setContext('gitlens:launchpad:connected', false);
 		return false;
 	}
 
-	async getConnectedIntegrations(): Promise<Map<IntegrationId, boolean>> {
-		const connected = new Map<IntegrationId, boolean>();
+	async getConnectedIntegrations(): Promise<Map<IntegrationIds, boolean>> {
+		const connected = new Map<IntegrationIds, boolean>();
 		await Promise.allSettled(
 			supportedLaunchpadIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
-				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+				if (integration == null) {
+					connected.set(integrationId, false);
+					return;
+				}
+				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
+				const hasAccess = isConnected && (await integration.access());
+				connected.set(integrationId, hasAccess);
 			}),
 		);
 
-		void setContext('gitlens:launchpad:connect', !some(connected.values(), c => c));
+		void setContext(
+			'gitlens:launchpad:connected',
+			some(connected.values(), c => c),
+		);
 		return connected;
 	}
 
@@ -942,7 +962,7 @@ export class LaunchpadProvider implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand(Commands.ToggleLaunchpadIndicator, () => {
+			registerCommand('gitlens.launchpad.indicator.toggle', () => {
 				const enabled = configuration.get('launchpad.indicator.enabled') ?? false;
 				void configuration.updateEffective('launchpad.indicator.enabled', !enabled);
 			}),
@@ -980,40 +1000,47 @@ export class LaunchpadProvider implements Disposable {
 
 	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (isSupportedLaunchpadIntegrationId(e.key)) {
-			if (e.reason === 'connected') {
-				void setContext('gitlens:launchpad:connect', false);
-			} else {
-				void setContext('gitlens:launchpad:connect', !(await this.hasConnectedIntegration()));
-			}
+			void setContext(
+				'gitlens:launchpad:connected',
+				e.reason === 'connected' ? true : await this.hasConnectedIntegration(),
+			);
 		}
 	}
 }
 
-export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
+export function getLaunchpadItemGroups(item: LaunchpadItem): LaunchpadGroup[] {
+	if (item.viewer.snoozed) return ['snoozed'];
+
+	const groups: LaunchpadGroup[] = [];
+	if (item.viewer.pinned) {
+		groups.push('pinned');
+	}
+
+	if (item.openRepository?.localBranch?.current) {
+		groups.push('current-branch');
+	}
+
+	if (item.isDraft) {
+		groups.push('draft');
+	}
+
+	const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
+	if (!item.isDraft || group === 'needs-review') {
+		groups.push(group);
+	}
+
+	return groups;
+}
+
+export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]): Map<LaunchpadGroup, LaunchpadItem[]> {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, LaunchpadItem[]>();
 	const grouped = new Map<LaunchpadGroup, LaunchpadItem[]>(launchpadGroups.map(g => [g, []]));
 
 	sortLaunchpadItems(items);
 
 	for (const item of items) {
-		if (item.viewer.snoozed) {
-			grouped.get('snoozed')!.push(item);
-
-			continue;
-		} else if (item.viewer.pinned) {
-			grouped.get('pinned')!.push(item);
-		}
-
-		if (item.openRepository?.localBranch?.current) {
-			grouped.get('current-branch')!.push(item);
-		}
-
-		if (item.isDraft) {
-			grouped.get('draft')!.push(item);
-		}
-
-		const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
-		if (!item.isDraft || group === 'needs-review') {
+		const groups = getLaunchpadItemGroups(item);
+		for (const group of groups) {
 			grouped.get(group)!.push(item);
 		}
 	}
@@ -1027,7 +1054,7 @@ export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
 	return grouped;
 }
 
-export function countLaunchpadItemGroups(items?: LaunchpadItem[]) {
+export function countLaunchpadItemGroups(items?: LaunchpadItem[]): Map<LaunchpadGroup, number> {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, number>();
 	const grouped = new Map<LaunchpadGroup, number>(launchpadGroups.map(g => [g, 0]));
 
@@ -1057,7 +1084,7 @@ export function countLaunchpadItemGroups(items?: LaunchpadItem[]) {
 	return grouped;
 }
 
-export function sortLaunchpadItems(items: LaunchpadItem[]) {
+export function sortLaunchpadItems(items: LaunchpadItem[]): LaunchpadItem[] {
 	return items.sort(
 		(a, b) =>
 			(a.viewer.pinned ? -1 : 1) - (b.viewer.pinned ? -1 : 1) ||
@@ -1077,25 +1104,24 @@ function ensureRemoteUrl(url: string) {
 
 export function getPullRequestBranchDeepLink(
 	container: Container,
+	pr: PullRequest,
 	headRefBranchName: string,
 	remoteUrl: string,
 	action?: DeepLinkActionType,
-	pr?: PullRequest,
-) {
+): Uri {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
 	const searchParams = new URLSearchParams({
-		url: ensureRemoteUrl(remoteUrl),
+		url: pr.provider.id !== GitCloudHostIntegrationId.AzureDevOps ? ensureRemoteUrl(remoteUrl) : remoteUrl,
 	});
 	if (action) {
 		searchParams.set('action', action);
 	}
-	if (pr) {
-		searchParams.set('prId', pr.id);
-		searchParams.set('prTitle', pr.title);
-	}
-	if (pr?.refs) {
+
+	searchParams.set('prId', pr.id);
+	searchParams.set('prTitle', pr.title);
+	if (pr.refs) {
 		searchParams.set('prBaseRef', pr.refs.base.sha);
 		searchParams.set('prHeadRef', pr.refs.head.sha);
 	}
@@ -1108,7 +1134,7 @@ export function getPullRequestBranchDeepLink(
 	);
 }
 
-export function getLaunchpadItemIdHash(item: LaunchpadItem) {
+export function getLaunchpadItemIdHash(item: LaunchpadItem): string {
 	return md5(item.uuid);
 }
 

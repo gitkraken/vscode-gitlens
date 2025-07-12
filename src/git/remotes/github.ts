@@ -1,19 +1,29 @@
 import type { Range } from 'vscode';
 import { Uri } from 'vscode';
-import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
+import type {
+	Autolink,
+	AutolinkReference,
+	DynamicAutolinkReference,
+	MaybeEnrichedAutolink,
+} from '../../autolinks/models/autolinks';
 import { GlyphChars } from '../../constants';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { Source } from '../../constants.telemetry';
+import type { Container } from '../../container';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
-import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
-import { isSha } from '../models/reference';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
-import type { RemoteProviderId } from './remoteProvider';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
+import { isSha } from '../utils/revision.utils';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
@@ -25,11 +35,18 @@ function isGitHubDotCom(domain: string): boolean {
 }
 
 export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
-	get apiBaseUrl() {
+	get apiBaseUrl(): string {
 		return this.custom ? `${this.protocol}://${this.domain}/api/v3` : `https://api.${this.domain}`;
 	}
 
@@ -126,7 +143,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 									}
 
 									return token;
-							  });
+								});
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let ownerAndRepo: string;
@@ -165,12 +182,12 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this._autolinks;
 	}
 
-	override get avatarUri() {
-		const [owner] = this.splitPath();
+	override get avatarUri(): Uri {
+		const [owner] = this.splitPath(this.path);
 		return Uri.parse(`https://avatars.githubusercontent.com/${owner}`);
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'github';
 	}
 
@@ -184,23 +201,26 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 			: 'github') satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('GitHub');
 	}
 
 	@memoize()
 	override get repoDesc(): GitHubRepositoryDescriptor {
-		const [owner, repo] = this.splitPath();
+		const [owner, repo] = this.splitPath(this.path);
 		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
-	async getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+	override get supportedFeatures(): RemoteProviderSupportedFeatures {
+		return {
+			...super.supportedFeatures,
+			createPullRequestWithDetails: true,
+		};
+	}
+
+	async getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
 		if (uri.authority !== this.domain) return undefined;
-		if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+		if (!uri.path.startsWith(`/${this.path}/`)) return undefined;
 
 		let startLine;
 		let endLine;
@@ -223,12 +243,27 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		const [, , , path] = match;
 
 		// Check for a permalink
+		let maybeShortPermalink: LocalInfoFromRemoteUriResult | undefined = undefined;
+
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
 			if (isSha(sha)) {
-				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
-				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), sha);
+				if (uri != null) {
+					return { uri: uri, repoPath: repo.path, rev: sha, startLine: startLine, endLine: endLine };
+				}
+			} else if (isSha(sha, true)) {
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), sha);
+				if (uri != null) {
+					maybeShortPermalink = {
+						uri: uri,
+						repoPath: repo.path,
+						rev: sha,
+						startLine: startLine,
+						endLine: endLine,
+					};
+				}
 			}
 		}
 
@@ -243,20 +278,23 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 			possibleBranches.set(branch, path.substring(index));
 		} while (index > 0);
 
-		if (possibleBranches.size !== 0) {
-			const { values: branches } = await repository.git.getBranches({
+		if (possibleBranches.size) {
+			const { values: branches } = await repo.git.branches.getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {
-				const path = possibleBranches.get(branch.getNameWithoutRemote());
+				const ref = branch.getNameWithoutRemote();
+				const path = possibleBranches.get(ref);
 				if (path == null) continue;
 
-				const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
-				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), ref);
+				if (uri != null) {
+					return { uri: uri, repoPath: repo.path, rev: ref, startLine: startLine, endLine: endLine };
+				}
 			}
 		}
 
-		return undefined;
+		return maybeShortPermalink;
 	}
 
 	protected getUrlForBranches(): string {
@@ -271,20 +309,43 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${compare}`);
+	protected override getUrlForComparison(base: string, head: string, notation: GitRevisionRangeNotation): string {
+		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${head}`);
 	}
 
-	protected override getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		compare: { branch: string; remote: { path: string; url: string } },
-	): string | undefined {
-		if (base.remote.url === compare.remote.url) {
-			return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${compare.branch}`);
+	protected override async getUrlForCreatePullRequest(
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
+	): Promise<string | undefined> {
+		let { base, head, details } = resource;
+
+		if (details?.describeWithAI) {
+			details = await describePullRequestWithAI(
+				this.container,
+				resource.repoPath,
+				resource,
+				source ?? { source: 'ai' },
+			);
 		}
 
-		const [owner] = compare.remote.path.split('/', 1);
-		return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${owner}:${compare.branch}`);
+		const query = new URLSearchParams({ expand: '1' });
+		if (details?.title) {
+			query.set('title', details.title);
+		}
+		if (details?.description) {
+			query.set('body', details.description);
+		}
+
+		if (base.remote.url === head.remote.url) {
+			return base.branch
+				? `${this.encodeUrl(`${this.baseUrl}/compare/${base.branch}...${head.branch}`)}?${query.toString()}`
+				: `${this.encodeUrl(`${this.baseUrl}/compare/${head.branch}`)}?${query.toString()}`;
+		}
+
+		const [owner] = head.remote.path.split('/', 1);
+		return `${this.encodeUrl(
+			`${this.baseUrl}/compare/${base.branch ?? 'HEAD'}...${owner}:${head.branch}`,
+		)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

@@ -2,12 +2,12 @@ import type { GraphRow } from '@gitkraken/gitkraken-components';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
-import type { DidGetRowHoverParams } from '../../../../../plus/webviews/graph/protocol';
-import type { Deferrable } from '../../../../../system/function';
-import { debounce } from '../../../../../system/function';
+import type { Deferrable } from '../../../../../system/function/debounce';
+import { debounce } from '../../../../../system/function/debounce';
 import { getSettledValue, isPromise } from '../../../../../system/promise';
+import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol';
 import { GlElement } from '../../../shared/components/element';
-import type { GlPopover } from '../../../shared/components/overlays/popover.react';
+import type { GlPopover } from '../../../shared/components/overlays/popover';
 import '../../../shared/components/markdown/markdown';
 import '../../../shared/components/overlays/popover';
 
@@ -28,7 +28,15 @@ type Anchor = string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect
 
 @customElement('gl-graph-hover')
 export class GlGraphHover extends GlElement {
-	static override styles = css``;
+	static override styles = css`
+		gl-popover::part(body) {
+			--max-width: min(92vw, 45rem);
+			max-height: 50vh;
+			width: clamp(min(30rem, 92vw), min-content, max-content);
+			overflow-x: hidden;
+			overflow-y: auto;
+		}
+	`;
 
 	@property({ type: Object })
 	anchor?: Anchor;
@@ -58,15 +66,24 @@ export class GlGraphHover extends GlElement {
 		string,
 		Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string
 	>();
-	private hoveredSha: string | undefined;
+	private shaHovering: string | undefined;
 	private unhoverTimer: ReturnType<typeof setTimeout> | undefined;
 
-	override render() {
-		if (!this.markdown) {
-			this.hide();
-			return;
-		}
+	override connectedCallback(): void {
+		super.connectedCallback?.();
 
+		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
+		window.addEventListener('keydown', this.onWindowKeydown);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+
+		this.parentElement?.removeEventListener('mouseleave', this.onParentMouseLeave);
+		window.removeEventListener('keydown', this.onWindowKeydown);
+	}
+
+	override render(): unknown {
 		return html`<gl-popover
 			?open=${this.open}
 			.anchor=${this.anchor}
@@ -74,11 +91,10 @@ export class GlGraphHover extends GlElement {
 			.skidding=${this.skidding}
 			.placement=${this.placement}
 			trigger="manual"
-			@gl-popover-hide=${() => this.hide()}
-			@sl-reposition=${() => this.onReposition()}
+			@sl-reposition=${this.onReposition}
 		>
 			<div slot="content">
-				<gl-markdown .markdown=${until(this.markdown, 'Loading...')}></gl-markdown>
+				<gl-markdown .markdown=${until(this.markdown ?? 'Loading...', 'Loading...')}></gl-markdown>
 			</div>
 		</gl-popover>`;
 	}
@@ -109,24 +125,27 @@ export class GlGraphHover extends GlElement {
 		}
 	}
 
-	reset() {
+	reset(): void {
 		this.recalculated = false;
 		this.hoverMarkdownCache.clear();
 	}
 
-	onParentMouseLeave = () => {
+	private onParentMouseLeave = () => {
 		this.hide();
 	};
 
 	private _showCoreDebounced: Deferrable<GlGraphHover['showCore']> | undefined = undefined;
 
-	onRowHovered(row: GraphRow, anchor: Anchor) {
-		clearTimeout(this.unhoverTimer);
-		if (this.requestMarkdown == null) return;
-		// Break if we are already showing the hover for the same row
-		if (this.hoveredSha === row.sha && this.open) return;
+	onRowHovered(row: GraphRow, anchor: Anchor): void {
+		const showQuickly = Date.now() - this._lastUnhoveredTimestamp <= 750;
+		this.resetUnhoverTimer();
 
-		this.hoveredSha = row.sha;
+		if (this.requestMarkdown == null) return;
+
+		// Break if we are already showing the hover for the same row
+		if (row.sha === this.shaHovering && this.open) return;
+
+		this.shaHovering = row.sha;
 
 		let markdown = this.hoverMarkdownCache.get(row.sha);
 		if (markdown == null) {
@@ -147,7 +166,7 @@ export class GlGraphHover extends GlElement {
 			}
 		}
 
-		if (this.open) {
+		if (this.open || showQuickly) {
 			this.showCore(anchor, markdown);
 		} else {
 			this._showCoreDebounced ??= debounce(this.showCore.bind(this), 500);
@@ -155,24 +174,24 @@ export class GlGraphHover extends GlElement {
 		}
 	}
 
-	onRowUnhovered(_row: GraphRow, relatedTarget: EventTarget | null) {
+	onRowUnhovered(_row: GraphRow, relatedTarget: EventTarget | null): void {
 		this.recalculated = false;
-		clearTimeout(this.unhoverTimer);
+		this.resetUnhoverTimer();
 
-		if (
-			relatedTarget != null &&
-			'closest' in relatedTarget &&
-			(relatedTarget as HTMLElement).closest('gl-graph-hover')
-		) {
-			return;
+		if (relatedTarget != null && relatedTarget instanceof HTMLElement) {
+			if (relatedTarget.classList.contains('resizable-handle')) {
+				this.unhoverTimer = setTimeout(() => this.hide(), 500);
+				return;
+			}
+
+			if (relatedTarget.closest('gl-graph-hover')) return;
 		}
 
-		this.unhoverTimer = setTimeout(() => this.hide(), 250);
+		this.hide();
 	}
 
-	onWindowKeydown = (e: KeyboardEvent) => {
+	private onWindowKeydown = (e: KeyboardEvent) => {
 		if (e.key === 'Escape') {
-			e.stopPropagation();
 			this.hide();
 		}
 	};
@@ -184,10 +203,10 @@ export class GlGraphHover extends GlElement {
 		if (typeof markdown === 'string') {
 			this.markdown = markdown;
 		} else if (isPromise(markdown)) {
-			const previousSha = this.hoveredSha;
+			const previousSha = this.shaHovering;
 			void markdown
 				.then(markdown => {
-					if (previousSha !== this.hoveredSha) return;
+					if (previousSha !== this.shaHovering) return;
 
 					this.markdown = getSettledValue(markdown);
 					if (!markdown) {
@@ -201,18 +220,25 @@ export class GlGraphHover extends GlElement {
 
 		this.anchor = anchor;
 		this.open = true;
-		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
-		window.addEventListener('keydown', this.onWindowKeydown);
 	}
 
-	hide() {
-		this._showCoreDebounced?.cancel();
-		clearTimeout(this.unhoverTimer);
-		this.parentElement?.removeEventListener('mouseleave', this.onParentMouseLeave);
-		window.removeEventListener('keydown', this.onWindowKeydown);
+	private _lastUnhoveredTimestamp = 0;
 
-		this.hoveredSha = undefined;
+	hide(): void {
+		this._lastUnhoveredTimestamp = Date.now();
+
+		this._showCoreDebounced?.cancel();
+		this.resetUnhoverTimer();
+
+		this.shaHovering = undefined;
 		this.markdown = undefined;
 		this.open = false;
+	}
+
+	private resetUnhoverTimer(): void {
+		if (this.unhoverTimer) {
+			clearTimeout(this.unhoverTimer);
+			this.unhoverTimer = undefined;
+		}
 	}
 }

@@ -1,16 +1,21 @@
-import { QuickInputButtons } from 'vscode';
+import { QuickInputButtons, window } from 'vscode';
 import type { Container } from '../../container';
+import { BranchError, BranchErrorReason } from '../../git/errors';
+import type { IssueShape } from '../../git/models/issue';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import {
-	getNameWithoutRemote,
-	getReferenceLabel,
-	isBranchReference,
-	isRevisionReference,
-} from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getWorktreesByBranch } from '../../git/models/worktree';
+import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
+import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getBranchNameAndRemote } from '../../git/utils/branch.utils';
+import {
+	getReferenceLabel,
+	getReferenceNameWithoutRemote,
+	isBranchReference,
+	isRevisionReference,
+} from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
+import { getIssueOwner } from '../../plus/integrations/providers/utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -65,6 +70,7 @@ interface CreateState {
 	suggestNameOnly?: boolean;
 	suggestRepoOnly?: boolean;
 	confirmOptions?: CreateFlags[];
+	associateWithIssue?: IssueShape;
 }
 
 function isCreateState(state: Partial<State> | undefined): state is Partial<CreateState> {
@@ -227,7 +233,7 @@ export class BranchGitCommand extends QuickCommand {
 			: super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 
@@ -362,10 +368,9 @@ export class BranchGitCommand extends QuickCommand {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: context =>
-						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new branch from`,
-					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
-					titleContext: ' from',
+					placeholder: `Choose a base to create the new branch from`,
+					picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
+					title: 'Select Base to Create Branch From',
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -374,18 +379,23 @@ export class BranchGitCommand extends QuickCommand {
 				state.reference = result;
 			}
 
+			const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
+			const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
+
 			if (state.counter < 4 || state.name == null || state.suggestNameOnly) {
+				let value: string | undefined = state.name;
+				// if it's a remote branch, pre-fill the name (if it doesn't already exist)
+				if (!state.name && isRemoteBranch && !(await state.repo.git.branches.getBranch(remoteBranchName))) {
+					value = remoteBranchName;
+				}
+
 				const result = yield* inputBranchNameStep(state, context, {
-					titleContext: ` from ${getReferenceLabel(state.reference, {
+					title: `${context.title} from ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
 						label: state.reference.refType !== 'branch',
 					})}`,
-					value:
-						state.name ?? // if it's a remote branch, pre-fill the name
-						(isBranchReference(state.reference) && state.reference.remote
-							? getNameWithoutRemote(state.reference)
-							: undefined),
+					value: value,
 				});
 				if (result === StepResultBreak) continue;
 
@@ -420,15 +430,30 @@ export class BranchGitCommand extends QuickCommand {
 			}
 
 			endSteps(state);
+
 			if (state.flags.includes('--switch')) {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
 				try {
-					await state.repo.git.createBranch(state.name, state.reference.ref);
+					await state.repo.git.branches.createBranch?.(
+						state.name,
+						state.reference.ref,
+						isRemoteBranch && state.name !== remoteBranchName ? { noTracking: true } : undefined,
+					);
 				} catch (ex) {
-					Logger.error(ex);
+					Logger.error(ex, context.title);
 					// TODO likely need some better error handling here
 					return showGenericErrorMessage('Unable to create branch');
+				}
+			}
+
+			if (state.associateWithIssue != null) {
+				const issue = state.associateWithIssue;
+				const branch = await state.repo.git.branches.getBranch(state.name);
+				// TODO: These descriptors are hacked in. Use an integration function to get the right resource for the issue.
+				const owner = getIssueOwner(issue);
+				if (branch != null && owner != null) {
+					await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' }, owner);
 				}
 			}
 		}
@@ -508,9 +533,7 @@ export class BranchGitCommand extends QuickCommand {
 					placeholder: prune
 						? 'Choose branches with missing upstreams to delete'
 						: 'Choose branches to delete',
-					emptyPlaceholder: prune
-						? `No branches with missing upstreams in ${state.repo.formattedName}`
-						: undefined,
+					emptyPlaceholder: prune ? `No branches with missing upstreams in ${state.repo.name}` : undefined,
 					sort: { current: false, missingUpstream: true },
 				});
 				// Always break on the first step (so we will go back)
@@ -559,10 +582,47 @@ export class BranchGitCommand extends QuickCommand {
 			state.flags = result;
 
 			endSteps(state);
-			state.repo.branchDelete(state.references, {
-				force: state.flags.includes('--force'),
-				remote: state.flags.includes('--remotes'),
-			});
+
+			for (const ref of state.references) {
+				const [name, remote] = getBranchNameAndRemote(ref);
+				try {
+					if (ref.remote) {
+						await state.repo.git.branches.deleteRemoteBranch?.(name, remote!);
+					} else {
+						await state.repo.git.branches.deleteLocalBranch?.(name, {
+							force: state.flags.includes('--force'),
+						});
+						if (state.flags.includes('--remotes') && remote) {
+							await state.repo.git.branches.deleteRemoteBranch?.(name, remote);
+						}
+					}
+				} catch (ex) {
+					if (BranchError.is(ex, BranchErrorReason.BranchNotFullyMerged)) {
+						const confirm = { title: 'Delete Branch' };
+						const cancel = { title: 'Cancel', isCloseAffordance: true };
+						const result = await window.showWarningMessage(
+							`Unable to delete branch '${name}' as it is not fully merged. Do you want to delete it anyway?`,
+							{ modal: true },
+							confirm,
+							cancel,
+						);
+
+						if (result === confirm) {
+							try {
+								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
+							} catch (ex) {
+								Logger.error(ex, context.title);
+								void showGenericErrorMessage(ex);
+							}
+						}
+
+						continue;
+					}
+
+					Logger.error(ex, context.title);
+					void showGenericErrorMessage(ex);
+				}
+			}
 		}
 	}
 
@@ -651,7 +711,7 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
-					titleContext: ` ${getReferenceLabel(state.reference, false)}`,
+					title: `${context.title} ${getReferenceLabel(state.reference, false)}`,
 					value: state.name ?? state.reference.name,
 				});
 				if (result === StepResultBreak) continue;
@@ -666,9 +726,9 @@ export class BranchGitCommand extends QuickCommand {
 
 			endSteps(state);
 			try {
-				await state.repo.git.renameBranch(state.reference.ref, state.name);
+				await state.repo.git.branches.renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
-				Logger.error(ex);
+				Logger.error(ex, context.title);
 				// TODO likely need some better error handling here
 				return showGenericErrorMessage('Unable to rename branch');
 			}

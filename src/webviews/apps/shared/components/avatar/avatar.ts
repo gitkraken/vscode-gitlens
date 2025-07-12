@@ -18,6 +18,7 @@ export class GlAvatar extends LitElement {
 				aspect-ratio: 1;
 				vertical-align: middle;
 				border-radius: 100%;
+				justify-content: center;
 			}
 
 			.thumb {
@@ -28,10 +29,11 @@ export class GlAvatar extends LitElement {
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				font-size: 0.8rem;
+				font-size: clamp(0.8rem, calc(var(--gl-avatar-size, 1.6rem) * 0.5), 1.1rem);
 				line-height: 1;
 				text-transform: uppercase;
 				cursor: default;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.thumb--media {
@@ -53,7 +55,7 @@ export class GlAvatar extends LitElement {
 	@property()
 	href?: string;
 
-	override render() {
+	override render(): unknown {
 		if (this.name) {
 			return html`<gl-tooltip .content=${this.name}>${this.renderAvatar()}</gl-tooltip>`;
 		}

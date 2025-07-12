@@ -2,8 +2,8 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitRemote } from '../../git/models/remote';
-import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
+import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
 import type { ViewsWithRemotes } from '../viewBase';
@@ -20,6 +20,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 		public readonly remote: GitRemote,
+		private readonly _options?: { expand?: boolean },
 	) {
 		super('remote', uri, view, parent);
 
@@ -40,7 +41,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const branches = await this.repo.git.getBranches({
+		const branches = await this.repo.git.branches.getBranches({
 			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true,
@@ -62,7 +63,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			branchNodes,
 			n => n.treeHierarchy,
 			(...paths) => paths.join('/'),
-			this.view.config.files.compact,
+			this.view.config.branches.compact,
 			b => {
 				b.compacted = true;
 				return true;
@@ -83,7 +84,10 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			this.remote.name,
+			this._options?.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.description = getRemoteUpstreamDescription(this.remote);
 
@@ -95,18 +99,18 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 				provider.avatarUri != null && this.view.config.avatars
 					? provider.avatarUri
 					: provider.icon === 'remote'
-					  ? new ThemeIcon('cloud')
-					  : {
+						? new ThemeIcon('cloud')
+						: {
 								dark: this.view.container.context.asAbsolutePath(
 									`images/dark/icon-${provider.icon}.svg`,
 								),
 								light: this.view.container.context.asAbsolutePath(
 									`images/light/icon-${provider.icon}.svg`,
 								),
-					    };
+							};
 
-			if (this.remote.hasIntegration()) {
-				const integration = await this.view.container.integrations.getByRemote(this.remote);
+			if (this.remote.supportsIntegration()) {
+				const integration = await this.remote.getIntegration();
 				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
@@ -130,7 +134,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		if (this.remote.default) {
 			item.contextValue += '+default';
 		}
-		item.resourceUri = createViewDecorationUri('remote', { default: this.remote.default });
+		item.resourceUri = createViewDecorationUri('remote', { state: this.remote.default ? 'default' : undefined });
 
 		for (const { type, url } of this.remote.urls) {
 			tooltip += `\\\n${url} (${type})`;
@@ -142,7 +146,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	@log()
-	async setAsDefault(state: boolean = true) {
+	async setAsDefault(state: boolean = true): Promise<void> {
 		await this.remote.setAsDefault(state);
 		void this.triggerChange();
 	}

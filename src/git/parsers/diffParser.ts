@@ -1,8 +1,19 @@
+import type { Container } from '../../container';
 import { joinPaths, normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
-import type { GitDiffFile, GitDiffHunk, GitDiffHunkLine, GitDiffShortStat } from '../models/diff';
-import type { GitFile, GitFileStatus } from '../models/file';
-import { GitFileChange } from '../models/file';
+import type {
+	GitDiffShortStat,
+	ParsedGitDiff,
+	ParsedGitDiffHunk,
+	ParsedGitDiffHunkLine,
+	ParsedGitDiffHunks,
+} from '../models/diff';
+import type { GitFile } from '../models/file';
+import { GitFileChange } from '../models/fileChange';
+import type { GitFileStatus } from '../models/fileStatus';
+
+export const diffRegex = /^diff --git a\/(.*) b\/(.*)$/;
+export const diffHunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 
@@ -13,11 +24,55 @@ function parseHunkHeaderPart(headerPart: string) {
 	return { count: count, position: { start: start, end: start + count - 1 } };
 }
 
-export function parseGitFileDiff(data: string, includeContents = false): GitDiffFile | undefined {
-	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+export function parseGitDiff(data: string, includeRawContent = false): ParsedGitDiff {
+	using sw = maybeStopWatch('Git.parseDiffFiles', { log: false, logLevel: 'debug' });
 
-	const hunks: GitDiffHunk[] = [];
+	const parsed: ParsedGitDiff = { files: [], rawContent: includeRawContent ? data : undefined };
+
+	// Split the diff data into file chunks
+	const files = data.split(/^diff --git /m).filter(Boolean);
+	if (!files.length) {
+		sw?.stop({ suffix: ` parsed no files` });
+		return parsed;
+	}
+
+	for (const file of files) {
+		const [line] = file.split('\n', 1);
+
+		const match = diffRegex.exec(`diff --git ${line}`);
+		if (match == null) continue;
+
+		const [, originalPath, path] = match;
+
+		const hunkStartIndex = file.indexOf('\n@@ -');
+		if (hunkStartIndex === -1) continue;
+
+		const header = `diff --git ${file.substring(0, hunkStartIndex)}`;
+		const content = file.substring(hunkStartIndex + 1);
+		parsed.files.push({
+			path: path,
+			originalPath: path === originalPath ? undefined : originalPath,
+			status: (path !== originalPath ? 'R' : 'M') as GitFileStatus,
+
+			header: header,
+			rawContent: includeRawContent ? content : undefined,
+			hunks: parseGitFileDiff(content, includeRawContent)?.hunks || [],
+		});
+	}
+
+	sw?.stop({ suffix: ` parsed ${parsed.files.length} files` });
+
+	return parsed;
+}
+
+export function parseGitFileDiff(data: string, includeRawContent = false): ParsedGitDiffHunks | undefined {
+	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
+
+	const hunks: ParsedGitDiffHunk[] = [];
 
 	const lines = data.split('\n');
 
@@ -38,13 +93,13 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 			continue;
 		}
 
-		const header = line.split('@@')[1].trim();
-		const [previousHeaderPart, currentHeaderPart] = header.split(' ');
+		const header = line;
+		const [previousHeaderPart, currentHeaderPart] = header.split('@@')[1].trim().split(' ');
 
 		const current = parseHunkHeaderPart(currentHeaderPart.slice(1));
 		const previous = parseHunkHeaderPart(previousHeaderPart.slice(1));
 
-		const hunkLines = new Map<number, GitDiffHunkLine>();
+		const hunkLines = new Map<number, ParsedGitDiffHunkLine>();
 		let fileLineNumber = current.position.start;
 
 		line = lines[++i];
@@ -116,8 +171,9 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 			}
 		}
 
-		const hunk: GitDiffHunk = {
-			contents: `${lines.slice(contentStartLine, i).join('\n')}\n`,
+		const hunk: ParsedGitDiffHunk = {
+			header: header,
+			content: lines.slice(contentStartLine, i).join('\n'),
 			current: current,
 			previous: previous,
 			lines: hunkLines,
@@ -129,14 +185,17 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 	sw?.stop({ suffix: ` parsed ${hunks.length} hunks` });
 
 	return {
-		contents: includeContents ? data : undefined,
+		rawContent: includeRawContent ? data : undefined,
 		hunks: hunks,
 	};
 }
 
 export function parseGitDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
 	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const files: GitFile[] = [];
 
@@ -164,9 +223,12 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 	return files;
 }
 
-export function parseGitApplyFiles(data: string, repoPath: string): GitFileChange[] {
+export function parseGitApplyFiles(container: Container, data: string, repoPath: string): GitFileChange[] {
 	using sw = maybeStopWatch('Git.parseApplyFiles', { log: false, logLevel: 'debug' });
-	if (!data) return [];
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return [];
+	}
 
 	const files = new Map<string, GitFileChange>();
 
@@ -181,7 +243,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 		const [insertions, deletions, path] = line.split('\t');
 		files.set(
 			normalizePath(path),
-			new GitFileChange(repoPath, path, 'M' as GitFileStatus, undefined, undefined, {
+			new GitFileChange(container, repoPath, path, 'M' as GitFileStatus, undefined, undefined, {
 				changes: 0,
 				additions: parseInt(insertions, 10),
 				deletions: parseInt(deletions, 10),
@@ -193,7 +255,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 		line = line.trim();
 		if (!line) continue;
 
-		const match = /(rename) (.*?)\{(.+?)\s+=>\s+(.+?)\}(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
+		const match = /(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
 		if (match == null) continue;
 
 		let [, rename, renameRoot, renameOriginalPath, renamePath, createOrDelete, createOrDeletePath] = match;
@@ -206,6 +268,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 			files.set(
 				renamePath,
 				new GitFileChange(
+					container,
 					repoPath,
 					renamePath,
 					'R' as GitFileStatus,
@@ -219,6 +282,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 			files.set(
 				createOrDeletePath,
 				new GitFileChange(
+					container,
 					repoPath,
 					file.path,
 					(createOrDelete === 'create' ? 'A' : 'D') as GitFileStatus,
@@ -237,7 +301,10 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 
 export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefined {
 	using sw = maybeStopWatch('Git.parseDiffShortStat', { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const match = shortStatDiffRegex.exec(data);
 	if (match == null) return undefined;
@@ -245,13 +312,13 @@ export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefine
 	const [, files, insertions, deletions] = match;
 
 	const diffShortStat: GitDiffShortStat = {
-		changedFiles: files == null ? 0 : parseInt(files, 10),
+		files: files == null ? 0 : parseInt(files, 10),
 		additions: insertions == null ? 0 : parseInt(insertions, 10),
 		deletions: deletions == null ? 0 : parseInt(deletions, 10),
 	};
 
 	sw?.stop({
-		suffix: ` parsed ${diffShortStat.changedFiles} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
+		suffix: ` parsed ${diffShortStat.files} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
 	});
 
 	return diffShortStat;

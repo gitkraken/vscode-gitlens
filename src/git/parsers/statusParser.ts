@@ -1,28 +1,42 @@
+import type { Container } from '../../container';
 import { normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
-import { GitStatus, GitStatusFile } from '../models/status';
+import { GitStatus } from '../models/status';
+import { GitStatusFile } from '../models/statusFile';
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
-export function parseGitStatus(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
+export function parseGitStatus(
+	container: Container,
+	data: string,
+	repoPath: string,
+	porcelainVersion: number,
+): GitStatus | undefined {
 	using sw = maybeStopWatch(`Git.parseStatus(${repoPath}, v=${porcelainVersion})`, {
 		log: false,
 		logLevel: 'debug',
 	});
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const lines = data.split('\n').filter(<T>(i?: T): i is T => Boolean(i));
-	if (lines.length === 0) return undefined;
+	if (lines.length === 0) {
+		sw?.stop({ suffix: ` parsed no files` });
+		return undefined;
+	}
 
-	const status = porcelainVersion < 2 ? parseStatusV1(lines, repoPath) : parseStatusV2(lines, repoPath);
+	const status =
+		porcelainVersion < 2 ? parseStatusV1(container, lines, repoPath) : parseStatusV2(container, lines, repoPath);
 
 	sw?.stop({ suffix: ` parsed ${status.files.length} files` });
 
 	return status;
 }
 
-function parseStatusV1(lines: string[], repoPath: string): GitStatus {
+function parseStatusV1(container: Container, lines: string[], repoPath: string): GitStatus {
 	let branch: string | undefined;
 	const files = [];
 	const state = {
@@ -58,24 +72,24 @@ function parseStatusV1(lines: string[], repoPath: string): GitStatus {
 			const fileName = line.substring(3);
 			if (rawStatus.startsWith('R') || rawStatus.startsWith('C')) {
 				const [file1, file2] = fileName.replace(/"/g, '').split('->');
-				files.push(parseStatusFile(repoPath, rawStatus, file2.trim(), file1.trim()));
+				files.push(parseStatusFile(container, repoPath, rawStatus, file2.trim(), file1.trim()));
 			} else {
-				files.push(parseStatusFile(repoPath, rawStatus, fileName));
+				files.push(parseStatusFile(container, repoPath, rawStatus, fileName));
 			}
 		}
 	}
 
 	return new GitStatus(
+		container,
 		normalizePath(repoPath),
 		branch ?? '',
 		'',
 		files,
-		state,
-		upstream ? { name: upstream, missing: missing } : undefined,
+		upstream ? { name: upstream, missing: missing, state: state } : undefined,
 	);
 }
 
-function parseStatusV2(lines: string[], repoPath: string): GitStatus {
+function parseStatusV2(container: Container, lines: string[], repoPath: string): GitStatus {
 	let branch: string | undefined;
 	const files = [];
 	let sha: string | undefined;
@@ -112,35 +126,36 @@ function parseStatusV2(lines: string[], repoPath: string): GitStatus {
 			const lineParts = line.split(' ');
 			switch (lineParts[0][0]) {
 				case '1': // normal
-					files.push(parseStatusFile(repoPath, lineParts[1], lineParts.slice(8).join(' ')));
+					files.push(parseStatusFile(container, repoPath, lineParts[1], lineParts.slice(8).join(' ')));
 					break;
 				case '2': {
 					// rename
 					const file = lineParts.slice(9).join(' ').split('\t');
-					files.push(parseStatusFile(repoPath, lineParts[1], file[0], file[1]));
+					files.push(parseStatusFile(container, repoPath, lineParts[1], file[0], file[1]));
 					break;
 				}
 				case 'u': // unmerged
-					files.push(parseStatusFile(repoPath, lineParts[1], lineParts.slice(10).join(' ')));
+					files.push(parseStatusFile(container, repoPath, lineParts[1], lineParts.slice(10).join(' ')));
 					break;
 				case '?': // untracked
-					files.push(parseStatusFile(repoPath, '??', lineParts.slice(1).join(' ')));
+					files.push(parseStatusFile(container, repoPath, '??', lineParts.slice(1).join(' ')));
 					break;
 			}
 		}
 	}
 
 	return new GitStatus(
+		container,
 		normalizePath(repoPath),
 		branch ?? '',
 		sha ?? '',
 		files,
-		state,
-		upstream ? { name: upstream, missing: missing } : undefined,
+		upstream ? { name: upstream, missing: missing, state: state } : undefined,
 	);
 }
 
 function parseStatusFile(
+	container: Container,
 	repoPath: string,
 	rawStatus: string,
 	fileName: string,
@@ -159,5 +174,5 @@ function parseStatusFile(
 		}
 	}
 
-	return new GitStatusFile(repoPath, x, y, fileName, originalFileName);
+	return new GitStatusFile(container, repoPath, x, y, fileName, originalFileName);
 }

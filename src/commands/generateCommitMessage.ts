@@ -1,59 +1,84 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
-import { Commands } from '../constants.commands';
+import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCoreCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCoreCommand } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface GenerateCommitMessageCommandArgs {
-	repoPath?: string;
+	repoPath?: string | Uri;
+	source?: Sources;
 }
 
 @command()
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.GenerateCommitMessage, Commands.GenerateCommitMessageScm]);
+		super(
+			['gitlens.ai.generateCommitMessage', 'gitlens.ai.generateCommitMessage:scm'],
+			[
+				'gitlens.generateCommitMessage',
+				'gitlens.scm.generateCommitMessage',
+				'gitlens.scm.ai.generateCommitMessage',
+			],
+		);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs): Promise<void> {
+		let source: Sources | undefined = args?.source;
+		if (
+			source == null &&
+			(context.command === 'gitlens.ai.generateCommitMessage:scm' ||
+				context.command === /** @deprecated */ 'gitlens.scm.ai.generateCommitMessage' ||
+				context.command === /** @deprecated */ 'gitlens.scm.generateCommitMessage')
+		) {
+			source = 'scm-input';
+			if (context.type === 'scm' && context.scm.rootUri != null) {
+				args = { ...args, repoPath: context.scm.rootUri };
+			}
+		}
+
+		return this.execute(context.editor, context.uri, { ...args, source: source });
+	}
+
+	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		args = { ...args };
 
-		let repository;
+		let repo;
 		if (args.repoPath != null) {
-			repository = this.container.git.getRepository(args.repoPath);
+			repo = this.container.git.getRepository(args.repoPath);
 		} else {
 			uri = getCommandUri(uri, editor);
 
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-			repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Generate Commit Message');
+			repo = await getBestRepositoryOrShowPicker(gitUri, editor, 'Generate Commit Message');
 		}
-		if (repository == null) return;
+		if (repo == null) return;
 
-		const scmRepo = await this.container.git.getScmRepository(repository.path);
+		const scmRepo = await repo.git.getScmRepository();
 		if (scmRepo == null) return;
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
-			const message = await (
-				await this.container.ai
-			)?.generateCommitMessage(
-				repository,
-				{ source: 'commandPalette' },
+			const result = await this.container.ai.generateCommitMessage(
+				repo,
+				{ source: args?.source ?? 'commandPalette' },
 				{
 					context: currentMessage,
 					progress: { location: ProgressLocation.Notification, title: 'Generating commit message...' },
 				},
 			);
-			if (message == null) return;
+			if (result == null || result === 'cancelled') return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${
-				message.body
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
+				result.parsed.body ? `\n\n${result.parsed.body}` : ''
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');

@@ -1,4 +1,3 @@
-import { getNonce } from '@env/crypto';
 import type {
 	CancellationToken,
 	CustomTextEditorProvider,
@@ -7,22 +6,23 @@ import type {
 	WebviewPanelOnDidChangeViewStateEvent,
 } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { InspectCommand } from '../../commands/inspect';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
-import { createReference } from '../../git/models/reference';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { createReference } from '../../git/utils/reference.utils';
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
+import { executeCoreCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { debug, log } from '../../system/decorators/log';
-import type { Deferrable } from '../../system/function';
-import { debounce } from '../../system/function';
+import type { Deferrable } from '../../system/function/debounce';
+import { debounce } from '../../system/function/debounce';
 import { join, map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
-import { executeCoreCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
 import type { IpcMessage, WebviewFocusChangedParams } from '../protocol';
 import { WebviewFocusChangedCommand } from '../protocol';
 import { replaceWebviewHtmlTokens, resetContextKeys, setContextKeys } from '../webviewController';
@@ -109,7 +109,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this.ascending = configuration.get('rebaseEditor.ordering') === 'asc';
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -131,7 +131,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private _disableAfterNextUse: boolean = false;
-	async enableForNextUse() {
+	async enableForNextUse(): Promise<void> {
 		if (!this.enabled) {
 			await this.setEnabled(true);
 			this._disableAfterNextUse = true;
@@ -165,8 +165,12 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
-	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
-		void this.container.usage.track(`rebaseEditor:shown`);
+	async resolveCustomTextEditor(
+		document: TextDocument,
+		panel: WebviewPanel,
+		_token: CancellationToken,
+	): Promise<void> {
+		void this.container.usage.track(`rebaseEditor:shown`).catch();
 
 		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
 		const repo = this.container.git.getRepository(repoPath);
@@ -250,7 +254,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		if (context.branchName === undefined) {
-			const branch = await this.container.git.getBranch(context.repoPath);
+			const branch = await this.container.git.getRepositoryService(context.repoPath).branches.getBranch();
 			context.branchName = branch?.name ?? null;
 		}
 		const state = await parseRebaseTodo(this.container, context, this.ascending);
@@ -590,19 +594,19 @@ async function loadRichCommitData(
 	context.commits = [];
 	context.authors = new Map<string, Author>();
 
-	const log = await container.git.richSearchCommits(
-		context.repoPath,
+	const result = await container.git.getRepositoryService(context.repoPath).commits.searchCommits(
 		{
 			query: `${onto ? `#:${onto} ` : ''}${join(
 				map(entries, e => `#:${e.sha}`),
 				' ',
 			)}`,
 		},
+		{ source: 'rebaseEditor' },
 		{ limit: 0 },
 	);
 
-	if (log != null) {
-		for (const c of log.commits.values()) {
+	if (result.log != null) {
+		for (const c of result.log.commits.values()) {
 			context.commits.push(c);
 
 			if (!context.authors.has(c.author.name)) {
@@ -679,9 +683,9 @@ async function parseRebaseTodo(
 									date: ontoCommit.formatDate(defaultDateFormat),
 									dateFromNow: ontoCommit.formatDateFromNow(),
 									message: emojify(ontoCommit.message || 'root'),
-							  }
+								}
 							: undefined,
-			  }
+				}
 			: undefined,
 		entries: entries,
 		authors: context.authors != null ? Object.fromEntries(context.authors) : {},

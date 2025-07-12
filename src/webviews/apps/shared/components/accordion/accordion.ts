@@ -73,11 +73,11 @@ export class GlAccordion extends LitElement {
 
 	@property({ type: Boolean }) open = false;
 
-	get headerId() {
+	get headerId(): string {
 		return `gl-accordion-header-${this.id ?? Math.random().toString(36).substring(2, 9)}`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<details ?open=${this.open} @toggle=${this._handleToggle} role="region" aria-labelledby=${this.headerId}>
 				<summary part="header" class="header" id=${this.headerId} role="button" aria-expanded=${this.open}>

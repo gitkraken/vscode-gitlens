@@ -2,15 +2,13 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { urls } from './constants';
-import { Commands } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
-import { createMarkdownCommandLink } from './system/commands';
+import { executeCommand, executeCoreCommand } from './system/-webview/command';
+import { configuration } from './system/-webview/configuration';
+import { openUrl } from './system/-webview/vscode/uris';
 import { Logger } from './system/logger';
-import { executeCommand, executeCoreCommand } from './system/vscode/command';
-import { configuration } from './system/vscode/configuration';
-import { openUrl } from './system/vscode/utils';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,
@@ -91,8 +89,24 @@ export async function showGenericErrorMessage(message: string): Promise<void> {
 		);
 
 		if (result != null) {
-			void executeCommand(Commands.EnableDebugLogging);
+			void executeCommand('gitlens.enableDebugLogging');
 		}
+	}
+}
+
+export async function showBitbucketPRCommitLinksAppNotInstalledWarningMessage(revLink: string): Promise<void> {
+	const allowAccess = { title: 'Allow Access' };
+	const result = await showMessage(
+		'warn',
+		`GitLens cannot access Bitbucket PRs for commits.
+		Allow access by visiting [this commit](${revLink}) on Bitbucket and click “Pull requests” under the “Apps” section on the bottom right
+		or [read our docs](https://help.gitkraken.com/gitlens/gitlens-troubleshooting/#enable-showing-bitbucket-pull-request-for-a-commit) for more info.`,
+		'suppressBitbucketPRCommitLinksAppNotInstalledWarning',
+		{ title: "Don't Show Again" },
+		allowAccess,
+	);
+	if (result === allowAccess) {
+		void openUrl(revLink);
 	}
 }
 
@@ -104,7 +118,7 @@ export function showFileNotUnderSourceControlWarningMessage(message: string): Pr
 	);
 }
 
-export function showGitDisabledErrorMessage() {
+export function showGitDisabledErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
 		'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
@@ -112,14 +126,14 @@ export function showGitDisabledErrorMessage() {
 	);
 }
 
-export function showGitInvalidConfigErrorMessage() {
+export function showGitInvalidConfigErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
 		'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
 	);
 }
 
-export function showGitMissingErrorMessage() {
+export function showGitMissingErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
 		"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
@@ -138,7 +152,7 @@ export function showGitVersionUnsupportedErrorMessage(
 	);
 }
 
-export async function showPreReleaseExpiredErrorMessage(version: string) {
+export async function showPreReleaseExpiredErrorMessage(version: string): Promise<void> {
 	const upgrade = { title: 'Upgrade' };
 	const switchToRelease = { title: 'Switch to Release Version' };
 	const result = await showMessage(
@@ -230,16 +244,14 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 	);
 }
 
-export async function showWhatsNewMessage(majorVersion: string) {
+export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(
 		'info',
 		`Upgraded to GitLens ${majorVersion}${
-			majorVersion === '16'
-				? ` with an all new [Home view](${createMarkdownCommandLink(Commands.ShowHomeView, {
-						source: 'whatsnew',
-				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, [consolidated Source Control views](command:gitlens.views.scm.grouped.focus "Show GitLens view"), and much more.`
+			majorVersion === '17'
+				? ' with all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
 				: " — see what's new."
 		}`,
 		undefined,

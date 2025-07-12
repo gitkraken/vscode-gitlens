@@ -1,76 +1,195 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
-import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
-import type { AIModel } from '../ai/aiProviderService';
-import type { AIModels, AIProviders } from '../constants.ai';
-import { Commands } from '../constants.commands';
+import { QuickInputButtons, ThemeIcon, window } from 'vscode';
+import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
-import { executeCommand } from '../system/vscode/command';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
+import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model';
+import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils';
+import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import { getSettledValue } from '../system/promise';
+import { createQuickPickSeparator } from './items/common';
+import type { DirectiveQuickPickItem } from './items/directive';
+import { Directive, isDirectiveQuickPickItem } from './items/directive';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
 }
 
+export interface ProviderQuickPickItem extends QuickPickItem {
+	provider: AIProviders;
+}
+
+const ClearAIKeyButton: QuickInputButton = {
+	iconPath: new ThemeIcon('trash'),
+	tooltip: 'Clear AI Key',
+};
+
+const ConfigureAIKeyButton: QuickInputButton = {
+	iconPath: new ThemeIcon('key'),
+	tooltip: 'Configure AI Key...',
+};
+
+export async function showAIProviderPicker(
+	container: Container,
+	current: AIModelDescriptor | undefined,
+): Promise<ProviderQuickPickItem | undefined> {
+	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+
+	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
+		container.ai.getProvidersConfiguration(),
+		container.ai.getModel({ silent: true }, { source: 'ai:picker' }),
+		container.subscription.getSubscription(),
+	]);
+
+	const providers = getSettledValue(providersResult) ?? new Map<AIProviders, AIProviderDescriptorWithConfiguration>();
+	const currentModelName = getSettledValue(modelResult)?.name;
+	const subscription = getSettledValue(subscriptionResult)!;
+	const hasPaidPlan = isSubscriptionPaidPlan(subscription.plan.effective.id) && subscription.account?.verified;
+
+	const quickpick = window.createQuickPick<ProviderQuickPickItem>();
+	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+	quickpick.title = 'Select AI Provider';
+	quickpick.placeholder = 'Choose an AI provider to use';
+
+	const disposables: Disposable[] = [];
+
+	try {
+		const pickedProvider =
+			(current?.provider ?? providers.get('vscode')?.configured)
+				? 'vscode'
+				: providers.get('gitkraken')?.configured
+					? 'gitkraken'
+					: undefined;
+
+		let addedRequiredKeySeparator = false;
+		while (true) {
+			const items: ProviderQuickPickItem[] = [];
+			for (const p of providers.values()) {
+				if (!p.primary && !addedRequiredKeySeparator) {
+					addedRequiredKeySeparator = true;
+					items.push(createQuickPickSeparator<ProviderQuickPickItem>('Requires API Key'));
+				}
+
+				items.push({
+					label: p.name,
+					iconPath: p.id === current?.provider ? new ThemeIcon('check') : new ThemeIcon('blank'),
+					provider: p.id,
+					picked: p.id === pickedProvider,
+					detail:
+						p.id === current?.provider && currentModelName
+							? `      ${currentModelName}`
+							: p.id === 'gitkraken'
+								? '      Models provided by GitKraken'
+								: undefined,
+					buttons: !p.primary ? (p.configured ? [ClearAIKeyButton] : [ConfigureAIKeyButton]) : undefined,
+					description:
+						p.id === 'gitkraken'
+							? hasPaidPlan
+								? '  included in your plan'
+								: '  included in GitLens Pro'
+							: undefined,
+				} satisfies ProviderQuickPickItem);
+			}
+
+			const pick = await new Promise<ProviderQuickPickItem | 'refresh' | undefined>(resolve => {
+				disposables.push(
+					quickpick.onDidHide(() => resolve(undefined)),
+					quickpick.onDidAccept(() => {
+						if (quickpick.activeItems.length !== 0) {
+							resolve(quickpick.activeItems[0]);
+						}
+					}),
+					quickpick.onDidTriggerItemButton(e => {
+						if (e.button === ClearAIKeyButton) {
+							container.ai.resetProviderKey(e.item.provider);
+							providers.set(e.item.provider, { ...providers.get(e.item.provider)!, configured: false });
+							resolve('refresh');
+						} else if (e.button === ConfigureAIKeyButton) {
+							resolve(e.item);
+						}
+					}),
+				);
+
+				quickpick.items = items;
+				quickpick.activeItems = items.filter(i => i.picked);
+
+				quickpick.show();
+			});
+
+			if (pick === 'refresh') continue;
+
+			return pick;
+		}
+	} finally {
+		quickpick.dispose();
+		disposables.forEach(d => void d.dispose());
+	}
+}
+
 export async function showAIModelPicker(
 	container: Container,
-	current?: { provider: AIProviders; model: AIModels },
-): Promise<ModelQuickPickItem | undefined> {
-	const models = (await (await container.ai)?.getModels()) ?? [];
+	provider: AIProviders,
+	current?: AIModelDescriptor,
+): Promise<ModelQuickPickItem | Directive | undefined> {
+	if (!(await ensureAccess({ showPicker: true }))) return undefined;
 
-	const items: ModelQuickPickItem[] = [];
+	const models = (await container.ai.getModels(provider)) ?? [];
 
-	let lastProvider: AIProviders | undefined;
-	for (const m of models) {
-		if (m.hidden) continue;
+	const items: Array<ModelQuickPickItem | DirectiveQuickPickItem> = [];
 
-		if (lastProvider !== m.provider.id) {
-			lastProvider = m.provider.id;
-			items.push({ label: m.provider.name, kind: QuickPickItemKind.Separator } as unknown as ModelQuickPickItem);
-		}
-
-		const picked = m.provider.id === current?.provider && m.id === current?.model;
-
+	if (models.length === 0 && provider === 'ollama') {
 		items.push({
-			label: m.name,
-			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
-			// description: ` ~${formatNumeric(m.maxTokens)} tokens`,
-			model: m,
-			picked: picked,
-		} satisfies ModelQuickPickItem);
+			label: 'No models found',
+			description: 'Please install a model or check your Ollama server configuration',
+			iconPath: new ThemeIcon('error'),
+			directive: Directive.Noop,
+		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
+	} else {
+		for (const m of models) {
+			if (m.hidden) continue;
+
+			const picked = m.provider.id === current?.provider && m.id === current?.model;
+
+			items.push({
+				label: m.name,
+				description: m.default ? '  recommended' : undefined,
+				iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
+				model: m,
+				picked: picked,
+			} satisfies ModelQuickPickItem);
+		}
 	}
 
-	const quickpick = window.createQuickPick<ModelQuickPickItem>();
+	const quickpick = window.createQuickPick<ModelQuickPickItem | DirectiveQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 	const disposables: Disposable[] = [];
 
-	const ResetAIKeyButton: QuickInputButton = {
-		iconPath: new ThemeIcon('clear-all'),
-		tooltip: 'Reset AI Keys...',
-	};
-
 	try {
-		const pick = await new Promise<ModelQuickPickItem | undefined>(resolve => {
+		const pick = await new Promise<ModelQuickPickItem | Directive | undefined>(resolve => {
 			disposables.push(
 				quickpick.onDidHide(() => resolve(undefined)),
 				quickpick.onDidAccept(() => {
 					if (quickpick.activeItems.length !== 0) {
-						resolve(quickpick.activeItems[0]);
+						if (!isDirectiveQuickPickItem(quickpick.activeItems[0])) {
+							resolve(quickpick.activeItems[0]);
+						}
 					}
 				}),
 				quickpick.onDidTriggerButton(e => {
-					if (e === ResetAIKeyButton) {
-						void executeCommand(Commands.ResetAIKey);
+					if (e === QuickInputButtons.Back) {
+						resolve(Directive.Back);
 					}
 				}),
 			);
 
-			quickpick.title = 'Choose AI Model';
-			quickpick.placeholder = 'Select an AI model to use for experimental AI features';
+			quickpick.title = 'Select AI Model';
+			quickpick.placeholder = 'Choose an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
-			quickpick.buttons = [ResetAIKeyButton];
 			quickpick.items = items;
+			quickpick.activeItems = items.filter(i => i.picked);
+			quickpick.buttons = [QuickInputButtons.Back];
 
 			quickpick.show();
 		});

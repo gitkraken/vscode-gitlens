@@ -2,7 +2,13 @@ import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type {
+	ConnectCloudIntegrationsCommandArgs,
+	ManageCloudIntegrationsCommandArgs,
+} from '../../../../commands/cloudIntegrations';
+import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs';
 import type { Source } from '../../../../constants.telemetry';
+import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
@@ -23,7 +29,7 @@ export class GlFeatureNav extends GlElement {
 	@state()
 	private _state!: State;
 
-	get orgAllowsDrafts() {
+	get orgAllowsDrafts(): boolean {
 		return this._state.orgSettings.drafts;
 	}
 
@@ -46,7 +52,7 @@ export class GlFeatureNav extends GlElement {
 		return true;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			${when(
 				this.blockRepoFeatures,
@@ -73,7 +79,10 @@ export class GlFeatureNav extends GlElement {
 						<div class="nav-list__item" data-integrations="none">
 							<a
 								class="nav-list__link"
-								href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+									'gitlens.plus.cloudIntegrations.connect',
+									{ source: { source: 'home', detail: 'old-home' } },
+								)}"
 								aria-label="Connect an Integration on GitKraken.dev"
 								><code-icon class="nav-list__icon" icon="gl-unplug"></code-icon
 								><gl-tooltip
@@ -89,7 +98,12 @@ export class GlFeatureNav extends GlElement {
 						<div class="nav-list__item" data-integrations="connected">
 							<a
 								class="nav-list__link"
-								href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22home%22%7D"
+								href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
+									'gitlens.plus.cloudIntegrations.manage',
+									{
+										source: { source: 'home', detail: 'old-home' },
+									},
+								)}"
 								aria-label="Manage Integrations on GitKraken.dev"
 								><code-icon class="nav-list__icon" icon="settings"></code-icon
 								><gl-tooltip
@@ -182,18 +196,31 @@ export class GlFeatureNav extends GlElement {
 					this.orgAllowsDrafts,
 					() => html`
 						<div class="nav-list__item">
-							<a
-								class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
-								href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22home%22%7D"
-								data-requires="repo"
-								data-org-requires="drafts"
-								aria-label="Open Code Suggest walkthrough"
-								><code-icon class="nav-list__icon" icon="gl-code-suggestion"></code-icon
-								><gl-tooltip hoist class="nav-list__group" content="Open Code Suggest walkthrough"
-									><span class="nav-list__label">Code Suggest</span
-									><span class="nav-list__desc">New!</span></gl-tooltip
-								>
-							</a>
+							${when(
+								this._state.walkthroughSupported,
+								() =>
+									html` <a
+										class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
+										href="${createCommandLink<OpenWalkthroughCommandArgs>(
+											'gitlens.openWalkthrough',
+											{
+												step: 'streamline-collaboration',
+												source: { source: 'home', detail: 'old-home' },
+											},
+										)}"
+										data-requires="repo"
+										data-org-requires="drafts"
+										aria-label="Open Code Suggest walkthrough"
+										><code-icon class="nav-list__icon" icon="gl-code-suggestion"></code-icon
+										><gl-tooltip
+											hoist
+											class="nav-list__group"
+											content="Open Code Suggest walkthrough"
+											><span class="nav-list__label">Code Suggest</span
+											><span class="nav-list__desc">New!</span></gl-tooltip
+										>
+									</a>`,
+							)}
 							<gl-feature-badge
 								.source=${this.badgeSource}
 								.subscription=${this._state.subscription}

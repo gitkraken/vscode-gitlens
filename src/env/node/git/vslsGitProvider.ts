@@ -1,26 +1,30 @@
-import type { ChildProcess } from 'child_process';
-import { FileType, Uri, workspace } from 'vscode';
+import { Uri } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import type { GitProviderDescriptor } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
+import { isFolderUri } from '../../../system/-webview/path';
+import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
-import { addVslsPrefixIfNeeded } from '../../../system/vscode/path';
+import type { GitResult } from './git';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
 export class VslsGit extends Git {
-	constructor(private readonly localGit: Git) {
-		super();
+	constructor(
+		container: Container,
+		private readonly localGit: Git,
+	) {
+		super(container);
 	}
 
-	override async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<T>> {
 		if (options.local) {
 			// Since we will have a live share path here, just blank it out
 			options.cwd = '';
-			return this.localGit.git<TOut>(options, ...args);
+			return this.localGit.exec<T>(options, ...args);
 		}
 
 		const guest = await Container.instance.vsls.guest();
@@ -29,29 +33,19 @@ export class VslsGit extends Git {
 			throw new Error('No guest');
 		}
 
-		return guest.git<TOut>(options, ...args);
+		return guest.git<T>(options, ...args);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	override async gitSpawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
-		debugger;
-		throw new Error('Git spawn not supported in Live Share');
-	}
-
-	override async logStreamTo(
-		repoPath: string,
-		sha: string,
-		limit: number,
-		options?: { configs?: readonly string[]; stdin?: string },
-		...args: string[]
-	): Promise<[data: string[], count: number]> {
+	override async *stream(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): AsyncGenerator<string> {
 		const guest = await Container.instance.vsls.guest();
 		if (guest == null) {
 			debugger;
 			throw new Error('No guest');
 		}
 
-		return guest.gitLogStreamTo(repoPath, sha, limit, options, ...args);
+		// TOTAL HACK for now -- makes it looks like a stream
+		const result = await guest.git<string>(options, ...args);
+		yield result.stdout;
 	}
 }
 
@@ -107,8 +101,7 @@ export class VslsGitProvider extends LocalGitProvider {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				const stats = await workspace.fs.stat(uri);
-				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+				isDirectory = await isFolderUri(uri);
 			}
 
 			// If the uri isn't a directory, go up one level

@@ -344,7 +344,7 @@ export class TernarySearchTree<K, V> {
 		return { next: next };
 	}
 
-	forEach(callback: (value: V, index: K) => any) {
+	forEach(callback: (value: V, index: K) => any): void {
 		this._forEach(this._root, callback);
 	}
 

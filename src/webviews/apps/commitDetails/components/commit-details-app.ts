@@ -3,15 +3,16 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
+import type { GlCommands } from '../../../../constants.commands';
+import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
-import type { Serialized } from '../../../../system/vscode/serialize';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
-	DidChangeConnectedJiraNotification,
 	DidChangeDraftStateNotification,
 	DidChangeHasAccountNotification,
+	DidChangeIntegrationsNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -47,8 +48,8 @@ import { ExecuteCommand } from '../../../protocol';
 import type { CreatePatchMetadataEventDetail } from '../../plus/patchDetails/components/gl-patch-create';
 import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
-import type { Disposable } from '../../shared/dom';
 import { DOM } from '../../shared/dom';
+import type { Disposable } from '../../shared/events';
 import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
@@ -87,16 +88,16 @@ export class GlCommitDetailsApp extends LitElement {
 	draftState: DraftState = { inReview: false };
 
 	@state()
-	get isUncommitted() {
+	get isUncommitted(): boolean {
 		return this.state?.commit?.sha === uncommittedSha;
 	}
 
-	get hasCommit() {
+	get hasCommit(): boolean {
 		return this.state?.commit != null;
 	}
 
 	@state()
-	get isStash() {
+	get isStash(): boolean {
 		return this.state?.commit?.stashNumber != null;
 	}
 
@@ -115,12 +116,12 @@ export class GlCommitDetailsApp extends LitElement {
 			behind > 0 && ahead > 0
 				? 'both'
 				: behind > 0
-				  ? 'behind'
-				  : ahead > 0
-				    ? 'ahead'
-				    : working > 0
-				      ? 'working'
-				      : undefined;
+					? 'behind'
+					: ahead > 0
+						? 'ahead'
+						: working > 0
+							? 'working'
+							: undefined;
 
 		const branchName = wip.repositoryCount > 1 ? `${wip.repo.name}:${branch.name}` : branch.name;
 
@@ -180,7 +181,7 @@ export class GlCommitDetailsApp extends LitElement {
 		rootStyle.setProperty('--gitlens-tree-indent', `${this.indentPreference}px`);
 	}
 
-	override updated(changedProperties: Map<string | number | symbol, unknown>) {
+	override updated(changedProperties: Map<string | number | symbol, unknown>): void {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
 			if (this.state?.inReview != null && this.state.inReview !== this.draftState.inReview) {
@@ -189,8 +190,8 @@ export class GlCommitDetailsApp extends LitElement {
 		}
 	}
 
-	override connectedCallback() {
-		super.connectedCallback();
+	override connectedCallback(): void {
+		super.connectedCallback?.();
 
 		this._hostIpc = new HostIpc('commit-details');
 
@@ -213,11 +214,6 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-back', () => this.onNavigate('back')),
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-forward', () => this.onNavigate('forward')),
 			DOM.on('[data-action="create-patch"]', 'click', _e => this.onCreatePatchFromWip(true)),
-			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
-				'[data-region="rich-pane"]',
-				'expanded-change',
-				e => this.onExpandedChange(e.detail, 'autolinks'),
-			),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="pullrequest-pane"]',
 				'expanded-change',
@@ -338,25 +334,25 @@ export class GlCommitDetailsApp extends LitElement {
 			case DidChangeDraftStateNotification.is(msg):
 				this.onDraftStateChanged(msg.params.inReview, true);
 				break;
-			case DidChangeConnectedJiraNotification.is(msg):
-				this.state = { ...this.state!, hasConnectedJira: msg.params.hasConnectedJira };
-				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
-				break;
 			case DidChangeHasAccountNotification.is(msg):
 				this.state = { ...this.state!, hasAccount: msg.params.hasAccount };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
+				break;
+			case DidChangeIntegrationsNotification.is(msg):
+				this.state = { ...this.state!, hasIntegrationsConnected: msg.params.hasIntegrationsConnected };
 				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				break;
 		}
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
-	renderTopInspect() {
+	private renderTopInspect() {
 		if (this.state?.commit == null) return nothing;
 
 		return html`<gl-inspect-nav
@@ -368,7 +364,7 @@ export class GlCommitDetailsApp extends LitElement {
 		></gl-inspect-nav>`;
 	}
 
-	renderTopWip() {
+	private renderTopWip() {
 		if (this.state?.wip == null) return nothing;
 
 		return html`<gl-status-nav .wip=${this.state.wip} .preferences=${this.state.preferences}></gl-status-nav>`;
@@ -403,7 +399,7 @@ export class GlCommitDetailsApp extends LitElement {
 		// )}
 	}
 
-	renderWipTooltipContent() {
+	private renderWipTooltipContent() {
 		if (this.wipStatus == null) return 'Overview';
 
 		return html`
@@ -443,7 +439,7 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
-	renderTopSection() {
+	private renderTopSection() {
 		const isWip = this.state?.mode === 'wip';
 
 		return html`
@@ -491,7 +487,7 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		const wip = this.state?.wip;
 
 		return html`
@@ -528,7 +524,7 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
 
@@ -583,18 +579,18 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(CreatePatchFromWipCommand, { changes: this.state.wip.changes, checked: checked });
 	}
 
-	private onCommandClickedCore(action?: string) {
-		const command = action?.startsWith('command:') ? action.slice(8) : action;
+	private onCommandClickedCore(action?: GlCommands | `command:${GlCommands}`) {
+		const command = (action?.startsWith('command:') ? action.slice(8) : action) as GlCommands | undefined;
 		if (command == null) return;
 
 		this._hostIpc.sendCommand(ExecuteCommand, { command: command });
 	}
 
 	private onSwitchAiModel(_e: MouseEvent) {
-		this.onCommandClickedCore('gitlens.switchAIModel');
+		this.onCommandClickedCore('gitlens.ai.switchProvider');
 	}
 
-	async onExplainCommit(_e: MouseEvent) {
+	private async onExplainCommit(_e: MouseEvent) {
 		try {
 			const result = await this._hostIpc.sendRequest(ExplainRequest, undefined);
 			if (result.error) {
@@ -653,9 +649,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail, pane: string) {
 		let preferenceChange;
-		if (pane === 'autolinks') {
-			preferenceChange = { autolinksExpanded: e.expanded };
-		} else if (pane === 'pullrequest') {
+		if (pane === 'pullrequest') {
 			preferenceChange = { pullRequestExpanded: e.expanded };
 		}
 		if (preferenceChange == null) return;

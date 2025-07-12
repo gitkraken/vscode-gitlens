@@ -4,7 +4,7 @@ docker build . -t e2e-test
 
 cd ../../
 
-npm install -g pnpm
+npm install -g pnpm@10
 pnpm install
 mkdir -p out
 

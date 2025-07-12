@@ -1,26 +1,34 @@
+import ProviderApis from '@gitkraken/provider-apis';
+import { version as codeVersion, env } from 'vscode';
 import type { Response as FetchResponse } from '@env/fetch';
 import { fetch as _fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
-import ProviderApis from '@gitkraken/provider-apis';
-import { version as codeVersion, env } from 'vscode';
-import type { IntegrationId } from '../../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../../../constants.integrations';
 import type { Container } from '../../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	RequestClientError,
+	RequestNotFoundError,
 	RequestRateLimitError,
 } from '../../../errors';
 import type { PagedResult } from '../../../git/gitProvider';
 import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest';
 import { base64 } from '../../../system/string';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
+	GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
+	GetBitbucketResourcesForUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
+	GetIssueFn,
 	GetIssuesForAzureProjectFn,
 	GetIssuesForRepoFn,
 	GetIssuesForReposFn,
@@ -34,11 +42,13 @@ import type {
 	GetReposForAzureProjectFn,
 	GetReposOptions,
 	IssueFilter,
+	MergePullRequestFn,
 	PageInfo,
 	PagingMode,
 	ProviderAccount,
 	ProviderAzureProject,
 	ProviderAzureResource,
+	ProviderBitbucketResource,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderJiraProject,
@@ -83,8 +93,8 @@ export class ProvidersApi {
 		};
 		const providerApis = ProviderApis({ request: customFetch });
 		this.providers = {
-			[HostingIntegrationId.GitHub]: {
-				...providersMetadata[HostingIntegrationId.GitHub],
+			[GitCloudHostIntegrationId.GitHub]: {
+				...providersMetadata[GitCloudHostIntegrationId.GitHub],
 				provider: providerApis.github,
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
@@ -97,8 +107,8 @@ export class ProvidersApi {
 					providerApis.github,
 				) as GetIssuesForReposFn,
 			},
-			[SelfHostedIntegrationId.GitHubEnterprise]: {
-				...providersMetadata[SelfHostedIntegrationId.GitHubEnterprise],
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
+				...providersMetadata[GitSelfManagedHostIntegrationId.GitHubEnterprise],
 				provider: providerApis.github,
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
@@ -111,9 +121,24 @@ export class ProvidersApi {
 					providerApis.github,
 				) as GetIssuesForReposFn,
 			},
-			[HostingIntegrationId.GitLab]: {
-				...providersMetadata[HostingIntegrationId.GitLab],
+			[GitSelfManagedHostIntegrationId.GitHubEnterprise]: {
+				...providersMetadata[GitSelfManagedHostIntegrationId.GitHubEnterprise],
+				provider: providerApis.github,
+				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as GetCurrentUserFn,
+				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
+					providerApis.github,
+				) as GetPullRequestsForReposFn,
+				getPullRequestsForUserFn: providerApis.github.getPullRequestsAssociatedWithUser.bind(
+					providerApis.github,
+				) as GetPullRequestsForUserFn,
+				getIssuesForReposFn: providerApis.github.getIssuesForRepos.bind(
+					providerApis.github,
+				) as GetIssuesForReposFn,
+			},
+			[GitCloudHostIntegrationId.GitLab]: {
+				...providersMetadata[GitCloudHostIntegrationId.GitLab],
 				provider: providerApis.gitlab,
+				getRepoFn: providerApis.gitlab.getRepo.bind(providerApis.gitlab),
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,
@@ -124,6 +149,7 @@ export class ProvidersApi {
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
+				getIssueFn: providerApis.gitlab.getIssue.bind(providerApis.gitlab) as GetIssueFn,
 				getIssuesForReposFn: providerApis.gitlab.getIssuesForRepos.bind(
 					providerApis.gitlab,
 				) as GetIssuesForReposFn,
@@ -132,8 +158,30 @@ export class ProvidersApi {
 				) as GetIssuesForRepoFn,
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
 			},
-			[SelfHostedIntegrationId.GitLabSelfHosted]: {
-				...providersMetadata[SelfHostedIntegrationId.GitLabSelfHosted],
+			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
+				...providersMetadata[GitCloudHostIntegrationId.GitLab],
+				provider: providerApis.gitlab,
+				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as GetCurrentUserFn,
+				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
+					providerApis.gitlab,
+				) as GetPullRequestsForReposFn,
+				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(
+					providerApis.gitlab,
+				) as GetPullRequestsForRepoFn,
+				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
+					providerApis.gitlab,
+				) as GetPullRequestsForUserFn,
+				getIssueFn: providerApis.gitlab.getIssue.bind(providerApis.gitlab) as GetIssueFn,
+				getIssuesForReposFn: providerApis.gitlab.getIssuesForRepos.bind(
+					providerApis.gitlab,
+				) as GetIssuesForReposFn,
+				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(
+					providerApis.gitlab,
+				) as GetIssuesForRepoFn,
+				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
+			},
+			[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: {
+				...providersMetadata[GitSelfManagedHostIntegrationId.GitLabSelfHosted],
 				provider: providerApis.gitlab,
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
@@ -152,25 +200,52 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetIssuesForRepoFn,
 			},
-			[HostingIntegrationId.Bitbucket]: {
-				...providersMetadata[HostingIntegrationId.Bitbucket],
+			[GitCloudHostIntegrationId.Bitbucket]: {
+				...providersMetadata[GitCloudHostIntegrationId.Bitbucket],
 				provider: providerApis.bitbucket,
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(
 					providerApis.bitbucket,
 				) as GetCurrentUserFn,
+				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForUser.bind(
+					providerApis.bitbucket,
+				) as GetBitbucketResourcesForUserFn,
+				getBitbucketPullRequestsAuthoredByUserForWorkspaceFn:
+					providerApis.bitbucket.getPullRequestsForUserAndWorkspace.bind(
+						providerApis.bitbucket,
+					) as GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForUserFn: providerApis.bitbucket.getPullRequestsForUser.bind(
-					providerApis.bitbucket,
-				) as GetPullRequestsForUserFn,
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForRepoFn,
+				mergePullRequestFn: providerApis.bitbucket.mergePullRequest.bind(
+					providerApis.bitbucket,
+				) as MergePullRequestFn,
 			},
-			[HostingIntegrationId.AzureDevOps]: {
-				...providersMetadata[HostingIntegrationId.AzureDevOps],
+			[GitSelfManagedHostIntegrationId.BitbucketServer]: {
+				...providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer],
+				provider: providerApis.bitbucketServer,
+				getRepoFn: providerApis.bitbucketServer.getRepo.bind(providerApis.bitbucketServer),
+				getCurrentUserFn: providerApis.bitbucketServer.getCurrentUser.bind(
+					providerApis.bitbucketServer,
+				) as GetCurrentUserFn,
+				getBitbucketServerPullRequestsForCurrentUserFn:
+					providerApis.bitbucketServer.getPullRequestsForCurrentUser.bind(providerApis.bitbucketServer),
+				getPullRequestsForReposFn: providerApis.bitbucketServer.getPullRequestsForRepos.bind(
+					providerApis.bitbucketServer,
+				) as GetPullRequestsForReposFn,
+				getPullRequestsForRepoFn: providerApis.bitbucketServer.getPullRequestsForRepo.bind(
+					providerApis.bitbucketServer,
+				) as GetPullRequestsForRepoFn,
+				mergePullRequestFn: providerApis.bitbucketServer.mergePullRequest.bind(
+					providerApis.bitbucketServer,
+				) as MergePullRequestFn,
+			},
+			[GitCloudHostIntegrationId.AzureDevOps]: {
+				...providersMetadata[GitCloudHostIntegrationId.AzureDevOps],
 				provider: providerApis.azureDevOps,
+				getRepoOfProjectFn: providerApis.azureDevOps.getRepo.bind(providerApis.azureDevOps),
 				getCurrentUserFn: providerApis.azureDevOps.getCurrentUser.bind(
 					providerApis.azureDevOps,
 				) as GetCurrentUserFn,
@@ -198,52 +273,53 @@ export class ProvidersApi {
 				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
 					providerApis.azureDevOps,
 				) as GetReposForAzureProjectFn,
+				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
 			},
-			[IssueIntegrationId.Jira]: {
-				...providersMetadata[IssueIntegrationId.Jira],
+			[IssuesCloudHostIntegrationId.Jira]: {
+				...providersMetadata[IssuesCloudHostIntegrationId.Jira],
 				provider: providerApis.jira,
 				getCurrentUserForResourceFn: providerApis.jira.getCurrentUserForResource.bind(providerApis.jira),
 				getJiraResourcesForCurrentUserFn: providerApis.jira.getJiraResourcesForCurrentUser.bind(
 					providerApis.jira,
 				),
 				getJiraProjectsForResourcesFn: providerApis.jira.getJiraProjectsForResources.bind(providerApis.jira),
-				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira),
+				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira) as GetIssueFn,
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
 				),
 			},
-			[IssueIntegrationId.Trello]: {
-				...providersMetadata[IssueIntegrationId.Trello],
+			[IssuesCloudHostIntegrationId.Trello]: {
+				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
 				provider: providerApis.trello,
 			},
 		};
 	}
 
-	getScopesForProvider(providerId: IntegrationId): string[] | undefined {
+	getScopesForProvider(providerId: IntegrationIds): string[] | undefined {
 		return this.providers[providerId]?.scopes;
 	}
 
-	getProviderDomain(providerId: IntegrationId): string | undefined {
+	getProviderDomain(providerId: IntegrationIds): string | undefined {
 		return this.providers[providerId]?.domain;
 	}
 
-	getProviderPullRequestsPagingMode(providerId: IntegrationId): PagingMode | undefined {
+	getProviderPullRequestsPagingMode(providerId: IntegrationIds): PagingMode | undefined {
 		return this.providers[providerId]?.pullRequestsPagingMode;
 	}
 
-	getProviderIssuesPagingMode(providerId: IntegrationId): PagingMode | undefined {
+	getProviderIssuesPagingMode(providerId: IntegrationIds): PagingMode | undefined {
 		return this.providers[providerId]?.issuesPagingMode;
 	}
 
-	providerSupportsPullRequestFilters(providerId: IntegrationId, filters: PullRequestFilter[]): boolean {
+	providerSupportsPullRequestFilters(providerId: IntegrationIds, filters: PullRequestFilter[]): boolean {
 		return (
 			this.providers[providerId]?.supportedPullRequestFilters != null &&
 			filters.every(filter => this.providers[providerId]?.supportedPullRequestFilters?.includes(filter))
 		);
 	}
 
-	providerSupportsIssueFilters(providerId: IntegrationId, filters: IssueFilter[]): boolean {
+	providerSupportsIssueFilters(providerId: IntegrationIds, filters: IssueFilter[]): boolean {
 		return (
 			this.providers[providerId]?.supportedIssueFilters != null &&
 			filters.every(filter => this.providers[providerId]?.supportedIssueFilters?.includes(filter))
@@ -262,10 +338,7 @@ export class ProvidersApi {
 		provider: ProviderInfo,
 		options?: { createSessionIfNeeded?: boolean },
 	): Promise<string | undefined> {
-		const providerDescriptor =
-			provider.domain == null || provider.scopes == null
-				? undefined
-				: { domain: provider.domain, scopes: provider.scopes };
+		const providerDescriptor = { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
 			return (
@@ -283,7 +356,7 @@ export class ProvidersApi {
 	}
 
 	private async ensureProviderTokenAndFunction(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		providerFn: keyof ProviderInfo,
 		accessToken?: string,
 	): Promise<{ provider: ProviderInfo; token: string }> {
@@ -304,21 +377,23 @@ export class ProvidersApi {
 		return { provider: provider, token: token };
 	}
 
-	private handleProviderError<T>(providerId: IntegrationId, token: string, error: any): T {
+	private handleProviderError<T>(providerId: IntegrationIds, token: string, error: any): T {
 		const provider = this.providers[providerId];
 		if (provider == null) {
 			throw new Error(`Provider with id ${providerId} not registered`);
 		}
 
-		switch (providerId) {
-			case IssueIntegrationId.Jira: {
-				if (error?.response?.status != null) {
-					if (error.response.status === 401) {
-						throw new AuthenticationError(providerId, AuthenticationErrorReason.Forbidden, error);
-					} else if (error.response.status === 429) {
+		if (error?.response?.status != null) {
+			switch (error.response.status) {
+				case 404: // Not found
+				case 410: // Gone
+				case 422: // Unprocessable Entity
+					throw new RequestNotFoundError(error);
+				case 401: // Unauthorized
+					if (error.message?.includes('rate limit')) {
 						let resetAt: number | undefined;
 
-						const reset = error.response.headers?.['x-ratelimit-reset'];
+						const reset = error.response?.headers?.['x-ratelimit-reset'];
 						if (reset != null) {
 							resetAt = parseInt(reset, 10);
 							if (Number.isNaN(resetAt)) {
@@ -327,30 +402,47 @@ export class ProvidersApi {
 						}
 
 						throw new RequestRateLimitError(error, token, resetAt);
-					} else if (error.response.status >= 400 && error.response.status < 500) {
+					}
+					throw new AuthenticationError(providerId, AuthenticationErrorReason.Unauthorized, error);
+				case 403: // Forbidden
+					throw new AuthenticationError(providerId, AuthenticationErrorReason.Forbidden, error);
+				case 429: {
+					// Too Many Requests
+					let resetAt: number | undefined;
+
+					const reset = error.response.headers?.['x-ratelimit-reset'];
+					if (reset != null) {
+						resetAt = parseInt(reset, 10);
+						if (Number.isNaN(resetAt)) {
+							resetAt = undefined;
+						}
+					}
+
+					throw new RequestRateLimitError(error, token, resetAt);
+				}
+				default:
+					if (error.response.status >= 400 && error.response.status < 500) {
 						throw new RequestClientError(error);
 					}
-				}
-				throw error;
-			}
-			default: {
-				throw error;
 			}
 		}
+
+		throw error;
 	}
 
 	async getPagedResult<T>(
-		_provider: ProviderInfo,
+		provider: ProviderInfo,
 		args: any,
 		providerFn:
 			| ((
 					input: any,
-					options?: { token?: string; isPAT?: boolean },
+					options?: { token?: string; isPAT?: boolean; baseUrl?: string },
 			  ) => Promise<{ data: NonNullable<T>[]; pageInfo?: PageInfo }>)
 			| undefined,
 		token: string,
 		cursor: string = '{}',
-		usePAT: boolean = false,
+		isPAT: boolean = false,
+		baseUrl?: string,
 	): Promise<PagedResult<T>> {
 		let cursorInfo;
 		try {
@@ -372,32 +464,78 @@ export class ProvidersApi {
 			...cursorOrPage,
 		};
 
-		const result = await providerFn?.(input, { token: token, isPAT: usePAT });
-		if (result == null) {
-			return { values: [] };
+		try {
+			const result = await providerFn?.(input, { token: token, isPAT: isPAT, baseUrl: baseUrl });
+			if (result == null) {
+				return { values: [] };
+			}
+
+			const hasMore = result.pageInfo?.hasNextPage ?? false;
+
+			let nextCursor = '{}';
+			if (result.pageInfo?.endCursor != null) {
+				nextCursor = JSON.stringify({ value: result.pageInfo?.endCursor, type: 'cursor' });
+			} else if (result.pageInfo?.nextPage != null) {
+				nextCursor = JSON.stringify({ value: result.pageInfo?.nextPage, type: 'page' });
+			}
+
+			return {
+				values: result.data,
+				paging: {
+					cursor: nextCursor,
+					more: hasMore,
+				},
+			};
+		} catch (e) {
+			return this.handleProviderError<PagedResult<T>>(provider.id, token, e);
 		}
+	}
 
-		const hasMore = result.pageInfo?.hasNextPage ?? false;
+	async getRepo(
+		providerId: IntegrationIds,
+		owner: string,
+		name: string,
+		project?: string,
+		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderRepository | undefined> {
+		if (providerId === GitCloudHostIntegrationId.AzureDevOps && project != null) {
+			const { provider, token } = await this.ensureProviderTokenAndFunction(
+				providerId,
+				'getRepoOfProjectFn',
+				options?.accessToken,
+			);
 
-		let nextCursor = '{}';
-		if (result.pageInfo?.endCursor != null) {
-			nextCursor = JSON.stringify({ value: result.pageInfo?.endCursor, type: 'cursor' });
-		} else if (result.pageInfo?.nextPage != null) {
-			nextCursor = JSON.stringify({ value: result.pageInfo?.nextPage, type: 'page' });
+			try {
+				const result = await provider['getRepoOfProjectFn']?.(
+					{ namespace: owner, name: name, project: project },
+					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				);
+				return result?.data;
+			} catch (e) {
+				return this.handleProviderError<ProviderRepository>(providerId, token, e);
+			}
+		} else {
+			const { provider, token } = await this.ensureProviderTokenAndFunction(
+				providerId,
+				'getRepoFn',
+				options?.accessToken,
+			);
+
+			try {
+				const result = await provider['getRepoFn']?.(
+					{ namespace: owner, name: name, project: project },
+					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				);
+				return result?.data;
+			} catch (e) {
+				return this.handleProviderError<ProviderRepository>(providerId, token, e);
+			}
 		}
-
-		return {
-			values: result.data,
-			paging: {
-				cursor: nextCursor,
-				more: hasMore,
-			},
-		};
 	}
 
 	async getCurrentUser(
-		providerId: IntegrationId,
-		options?: { accessToken?: string; isPAT?: boolean },
+		providerId: IntegrationIds,
+		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAccount | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -406,16 +544,21 @@ export class ProvidersApi {
 		);
 
 		try {
-			return (await provider.getCurrentUserFn?.({}, { token: token, isPAT: options?.isPAT }))?.data;
+			return (
+				await provider.getCurrentUserFn?.(
+					{},
+					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				)
+			)?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderAccount>(providerId, token, e);
 		}
 	}
 
 	async getCurrentUserForInstance(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		namespace: string,
-		options?: { accessToken?: string; isPAT?: boolean },
+		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAccount | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -426,15 +569,15 @@ export class ProvidersApi {
 		return (
 			await provider.getCurrentUserForInstanceFn?.(
 				{ namespace: namespace },
-				{ token: token, isPAT: options?.isPAT },
+				{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
 			)
 		)?.data;
 	}
 
 	async getCurrentUserForResource(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		resourceId: string,
-		options?: { accessToken?: string },
+		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderAccount | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -443,7 +586,12 @@ export class ProvidersApi {
 		);
 
 		try {
-			return (await provider.getCurrentUserForResourceFn?.({ resourceId: resourceId }, { token: token }))?.data;
+			return (
+				await provider.getCurrentUserForResourceFn?.(
+					{ resourceId: resourceId },
+					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				)
+			)?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderAccount>(providerId, token, e);
 		}
@@ -453,7 +601,7 @@ export class ProvidersApi {
 		accessToken?: string;
 	}): Promise<ProviderJiraResource[] | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			IssueIntegrationId.Jira,
+			IssuesCloudHostIntegrationId.Jira,
 			'getJiraResourcesForCurrentUserFn',
 			options?.accessToken,
 		);
@@ -461,28 +609,98 @@ export class ProvidersApi {
 		try {
 			return (await provider.getJiraResourcesForCurrentUserFn?.({ token: token }))?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderJiraResource[] | undefined>(IssueIntegrationId.Jira, token, e);
+			return this.handleProviderError<ProviderJiraResource[] | undefined>(
+				IssuesCloudHostIntegrationId.Jira,
+				token,
+				e,
+			);
 		}
 	}
 
 	async getAzureResourcesForUser(
 		userId: string,
-		options?: { accessToken?: string },
+		options?: { accessToken?: string; isPAT?: boolean },
 	): Promise<ProviderAzureResource[] | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			HostingIntegrationId.AzureDevOps,
+			GitCloudHostIntegrationId.AzureDevOps,
 			'getAzureResourcesForUserFn',
 			options?.accessToken,
 		);
 
 		try {
-			return (await provider.getAzureResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
+			return (
+				await provider.getAzureResourcesForUserFn?.({ userId: userId }, { token: token, isPAT: options?.isPAT })
+			)?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderAzureResource[] | undefined>(
-				HostingIntegrationId.AzureDevOps,
+				GitCloudHostIntegrationId.AzureDevOps,
 				token,
 				e,
 			);
+		}
+	}
+
+	async getBitbucketResourcesForUser(
+		userId: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderBitbucketResource[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			GitCloudHostIntegrationId.Bitbucket,
+			'getBitbucketResourcesForUserFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (await provider.getBitbucketResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(
+				GitCloudHostIntegrationId.Bitbucket,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getBitbucketPullRequestsAuthoredByUserForWorkspace(
+		userId: string,
+		workspaceSlug: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderPullRequest[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			GitCloudHostIntegrationId.Bitbucket,
+			'getBitbucketPullRequestsAuthoredByUserForWorkspaceFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (
+				await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
+					{ userId: userId, workspaceSlug: workspaceSlug },
+					{ token: token },
+				)
+			)?.data;
+		} catch (e) {
+			return this.handleProviderError(GitCloudHostIntegrationId.Bitbucket, token, e);
+		}
+	}
+
+	async getBitbucketServerPullRequestsForCurrentUser(
+		baseUrl: string,
+		options?: {
+			accessToken?: string;
+		},
+	): Promise<ProviderPullRequest[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			GitSelfManagedHostIntegrationId.BitbucketServer,
+			'getBitbucketServerPullRequestsForCurrentUserFn',
+			options?.accessToken,
+		);
+		try {
+			return (
+				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
+			)?.data;
+		} catch (e) {
+			return this.handleProviderError(GitSelfManagedHostIntegrationId.BitbucketServer, token, e);
 		}
 	}
 
@@ -491,7 +709,7 @@ export class ProvidersApi {
 		options?: { accessToken?: string },
 	): Promise<ProviderJiraProject[] | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			IssueIntegrationId.Jira,
+			IssuesCloudHostIntegrationId.Jira,
 			'getJiraProjectsForResourcesFn',
 			options?.accessToken,
 		);
@@ -500,7 +718,11 @@ export class ProvidersApi {
 			return (await provider.getJiraProjectsForResourcesFn?.({ resourceIds: resourceIds }, { token: token }))
 				?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderJiraProject[] | undefined>(IssueIntegrationId.Jira, token, e);
+			return this.handleProviderError<ProviderJiraProject[] | undefined>(
+				IssuesCloudHostIntegrationId.Jira,
+				token,
+				e,
+			);
 		}
 	}
 
@@ -509,7 +731,7 @@ export class ProvidersApi {
 		options?: { accessToken?: string; cursor?: string; isPAT?: boolean },
 	): Promise<PagedResult<ProviderAzureProject>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			HostingIntegrationId.AzureDevOps,
+			GitCloudHostIntegrationId.AzureDevOps,
 			'getAzureProjectsForResourceFn',
 			options?.accessToken,
 		);
@@ -524,11 +746,11 @@ export class ProvidersApi {
 				provider.getAzureProjectsForResourceFn,
 				azureToken,
 				options?.cursor,
-				true,
+				options?.isPAT,
 			);
 		} catch (e) {
 			return this.handleProviderError<PagedResult<ProviderAzureProject>>(
-				HostingIntegrationId.AzureDevOps,
+				GitCloudHostIntegrationId.AzureDevOps,
 				token,
 				e,
 			);
@@ -538,10 +760,10 @@ export class ProvidersApi {
 	async getReposForAzureProject(
 		namespace: string,
 		project: string,
-		options?: GetReposOptions & { accessToken?: string },
+		options?: GetReposOptions & { accessToken?: string; isPAT?: boolean },
 	): Promise<PagedResult<ProviderRepository>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			HostingIntegrationId.AzureDevOps,
+			GitCloudHostIntegrationId.AzureDevOps,
 			'getReposForAzureProjectFn',
 			options?.accessToken,
 		);
@@ -552,13 +774,14 @@ export class ProvidersApi {
 			provider.getReposForAzureProjectFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
 		);
 	}
 
 	async getPullRequestsForRepos(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		reposOrIds: ProviderReposInput,
-		options?: GetPullRequestsOptions & { accessToken?: string },
+		options?: GetPullRequestsOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderPullRequest>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -575,13 +798,15 @@ export class ProvidersApi {
 			provider.getPullRequestsForReposFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
 		);
 	}
 
 	async getPullRequestsForRepo(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		repo: ProviderRepoInput,
-		options?: GetPullRequestsOptions & { accessToken?: string },
+		options?: GetPullRequestsOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderPullRequest>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -595,23 +820,25 @@ export class ProvidersApi {
 			provider.getPullRequestsForRepoFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
 		);
 	}
 
 	async getPullRequestsForUser(
-		providerId: HostingIntegrationId.Bitbucket,
+		providerId: GitCloudHostIntegrationId.Bitbucket,
 		userId: string,
-		options?: { accessToken?: string } & GetPullRequestsForUserOptions,
+		options?: { accessToken?: string; isPAT?: boolean } & GetPullRequestsForUserOptions,
 	): Promise<PagedResult<ProviderPullRequest>>;
 	async getPullRequestsForUser(
-		providerId: Exclude<IntegrationId, HostingIntegrationId.Bitbucket>,
+		providerId: Exclude<IntegrationIds, GitCloudHostIntegrationId.Bitbucket>,
 		username: string,
-		options?: { accessToken?: string } & GetPullRequestsForUserOptions,
+		options?: { accessToken?: string; isPAT?: boolean } & GetPullRequestsForUserOptions,
 	): Promise<PagedResult<ProviderPullRequest>>;
 	async getPullRequestsForUser(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		usernameOrId: string,
-		options?: { accessToken?: string } & GetPullRequestsForUserOptions,
+		options?: { accessToken?: string; isPAT?: boolean } & GetPullRequestsForUserOptions,
 	): Promise<PagedResult<ProviderPullRequest>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -622,7 +849,7 @@ export class ProvidersApi {
 		return this.getPagedResult<ProviderPullRequest>(
 			provider,
 			{
-				...(providerId === HostingIntegrationId.Bitbucket
+				...(providerId === GitCloudHostIntegrationId.Bitbucket
 					? { userId: usernameOrId }
 					: { username: usernameOrId }),
 				...options,
@@ -630,6 +857,8 @@ export class ProvidersApi {
 			provider.getPullRequestsForUserFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
 		);
 	}
 
@@ -638,7 +867,7 @@ export class ProvidersApi {
 		options?: { accessToken?: string; authorLogin?: string; assigneeLogins?: string[]; isPAT?: boolean },
 	): Promise<ProviderPullRequest[] | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			HostingIntegrationId.AzureDevOps,
+			GitCloudHostIntegrationId.AzureDevOps,
 			'getPullRequestsForAzureProjectsFn',
 			options?.accessToken,
 		);
@@ -650,24 +879,35 @@ export class ProvidersApi {
 			return (
 				await provider.getPullRequestsForAzureProjectsFn?.(
 					{ projects: projects, ...options },
-					{ token: azureToken, isPAT: true },
+					{ token: azureToken, isPAT: options?.isPAT },
 				)
 			)?.data;
 		} catch (e) {
-			return this.handleProviderError<ProviderPullRequest[]>(HostingIntegrationId.AzureDevOps, token, e);
+			return this.handleProviderError<ProviderPullRequest[]>(GitCloudHostIntegrationId.AzureDevOps, token, e);
 		}
 	}
 
 	async mergePullRequest(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		pr: PullRequest,
 		options?: {
+			accessToken?: string;
 			mergeMethod?: PullRequestMergeMethod;
+			isPAT?: boolean;
+			baseUrl?: string;
 		},
 	): Promise<boolean> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(providerId, 'mergePullRequestFn');
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			providerId,
+			'mergePullRequestFn',
+			options?.accessToken,
+		);
 		const headRef = pr.refs?.head;
 		if (headRef == null) return false;
+
+		if (provider.id === GitCloudHostIntegrationId.AzureDevOps && pr.project == null) {
+			return false;
+		}
 
 		try {
 			await provider.mergePullRequestFn?.(
@@ -679,14 +919,16 @@ export class ProvidersApi {
 						repository: {
 							id: pr.repository.repo,
 							name: pr.repository.repo,
+							project: pr.project?.name ?? '',
 							owner: {
 								login: pr.repository.owner,
 							},
 						},
+						version: pr.version,
 					},
 					...options,
 				},
-				{ token: token },
+				{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
 			);
 			return true;
 		} catch (e) {
@@ -695,9 +937,9 @@ export class ProvidersApi {
 	}
 
 	async getIssuesForRepos(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		reposOrIds: ProviderReposInput,
-		options?: GetIssuesOptions & { accessToken?: string },
+		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -714,13 +956,15 @@ export class ProvidersApi {
 			provider.getIssuesForReposFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
 		);
 	}
 
 	async getIssuesForRepo(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		repo: ProviderRepoInput,
-		options?: GetIssuesOptions & { accessToken?: string },
+		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -734,16 +978,18 @@ export class ProvidersApi {
 			provider.getIssuesForRepoFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
 		);
 	}
 
 	async getIssuesForAzureProject(
 		namespace: string,
 		project: string,
-		options?: GetIssuesOptions & { accessToken?: string },
+		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean },
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
-			HostingIntegrationId.AzureDevOps,
+			GitCloudHostIntegrationId.AzureDevOps,
 			'getIssuesForAzureProjectFn',
 			options?.accessToken,
 		);
@@ -754,11 +1000,12 @@ export class ProvidersApi {
 			provider.getIssuesForAzureProjectFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
 		);
 	}
 
 	async getIssuesForProject(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		project: string,
 		resourceId: string,
 		options?: GetIssuesOptions & { accessToken?: string },
@@ -782,33 +1029,31 @@ export class ProvidersApi {
 	}
 
 	async getIssuesForResourceForCurrentUser(
-		providerId: IntegrationId,
+		providerId: IntegrationIds,
 		resourceId: string,
-		options?: { accessToken?: string },
-	): Promise<ProviderIssue[] | undefined> {
+		options?: { accessToken?: string; cursor?: string; isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
 			'getIssuesForResourceForCurrentUserFn',
 			options?.accessToken,
 		);
 
-		try {
-			const result = await provider.getIssuesForResourceForCurrentUserFn?.(
-				{ resourceId: resourceId },
-				{ token: token },
-			);
-
-			return result?.data;
-		} catch (e) {
-			return this.handleProviderError<ProviderIssue[] | undefined>(providerId, token, e);
-		}
+		return this.getPagedResult<ProviderIssue>(
+			provider,
+			{ resourceId: resourceId },
+			provider.getIssuesForResourceForCurrentUserFn,
+			token,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
 	}
 
 	async getIssue(
-		providerId: IntegrationId,
-		resourceId: string,
-		issueId: string,
-		options?: { accessToken?: string },
+		providerId: IntegrationIds,
+		input: { resourceId: string; number: string } | { namespace: string; name: string; number: string },
+		options?: { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderIssue | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -817,7 +1062,11 @@ export class ProvidersApi {
 		);
 
 		try {
-			const result = await provider.getIssueFn?.({ resourceId: resourceId, number: issueId }, { token: token });
+			const result = await provider.getIssueFn?.(input, {
+				token: token,
+				isPAT: options?.isPAT,
+				baseUrl: options?.baseUrl,
+			});
 
 			return result?.data;
 		} catch (e) {

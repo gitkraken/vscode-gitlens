@@ -137,7 +137,7 @@ export class GlTreeGenerator extends GlElement {
 		return nodes?.map(node => this.renderTreeItem(node));
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-tree>${this.renderTree(this.treeItems)}</gl-tree>`;
 	}
 

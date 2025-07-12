@@ -55,18 +55,24 @@ export const homeStyles = css`
 	.home__main {
 		flex: 1;
 		overflow: auto;
-		padding: 0.8rem 2rem;
+		padding: 0.8rem 1.2rem;
 	}
 	.home__main > *:last-child {
 		margin-bottom: 0;
 	}
 
 	.home__aux,
-	.home__footer {
+	.home__header {
 		flex: none;
 	}
 
-	.home__aux:has(gl-promo-banner:not([has-promo]):only-child) {
+	.home__header {
+		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		padding: 0.4rem;
+	}
+
+	.home__aux:has(gl-promo-banner:has(gl-promo:not([has-promo])):only-child) {
 		display: none;
 	}
 
@@ -82,8 +88,8 @@ export const homeStyles = css`
 		margin-block-end: 0.8rem;
 	}
 
-	gl-home-account-content {
-		margin-bottom: 0;
+	gl-home-header {
+		margin: 0;
 	}
 
 	gl-repo-alerts:not([has-alerts]) {
@@ -191,8 +197,8 @@ export const alertStyles = css`
 
 export const navListStyles = css`
 	.nav-list {
-		margin-left: -2rem;
-		margin-right: -2rem;
+		margin-left: -1.2rem;
+		margin-right: -1.2rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.1rem;
@@ -268,7 +274,7 @@ export const navListStyles = css`
 	.nav-list__access {
 		flex: none;
 		position: relative;
-		left: 1.5rem;
+		left: 1.2rem;
 		font-size: x-small;
 		outline: none;
 		white-space: nowrap;
@@ -306,13 +312,19 @@ export const navListStyles = css`
 `;
 
 export const walkthroughProgressStyles = css`
+	a,
+	a:hover,
+	a:focus,
+	a:active {
+		text-decoration: none;
+	}
+
 	.walkthrough-progress {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		padding: 4px 8px 6px;
-		margin-inline: -8px;
-		margin-bottom: 16px;
+		padding: 2px 4px 4px;
+		margin-top: 4px;
 		align-items: stretch;
 		cursor: pointer;
 		border-radius: 4px;
@@ -326,9 +338,12 @@ export const walkthroughProgressStyles = css`
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		color: var(--color-foreground--85);
 	}
 	.walkthrough-progress__button {
 		--button-padding: 1px 2px 0px 2px;
+		position: absolute;
+		right: 0.4rem;
 	}
 	.walkthrough-progress__bar::-webkit-progress-bar {
 		border-radius: 2px;

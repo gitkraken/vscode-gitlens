@@ -48,9 +48,14 @@ export const enum CharCode {
 }
 
 export type GitConfigKeys =
-	| `branch.${string}.${'gk' | 'vscode'}-merge-base`
-	| `branch.${string}.gk-target-base`
+	| `branch.${string}.vscode-merge-base`
+	| `branch.${string}.gk-merge-base`
+	| `branch.${string}.gk-merge-target`
+	| `branch.${string}.gk-merge-target-user`
+	| `branch.${string}.gk-associated-issues`
 	| `branch.${string}.github-pr-owner-number`;
+
+export type DeprecatedGitConfigKeys = `branch.${string}.gk-target-base`;
 
 export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',
@@ -77,7 +82,8 @@ export const enum GlyphChars {
 	ArrowsLeftRight = '\u21c6',
 	ArrowsRightLeft = '\u21c4',
 	Asterisk = '\u2217',
-	Check = '✔',
+	Bullseye = '\u25CE',
+	Check = '\u2714',
 	Dash = '\u2014',
 	Dot = '\u2022',
 	Ellipsis = '\u2026',
@@ -131,6 +137,7 @@ export const enum Schemes {
 	Git = 'git',
 	GitHub = 'github',
 	GitLens = 'gitlens',
+	GitLensAIMarkdown = 'gitlens-ai-markdown',
 	PRs = 'pr',
 	Remote = 'vscode-remote',
 	Vsls = 'vsls',
@@ -152,7 +159,7 @@ export const trackableSchemes = Object.freeze(
 	]),
 );
 
-const utm = 'utm_source=gitlens-extension&utm_medium=in-app-links';
+const utm = 'source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links';
 export const urls = Object.freeze({
 	codeSuggest: `https://gitkraken.com/solutions/code-suggest?${utm}`,
 	cloudPatches: `https://gitkraken.com/solutions/cloud-patches?${utm}`,
@@ -171,13 +178,16 @@ export const urls = Object.freeze({
 	githubIssues: `https://github.com/gitkraken/vscode-gitlens/issues/?${utm}`,
 	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
 	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
+	helpCenterHome: `https://help.gitkraken.com/gitlens/home-view/?${utm}`,
 	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
 
 	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,
 	communityVsPro: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
+	homeView: `https://help.gitkraken.com/gitlens/home-view/?${utm}&utm_campaign=walkthrough`,
 	interactiveCodeHistory: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#interactive-code-history`,
 	startIntegrations: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#improve-workflows-with-integrations`,
 	streamlineCollaboration: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#streamline-collaboration`,
+	aiFeatures: `https://help.gitkraken.com/gitlens/gl-gk-ai/?${utm}`,
 });
 
 export type WalkthroughSteps =

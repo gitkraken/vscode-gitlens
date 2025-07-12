@@ -1,18 +1,19 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
 import { extensionPrefix } from '../../constants';
-import { IssueIntegrationId } from '../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../constants.integrations';
 import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+import { GitFileChange } from '../../git/models/fileChange';
+import { GitFileIndexStatus } from '../../git/models/fileStatus';
 import { PullRequest } from '../../git/models/pullRequest';
-import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
+import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import { map } from '../../system/iterable';
-import type { ConfigPath, CoreConfigPath } from '../../system/vscode/configuration';
-import { configuration } from '../../system/vscode/configuration';
 import type { CustomConfigPath, IpcMessage } from '../protocol';
 import {
 	assertsConfigKeyValue,
@@ -36,7 +37,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly host: WebviewHost,
+		protected readonly host: WebviewHost<'gitlens.settings'>,
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -45,7 +46,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -55,11 +56,11 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		};
 	}
 
-	onSubscriptionChanged(e: SubscriptionChangeEvent) {
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.host.notify(DidChangeAccountNotification, { hasAccount: e.current.account != null });
 	}
 
-	onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+	private onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (e.key === 'jira') {
 			void this.host.notify(DidChangeConnectedJiraNotification, { hasConnectedJira: e.reason === 'connected' });
 		}
@@ -70,7 +71,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	async getJiraConnected(): Promise<boolean> {
-		const jira = await this.container.integrations.get(IssueIntegrationId.Jira);
+		const jira = await this.container.integrations.get(IssuesCloudHostIntegrationId.Jira);
 		if (jira == null) return false;
 		return jira.maybeConnected ?? jira.isConnected();
 	}
@@ -129,7 +130,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	onReady() {
+	onReady(): void {
 		if (this._pendingJumpToAnchor != null) {
 			const anchor = this._pendingJumpToAnchor;
 			this._pendingJumpToAnchor = undefined;
@@ -138,7 +139,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		if (e == null) return;
 
 		switch (true) {
@@ -202,11 +203,20 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-							new GitFileChange(
-								'~/code/eamodio/vscode-gitlens-demo',
-								'code.ts',
-								GitFileIndexStatus.Modified,
-							),
+							{
+								files: undefined,
+								filtered: {
+									files: [
+										new GitFileChange(
+											this.container,
+											'~/code/eamodio/vscode-gitlens-demo',
+											'code.ts',
+											GitFileIndexStatus.Modified,
+										),
+									],
+									pathspec: 'code.ts',
+								},
+							},
 							undefined,
 							[],
 						);

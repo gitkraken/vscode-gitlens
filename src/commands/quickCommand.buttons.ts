@@ -22,7 +22,7 @@ export class ToggleQuickInputButton implements QuickInputButton {
 			? {
 					dark: Uri.file(Container.instance.context.asAbsolutePath(`images/dark/${icon}.svg`)),
 					light: Uri.file(Container.instance.context.asAbsolutePath(`images/light/${icon}.svg`)),
-			  }
+				}
 			: icon;
 	}
 
@@ -30,7 +30,7 @@ export class ToggleQuickInputButton implements QuickInputButton {
 		return this.getToggledState().tooltip;
 	}
 
-	get on() {
+	get on(): boolean {
 		return this._on;
 	}
 	set on(value: boolean) {
@@ -100,6 +100,12 @@ export const MatchRegexToggleQuickInputButton = class extends SelectableQuickInp
 	}
 };
 
+export const MatchWholeWordToggleQuickInputButton = class extends SelectableQuickInputButton {
+	constructor(on = false) {
+		super('Match Whole Word', { off: 'icon-match-wholeword', on: 'icon-match-wholeword-selected' }, on);
+	}
+};
+
 export const PickCommitQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('git-commit'),
 	tooltip: 'Choose a Specific Commit',
@@ -145,6 +151,16 @@ export const OpenOnGitHubQuickInputButton: QuickInputButton = {
 export const OpenOnGitLabQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
 	tooltip: 'Open on GitLab',
+};
+
+export const OpenOnAzureDevOpsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('globe'),
+	tooltip: 'Open on Azure DevOps',
+};
+
+export const OpenOnBitbucketQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('globe'),
+	tooltip: 'Open on Bitbucket',
 };
 
 export const OpenOnWebQuickInputButton: QuickInputButton = {

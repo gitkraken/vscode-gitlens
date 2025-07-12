@@ -3,20 +3,22 @@ import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { DraftsViewConfig } from '../config';
 import { previewBadge } from '../constants';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
-import type { Draft } from '../gk/models/drafts';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { gate } from '../system/decorators/gate';
-import { groupByFilterMap } from '../system/iterable';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import type { Draft } from '../plus/drafts/models/drafts';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
+import { groupByFilterMap, map } from '../system/iterable';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
+import type { RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsView, GroupingNode | DraftNode> {
@@ -32,11 +34,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 				const drafts = await this.view.container.drafts.getDrafts();
 				drafts?.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-				const groups = groupByFilterMap(
-					drafts,
-					this.calcDraftGroupKey.bind(this),
-					d => new DraftNode(this.uri, this.view, this, d),
-				);
+				const groups = groupByFilterMap(drafts, getDraftGroupKey, d => d);
 
 				const mine = groups.get('mine');
 				const shared = groups.get('shared');
@@ -44,13 +42,21 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 
 				if (!isFlat) {
 					if (mine?.length) {
-						children.push(new GroupingNode(this.view, 'Created by Me', mine));
+						children.push(
+							new GroupingNode(this.view, this, 'Created by Me', p =>
+								mine.map(d => new DraftNode(this.uri, this.view, p, d)),
+							),
+						);
 					}
 					if (shared?.length) {
-						children.push(new GroupingNode(this.view, 'Shared with Me', shared));
+						children.push(
+							new GroupingNode(this.view, this, 'Shared with Me', p =>
+								shared.map(d => new DraftNode(this.uri, this.view, p, d)),
+							),
+						);
 					}
 				} else {
-					children.push(...mine);
+					children.push(...map(mine, d => new DraftNode(this.uri, this.view, this, d)));
 				}
 			} catch (ex) {
 				if (!(ex instanceof AuthenticationRequiredError)) throw ex;
@@ -66,13 +72,6 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	private calcDraftGroupKey(d: Draft): DraftGroupKey {
-		if (d.type === 'suggested_pr_change') {
-			return 'pr_suggestion';
-		}
-		return d.isMine ? 'mine' : 'shared';
-	}
 }
 
 type DraftGroupKey = 'pr_suggestion' | 'mine' | 'shared';
@@ -87,12 +86,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		this.description = previewBadge;
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
 
-	protected getRoot() {
+	protected getRoot(): DraftsViewNode {
 		return new DraftsViewNode(this);
 	}
 
@@ -119,23 +118,22 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 						step: 'streamline-collaboration',
-						source: 'cloud-patches',
-						detail: 'info',
+						source: { source: 'cloud-patches', detail: 'info' },
 					}),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
 			registerViewCommand(
 				this.getQualifiedCommand('create'),
 				async () => {
-					await executeCommand(Commands.CreateCloudPatch);
+					await executeCommand('gitlens.createCloudPatch');
 					void this.ensureRoot().triggerChange(true);
 				},
 				this,
@@ -164,7 +162,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		];
 	}
 
-	async findDraft(draft: Draft, cancellation?: CancellationToken) {
+	async findDraft(draft: Draft, cancellation?: CancellationToken): Promise<ViewNode | undefined> {
 		return this.findNode((n: any) => n.draft?.id === draft.id, {
 			allowPaging: false,
 			maxDepth: 2,
@@ -178,18 +176,11 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	}
 
 	@gate(() => '')
-	async revealDraft(
-		draft: Draft,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
+	async revealDraft(draft: Draft, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findDraft(draft);
 		if (node == null) return undefined;
 
-		await this.ensureRevealNode(node, options);
+		await this.revealDeep(node, options);
 
 		return node;
 	}
@@ -197,4 +188,10 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
+}
+
+function getDraftGroupKey(d: Draft): DraftGroupKey {
+	if (d.type === 'suggested_pr_change') return 'pr_suggestion';
+
+	return d.isMine ? 'mine' : 'shared';
 }

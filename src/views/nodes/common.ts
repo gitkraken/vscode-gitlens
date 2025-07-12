@@ -1,8 +1,11 @@
-import type { Command, Uri } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command, Disposable, Uri } from 'vscode';
+import { commands, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
-import { configuration } from '../../system/vscode/configuration';
+import { configuration } from '../../system/-webview/configuration';
+import { getScopedCounter } from '../../system/counter';
+import { isPromise } from '../../system/promise';
+import { compareSubstringIgnoreCase, equalsIgnoreCase } from '../../system/string';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, ViewNode } from './abstract/viewNode';
@@ -11,12 +14,12 @@ export class MessageNode extends ViewNode<'message'> {
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
-		private readonly message: string,
-		private readonly description?: string,
-		private readonly tooltip?: string,
-		private readonly iconPath?: TreeItem['iconPath'],
-		private readonly contextValue?: string,
-		private readonly resourceUri?: Uri,
+		protected message: string,
+		protected description?: string,
+		protected tooltip?: string,
+		protected iconPath?: TreeItem['iconPath'],
+		protected contextValue?: ContextValues | `gitlens:views:${View['type']}`,
+		protected resourceUri?: Uri,
 	) {
 		super('message', unknownGitUri, view, parent);
 	}
@@ -37,8 +40,27 @@ export class MessageNode extends ViewNode<'message'> {
 }
 
 export class GroupedHeaderNode extends MessageNode {
-	constructor(view: View, parent: ViewNode, description?: string, label?: string) {
-		super(view, parent, label ?? view.name, description, view.name, undefined, `gitlens:views:${view.type}`);
+	constructor(view: View, parent: ViewNode) {
+		let description = view.description;
+		if (description && !equalsIgnoreCase(view.name, description)) {
+			const index = compareSubstringIgnoreCase(description, view.name, 0, view.name.length);
+			description = index === 0 ? description.substring(view.name.length).trimStart() : description;
+			if (description.startsWith(':')) {
+				description = description.substring(1).trimStart();
+			}
+		} else {
+			description = undefined;
+		}
+
+		super(
+			view,
+			parent,
+			view.name.toLocaleUpperCase(),
+			description,
+			view.description,
+			undefined,
+			`gitlens:views:${view.type}`,
+		);
 	}
 }
 
@@ -51,21 +73,71 @@ export class CommandMessageNode extends MessageNode {
 		description?: string,
 		tooltip?: string,
 		iconPath?: TreeItem['iconPath'],
+		contextValue?: ContextValues,
+		resourceUri?: Uri,
 	) {
-		super(view, parent, message, description, tooltip, iconPath);
+		super(view, parent, message, description, tooltip, iconPath, contextValue, resourceUri);
 	}
 
 	override getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = super.getTreeItem();
-		if (item instanceof TreeItem) {
-			item.command = this._command;
-			return item;
+		if (isPromise(item)) {
+			return item.then(i => {
+				i.command = this._command;
+				return i;
+			});
 		}
 
-		return item.then(i => {
-			i.command = this._command;
-			return i;
-		});
+		item.command = this._command;
+		return item;
+	}
+
+	override getCommand(): Command | undefined {
+		return this._command;
+	}
+}
+
+const actionCommandCounter = getScopedCounter();
+
+export class ActionMessageNode extends CommandMessageNode {
+	private readonly _disposable: Disposable;
+
+	constructor(
+		view: View,
+		parent: ViewNode,
+		action: (node: ActionMessageNode) => void | Promise<void>,
+		message: string,
+		description?: string,
+		tooltip?: string,
+		iconPath?: TreeItem['iconPath'],
+		contextValue?: ContextValues,
+		resourceUri?: Uri,
+	) {
+		const command = { command: `gitlens.node.action:${actionCommandCounter.next()}`, title: 'Execute action' };
+		super(view, parent, command, message, description, tooltip, iconPath, contextValue, resourceUri);
+
+		this._disposable = commands.registerCommand(command.command, action.bind(undefined, this));
+	}
+
+	override dispose(): void {
+		this._disposable.dispose();
+	}
+
+	update(options: {
+		message?: string;
+		description?: string | null;
+		tooltip?: string | null;
+		iconPath?: TreeItem['iconPath'] | null;
+		contextValue?: ContextValues | null;
+		resourceUri?: Uri | null;
+	}): void {
+		this.message = options.message ?? this.message;
+		this.description = options.description === null ? undefined : (options.description ?? this.description);
+		this.tooltip = options.tooltip === null ? undefined : (options.tooltip ?? this.tooltip);
+		this.iconPath = options.iconPath === null ? undefined : (options.iconPath ?? this.iconPath);
+		this.contextValue = options.contextValue === null ? undefined : (options.contextValue ?? this.contextValue);
+		this.resourceUri = options.resourceUri === null ? undefined : (options.resourceUri ?? this.resourceUri);
+		this.view.triggerNodeChange(this);
 	}
 }
 
@@ -84,7 +156,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 		super('pager', unknownGitUri, view, parent);
 	}
 
-	async loadAll() {
+	async loadAll(): Promise<void> {
 		const count = (await this.options?.getCount?.()) ?? 0;
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
@@ -94,7 +166,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 		);
 	}
 
-	loadMore() {
+	loadMore(): Promise<void> {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
 			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),

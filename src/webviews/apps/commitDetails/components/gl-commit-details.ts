@@ -2,33 +2,28 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import type { Autolink } from '../../../../autolinks';
-import type {
-	ConnectCloudIntegrationsCommandArgs,
-	ManageCloudIntegrationsCommandArgs,
-} from '../../../../commands/cloudIntegrations';
-import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
-import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import type { Autolink } from '../../../../autolinks/models/autolinks';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
-import type { Serialized } from '../../../../system/vscode/serialize';
+import { createCommandLink } from '../../../../system/commands';
+import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
-import '../../shared/components/actions/action-item';
-import '../../shared/components/actions/action-nav';
 import '../../shared/components/button';
+import '../../shared/components/chips/action-chip';
+import '../../shared/components/chips/autolink-chip';
 import '../../shared/components/code-icon';
-import '../../shared/components/commit/commit-identity';
+import '../../shared/components/commit/commit-author';
+import '../../shared/components/commit/commit-date';
 import '../../shared/components/commit/commit-stats';
 import '../../shared/components/markdown/markdown';
-import '../../shared/components/overlays/popover';
-import '../../shared/components/overlays/tooltip';
+import '../../shared/components/panes/pane-group';
 import '../../shared/components/rich/issue-pull-request';
-import '../../shared/components/skeleton-loader';
-import '../../shared/components/webview-pane';
 
 interface ExplainState {
 	cancelled?: boolean;
@@ -44,12 +39,12 @@ export class GlCommitDetails extends GlDetailsBase {
 	state?: Serialized<State>;
 
 	@state()
-	get isStash() {
+	get isStash(): boolean {
 		return this.state?.commit?.stashNumber != null;
 	}
 
 	@state()
-	get shortSha() {
+	get shortSha(): string {
 		return this.state?.commit?.shortSha ?? '';
 	}
 
@@ -86,7 +81,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		return actions;
 	}
 
-	override updated(changedProperties: Map<string, any>) {
+	override updated(changedProperties: Map<string, any>): void {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="commit-explanation"]')?.scrollIntoView();
@@ -127,6 +122,25 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
+	private renderExplainChanges() {
+		if (this.state?.orgSettings.ai === false) return undefined;
+
+		return html`
+			<gl-action-chip
+				label=${this.isUncommitted
+					? 'Explain Working Changes'
+					: `Explain Changes in this ${this.isStash ? 'Stash' : 'Commit'}`}
+				icon="sparkle"
+				data-action="explain-commit"
+				aria-busy="${this.explainBusy ? 'true' : nothing}"
+				?disabled="${this.explainBusy ? true : nothing}"
+				@click=${this.onExplainChanges}
+				@keydown=${this.onExplainChanges}
+				><span>explain</span></gl-action-chip
+			>
+		`;
+	}
+
 	private renderCommitMessage() {
 		const details = this.state?.commit;
 		if (details == null) return undefined;
@@ -135,75 +149,57 @@ export class GlCommitDetails extends GlDetailsBase {
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
-				${when(
-					!this.isStash,
-					() => html`
-						<commit-identity
-							class="mb-1"
-							name="${details.author.name}"
-							url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
-							date=${details.author.date}
-							.dateFormat="${this.preferences?.dateFormat}"
-							.avatarUrl="${details.author.avatar ?? ''}"
-							.showAvatar="${this.preferences?.avatars ?? true}"
-							.actionLabel="${details.sha === uncommittedSha ? 'modified' : 'committed'}"
-						></commit-identity>
-					`,
-				)}
-				<div class="message-block">
+				<div class="message-block-row">
 					${when(
-						index === -1,
-						() =>
-							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(message)}</strong>
-							</p>`,
-						() =>
-							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(message.substring(0, index))}</strong><br /><span
-									>${unsafeHTML(message.substring(index + 3))}</span
-								>
-							</p>`,
+						!this.isStash,
+						() => html`
+							<gl-commit-author
+								name="${details.author.name}"
+								url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
+								.avatarUrl="${details.author.avatar ?? ''}"
+								.showAvatar="${this.preferences?.avatars ?? true}"
+							></gl-commit-author>
+						`,
 					)}
+					${this.renderExplainChanges()}
+				</div>
+				<div>
+					<div class="message-block">
+						${when(
+							index === -1,
+							() =>
+								html`<p class="message-block__text scrollable" data-region="message">
+									<strong>${unsafeHTML(message)}</strong>
+								</p>`,
+							() =>
+								html`<p class="message-block__text scrollable" data-region="message">
+									<strong>${unsafeHTML(message.substring(0, index))}</strong><br /><span
+										>${unsafeHTML(message.substring(index + 3))}</span
+									>
+								</p>`,
+						)}
+					</div>
+					<div class="message-block-row message-block-row--actions">
+						${this.renderAutoLinksChips()}
+						${when(
+							!this.isStash,
+							() => html`
+								<gl-commit-date
+									date=${details.author.date}
+									.dateFormat="${this.preferences?.dateFormat}"
+									.dateStyle="${this.preferences?.dateStyle}"
+									.actionLabel="${details.sha === uncommittedSha ? 'Modified' : 'Committed'}"
+								></gl-commit-date>
+							`,
+						)}
+					</div>
 				</div>
 			</div>
 		`;
 	}
 
-	private renderJiraLink() {
-		if (this.state == null) return 'Jira issues';
-
-		const { hasAccount, hasConnectedJira } = this.state;
-
-		let message = html`<a
-				href="command:gitlens.plus.cloudIntegrations.connect?${encodeURIComponent(
-					JSON.stringify({
-						integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
-						source: 'inspect',
-						detail: {
-							action: 'connect',
-							integration: 'jira',
-						},
-					} satisfies ConnectCloudIntegrationsCommandArgs),
-				)}"
-				>Connect to Jira Cloud</a
-			>
-			&mdash; ${hasAccount ? '' : 'sign up and '}get access to automatic rich Jira autolinks`;
-
-		if (hasAccount && hasConnectedJira) {
-			message = html`<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected
-				&mdash; automatic rich Jira autolinks are enabled`;
-		}
-
-		return html`<gl-popover hoist class="inline-popover">
-			<span class="tooltip-hint" slot="anchor"
-				>Jira issues <code-icon icon="${hasConnectedJira ? 'check' : 'gl-unplug'}"></code-icon
-			></span>
-			<span slot="content">${message}</span>
-		</gl-popover>`;
-	}
-
-	private renderAutoLinks() {
-		if (this.isUncommitted) return undefined;
+	private get autolinkState() {
+		if (!this.state?.autolinksEnabled || this.isUncommitted) return undefined;
 
 		const deduped = new Map<
 			string,
@@ -223,24 +219,24 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		if (this.state?.autolinkedIssues != null) {
 			for (const issue of this.state.autolinkedIssues) {
-				deduped.set(issue.id, { type: 'issue', value: issue });
 				if (issue.url != null) {
 					const autoLinkId = autolinkIdsByUrl.get(issue.url);
 					if (autoLinkId != null) {
 						deduped.delete(autoLinkId);
 					}
 				}
+				deduped.set(issue.id, { type: 'issue', value: issue });
 			}
 		}
 
 		if (this.state?.pullRequest != null) {
-			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
 			if (this.state.pullRequest.url != null) {
 				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
 				if (autoLinkId != null) {
 					deduped.delete(autoLinkId);
 				}
 			}
+			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
 		}
 
 		const autolinks: Serialized<Autolink>[] = [];
@@ -260,221 +256,115 @@ export class GlCommitDetails extends GlDetailsBase {
 					break;
 			}
 		}
+		return {
+			autolinks: autolinks,
+			issues: issues,
+			prs: prs,
+			size: deduped.size,
+		};
+	}
 
-		const { hasAccount, hasConnectedJira } = this.state ?? {};
-		const jiraIntegrationLink = hasConnectedJira
-			? `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
-					JSON.stringify({
+	private renderLearnAboutAutolinks(compact = false) {
+		const chipLabel = compact ? nothing : html`<span class="mq-hide-sm">Learn about autolinks</span>`;
+
+		const autolinkSettingsLink = createCommandLink('gitlens.showSettingsPage!autolinks', {
+			showOptions: { preserveFocus: true },
+		});
+
+		const hasIntegrationsConnected = this.state?.hasIntegrationsConnected ?? false;
+		let label =
+			'Configure autolinks to linkify external references, like Jira or Zendesk tickets, in commit messages.';
+		if (!hasIntegrationsConnected) {
+			label = `<a href="${autolinkSettingsLink}">Configure autolinks</a> to linkify external references, like Jira or Zendesk tickets, in commit messages.`;
+			label += `\n\n<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+				'gitlens.plus.cloudIntegrations.connect',
+				{
+					source: {
 						source: 'inspect',
 						detail: {
 							action: 'connect',
-							integration: 'jira',
 						},
-					} satisfies ManageCloudIntegrationsCommandArgs),
-			  )}`
-			: `command:gitlens.plus.cloudIntegrations.connect?${encodeURIComponent(
-					JSON.stringify({
-						integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
-						source: 'inspect',
-						detail: {
-							action: 'connect',
-							integration: 'jira',
-						},
-					} satisfies ConnectCloudIntegrationsCommandArgs),
-			  )}`;
-		return html`
-			<webview-pane
-				collapsable
-				?expanded=${this.state?.preferences?.autolinksExpanded ?? true}
-				?loading=${!this.state?.includeRichContent}
-				data-region="rich-pane"
-			>
-				<span slot="title">Autolinks</span>
-				<span slot="subtitle" data-region="autolink-count"
-					>${this.state?.includeRichContent || deduped.size ? `${deduped.size} found ` : ''}${this.state
-						?.includeRichContent
-						? ''
-						: '…'}</span
-				>
-				<action-nav slot="actions">
-					<action-item
-						label="${hasAccount && hasConnectedJira ? 'Manage Jira' : 'Connect to Jira Cloud'}"
-						icon="gl-provider-jira"
-						href="${jiraIntegrationLink}"
-					></action-item>
-					<action-item
-						data-action="autolinks-settings"
-						label="Autolinks Settings"
-						icon="gear"
-						href="command:gitlens.showSettingsPage!autolinks"
-					></action-item>
-				</action-nav>
-				${when(
-					this.state == null,
-					() => html`
-						<div class="section" data-region="autolinks">
-							<section class="auto-link" aria-label="Custom Autolinks" data-region="custom-autolinks">
-								<skeleton-loader lines="2"></skeleton-loader>
-							</section>
-							<section class="pull-request" aria-label="Pull request" data-region="pull-request">
-								<skeleton-loader lines="2"></skeleton-loader>
-							</section>
-							<section class="issue" aria-label="Issue" data-region="issue">
-								<skeleton-loader lines="2"></skeleton-loader>
-							</section>
-						</div>
-					`,
-					() => {
-						if (deduped.size === 0) {
-							return html`
-								<div class="section" data-region="rich-info">
-									<p>
-										<code-icon icon="info"></code-icon>&nbsp;Use
-										<gl-tooltip hoist>
-											<a
-												href="command:gitlens.showSettingsPage!autolinks"
-												data-action="autolink-settings"
-												>autolinks</a
-											>
-											<span slot="content">Configure autolinks</span>
-										</gl-tooltip>
-										to linkify external references, like ${this.renderJiraLink()} or Zendesk
-										tickets, in commit messages.
-									</p>
-								</div>
-							`;
-						}
-						return html`
-							<div class="section" data-region="autolinks">
-								${autolinks.length
-									? html`
-											<section
-												class="auto-link"
-												aria-label="Custom Autolinks"
-												data-region="custom-autolinks"
-											>
-												${autolinks.map(autolink => {
-													let name = autolink.description ?? autolink.title;
-													if (name === undefined) {
-														name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
-													}
-													return html`
-														<issue-pull-request
-															type="autolink"
-															name="${name}"
-															url="${autolink.url}"
-															identifier="${autolink.prefix}${autolink.id}"
-															status=""
-														></issue-pull-request>
-													`;
-												})}
-											</section>
-									  `
-									: undefined}
-								${prs.length
-									? html`
-											<section
-												class="pull-request"
-												aria-label="Pull request"
-												data-region="pull-request"
-											>
-												${prs.map(
-													pr => html`
-														<issue-pull-request
-																type="pr"
-																name="${pr.title}"
-																url="${pr.url}"
-																identifier="#${pr.id}"
-																status="${pr.state}"
-																.date=${pr.updatedDate}
-																.dateFormat="${this.state!.preferences.dateFormat}"
-																.dateStyle="${this.state!.preferences.dateStyle}"
-															></issue-pull-request>
-														</section>
-									  				`,
-												)}
-											</section>
-									  `
-									: undefined}
-								${issues.length
-									? html`
-											<section class="issue" aria-label="Issue" data-region="issue">
-												${issues.map(
-													issue => html`
-														<issue-pull-request
-															type="issue"
-															name="${issue.title}"
-															url="${issue.url}"
-															identifier="${issue.id}"
-															status="${issue.state}"
-															.date=${issue.closed ? issue.closedDate : issue.createdDate}
-															.dateFormat="${this.state!.preferences.dateFormat}"
-															.dateStyle="${this.state!.preferences.dateStyle}"
-														></issue-pull-request>
-													`,
-												)}
-											</section>
-									  `
-									: undefined}
-							</div>
-						`;
 					},
-				)}
-			</webview-pane>
-		`;
+				},
+			)}">Connect an Integration</a> &mdash;`;
+
+			if (!this.state?.hasAccount) {
+				label += ' sign up and';
+			}
+
+			label += ' to get access to automatic rich autolinks for services like Jira, GitHub, and more.';
+		}
+
+		return html`<gl-action-chip
+			href=${autolinkSettingsLink}
+			data-action="autolink-settings"
+			icon="info"
+			.label=${label}
+			overlay=${hasIntegrationsConnected ? 'tooltip' : 'popover'}
+			>${chipLabel}</gl-action-chip
+		>`;
 	}
 
-	private renderExplainAi() {
-		if (this.state?.orgSettings.ai === false) return undefined;
+	private renderAutoLinksChips() {
+		const autolinkState = this.autolinkState;
+		if (autolinkState == null) return this.renderLearnAboutAutolinks();
 
-		const markdown =
-			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
+		const { autolinks, issues, prs, size } = autolinkState;
 
-		// TODO: add loading and response states
-		return html`
-			<webview-pane collapsable data-region="explain-pane">
-				<span slot="title">Explain (AI)</span>
-				<span slot="subtitle"><code-icon icon="beaker" size="12"></code-icon></span>
-				<action-nav slot="actions">
-					<action-item data-action="switch-ai" label="Switch AI Model" icon="hubot"></action-item>
-				</action-nav>
+		if (size === 0) {
+			return this.renderLearnAboutAutolinks();
+		}
 
-				<div class="section">
-					<p>Let AI assist in understanding the changes made with this commit.</p>
-					<p class="button-container">
-						<span class="button-group button-group--single">
-							<gl-button
-								full
-								class="button--busy"
-								data-action="explain-commit"
-								aria-busy="${this.explainBusy ? 'true' : nothing}"
-								@click=${this.onExplainChanges}
-								@keydown=${this.onExplainChanges}
-								><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Explain
-								Changes</gl-button
-							>
-						</span>
-					</p>
-					${markdown
-						? html`<div class="ai-content" data-region="commit-explanation">
-								<gl-markdown
-									class="ai-content__summary scrollable"
-									markdown="${markdown}"
-								></gl-markdown>
-						  </div>`
-						: this.explain?.error
-						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
-									<p class="ai-content__summary scrollable">
-										${this.explain.error.message ?? 'Error retrieving content'}
-									</p>
-						    </div>`
-						  : undefined}
-				</div>
-			</webview-pane>
-		`;
+		return html`<div class="message-block-group">
+			${this.renderLearnAboutAutolinks(true)}
+			${when(autolinks.length, () =>
+				autolinks.map(autolink => {
+					let name = autolink.description ?? autolink.title;
+					if (name === undefined) {
+						name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
+					}
+					return html`<gl-autolink-chip
+						type="autolink"
+						name="${name}"
+						url="${autolink.url}"
+						identifier="${autolink.prefix}${autolink.id}"
+					></gl-autolink-chip>`;
+				}),
+			)}
+			${when(prs.length, () =>
+				prs.map(
+					pr =>
+						html`<gl-autolink-chip
+							type="pr"
+							name="${pr.title}"
+							url="${pr.url}"
+							identifier="#${pr.id}"
+							status="${pr.state}"
+							.date=${pr.updatedDate}
+							.dateFormat="${this.state!.preferences.dateFormat}"
+							.dateStyle="${this.state!.preferences.dateStyle}"
+						></gl-autolink-chip>`,
+				),
+			)}
+			${when(issues.length, () =>
+				issues.map(
+					issue =>
+						html`<gl-autolink-chip
+							type="issue"
+							name="${issue.title}"
+							url="${issue.url}"
+							identifier="${issue.id}"
+							status="${issue.state}"
+							.date=${issue.closed ? issue.closedDate : issue.createdDate}
+							.dateFormat="${this.state!.preferences.dateFormat}"
+							.dateStyle="${this.state!.preferences.dateStyle}"
+						></gl-autolink-chip>`,
+				),
+			)}
+		</div>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.state?.commit == null) {
 			return this.renderEmptyContent();
 		}
@@ -482,17 +372,15 @@ export class GlCommitDetails extends GlDetailsBase {
 		return html`
 			${this.renderCommitMessage()}
 			<webview-pane-group flexible>
-				${this.renderAutoLinks()}
 				${this.renderChangedFiles(
 					this.isStash ? 'stash' : 'commit',
 					this.renderCommitStats(this.state.commit.stats),
 				)}
-				${this.renderExplainAi()}
 			</webview-pane-group>
 		`;
 	}
 
-	onExplainChanges(e: MouseEvent | KeyboardEvent) {
+	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
 		if (this.explainBusy === true || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -503,13 +391,13 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderCommitStats(stats?: NonNullable<NonNullable<typeof this.state>['commit']>['stats']) {
-		if (stats?.changedFiles == null) return undefined;
+		if (stats?.files == null) return undefined;
 
-		if (typeof stats.changedFiles === 'number') {
-			return html`<commit-stats added="?" modified="${stats.changedFiles}" removed="?"></commit-stats>`;
+		if (typeof stats.files === 'number') {
+			return html`<commit-stats added="?" modified="${stats.files}" removed="?"></commit-stats>`;
 		}
 
-		const { added, deleted, changed } = stats.changedFiles;
+		const { added, deleted, changed } = stats.files;
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 

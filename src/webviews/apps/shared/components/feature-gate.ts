@@ -3,9 +3,9 @@ import { customElement, property } from 'lit/decorators.js';
 import type { SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../features';
-import { isSubscriptionStatePaidOrTrial } from '../../../../plus/gk/account/subscription';
-import '../../plus/shared/components/feature-gate-plus-state';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils';
 import { linkStyles } from '../../plus/shared/components/vscode.css';
+import '../../plus/shared/components/feature-gate-plus-state';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -114,24 +114,16 @@ export class GlFeatureGate extends LitElement {
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
 
-	@property({ type: Boolean })
-	visible?: boolean;
-
 	@property({ type: String })
 	webroot?: string;
 
-	override render() {
-		if (!this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state))) {
-			this.hidden = true;
-			return undefined;
-		}
+	override render(): unknown {
+		if (this.hidden || isSubscriptionTrialOrPaidFromState(this.state)) return undefined;
 
 		const appearance =
-			this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor'
+			(this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor')
 				? 'alert'
 				: 'welcome';
-
-		this.hidden = false;
 
 		return html`
 			<section>

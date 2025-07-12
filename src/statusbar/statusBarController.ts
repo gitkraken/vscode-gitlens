@@ -1,13 +1,15 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
-import { StatusBarCommand } from '../config';
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
+import { createCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../system/commands';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
@@ -15,9 +17,6 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
-import { createCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { isTrackableTextEditor } from '../system/vscode/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {
@@ -34,7 +33,7 @@ export class StatusBarController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearBlame();
 
 		this._statusBarBlame?.dispose();
@@ -72,7 +71,7 @@ export class StatusBarController implements Disposable {
 						alignment === StatusBarAlignment.Right ? 999 : 1,
 					);
 				this._statusBarMode.name = 'GitLens Modes';
-				this._statusBarMode.command = Commands.SwitchMode;
+				this._statusBarMode.command = 'gitlens.switchMode' satisfies GlCommands;
 				this._statusBarMode.text = mode.statusBarItemName;
 				this._statusBarMode.tooltip = new MarkdownString(
 					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\nClick to Switch GitLens Modes`,
@@ -167,14 +166,16 @@ export class StatusBarController implements Disposable {
 					if (!status?.blameable) return;
 
 					statusBarItem.tooltip = new MarkdownString();
-					statusBarItem.tooltip.isTrusted = { enabledCommands: [Commands.ShowSettingsPage] };
+					statusBarItem.tooltip.isTrusted = {
+						enabledCommands: ['gitlens.showSettingsPage' satisfies GlCommands],
+					};
 
 					if (doc.canDirtyIdle) {
 						statusBarItem.text = '$(watch) Blame Paused';
 						statusBarItem.tooltip.appendMarkdown(
 							`Blame will resume after a [${configuration.get(
 								'advanced.blame.delayAfterEdit',
-							)} ms delay](${createMarkdownCommandLink<[undefined, string]>(Commands.ShowSettingsPage, [
+							)} ms delay](${createMarkdownCommandLink<[undefined, string]>('gitlens.showSettingsPage', [
 								undefined,
 								'advanced.blame.delayAfterEdit',
 							])} 'Change the after edit delay') to limit the performance impact because there are unsaved changes`,
@@ -185,7 +186,7 @@ export class StatusBarController implements Disposable {
 							`Blame will resume after saving because there are unsaved changes and the file is over the [${configuration.get(
 								'advanced.blame.sizeThresholdAfterEdit',
 							)} line threshold](${createMarkdownCommandLink<[undefined, string]>(
-								Commands.ShowSettingsPage,
+								'gitlens.showSettingsPage',
 								[undefined, 'advanced.blame.sizeThresholdAfterEdit'],
 							)} 'Change the after edit line threshold') to limit the performance impact`,
 						);
@@ -199,7 +200,7 @@ export class StatusBarController implements Disposable {
 		}
 	}
 
-	clearBlame() {
+	clearBlame(): void {
 		this._selectedSha = undefined;
 		this._cancellation?.cancel();
 		this._statusBarBlame?.hide();
@@ -252,55 +253,55 @@ export class StatusBarController implements Disposable {
 
 		let actionTooltip: string;
 		switch (cfg.command) {
-			case StatusBarCommand.CopyRemoteCommitUrl:
+			case 'gitlens.copyRemoteCommitUrl':
 				actionTooltip = 'Click to Copy Remote Commit URL';
 				break;
-			case StatusBarCommand.CopyRemoteFileUrl:
-				this._statusBarBlame.command = Commands.CopyRemoteFileUrl;
+			case 'gitlens.copyRemoteFileUrl':
+				this._statusBarBlame.command = 'gitlens.copyRemoteFileUrlToClipboard' satisfies GlCommands;
 				actionTooltip = 'Click to Copy Remote File Revision URL';
 				break;
-			case StatusBarCommand.DiffWithPrevious:
-				this._statusBarBlame.command = Commands.DiffLineWithPrevious;
+			case 'gitlens.diffWithPrevious':
+				this._statusBarBlame.command = 'gitlens.diffLineWithPrevious' satisfies GlCommands;
 				actionTooltip = 'Click to Open Line Changes with Previous Revision';
 				break;
-			case StatusBarCommand.DiffWithWorking:
-				this._statusBarBlame.command = Commands.DiffLineWithWorking;
+			case 'gitlens.diffWithWorking':
+				this._statusBarBlame.command = 'gitlens.diffLineWithWorking' satisfies GlCommands;
 				actionTooltip = 'Click to Open Line Changes with Working File';
 				break;
-			case StatusBarCommand.OpenCommitOnRemote:
+			case 'gitlens.openCommitOnRemote':
 				actionTooltip = 'Click to Open Commit on Remote';
 				break;
-			case StatusBarCommand.OpenFileOnRemote:
+			case 'gitlens.openFileOnRemote':
 				actionTooltip = 'Click to Open Revision on Remote';
 				break;
-			case StatusBarCommand.RevealCommitInView:
+			case 'gitlens.revealCommitInView':
 				actionTooltip = 'Click to Reveal Commit in the Side Bar';
 				break;
-			case StatusBarCommand.ShowCommitsInView:
+			case 'gitlens.showCommitsInView':
 				actionTooltip = 'Click to Search for Commit';
 				break;
-			case StatusBarCommand.ShowQuickCommitDetails:
+			case 'gitlens.showQuickCommitDetails':
 				actionTooltip = 'Click to Show Commit';
 				break;
-			case StatusBarCommand.ShowQuickCommitFileDetails:
+			case 'gitlens.showQuickCommitFileDetails':
 				actionTooltip = 'Click to Show Commit (file)';
 				break;
-			case StatusBarCommand.ShowQuickCurrentBranchHistory:
+			case 'gitlens.showQuickRepoHistory':
 				actionTooltip = 'Click to Show Branch History';
 				break;
-			case StatusBarCommand.ShowQuickFileHistory:
+			case 'gitlens.showQuickFileHistory':
 				actionTooltip = 'Click to Show File History';
 				break;
-			case StatusBarCommand.ToggleCodeLens:
+			case 'gitlens.toggleCodeLens':
 				actionTooltip = 'Click to Toggle Git CodeLens';
 				break;
-			case StatusBarCommand.ToggleFileBlame:
+			case 'gitlens.toggleFileBlame':
 				actionTooltip = 'Click to Toggle File Blame';
 				break;
-			case StatusBarCommand.ToggleFileChanges: {
+			case 'gitlens.toggleFileChanges': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-						Commands.ToggleFileChanges,
+						'gitlens.toggleFileChanges',
 						'Toggle File Changes',
 						commit.file.uri,
 						{
@@ -312,10 +313,10 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
 			}
-			case StatusBarCommand.ToggleFileChangesOnly: {
+			case 'gitlens.toggleFileChangesOnly': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-						Commands.ToggleFileChanges,
+						'gitlens.toggleFileChanges',
 						'Toggle File Changes',
 						commit.file.uri,
 						{
@@ -327,7 +328,7 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
 			}
-			case StatusBarCommand.ToggleFileHeatmap:
+			case 'gitlens.toggleFileHeatmap':
 				actionTooltip = 'Click to Toggle File Heatmap';
 				break;
 		}
@@ -337,18 +338,19 @@ export class StatusBarController implements Disposable {
 			label: `${this._statusBarBlame.text}\n${actionTooltip}`,
 		};
 
-		const remotes = await this.container.git.getBestRemotesWithProviders(commit.repoPath);
+		const svc = this.container.git.getRepositoryService(commit.repoPath);
+		const remotes = await svc.remotes.getBestRemotesWithProviders();
 		const [remote] = remotes;
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 		const getBranchAndTagTipsPromise =
 			CommitFormatter.has(cfg.format, 'tips') || CommitFormatter.has(cfg.tooltipFormat, 'tips')
-				? this.container.git.getBranchesAndTagsTipsFn(commit.repoPath)
+				? svc.getBranchesAndTagsTipsLookup()
 				: undefined;
 
 		const showPullRequests =
 			!commit.isUncommitted &&
-			remote?.hasIntegration() &&
+			remote?.supportsIntegration() &&
 			cfg.pullRequests.enabled &&
 			(CommitFormatter.has(
 				cfg.format,

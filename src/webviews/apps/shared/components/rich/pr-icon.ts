@@ -12,11 +12,14 @@ export class PrIcon extends LitElement {
 	@property()
 	state?: 'merged' | 'opened' | 'closed' | string;
 
+	@property({ type: Boolean })
+	draft = false;
+
 	@property({ attribute: 'pr-id' })
 	prId?: string;
 
-	get icon() {
-		let prIcon = 'git-pull-request';
+	get icon(): string {
+		let prIcon = this.draft ? 'git-pull-request-draft' : 'git-pull-request';
 		if (this.state) {
 			switch (this.state) {
 				case 'merged':
@@ -30,19 +33,22 @@ export class PrIcon extends LitElement {
 		return prIcon;
 	}
 
-	get classes() {
-		if (!this.state) return 'pr-icon';
+	get classes(): string {
+		if (!this.state || (this.draft && this.state === 'opened')) {
+			return 'pr-icon';
+		}
 
 		return `pr-icon pr-icon--${this.state}`;
 	}
 
-	get label() {
-		if (!this.state) return 'Pull request';
+	get label(): string {
+		const type = this.draft ? 'Draft pull request' : 'Pull request';
+		if (!this.state) return type;
 
-		return `Pull request ${this.prId ? `#${this.prId}` : ''} is ${this.state}`;
+		return `${type} ${this.prId ? `#${this.prId}` : ''} is ${this.state}`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (!this.state) {
 			return html`<code-icon
 				class=${this.classes}

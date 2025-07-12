@@ -1,21 +1,20 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import { isPullRequest } from '../../git/models/pullRequest';
+import { debug } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
+import { debounce } from '../../system/function/debounce';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuple } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 
-let instanceId = 0;
-
-export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', ViewsWithCommits> {
-	private _instanceId: number;
-
+export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: PageableViewNode,
@@ -25,13 +24,30 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 	) {
 		super('autolinks', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._instanceId = instanceId++;
-		this.updateContext({ autolinksId: String(this._instanceId) });
 		this._uniqueId = getViewNodeId(this.type, this.context);
+	}
+
+	protected override etag(): number {
+		return 0;
 	}
 
 	override get id(): string {
 		return this._uniqueId;
+	}
+
+	@debug()
+	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
+		return Disposable.from(
+			weakEvent(
+				this.view.container.integrations.onDidChangeConnectionState,
+				debounce(this.onIntegrationsChanged, 500),
+				this,
+			),
+		);
+	}
+
+	private onIntegrationsChanged() {
+		this.view.triggerNodeChange(this.parent);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -40,7 +56,9 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 
 			let children: ViewNode[] | undefined;
 			if (commits.length) {
-				const remote = await this.view.container.git.getBestRemoteWithProvider(this.repoPath);
+				const remote = await this.view.container.git
+					.getRepositoryService(this.repoPath)
+					.remotes.getBestRemoteWithProvider();
 				const combineMessages = commits.map(c => c.message).join('\n');
 
 				const [enrichedAutolinksResult /*, ...prsResults*/] = await Promise.allSettled([
@@ -71,7 +89,7 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 									this.repoPath,
 									autolink,
 									issueOrPullRequest?.value,
-							  ),
+								),
 					);
 				}
 			}

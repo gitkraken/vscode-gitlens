@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { GitReflogRecord } from '../../git/models/reflog';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { ViewsWithCommits } from '../viewBase';
@@ -68,9 +68,8 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 		return item;
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -80,21 +79,20 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 	private async getLog() {
 		if (this._log === undefined) {
 			const range = `${this.record.previousSha}..${this.record.sha}`;
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getRepositoryService(this.uri.repoPath!).commits.getLog(range, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: range,
 			});
 		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

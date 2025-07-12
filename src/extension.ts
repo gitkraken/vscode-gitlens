@@ -1,35 +1,40 @@
-import { hrtime } from '@env/hrtime';
-import { isWeb } from '@env/platform';
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
+import { hrtime } from '@env/hrtime';
+import { loggingJsonReplacer } from '@env/json';
+import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
 import { trackableSchemes } from './constants';
-import { Commands } from './constants.commands';
 import { SyncedStorageKeys } from './constants.storage';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
-import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
+import { isBranch } from './git/models/branch';
 import { isCommit } from './git/models/commit';
 import { isRepository } from './git/models/repository';
 import { isTag } from './git/models/tag';
+import { getBranchNameWithoutRemote } from './git/utils/branch.utils';
+import { setAbbreviatedShaLength } from './git/utils/revision.utils';
 import { showDebugLoggingWarningMessage, showPreReleaseExpiredErrorMessage, showWhatsNewMessage } from './messages';
 import { registerPartnerActionRunners } from './partners';
+import { executeCommand, registerCommands } from './system/-webview/command';
+import { configuration, Configuration } from './system/-webview/configuration';
+import { setContext } from './system/-webview/context';
+import { Storage } from './system/-webview/storage';
+import { deviceCohortGroup } from './system/-webview/vscode';
+import { isTextDocument } from './system/-webview/vscode/documents';
+import { isTextEditor } from './system/-webview/vscode/editors';
+import { isWorkspaceFolder } from './system/-webview/vscode/workspaces';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
 import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { compare, fromString, satisfies } from './system/version';
-import { executeCommand, registerCommands } from './system/vscode/command';
-import { configuration, Configuration } from './system/vscode/configuration';
-import { setContext } from './system/vscode/context';
-import { Storage } from './system/vscode/storage';
-import { isTextDocument, isTextEditor, isWorkspaceFolder } from './system/vscode/utils';
-import { isViewNode } from './views/nodes/abstract/viewNode';
+import { isViewNode } from './views/nodes/utils/-webview/node.utils';
 import './commands';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
@@ -42,7 +47,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		{
 			name: 'GitLens',
 			createChannel: function (name: string) {
-				const channel = new BufferedLogChannel(window.createOutputChannel(name), 500);
+				const channel = new BufferedLogChannel(window.createOutputChannel(name, { log: true }), 500);
 				context.subscriptions.push(channel);
 
 				if (logLevel === 'error' || logLevel === 'warn') {
@@ -56,7 +61,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 						})`,
 					);
 					channel.appendLine(
-						'To enable debug logging, set `"gitlens.outputLevel: "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette',
+						'To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette',
 					);
 				}
 				return channel;
@@ -95,6 +100,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				return undefined;
 			},
+			sanitizer: loggingJsonReplacer,
 		},
 		logLevel,
 		context.extensionMode === ExtensionMode.Development,
@@ -104,7 +110,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		log: {
 			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
 				env.language
-			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.machineId}|${env.sessionId})`,
+			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
+				env.sessionId
+			})`,
 			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
 	});
@@ -167,6 +175,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			if (configuration.changed(e, 'defaultDateLocale')) {
 				setDefaultDateLocales(configuration.get('defaultDateLocale') ?? env.language);
 			}
+
+			if (configuration.changed(e, 'advanced.abbreviatedShaLength')) {
+				setAbbreviatedShaLength(configuration.get('advanced.abbreviatedShaLength'));
+			}
 		}),
 	);
 
@@ -189,11 +201,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
 
-		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion);
+		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
 		// Only update our synced version if the new version is greater
 		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
-			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion);
+			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion).catch();
 		}
 
 		if (logLevel === 'debug') {
@@ -202,7 +214,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				if (!container.prereleaseOrDebugging) {
 					if (await showDebugLoggingWarningMessage()) {
-						void executeCommand(Commands.DisableDebugLogging);
+						void executeCommand('gitlens.disableDebugLogging');
 					}
 				}
 			}, 60000);
@@ -229,6 +241,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	container.telemetry.setGlobalAttributes({
 		debugging: container.debugging,
+		'device.cohort': deviceCohortGroup,
 		prerelease: prerelease,
 		install: previousVersion == null,
 		upgrade: previousVersion != null && gitlensVersion !== previousVersion,
@@ -263,7 +276,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	return Promise.resolve(api);
 }
 
-export function deactivate() {
+export function deactivate(): void {
 	Logger.log('GitLens deactivating...');
 	Container.instance.deactivate();
 }
@@ -292,15 +305,17 @@ function registerBuiltInActionRunners(container: Container): void {
 			run: async ctx => {
 				if (ctx.type !== 'createPullRequest') return;
 
-				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>(Commands.CreatePullRequestOnRemote, {
+				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>('gitlens.createPullRequestOnRemote', {
 					base: undefined,
 					compare: ctx.branch.isRemote
 						? getBranchNameWithoutRemote(ctx.branch.name)
 						: ctx.branch.upstream
-						  ? getBranchNameWithoutRemote(ctx.branch.upstream)
-						  : ctx.branch.name,
+							? getBranchNameWithoutRemote(ctx.branch.upstream)
+							: ctx.branch.name,
 					remote: ctx.remote?.name ?? '',
 					repoPath: ctx.repoPath,
+					describeWithAI: ctx.describeWithAI,
+					source: ctx.source,
 				}));
 			},
 		}),
@@ -309,7 +324,7 @@ function registerBuiltInActionRunners(container: Container): void {
 			run: async ctx => {
 				if (ctx.type !== 'openPullRequest') return;
 
-				void (await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+				void (await executeCommand<OpenPullRequestOnRemoteCommandArgs>('gitlens.openPullRequestOnRemote', {
 					pr: { url: ctx.pullRequest.url },
 				}));
 			},

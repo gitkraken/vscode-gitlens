@@ -1,15 +1,15 @@
-import { md5 } from '@env/crypto';
 import { EventEmitter, Uri } from 'vscode';
+import { md5 } from '@env/crypto';
 import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants.storage';
 import { Container } from './container';
 import type { CommitAuthor } from './git/models/author';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
-import { debounce } from './system/function';
+import { configuration } from './system/-webview/configuration';
+import { getContext } from './system/-webview/context';
+import { debounce } from './system/function/debounce';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase } from './system/string';
-import { configuration } from './system/vscode/configuration';
-import { getContext } from './system/vscode/context';
 import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
@@ -31,12 +31,12 @@ _onDidFetchAvatar.event(
 											uri: avatar.uri.toString(),
 											timestamp: avatar.timestamp,
 										},
-								  ] as [string, StoredAvatar])
+									] as [string, StoredAvatar])
 								: undefined,
 						),
-				  ]
+					]
 				: undefined;
-		void Container.instance.storage.store('avatars', avatars);
+		void Container.instance.storage.store('avatars', avatars).catch();
 	}, 1000),
 );
 
@@ -147,7 +147,7 @@ function getAvatarUriCore(
 		return query ?? avatar.fallback!;
 	}
 
-	return options?.cached ? avatar.uri : avatar.uri ?? avatar.fallback!;
+	return options?.cached ? avatar.uri : (avatar.uri ?? avatar.fallback!);
 }
 
 function createOrUpdateAvatar(
@@ -227,8 +227,10 @@ async function getAvatarUriFromRemoteProvider(
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 		// } else {
 		if (typeof repoPathOrCommit !== 'string') {
-			const remote = await Container.instance.git.getBestRemoteWithIntegration(repoPathOrCommit.repoPath);
-			if (remote?.hasIntegration()) {
+			const remote = await Container.instance.git
+				.getRepositoryService(repoPathOrCommit.repoPath)
+				.remotes.getBestRemoteWithIntegration();
+			if (remote?.supportsIntegration()) {
 				account = await (
 					await remote.getIntegration()
 				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
@@ -274,7 +276,7 @@ const presenceStatusColorMap = new Map<ContactPresenceStatus, string>([
 	['offline', '#cecece'],
 ]);
 
-export function getPresenceDataUri(status: ContactPresenceStatus) {
+export function getPresenceDataUri(status: ContactPresenceStatus): string {
 	let dataUri = presenceCache.get(status);
 	if (dataUri == null) {
 		const contents = base64(`<?xml version="1.0" encoding="utf-8"?>
@@ -288,7 +290,7 @@ export function getPresenceDataUri(status: ContactPresenceStatus) {
 	return dataUri;
 }
 
-export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
+export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback'): void {
 	switch (reset) {
 		case 'all':
 			void Container.instance.storage.delete('avatars');
@@ -322,7 +324,7 @@ function getDefaultGravatarStyle() {
 	return defaultGravatarsStyle;
 }
 
-export function setDefaultGravatarsStyle(style: GravatarDefaultStyle) {
+export function setDefaultGravatarsStyle(style: GravatarDefaultStyle): void {
 	defaultGravatarsStyle = style;
 	resetAvatarCache('fallback');
 }

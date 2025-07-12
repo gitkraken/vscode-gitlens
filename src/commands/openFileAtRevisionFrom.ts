@@ -1,17 +1,17 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitReference } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
-import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
+import { showStashPicker } from '../quickpicks/stashPicker';
+import { command } from '../system/-webview/command';
 import { pad } from '../system/string';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;
@@ -25,10 +25,10 @@ export interface OpenFileAtRevisionFromCommandArgs {
 @command()
 export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenFileAtRevisionFrom);
+		super('gitlens.openFileRevisionFrom');
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionFromCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionFromCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -43,17 +43,21 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
+
 		if (args.reference == null) {
 			if (args?.stash) {
-				const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
+				const path = svc.getRelativePath(gitUri, gitUri.repoPath);
 
 				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await showStashPicker(
-					this.container.git.getStash(gitUri.repoPath),
+					svc.stash?.getStash(),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
-					{ filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true },
+					{
+						filter: c => c.anyFiles?.some(f => f.path === path || f.originalPath === path) ?? true,
+					},
 				);
 				if (pick == null) return;
 
@@ -69,15 +73,12 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
 							onDidPressKey: async (_key, item) => {
-								await openFileAtRevision(
-									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
-									{
-										annotationType: args.annotationType,
-										line: args.line,
-										preserveFocus: true,
-										preview: true,
-									},
-								);
+								await openFileAtRevision(svc.getRevisionUri(item.ref, gitUri.fsPath), {
+									annotationType: args.annotationType,
+									line: args.line,
+									preserveFocus: true,
+									preview: true,
+								});
 							},
 						},
 					},
@@ -88,13 +89,10 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			}
 		}
 
-		await openFileAtRevision(
-			this.container.git.getRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
-			{
-				annotationType: args.annotationType,
-				line: args.line,
-				...args.showOptions,
-			},
-		);
+		await openFileAtRevision(svc.getRevisionUri(args.reference.ref, gitUri.fsPath), {
+			annotationType: args.annotationType,
+			line: args.line,
+			...args.showOptions,
+		});
 	}
 }

@@ -1,5 +1,7 @@
-import type { Disposable, Uri, ViewBadge } from 'vscode';
+import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
+import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
+import type { WebviewIds, WebviewViewIds } from '../constants.views';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,
@@ -11,7 +13,7 @@ import type {
 	WebviewState,
 } from './protocol';
 import type { WebviewCommandCallback } from './webviewCommandRegistrar';
-import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
+import type { WebviewShowOptions } from './webviewsController';
 
 export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
 
@@ -38,7 +40,7 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 	includeBody?(): string | Promise<string>;
 	includeEndOfBody?(): string | Promise<string>;
 
-	onReady?(): void;
+	onReady?(): void | Promise<void>;
 	onRefresh?(force?: boolean): void;
 	onReloaded?(): void;
 	onMessageReceived?(e: IpcMessage): void;
@@ -53,10 +55,8 @@ export interface WebviewStateProvier<State, SerializedState, ShowingArgs extends
 	canReceiveMessage?(e: IpcMessage): boolean;
 }
 
-export interface WebviewHost<
-	Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor = WebviewPanelDescriptor | WebviewViewDescriptor,
-> {
-	readonly id: Descriptor['id'];
+export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
+	readonly id: ID;
 
 	readonly originalTitle: string;
 	title: string;
@@ -65,6 +65,7 @@ export interface WebviewHost<
 
 	readonly active: boolean | undefined;
 	readonly ready: boolean;
+	readonly viewColumn: ViewColumn | undefined;
 	readonly visible: boolean;
 	readonly baseWebviewState: WebviewState;
 	readonly cspNonce: string;
@@ -81,8 +82,8 @@ export interface WebviewHost<
 	sendPendingIpcNotifications(): void;
 
 	getTelemetryContext(): WebviewTelemetryContext;
-	isHost(type: 'editor'): this is WebviewHost<WebviewPanelDescriptor>;
-	isHost(type: 'view'): this is WebviewHost<WebviewViewDescriptor>;
+	is(type: 'editor'): this is WebviewHost<ID extends WebviewIds ? ID : never>;
+	is(type: 'view'): this is WebviewHost<ID extends WebviewViewIds ? ID : never>;
 
 	notify<T extends IpcNotification<unknown>>(
 		notificationType: T,
@@ -96,7 +97,7 @@ export interface WebviewHost<
 		params: IpcCallResponseParamsType<T>,
 	): Promise<boolean>;
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: string,
+		command: WebviewCommands | WebviewViewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable;
 	show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]): Promise<void>;

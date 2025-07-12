@@ -26,7 +26,7 @@ export class RadioGroup extends GlElement {
 	@queryAssignedElements({ flatten: true })
 	private radioEls!: Radio[];
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.role = 'group';
 	}
 
@@ -40,11 +40,11 @@ export class RadioGroup extends GlElement {
 		});
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<slot @slotchange=${() => this.updateRadioElements(true)}></slot>`;
 	}
 
-	setValue(value: string) {
+	setValue(value: string): void {
 		this.value = value;
 		const event = new CustomEvent('gl-change-value');
 		this.dispatchEvent(event);

@@ -35,7 +35,7 @@ export interface Provider {
 	readonly name: string;
 }
 
-export enum HeadType {
+export const enum HeadType {
 	Branch = 0,
 	RemoteBranch = 1,
 	Tag = 2,

@@ -1,0 +1,32 @@
+name: Label Completed Issues
+
+on:
+    issues:
+        types: [closed]
+
+jobs:
+    label-closed-issues:
+        runs-on: ubuntu-latest
+        permissions:
+            issues: write
+        steps:
+            - uses: actions/github-script@v7
+              with:
+                  script: |
+                      // Only add label if issue was closed as completed (not as "not planned", etc.)
+                      const issue = await github.rest.issues.get({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: context.issue.number
+                      });
+
+                      // Check if issue was closed as completed
+                      if ((!issue.data.state_reason || issue.data.state_reason === 'completed') &&
+                          !issue.data.labels.some(label => label.name === 'verified ✔')) {
+                        await github.rest.issues.addLabels({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: context.issue.number,
+                          labels: ['pending-release', 'needs-verification']
+                        });
+                      }

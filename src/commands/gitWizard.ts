@@ -1,7 +1,6 @@
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
+import { command } from '../system/-webview/command';
+import type { CommandContext } from './commandContext';
 import type { BranchGitCommandArgs } from './git/branch';
 import type { CherryPickGitCommandArgs } from './git/cherry-pick';
 import type { CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -49,114 +48,114 @@ export type GitWizardCommandArgs =
 export class GitWizardCommand extends QuickWizardCommandBase {
 	constructor(container: Container) {
 		super(container, [
-			Commands.GitCommands,
-			Commands.GitCommandsBranch,
-			Commands.GitCommandsBranchCreate,
-			Commands.GitCommandsBranchDelete,
-			Commands.GitCommandsBranchPrune,
-			Commands.GitCommandsBranchRename,
-			Commands.GitCommandsCheckout,
-			Commands.GitCommandsCherryPick,
-			Commands.GitCommandsHistory,
-			Commands.GitCommandsMerge,
-			Commands.GitCommandsRebase,
-			Commands.GitCommandsRemote,
-			Commands.GitCommandsRemoteAdd,
-			Commands.GitCommandsRemotePrune,
-			Commands.GitCommandsRemoteRemove,
-			Commands.GitCommandsReset,
-			Commands.GitCommandsRevert,
-			Commands.GitCommandsShow,
-			Commands.GitCommandsStash,
-			Commands.GitCommandsStashDrop,
-			Commands.GitCommandsStashList,
-			Commands.GitCommandsStashPop,
-			Commands.GitCommandsStashPush,
-			Commands.GitCommandsStashRename,
-			Commands.GitCommandsStatus,
-			Commands.GitCommandsSwitch,
-			Commands.GitCommandsTag,
-			Commands.GitCommandsTagCreate,
-			Commands.GitCommandsTagDelete,
-			Commands.GitCommandsWorktree,
-			Commands.GitCommandsWorktreeCreate,
-			Commands.GitCommandsWorktreeDelete,
-			Commands.GitCommandsWorktreeOpen,
+			'gitlens.gitCommands',
+			'gitlens.gitCommands.branch',
+			'gitlens.gitCommands.branch.create',
+			'gitlens.gitCommands.branch.delete',
+			'gitlens.gitCommands.branch.prune',
+			'gitlens.gitCommands.branch.rename',
+			'gitlens.gitCommands.checkout',
+			'gitlens.gitCommands.cherryPick',
+			'gitlens.gitCommands.history',
+			'gitlens.gitCommands.merge',
+			'gitlens.gitCommands.rebase',
+			'gitlens.gitCommands.remote',
+			'gitlens.gitCommands.remote.add',
+			'gitlens.gitCommands.remote.prune',
+			'gitlens.gitCommands.remote.remove',
+			'gitlens.gitCommands.reset',
+			'gitlens.gitCommands.revert',
+			'gitlens.gitCommands.show',
+			'gitlens.gitCommands.stash',
+			'gitlens.gitCommands.stash.drop',
+			'gitlens.gitCommands.stash.list',
+			'gitlens.gitCommands.stash.pop',
+			'gitlens.gitCommands.stash.push',
+			'gitlens.gitCommands.stash.rename',
+			'gitlens.gitCommands.status',
+			'gitlens.gitCommands.switch',
+			'gitlens.gitCommands.tag',
+			'gitlens.gitCommands.tag.create',
+			'gitlens.gitCommands.tag.delete',
+			'gitlens.gitCommands.worktree',
+			'gitlens.gitCommands.worktree.create',
+			'gitlens.gitCommands.worktree.delete',
+			'gitlens.gitCommands.worktree.open',
 
-			Commands.CopyWorkingChangesToWorktree,
+			'gitlens.copyWorkingChangesToWorktree',
 		]);
 	}
 
 	protected override preExecute(
 		context: CommandContext,
 		args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>,
-	) {
+	): Promise<void> {
 		switch (context.command) {
-			case Commands.GitCommandsBranch:
+			case 'gitlens.gitCommands.branch':
 				return this.execute({ command: 'branch', ...args });
-			case Commands.GitCommandsBranchCreate:
+			case 'gitlens.gitCommands.branch.create':
 				return this.execute({ command: 'branch', state: { subcommand: 'create' } });
-			case Commands.GitCommandsBranchDelete:
+			case 'gitlens.gitCommands.branch.delete':
 				return this.execute({ command: 'branch', state: { subcommand: 'delete' } });
-			case Commands.GitCommandsBranchPrune:
+			case 'gitlens.gitCommands.branch.prune':
 				return this.execute({ command: 'branch', state: { subcommand: 'prune' } });
-			case Commands.GitCommandsBranchRename:
+			case 'gitlens.gitCommands.branch.rename':
 				return this.execute({ command: 'branch', state: { subcommand: 'rename' } });
-			case Commands.GitCommandsCherryPick:
+			case 'gitlens.gitCommands.cherryPick':
 				return this.execute({ command: 'cherry-pick' });
-			case Commands.GitCommandsHistory:
+			case 'gitlens.gitCommands.history':
 				return this.execute({ command: 'log' });
-			case Commands.GitCommandsMerge:
+			case 'gitlens.gitCommands.merge':
 				return this.execute({ command: 'merge' });
-			case Commands.GitCommandsRebase:
+			case 'gitlens.gitCommands.rebase':
 				return this.execute({ command: 'rebase' });
-			case Commands.GitCommandsRemote:
+			case 'gitlens.gitCommands.remote':
 				return this.execute({ command: 'remote' });
-			case Commands.GitCommandsRemoteAdd:
+			case 'gitlens.gitCommands.remote.add':
 				return this.execute({ command: 'remote', state: { subcommand: 'add' } });
-			case Commands.GitCommandsRemotePrune:
+			case 'gitlens.gitCommands.remote.prune':
 				return this.execute({ command: 'remote', state: { subcommand: 'prune' } });
-			case Commands.GitCommandsRemoteRemove:
+			case 'gitlens.gitCommands.remote.remove':
 				return this.execute({ command: 'remote', state: { subcommand: 'remove' } });
-			case Commands.GitCommandsReset:
+			case 'gitlens.gitCommands.reset':
 				return this.execute({ command: 'reset' });
-			case Commands.GitCommandsRevert:
+			case 'gitlens.gitCommands.revert':
 				return this.execute({ command: 'revert' });
-			case Commands.GitCommandsShow:
+			case 'gitlens.gitCommands.show':
 				return this.execute({ command: 'show' });
-			case Commands.GitCommandsStash:
+			case 'gitlens.gitCommands.stash':
 				return this.execute({ command: 'stash' });
-			case Commands.GitCommandsStashDrop:
+			case 'gitlens.gitCommands.stash.drop':
 				return this.execute({ command: 'stash', state: { subcommand: 'drop' } });
-			case Commands.GitCommandsStashList:
+			case 'gitlens.gitCommands.stash.list':
 				return this.execute({ command: 'stash', state: { subcommand: 'list' } });
-			case Commands.GitCommandsStashPop:
+			case 'gitlens.gitCommands.stash.pop':
 				return this.execute({ command: 'stash', state: { subcommand: 'pop' } });
-			case Commands.GitCommandsStashPush:
+			case 'gitlens.gitCommands.stash.push':
 				return this.execute({ command: 'stash', state: { subcommand: 'push' } });
-			case Commands.GitCommandsStashRename:
+			case 'gitlens.gitCommands.stash.rename':
 				return this.execute({ command: 'stash', state: { subcommand: 'rename' } });
-			case Commands.GitCommandsStatus:
+			case 'gitlens.gitCommands.status':
 				return this.execute({ command: 'status' });
-			case Commands.GitCommandsSwitch:
-			case Commands.GitCommandsCheckout:
+			case 'gitlens.gitCommands.switch':
+			case 'gitlens.gitCommands.checkout':
 				return this.execute({ command: 'switch' });
-			case Commands.GitCommandsTag:
+			case 'gitlens.gitCommands.tag':
 				return this.execute({ command: 'tag' });
-			case Commands.GitCommandsTagCreate:
+			case 'gitlens.gitCommands.tag.create':
 				return this.execute({ command: 'tag', state: { subcommand: 'create' } });
-			case Commands.GitCommandsTagDelete:
+			case 'gitlens.gitCommands.tag.delete':
 				return this.execute({ command: 'tag', state: { subcommand: 'delete' } });
-			case Commands.GitCommandsWorktree:
+			case 'gitlens.gitCommands.worktree':
 				return this.execute({ command: 'worktree' });
-			case Commands.GitCommandsWorktreeCreate:
+			case 'gitlens.gitCommands.worktree.create':
 				return this.execute({ command: 'worktree', state: { subcommand: 'create' } });
-			case Commands.GitCommandsWorktreeDelete:
+			case 'gitlens.gitCommands.worktree.delete':
 				return this.execute({ command: 'worktree', state: { subcommand: 'delete' } });
-			case Commands.GitCommandsWorktreeOpen:
+			case 'gitlens.gitCommands.worktree.open':
 				return this.execute({ command: 'worktree', state: { subcommand: 'open' } });
 
-			case Commands.CopyWorkingChangesToWorktree:
+			case 'gitlens.copyWorkingChangesToWorktree':
 				return this.execute({
 					command: 'worktree',
 					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },

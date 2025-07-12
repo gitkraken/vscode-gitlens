@@ -18,11 +18,12 @@ export class MenuLabel extends LitElement {
 				color: var(--vscode-menu-foreground);
 				opacity: 0.6;
 				user-select: none;
+				-webkit-font-smoothing: auto;
 			}
 		`,
 	];
 
-	override render() {
+	override render(): unknown {
 		return html`<slot></slot>`;
 	}
 }

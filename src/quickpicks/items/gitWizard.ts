@@ -1,25 +1,25 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import type { GitWizardCommandArgs } from '../../commands/gitWizard';
+import type { StepGenerator } from '../../commands/quickCommand';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { GlyphChars } from '../../constants';
-import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../../git/models/commit';
 import { isStash } from '../../git/models/commit';
 import type { GitReference } from '../../git/models/reference';
-import { createReference, isRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitTag } from '../../git/models/tag';
-import { getBranchIconPath } from '../../git/utils/branch-utils';
-import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
+import { getBranchIconPath, getWorktreeBranchIconPath } from '../../git/utils/-webview/icons';
+import { createReference } from '../../git/utils/reference.utils';
+import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils';
+import { isRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
+import { configuration } from '../../system/-webview/configuration';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { QuickPickItemOfT } from './common';
 import { CommandQuickPickItem } from './common';
 
@@ -27,10 +27,10 @@ export class GitWizardQuickPickItem extends CommandQuickPickItem<[GitWizardComma
 	constructor(label: string, args: GitWizardCommandArgs);
 	constructor(item: QuickPickItem, args: GitWizardCommandArgs);
 	constructor(labelOrItem: string | QuickPickItem, args: GitWizardCommandArgs) {
-		super(labelOrItem, undefined, Commands.GitCommands, [args], { suppressKeyPress: true });
+		super(labelOrItem, undefined, 'gitlens.gitCommands', [args], { suppressKeyPress: true });
 	}
 
-	executeSteps(pickedVia: 'menu' | 'command') {
+	executeSteps(pickedVia: 'menu' | 'command'): StepGenerator {
 		return getSteps(Container.instance, this.args![0], pickedVia);
 	}
 }
@@ -138,8 +138,8 @@ export async function createBranchQuickPickItem(
 		iconPath: branch.starred
 			? new ThemeIcon('star-full')
 			: options?.worktree
-			  ? getWorktreeBranchIconPath(Container.instance, branch)
-			  : getBranchIconPath(Container.instance, branch),
+				? getWorktreeBranchIconPath(Container.instance, branch)
+				: getBranchIconPath(Container.instance, branch),
 	};
 
 	return item;
@@ -156,7 +156,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 	commit: T,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean | 'avatar' },
-) {
+): Promise<CommitQuickPickItem<GitStashCommit> | CommitQuickPickItem<T>> {
 	if (isStash(commit)) {
 		return createStashQuickPickItem(commit, picked, {
 			...options,
@@ -182,7 +182,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 			label: commit.summary,
 			description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 1)}${
 				commit.shortSha
-			}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({ compact: true })}`,
+			}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats('short')}`,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,
 			picked: picked,
@@ -199,9 +199,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 			'$(git-commit)',
 			2,
 			1,
-		)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
-			compact: true,
-		})}`,
+		)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats('short')}`,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
@@ -215,15 +213,13 @@ export function createStashQuickPickItem(
 	stash: GitStashCommit,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
-) {
-	const number = stash.number == null ? '' : `${stash.number}: `;
+): CommitQuickPickItem<GitStashCommit> {
+	const number = stash.stashNumber == null ? '' : `${stash.stashNumber}: `;
 
 	if (options?.compact) {
 		const item: CommitQuickPickItem<GitStashCommit> = {
 			label: `${number}${stash.summary}`,
-			description: `${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats({
-				compact: true,
-			})}`,
+			description: `${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats('short')}`,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,
 			picked: picked,
@@ -237,9 +233,9 @@ export function createStashQuickPickItem(
 	const item: CommitQuickPickItem<GitStashCommit> = {
 		label: `${number}${stash.summary}`,
 		description: '',
-		detail: `${GlyphChars.Space.repeat(2)}${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats({
-			compact: true,
-		})}`,
+		detail: `${GlyphChars.Space.repeat(2)}${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats(
+			'short',
+		)}`,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
@@ -341,7 +337,7 @@ export function createRemoteQuickPickItem(
 		type?: boolean;
 		upstream?: boolean;
 	},
-) {
+): RemoteQuickPickItem {
 	let description = '';
 	if (options?.type) {
 		description = 'remote';
@@ -379,10 +375,10 @@ export async function createRepositoryQuickPickItem(
 		fetched?: boolean;
 		status?: boolean;
 	},
-) {
+): Promise<RepositoryQuickPickItem> {
 	let repoStatus;
 	if (options?.branch || options?.status) {
-		repoStatus = await repository.git.getStatus();
+		repoStatus = await repository.git.status.getStatus();
 	}
 
 	let description = '';
@@ -418,7 +414,7 @@ export async function createRepositoryQuickPickItem(
 	}
 
 	const item: RepositoryQuickPickItem = {
-		label: repository.formattedName,
+		label: repository.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
@@ -447,7 +443,7 @@ export function createTagQuickPickItem(
 		ref?: boolean;
 		type?: boolean;
 	},
-) {
+): TagQuickPickItem {
 	let description = '';
 	if (options?.type) {
 		description = 'tag';

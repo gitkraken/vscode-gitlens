@@ -1,14 +1,14 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import { Container } from '../container';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { configuration } from '../system/-webview/configuration';
+import type { KeyMapping } from '../system/-webview/keyboard';
 import { log } from '../system/decorators/log';
 import type { Deferred } from '../system/promise';
 import { isPromise } from '../system/promise';
-import { configuration } from '../system/vscode/configuration';
-import type { KeyMapping } from '../system/vscode/keyboard';
-import { Command } from './base';
+import { GlCommandBase } from './commandBase';
 import type { GitWizardCommandArgs } from './gitWizard';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
@@ -29,18 +29,18 @@ export type AnyQuickWizardCommandArgs = QuickWizardCommandArgs | GitWizardComman
 export type QuickWizardCommandArgsWithCompletion<T extends AnyQuickWizardCommandArgs = AnyQuickWizardCommandArgs> =
 	T & { completion?: Deferred<void> };
 
-export abstract class QuickWizardCommandBase extends Command {
+export abstract class QuickWizardCommandBase extends GlCommandBase {
 	private startedWith: 'menu' | 'command' = 'menu';
 
 	constructor(
 		protected readonly container: Container,
-		command: Commands | Commands[],
+		command: GlCommands | GlCommands[],
 	) {
 		super(command);
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute(args?: QuickWizardCommandArgsWithCompletion) {
+	async execute(args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
 		const rootStep = new QuickWizardRootStep(this.container, args);
 
 		const command = args?.command != null ? rootStep.find(args.command) : undefined;
@@ -261,7 +261,9 @@ export abstract class QuickWizardCommandBase extends Command {
 
 	private async showInputStep(step: QuickInputStep, rootStep: QuickWizardRootStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut') ? true : step.ignoreFocusOut ?? false;
+		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
+			? true
+			: (step.ignoreFocusOut ?? false);
 
 		const disposables: Disposable[] = [];
 
@@ -295,7 +297,11 @@ export abstract class QuickWizardCommandBase extends Command {
 
 				disposables.push(
 					scope,
-					input.onDidHide(() => resolve(undefined)),
+					input.onDidHide(() => {
+						if (step.frozen) return;
+
+						resolve(undefined);
+					}),
 					input.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							void goBack();
@@ -379,6 +385,8 @@ export abstract class QuickWizardCommandBase extends Command {
 						debugger;
 					}
 				}
+
+				step.onDidActivate?.(input);
 			});
 		} finally {
 			input.dispose();
@@ -390,7 +398,7 @@ export abstract class QuickWizardCommandBase extends Command {
 		const quickpick = window.createQuickPick();
 		quickpick.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
 			? true
-			: step.ignoreFocusOut ?? false;
+			: (step.ignoreFocusOut ?? false);
 
 		const disposables: Disposable[] = [];
 
@@ -704,17 +712,6 @@ export abstract class QuickWizardCommandBase extends Command {
 										return;
 									}
 
-									case Directive.StartPreview:
-										await Container.instance.subscription.startPreviewTrial({
-											source: 'quick-wizard',
-											detail: {
-												action: rootStep.command?.key,
-												'step.title': step.title,
-											},
-										});
-										resolve(await rootStep.command?.retry());
-										return;
-
 									case Directive.RequiresVerification: {
 										const result = await Container.instance.subscription.resendVerification({
 											source: 'quick-wizard',
@@ -740,7 +737,7 @@ export abstract class QuickWizardCommandBase extends Command {
 									}
 
 									case Directive.RequiresPaidSubscription:
-										void Container.instance.subscription.upgrade({
+										void Container.instance.subscription.upgrade('pro', {
 											source: 'quick-wizard',
 											detail: {
 												action: rootStep.command?.key,

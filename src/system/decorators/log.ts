@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { hrtime } from '@env/hrtime';
 import { getParameters } from '../function';
-import { getLoggableName, Logger } from '../logger';
+import { customLoggableNameFns, getLoggableName, Logger } from '../logger';
 import { slowCallWarningThreshold } from '../logger.constants';
 import type { LogScope } from '../logger.scope';
 import { clearLogScope, getLoggableScopeBlock, logScopeIdGenerator, setLogScope } from '../logger.scope';
@@ -37,22 +37,22 @@ interface LogOptions<T extends (...arg: any) => any> {
 	timed?: boolean;
 }
 
-export const LogInstanceNameFn = Symbol('logInstanceNameFn');
-
 export function logName<T>(fn: (c: T, name: string) => string) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	return (target: Function) => {
-		(target as any)[LogInstanceNameFn] = fn;
-	};
+	return (target: any): void => void customLoggableNameFns.set(target, fn);
 }
 
-export function debug<T extends (...arg: any) => any>(options?: LogOptions<T>) {
+export function debug<T extends (...arg: any) => any>(
+	options?: LogOptions<T>,
+): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
 	return log<T>(options, true);
 }
 
 type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
-export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, debug = false) {
+export function log<T extends (...arg: any) => any>(
+	options?: LogOptions<T>,
+	debug = false,
+): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
 	let overrides: LogOptions<T>['args'] | undefined;
 	let ifFn: LogOptions<T>['if'] | undefined;
 	let enterFn: LogOptions<T>['enter'] | undefined;

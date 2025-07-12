@@ -2,9 +2,9 @@ import type { Uri } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type { GitUri } from '../../git/gitUri';
-import type { Draft } from '../../gk/models/drafts';
+import type { Draft } from '../../plus/drafts/models/drafts';
+import { configuration } from '../../system/-webview/configuration';
 import { formatDate, fromNow } from '../../system/date';
-import { configuration } from '../../system/vscode/configuration';
 import type { DraftsView } from '../draftsView';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
@@ -76,7 +76,7 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 					? ` \\\nLast updated ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
 							this.draft.updatedAt,
 							dateFormat,
-					  )})_`
+						)})_`
 					: ''
 			}`,
 		);

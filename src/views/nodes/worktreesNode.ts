@@ -1,21 +1,18 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { sortWorktrees } from '../../git/models/worktree';
-import { filterMap } from '../../system/array';
-import { debug } from '../../system/decorators/log';
-import { map } from '../../system/iterable';
-import { Logger } from '../../system/logger';
+import { sortWorktrees } from '../../git/utils/-webview/sorting';
+import { makeHierarchical } from '../../system/array';
 import type { ViewsWithWorktreesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { WorktreeNode } from './worktreeNode';
 
-export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode, WorktreeNode> {
+export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithWorktreesNode,
@@ -38,35 +35,47 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const access = await this.repo.access(PlusFeatures.Worktrees);
+			const access = await this.repo.access('worktrees');
 			if (!access.allowed) return [];
 
-			const worktrees = await this.repo.git.getWorktrees();
-			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
+			const worktrees = await this.repo.git.worktrees?.getWorktrees();
+			if (!worktrees?.length) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this.children = filterMap(
-				await Promise.allSettled(
-					map(sortWorktrees(worktrees), async w => {
-						let status;
-						let missing = false;
-						try {
-							status = await w.getStatus();
-						} catch (ex) {
-							Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
-							missing = true;
-						}
-						return new WorktreeNode(this.uri, this.view, this, w, { status: status, missing: missing });
-					}),
-				),
-				r => (r.status === 'fulfilled' ? r.value : undefined),
+			const children = sortWorktrees(worktrees).map(w => new WorktreeNode(this.uri, this.view, this, w));
+
+			if (this.view.config.branches.layout === 'list' || this.view.config.worktrees.viewAs !== 'name') {
+				this.children = children;
+				return children;
+			}
+
+			const hierarchy = makeHierarchical(
+				children,
+				n => n.treeHierarchy,
+				(...paths) => paths.join('/'),
+				this.view.config.branches.compact,
+				w => {
+					w.compacted = true;
+					return true;
+				},
 			);
+
+			const root = new BranchOrTagFolderNode(
+				this.view,
+				this,
+				'worktree',
+				hierarchy,
+				this.repo.path,
+				'',
+				undefined,
+			);
+			this.children = root.getChildren();
 		}
 
 		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const access = await this.repo.access(PlusFeatures.Worktrees);
+		const access = await this.repo.access('worktrees');
 
 		const item = new TreeItem(
 			'Worktrees',
@@ -80,10 +89,5 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;
-	}
-
-	@debug()
-	override refresh() {
-		super.refresh(true);
 	}
 }

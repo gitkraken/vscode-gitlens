@@ -2,25 +2,23 @@ import { expect, MaxTimeout, test } from './baseTest';
 
 test.describe('Test GitLens Command Palette commands', () => {
 	test('should open commit graph with the command', async ({ page }) => {
-		// Open the command palette by clicking on the View menu and selecting Command Palette
-		const commandPalette = page.locator('div[id="workbench.parts.titlebar"] .command-center-quick-pick');
-		await commandPalette.click();
+		const home = page.locator('div[id="workbench.view.extension.gitlens"]');
+		await home.waitFor({ state: 'visible', timeout: MaxTimeout });
+		await page.waitForTimeout(500);
+
+		// Open the command palette
+		await page.keyboard.press('Control+Shift+P');
 
 		// Wait for the command palette input to be visible and fill it
 		const commandPaletteInput = page.locator('.quick-input-box input');
-		await commandPaletteInput.waitFor({ state: 'visible', timeout: MaxTimeout });
-		await commandPaletteInput.fill('> GitLens: Show Commit graph');
-		await page.waitForTimeout(1000);
-		void page.keyboard.press('Enter');
+		await expect(commandPaletteInput).toBeVisible({ timeout: MaxTimeout });
 
-		// Click on the first element (GitLens: Show Commit graph)
-		/*
-		const commandPaletteFirstLine = page.locator('.quick-input-widget .monaco-list .monaco-list-row.focused');
-		await commandPaletteFirstLine.waitFor({ state: 'visible', timeout: MaxTimeout });
-		await commandPaletteFirstLine.click();
-		*/
-		// Graph should be opened
-		await page.locator('.panel.basepanel').waitFor({ state: 'visible' });
-		await expect(page.locator('div[id="workbench.view.extension.gitlensPanel"]')).toBeVisible();
+		await commandPaletteInput.fill('> GitLens: Show Commit Graph');
+		await page.waitForTimeout(500);
+		await commandPaletteInput.press('Enter');
+
+		// Assert the graph is opened and visible
+		const commitGraph = page.locator('div[id="workbench.view.extension.gitlensPanel"]');
+		await expect(commitGraph).toBeVisible({ timeout: MaxTimeout });
 	});
 });

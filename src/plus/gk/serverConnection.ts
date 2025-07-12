@@ -1,9 +1,9 @@
-import type { HeadersInit, RequestInfo, RequestInit, Response } from '@env/fetch';
-import { fetch as _fetch, getProxyAgent } from '@env/fetch';
-import { getPlatform } from '@env/platform';
 import type { RequestError } from '@octokit/request-error';
 import type { CancellationToken } from 'vscode';
 import { version as codeVersion, env, Uri, window } from 'vscode';
+import type { RequestInfo, RequestInit, Response } from '@env/fetch';
+import { fetch as _fetch, getProxyAgent } from '@env/fetch';
+import { getPlatform } from '@env/platform';
 import type { Disposable } from '../../api/gitlens';
 import type { Container } from '../../container';
 import {
@@ -23,10 +23,11 @@ import {
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
 } from '../../messages';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
+import type { UrlsProvider } from './urlsProvider';
 
 interface FetchOptions {
 	cancellation?: CancellationToken;
@@ -34,50 +35,18 @@ interface FetchOptions {
 }
 
 interface GKFetchOptions extends FetchOptions {
-	token?: string;
-	unAuthenticated?: boolean;
-	query?: string;
+	token?: string | false;
 	organizationId?: string | false;
+	query?: string;
 }
 
 export class ServerConnection implements Disposable {
-	constructor(private readonly container: Container) {}
+	constructor(
+		private readonly container: Container,
+		public readonly urls: UrlsProvider,
+	) {}
 
-	dispose() {}
-
-	@memoize()
-	private get baseApiUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingapi.gitkraken.com');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://devapi.gitkraken.com');
-		}
-
-		return Uri.parse('https://api.gitkraken.com');
-	}
-
-	getApiUrl(...pathSegments: string[]) {
-		return Uri.joinPath(this.baseApiUri, ...pathSegments).toString();
-	}
-
-	@memoize()
-	private get baseGkDevApiUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://staging-api.gitkraken.dev');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://dev-api.gitkraken.dev');
-		}
-
-		return Uri.parse('https://api.gitkraken.dev');
-	}
-
-	getGkDevApiUrl(...pathSegments: string[]) {
-		return Uri.joinPath(this.baseGkDevApiUri, ...pathSegments).toString();
-	}
+	dispose(): void {}
 
 	@memoize()
 	get userAgent(): string {
@@ -92,8 +61,8 @@ export class ServerConnection implements Disposable {
 		return this.container.debugging
 			? 'gitlens-vsc-debug'
 			: this.container.prerelease
-			  ? 'gitlens-vsc-pre'
-			  : 'gitlens-vsc';
+				? 'gitlens-vsc-pre'
+				: 'gitlens-vsc';
 	}
 
 	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
@@ -133,24 +102,48 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	async fetchApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
-		return this.gkFetch(this.getApiUrl(path), init, options);
+	async fetchGkApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
+		return this.gkFetch(this.urls.getGkApiUrl(path), init, options);
 	}
 
-	async fetchApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit, options?: GKFetchOptions) {
-		return this.fetchApi(
-			path,
-			{
-				method: 'POST',
-				...init,
-				body: JSON.stringify(request),
-			},
-			options,
-		);
+	async fetchGkConfig(path: string, init?: RequestInit, options?: FetchOptions): Promise<Response> {
+		return this.fetch(this.urls.getGkConfigUrl(path), init, options);
 	}
 
-	async fetchGkDevApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
-		return this.gkFetch(this.getGkDevApiUrl(path), init, options);
+	async fetchGkApiGraphQL(
+		path: string,
+		request: GraphQLRequest,
+		init?: RequestInit,
+		options?: GKFetchOptions,
+	): Promise<Response> {
+		return this.fetchGkApi(path, { method: 'POST', ...init, body: JSON.stringify(request) }, options);
+	}
+
+	async getGkHeaders(
+		token?: string | false,
+		organizationId?: string | false,
+		init?: Record<string, string>,
+	): Promise<Record<string, string>> {
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+			'Client-Name': this.clientName,
+			'Client-Version': this.container.version,
+			'User-Agent': this.userAgent,
+			...init,
+		};
+
+		token ??= await this.getAccessToken();
+		if (token) {
+			headers.Authorization = `Bearer ${token}`;
+		}
+
+		// only check for cached subscription or we'll get into an infinite loop
+		organizationId ??= (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
+		if (organizationId) {
+			headers['gk-org-id'] = organizationId;
+		}
+
+		return headers;
 	}
 
 	private async gkFetch(url: RequestInfo, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
@@ -160,29 +153,11 @@ export class ServerConnection implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			let token;
-			({ token, ...options } = options ?? {});
-			if (!options?.unAuthenticated) {
-				token ??= await this.getAccessToken();
-			}
-
-			const headers: Record<string, unknown> = {
-				Authorization: `Bearer ${token}`,
-				'Content-Type': 'application/json',
-				'Client-Name': this.clientName,
-				'Client-Version': this.container.version,
-				...init?.headers,
-			};
-
-			// only check for cached subscription or we'll get into an infinite loop
-			let organizationId = options?.organizationId;
-			if (organizationId === undefined) {
-				organizationId = (await this.container.subscription.getSubscription(true)).activeOrganization?.id;
-			}
-
-			if (organizationId) {
-				headers['gk-org-id'] = organizationId;
-			}
+			const headers = await this.getGkHeaders(
+				options?.token,
+				options?.organizationId,
+				init?.headers ? { ...(init?.headers as Record<string, string>) } : undefined,
+			);
 
 			if (options?.query != null) {
 				if (url instanceof URL) {
@@ -192,14 +167,7 @@ export class ServerConnection implements Disposable {
 				}
 			}
 
-			const rsp = await this.fetch(
-				url,
-				{
-					...init,
-					headers: headers as HeadersInit,
-				},
-				options,
-			);
+			const rsp = await this.fetch(url, { ...init, headers: headers }, options);
 			if (!rsp.ok) {
 				await this.handleGkUnsuccessfulResponse(rsp, scope);
 			} else {
@@ -373,6 +341,6 @@ export interface GraphQLRequest {
 	variables?: Record<string, unknown>;
 }
 
-export function getUrl(base: Uri, ...pathSegments: string[]) {
+export function getUrl(base: Uri, ...pathSegments: string[]): string {
 	return Uri.joinPath(base, ...pathSegments).toString();
 }

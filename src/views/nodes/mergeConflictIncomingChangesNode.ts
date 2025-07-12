@@ -2,15 +2,14 @@ import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import { GlyphChars } from '../../constants';
-import { Commands } from '../../constants.commands';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
-import { getReferenceLabel } from '../../git/models/reference';
-import { createCommand, createCoreCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
+import { createCommand, createCoreCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -24,7 +23,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		protected override readonly parent: ViewNode,
-		private readonly status: GitMergeStatus | GitRebaseStatus,
+		private readonly status: GitPausedOperationStatus,
 		private readonly file: GitFile,
 	) {
 		super('conflict-incoming-changes', GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
@@ -36,7 +35,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 			const ref = this.status.type === 'rebase' ? this.status.steps.current.commit?.ref : this.status.HEAD.ref;
 			if (ref == null) return undefined;
 
-			this._commit = this.view.container.git.getCommit(this.status.repoPath, ref);
+			this._commit = this.view.container.git.getRepositoryService(this.status.repoPath).commits.getCommit(ref);
 		}
 		return this._commit;
 	}
@@ -55,12 +54,12 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 				? ` (${getReferenceLabel(this.status.steps.current.commit, {
 						expand: false,
 						icon: false,
-				  })})`
+					})})`
 				: ` (${getReferenceLabel(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
-			  new ThemeIcon('diff')
+			? ((await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
+				new ThemeIcon('diff'))
 			: new ThemeIcon('diff');
 		item.command = this.getCommand();
 
@@ -72,11 +71,13 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 			return createCoreCommand(
 				'vscode.open',
 				'Open Revision',
-				this.view.container.git.getRevisionUri(this.status.HEAD.ref, this.file.path, this.status.repoPath),
+				this.view.container.git
+					.getRepositoryService(this.status.repoPath)
+					.getRevisionUri(this.status.HEAD.ref, this.file.path),
 			);
 		}
 
-		return createCommand<[DiffWithCommandArgs]>(Commands.DiffWith, 'Open Changes', {
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
@@ -92,18 +93,13 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 				})`,
 			},
 			repoPath: this.status.repoPath,
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
+			range: editorLineToDiffRange(0),
+			showOptions: { preserveFocus: true, preview: true },
 		});
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 
@@ -124,11 +120,11 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 					? `\n\n${getReferenceLabel(this.status.steps.current.commit, {
 							capitalize: true,
 							label: false,
-					  })}`
+						})}`
 					: `\n\n${getReferenceLabel(this.status.HEAD, {
 							capitalize: true,
 							label: false,
-					  })}`,
+						})}`,
 			);
 			return markdown;
 		}

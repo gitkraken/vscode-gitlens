@@ -1,26 +1,22 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Range } from 'vscode';
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
-import { isSha } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { isSha } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showReferencePicker } from '../quickpicks/referencePicker';
-import { UriComparer } from '../system/comparers';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
-import { command, executeCommand } from '../system/vscode/command';
+import { areUrisEqual } from '../system/uri';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
-import type { CommandContext } from './base';
-import {
-	ActiveEditorCommand,
-	getCommandUri,
-	isCommandContextViewNodeHasBranch,
-	isCommandContextViewNodeHasCommit,
-} from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasBranch, isCommandContextViewNodeHasCommit } from './commandContext.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenFileOnRemoteCommandArgs {
@@ -35,24 +31,26 @@ export interface OpenFileOnRemoteCommandArgs {
 @command()
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			Commands.OpenFileOnRemote,
-			Commands.Deprecated_OpenFileInRemote,
-			Commands.CopyRemoteFileUrl,
-			Commands.CopyRemoteFileUrlWithoutRange,
-			Commands.OpenFileOnRemoteFrom,
-			Commands.CopyRemoteFileUrlFrom,
-		]);
+		super(
+			[
+				'gitlens.openFileOnRemote',
+				'gitlens.copyRemoteFileUrlToClipboard',
+				'gitlens.copyRemoteFileUrlWithoutRange',
+				'gitlens.openFileOnRemoteFrom',
+				'gitlens.copyRemoteFileUrlFrom',
+			],
+			['gitlens.openFileInRemote'],
+		);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs): Promise<void> {
 		let uri = context.uri;
 
 		if (context.type === 'editorLine') {
 			args = { ...args, line: context.line, range: true };
 		}
 
-		if (context.command === Commands.CopyRemoteFileUrlWithoutRange) {
+		if (context.command === 'gitlens.copyRemoteFileUrlWithoutRange') {
 			args = { ...args, range: false };
 		}
 
@@ -60,9 +58,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, range: false };
 
 			if (
-				context.command === Commands.CopyRemoteFileUrl ||
-				context.command === Commands.CopyRemoteFileUrlWithoutRange ||
-				context.command === Commands.CopyRemoteFileUrlFrom
+				context.command === 'gitlens.copyRemoteFileUrlToClipboard' ||
+				context.command === 'gitlens.copyRemoteFileUrlWithoutRange' ||
+				context.command === 'gitlens.copyRemoteFileUrlFrom'
 			) {
 				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
 				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
@@ -78,9 +76,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		}
 
 		if (
-			context.command === Commands.CopyRemoteFileUrl ||
-			context.command === Commands.CopyRemoteFileUrlWithoutRange ||
-			context.command === Commands.CopyRemoteFileUrlFrom
+			context.command === 'gitlens.copyRemoteFileUrlToClipboard' ||
+			context.command === 'gitlens.copyRemoteFileUrlWithoutRange' ||
+			context.command === 'gitlens.copyRemoteFileUrlFrom'
 		) {
 			args = { ...args, clipboard: true };
 			if (args.sha == null) {
@@ -89,10 +87,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					const gitUri = await GitUri.fromUri(uri);
 					if (gitUri.repoPath) {
 						if (gitUri.sha == null) {
-							const commit = await this.container.git.getCommitForFile(gitUri.repoPath, gitUri, {
-								firstIfNotFound: true,
-							});
-
+							const commit = await this.container.git
+								.getRepositoryService(gitUri.repoPath)
+								.commits.getCommitForFile(gitUri, undefined, { firstIfNotFound: true });
 							if (commit != null) {
 								args.sha = commit.sha;
 							}
@@ -104,14 +101,14 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			}
 		}
 
-		if (context.command === Commands.OpenFileOnRemoteFrom || context.command === Commands.CopyRemoteFileUrlFrom) {
+		if (context.command === 'gitlens.openFileOnRemoteFrom' || context.command === 'gitlens.copyRemoteFileUrlFrom') {
 			args = { ...args, pickBranchOrTag: true, range: false }; // Override range since it can be wrong at a different commit
 		}
 
 		return this.execute(context.editor, uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenFileOnRemoteCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenFileOnRemoteCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -120,12 +117,14 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 		args = { range: true, ...args };
 
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
+
 		try {
-			let remotes = await this.container.git.getRemotesWithProviders(gitUri.repoPath, { sort: true });
+			let remotes = await svc.remotes.getRemotesWithProviders({ sort: true });
 
 			let range: Range | undefined;
 			if (args.range) {
-				if (editor != null && UriComparer.equals(editor.document.uri, uri)) {
+				if (editor != null && areUrisEqual(editor.document.uri, uri)) {
 					range = new Range(
 						editor.selection.start.with({ line: editor.selection.start.line + 1 }),
 						editor.selection.end.with({
@@ -155,7 +154,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			if ((args.sha == null && args.branchOrTag == null) || args.pickBranchOrTag) {
 				let branch;
 				if (!args.pickBranchOrTag) {
-					branch = await this.container.git.getBranch(gitUri.repoPath);
+					branch = await svc.branches.getBranch();
 				}
 
 				if (branch?.upstream == null) {
@@ -207,7 +206,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: sha == null ? RemoteResourceType.File : RemoteResourceType.Revision,
 					branchOrTag: args.branchOrTag ?? 'HEAD',

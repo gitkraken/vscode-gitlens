@@ -1,22 +1,22 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks';
-import { IssueIntegrationId } from '../../../constants.integrations';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
+import type { IssueResourceDescriptor } from '../../../git/models/resourceDescriptor';
 import { filterMap, flatten } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
-import type { ResourceDescriptor } from '../integration';
-import { IssueIntegration } from '../integration';
-import { IssueFilter, providersMetadata, toAccount, toSearchedIssue } from './models';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
+import { IssuesIntegration } from '../models/issuesIntegration';
+import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models';
 
-const metadata = providersMetadata[IssueIntegrationId.Jira];
+const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
+const maxPagesPerRequest = 10;
 
-export interface JiraBaseDescriptor extends ResourceDescriptor {
-	id: string;
-	name: string;
-}
+export type JiraBaseDescriptor = IssueResourceDescriptor;
+
 export interface JiraOrganizationDescriptor extends JiraBaseDescriptor {
 	url: string;
 	avatarUrl: string;
@@ -26,9 +26,9 @@ export interface JiraProjectDescriptor extends JiraBaseDescriptor {
 	resourceId: string;
 }
 
-export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
+export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Jira> {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = IssueIntegrationId.Jira;
+	readonly id = IssuesCloudHostIntegrationId.Jira;
 	protected readonly key = this.id;
 	readonly name: string = 'Jira';
 
@@ -57,16 +57,29 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 				const projects = this._projects.get(`${this._session.accessToken}:${organization.id}`);
 				if (projects != null) {
 					for (const project of projects) {
-						const prefix = `${project.key}-`;
+						const dashedPrefix = `${project.key}-`;
+						const underscoredPrefix = `${project.key}_`;
 						autolinks.push({
-							prefix: prefix,
-							url: `${organization.url}/browse/${prefix}<num>`,
+							prefix: dashedPrefix,
+							url: `${organization.url}/browse/${dashedPrefix}<num>`,
 							alphanumeric: false,
 							ignoreCase: false,
-							title: `Open Issue ${prefix}<num> on ${organization.name}`,
+							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
 
 							type: 'issue',
-							description: `${organization.name} Issue ${prefix}<num>`,
+							description: `${organization.name} Issue ${dashedPrefix}<num>`,
+							descriptor: { ...organization },
+						});
+						autolinks.push({
+							prefix: underscoredPrefix,
+							url: `${organization.url}/browse/${dashedPrefix}<num>`,
+							alphanumeric: false,
+							ignoreCase: false,
+							referenceType: 'branch',
+							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+
+							type: 'issue',
+							description: `${organization.name} Issue ${dashedPrefix}<num>`,
 							descriptor: { ...organization },
 						});
 					}
@@ -166,7 +179,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		{ accessToken }: AuthenticationSession,
 		project: JiraProjectDescriptor,
 		options?: { user: string; filters: IssueFilter[] },
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		let results;
 
 		const api = await this.getProvidersApi();
@@ -174,7 +187,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
-		): Promise<SearchedIssue[] | undefined> => {
+		): Promise<IssueShape[] | undefined> => {
 			const results = await api.getIssuesForProject(this.id, project.name, project.resourceId, {
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
@@ -183,8 +196,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			});
 
 			return results
-				?.map(issue => toSearchedIssue(issue, this, filter))
-				.filter((result): result is SearchedIssue => result !== undefined);
+				?.map(issue => toIssueShape(issue, this))
+				.filter((result): result is IssueShape => result !== undefined);
 		};
 
 		if (options?.user != null && options.filters.length > 0) {
@@ -200,13 +213,10 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 				),
 			];
 
-			const resultsById = new Map<string, SearchedIssue>();
-			for (const result of results) {
-				if (resultsById.has(result.issue.id)) {
-					const existing = resultsById.get(result.issue.id)!;
-					existing.reasons = [...existing.reasons, ...result.reasons];
-				} else {
-					resultsById.set(result.issue.id, result);
+			const resultsById = new Map<string, IssueShape>();
+			for (const resultIssue of results) {
+				if (!resultsById.has(resultIssue.id)) {
+					resultsById.set(resultIssue.id, resultIssue);
 				}
 			}
 
@@ -217,33 +227,41 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			accessToken: accessToken,
 		});
 		return results
-			?.map(issue => toSearchedIssue(issue, this))
-			.filter((result): result is SearchedIssue => result !== undefined);
+			?.map(issue => toIssueShape(issue, this))
+			.filter((result): result is IssueShape => result !== undefined);
 	}
 
 	protected override async searchProviderMyIssues(
 		session: AuthenticationSession,
 		resources?: JiraOrganizationDescriptor[],
 		_cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const myResources = resources ?? (await this.getProviderResourcesForUser(session));
 		if (!myResources) return undefined;
 
 		const api = await this.getProvidersApi();
 
-		const results: SearchedIssue[] = [];
+		const results: IssueShape[] = [];
 		for (const resource of myResources) {
 			try {
-				const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-				const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
-					accessToken: session.accessToken,
-				});
-				const formattedIssues = resourceIssues
-					?.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
-					.filter((result): result is SearchedIssue => result != null);
-				if (formattedIssues != null) {
-					results.push(...formattedIssues);
-				}
+				let cursor = undefined;
+				let hasMore = false;
+				let requestCount = 0;
+				do {
+					const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
+						accessToken: session.accessToken,
+						cursor: cursor,
+					});
+					requestCount += 1;
+					hasMore = resourceIssues.paging?.more ?? false;
+					cursor = resourceIssues.paging?.cursor;
+					const formattedIssues = resourceIssues.values
+						.map(issue => toIssueShape(issue, this))
+						.filter((result): result is IssueShape => result != null);
+					if (formattedIssues.length > 0) {
+						results.push(...formattedIssues);
+					}
+				} while (requestCount < maxPagesPerRequest && hasMore);
 			} catch (ex) {
 				// TODO: We need a better way to message the failure to the user here.
 				// This is a stopgap to prevent one bag org from throwing and preventing any issues from being returned.
@@ -260,9 +278,27 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const api = await this.getProvidersApi();
-		const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-		const issue = await api.getIssue(this.id, resource.id, id, { accessToken: session.accessToken });
-		return issue != null ? toSearchedIssue(issue, this, undefined, userLogin)?.issue : undefined;
+		const issue = await api.getIssue(
+			this.id,
+			{ resourceId: resource.id, number: id },
+			{ accessToken: session.accessToken },
+		);
+		return issue != null ? toIssueShape(issue, this) : undefined;
+	}
+
+	protected override async getProviderIssue(
+		session: AuthenticationSession,
+		resource: JiraOrganizationDescriptor,
+		id: string,
+	): Promise<Issue | undefined> {
+		const api = await this.getProvidersApi();
+		const apiResult = await api.getIssue(
+			this.id,
+			{ resourceId: resource.id, number: id },
+			{ accessToken: session.accessToken },
+		);
+		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
+		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
@@ -276,6 +312,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 
 		if (storedOrganizations == null) {
 			organizations = await this.getProviderResourcesForUser(this._session, true);
+			// Clear all other stored organizations and projects when our session changes
+			await this.container.storage.deleteWithPrefix('jira');
 			await this.container.storage.store(`jira:${this._session.accessToken}:organizations`, {
 				v: 1,
 				timestamp: Date.now(),
@@ -301,7 +339,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			const projects = this._projects.get(projectKey);
 			if (projects == null) {
 				this._projects.set(projectKey, [project]);
-			} else {
+			} else if (!projects.some(p => p.id === project.id)) {
 				projects.push(project);
 			}
 		}

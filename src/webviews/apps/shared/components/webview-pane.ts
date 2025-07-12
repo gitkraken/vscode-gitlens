@@ -113,7 +113,7 @@ export class WebviewPane extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	loading = false;
 
-	renderTitle() {
+	private renderTitle() {
 		if (!this.collapsable) {
 			return html`<div class="label">
 				<span class="title"><slot name="title">Section</slot></span>
@@ -133,7 +133,7 @@ export class WebviewPane extends LitElement {
 		</button>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<header class="header">
 				${this.renderTitle()}

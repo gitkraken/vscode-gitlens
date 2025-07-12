@@ -1,9 +1,9 @@
 import type { Uri } from 'vscode';
-import { Commands } from '../../constants.commands';
+import type { GlCommands } from '../../constants.commands';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
 
 export type UriTypes = 'link';
 
@@ -22,6 +22,7 @@ export enum DeepLinkType {
 export enum DeepLinkCommandType {
 	CloudPatches = 'cloud-patches',
 	Graph = 'graph',
+	Home = 'home',
 	Inspect = 'inspect',
 	Launchpad = 'launchpad',
 	Walkthrough = 'walkthrough',
@@ -32,16 +33,18 @@ export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType
 	return Object.values(DeepLinkCommandType).includes(type as DeepLinkCommandType);
 }
 
-export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, Commands>([
-	[DeepLinkCommandType.CloudPatches, Commands.ShowDraftsView],
-	[DeepLinkCommandType.Graph, Commands.ShowGraph],
-	[DeepLinkCommandType.Inspect, Commands.ShowCommitDetailsView],
-	[DeepLinkCommandType.Launchpad, Commands.ShowLaunchpad],
-	[DeepLinkCommandType.Walkthrough, Commands.GetStarted],
-	[DeepLinkCommandType.Worktrees, Commands.ShowWorktreesView],
+export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlCommands>([
+	[DeepLinkCommandType.CloudPatches, 'gitlens.showDraftsView'],
+	[DeepLinkCommandType.Graph, 'gitlens.showGraph'],
+	[DeepLinkCommandType.Home, 'gitlens.showHomeView'],
+	[DeepLinkCommandType.Inspect, 'gitlens.showCommitDetailsView'],
+	[DeepLinkCommandType.Launchpad, 'gitlens.showLaunchpad'],
+	[DeepLinkCommandType.Walkthrough, 'gitlens.getStarted'],
+	[DeepLinkCommandType.Worktrees, 'gitlens.showWorktreesView'],
 ]);
 
 export enum DeepLinkActionType {
+	DeleteBranch = 'delete-branch',
 	Switch = 'switch',
 	SwitchToPullRequest = 'switch-to-pr',
 	SwitchToPullRequestWorktree = 'switch-to-pr-worktree',
@@ -242,6 +245,7 @@ export const enum DeepLinkServiceState {
 	SwitchToRef,
 	RunCommand,
 	OpenAllPrChanges,
+	DeleteBranch,
 }
 
 export const enum DeepLinkServiceAction {
@@ -275,6 +279,7 @@ export const enum DeepLinkServiceAction {
 	OpenInspect,
 	OpenSwitch,
 	OpenAllPrChanges,
+	DeleteBranch,
 }
 
 export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
@@ -385,6 +390,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	[DeepLinkServiceState.EnsureRemoteMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.RemoteMatchUnneeded]: DeepLinkServiceState.GoToTarget,
 		[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.GoToTarget,
 	},
 	[DeepLinkServiceState.GoToTarget]: {
@@ -392,6 +398,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.OpenFile]: DeepLinkServiceState.OpenFile,
 		[DeepLinkServiceAction.OpenSwitch]: DeepLinkServiceState.SwitchToRef,
 		[DeepLinkServiceAction.OpenComparison]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.DeleteBranch]: DeepLinkServiceState.DeleteBranch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
@@ -438,6 +445,11 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.RunCommand]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.DeleteBranch]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,

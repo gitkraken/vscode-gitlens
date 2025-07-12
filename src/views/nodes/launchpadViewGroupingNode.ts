@@ -1,8 +1,9 @@
 import type { TreeItem } from 'vscode';
 import { Disposable, TreeItemCollapsibleState } from 'vscode';
-import type { LaunchpadGroup } from '../../plus/launchpad/launchpadProvider';
+import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad';
 import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
-import type { ViewNode } from './abstract/viewNode';
+import type { ContextValues, ViewNode } from './abstract/viewNode';
+import { getViewNodeId } from './abstract/viewNode';
 import { GroupingNode } from './groupingNode';
 
 export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> extends GroupingNode {
@@ -10,24 +11,34 @@ export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> exten
 
 	constructor(
 		view: View,
+		parent: ViewNode,
 		label: string,
 		private readonly group: LaunchpadGroup,
-		childrenOrFn: TChild[] | Promise<TChild[]> | (() => TChild[] | Promise<TChild[]>),
-		collapsibleState: TreeItemCollapsibleState = TreeItemCollapsibleState.Expanded,
-		description?: string,
-		tooltip?: string,
-		iconPath?: TreeItem['iconPath'],
-		contextValue?: string,
+		children: (parent: ViewNode) => TChild[] | Promise<TChild[]>,
+		options?: {
+			readonly collapsibleState?: TreeItemCollapsibleState;
+			readonly contextValue?: ContextValues;
+			readonly description?: string;
+			readonly iconPath?: TreeItem['iconPath'];
+			readonly tooltip?: string;
+		},
 	) {
-		super(view, label, childrenOrFn, collapsibleState, description, tooltip, iconPath, contextValue);
+		super(view, parent, label, children, options);
 		this.disposable = Disposable.from(
 			this.view.onDidChangeNodeCollapsibleState(this.onNodeCollapsibleStateChanged, this),
 		);
+
+		this.updateContext({ launchpadGroup: group });
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.disposable?.dispose();
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	private onNodeCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
@@ -39,7 +50,7 @@ export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> exten
 				storedExpandedGroups.splice(storedExpandedGroups.indexOf(this.group), 1);
 			}
 
-			void this.view.container.storage.store('launchpadView:groups:expanded', storedExpandedGroups);
+			void this.view.container.storage.store('launchpadView:groups:expanded', storedExpandedGroups).catch();
 		}
 	}
 }

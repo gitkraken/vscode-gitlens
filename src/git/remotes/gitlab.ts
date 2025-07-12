@@ -1,18 +1,30 @@
 import type { Range, Uri } from 'vscode';
-import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
+import type {
+	Autolink,
+	AutolinkReference,
+	DynamicAutolinkReference,
+	MaybeEnrichedAutolink,
+} from '../../autolinks/models/autolinks';
 import { GlyphChars } from '../../constants';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { Source } from '../../constants.telemetry';
+import type { Container } from '../../container';
+import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
 import type { GitLabRepositoryDescriptor } from '../../plus/integrations/providers/gitlab';
+import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
-import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
-import { isSha } from '../models/reference';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
-import type { RemoteProviderId } from './remoteProvider';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
+import { isSha } from '../utils/revision.utils';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
@@ -25,11 +37,18 @@ function isGitLabDotCom(domain: string): boolean {
 }
 
 export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
-	get apiBaseUrl() {
+	get apiBaseUrl(): string {
 		return this.custom ? `${this.protocol}://${this.domain}/api` : `https://${this.domain}/api`;
 	}
 
@@ -124,7 +143,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 									}
 
 									return token;
-							  });
+								});
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let ownerAndRepo: string;
@@ -226,7 +245,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 										}
 										return token;
 									},
-							  );
+								);
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let ownerAndRepo: string;
@@ -266,7 +285,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		return this._autolinks;
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'gitlab';
 	}
 
@@ -280,23 +299,26 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 			: 'gitlab') satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('GitLab');
 	}
 
 	@memoize()
 	override get repoDesc(): GitLabRepositoryDescriptor {
-		const [owner, repo] = this.splitPath();
+		const [owner, repo] = this.splitPath(this.path);
 		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
-	async getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+	override get supportedFeatures(): RemoteProviderSupportedFeatures {
+		return {
+			...super.supportedFeatures,
+			createPullRequestWithDetails: true,
+		};
+	}
+
+	async getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
 		if (uri.authority !== this.domain) return undefined;
-		if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+		if (!uri.path.startsWith(`/${this.path}/`)) return undefined;
 
 		let startLine;
 		let endLine;
@@ -319,12 +341,26 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		const [, , , path] = match;
 
 		// Check for a permalink
+		let maybeShortPermalink: LocalInfoFromRemoteUriResult | undefined = undefined;
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
 			if (isSha(sha)) {
-				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
-				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), sha);
+				if (uri != null) {
+					return { uri: uri, repoPath: repo.path, rev: sha, startLine: startLine, endLine: endLine };
+				}
+			} else if (isSha(sha, true)) {
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), sha);
+				if (uri != null) {
+					maybeShortPermalink = {
+						uri: uri,
+						repoPath: repo.path,
+						rev: sha,
+						startLine: startLine,
+						endLine: endLine,
+					};
+				}
 			}
 		}
 
@@ -339,20 +375,23 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 			possibleBranches.set(branch, path.substring(index));
 		} while (index > 0);
 
-		if (possibleBranches.size !== 0) {
-			const { values: branches } = await repository.git.getBranches({
+		if (possibleBranches.size) {
+			const { values: branches } = await repo.git.branches.getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {
-				const path = possibleBranches.get(branch.getNameWithoutRemote());
+				const ref = branch.getNameWithoutRemote();
+				const path = possibleBranches.get(ref);
 				if (path == null) continue;
 
-				const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
-				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), ref);
+				if (uri != null) {
+					return { uri: uri, repoPath: repo.path, rev: ref, startLine: startLine, endLine: endLine };
+				}
 			}
 		}
 
-		return undefined;
+		return maybeShortPermalink;
 	}
 
 	protected getUrlForBranches(): string {
@@ -367,8 +406,62 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/-/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${compare}`);
+	protected override getUrlForComparison(base: string, head: string, notation: GitRevisionRangeNotation): string {
+		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${head}`);
+	}
+
+	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
+		const integration = integrationId && (await this.container.integrations.get(integrationId));
+		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
+	}
+
+	protected override async getUrlForCreatePullRequest(
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
+	): Promise<string | undefined> {
+		let { base, head, details } = resource;
+
+		if (details?.describeWithAI) {
+			details = await describePullRequestWithAI(
+				this.container,
+				resource.repoPath,
+				resource,
+				source ?? { source: 'ai' },
+			);
+		}
+		const query = new URLSearchParams({
+			utf8: '✓',
+			'merge_request[source_branch]': head.branch,
+			'merge_request[target_branch]': base.branch ?? '',
+		});
+
+		if (base.remote.url !== head.remote.url) {
+			const targetDesc = {
+				owner: base.remote.path.split('/')[0],
+				name: base.remote.path.split('/')[1],
+			};
+			const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
+			const integration = integrationId && (await this.container.integrations.get(integrationId));
+
+			let targetRepoId;
+			if (integration?.isConnected && integration instanceof GitHostIntegration) {
+				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
+			}
+			if (!targetRepoId) return undefined;
+
+			query.set('merge_request[target_project_id]', targetRepoId);
+			// 'merge_request["source_project_id"]': this.path, // ?? seems we don't need it
+		}
+
+		if (details?.title) {
+			query.set('merge_request[title]', details.title);
+		}
+		if (details?.description) {
+			query.set('merge_request[description]', details.description);
+		}
+
+		return `${this.encodeUrl(`${this.getRepoBaseUrl(head.remote.path)}/-/merge_requests/new`)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

@@ -1,3 +1,6 @@
+import { pluralize } from '../system/string';
+import type { GitPausedOperation, GitPausedOperationStatus } from './models/pausedOperationStatus';
+
 export class GitSearchError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
@@ -146,6 +149,7 @@ export const enum PushErrorReason {
 	RemoteAhead,
 	TipBehind,
 	PushRejected,
+	PushRejectedRefNotExists,
 	PushRejectedWithLease,
 	PushRejectedWithLeaseIfIncludes,
 	PermissionDenied,
@@ -190,6 +194,11 @@ export class PushError extends Error {
 					break;
 				case PushErrorReason.PushRejected:
 					message = `${baseMessage} because some refs failed to push or the push was rejected. Try pulling first.`;
+					break;
+				case PushErrorReason.PushRejectedRefNotExists:
+					message = `Unable to delete remote branch${branch ? ` '${branch}'` : ''}${
+						remote ? ` from ${remote}` : ''
+					}, the remote reference does not exist`;
 					break;
 				case PushErrorReason.PushRejectedWithLease:
 				case PushErrorReason.PushRejectedWithLeaseIfIncludes:
@@ -255,7 +264,7 @@ export class PullError extends Error {
 			reason = messageOrReason;
 			switch (reason) {
 				case PullErrorReason.Conflict:
-					message = `${baseMessage} due to conflicts.`;
+					message = `Unable to complete pull due to conflicts which must be resolved.`;
 					break;
 				case PullErrorReason.GitIdentity:
 					message = `${baseMessage} because you have not yet set up your Git identity.`;
@@ -352,8 +361,9 @@ export class FetchError extends Error {
 }
 
 export const enum CherryPickErrorReason {
-	Conflicts,
 	AbortedWouldOverwrite,
+	Conflicts,
+	EmptyCommit,
 	Other,
 }
 
@@ -365,11 +375,13 @@ export class CherryPickError extends Error {
 	readonly original?: Error;
 	readonly reason: CherryPickErrorReason | undefined;
 
-	constructor(reason?: CherryPickErrorReason, original?: Error, sha?: string);
+	constructor(reason?: CherryPickErrorReason, original?: Error, revs?: string[]);
 	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, sha?: string) {
+	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, revs?: string[]) {
 		let message;
-		const baseMessage = `Unable to cherry-pick${sha ? ` commit '${sha}'` : ''}`;
+		const baseMessage = `Unable to cherry-pick${
+			revs?.length ? (revs.length === 1 ? ` commit '${revs[0]}'` : ` ${pluralize('commit', revs.length)}`) : ''
+		}`;
 		let reason: CherryPickErrorReason | undefined;
 		if (messageOrReason == null) {
 			message = baseMessage;
@@ -490,6 +502,84 @@ export class WorktreeDeleteError extends Error {
 	}
 }
 
+export const enum BranchErrorReason {
+	BranchAlreadyExists,
+	BranchNotFullyMerged,
+	NoRemoteReference,
+	InvalidBranchName,
+	Other,
+}
+
+export class BranchError extends Error {
+	static is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
+		return ex instanceof BranchError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: BranchErrorReason | undefined;
+	private _branch?: string;
+	get branch(): string | undefined {
+		return this._branch;
+	}
+	private _action?: string;
+	get action(): string | undefined {
+		return this._action;
+	}
+
+	constructor(reason?: BranchErrorReason, original?: Error, branch?: string, action?: string);
+	constructor(message?: string, original?: Error);
+	constructor(
+		messageOrReason: string | BranchErrorReason | undefined,
+		original?: Error,
+		branch?: string,
+		action?: string,
+	) {
+		let message;
+		let reason: BranchErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as BranchErrorReason;
+			message = BranchError.buildErrorMessage(reason, branch, action);
+		} else {
+			message = messageOrReason;
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this._branch = branch;
+		this._action = action;
+		Error.captureStackTrace?.(this, BranchError);
+	}
+
+	private static buildErrorMessage(reason?: BranchErrorReason, branch?: string, action?: string): string {
+		let baseMessage: string;
+		if (action != null) {
+			baseMessage = `Unable to ${action} branch ${branch ? `'${branch}'` : ''}`;
+		} else {
+			baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
+		}
+		switch (reason) {
+			case BranchErrorReason.BranchAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case BranchErrorReason.BranchNotFullyMerged:
+				return `${baseMessage} because it is not fully merged`;
+			case BranchErrorReason.NoRemoteReference:
+				return `${baseMessage} because the remote reference does not exist`;
+			case BranchErrorReason.InvalidBranchName:
+				return `${baseMessage} because the branch name is invalid`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	update(changes: { branch?: string; action?: string }): this {
+		this._branch = changes.branch === null ? undefined : (changes.branch ?? this._branch);
+		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
+		this.message = BranchError.buildErrorMessage(this.reason, this._branch, this._action);
+		return this;
+	}
+}
+
 export const enum TagErrorReason {
 	TagAlreadyExists,
 	TagNotFound,
@@ -506,10 +596,36 @@ export class TagError extends Error {
 
 	readonly original?: Error;
 	readonly reason: TagErrorReason | undefined;
-	action?: string;
-	tag?: string;
+	private _tag?: string;
+	get tag(): string | undefined {
+		return this._tag;
+	}
+	private _action?: string;
+	get action(): string | undefined {
+		return this._action;
+	}
 
-	private static buildTagErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
+	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
+		let message;
+		let reason: TagErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as TagErrorReason;
+			message = TagError.buildErrorMessage(reason, tag, action);
+		} else {
+			message = messageOrReason;
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this._tag = tag;
+		this._action = action;
+		Error.captureStackTrace?.(this, TagError);
+	}
+
+	private static buildErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
 		let baseMessage: string;
 		if (action != null) {
 			baseMessage = `Unable to ${action} tag ${tag ? `'${tag}'` : ''}`;
@@ -533,37 +649,137 @@ export class TagError extends Error {
 		}
 	}
 
-	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
-	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
-		let reason: TagErrorReason | undefined;
-		if (typeof messageOrReason !== 'string') {
-			reason = messageOrReason as TagErrorReason;
-		} else {
-			super(messageOrReason);
-		}
-		const message =
-			typeof messageOrReason === 'string'
-				? messageOrReason
-				: TagError.buildTagErrorMessage(messageOrReason as TagErrorReason, tag, action);
+	update(changes: { tag?: string; action?: string }): this {
+		this._tag = changes.tag === null ? undefined : (changes.tag ?? this._tag);
+		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
+		this.message = TagError.buildErrorMessage(this.reason, this._tag, this._action);
+		return this;
+	}
+}
+
+export const enum PausedOperationAbortErrorReason {
+	NothingToAbort,
+}
+
+export class PausedOperationAbortError extends Error {
+	static is(ex: unknown, reason?: PausedOperationAbortErrorReason): ex is PausedOperationAbortError {
+		return ex instanceof PausedOperationAbortError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: PausedOperationAbortErrorReason | undefined;
+	readonly operation: GitPausedOperation;
+
+	constructor(
+		reason: PausedOperationAbortErrorReason | undefined,
+		operation: GitPausedOperation,
+		message?: string,
+		original?: Error,
+	) {
+		message ||= 'Unable to abort operation';
 		super(message);
 
 		this.original = original;
 		this.reason = reason;
-		this.tag = tag;
-		this.action = action;
-		Error.captureStackTrace?.(this, TagError);
+		this.operation = operation;
+		Error.captureStackTrace?.(this, PausedOperationAbortError);
+	}
+}
+
+export const enum PausedOperationContinueErrorReason {
+	EmptyCommit,
+	NothingToContinue,
+	UnmergedFiles,
+	UncommittedChanges,
+	UnstagedChanges,
+	UnresolvedConflicts,
+	WouldOverwrite,
+}
+
+export class PausedOperationContinueError extends Error {
+	static is(ex: unknown, reason?: PausedOperationContinueErrorReason): ex is PausedOperationContinueError {
+		return ex instanceof PausedOperationContinueError && (reason == null || ex.reason === reason);
 	}
 
-	WithTag(tag: string) {
-		this.tag = tag;
-		this.message = TagError.buildTagErrorMessage(this.reason, tag, this.action);
-		return this;
+	readonly original?: Error;
+	readonly reason: PausedOperationContinueErrorReason | undefined;
+	readonly operation: GitPausedOperationStatus;
+
+	constructor(
+		reason: PausedOperationContinueErrorReason | undefined,
+		operation: GitPausedOperationStatus,
+		message?: string,
+		original?: Error,
+	) {
+		message ||= 'Unable to continue operation';
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.operation = operation;
+		Error.captureStackTrace?.(this, PausedOperationContinueError);
+	}
+}
+
+export const enum ResetErrorReason {
+	AmbiguousArgument,
+	ChangesWouldBeOverwritten,
+	DetachedHead,
+	EntryNotUpToDate,
+	PermissionDenied,
+	RefLocked,
+	Other,
+	UnmergedChanges,
+}
+
+export class ResetError extends Error {
+	static is(ex: unknown, reason?: ResetErrorReason): ex is ResetError {
+		return ex instanceof ResetError && (reason == null || ex.reason === reason);
 	}
 
-	WithAction(action: string) {
-		this.action = action;
-		this.message = TagError.buildTagErrorMessage(this.reason, this.tag, action);
-		return this;
+	readonly original?: Error;
+	readonly reason: ResetErrorReason | undefined;
+	constructor(reason?: ResetErrorReason, original?: Error);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | ResetErrorReason | undefined, original?: Error) {
+		let message;
+		let reason: ResetErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = 'Unable to reset';
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			message = 'Unable to reset';
+			switch (reason) {
+				case ResetErrorReason.UnmergedChanges:
+					message = `${message} because there are unmerged changes`;
+					break;
+				case ResetErrorReason.AmbiguousArgument:
+					message = `${message} because the argument is ambiguous`;
+					break;
+				case ResetErrorReason.EntryNotUpToDate:
+					message = `${message} because the entry is not up to date`;
+					break;
+				case ResetErrorReason.RefLocked:
+					message = `${message} because the ref is locked`;
+					break;
+				case ResetErrorReason.PermissionDenied:
+					message = `${message} because you don't have permission to modify affected files`;
+					break;
+				case ResetErrorReason.DetachedHead:
+					message = `${message} because you are in a detached HEAD state`;
+					break;
+				case ResetErrorReason.ChangesWouldBeOverwritten:
+					message = `${message} because your local changes would be overwritten`;
+					break;
+			}
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, ResetError);
 	}
 }

@@ -1,29 +1,33 @@
-import { Commands } from '../constants.commands';
+import type { Uri } from 'vscode';
 import type { Container } from '../container';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasContributor } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasContributor } from './commandContext.utils';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;
 }
 
 @command()
-export class InviteToLiveShareCommand extends Command {
+export class InviteToLiveShareCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: InviteToLiveShareCommandArgs): string;
 	static createMarkdownCommandLink(email: string | undefined): string;
 	static createMarkdownCommandLink(argsOrEmail: InviteToLiveShareCommandArgs | string | undefined): string {
 		const args =
 			argsOrEmail === undefined || typeof argsOrEmail === 'string' ? { email: argsOrEmail } : argsOrEmail;
-		return createMarkdownCommandLink<InviteToLiveShareCommandArgs>(Commands.InviteToLiveShare, args);
+		return createMarkdownCommandLink<InviteToLiveShareCommandArgs>('gitlens.inviteToLiveShare', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.InviteToLiveShare);
+		super('gitlens.inviteToLiveShare');
 	}
 
-	protected override preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
+	protected override preExecute(
+		context: CommandContext,
+		args?: InviteToLiveShareCommandArgs,
+	): Promise<boolean | Uri | null | undefined> {
 		if (isCommandContextViewNodeHasContributor(context)) {
 			args = { ...args };
 			args.email = context.node.contributor.email;
@@ -33,7 +37,7 @@ export class InviteToLiveShareCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args?: InviteToLiveShareCommandArgs) {
+	async execute(args?: InviteToLiveShareCommandArgs): Promise<boolean | Uri | null | undefined> {
 		if (args?.email) {
 			const contact = await this.container.vsls.getContact(args.email);
 			if (contact != null) {

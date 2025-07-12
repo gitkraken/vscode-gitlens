@@ -1,9 +1,11 @@
+import type { QuickInputButton } from 'vscode';
 import type { StoredRecentUsage } from '../constants.storage';
 import type { Container } from '../container';
 import { LaunchpadCommand } from '../plus/launchpad/launchpad';
-import { StartWorkCommand } from '../plus/startWork/startWork';
-import { configuration } from '../system/vscode/configuration';
-import { getContext } from '../system/vscode/context';
+import { AssociateIssueWithBranchCommand, StartWorkCommand } from '../plus/startWork/startWork';
+import { configuration } from '../system/-webview/configuration';
+import { getContext } from '../system/-webview/context';
+import { ChangeBranchMergeTargetCommand } from './changeBranchMergeTarget';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';
@@ -47,7 +49,7 @@ export function getSteps(
 
 export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 	readonly type = 'pick';
-	readonly buttons = [];
+	readonly buttons: QuickInputButton[] = [];
 	ignoreFocusOut = false;
 	readonly items: QuickCommand[];
 	readonly matchOnDescription = true;
@@ -95,7 +97,7 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 				: new SwitchGitCommand(
 						container,
 						args?.command === 'switch' || args?.command === 'checkout' ? args : undefined,
-				  ),
+					),
 			readonly ? undefined : new TagGitCommand(container, args?.command === 'tag' ? args : undefined),
 			hasVirtualFolders
 				? undefined
@@ -117,6 +119,14 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 		if (args?.command === 'startWork') {
 			this.hiddenItems.push(new StartWorkCommand(container, args));
 		}
+
+		if (args?.command === 'associateIssueWithBranch') {
+			this.hiddenItems.push(new AssociateIssueWithBranchCommand(container, args));
+		}
+
+		if (args?.command === 'changeBranchMergeTarget') {
+			this.hiddenItems.push(new ChangeBranchMergeTargetCommand(container, args));
+		}
 	}
 
 	private _command: QuickCommand | undefined;
@@ -124,7 +134,7 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 		return this._command;
 	}
 
-	find(commandName: string, fuzzy: boolean = false) {
+	find(commandName: string, fuzzy: boolean = false): QuickCommand | undefined {
 		if (fuzzy) {
 			const cmd = commandName.toLowerCase();
 			return this.items.find(c => c.isFuzzyMatch(cmd)) ?? this.hiddenItems.find(c => c.isFuzzyMatch(cmd));

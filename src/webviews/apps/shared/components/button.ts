@@ -61,13 +61,20 @@ export class GlButton extends LitElement {
 				padding: var(--button-padding);
 				line-height: var(--button-line-height);
 				font-family: inherit;
+				font-size: inherit;
 
 				color: inherit;
 				text-decoration: none;
 
 				width: max-content;
+				max-width: 100%;
 				height: 100%;
 				cursor: pointer;
+			}
+
+			/* When truncate is enabled, allow the control to shrink */
+			:host([truncate]) .control {
+				min-width: 0;
 			}
 
 			button.control {
@@ -81,7 +88,17 @@ export class GlButton extends LitElement {
 			}
 
 			.label {
-				display: inline-block;
+				display: inline-flex;
+				align-items: center;
+				max-width: 100%;
+			}
+
+			/* Text truncation option - enabled via truncate attribute */
+			:host([truncate]) .label {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				display: block; /* Change from flex to block for ellipsis to work */
 			}
 
 			:host(:hover) {
@@ -210,26 +227,42 @@ export class GlButton extends LitElement {
 	@property()
 	href?: string;
 
-	@property({ reflect: true })
-	override get role() {
-		return this.href ? 'link' : 'button';
-	}
-
 	@property()
 	tooltip?: string;
 
 	@property()
 	tooltipPlacement?: GlTooltip['placement'] = 'bottom';
 
-	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
-		super.updated(changedProperties);
+	@property({ type: Boolean, reflect: true })
+	truncate = false;
 
-		if (changedProperties.has('disabled')) {
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+
+		this.setAttribute('role', this.href ? 'link' : 'button');
+		if (this.disabled) {
 			this.setAttribute('aria-disabled', this.disabled.toString());
 		}
 	}
 
-	protected override render() {
+	protected override willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+		if (changedProperties.has('href')) {
+			this.setAttribute('role', this.href ? 'link' : 'button');
+		}
+
+		if (changedProperties.has('disabled')) {
+			const disabled = changedProperties.get('disabled');
+			if (disabled) {
+				this.setAttribute('aria-disabled', disabled.toString());
+			} else {
+				this.removeAttribute('aria-disabled');
+			}
+		}
+
+		super.willUpdate(changedProperties);
+	}
+
+	protected override render(): unknown {
 		if (this.tooltip) {
 			return html`<gl-tooltip .content=${this.tooltip} placement=${ifDefined(this.tooltipPlacement)}
 				>${this.renderControl()}</gl-tooltip
@@ -250,7 +283,7 @@ export class GlButton extends LitElement {
 		if (this.href != null) {
 			return html`<a
 				class="control"
-				tabindex="${this.disabled === false ? 0 : -1}"
+				tabindex="${ifDefined(this.disabled === false ? undefined : -1)}"
 				href=${this.href}
 				@keypress=${(e: KeyboardEvent) => this.onLinkKeypress(e)}
 				><slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot
@@ -272,15 +305,15 @@ export class GlButton extends LitElement {
 		}
 	}
 
-	override focus(options?: FocusOptions) {
+	override focus(options?: FocusOptions): void {
 		this.control.focus(options);
 	}
 
-	override blur() {
+	override blur(): void {
 		this.control.blur();
 	}
 
-	override click() {
+	override click(): void {
 		this.control.click();
 	}
 }

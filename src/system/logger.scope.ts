@@ -12,17 +12,17 @@ export interface LogScope {
 	exitFailed?: string;
 }
 
-export function clearLogScope(scopeId: number) {
+export function clearLogScope(scopeId: number): void {
 	scopes.delete(scopeId);
 }
 
-export function getLoggableScopeBlock(scopeId: number, prevScopeId?: number) {
+export function getLoggableScopeBlock(scopeId: number, prevScopeId?: number): string {
 	return prevScopeId == null
 		? `[${scopeId.toString(16).padStart(13)}]`
 		: `[${prevScopeId.toString(16).padStart(5)} \u2192 ${scopeId.toString(16).padStart(5)}]`;
 }
 
-export function getLoggableScopeBlockOverride(prefix: string, suffix?: string) {
+export function getLoggableScopeBlockOverride(prefix: string, suffix?: string): string {
 	if (suffix == null) return `[${prefix.padEnd(13)}]`;
 
 	return `[${prefix}${suffix.padStart(13 - prefix.length)}]`;
@@ -59,7 +59,7 @@ export function startLogScope(prefix: string, scope: LogScope | boolean | undefi
 	};
 }
 
-export function setLogScope(scopeId: number, scope: LogScope) {
+export function setLogScope(scopeId: number, scope: LogScope): LogScope {
 	scope = { prevScopeId: logScopeIdGenerator.current, ...scope };
 	scopes.set(scopeId, scope);
 	return scope;

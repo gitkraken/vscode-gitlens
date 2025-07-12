@@ -6,10 +6,10 @@ import type {
 	Repository as ScmGitRepository,
 } from '../../../@types/vscode.git';
 import type { Container } from '../../../container';
+import { configuration } from '../../../system/-webview/configuration';
 import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
-import { configuration } from '../../../system/vscode/configuration';
 
 class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 	icon: ThemeIcon = new ThemeIcon('sparkle');
@@ -38,7 +38,7 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 		}
 	}
 
-	dispose() {
+	dispose(): void {
 		this._subscription?.dispose();
 		this._disposable.dispose();
 	}
@@ -49,9 +49,7 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 
 		const currentMessage = repository.inputBox.value;
 		try {
-			const message = await (
-				await this.container.ai
-			)?.generateCommitMessage(
+			const result = await this.container.ai.generateCommitMessage(
 				changes,
 				{ source: 'scm-input' },
 				{
@@ -64,8 +62,11 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 				},
 			);
 
-			if (message == null) return;
-			return `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${message.body}`;
+			if (result == null || result === 'cancelled') return;
+
+			return `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
+				result.parsed.body ? `\n\n${result.parsed.body}` : ''
+			}`;
 		} catch (ex) {
 			Logger.error(ex, scope);
 

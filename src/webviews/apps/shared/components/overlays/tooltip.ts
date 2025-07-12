@@ -2,6 +2,7 @@ import type SlTooltip from '@shoelace-style/shoelace/dist/components/tooltip/too
 import { setDefaultAnimation } from '@shoelace-style/shoelace/dist/utilities/animation-registry.js';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { handleUnsafeOverlayContent } from './overlays.utils';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 setDefaultAnimation('tooltip.show', null);
@@ -30,6 +31,10 @@ export class GlTooltip extends LitElement {
 			z-index: 1;
 		}
 
+		:host {
+			text-transform: var(--gl-tooltip-text-transform, inherit);
+		}
+
 		:host([data-current-placement^='top']) sl-tooltip::part(base__arrow) {
 			border-top-width: 0;
 			border-left-width: 0;
@@ -49,6 +54,11 @@ export class GlTooltip extends LitElement {
 			border-top-width: 0;
 			border-right-width: 0;
 		}
+
+		[slot='content'] hr {
+			border: none;
+			border-top: 1px solid var(--color-foreground--25);
+		}
 	`;
 
 	@property()
@@ -67,7 +77,7 @@ export class GlTooltip extends LitElement {
 	hoist?: boolean;
 
 	private observer: MutationObserver | undefined;
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.observer = new MutationObserver(mutations => {
 			for (const mutation of mutations) {
 				if (mutation.type === 'attributes' && mutation.attributeName === 'data-current-placement') {
@@ -92,11 +102,12 @@ export class GlTooltip extends LitElement {
 		});
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		this.observer?.disconnect();
+		super.disconnectedCallback?.();
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<sl-tooltip
 			.placement=${this.placement}
 			?disabled=${this.disabled}
@@ -105,7 +116,7 @@ export class GlTooltip extends LitElement {
 		>
 			<slot></slot>
 			<div slot="content">
-				<slot name="content">${this.content}</slot>
+				<slot name="content">${handleUnsafeOverlayContent(this.content)}</slot>
 			</div>
 		</sl-tooltip>`;
 	}

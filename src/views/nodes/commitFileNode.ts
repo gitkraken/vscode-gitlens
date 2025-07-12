@@ -1,19 +1,21 @@
-import type { Command, Selection, TextDocumentShowOptions } from 'vscode';
+import type { Command, Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { OpenFileAtRevisionCommandArgs } from '../../commands/openFileAtRevision';
 import { Schemes } from '../../constants';
-import { Commands } from '../../constants.commands';
 import type { TreeViewRefFileNodeTypes } from '../../constants.views';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
+import type { DiffRange } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createCommand } from '../../system/-webview/command';
+import { relativeDir } from '../../system/-webview/path';
+import { selectionToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
-import { relativeDir } from '../../system/vscode/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode';
@@ -68,10 +70,9 @@ export abstract class CommitFileNodeBase<
 			// Try to get the commit directly from the multi-file commit
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
-					limit: 2,
-					ref: this.commit.sha,
-				});
+				const log = await this.view.container.git
+					.getRepositoryService(this.repoPath)
+					.commits.getLogForPath(this.file.path, this.commit.sha, { isFolder: false, limit: 1 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
@@ -131,7 +132,7 @@ export abstract class CommitFileNodeBase<
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName === undefined) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -139,7 +140,7 @@ export abstract class CommitFileNodeBase<
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label === undefined) {
 			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,
@@ -158,43 +159,39 @@ export abstract class CommitFileNodeBase<
 	}
 
 	override getCommand(): Command | undefined {
-		let line;
+		let range: DiffRange;
 		if (this.commit.lines.length) {
-			line = this.commit.lines[0].line - 1;
+			// TODO@eamodio should the endLine be the last line of the commit?
+			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
 		} else {
-			line = this.options?.selection?.active.line ?? 0;
+			range = this.commit.file?.range ?? selectionToDiffRange(this.options?.selection);
 		}
-
-		const showOptions: TextDocumentShowOptions = {
-			preserveFocus: true,
-			preview: true,
-		};
 
 		const filesConfig = this.view.config.files;
 		if ('openDiffOnClick' in filesConfig && filesConfig.openDiffOnClick === false) {
-			const commandArgs: OpenFileAtRevisionCommandArgs = {
-				revisionUri: GitUri.fromFile(this.file, this.commit.repoPath, this.ref.ref),
-				line: line,
-				showOptions: showOptions,
-			};
-			return {
-				title: 'Open File',
-				command: Commands.OpenFileAtRevision,
-				arguments: [commandArgs],
-			};
+			return createCommand<[undefined, OpenFileAtRevisionCommandArgs]>(
+				'gitlens.openFileRevision',
+				'Open File',
+				undefined,
+				{
+					revisionUri: GitUri.fromFile(this.file, this.commit.repoPath, this.ref.ref),
+					range: range,
+					showOptions: { preserveFocus: true, preview: true },
+				},
+			);
 		}
 
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: GitUri.fromFile(this.file, this.commit.repoPath),
-			line: line,
-			showOptions: showOptions,
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				commit: this.commit,
+				uri: GitUri.fromFile(this.file, this.commit.repoPath),
+				range: range,
+				showOptions: { preserveFocus: true, preview: true },
+			},
+		);
 	}
 }
 

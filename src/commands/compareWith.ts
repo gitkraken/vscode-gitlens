@@ -1,12 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;
@@ -16,29 +16,26 @@ export interface CompareWithCommandArgs {
 @command()
 export class CompareWithCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			Commands.CompareWith,
-			Commands.CompareHeadWith,
-			Commands.CompareWorkingWith,
-			Commands.Deprecated_DiffHeadWith,
-			Commands.Deprecated_DiffWorkingWith,
-		]);
+		super(
+			['gitlens.compareWith', 'gitlens.compareHeadWith', 'gitlens.compareWorkingWith'],
+			['gitlens.diffHeadWith', 'gitlens.diffWorkingWith'],
+		);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs): Promise<void> {
 		switch (context.command) {
-			case Commands.CompareWith:
+			case 'gitlens.compareWith':
 				args = { ...args };
 				break;
 
-			case Commands.CompareHeadWith:
-			case Commands.Deprecated_DiffHeadWith:
+			case 'gitlens.compareHeadWith':
+			case /** @deprecated */ 'gitlens.diffHeadWith':
 				args = { ...args };
 				args.ref1 = 'HEAD';
 				break;
 
-			case Commands.CompareWorkingWith:
-			case Commands.Deprecated_DiffWorkingWith:
+			case 'gitlens.compareWorkingWith':
+			case /** @deprecated */ 'gitlens.diffWorkingWith':
 				args = { ...args };
 				args.ref1 = '';
 				break;
@@ -47,7 +44,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CompareWithCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CompareWithCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 

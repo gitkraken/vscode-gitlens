@@ -1,7 +1,7 @@
 import { Disposable } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { unknownGitUri } from '../../../git/gitUri';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import { debug } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import { szudzikPairing } from '../../../system/function';
@@ -13,13 +13,11 @@ export abstract class RepositoriesSubscribeableNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repositories', TView, TChild> {
-	protected override splatted = true;
-
 	constructor(view: TView) {
 		super('repositories', unknownGitUri, view);
 	}
 
-	override async getSplattedChild() {
+	override async getSplattedChild(): Promise<TChild | undefined> {
 		if (this.children == null) {
 			await this.getChildren();
 		}

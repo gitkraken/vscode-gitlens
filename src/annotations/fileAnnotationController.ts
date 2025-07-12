@@ -3,6 +3,7 @@ import type {
 	ConfigurationChangeEvent,
 	Event,
 	Progress,
+	TabChangeEvent,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
@@ -24,25 +25,25 @@ import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
 import type { AnnotationStatus } from '../constants';
 import type { Colors, CoreColors } from '../constants.colors';
 import type { Container } from '../container';
+import { registerCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import type { KeyboardScope } from '../system/-webview/keyboard';
+import { UriSet } from '../system/-webview/uriMap';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import type { Deferrable } from '../system/function';
-import { debounce } from '../system/function';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
 import { find } from '../system/iterable';
 import { basename } from '../system/path';
-import { registerCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
-import type { KeyboardScope } from '../system/vscode/keyboard';
-import { UriSet } from '../system/vscode/uriMap';
-import { isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 } from '../trackers/documentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
-import { getEditorCorrelationKey } from './annotationProvider';
+import { getEditorCorrelationKey, getEditorCorrelationKeyFromTab } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
 
 export const Decorations = {
@@ -72,6 +73,7 @@ export class FileAnnotationController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidToggleAnnotations,
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
@@ -80,7 +82,7 @@ export class FileAnnotationController implements Disposable {
 		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
 	}
 
-	dispose() {
+	dispose(): void {
 		void this.clearAll();
 
 		Decorations.gutterBlameAnnotation?.dispose();
@@ -227,6 +229,12 @@ export class FileAnnotationController implements Disposable {
 		}
 	}
 
+	private onTabsChanged(e: TabChangeEvent) {
+		for (const tab of e.closed) {
+			void this.clearCore(getEditorCorrelationKeyFromTab(tab));
+		}
+	}
+
 	private onTextDocumentClosed(document: TextDocument) {
 		if (!this.container.git.isTrackable(document.uri)) return;
 
@@ -273,14 +281,15 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
-	clear(editor: TextEditor) {
+	clear(editor: TextEditor | undefined): Promise<void> | undefined {
 		if (this.isInWindowToggle()) return this.clearAll();
+		if (editor == null) return;
 
 		return this.clearCore(getEditorCorrelationKey(editor), true);
 	}
 
 	@log()
-	async clearAll() {
+	async clearAll(): Promise<void> {
 		this._windowAnnotationType = undefined;
 
 		for (const [key] of this._annotationProviders) {
@@ -327,7 +336,10 @@ export class FileAnnotationController implements Disposable {
 	private readonly _annotatedUris = new UriSet();
 	private readonly _computingUris = new UriSet();
 
-	async onProviderEditorStatusChanged(editor: TextEditor | undefined, status: AnnotationStatus | undefined) {
+	async onProviderEditorStatusChanged(
+		editor: TextEditor | undefined,
+		status: AnnotationStatus | undefined,
+	): Promise<void> {
 		if (editor == null) return;
 
 		let changed = false;
@@ -522,13 +534,13 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log()
-	nextChange() {
+	nextChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.nextChange?.();
 	}
 
 	@log()
-	previousChange() {
+	previousChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.previousChange?.();
 	}
@@ -687,6 +699,7 @@ export class FileAnnotationController implements Disposable {
 			window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 50), this),
 			window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
 			window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
+			window.tabGroups.onDidChangeTabs(this.onTabsChanged, this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			this.container.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
@@ -775,7 +788,7 @@ export class FileAnnotationController implements Disposable {
 								',',
 							)})' x='13' y='0' width='3' height='18'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
@@ -794,7 +807,7 @@ export class FileAnnotationController implements Disposable {
 								',',
 							)})' x='13' y='0' width='3' height='18'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
@@ -811,7 +824,7 @@ export class FileAnnotationController implements Disposable {
 								',',
 							)})' points='13,10 13,18 17,14'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
@@ -836,7 +849,7 @@ export class FileAnnotationController implements Disposable {
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
 						)}`,
-				  )
+					)
 				: undefined;
 
 			Decorations.gutterBlameHighlight = window.createTextEditorDecorationType({

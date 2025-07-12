@@ -1,8 +1,8 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
+import type { ViewFilesLayout } from '../../../../config';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
 import { pluralize } from '../../../../system/string';
@@ -43,14 +43,17 @@ export class GlDetailsBase extends LitElement {
 	@property({ type: Object })
 	preferences?: Preferences;
 
+	@property({ type: Object })
+	orgSettings?: State['orgSettings'];
+
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
 
-	get fileLayout() {
+	get fileLayout(): ViewFilesLayout {
 		return this.preferences?.files?.layout ?? 'auto';
 	}
 
-	get isCompact() {
+	get isCompact(): boolean {
 		return this.preferences?.files?.compact ?? true;
 	}
 
@@ -58,13 +61,13 @@ export class GlDetailsBase extends LitElement {
 		return this.preferences?.indentGuides ?? 'none';
 	}
 
-	get filesChangedPaneLabel() {
+	get filesChangedPaneLabel(): string {
 		const fileCount = this.files?.length ?? 0;
 		const filesLabel = fileCount > 0 ? pluralize('file', fileCount) : 'Files';
 		return `${filesLabel} changed`;
 	}
 
-	protected renderChangedFiles(mode: Mode, subtitle?: TemplateResult<1>) {
+	protected renderChangedFiles(mode: Mode, subtitle?: TemplateResult<1>): TemplateResult<1> {
 		const fileCount = this.files?.length ?? 0;
 		const isTree = this.isTree(fileCount);
 		let value = 'tree';
@@ -102,25 +105,16 @@ export class GlDetailsBase extends LitElement {
 						icon="${icon}"
 					></action-item>
 				</action-nav>
-				${when(
-					fileCount > 0 && this.tab === 'wip',
-					() =>
-						html`<div class="section section--actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button full href="command:workbench.view.scm"
-										>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
-									></gl-button>
-								</span>
-							</p>
-						</div>`,
-				)}
-				${this.renderTreeFileModel(treeModel)}
+				${this.renderChangedFilesActions()}${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
 	}
 
-	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean) {
+	protected renderChangedFilesActions(): TemplateResult<1> | undefined {
+		return undefined;
+	}
+
+	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean): void {
 		if (!hasFiles) return;
 		const event = new CustomEvent('share-wip', {
 			detail: {
@@ -130,12 +124,12 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
 
 	// Tree Model changes
-	protected isTree(count: number) {
+	protected isTree(count: number): boolean {
 		if (this.fileLayout === 'auto') {
 			return count > (this.preferences?.files?.threshold ?? 5);
 		}
@@ -361,7 +355,7 @@ export class GlDetailsBase extends LitElement {
 		};
 	}
 
-	protected renderTreeFileModel(treeModel: TreeModel[]) {
+	protected renderTreeFileModel(treeModel: TreeModel[]): TemplateResult<1> {
 		return html`<gl-tree-generator
 			.model=${treeModel}
 			.guides=${this.indentGuides}
@@ -373,7 +367,7 @@ export class GlDetailsBase extends LitElement {
 
 	// Tree Model action events
 	// protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
-	protected onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
+	protected onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>): void {
 		if (!e.detail.context || !e.detail.action) return;
 
 		const action = e.detail.action;
@@ -410,12 +404,13 @@ export class GlDetailsBase extends LitElement {
 	protected onTreeItemChecked?(_e: CustomEvent<TreeItemCheckedDetail>): void;
 
 	// protected onTreeItemSelected?(_e: CustomEvent<TreeItemSelectionDetail>): void;
-	protected onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
+	protected onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>): void {
 		if (!e.detail.context) return;
 
 		this.onComparePrevious(e);
 	}
-	onCreatePatch(_e: CustomEvent<TreeItemActionDetail>, isAll = false) {
+
+	private onCreatePatch(_e: CustomEvent<TreeItemActionDetail>, isAll = false) {
 		const event = new CustomEvent('create-patch', {
 			detail: {
 				checked: isAll ? true : 'staged',
@@ -423,7 +418,8 @@ export class GlDetailsBase extends LitElement {
 		});
 		this.dispatchEvent(event);
 	}
-	onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
+
+	private onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -436,7 +432,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onOpenFileOnRemote(e: CustomEvent<TreeItemActionDetail>) {
+	private onOpenFileOnRemote(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -449,7 +445,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onCompareWorking(e: CustomEvent<TreeItemActionDetail>) {
+	private onCompareWorking(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -462,7 +458,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onComparePrevious(e: CustomEvent<TreeItemSelectionDetail>) {
+	private onComparePrevious(e: CustomEvent<TreeItemSelectionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -475,7 +471,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onMoreActions(e: CustomEvent<TreeItemActionDetail>) {
+	private onMoreActions(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -485,7 +481,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onStageFile(e: CustomEvent<TreeItemActionDetail>) {
+	private onStageFile(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -498,7 +494,7 @@ export class GlDetailsBase extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onUnstageFile(e: CustomEvent<TreeItemActionDetail>) {
+	private onUnstageFile(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;

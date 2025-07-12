@@ -4,7 +4,6 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { FilesQueryResults } from '../../git/queryResults';
 import { makeHierarchical } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -20,7 +19,7 @@ type State = {
 	filter: FilesQueryFilter | undefined;
 };
 
-export enum FilesQueryFilter {
+export const enum FilesQueryFilter {
 	Left = 0,
 	Right = 1,
 }
@@ -167,8 +166,8 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 					files == null || files.length === 0
 						? TreeItemCollapsibleState.None
 						: this._options.expand
-						  ? TreeItemCollapsibleState.Expanded
-						  : TreeItemCollapsibleState.Collapsed;
+							? TreeItemCollapsibleState.Expanded
+							: TreeItemCollapsibleState.Collapsed;
 			}
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) {
@@ -197,9 +196,8 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		return item;
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		if (!reset) return;
 
 		this.deleteState('filter');
@@ -212,9 +210,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 	private _filterResults: Promise<void> | undefined;
 
 	private async getFilesQueryResults() {
-		if (this._filesQueryResults === undefined) {
-			this._filesQueryResults = this._filesQuery();
-		}
+		this._filesQueryResults ??= this._filesQuery();
 
 		const results = await this._filesQueryResults;
 		if (
@@ -226,10 +222,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 			return results;
 		}
 
-		if (this._filterResults === undefined) {
-			this._filterResults = this.filterResults(this.filter, results);
-		}
-
+		this._filterResults ??= this.filterResults(this.filter, results);
 		await this._filterResults;
 
 		return results;
@@ -240,20 +233,18 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 		const ref = this.filter === FilesQueryFilter.Left ? this.ref2 : this.ref1;
 
-		const mergeBase = await this.view.container.git.getMergeBase(
-			this.repoPath,
-			this.ref1 || 'HEAD',
-			this.ref2 || 'HEAD',
-		);
+		const svc = this.view.container.git.getRepositoryService(this.repoPath);
+
+		const mergeBase = await svc.refs.getMergeBase(this.ref1 || 'HEAD', this.ref2 || 'HEAD');
 		if (mergeBase != null) {
-			const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
+			const files = await svc.diff.getDiffStatus(`${mergeBase}..${ref}`);
 			if (files != null) {
 				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
-			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
-			if (commit?.files != null) {
-				filterTo = new Set<string>(commit.files.map(f => f.path));
+			const commit = await svc.commits.getCommit(ref || 'HEAD');
+			if (commit?.fileset?.files != null) {
+				filterTo = new Set<string>(commit.fileset?.files.map(f => f.path));
 			}
 		}
 

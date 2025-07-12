@@ -1,47 +1,50 @@
 import type { WalkthroughSteps } from '../constants';
 import { urls } from '../constants';
-import { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
-import { command, executeCommand } from '../system/vscode/command';
-import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/vscode/utils';
-import { Command } from './base';
+import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
+import { command, executeCommand, executeCoreCommand } from '../system/-webview/command';
+import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
+import { openUrl } from '../system/-webview/vscode/uris';
+import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations';
+import { GlCommandBase } from './commandBase';
+import type { WorktreeGitCommandArgs } from './git/worktree';
 
 @command()
-export class GetStartedCommand extends Command {
+export class GetStartedCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.GetStarted);
+		super('gitlens.getStarted');
 	}
 
-	execute(extensionIdOrsource?: Sources) {
+	execute(extensionIdOrsource?: Sources): void {
 		// If the extensionIdOrsource is the same as the current extension, then it came from the extension content menu in the extension view, so don't pass the source
 		const source = extensionIdOrsource !== this.container.context.extension.id ? undefined : extensionIdOrsource;
-		openWalkthrough(this.container, source ? { source: source } : undefined);
+		openWalkthrough(this.container, source ? { source: { source: source } } : undefined);
 	}
 }
 
-export interface OpenWalkthroughCommandArgs extends Source {
+export interface OpenWalkthroughCommandArgs {
 	step?: WalkthroughSteps | undefined;
+	source?: Source;
+	detail?: string | undefined;
 }
 
 @command()
-export class OpenWalkthroughCommand extends Command {
+export class OpenWalkthroughCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenWalkthrough);
+		super('gitlens.openWalkthrough');
 	}
 
-	execute(args?: OpenWalkthroughCommandArgs) {
+	execute(args?: OpenWalkthroughCommandArgs): void {
 		openWalkthrough(this.container, args);
 	}
 }
 
 function openWalkthrough(container: Container, args?: OpenWalkthroughCommandArgs) {
 	if (container.telemetry.enabled) {
-		container.telemetry.sendEvent(
-			'walkthrough',
-			{ step: args?.step },
-			args?.source ? { source: args.source, detail: args?.detail } : undefined,
-		);
+		container.telemetry.sendEvent('walkthrough', { step: args?.step }, args?.source);
 	}
 
 	void openWalkthroughCore(container.context.extension.id, 'welcome', args?.step, false);
@@ -49,48 +52,48 @@ function openWalkthrough(container: Container, args?: OpenWalkthroughCommandArgs
 
 // gitlens.openWalkthrough
 @command()
-export class WalkthroughOpenWalkthroughCommand extends Command {
+export class WalkthroughOpenWalkthroughCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenWalkthrough);
+		super('gitlens.walkthrough.openWalkthrough');
 	}
 
-	execute() {
-		const command = Commands.OpenWalkthrough;
+	execute(): void {
+		const command: GlCommands = 'gitlens.openWalkthrough';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/walkthrough',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<OpenWalkthroughCommandArgs>(command, { source: { source: 'walkthrough' } });
 	}
 }
 
 // gitlens.plus.upgrade
 @command()
-export class WalkthroughPlusUpgradeCommand extends Command {
+export class WalkthroughPlusUpgradeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughPlusUpgrade);
+		super('gitlens.walkthrough.plus.upgrade');
 	}
 
-	execute() {
-		const command = Commands.PlusUpgrade;
+	execute(): void {
+		const command: GlCommands = 'gitlens.plus.upgrade';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'plus/upgrade',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<SubscriptionUpgradeCommandArgs>(command, { source: 'walkthrough' });
 	}
 }
 
 // https://help.gitkraken.com/gitlens/gitlens-home/
 @command()
-export class WalkthroughOpenHelpCenterCommand extends Command {
+export class WalkthroughOpenHelpCenterCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenHelpCenter);
+		super('gitlens.walkthrough.openHelpCenter');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.helpCenter;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -103,47 +106,47 @@ export class WalkthroughOpenHelpCenterCommand extends Command {
 
 // gitlens.plus.signUp
 @command()
-export class WalkthroughPlusSignUpCommand extends Command {
+export class WalkthroughPlusSignUpCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughPlusSignUp);
+		super('gitlens.walkthrough.plus.signUp');
 	}
 
-	execute() {
-		const command = Commands.PlusSignUp;
+	execute(): void {
+		const command: GlCommands = 'gitlens.plus.signUp';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'plus/sign-up',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<Source>(command, { source: 'walkthrough' });
 	}
 }
 
 @command()
-export class WalkthroughPlusReactivateCommand extends Command {
+export class WalkthroughPlusReactivateCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughPlusReactivate);
+		super('gitlens.walkthrough.plus.reactivate');
 	}
 
-	execute() {
-		const command = Commands.PlusReactivateProTrial;
+	execute(): void {
+		const command: GlCommands = 'gitlens.plus.reactivateProTrial';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'plus/reactivate',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<Source>(command, { source: 'walkthrough' });
 	}
 }
 
 // https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/
 @command()
-export class WalkthroughOpenCommunityVsProCommand extends Command {
+export class WalkthroughOpenCommunityVsProCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenCommunityVsPro);
+		super('gitlens.walkthrough.openCommunityVsPro');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.communityVsPro;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -156,13 +159,13 @@ export class WalkthroughOpenCommunityVsProCommand extends Command {
 
 // gitlens.showGraph
 @command()
-export class WalkthroughShowGraphCommand extends Command {
+export class WalkthroughShowGraphCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughShowGraph);
+		super('gitlens.walkthrough.showGraph');
 	}
 
-	execute() {
-		const command = Commands.ShowGraph;
+	execute(): void {
+		const command: GlCommands = 'gitlens.showGraph';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/graph',
@@ -174,13 +177,13 @@ export class WalkthroughShowGraphCommand extends Command {
 
 // workbench.view.extension.gitlensInspect
 @command()
-export class WalkthroughGitLensInspectCommand extends Command {
+export class WalkthroughGitLensInspectCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughGitLensInspect);
+		super('gitlens.walkthrough.gitlensInspect');
 	}
 
-	execute() {
-		const command = Commands.ShowCommitDetailsView;
+	execute(): void {
+		const command: GlCommands = 'gitlens.showCommitDetailsView';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/inspect',
@@ -192,12 +195,12 @@ export class WalkthroughGitLensInspectCommand extends Command {
 
 // https://help.gitkraken.com/gitlens/gitlens-home/#interactive-code-history
 @command()
-export class WalkthroughOpenInteractiveCodeHistoryCommand extends Command {
+export class WalkthroughOpenInteractiveCodeHistoryCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenInteractiveCodeHistory);
+		super('gitlens.walkthrough.openInteractiveCodeHistory');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.interactiveCodeHistory;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -210,47 +213,49 @@ export class WalkthroughOpenInteractiveCodeHistoryCommand extends Command {
 
 // gitlens.showLaunchpad
 @command()
-export class WalkthroughShowLaunchpadCommand extends Command {
+export class WalkthroughShowLaunchpadCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughShowLaunchpad);
+		super('gitlens.walkthrough.showLaunchpad');
 	}
 
-	execute() {
-		const command = Commands.ShowLaunchpad;
+	execute(): void {
+		const command: GlCommands = 'gitlens.showLaunchpad';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/launchpad',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<Partial<LaunchpadCommandArgs>>(command, {
+			source: 'walkthrough',
+		});
 	}
 }
 
 // gitlens.gitCommands.worktree.create
 @command()
-export class WalkthroughWorktreeCreateCommand extends Command {
+export class WalkthroughWorktreeCreateCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughWorktreeCreate);
+		super('gitlens.walkthrough.worktree.create');
 	}
 
-	execute() {
-		const command = Commands.GitCommandsWorktreeCreate;
+	execute(): void {
+		const command: GlCommands = 'gitlens.gitCommands.worktree.create';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'create/worktree',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<Partial<WorktreeGitCommandArgs>>(command);
 	}
 }
 
 @command()
-export class WalkthroughOpenDevExPlatformCommand extends Command {
+export class WalkthroughOpenDevExPlatformCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthoughOpenDevExPlatform);
+		super('gitlens.walkthrough.openDevExPlatform');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.platform;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -263,12 +268,12 @@ export class WalkthroughOpenDevExPlatformCommand extends Command {
 
 // https://help.gitkraken.com/gitlens/gitlens-home/#accelerate-pr-reviews
 @command()
-export class WalkthroughOpenAccelereatePrReviewsCommand extends Command {
+export class WalkthroughOpenAccelereatePrReviewsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenAcceleratePrReviews);
+		super('gitlens.walkthrough.openAcceleratePrReviews');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.acceleratePrReviews;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -281,13 +286,13 @@ export class WalkthroughOpenAccelereatePrReviewsCommand extends Command {
 
 // gitlens.views.drafts.focus
 @command()
-export class WalkthroughShowDraftsViewCommand extends Command {
+export class WalkthroughShowDraftsViewCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughShowDraftsView);
+		super('gitlens.walkthrough.showDraftsView');
 	}
 
-	execute() {
-		const command = Commands.ShowDraftsView;
+	execute(): void {
+		const command: GlCommands = 'gitlens.showDraftsView';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/drafts',
@@ -299,12 +304,12 @@ export class WalkthroughShowDraftsViewCommand extends Command {
 
 // https://help.gitkraken.com/gitlens/gitlens-home/#streamline-collaboration
 @command()
-export class WalkthroughOpenStreamlineCollaboration extends Command {
+export class WalkthroughOpenStreamlineCollaboration extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenStreamlineCollaboration);
+		super('gitlens.walkthrough.openStreamlineCollaboration');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.streamlineCollaboration;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -317,31 +322,33 @@ export class WalkthroughOpenStreamlineCollaboration extends Command {
 
 // gitlens.plus.cloudIntegrations.connect
 @command()
-export class WalkthroughConnectIntegrationsCommand extends Command {
+export class WalkthroughConnectIntegrationsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughConnectIntegrations);
+		super('gitlens.walkthrough.connectIntegrations');
 	}
 
-	execute() {
-		const command = Commands.PlusConnectCloudIntegrations;
+	execute(): void {
+		const command: GlCommands = 'gitlens.plus.cloudIntegrations.connect';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'connect/integrations',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<ConnectCloudIntegrationsCommandArgs>(command, {
+			source: { source: 'walkthrough' },
+		});
 	}
 }
 
 // gitlens.showSettingsPage!autolinks
 @command()
-export class WalkthroughShowAutolinksCommand extends Command {
+export class WalkthroughShowAutolinksCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughShowAutolinks);
+		super('gitlens.walkthrough.showAutolinks');
 	}
 
-	execute() {
-		const command = Commands.ShowSettingsPageAndJumpToAutolinks;
+	execute(): void {
+		const command: GlCommands = 'gitlens.showSettingsPage!autolinks';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/autolinks',
@@ -353,16 +360,148 @@ export class WalkthroughShowAutolinksCommand extends Command {
 
 // https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations
 @command()
-export class WalkthroughOpenStartIntegrations extends Command {
+export class WalkthroughOpenStartIntegrations extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.WalkthroughOpenStartIntegrations);
+		super('gitlens.walkthrough.openStartIntegrations');
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.startIntegrations;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
 			name: 'open/help-center/start-integrations',
+			url: url,
+		});
+		void openUrl(url);
+	}
+}
+
+// https://help.gitkraken.com/gitlens/home-view
+@command()
+export class WalkthroughOpenHomeViewVideo extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openHomeViewVideo');
+	}
+
+	execute(): void {
+		const url = urls.homeView;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'url',
+			name: 'open/help-center/home-view',
+			url: url,
+		});
+		void openUrl(url);
+	}
+}
+
+// gitlens.showHomeView
+@command()
+export class WalkthroughShowHomeViewCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.showHomeView');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.showHomeView';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/home',
+			command: command,
+		});
+		executeCommand(command);
+	}
+}
+
+// gitlens.ai.switchProvider
+@command()
+export class WalkthroughSwitchAIModelCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.switchAIProvider');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.ai.switchProvider';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'switch/ai-model',
+			command: command,
+		});
+		executeCommand(command);
+	}
+}
+
+// command:workbench.action.openSettings?%22gitlens.ai%22
+@command()
+export class WalkthroughEnableAiSetting extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.enableAiSetting');
+	}
+
+	execute(): void {
+		// should open to the VS Code settings page to the GitLens AI settings
+
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/ai-enable-setting',
+			command: 'workbench.action.openSettings',
+			detail: '@id:gitlens.ai.enabled',
+		});
+		executeCoreCommand('workbench.action.openSettings', '@id:gitlens.ai.enabled');
+	}
+}
+
+// command:workbench.action.openSettings?%22gitlens.ai%22
+@command()
+export class WalkthroughOpenAiCustomInstructionsSettings extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openAiCustomInstructionsSettings');
+	}
+
+	execute(): void {
+		// should open to the VS Code settings page to the GitLens AI settings
+
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/ai-custom-instructions-settings',
+			command: 'workbench.action.openSettings',
+			detail: '@ext:eamodio.gitlens gitlens.ai custom instructions',
+		});
+		executeCoreCommand('workbench.action.openSettings', '@ext:eamodio.gitlens gitlens.ai custom instructions');
+	}
+}
+
+// command:workbench.action.openSettings?%22gitlens.ai%22
+@command()
+export class WalkthroughOpenAiSettings extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openAiSettings');
+	}
+
+	execute(): void {
+		// should open to the VS Code settings page to the GitLens AI settings
+
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/ai-settings',
+			command: 'workbench.action.openSettings',
+			detail: 'gitlens.ai',
+		});
+		executeCoreCommand('workbench.action.openSettings', 'gitlens.ai');
+	}
+}
+
+// https://help.gitkraken.com/gitlens/gitlens-ai
+@command()
+export class WalkthroughOpenLearnAboutAiFeatures extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openLearnAboutAiFeatures');
+	}
+
+	execute(): void {
+		const url = urls.aiFeatures;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'url',
+			name: 'open/help-center/ai-features',
 			url: url,
 		});
 		void openUrl(url);

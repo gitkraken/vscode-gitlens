@@ -19,6 +19,8 @@ export class MenuItem extends LitElement {
 				text-align: left;
 				height: auto;
 				line-height: 2.2rem;
+				-webkit-font-smoothing: auto;
+				border-radius: var(--menu-item-radius, 0.3rem);
 			}
 
 			:host([role='option']:hover) {
@@ -58,9 +60,10 @@ export class MenuItem extends LitElement {
 	href?: string;
 
 	@property({ reflect: true })
+	// eslint-disable-next-line lit/no-native-attributes
 	override role = 'option';
 
-	updateInteractiveState() {
+	updateInteractiveState(): void {
 		this.tabIndex = this.disabled ? -1 : this.role === 'option' ? 0 : -1;
 	}
 
@@ -70,7 +73,7 @@ export class MenuItem extends LitElement {
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.href) {
 			return html`<a href=${this.href}><slot></slot></a>`;
 		}

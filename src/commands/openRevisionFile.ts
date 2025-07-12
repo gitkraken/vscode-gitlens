@@ -1,14 +1,14 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { deletedOrMissing } from '../git/models/constants';
+import { deletedOrMissing } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface OpenRevisionFileCommandArgs {
 	revisionUri?: Uri;
@@ -21,10 +21,10 @@ export interface OpenRevisionFileCommandArgs {
 @command()
 export class OpenRevisionFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenRevisionFile, Commands.OpenRevisionFileInDiffLeft, Commands.OpenRevisionFileInDiffRight]);
+		super('gitlens.openRevisionFile');
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -38,18 +38,15 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		try {
 			if (args.revisionUri == null) {
 				if (gitUri?.sha) {
-					const commit = await this.container.git.getCommit(gitUri.repoPath!, gitUri.sha);
+					const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
+					const commit = await svc.commits.getCommit(gitUri.sha);
 
 					args.revisionUri =
 						commit?.file?.status === 'D'
-							? this.container.git.getRevisionUri(
-									(await commit.getPreviousSha()) ?? deletedOrMissing,
-									commit.file,
-									commit.repoPath,
-							  )
-							: this.container.git.getRevisionUri(gitUri);
+							? svc.getRevisionUri((await commit.getPreviousSha()) ?? deletedOrMissing, commit.file)
+							: this.container.git.getRevisionUriFromGitUri(gitUri);
 				} else {
-					args.revisionUri = this.container.git.getRevisionUri(gitUri);
+					args.revisionUri = this.container.git.getRevisionUriFromGitUri(gitUri);
 				}
 			}
 

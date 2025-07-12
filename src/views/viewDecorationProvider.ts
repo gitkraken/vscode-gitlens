@@ -4,7 +4,8 @@ import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { GlyphChars, Schemes } from '../constants';
 import type { Colors } from '../constants.colors';
 import type { GitBranchStatus } from '../git/models/branch';
-import type { GitFileStatus } from '../git/models/file';
+import type { GitFileStatus } from '../git/models/fileStatus';
+import type { GitPausedOperation } from '../git/models/pausedOperationStatus';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
 	private readonly _onDidChange = new EventEmitter<undefined | Uri | Uri[]>();
@@ -14,7 +15,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 	private readonly disposable: Disposable;
 	constructor() {
-		this.disposable = Disposable.from(window.registerFileDecorationProvider(this));
+		this.disposable = Disposable.from(this._onDidChange, window.registerFileDecorationProvider(this));
 	}
 
 	dispose(): void {
@@ -124,7 +125,7 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 	if (state?.current) {
 		return {
 			...decoration,
-			badge: GlyphChars.Check,
+			badge: GlyphChars.Bullseye,
 			tooltip: 'Current',
 		};
 	}
@@ -206,24 +207,32 @@ function getCommitFileStatusDecoration(uri: Uri, _token: CancellationToken): Fil
 }
 
 interface RemoteViewDecoration {
-	default?: boolean;
+	state?: 'default' | 'missing';
 }
 
 function getRemoteDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
 	const state = getViewDecoration<'remote'>(uri);
 
-	if (state?.default) {
-		return {
-			badge: GlyphChars.Check,
-			tooltip: 'Default Remote',
-		};
+	switch (state?.state) {
+		case 'default':
+			return {
+				badge: GlyphChars.Check,
+				tooltip: 'Default Remote',
+			};
+
+		case 'missing':
+			return {
+				badge: '?',
+				color: new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
+				tooltip: '',
+			};
 	}
 
 	return undefined;
 }
 
 interface StatusViewDecoration {
-	status: 'merging' | 'rebasing';
+	status: GitPausedOperation;
 	conflicts?: boolean;
 }
 
@@ -231,8 +240,10 @@ function getStatusDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 	const state = getViewDecoration<'status'>(uri);
 
 	switch (state?.status) {
-		case 'rebasing':
-		case 'merging':
+		case 'cherry-pick':
+		case 'merge':
+		case 'rebase':
+		case 'revert':
 			if (state?.conflicts) {
 				return {
 					badge: '!',

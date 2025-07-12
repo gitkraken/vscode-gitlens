@@ -1,5 +1,5 @@
-import { isLinux } from '@env/platform';
 import type { Uri } from 'vscode';
+import { isLinux } from '@env/platform';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 
@@ -648,6 +648,25 @@ export class VisitedPathsTrie {
 		let node: VisitedPathNode | undefined;
 
 		for (const segment of path.split('/')) {
+			const n = (node ?? this.root).children?.get(ignoreCase ? segment.toLowerCase() : segment);
+			if (n == null) return false;
+
+			node = n;
+		}
+
+		return node != null;
+	}
+
+	hasParent(path: string, ignoreCase?: boolean): boolean {
+		path = this.normalize(path);
+		ignoreCase = ignoreCase ?? !isLinux;
+
+		const segments = path.split('/');
+		segments.pop(); // Remove the last segment (file name)
+
+		let node: VisitedPathNode | undefined;
+
+		for (const segment of segments) {
 			const n = (node ?? this.root).children?.get(ignoreCase ? segment.toLowerCase() : segment);
 			if (n == null) return false;
 

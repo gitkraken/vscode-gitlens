@@ -1,28 +1,28 @@
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import type { GitRevisionRangeNotation } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { Command } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;
 	ref1?: string;
 	ref2?: string;
-	notation?: '..' | '...';
+	notation?: GitRevisionRangeNotation;
 	repoPath?: string;
 }
 
 @command()
-export class OpenComparisonOnRemoteCommand extends Command {
+export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
+		super(['gitlens.openComparisonOnRemote', 'gitlens.copyRemoteComparisonUrl']);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs): Promise<void> {
 		if (context.type === 'viewItem') {
 			if (context.node.isAny('results-commits')) {
 				args = {
@@ -48,22 +48,22 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}
 		}
 
-		if (context.command === Commands.CopyRemoteComparisonUrl) {
+		if (context.command === 'gitlens.copyRemoteComparisonUrl') {
 			args = { ...args, clipboard: true };
 		}
 
 		return this.execute(args);
 	}
 
-	async execute(args?: OpenComparisonOnRemoteCommandArgs) {
+	async execute(args?: OpenComparisonOnRemoteCommandArgs): Promise<void> {
 		if (args?.repoPath == null || args.ref1 == null || args.ref2 == null) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: RemoteResourceType.Comparison,
 					base: args.ref1,
-					compare: args.ref2,
+					head: args.ref2,
 					notation: args.notation,
 				},
 				repoPath: args.repoPath,

@@ -15,7 +15,7 @@ export class IssueIcon extends LitElement {
 	@property({ attribute: 'issue-id' })
 	issueId?: string;
 
-	get icon() {
+	get icon(): string {
 		let issueIcon = 'issues';
 		if (this.state) {
 			switch (this.state) {
@@ -30,19 +30,19 @@ export class IssueIcon extends LitElement {
 		return issueIcon;
 	}
 
-	get classes() {
+	get classes(): string {
 		if (!this.state) return 'issue-icon';
 
 		return `issue-icon issue-icon--${this.state}`;
 	}
 
-	get label() {
+	get label(): string {
 		if (!this.state) return 'Issue';
 
 		return `Issue ${this.issueId ? `#${this.issueId}` : ''} is ${this.state}`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (!this.state) {
 			return html`<code-icon
 				class=${this.classes}

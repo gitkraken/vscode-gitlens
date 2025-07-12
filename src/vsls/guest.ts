@@ -2,17 +2,19 @@ import type { CancellationToken, Disposable, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import type { Container } from '../container';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Allowed since it is a type import
+import type { GitResult } from '../env/node/git/git';
 import type { GitCommandOptions } from '../git/commandOptions';
 import { debug, log } from '../system/decorators/log';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { VslsHostService } from './host';
 import type { RepositoryProxy, RequestType } from './protocol';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamToCommandRequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
-	static async connect(api: LiveShare, container: Container) {
+	static async connect(api: LiveShare, container: Container): Promise<VslsGuestService | undefined> {
 		const scope = getLogScope();
 
 		try {
@@ -37,7 +39,7 @@ export class VslsGuestService implements Disposable {
 		this.onAvailabilityChanged(_service.isServiceAvailable);
 	}
 
-	dispose() {
+	dispose(): void {
 		// nothing to dispose
 	}
 
@@ -56,37 +58,17 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<TOut>> {
 		const response = await this.sendRequest(GitCommandRequestType, {
 			__type: 'gitlens',
 			options: options,
 			args: args,
 		});
 
-		if (response.isBuffer) {
-			return Buffer.from(response.data, 'binary') as TOut;
-		}
-		return response.data as TOut;
-	}
-
-	@log()
-	async gitLogStreamTo(
-		repoPath: string,
-		sha: string,
-		limit: number,
-		options?: { configs?: readonly string[]; stdin?: string },
-		...args: string[]
-	): Promise<[data: string[], count: number]> {
-		const response = await this.sendRequest(GitLogStreamToCommandRequestType, {
-			__type: 'gitlens',
-			repoPath: repoPath,
-			sha: sha,
-			limit: limit,
-			options: options,
-			args: args,
-		});
-
-		return [response.data, response.count];
+		return {
+			stdout: (response.isBuffer ? Buffer.from(response.data, 'binary') : response.data) as TOut,
+			exitCode: 0,
+		};
 	}
 
 	@log()

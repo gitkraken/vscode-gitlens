@@ -2,8 +2,8 @@ import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { isBranch } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
-import { getReferenceLabel, isBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -63,11 +63,11 @@ export class PullGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	async execute(state: PullStepState) {
+	private async execute(state: PullStepState) {
 		if (isBranchReference(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
 			if (!isBranch(state.reference) || !state.reference.current) {
-				const currentBranch = await state.repos[0].git.getBranch();
+				const currentBranch = await state.repos[0].git.branches.getBranch();
 				if (currentBranch?.name !== state.reference.name) {
 					return state.repos[0].fetch({ branch: state.reference, pull: true });
 				}
@@ -167,7 +167,7 @@ export class PullGitCommand extends QuickCommand<State> {
 				);
 			} else {
 				const [repo] = state.repos;
-				const branch = await repo.git.getBranch(state.reference.name);
+				const branch = await repo.git.branches.getBranch(state.reference.name);
 
 				if (branch?.upstream == null) {
 					step = this.createConfirmStep(
@@ -183,8 +183,10 @@ export class PullGitCommand extends QuickCommand<State> {
 						createFlagsQuickPickItem<Flags>(state.flags, [], {
 							label: this.title,
 							detail: `Will pull${
-								branch.state.behind
-									? ` ${pluralize('commit', branch.state.behind)} into ${getReferenceLabel(branch)}`
+								branch.upstream.state.behind
+									? ` ${pluralize('commit', branch.upstream.state.behind)} into ${getReferenceLabel(
+											branch,
+										)}`
 									: ` into ${getReferenceLabel(branch)}`
 							}`,
 						}),
@@ -193,17 +195,16 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		} else {
 			const [repo] = state.repos;
-			const [status, lastFetched] = await Promise.all([repo.git.getStatus(), repo.getLastFetched()]);
+			const [status, lastFetched] = await Promise.all([repo.git.status.getStatus(), repo.getLastFetched()]);
 
 			let lastFetchedOn = '';
 			if (lastFetched !== 0) {
 				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
 			}
 
-			const pullDetails =
-				status?.state.behind != null
-					? ` ${pluralize('commit', status.state.behind)} into $(repo) ${repo.formattedName}`
-					: ` into $(repo) ${repo.formattedName}`;
+			const pullDetails = status?.upstream?.state.behind
+				? ` ${pluralize('commit', status.upstream.state.behind)} into $(repo) ${repo.name}`
+				: ` into $(repo) ${repo.name}`;
 
 			step = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),

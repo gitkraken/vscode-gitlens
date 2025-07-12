@@ -43,7 +43,7 @@ export abstract class GlObjectSelect<T, L = T[keyof T], V = T[keyof T]> extends 
 	protected abstract getLabel(option: T): L;
 	protected abstract onChange?(e: InputEvent): unknown;
 
-	override render() {
+	override render(): unknown {
 		if (!this.options) {
 			return;
 		}
@@ -64,13 +64,15 @@ export class GlBranchThresholdFilter extends GlObjectSelect<{
 	value: OverviewRecentThreshold | OverviewStaleThreshold;
 	label: string;
 }> {
-	protected getValue(option: { value: OverviewRecentThreshold | OverviewStaleThreshold }) {
+	protected getValue(option: {
+		value: OverviewRecentThreshold | OverviewStaleThreshold;
+	}): OverviewRecentThreshold | 'OneYear' {
 		return option.value;
 	}
-	protected getLabel(option: { label: string }) {
+	protected getLabel(option: { label: string }): string {
 		return option.label;
 	}
-	protected onChange(e: InputEvent) {
+	protected onChange(e: InputEvent): void {
 		const event = new CustomEvent('gl-change', {
 			detail: {
 				threshold: (e.target as HTMLSelectElement).value as OverviewRecentThreshold | OverviewStaleThreshold,

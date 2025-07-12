@@ -2,15 +2,15 @@ import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleSta
 import type { Colors } from '../../constants.colors';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import type { GitBranch, GitTrackingState } from '../../git/models/branch';
-import { getRemoteNameFromBranchName } from '../../git/models/branch';
+import type { GitBranch, GitTrackingUpstream } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import { createRevisionRange } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import { getHighlanderProviders } from '../../git/models/remote';
-import { getUpstreamStatus } from '../../git/models/status';
+import { getRemoteNameFromBranchName } from '../../git/utils/branch.utils';
+import { getHighlanderProviders } from '../../git/utils/remote.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
+import { getUpstreamStatus } from '../../git/utils/status.utils';
 import { fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { first, last, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
@@ -20,13 +20,12 @@ import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export interface BranchTrackingStatus {
 	ref: string;
 	repoPath: string;
-	state: GitTrackingState;
-	upstream?: { name: string; missing: boolean };
+	upstream?: GitTrackingUpstream;
 }
 
 export class BranchTrackingStatusNode
@@ -86,10 +85,12 @@ export class BranchTrackingStatusNode
 			const ref = this.options?.unpublishedCommits != null ? last(this.options.unpublishedCommits) : undefined;
 			if (ref == null) return undefined;
 
-			const resolved = await this.view.container.git.resolveReference(this.repoPath, `${ref}^`);
+			const resolved = await this.view.container.git
+				.getRepositoryService(this.repoPath)
+				.revision.resolveRevision(`${ref}^`);
 			return {
 				...comparison,
-				ref1: resolved,
+				ref1: resolved.sha,
 				ref2: comparison.ref1,
 				title: `Changes to push to ${comparison.ref2}`,
 			};
@@ -101,7 +102,14 @@ export class BranchTrackingStatusNode
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.upstreamType === 'same' || this.upstreamType === 'missing' || this.upstreamType === 'none') return [];
+		if (
+			this.status.upstream == null ||
+			this.upstreamType === 'same' ||
+			this.upstreamType === 'missing' ||
+			this.upstreamType === 'none'
+		) {
+			return [];
+		}
 
 		const log = await this.getLog();
 		if (log == null) return [];
@@ -113,10 +121,9 @@ export class BranchTrackingStatusNode
 			const commit = commits[commits.length - 1];
 			const previousSha = await commit.getPreviousSha();
 			if (previousSha == null) {
-				const previousLog = await this.view.container.git.getLog(this.uri.repoPath!, {
-					limit: 2,
-					ref: commit.sha,
-				});
+				const previousLog = await this.view.container.git
+					.getRepositoryService(this.uri.repoPath!)
+					.commits.getLog(commit.sha, { limit: 1 });
 				if (previousLog != null) {
 					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
@@ -128,12 +135,7 @@ export class BranchTrackingStatusNode
 		const children = [];
 
 		let showFiles = true;
-		if (
-			!this.options?.showAheadCommits &&
-			this.upstreamType === 'ahead' &&
-			this.status.upstream &&
-			this.status.state.ahead > 0
-		) {
+		if (!this.options?.showAheadCommits && this.upstreamType === 'ahead' && this.status.upstream.state.ahead) {
 			showFiles = false;
 			// TODO@eamodio fix this
 			children.push(
@@ -183,23 +185,19 @@ export class BranchTrackingStatusNode
 		}
 
 		function getBranchStatus(this: BranchTrackingStatusNode, remote: GitRemote | undefined) {
-			return `$(git-branch) \`${this.branch.name}\` is ${getUpstreamStatus(
-				this.status.upstream,
-				this.status.state,
-				{
-					empty: this.status.upstream!.missing
-						? `missing upstream $(git-branch) \`${this.status.upstream!.name}\``
-						: `up to date with $(git-branch) \`${this.status.upstream!.name}\`${
-								remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-						  }`,
-					expand: true,
-					icons: true,
-					separator: ', ',
-					suffix: ` $(git-branch) \`${this.status.upstream!.name}\`${
-						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-					}`,
-				},
-			)}`;
+			return `$(git-branch) \`${this.branch.name}\` is ${getUpstreamStatus(this.status.upstream, {
+				empty: this.status.upstream!.missing
+					? `missing upstream $(git-branch) \`${this.status.upstream!.name}\``
+					: `up to date with $(git-branch) \`${this.status.upstream!.name}\`${
+							remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+						}`,
+				expand: true,
+				icons: true,
+				separator: ', ',
+				suffix: ` $(git-branch) \`${this.status.upstream!.name}\`${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+				}`,
+			})}`;
 		}
 
 		let label;
@@ -213,10 +211,10 @@ export class BranchTrackingStatusNode
 				const remote = await this.branch.getRemote();
 
 				label = 'Outgoing';
-				description = `${pluralize('commit', this.status.state.ahead)} to push to ${
+				description = `${pluralize('commit', this.status.upstream!.state.ahead)} to push to ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
-				tooltip = `${pluralize('commit', this.status.state.ahead)} to push to \`${
+				tooltip = `${pluralize('commit', this.status.upstream!.state.ahead)} to push to \`${
 					this.status.upstream!.name
 				}\`${remote?.provider?.name ? ` on ${remote?.provider.name}` : ''}\\\n${getBranchStatus.call(
 					this,
@@ -238,10 +236,10 @@ export class BranchTrackingStatusNode
 				const remote = await this.branch.getRemote();
 
 				label = 'Incoming';
-				description = `${pluralize('commit', this.status.state.behind)} to pull from ${
+				description = `${pluralize('commit', this.status.upstream!.state.behind)} to pull from ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
-				tooltip = `${pluralize('commit', this.status.state.behind)} to pull from \`${
+				tooltip = `${pluralize('commit', this.status.upstream!.state.behind)} to pull from \`${
 					this.status.upstream!.name
 				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}\\\n${getBranchStatus.call(
 					this,
@@ -295,7 +293,9 @@ export class BranchTrackingStatusNode
 				break;
 			}
 			case 'none': {
-				const remotes = await this.view.container.git.getRemotesWithProviders(this.branch.repoPath);
+				const remotes = await this.view.container.git
+					.getRepositoryService(this.branch.repoPath)
+					.remotes.getRemotesWithProviders();
 				const providers = getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -331,9 +331,8 @@ export class BranchTrackingStatusNode
 		return item;
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -349,21 +348,20 @@ export class BranchTrackingStatusNode
 					? createRevisionRange(this.status.upstream?.name, this.status.ref, '..')
 					: createRevisionRange(this.status.ref, this.status.upstream?.name, '..');
 
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: range,
-			});
+			this._log = await this.view.container.git
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(range, { limit: this.limit ?? this.view.config.defaultItemLimit });
 		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

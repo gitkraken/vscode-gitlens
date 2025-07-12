@@ -1,16 +1,20 @@
-import type { ColorTheme } from 'vscode';
-import { Uri, window } from 'vscode';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import type { HostingIntegration } from '../../plus/integrations/integration';
-import { memoize } from '../../system/decorators/memoize';
-import { equalsIgnoreCase, sortCompare } from '../../system/string';
-import { isLightTheme } from '../../system/vscode/utils';
+/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+import { GitCloudHostIntegrationId } from '../../constants.integrations';
+import type { Container } from '../../container';
+import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
+import {
+	getIntegrationConnectedKey,
+	getIntegrationIdForRemote,
+} from '../../plus/integrations/utils/-webview/integration.utils';
+import { memoize } from '../../system/decorators/-webview/memoize';
+import { getLoggableName } from '../../system/logger';
+import { equalsIgnoreCase } from '../../system/string';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getRemoteProviderThemeIconString } from '../remotes/remoteProvider';
 
-export type GitRemoteType = 'fetch' | 'push';
+export function isRemote(remote: unknown): remote is GitRemote {
+	return remote instanceof GitRemote;
+}
 
 export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | undefined> {
 	constructor(
@@ -24,33 +28,63 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		public readonly urls: { type: GitRemoteType; url: string }[],
 	) {}
 
-	get default() {
-		const defaultRemote = Container.instance.storage.getWorkspace('remote:default');
+	toString(): string {
+		return `${getLoggableName(this)}(${this.id})`;
+	}
+
+	get default(): boolean {
+		const defaultRemote = this.container.storage.getWorkspace('remote:default');
 		// Check for `this.remoteKey` matches to handle previously saved data
 		return this.name === defaultRemote || this.remoteKey === defaultRemote;
 	}
 
 	@memoize()
-	get domain() {
+	get domain(): string {
 		return this.provider?.domain ?? this._domain;
 	}
 
 	@memoize()
-	get id() {
+	get id(): string {
 		return `${this.name}/${this.remoteKey}`;
 	}
 
 	get maybeIntegrationConnected(): boolean | undefined {
-		return this.container.integrations.isMaybeConnected(this);
+		if (!this.provider?.id) return false;
+
+		const integrationId = getIntegrationIdForRemote(this);
+		if (integrationId == null) return false;
+
+		// Special case for GitHub, since we support the legacy GitHub integration
+		if (integrationId === GitCloudHostIntegrationId.GitHub) {
+			const configured = this.container.integrations.getConfiguredLite(integrationId, { cloud: true });
+			if (configured.length) {
+				return this.container.storage.getWorkspace(getIntegrationConnectedKey(integrationId)) !== false;
+			}
+
+			return undefined;
+		}
+
+		const configured = this.container.integrations.getConfiguredLite(
+			integrationId,
+			this.provider.custom ? { domain: this.provider.domain } : undefined,
+		);
+
+		if (configured.length) {
+			return (
+				this.container.storage.getWorkspace(getIntegrationConnectedKey(integrationId, this.provider.domain)) !==
+				false
+			);
+		}
+		return false;
 	}
 
 	@memoize()
-	get path() {
+	get path(): string {
 		return this.provider?.path ?? this._path;
 	}
 
 	@memoize()
-	get remoteKey() {
+	get remoteKey(): string {
 		return this._domain ? `${this._domain}/${this._path}` : this.path;
 	}
 
@@ -70,12 +104,9 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
-	async getIntegration(): Promise<HostingIntegration | undefined> {
-		return this.provider != null ? this.container.integrations.getByRemote(this) : undefined;
-	}
-
-	hasIntegration(): this is GitRemote<RemoteProvider> {
-		return this.provider != null && this.container.integrations.supports(this.provider.id);
+	async getIntegration(): Promise<GitHostIntegration | undefined> {
+		const integrationId = getIntegrationIdForRemote(this);
+		return integrationId && this.container.integrations.get(integrationId, this.provider?.domain);
 	}
 
 	matches(url: string): boolean;
@@ -89,118 +120,13 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return equalsIgnoreCase(urlOrDomain, this.domain) && equalsIgnoreCase(path, this.path);
 	}
 
-	async setAsDefault(value: boolean = true) {
-		const repository = Container.instance.git.getRepository(this.repoPath);
-		await repository?.setRemoteAsDefault(this, value);
+	async setAsDefault(value: boolean = true): Promise<void> {
+		await this.container.git.getRepositoryService(this.repoPath).remotes.setRemoteAsDefault(this.name, value);
+	}
+
+	supportsIntegration(): this is GitRemote<RemoteProvider> {
+		return Boolean(getIntegrationIdForRemote(this));
 	}
 }
 
-export function getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
-	if (remotes.length === 0) return undefined;
-
-	const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
-	if (remote != null) return [remote.provider];
-
-	const providerName = remotes[0].provider.name;
-	if (remotes.every(r => r.provider.name === providerName)) return remotes.map(r => r.provider);
-
-	return undefined;
-}
-
-export function getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
-	if (remotes.length === 0) return undefined;
-
-	const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
-	if (remote != null) return remote.provider.name;
-
-	const providerName = remotes[0].provider.name;
-	// Only use the real provider name if there is only 1 type of provider
-	if (remotes.every(r => r.provider.name === providerName)) return providerName;
-
-	return undefined;
-}
-
-export function getRemoteArrowsGlyph(remote: GitRemote): GlyphChars {
-	let arrows;
-	let left;
-	let right;
-	for (const { type } of remote.urls) {
-		if (type === 'fetch') {
-			left = true;
-
-			if (right) break;
-		} else if (type === 'push') {
-			right = true;
-
-			if (left) break;
-		}
-	}
-
-	if (left && right) {
-		arrows = GlyphChars.ArrowsRightLeft;
-	} else if (right) {
-		arrows = GlyphChars.ArrowRight;
-	} else if (left) {
-		arrows = GlyphChars.ArrowLeft;
-	} else {
-		arrows = GlyphChars.Dash;
-	}
-
-	return arrows;
-}
-
-export function getRemoteIconUri(
-	container: Container,
-	remote: GitRemote,
-	asWebviewUri?: (uri: Uri) => Uri,
-	theme: ColorTheme = window.activeColorTheme,
-): Uri | undefined {
-	if (remote.provider?.icon == null) return undefined;
-
-	const uri = Uri.joinPath(
-		container.context.extensionUri,
-		`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${remote.provider.icon}.svg`,
-	);
-	return asWebviewUri != null ? asWebviewUri(uri) : uri;
-}
-
-export function getRemoteThemeIconString(remote: GitRemote | undefined): string {
-	return getRemoteProviderThemeIconString(remote?.provider);
-}
-
-export function getRemoteUpstreamDescription(remote: GitRemote): string {
-	const arrows = getRemoteArrowsGlyph(remote);
-
-	const { provider } = remote;
-	if (provider != null) {
-		return `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
-	}
-
-	return `${arrows}${GlyphChars.Space} ${
-		remote.domain ? `${remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ` : ''
-	}${remote.path}`;
-}
-
-export function getVisibilityCacheKey(remote: GitRemote): string;
-export function getVisibilityCacheKey(remotes: GitRemote[]): string;
-export function getVisibilityCacheKey(remotes: GitRemote | GitRemote[]): string {
-	if (!Array.isArray(remotes)) return remotes.remoteKey;
-	return remotes
-		.map(r => r.remoteKey)
-		.sort()
-		.join(',');
-}
-
-export function isRemote(remote: any): remote is GitRemote {
-	return remote instanceof GitRemote;
-}
-
-export function sortRemotes<T extends GitRemote>(remotes: T[]) {
-	return remotes.sort(
-		(a, b) =>
-			(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-			(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
-			(a.name === 'upstream' ? -1 : 1) - (b.name === 'upstream' ? -1 : 1) ||
-			sortCompare(a.name, b.name),
-	);
-}
+export type GitRemoteType = 'fetch' | 'push';

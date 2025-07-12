@@ -1,42 +1,41 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig, ViewFilesLayout } from '../config';
-import { Commands } from '../constants.commands';
 import type { SearchQuery } from '../constants.search';
 import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants.storage';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
-import { getRevisionRangeParts, isRevisionRange, shortenRevision } from '../git/models/reference';
 import { getSearchQuery } from '../git/search';
+import { getRevisionRangeParts, isRevisionRange, shortenRevision } from '../git/utils/revision.utils';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
 import { filterMap } from '../system/array';
-import { gate } from '../system/decorators/gate';
+import { gate } from '../system/decorators/-webview/gate';
 import { debug, log } from '../system/decorators/log';
 import { updateRecordValue } from '../system/object';
 import { isPromise } from '../system/promise';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import { ContextValues, ViewNode } from './nodes/abstract/viewNode';
 import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compareResultsNode';
-import { FilesQueryFilter, ResultsFilesNode } from './nodes/resultsFilesNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
-	protected override splatted = true;
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
 		super('search-compare', unknownGitUri, view);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		disposeChildren(this._children);
 	}
@@ -73,14 +72,12 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('SearchAndCompare', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.SearchAndCompare;
 		return item;
 	}
 
-	addOrReplace(results: CompareResultsNode | SearchResultsNode) {
+	addOrReplace(results: CompareResultsNode | SearchResultsNode): void {
 		const children = [...this.children];
 		if (children.includes(results)) return;
 
@@ -91,7 +88,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	@log()
-	async clear() {
+	async clear(): Promise<void> {
 		if (this.children.length === 0) return;
 
 		this.removeComparePicker(true);
@@ -103,7 +100,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	@log<SearchAndCompareViewNode['dismiss']>({ args: { 0: n => n.toString() } })
-	dismiss(node: ComparePickerNode | CompareResultsNode | SearchResultsNode) {
+	dismiss(node: ComparePickerNode | CompareResultsNode | SearchResultsNode): void {
 		if (node === this.comparePicker) {
 			this.removeComparePicker();
 
@@ -128,19 +125,19 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		const children = this.children;
 		if (children.length === 0) return;
 
 		await Promise.allSettled(
 			filterMap(children, c => {
 				const result = c.refresh?.(reset);
-				return isPromise<boolean | void>(result) ? result : undefined;
+				return isPromise<{ cancel: boolean } | void>(result) ? result : undefined;
 			}),
 		);
 	}
 
-	async compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef) {
+	async compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef): Promise<void> {
 		const selectedRef = this.comparePicker?.selectedRef;
 		if (selectedRef == null) return;
 
@@ -182,10 +179,12 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		await this.view.compare(repoPath, selectedRef.ref, ref);
 	}
 
-	async selectForCompare(repoPath?: string, ref?: string | StoredNamedRef, options?: { prompt?: boolean }) {
-		if (repoPath == null) {
-			repoPath = (await getRepositoryOrShowPicker('Compare'))?.path;
-		}
+	async selectForCompare(
+		repoPath?: string,
+		ref?: string | StoredNamedRef,
+		options?: { prompt?: boolean },
+	): Promise<void> {
+		repoPath ??= (await getRepositoryOrShowPicker('Compare'))?.path;
 		if (repoPath == null) return;
 
 		this.removeComparePicker(true);
@@ -244,7 +243,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	private getRefName(ref: string | StoredNamedRef): string {
 		return typeof ref === 'string'
 			? shortenRevision(ref, { strings: { working: 'Working Tree' } })
-			: ref.label ?? shortenRevision(ref.ref);
+			: (ref.label ?? shortenRevision(ref.ref));
 	}
 
 	private removeComparePicker(silent: boolean = false) {
@@ -272,15 +271,15 @@ export class SearchAndCompareView extends ViewBase<
 > {
 	protected readonly configKey = 'searchAndCompare';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'searchAndCompare', 'Search & Compare', 'searchAndCompareView', grouped);
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
-	protected getRoot() {
+	protected getRoot(): SearchAndCompareViewNode {
 		return new SearchAndCompareViewNode(this);
 	}
 
@@ -289,7 +288,7 @@ export class SearchAndCompareView extends ViewBase<
 			registerViewCommand(this.getQualifiedCommand('clear'), () => void this.clear(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
@@ -314,26 +313,10 @@ export class SearchAndCompareView extends ViewBase<
 			registerViewCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
 			registerViewCommand(this.getQualifiedCommand('selectForCompare'), () => this.selectForCompare()),
 			registerViewCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
-
-			registerViewCommand(
-				this.getQualifiedCommand('setFilesFilterOnLeft'),
-				n => this.setFilesFilter(n, FilesQueryFilter.Left),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setFilesFilterOnRight'),
-				n => this.setFilesFilter(n, FilesQueryFilter.Right),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setFilesFilterOff'),
-				n => this.setFilesFilter(n, undefined),
-				this,
-			),
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -351,11 +334,11 @@ export class SearchAndCompareView extends ViewBase<
 		return true;
 	}
 
-	clear() {
+	clear(): Promise<void> | undefined {
 		return this.root?.clear();
 	}
 
-	dismissNode(node: ViewNode) {
+	dismissNode(node: ViewNode): void {
 		if (
 			this.root == null ||
 			(!(node instanceof ComparePickerNode) &&
@@ -391,11 +374,11 @@ export class SearchAndCompareView extends ViewBase<
 		);
 	}
 
-	compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef) {
+	compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef): void {
 		void this.ensureRoot().compareWithSelected(repoPath, ref);
 	}
 
-	selectForCompare(repoPath?: string, ref?: string | StoredNamedRef, options?: { prompt?: boolean }) {
+	selectForCompare(repoPath?: string, ref?: string | StoredNamedRef, options?: { prompt?: boolean }): void {
 		void this.ensureRoot().selectForCompare(repoPath, ref, options);
 	}
 
@@ -406,21 +389,12 @@ export class SearchAndCompareView extends ViewBase<
 			label,
 			reveal,
 		}: {
-			label:
-				| string
-				| {
-						label: string;
-						resultsType?: { singular: string; plural: string };
-				  };
-			reveal?: {
-				select?: boolean;
-				focus?: boolean;
-				expand?: boolean | number;
-			};
+			label: string | { label: string; resultsType?: { singular: string; plural: string } };
+			reveal?: RevealOptions;
 		},
 		results?: Promise<GitLog | undefined> | GitLog,
 		updateNode?: SearchResultsNode,
-	) {
+	): Promise<void> {
 		if (!this.visible) {
 			await this.show({ preserveFocus: reveal?.focus !== true });
 		}
@@ -441,7 +415,7 @@ export class SearchAndCompareView extends ViewBase<
 		);
 	}
 
-	getStoredNodes() {
+	getStoredNodes(): (CompareResultsNode | SearchResultsNode)[] {
 		const stored = this.container.storage.getWorkspace('views:searchAndCompare:pinned');
 		if (stored == null) return [];
 
@@ -476,11 +450,11 @@ export class SearchAndCompareView extends ViewBase<
 		return nodes;
 	}
 
-	clearStorage() {
+	clearStorage(): Promise<void> {
 		return this.container.storage.deleteWorkspace('views:searchAndCompare:pinned');
 	}
 
-	async updateStorage(id: string, item?: StoredSearchAndCompareItem, silent: boolean = false) {
+	async updateStorage(id: string, item?: StoredSearchAndCompareItem, silent: boolean = false): Promise<void> {
 		let stored = this.container.storage.getWorkspace('views:searchAndCompare:pinned');
 		stored = updateRecordValue(stored, id, item);
 		await this.container.storage.storeWorkspace('views:searchAndCompare:pinned', stored);
@@ -491,10 +465,7 @@ export class SearchAndCompareView extends ViewBase<
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof SearchAndCompareViewNode || n instanceof RepositoryFolderNode,
@@ -509,7 +480,7 @@ export class SearchAndCompareView extends ViewBase<
 
 	private async addResultsNode<T extends CompareResultsNode | SearchResultsNode>(
 		resultsNodeFn: () => T,
-		reveal?: { expand?: boolean | number; focus?: boolean; select?: boolean } | false,
+		reveal?: RevealOptions | false,
 	): Promise<T> {
 		reveal ??= { expand: true, focus: true, select: true };
 		const root = this.ensureRoot();
@@ -536,12 +507,6 @@ export class SearchAndCompareView extends ViewBase<
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
-	}
-
-	private setFilesFilter(node: ResultsFilesNode, filter: FilesQueryFilter | undefined) {
-		if (!(node instanceof ResultsFilesNode)) return;
-
-		node.filter = filter;
 	}
 
 	private swapComparison(node: CompareResultsNode) {

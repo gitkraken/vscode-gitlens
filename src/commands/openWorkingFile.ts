@@ -1,14 +1,14 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Range, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri, isGitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
+import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { findOrOpenEditor } from '../system/vscode/utils';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;
@@ -20,10 +20,10 @@ export interface OpenWorkingFileCommandArgs {
 @command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenWorkingFile, Commands.OpenWorkingFileInDiffLeft, Commands.OpenWorkingFileInDiffRight]);
+		super('gitlens.openWorkingFile');
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs) {
+	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs): Promise<void> {
 		args = { ...args };
 		if (args.line == null) {
 			args.line = editor?.selection.active.line;
@@ -39,7 +39,9 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
 			args.uri = await GitUri.fromUri(uri);
 			if (isGitUri(args.uri) && args.uri.sha) {
-				const workingUri = await this.container.git.getWorkingUri(args.uri.repoPath!, args.uri);
+				const workingUri = await this.container.git
+					.getRepositoryService(args.uri.repoPath!)
+					.getWorkingUri(args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
 						'Unable to open working file. File could not be found in the working tree',
@@ -58,7 +60,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, throwOnError: true });
+			const e = await getOrOpenTextEditor(args.uri, { ...args.showOptions, throwOnError: true });
 			if (args.annotationType === undefined) return;
 
 			void (await this.container.fileAnnotations.show(e, args.annotationType, {

@@ -39,7 +39,7 @@ export class GlRepoAlerts extends GlElement {
 	];
 
 	@property({ type: Boolean, reflect: true, attribute: 'has-alerts' })
-	get hasAlerts() {
+	get hasAlerts(): boolean | undefined {
 		return this.alertVisibility.header !== true ? undefined : true;
 	}
 
@@ -72,7 +72,7 @@ export class GlRepoAlerts extends GlElement {
 		return sections;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this._state == null || !this.alertVisibility.header) {
 			return;
 		}

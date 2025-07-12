@@ -1,18 +1,23 @@
 import type { Disposable } from 'vscode';
-import { CancellationTokenSource, window } from 'vscode';
+import { CancellationTokenSource, QuickInputButtons, window } from 'vscode';
 import { RevealInSideBarQuickInputButton } from '../commands/quickCommand.buttons';
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand.steps';
 import type { Keys } from '../constants';
 import { Container } from '../container';
-import { reveal as revealBranch } from '../git/actions/branch';
-import { showDetailsView } from '../git/actions/commit';
-import { reveal as revealTag } from '../git/actions/tag';
-import type { BranchSortOptions, GitBranch } from '../git/models/branch';
+import { revealBranch } from '../git/actions/branch';
+import { showCommitInDetailsView } from '../git/actions/commit';
+import { revealTag } from '../git/actions/tag';
+import type { GitBranch } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
-import { isBranchReference, isRevisionReference, isTagReference } from '../git/models/reference';
-import type { GitTag, TagSortOptions } from '../git/models/tag';
-import type { KeyboardScope } from '../system/vscode/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
+import type { GitTag } from '../git/models/tag';
+import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
+import { isBranchReference, isRevisionReference, isTagReference } from '../git/utils/reference.utils';
+import type { KeyboardScope } from '../system/-webview/keyboard';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import type { QuickPickResult } from './items/common';
+import { createQuickPickSeparator } from './items/common';
+import type { DirectiveQuickPickItem } from './items/directive';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
 import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitWizard';
 import { createRefQuickPickItem } from './items/gitWizard';
 
@@ -24,6 +29,8 @@ export const enum ReferencesQuickPickIncludes {
 	WorkingTree = 1 << 2,
 	HEAD = 1 << 3,
 
+	AllBranches = 1 << 4,
+
 	BranchesAndTags = Branches | Tags,
 	All = Branches | Tags | WorkingTree | HEAD,
 }
@@ -32,13 +39,19 @@ export interface ReferencesQuickPickOptions {
 	allowRevisions?: boolean | { ranges?: boolean };
 	autoPick?: boolean;
 	picked?: string;
+	exclude?: string[];
 	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
 	include?: ReferencesQuickPickIncludes;
+	ignoreFocusOut?: boolean;
 	keyboard?: {
 		keys: Keys[];
 		onDidPressKey(key: Keys, item: ReferencesQuickPickItem): void | Promise<void>;
 	};
 	sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
+}
+
+export interface ReferencesQuickPickOptions2 extends ReferencesQuickPickOptions {
+	allowBack?: boolean;
 }
 
 export async function showReferencePicker(
@@ -47,8 +60,18 @@ export async function showReferencePicker(
 	placeholder: string,
 	options?: ReferencesQuickPickOptions,
 ): Promise<GitReference | undefined> {
-	const quickpick = window.createQuickPick<ReferencesQuickPickItem>();
-	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+	const result = await showReferencePicker2(repoPath, title, placeholder, options);
+	return result?.value;
+}
+
+export async function showReferencePicker2(
+	repoPath: string,
+	title: string,
+	placeholder: string,
+	options?: ReferencesQuickPickOptions2,
+): Promise<QuickPickResult<GitReference>> {
+	const quickpick = window.createQuickPick<ReferencesQuickPickItem | DirectiveQuickPickItem>();
+	quickpick.ignoreFocusOut = options?.ignoreFocusOut ?? getQuickPickIgnoreFocusOut();
 
 	quickpick.title = title;
 	quickpick.placeholder =
@@ -56,6 +79,9 @@ export async function showReferencePicker(
 			? `${placeholder} (or enter a revision using #)`
 			: placeholder;
 	quickpick.matchOnDescription = true;
+	if (options?.allowBack) {
+		quickpick.buttons = [QuickInputButtons.Back];
+	}
 
 	const disposables: Disposable[] = [];
 
@@ -70,7 +96,7 @@ export async function showReferencePicker(
 						onDidPressKey: async key => {
 							if (quickpick.activeItems.length !== 0) {
 								const [item] = quickpick.activeItems;
-								if (item != null) {
+								if (item != null && !isDirectiveQuickPickItem(item)) {
 									const ignoreFocusOut = quickpick.ignoreFocusOut;
 									quickpick.ignoreFocusOut = true;
 
@@ -90,12 +116,13 @@ export async function showReferencePicker(
 
 	const cancellation = new CancellationTokenSource();
 
-	let autoPick;
+	let autopick: QuickPickResult<GitReference> | undefined;
 	let items = getItems(repoPath, options);
 	if (options?.autoPick) {
 		items = items.then(itms => {
-			if (itms.length <= 1) {
-				autoPick = itms[0];
+			const refItems = itms.filter((i): i is ReferencesQuickPickItem => !isDirectiveQuickPickItem(i));
+			if (refItems.length <= 1) {
+				autopick = { value: refItems[0]?.item };
 				cancellation.cancel();
 			}
 			return itms;
@@ -114,17 +141,28 @@ export async function showReferencePicker(
 	});
 
 	quickpick.items = await items;
+	if (options?.picked != null) {
+		const picked = quickpick.items.find(i => !isDirectiveQuickPickItem(i) && i.ref === options.picked);
+		if (picked != null) {
+			quickpick.activeItems = [picked];
+		}
+	}
 	quickpick.busy = false;
 
 	try {
-		let pick = await new Promise<ReferencesQuickPickItem | undefined>(resolve => {
+		const pick = await new Promise<QuickPickResult<GitReference>>(resolve => {
 			disposables.push(
 				cancellation.token.onCancellationRequested(() => quickpick.hide()),
-				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidHide(() => resolve({ value: undefined })),
 				quickpick.onDidAccept(() => {
-					if (quickpick.activeItems.length === 0) return;
+					if (!quickpick.activeItems.length) return;
 
-					resolve(quickpick.activeItems[0]);
+					const [item] = quickpick.activeItems;
+					if (isDirectiveQuickPickItem(item)) {
+						resolve({ directive: item.directive });
+					} else {
+						resolve({ value: item?.item });
+					}
 				}),
 				quickpick.onDidChangeValue(async e => {
 					if (scope != null) {
@@ -142,46 +180,52 @@ export async function showReferencePicker(
 						}
 					}
 				}),
-				quickpick.onDidTriggerItemButton(({ button, item: { item } }) => {
+				quickpick.onDidTriggerItemButton(({ button, item }) => {
+					if (isDirectiveQuickPickItem(item)) return;
+
 					if (button === RevealInSideBarQuickInputButton) {
-						if (isBranchReference(item)) {
-							void revealBranch(item, { select: true, expand: true });
-						} else if (isTagReference(item)) {
-							void revealTag(item, { select: true, expand: true });
-						} else if (isRevisionReference(item)) {
-							void showDetailsView(item, {
-								pin: false,
-								preserveFocus: true,
-							});
+						if (isBranchReference(item.item)) {
+							void revealBranch(item.item, { select: true, expand: true });
+						} else if (isTagReference(item.item)) {
+							void revealTag(item.item, { select: true, expand: true });
+						} else if (isRevisionReference(item.item)) {
+							void showCommitInDetailsView(item.item, { pin: false, preserveFocus: true });
 						}
+					}
+				}),
+				quickpick.onDidTriggerButton(button => {
+					if (button === QuickInputButtons.Back) {
+						resolve({ directive: Directive.Back });
 					}
 				}),
 			);
 		});
-		if (pick == null && autoPick != null) {
-			pick = autoPick;
-		}
-		if (pick == null) return undefined;
+		if (pick?.directive != null) return pick;
 
-		return pick.item;
+		return pick?.value == null && autopick != null ? autopick : pick;
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
 	}
 }
 
-async function getItems(repoPath: string, options?: ReferencesQuickPickOptions): Promise<ReferencesQuickPickItem[]> {
+async function getItems(
+	repoPath: string,
+	options?: ReferencesQuickPickOptions2,
+): Promise<(ReferencesQuickPickItem | DirectiveQuickPickItem)[]> {
 	const include = options?.include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
-	const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
+	const includes: ('branches' | 'tags')[] = [];
+	if (include & ReferencesQuickPickIncludes.Branches) {
+		includes.push('branches');
+	}
+	if (include & ReferencesQuickPickIncludes.Tags) {
+		includes.push('tags');
+	}
+
+	const items: (ReferencesQuickPickItem | DirectiveQuickPickItem)[] = await getBranchesAndOrTags(
 		Container.instance.git.getRepository(repoPath),
-		include && ReferencesQuickPickIncludes.BranchesAndTags
-			? ['branches', 'tags']
-			: include && ReferencesQuickPickIncludes.Branches
-			  ? ['branches']
-			  : include && ReferencesQuickPickIncludes.Tags
-			    ? ['tags']
-			    : [],
+		includes,
 		{
 			buttons: [RevealInSideBarQuickInputButton],
 			filter: options?.filter,
@@ -193,7 +237,7 @@ async function getItems(repoPath: string, options?: ReferencesQuickPickOptions):
 	// Move the picked item to the top
 	const picked = options?.picked;
 	if (picked) {
-		const index = items.findIndex(i => i.ref === picked);
+		const index = items.findIndex(i => !isDirectiveQuickPickItem(i) && i.ref === picked);
 		if (index !== -1) {
 			items.unshift(...items.splice(index, 1));
 		}
@@ -207,5 +251,12 @@ async function getItems(repoPath: string, options?: ReferencesQuickPickOptions):
 		items.unshift(createRefQuickPickItem('', repoPath, undefined, { icon: true }));
 	}
 
-	return items;
+	if (include & ReferencesQuickPickIncludes.AllBranches) {
+		items.unshift(createQuickPickSeparator());
+		items.unshift(createDirectiveQuickPickItem(Directive.RefsAllBranches));
+	}
+
+	return options?.exclude?.length
+		? items.filter(i => (isDirectiveQuickPickItem(i) ? true : !options.exclude?.includes(i.ref)))
+		: items;
 }

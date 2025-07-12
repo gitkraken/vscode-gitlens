@@ -1,12 +1,8 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { Colors } from '../../constants.colors';
 import { unknownGitUri } from '../../git/gitUri';
-import type {
-	CloudWorkspace,
-	CloudWorkspaceRepositoryDescriptor,
-	LocalWorkspace,
-	LocalWorkspaceRepositoryDescriptor,
-} from '../../plus/workspaces/models';
+import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace';
+import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace';
 import { createViewDecorationUri } from '../viewDecorationProvider';
 import type { WorkspacesView } from '../workspacesView';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';

@@ -1,6 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { getAltKeySymbol } from '@env/platform';
 import type { State } from '../../../commitDetails/protocol';
 import { commitActionStyles } from './commit-action.css';
 
@@ -90,7 +91,7 @@ export class GlInspectNav extends LitElement {
 		return actions;
 	}
 
-	handleAction(e: Event) {
+	private handleAction(e: Event) {
 		const targetEl = e.target as HTMLElement;
 		const action = targetEl.dataset.action;
 		if (action == null) return;
@@ -103,11 +104,11 @@ export class GlInspectNav extends LitElement {
 		}
 	}
 
-	fireEvent(type: string, detail?: Record<string, unknown>) {
+	private fireEvent(type: string, detail?: Record<string, unknown>) {
 		this.dispatchEvent(new CustomEvent(`gl-${type}`, { detail: detail }));
 	}
 
-	override render() {
+	override render(): unknown {
 		const pinLabel = this.pinned
 			? html`Unpin this Commit<br />Restores Automatic Following`
 			: html`Pin this Commit<br />Suspends Automatic Following`;
@@ -143,7 +144,8 @@ export class GlInspectNav extends LitElement {
 								>
 							</a>
 							<span slot="content"
-								>Copy ${this.stashNumber != null ? 'Stash Name' : 'SHA'}<br />[⌥] Copy Message</span
+								>Copy ${this.stashNumber != null ? 'Stash Name' : 'SHA'}<br />[${getAltKeySymbol()}]
+								Copy Message</span
 							>
 						</gl-tooltip>
 					`,

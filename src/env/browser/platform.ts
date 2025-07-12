@@ -1,3 +1,5 @@
+import type { Platform } from '../node/platform';
+
 export const isWeb = true;
 
 const _platform = (navigator as any)?.userAgentData?.platform;
@@ -7,7 +9,7 @@ export const isLinux = _platform === 'Linux' || _userAgent.includes('Linux');
 export const isMac = _platform === 'macOS' || _userAgent.includes('Macintosh');
 export const isWindows = _platform === 'Windows' || _userAgent.includes('Windows');
 
-export function getPlatform(): string {
+export function getPlatform(): Platform {
 	if (isWindows) return 'web-windows';
 	if (isMac) return 'web-macOS';
 	if (isLinux) return 'web-linux';
@@ -16,4 +18,9 @@ export function getPlatform(): string {
 
 export function getTempFile(filename: string): string {
 	return filename;
+}
+
+export function getAltKeySymbol(): string {
+	if (isMac) return '⌥';
+	return 'Alt';
 }

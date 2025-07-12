@@ -35,23 +35,23 @@ export class Radio extends GlElement {
 	set parentGroup(value: RadioGroup | undefined) {
 		this._parentGroup = value;
 	}
-	get parentGroup() {
+	get parentGroup(): RadioGroup | undefined {
 		return this._parentGroup;
 	}
 
-	handleClick() {
+	private handleClick() {
 		if (this.value) {
 			this.parentGroup?.setValue(this.value);
 		}
 	}
 
-	renderCircle() {
+	private renderCircle() {
 		if (!this.checked) return undefined;
 
 		return html`<code-icon icon="circle-filled"></code-icon>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<label ?aria-disabled=${this.disabled}
 			><button class="input" .disabled=${this.disabled} @click=${this.handleClick}></button>
 			<div class="control">${this.renderCircle()}</div>

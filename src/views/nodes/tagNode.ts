@@ -4,9 +4,9 @@ import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { GitTagReference } from '../../git/models/reference';
-import { shortenRevision } from '../../git/models/reference';
 import type { GitTag } from '../../git/models/tag';
-import { gate } from '../../system/decorators/gate';
+import { shortenRevision } from '../../git/utils/revision.utils';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pad } from '../../system/string';
@@ -16,7 +16,7 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ViewRefNode } from './abstract/viewRefNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> implements PageableViewNode {
 	limit: number | undefined;
@@ -54,10 +54,9 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(
-			this.uri.repoPath,
-			this.tag.name,
-		);
+		const getBranchAndTagTips = await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.getBranchesAndTagsTipsLookup(this.tag.name);
 		const children = [
 			...insertDateMarkers(
 				map(
@@ -71,7 +70,10 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		if (log.hasMore) {
 			children.push(
 				new LoadMoreNode(this.view, this, children[children.length - 1], {
-					getCount: () => this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
+					getCount: () =>
+						this.view.container.git
+							.getRepositoryService(this.tag.repoPath)
+							.commits.getCommitCount(this.tag.name),
 				}),
 			);
 		}
@@ -83,28 +85,25 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		item.id = this.id;
 		item.contextValue = ContextValues.Tag;
 		item.description = emojify(this.tag.message);
-		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha, {
-			force: true,
-		})}${
+		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha)}${
 			this.tag.date != null
 				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
 						this.view.container.TagDateFormatting.dateFormat,
-				  )})`
+					)})`
 				: ''
 		}\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
 				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
 						this.view.container.TagDateFormatting.dateFormat,
-				  )})`
+					)})`
 				: ''
 		}`;
 
 		return item;
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -113,21 +112,22 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: this.tag.name,
-			});
+			this._log = await this.view.container.git
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(this.tag.name, {
+					limit: this.limit ?? this.view.config.defaultItemLimit,
+				});
 		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

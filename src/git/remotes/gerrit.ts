@@ -1,9 +1,11 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
-import { isSha } from '../models/reference';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
-import type { RemoteProviderId } from './remoteProvider';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
+import { isSha } from '../utils/revision.utils';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
@@ -56,7 +58,7 @@ export class GerritRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'gerrit';
 	}
 
@@ -68,7 +70,7 @@ export class GerritRemote extends RemoteProvider {
 		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Gerrit');
 	}
 
@@ -80,13 +82,9 @@ export class GerritRemote extends RemoteProvider {
 		return `${this.protocol}://${this.domain}`;
 	}
 
-	async getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number } | undefined> {
+	async getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
 		if (uri.authority !== this.domain) return undefined;
-		if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+		if (!uri.path.startsWith(`/${this.path}/`)) return undefined;
 
 		let startLine;
 		if (uri.fragment) {
@@ -105,12 +103,19 @@ export class GerritRemote extends RemoteProvider {
 		const [, , path] = match;
 
 		// Check for a permalink
+		let maybeShortPermalink: LocalInfoFromRemoteUriResult | undefined = undefined;
+
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
 			if (isSha(sha) || sha === 'HEAD') {
-				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
-				if (uri != null) return { uri: uri, startLine: startLine };
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), sha);
+				if (uri != null) return { uri: uri, repoPath: repo.path, rev: sha, startLine: startLine };
+			} else if (isSha(sha, true)) {
+				const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), sha);
+				if (uri != null) {
+					maybeShortPermalink = { uri: uri, repoPath: repo.path, rev: sha, startLine: startLine };
+				}
 			}
 		}
 
@@ -128,16 +133,17 @@ export class GerritRemote extends RemoteProvider {
 				possibleBranches.set(branch, branchPath.substring(index));
 			} while (index > 0);
 
-			if (possibleBranches.size !== 0) {
-				const { values: branches } = await repository.git.getBranches({
+			if (possibleBranches.size) {
+				const { values: branches } = await repo.git.branches.getBranches({
 					filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 				});
 				for (const branch of branches) {
-					const path = possibleBranches.get(branch.getNameWithoutRemote());
+					const ref = branch.getNameWithoutRemote();
+					const path = possibleBranches.get(ref);
 					if (path == null) continue;
 
-					const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
-					if (uri != null) return { uri: uri, startLine: startLine };
+					const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), ref);
+					if (uri != null) return { uri: uri, repoPath: repo.path, rev: ref, startLine: startLine };
 				}
 			}
 
@@ -158,23 +164,23 @@ export class GerritRemote extends RemoteProvider {
 				possibleTags.set(tag, tagPath.substring(index));
 			} while (index > 0);
 
-			if (possibleTags.size !== 0) {
-				const { values: tags } = await repository.git.getTags({
+			if (possibleTags.size) {
+				const { values: tags } = await repo.git.tags.getTags({
 					filter: t => possibleTags.has(t.name),
 				});
 				for (const tag of tags) {
 					const path = possibleTags.get(tag.name);
 					if (path == null) continue;
 
-					const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
-					if (uri != null) return { uri: uri, startLine: startLine };
+					const uri = await repo.getAbsoluteOrBestRevisionUri(path.substring(index), tag.name);
+					if (uri != null) return { uri: uri, repoPath: repo.path, rev: tag.name, startLine: startLine };
 				}
 			}
 
 			return undefined;
 		}
 
-		return undefined;
+		return maybeShortPermalink;
 	}
 
 	protected getUrlForBranches(): string {
@@ -187,6 +193,20 @@ export class GerritRemote extends RemoteProvider {
 
 	protected getUrlForCommit(sha: string): string {
 		return this.encodeUrl(`${this.baseReviewUrl}/q/${sha}`);
+	}
+
+	protected override getUrlForComparison(
+		base: string,
+		head: string,
+		notation: GitRevisionRangeNotation,
+	): string | undefined {
+		return this.encodeUrl(`${this.baseReviewUrl}/q/${base}${notation}${head}`);
+	}
+
+	protected override getUrlForCreatePullRequest({ base, head }: CreatePullRequestRemoteResource): string | undefined {
+		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
+
+		return this.encodeUrl(`${this.baseReviewUrl}/createPullRequest?${query.toString()}`);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

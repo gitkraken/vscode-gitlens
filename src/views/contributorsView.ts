@@ -2,45 +2,44 @@ import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { onDidFetchAvatar } from '../avatars';
 import type { ContributorsViewConfig, ViewFilesLayout } from '../config';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { gate } from '../system/decorators/gate';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { gate } from '../system/decorators/-webview/gate';
 import { debug } from '../system/decorators/log';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new ContributorsNode(this.uri, this.view, this, this.repo, {
-				showMergeCommits: !this.view.state.hideMergeCommits,
-			});
-		}
-
+		this.child ??= new ContributorsNode(this.uri, this.view, this, this.repo, {
+			showMergeCommits: !this.view.state.hideMergeCommits,
+		});
 		return this.child.getChildren();
 	}
 
 	@debug()
-	protected override async subscribe() {
+	protected override async subscribe(): Promise<Disposable> {
 		return Disposable.from(
 			await super.subscribe(),
 			onDidFetchAvatar(e => this.child?.updateAvatar(e.email)),
 		);
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Heads,
@@ -57,7 +56,16 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			if (this.view.container.git.isDiscoveringRepositories) {
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (!repositories.length) {
+				this.view.message = 'No contributors could be found.';
+				return [];
+			}
+
 			if (
 				configuration.get('views.collapseWorktreesWhenPossible') &&
 				configuration.get('views.contributors.showAllBranches')
@@ -66,17 +74,8 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				repositories = [...grouped.keys()];
 			}
 
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading contributors...'
-					: 'No contributors could be found.';
-
-				return [];
-			}
-
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -99,7 +98,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// }
 
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
-			if (children.length === 0) {
+			if (!children.length) {
 				this.view.message = 'No contributors could be found.';
 				void child.ensureSubscription();
 
@@ -127,7 +126,7 @@ interface ContributorsViewState {
 export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'contributors', 'Contributors', 'contributorsView', grouped);
 
 		void setContext('gitlens:views:contributors:hideMergeCommits', true);
@@ -138,7 +137,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	private readonly _state: ContributorsViewState = { hideMergeCommits: true };
@@ -146,7 +145,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return this._state;
 	}
 
-	protected getRoot() {
+	protected getRoot(): ContributorsViewNode {
 		return new ContributorsViewNode(this);
 	}
 
@@ -154,7 +153,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(
@@ -219,7 +218,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -240,7 +239,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return true;
 	}
 
-	findContributor(contributor: GitContributor, token?: CancellationToken) {
+	findContributor(contributor: GitContributor, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath, username, email, name } = contributor;
 
 		return this.findNode(
@@ -266,10 +265,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof ContributorsViewNode || n instanceof RepositoryFolderNode,
@@ -283,14 +279,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	@gate(() => '')
-	async revealContributor(
-		contributor: GitContributor,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
+	async revealContributor(contributor: GitContributor, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -301,7 +290,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},

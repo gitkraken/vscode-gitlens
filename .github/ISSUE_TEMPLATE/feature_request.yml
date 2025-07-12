@@ -1,0 +1,11 @@
+name: Enhancement or feature request
+description: Suggest an enhancement, feature, or idea for GitLens
+type: 'Enhancement'
+labels: [triage]
+body:
+    - type: textarea
+      attributes:
+          label: Description
+          description: Please describe the enhancement or feature you'd like to see in GitLens.
+      validations:
+          required: false

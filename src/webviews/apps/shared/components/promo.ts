@@ -1,11 +1,21 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { Promo } from '../../../../plus/gk/account/promos';
-import { typeCheck } from '../../../../system/function';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { until } from 'lit/directives/until.js';
+import type { GlCommands } from '../../../../constants.commands';
+import type { Source } from '../../../../constants.telemetry';
+import type { Promo } from '../../../../plus/gk/models/promo';
+import { createCommandLink } from '../../../../system/commands';
+import { focusOutline } from './styles/lit/a11y.css';
 
 @customElement('gl-promo')
 export class GlPromo extends LitElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	static override styles = [
 		css`
 			:host {
@@ -41,6 +51,10 @@ export class GlPromo extends LitElement {
 				white-space: nowrap;
 			}
 
+			.link:focus-visible {
+				${focusOutline}
+			}
+
 			.link:hover {
 				color: inherit;
 				text-decoration: underline;
@@ -48,52 +62,80 @@ export class GlPromo extends LitElement {
 		`,
 	];
 
+	@query('a,button,[tabindex="0"]')
+	private _focusable?: HTMLElement;
+
 	@property({ type: Object })
-	promo: Promo | undefined;
+	promoPromise: Promise<Promo | undefined> | undefined;
+
+	@property({ type: Object })
+	source?: Source;
 
 	@property({ reflect: true, type: String })
-	type: 'link' | 'info' = 'info';
+	type: 'icon' | 'info' | 'link' = 'info';
 
-	@property({ reflect: true, type: Boolean, attribute: 'has-promo' })
+	private _hasPromo = false;
+	@property({ type: Boolean, reflect: true, attribute: 'has-promo' })
 	get hasPromo() {
-		return this.promo != null;
+		return this._hasPromo;
+	}
+	private set hasPromo(value: boolean) {
+		this._hasPromo = value;
 	}
 
-	override render() {
-		if (!this.promo) return;
-
-		const promoHtml = this.renderPromo(this.promo);
-		if (!promoHtml) return;
-
-		if (this.type === 'link') {
-			return html`<a
-				class="link"
-				href="${this.promo.command?.command ?? 'command:gitlens.plus.upgrade'}"
-				title="${ifDefined(this.promo.command?.tooltip)}"
-				>${promoHtml}</a
-			>`;
-		}
-
-		return html`<p class="promo">${promoHtml}</p>`;
+	override render(): unknown {
+		return html`${until(
+			this.promoPromise?.then(promo => this.renderPromo(promo)),
+			nothing,
+		)}`;
 	}
 
-	private renderPromo(promo: Promo) {
-		switch (promo.key) {
-			case 'gkholiday':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Get the gift of a better DevEx in 2025! <b>Save up to 80% now</b></span
-				>`;
-
-			case 'pro50':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					><b>Save 33% or more</b> on your 1st seat of Pro</span
-				>`;
-
-			default: {
-				debugger;
-				typeCheck<never>(promo.key);
-				return nothing;
-			}
+	private renderPromo(promo: Promo | undefined) {
+		if (!promo?.content?.webview) {
+			this.hasPromo = false;
+			return;
 		}
+
+		const content = promo.content.webview;
+		switch (this.type) {
+			case 'icon':
+				return html`<code-icon icon="star-full" size="16"></code-icon>`;
+
+			case 'info':
+				if (content.info) {
+					this.hasPromo = true;
+					return html`<p class="promo" part="text">${unsafeHTML(content.info.html)}</p>`;
+				}
+				break;
+
+			case 'link':
+				if (content.link) {
+					this.hasPromo = true;
+					return html`<a
+						class="link"
+						part="link"
+						href="${this.getCommandUrl(promo)}"
+						title="${ifDefined(content.link.title)}"
+						>${unsafeHTML(content.link.html)}</a
+					>`;
+				}
+				break;
+		}
+
+		this.hasPromo = false;
+		return nothing;
+	}
+
+	private getCommandUrl(promo: Promo | undefined) {
+		let command: GlCommands | undefined;
+		if (promo?.content?.webview?.link?.command?.startsWith('command:')) {
+			command = promo.content.webview.link.command.substring('command:'.length) as GlCommands;
+		}
+
+		return createCommandLink<Source>(command ?? 'gitlens.plus.upgrade', this.source);
+	}
+
+	override focus(): void {
+		this._focusable?.focus();
 	}
 }

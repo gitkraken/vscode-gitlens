@@ -1,7 +1,9 @@
 import type {
 	CancellationToken,
 	ConfigurationChangeEvent,
+	Disposable,
 	Event,
+	ThemeIcon,
 	TreeCheckboxChangeEvent,
 	TreeDataProvider,
 	TreeItem,
@@ -11,7 +13,7 @@ import type {
 	TreeViewVisibilityChangeEvent,
 	ViewBadge,
 } from 'vscode';
-import { Disposable, EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
+import { EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
 import type {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -35,14 +37,17 @@ import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { executeCoreCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
+import { first } from '../system/iterable';
+import type { Lazy } from '../system/lazy';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
-import { cancellable, isPromise } from '../system/promise';
-import { executeCoreCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import { cancellable, defer, isPromise } from '../system/promise';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
@@ -52,6 +57,7 @@ import type { LaunchpadView } from './launchpadView';
 import type { LineHistoryView } from './lineHistoryView';
 import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
 import { isPageableViewNode } from './nodes/abstract/viewNode';
+import { GroupedHeaderNode } from './nodes/common';
 import type { PullRequestView } from './pullRequestView';
 import type { RemotesView } from './remotesView';
 import type { RepositoriesView } from './repositoriesView';
@@ -133,8 +139,8 @@ export type WebviewViewByType = {
 export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithBranchesNode = BranchesView | RepositoriesView | WorkspacesView;
 export type ViewsWithCommits = Exclude<View, LineHistoryView | StashesView>;
-export type ViewsWithContributors = ContributorsView | RepositoriesView | WorkspacesView;
-export type ViewsWithContributorsNode = ContributorsView | RepositoriesView | WorkspacesView;
+export type ViewsWithContributors = ViewsWithCommits;
+export type ViewsWithContributorsNode = ViewsWithCommits;
 export type ViewsWithRemotes = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRemotesNode = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
@@ -153,6 +159,12 @@ export type ViewsWithWorktreesNode = RepositoriesView | WorktreesView | Workspac
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
+}
+
+export interface GroupedViewContext {
+	onDidChangeTreeData: EventEmitter<ViewNode | undefined>;
+	tree: Lazy<TreeView<ViewNode>>;
+	cancellation?: CancellationToken;
 }
 
 export abstract class ViewBase<
@@ -184,6 +196,11 @@ export abstract class ViewBase<
 		return types.includes(this.type as unknown as T[number]);
 	}
 
+	private _cancellation: CancellationToken | undefined;
+	get cancellation(): CancellationToken | undefined {
+		return this._cancellation;
+	}
+
 	private _disposed: boolean = false;
 	get disposed(): boolean {
 		return this._disposed;
@@ -193,27 +210,9 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}`;
 	}
 
-	protected _onDidInitialize = new EventEmitter<void>();
-	private initialized = false;
-
-	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
-	get onDidChangeTreeData(): Event<ViewNode | undefined> {
-		return this._onDidChangeTreeData.event;
-	}
-
 	private _onDidChangeSelection = new EventEmitter<TreeViewSelectionChangeEvent<ViewNode>>();
 	get onDidChangeSelection(): Event<TreeViewSelectionChangeEvent<ViewNode>> {
 		return this._onDidChangeSelection.event;
-	}
-
-	private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
-	get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
-		return this._onDidChangeVisibility.event;
-	}
-
-	private _onDidChangeNodeCollapsibleState = new EventEmitter<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>>();
-	get onDidChangeNodeCollapsibleState(): Event<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>> {
-		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
 	private _onDidChangeNodesCheckedState = new EventEmitter<TreeCheckboxChangeEvent<ViewNode>>();
@@ -221,10 +220,26 @@ export abstract class ViewBase<
 		return this._onDidChangeNodesCheckedState.event;
 	}
 
+	private _onDidChangeNodeCollapsibleState = new EventEmitter<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>>();
+	get onDidChangeNodeCollapsibleState(): Event<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>> {
+		return this._onDidChangeNodeCollapsibleState.event;
+	}
+
+	protected readonly _onDidChangeTreeData: EventEmitter<ViewNode | undefined>;
+	get onDidChangeTreeData(): Event<ViewNode | undefined> {
+		return this._onDidChangeTreeData.event;
+	}
+
+	private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
+	get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
+		return this._onDidChangeVisibility.event;
+	}
+
 	protected disposables: Disposable[] = [];
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
 
+	private initialized = defer<void>();
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
 	constructor(
@@ -232,35 +247,49 @@ export abstract class ViewBase<
 		public readonly type: Type,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
-		public readonly grouped?: boolean,
+		grouped?: GroupedViewContext,
 	) {
+		this._grouped = grouped;
+		if (grouped != null) {
+			this._onDidChangeTreeData = grouped.onDidChangeTreeData;
+			this._cancellation = grouped.cancellation;
+		} else {
+			this._onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
+			this.disposables.push(this._onDidChangeTreeData);
+		}
+
 		this.description = this.getViewDescription();
-		this.disposables.push(once(container.onReady)(this.onReady, this));
+
+		this.disposables.push(
+			this._onDidChangeNodesCheckedState,
+			this._onDidChangeNodeCollapsibleState,
+			this._onDidChangeSelection,
+			this._onDidChangeVisibility,
+			once(container.onReady)(this.onReady, this),
+		);
 
 		if (this.container.debugging || configuration.get('debug')) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
-				if (item.tooltip == null) {
-					item.tooltip = new MarkdownString(
-						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
-					);
-				}
+				item.tooltip ??= new MarkdownString(
+					item.label != null && typeof item.label !== 'string' ? item.label.label : (item.label ?? ''),
+				);
 
 				if (typeof item.tooltip === 'string') {
-					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${item.contextValue}\nnode: ${node.toString()}${
-						parent != null ? `\nparent: ${parent.toString()}` : ''
-					}`;
+					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
+						item.contextValue
+					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}\nid: ${node.id}`;
 				} else {
 					item.tooltip.appendMarkdown(
-						`\n\n---\n\ncontext: \`${item.contextValue}\`\\\nnode: \`${node.toString()}\`${
-							parent != null ? `\\\nparent: \`${parent.toString()}\`` : ''
-						}`,
+						`\n\n---\n\ncontext: \`${
+							item.contextValue
+						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\` \\\nid: \`${node.id}\``,
 					);
 				}
 			}
 
-			const getTreeItemFn = this.getTreeItem;
+			const originalGetTreeItem = this.getTreeItem;
 			this.getTreeItem = async function (this: ViewBase<Type, RootNode, ViewConfig>, node: ViewNode) {
-				const item = await getTreeItemFn.apply(this, [node]);
+				const item = await originalGetTreeItem.call(this, node);
 
 				if (node.resolveTreeItem == null) {
 					addDebuggingInfo(item, node, node.getParent());
@@ -269,14 +298,14 @@ export abstract class ViewBase<
 				return item;
 			};
 
-			const resolveTreeItemFn = this.resolveTreeItem;
+			const originalResolveTreeItem = this.resolveTreeItem;
 			this.resolveTreeItem = async function (
 				this: ViewBase<Type, RootNode, ViewConfig>,
 				item: TreeItem,
 				node: ViewNode,
 				token: CancellationToken,
 			) {
-				item = await resolveTreeItemFn.apply(this, [item, node, token]);
+				item = await originalResolveTreeItem.call(this, item, node, token);
 
 				addDebuggingInfo(item, node, node.getParent());
 
@@ -287,12 +316,10 @@ export abstract class ViewBase<
 		this.disposables.push(...this.registerCommands());
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposed = true;
-		this._nodeState?.dispose();
-		this._nodeState = undefined;
 		this.root?.dispose();
-		Disposable.from(...this.disposables).dispose();
+		this.disposables.forEach(d => void d.dispose());
 	}
 
 	private onReady() {
@@ -311,10 +338,28 @@ export abstract class ViewBase<
 		return false;
 	}
 
+	private readonly _grouped: GroupedViewContext | undefined;
+	get grouped(): boolean {
+		return this._grouped != null;
+	}
+
+	private _groupedLabel: string | undefined;
+	get groupedLabel(): string | undefined {
+		return this.grouped ? this._groupedLabel : undefined;
+	}
+	set groupedLabel(value: string | undefined) {
+		this._groupedLabel = value;
+	}
+
+	protected get groupedIcon(): ThemeIcon | undefined {
+		return undefined;
+	}
+
 	private _nodeState: ViewNodeState | undefined;
 	get nodeState(): ViewNodeState {
 		if (this._nodeState == null) {
 			this._nodeState = new ViewNodeState();
+			this.disposables.push(this._nodeState);
 		}
 
 		return this._nodeState;
@@ -324,12 +369,17 @@ export abstract class ViewBase<
 		return true;
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		if (!configuration.changed(e, 'views')) return false;
 
 		if (configuration.changed(e, `views.${this.configKey}` as const)) return true;
-		for (const key of viewsCommonConfigKeys) {
-			if (configuration.changed(e, `views.${key}` as const)) return true;
+		if (
+			configuration.changed(
+				e,
+				viewsCommonConfigKeys.map(k => `views.${k}` as const),
+			)
+		) {
+			return true;
 		}
 
 		return false;
@@ -361,7 +411,7 @@ export abstract class ViewBase<
 	}
 	set description(value: string | undefined) {
 		this._description = value;
-		if (this.tree != null) {
+		if (this.tree != null && !this.grouped) {
 			this.tree.description = value;
 		}
 	}
@@ -377,7 +427,9 @@ export abstract class ViewBase<
 		}
 	}
 
-	getQualifiedCommand(command: TreeViewCommandSuffixesByViewType<Type>) {
+	getQualifiedCommand(
+		command: TreeViewCommandSuffixesByViewType<Type>,
+	): `gitlens.views.${Type}.${TreeViewCommandSuffixesByViewType<Type>}` {
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
@@ -389,11 +441,14 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
-		this.tree = window.createTreeView<ViewNode>(this.grouped ? 'gitlens.views.scm.grouped' : this.id, {
-			...options,
-			treeDataProvider: this,
-		});
+	protected initialize(options?: { canSelectMany?: boolean; showCollapseAll?: boolean }): void {
+		if (this._grouped != null) {
+			this.tree = this._grouped.tree.value;
+		} else {
+			this.tree = window.createTreeView<ViewNode>(this.id, { ...options, treeDataProvider: this });
+			this.disposables.push(this.tree);
+		}
+
 		this.disposables.push(
 			configuration.onDidChange(e => {
 				if (!this.filterConfigurationChanged(e)) return;
@@ -401,7 +456,6 @@ export abstract class ViewBase<
 				this._config = undefined;
 				this.onConfigurationChanged(e);
 			}, this),
-			this.tree,
 			this.tree.onDidChangeSelection(debounce(this.onSelectionChanged, 250), this),
 			this.tree.onDidChangeVisibility(debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidChangeCheckboxState(this.onCheckboxStateChanged, this),
@@ -414,7 +468,7 @@ export abstract class ViewBase<
 		} else {
 			this._title = this.tree.title;
 		}
-		if (this._description != null) {
+		if (this._description != null && !this.grouped) {
 			this.tree.description = this._description;
 		}
 		if (this._message != null) {
@@ -422,7 +476,7 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected ensureRoot(force: boolean = false) {
+	protected ensureRoot(force: boolean = false): RootNode {
 		if (this.root == null || force) {
 			this.root?.dispose();
 			this.root = this.getRoot();
@@ -431,23 +485,68 @@ export abstract class ViewBase<
 		return this.root;
 	}
 
+	/** Tracks whether the view has been initialized and should avoid a duplicate refresh */
+	private _skipNextVisibilityChange: boolean = false;
+
+	private _loadingPromise: Promise<any> | undefined;
+
+	private trackAsLoading<T>(promise: T | Promise<T>): T | Promise<T> {
+		if (!isPromise(promise)) return promise;
+
+		const chainedPromise = this._loadingPromise != null ? this._loadingPromise.finally(() => promise) : promise;
+		const last = chainedPromise
+			.catch(() => {})
+			.finally(() => {
+				if (this._loadingPromise === last) {
+					this._loadingPromise = undefined;
+				}
+			});
+		this._loadingPromise = last;
+
+		return promise;
+	}
+
+	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
+		if (!this.grouped || node !== this.root) return promise;
+
+		const ensureGroupedHeaderNode = (children: ViewNode[]): ViewNode[] => {
+			if (!children.length) return children;
+
+			const index = children.findIndex(n => n instanceof GroupedHeaderNode);
+			if (index === 0) return children.length === 1 ? [] : children;
+
+			if (index === -1) {
+				children.unshift(new GroupedHeaderNode(this as unknown as View, node));
+			} else if (index > 0) {
+				children.unshift(children.splice(index, 1)[0]);
+			}
+
+			return children;
+		};
+
+		if (!isPromise(promise)) return ensureGroupedHeaderNode(promise);
+
+		return promise.then(c => ensureGroupedHeaderNode(c));
+	}
+
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
-		if (node != null) return node.getChildren();
+		if (node != null) {
+			node.splatted ??= true;
+			return this.trackAsLoading(this.addHeaderNode(node, node.getChildren()));
+		}
+
+		// If we are already visible, then skip the next visibility change event otherwise we end up refreshing twice
+		this._skipNextVisibilityChange = this.tree?.visible ?? false;
 
 		const root = this.ensureRoot();
-		const children = root.getChildren();
-		if (!this.initialized) {
-			if (isPromise(children)) {
-				void children.then(() => {
-					if (!this.initialized) {
-						this.initialized = true;
-						setTimeout(() => this._onDidInitialize.fire(), 1);
-					}
-				});
-			} else {
-				this.initialized = true;
-				setTimeout(() => this._onDidInitialize.fire(), 1);
-			}
+		root.splatted ??= true;
+		const children = this.trackAsLoading(this.addHeaderNode(root, root.getChildren()));
+
+		if (this.initialized.pending) {
+			queueMicrotask(async () => {
+				await children;
+				setTimeout(() => this.initialized.fulfill(), 1);
+			});
 		}
 
 		return children;
@@ -458,13 +557,18 @@ export abstract class ViewBase<
 	}
 
 	getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
-		return node.getTreeItem();
+		// If this node gets requested, ensure the splatted flag is cleared
+		node.splatted = false;
+		return this.trackAsLoading(node.getTreeItem());
 	}
 
-	getViewDescription(count?: number) {
+	getViewDescription(count?: number): string | undefined {
 		return (
-			`${this.grouped ? `${this.name.toLocaleLowerCase()} ` : ''}${count != null ? `(${count})` : ''}` ||
-			undefined
+			(this.grouped
+				? `${this.name.toLocaleLowerCase()}${count != null ? ` (${count})` : ''}`
+				: count != null
+					? `(${count})`
+					: '') || undefined
 		);
 	}
 
@@ -472,15 +576,17 @@ export abstract class ViewBase<
 		return node.resolveTreeItem?.(item, token) ?? item;
 	}
 
-	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
+	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>): void {
+		this._expandedNodes.delete(e.element);
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
 
-	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>) {
+	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>): void {
+		this._expandedNodes.add(e.element);
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
 	}
 
-	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
+	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>): void {
 		try {
 			for (const [node, state] of e.items) {
 				if (node.id == null) {
@@ -495,17 +601,23 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>): void {
 		this._onDidChangeSelection.fire(e);
 		this.notifySelections();
 	}
 
-	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (e.visible) {
-			void this.container.usage.track(`${this.trackingFeature}:shown`);
+			void this.container.usage.track(`${this.trackingFeature}:shown`).catch();
 		}
 
-		this._onDidChangeVisibility.fire(e);
+		const skip = this._skipNextVisibilityChange;
+		this._skipNextVisibilityChange = false;
+
+		if (!skip || !e.visible) {
+			this._onDidChangeVisibility.fire(e);
+		}
+
 		if (e.visible) {
 			this.notifySelections();
 		}
@@ -599,14 +711,12 @@ export abstract class ViewBase<
 			}
 		}
 
-		if (this.initialized) return find.call(this);
+		if (!this.initialized.pending) return find.call(this);
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
 		void this.show({ preserveFocus: true });
 		// Since we have to show the view, give the view time to load and let the callstack unwind before we try to find the node
-		return new Promise<ViewNode | undefined>(resolve =>
-			once(this._onDidInitialize.event)(() => resolve(find.call(this)), this),
-		);
+		return this.initialized.promise.then(() => find.call(this));
 	}
 
 	private async findNodeCoreBFS(
@@ -648,8 +758,13 @@ export abstract class ViewBase<
 				}
 			}
 
+			// If the node is splatted don't count it against the depth
+			if (node.splatted) {
+				depth--;
+			}
+
 			children = await node.getChildren();
-			if (children.length === 0) continue;
+			if (!children.length) continue;
 
 			while (node != null && !isPageableViewNode(node)) {
 				node = await node.getSplattedChild?.();
@@ -686,36 +801,13 @@ export abstract class ViewBase<
 		return undefined;
 	}
 
-	protected async ensureRevealNode(
-		node: ViewNode,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
-		// Not sure why I need to reveal each parent, but without it the node won't be revealed
-		const nodes: ViewNode[] = [];
-
-		let parent: ViewNode | undefined = node;
-		while (parent != null) {
-			nodes.push(parent);
-			parent = parent.getParent();
-		}
-
-		if (nodes.length > 1) {
-			nodes.pop();
-		}
-
-		for (const n of nodes.reverse()) {
-			try {
-				await this.reveal(n, options);
-			} catch {}
-		}
+	private _expandedNodes = new WeakSet<ViewNode>();
+	isNodeExpanded(node: ViewNode): boolean {
+		return this._expandedNodes.has(node);
 	}
 
 	@debug()
-	async refresh(reset: boolean = false) {
+	async refresh(reset: boolean = false): Promise<void> {
 		// If we are resetting, make sure to clear any saved node state
 		if (reset) {
 			this.nodeState.reset();
@@ -727,44 +819,90 @@ export abstract class ViewBase<
 	}
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
-	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
-		const cancel = await node.refresh?.(reset);
-		if (!force && cancel === true) return;
+	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false): Promise<void> {
+		const result = await node.refresh?.(reset);
+		if (!force && result?.cancel === true) return;
 
 		this.triggerNodeChange(node);
 	}
 
 	@log<ViewBase<Type, RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
-	async reveal(
-		node: ViewNode,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
+	async reveal(node: ViewNode, options?: RevealOptions): Promise<void> {
+		if (this.initialized.pending) {
+			await this.initialized.promise;
+		}
+
+		return this.revealCore(node, undefined, options);
+	}
+
+	async revealDeep(node: ViewNode, options?: RevealOptions): Promise<void>;
+	async revealDeep(node: ViewNode, parents: ViewNode[], options?: RevealOptions): Promise<void>;
+	@log<ViewBase<Type, RootNode, ViewConfig>['revealDeep']>({
+		args: {
+			0: n => n.toString(),
+			1: false,
 		},
-	) {
+	})
+	async revealDeep(
+		node: ViewNode,
+		parents: ViewNode[] | RevealOptions | undefined,
+		options?: RevealOptions,
+	): Promise<void> {
+		if (this.initialized.pending) {
+			await this.initialized.promise;
+		}
+
+		if (!Array.isArray(parents)) {
+			options = parents;
+			parents = [];
+
+			let parent: ViewNode | undefined = node;
+			while (parent != null) {
+				parent = parent.getParent();
+				if (parent == null) break;
+
+				parents.unshift(parent);
+			}
+		}
+
+		let root: ViewNode = this.ensureRoot();
+		for (const node of parents) {
+			await this.revealCore(node, root, { expand: true, focus: false, select: false });
+			root = node;
+		}
+
+		return this.revealCore(node, root, options);
+	}
+
+	private async revealCore(node: ViewNode, root: ViewNode | undefined, options?: RevealOptions): Promise<void> {
 		if (this.tree == null) return;
 
+		const scope = getLogScope();
+
 		try {
-			await this.tree.reveal(node, options);
+			while (this._loadingPromise != null) {
+				await this._loadingPromise;
+			}
+
+			await this.tree?.reveal(node, options);
 		} catch (ex) {
-			Logger.error(ex);
-			debugger;
+			if (!node.id || root == null) {
+				Logger.error(ex, scope);
+				debugger;
+			}
 		}
 	}
 
 	@log()
-	async show(options?: { preserveFocus?: boolean }) {
+	async show(options?: { preserveFocus?: boolean }): Promise<void> {
 		const scope = getLogScope();
 
 		try {
-			const command = `${this.grouped ? 'gitlens.views.scm.grouped' : this.id}.focus` as const;
+			const command = getViewFocusCommand(this.grouped ? 'gitlens.views.scm.grouped' : this.id);
 			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
-			if (!this.initialized) {
+			if (this.initialized.pending) {
 				void executeCoreCommand(command, options);
-				await new Promise<void>(resolve => {
-					void once(this._onDidInitialize.event)(() => resolve(), this);
-				});
+				await this.initialized.promise;
 			}
 
 			void (await executeCoreCommand(command, options));
@@ -774,7 +912,7 @@ export abstract class ViewBase<
 	}
 
 	// @debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
-	getNodeLastKnownLimit(node: PageableViewNode) {
+	getNodeLastKnownLimit(node: PageableViewNode): number | undefined {
 		return this._lastKnownLimits.get(node.id);
 	}
 
@@ -786,7 +924,7 @@ export abstract class ViewBase<
 		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
 		context?: Record<string, unknown>,
-	) {
+	): Promise<void> {
 		if (previousNode != null) {
 			await this.reveal(previousNode, { select: true });
 		}
@@ -799,14 +937,57 @@ export abstract class ViewBase<
 		args: { 0: n => n.toString() },
 		singleLine: true,
 	})
-	resetNodeLastKnownLimit(node: PageableViewNode) {
+	resetNodeLastKnownLimit(node: PageableViewNode): void {
 		this._lastKnownLimits.delete(node.id);
 	}
 
+	private _pendingNodeChanges = new Set<ViewNode | undefined>();
+	private _processingNodeChanges = false;
+
 	@debug<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
-	triggerNodeChange(node?: ViewNode) {
+	triggerNodeChange(node?: ViewNode): void {
 		// Since the root node won't actually refresh, force everything
-		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
+		const target = node != null && node !== this.root ? node : undefined;
+
+		// Clear all queued changes if this is a full-refresh (`undefined`)
+		if (target == null) {
+			this._pendingNodeChanges.clear();
+			this._pendingNodeChanges.add(undefined);
+		}
+		// Don't queue if a full-refresh or this node is already queued
+		else if (this._pendingNodeChanges.has(undefined) || this._pendingNodeChanges.has(target)) {
+			return;
+		} else {
+			this._pendingNodeChanges.add(target);
+		}
+
+		// Only start processing if not already processing
+		if (!this._processingNodeChanges) {
+			this._processingNodeChanges = true;
+			queueMicrotask(() => this.processNextNodeChange());
+		}
+	}
+
+	private async processNextNodeChange(): Promise<void> {
+		while (this._pendingNodeChanges.size > 0) {
+			const target = first(this._pendingNodeChanges.values());
+
+			// Wait until all loading is complete (avoids Element with id '...' already exists errors)
+			while (this._loadingPromise != null) {
+				await this._loadingPromise;
+			}
+
+			// Clear all pending changes if this was a full-refresh
+			if (target == null) {
+				this._pendingNodeChanges.clear();
+			} else {
+				this._pendingNodeChanges.delete(target);
+			}
+
+			this._onDidChangeTreeData.fire(target);
+		}
+
+		this._processingNodeChanges = false;
 	}
 
 	protected abstract readonly configKey: ViewsConfigKeys;
@@ -885,14 +1066,14 @@ export class ViewNodeState implements Disposable {
 	private _store: Map<string, Map<string, unknown>> | undefined;
 	private _stickyStore: Map<string, Map<string, unknown>> | undefined;
 
-	dispose() {
+	dispose(): void {
 		this.reset();
 
 		this._stickyStore?.clear();
 		this._stickyStore = undefined;
 	}
 
-	reset() {
+	reset(): void {
 		this._store?.clear();
 		this._store = undefined;
 	}
@@ -974,7 +1155,7 @@ export class ViewNodeState implements Disposable {
 	}
 }
 
-export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
+export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]): void {
 	if (!oldChildren?.length) return;
 
 	const children = newChildren?.length ? oldChildren.filter(c => !newChildren.includes(c)) : [...oldChildren];
@@ -992,4 +1173,10 @@ export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren
 			child.dispose();
 		}
 	}
+}
+
+export interface RevealOptions {
+	expand?: boolean | number;
+	focus?: boolean;
+	select?: boolean;
 }

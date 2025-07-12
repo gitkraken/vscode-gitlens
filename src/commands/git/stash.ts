@@ -1,21 +1,26 @@
-import type { QuickPickItem, Uri } from 'vscode';
-import { QuickInputButtons, window } from 'vscode';
+import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
+import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { reveal, showDetailsView } from '../../git/actions/stash';
+import { revealStash, showStashInDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
+import type { AIModel } from '../../plus/ai/models/model';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { Logger } from '../../system/logger';
-import { pad } from '../../system/string';
-import { getContext } from '../../system/vscode/context';
-import { formatPath } from '../../system/vscode/formatPath';
+import { configuration } from '../../system/-webview/configuration';
+import { getContext } from '../../system/-webview/context';
+import { formatPath } from '../../system/-webview/formatPath';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
+import { defer } from '../../system/promise';
+import { pad, pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -107,9 +112,6 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['rename', 'Rename'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	if (subcommand === 'drop') {
-		title = 'Stashes';
-	}
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }
 
@@ -180,7 +182,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		return this.subcommand === 'drop' ? false : super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 
@@ -322,10 +324,10 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					gitStash: await this.container.git.getStash(state.repo.path),
+					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null
-							? `No stashes found in ${state.repo.formattedName}`
+							? `No stashes found in ${state.repo.name}`
 							: 'Choose a stash to apply to your working tree',
 					picked: state.reference?.ref,
 				});
@@ -345,16 +347,16 @@ export class StashGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				await state.repo.stashApply(
+				await state.repo.git.stash?.applyStash(
 					// pop can only take a stash index, e.g. `stash@{1}`
-					state.subcommand === 'pop' ? `stash@{${state.reference.number}}` : state.reference.ref,
+					state.subcommand === 'pop' ? `stash@{${state.reference.stashNumber}}` : state.reference.ref,
 					{ deleteAfter: state.subcommand === 'pop' },
 				);
 
 				if (state.reference.message) {
-					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
-					if (scmRepository != null && !scmRepository.inputBox.value) {
-						scmRepository.inputBox.value = state.reference.message;
+					const scmRepo = await state.repo.git.getScmRepository();
+					if (scmRepo != null && !scmRepo.inputBox.value) {
+						scmRepo.inputBox.value = state.reference.message;
 					}
 				}
 			} catch (ex) {
@@ -384,7 +386,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						state.subcommand === 'pop'
 							? `Will delete ${getReferenceLabel(
 									state.reference,
-							  )} and apply the changes to the working tree`
+								)} and apply the changes to the working tree`
 							: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
 					item: state.subcommand,
 				},
@@ -396,7 +398,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							? `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`
 							: `Will delete ${getReferenceLabel(
 									state.reference,
-							  )} and apply the changes to the working tree`,
+								)} and apply the changes to the working tree`,
 					item: state.subcommand === 'pop' ? 'apply' : 'pop',
 				},
 			],
@@ -406,15 +408,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, expand: true });
 					}
 				},
 			},
@@ -427,9 +423,9 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || !state.references?.length) {
 				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
-					gitStash: await this.container.git.getStash(state.repo.path),
+					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose stashes to delete',
+						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose stashes to delete',
 					picked: state.references?.map(r => r.ref),
 				});
 				// Always break on the first step (so we will go back)
@@ -438,21 +434,26 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
+			context.title = getTitle(
+				pluralize('Stash', state.references.length, { only: true, plural: 'Stashes' }),
+				state.subcommand,
+			);
+
 			const result = yield* this.dropCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
 
 			endSteps(state);
 
-			state.references.sort((a, b) => parseInt(b.number, 10) - parseInt(a.number, 10));
+			state.references.sort((a, b) => parseInt(b.stashNumber, 10) - parseInt(a.stashNumber, 10));
 			for (const ref of state.references) {
 				try {
 					// drop can only take a stash index, e.g. `stash@{1}`
-					await state.repo.stashDelete(`stash@{${ref.number}}`, ref.ref);
+					await state.repo.git.stash?.deleteStash(`stash@{${ref.stashNumber}}`, ref.ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
 					void showGenericErrorMessage(
-						`Unable to delete stash@{${ref.number}}${ref.message ? `: ${ref.message}` : ''}`,
+						`Unable to delete stash@{${ref.stashNumber}}${ref.message ? `: ${ref.message}` : ''}`,
 					);
 				}
 			}
@@ -481,9 +482,9 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
-					gitStash: await this.container.git.getStash(state.repo.path),
+					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
+						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose a stash',
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)
@@ -520,8 +521,8 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.message == null) {
 				if (state.message == null) {
-					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
-					state.message = scmRepository?.inputBox.value;
+					const scmRepo = await state.repo.git.getScmRepository();
+					state.message = scmRepo?.inputBox.value;
 				}
 
 				const result = yield* this.pushCommandInputMessageStep(state, context);
@@ -540,9 +541,9 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			try {
 				if (state.flags.includes('--snapshot')) {
-					await state.repo.stashSaveSnapshot(state.message);
+					await state.repo.git.stash?.saveSnapshot(state.message);
 				} else {
-					await state.repo.stashSave(state.message, state.uris, {
+					await state.repo.git.stash?.saveStash(state.message, state.uris, {
 						includeUntracked: state.flags.includes('--include-untracked'),
 						keepIndex: state.flags.includes('--keep-index'),
 						onlyStaged: state.flags.includes('--staged'),
@@ -580,9 +581,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						);
 
 						if (result === confirm) {
-							if (state.uris == null) {
-								state.uris = state.onlyStagedUris;
-							}
+							state.uris ??= state.onlyStagedUris;
 							state.flags.splice(state.flags.indexOf('--staged'), 1);
 							continue;
 						}
@@ -609,6 +608,13 @@ export class StashGitCommand extends QuickCommand<State> {
 		state: PushStepState,
 		context: Context,
 	): AsyncStepResultGenerator<string> {
+		using scope = startLogScope(`${getLoggableName(this)}.pushCommandInputMessageStep`, false);
+
+		const generateMessageButton: QuickInputButton = {
+			iconPath: new ThemeIcon('sparkle'),
+			tooltip: 'Generate Stash Message',
+		};
+
 		const step = createInputStep({
 			title: appendReposToTitle(
 				context.title,
@@ -619,19 +625,74 @@ export class StashGitCommand extends QuickCommand<State> {
 							state.uris.length === 1
 								? formatPath(state.uris[0], { fileOnly: true })
 								: `${state.uris.length} files`
-					  }`
+						}`
 					: undefined,
 			),
 			placeholder: 'Please provide a stash message',
 			value: state.message,
 			prompt: 'Enter stash message',
-		});
+			buttons:
+				getContext('gitlens:gk:organization:ai:enabled') && configuration.get('ai.enabled')
+					? [QuickInputButtons.Back, generateMessageButton]
+					: [QuickInputButtons.Back],
+			// Needed to clear any validation errors because of AI generation
+			validate: (_value: string | undefined): [boolean, string | undefined] => [true, undefined],
+			onDidClickButton: async (input, button) => {
+				if (button === generateMessageButton) {
+					using resume = step.freeze?.();
 
+					try {
+						const diff = await state.repo.git.diff.getDiff?.(
+							state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
+							undefined,
+							state.uris?.length ? { uris: state.uris } : undefined,
+						);
+						if (!diff?.contents) {
+							void window.showInformationMessage('No changes to generate a stash message from.');
+							return;
+						}
+
+						const generating = defer<AIModel>();
+						generating.promise.then(
+							m =>
+								(input.validationMessage = {
+									severity: InputBoxValidationSeverity.Info,
+									message: `$(loading~spin) Generating stash message with ${m.name}...`,
+								}),
+							() => (input.validationMessage = undefined),
+						);
+
+						const result = await this.container.ai.generateStashMessage(
+							diff.contents,
+							{ source: 'quick-wizard' },
+							{ generating: generating },
+						);
+
+						resume?.dispose();
+						input.validationMessage = undefined;
+
+						if (result === 'cancelled') return;
+
+						const message = result?.parsed.summary;
+						if (message != null) {
+							state.message = message;
+							input.value = message;
+						}
+					} catch (ex) {
+						Logger.error(ex, scope, 'generateStashMessage');
+
+						input.validationMessage = {
+							severity: InputBoxValidationSeverity.Error,
+							message: ex.message,
+						};
+					}
+				}
+			},
+		});
 		const value: StepSelection<typeof step> = yield step;
 		if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 			return StepResultBreak;
 		}
-
 		return value;
 	}
 
@@ -719,9 +780,9 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					gitStash: await this.container.git.getStash(state.repo.path),
+					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to rename',
+						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose a stash to rename',
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)
@@ -745,7 +806,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				await state.repo.stashRename(
+				await state.repo.git.stash?.renameStash(
 					state.reference.name,
 					state.reference.ref,
 					state.message,
@@ -793,15 +854,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, expand: true });
 					}
 				},
 			},

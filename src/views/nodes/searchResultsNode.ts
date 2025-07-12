@@ -1,21 +1,16 @@
-import { md5 } from '@env/crypto';
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
+import { md5 } from '@env/crypto';
 import type { SearchQuery } from '../../constants.search';
 import { executeGitCommand } from '../../git/actions';
-import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { CommitsQueryResults } from '../../git/queryResults';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
-import { gate } from '../../system/decorators/gate';
-import { debug } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
-import type { PageableViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import { ResultsCommitsNode } from './resultsCommitsNode';
-
-let instanceId = 0;
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ResultsCommitsNodeBase } from './resultsCommitsNode';
 
 interface SearchQueryResults {
 	readonly label: string;
@@ -24,41 +19,56 @@ interface SearchQueryResults {
 	more?(limit: number | undefined): Promise<void>;
 }
 
-export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompareView> implements PageableViewNode {
-	private _instanceId: number;
+export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', SearchAndCompareView> {
+	private _search: SearchQuery;
+	private _labels: {
+		label: string;
+		queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
+		resultsType?: { singular: string; plural: string };
+	};
+	private _storedAt: number;
 
 	constructor(
 		view: SearchAndCompareView,
-		protected override readonly parent: ViewNode,
-		public readonly repoPath: string,
-		private _search: SearchQuery,
-		private _labels: {
+		parent: ViewNode,
+		repoPath: string,
+		search: SearchQuery,
+		labels: {
 			label: string;
-			queryLabel:
-				| string
-				| {
-						label: string;
-						resultsType?: { singular: string; plural: string };
-				  };
+			queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
 			resultsType?: { singular: string; plural: string };
 		},
-		private _searchQueryOrLog?:
+		searchQueryOrLog?:
 			| ((limit: number | undefined) => Promise<CommitsQueryResults>)
 			| Promise<GitLog | undefined>
 			| GitLog
 			| undefined,
-		private _storedAt: number = 0,
+		storedAt: number = 0,
 	) {
-		super('search-results', GitUri.fromRepoPath(repoPath), view, parent);
+		const query = createSearchQuery(view, repoPath, search, labels, searchQueryOrLog);
+		const deferred = searchQueryOrLog == null;
 
-		this._instanceId = instanceId++;
-		this.updateContext({ searchId: `${getSearchQueryComparisonKey(this._search)}+${this._instanceId}` });
-		this._uniqueId = getViewNodeId(this.type, this.context);
+		super(
+			'search-results',
+			view,
+			parent,
+			repoPath,
+			labels.label,
+			{ query: query, deferred: deferred },
+			{ expand: false },
+		);
+
+		this._search = search;
+		this._labels = labels;
+		this._storedAt = storedAt;
+
+		this.updateContext({ searchId: getSearchQueryComparisonKey(this._search) });
+		this._uniqueId = getViewNodeId('search-results', this.context);
 
 		// If this is a new search, save it
 		if (this._storedAt === 0) {
 			this._storedAt = Date.now();
-			void this.store(true);
+			void this.store(true).catch();
 		}
 	}
 
@@ -78,70 +88,21 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		return this._search;
 	}
 
-	dismiss() {
+	dismiss(): void {
 		void this.remove(true);
 	}
 
-	private _resultsNode: ResultsCommitsNode | undefined;
-	private ensureResults() {
-		if (this._resultsNode == null) {
-			let deferred;
-			if (this._searchQueryOrLog == null) {
-				deferred = true;
-				this._searchQueryOrLog = this.getSearchQuery({
-					label: this._labels.queryLabel,
-				});
-			} else if (typeof this._searchQueryOrLog !== 'function') {
-				this._searchQueryOrLog = this.getSearchQuery(
-					{
-						label: this._labels.queryLabel,
-					},
-					this._searchQueryOrLog,
-				);
-			}
-
-			this._resultsNode = new ResultsCommitsNode(
-				this.view,
-				this,
-				this.repoPath,
-				this._labels.label,
-				{
-					query: this._searchQueryOrLog,
-					deferred: deferred,
-				},
-				{
-					expand: false,
-				},
-				true,
-			);
-		}
-
-		return this._resultsNode;
-	}
-
-	async getChildren(): Promise<ViewNode[]> {
-		return this.ensureResults().getChildren();
-	}
-
-	async getTreeItem(): Promise<TreeItem> {
-		const item = await this.ensureResults().getTreeItem();
+	override async getTreeItem(): Promise<TreeItem> {
+		const item = await super.getTreeItem();
 		item.id = this.id;
 		item.contextValue = ContextValues.SearchResults;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.view.container.git.getRepository(this.repoPath);
-			item.description = repo?.formattedName ?? this.repoPath;
+			item.description = repo?.name ?? this.repoPath;
 		}
 		item.iconPath = new ThemeIcon('search');
 
 		return item;
-	}
-
-	get hasMore() {
-		return this.ensureResults().hasMore;
-	}
-
-	async loadMore(limit?: number) {
-		return this.ensureResults().loadMore(limit);
 	}
 
 	async edit(search?: {
@@ -157,16 +118,12 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 			resultsType?: { singular: string; plural: string };
 		};
 		log: Promise<GitLog | undefined> | GitLog | undefined;
-	}) {
+	}): Promise<void> {
 		if (search == null) {
 			await executeGitCommand({
 				command: 'search',
 				prefillOnly: true,
-				state: {
-					repo: this.repoPath,
-					...this.search,
-					showResultsInSideBar: this,
-				},
+				state: { repo: this.repoPath, ...this.search, showResultsInSideBar: this },
 			});
 
 			return;
@@ -177,84 +134,14 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 
 		this._search = search.pattern;
 		this._labels = search.labels;
-		this._searchQueryOrLog = search.log;
-		this._resultsNode = undefined;
+		this._results.query = createSearchQuery(this.view, this.repoPath, this._search, this._labels);
+		this._results.deferred = true;
 
 		// Remove the existing stored item and save a new one
 		await this.replace(currentId, true);
 
-		void this.triggerChange(false);
+		void this.triggerChange(true);
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		this._resultsNode?.refresh(reset);
-	}
-
-	private getSearchLabel(
-		label:
-			| string
-			| {
-					label: string;
-					resultsType?: { singular: string; plural: string };
-			  },
-		log: GitLog | undefined,
-	): string {
-		if (typeof label === 'string') return label;
-
-		const count = log?.count ?? 0;
-
-		const resultsType =
-			label.resultsType === undefined
-				? { singular: 'search result', plural: 'search results' }
-				: label.resultsType;
-
-		return `${pluralize(resultsType.singular, count, {
-			format: c => (log?.hasMore ? `${c}+` : undefined),
-			plural: resultsType.plural,
-			zero: 'No',
-		})} ${label.label}`;
-	}
-
-	private getSearchQuery(
-		options: {
-			label:
-				| string
-				| {
-						label: string;
-						resultsType?: { singular: string; plural: string };
-				  };
-		},
-		log?: Promise<GitLog | undefined> | GitLog,
-	): (limit: number | undefined) => Promise<SearchQueryResults> {
-		let useCacheOnce = true;
-
-		return async (limit: number | undefined) => {
-			log = await (log ?? this.view.container.git.richSearchCommits(this.repoPath, this.search));
-
-			if (!useCacheOnce && log?.query != null) {
-				log = await log.query(limit);
-			}
-			useCacheOnce = false;
-
-			const results: Mutable<SearchQueryResults> = {
-				label: this.getSearchLabel(options.label, log),
-				log: log,
-				hasMore: log?.hasMore ?? false,
-			};
-			if (results.hasMore) {
-				results.more = async (limit: number | undefined) => {
-					results.log = (await results.log?.more?.(limit)) ?? results.log;
-
-					results.label = this.getSearchLabel(options.label, results.log);
-					results.hasMore = results.log?.hasMore ?? true;
-				};
-			}
-
-			return results;
-		};
 	}
 
 	private getStorageId() {
@@ -283,4 +170,73 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 			silent,
 		);
 	}
+}
+
+function createSearchQuery(
+	view: SearchAndCompareView,
+	repoPath: string,
+	search: SearchQuery,
+	labels: {
+		label: string;
+		queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
+		resultsType?: { singular: string; plural: string };
+	},
+	searchQueryOrLog?:
+		| ((limit: number | undefined) => Promise<CommitsQueryResults>)
+		| Promise<GitLog | undefined>
+		| GitLog
+		| undefined,
+): (limit: number | undefined) => Promise<CommitsQueryResults> {
+	if (typeof searchQueryOrLog === 'function') return searchQueryOrLog;
+
+	// Create a search query function
+	return async (limit: number | undefined) => {
+		let log = searchQueryOrLog;
+		if (log == null) {
+			log = await view.container.git
+				.getRepositoryService(repoPath)
+				.commits.searchCommits(search, { source: 'view', detail: 'search&compare' })
+				.then(r => r.log);
+		} else if (log instanceof Promise) {
+			log = await log;
+		}
+
+		if (log?.query != null) {
+			log = await log.query(limit);
+		}
+
+		const count = log?.count ?? 0;
+		const queryLabel = labels.queryLabel;
+		const resultsType =
+			typeof queryLabel === 'string'
+				? { singular: 'search result', plural: 'search results' }
+				: (queryLabel.resultsType ?? { singular: 'search result', plural: 'search results' });
+
+		const label = `${pluralize(resultsType.singular, count, {
+			format: c => (log?.hasMore ? `${c}+` : String(c)),
+			plural: resultsType.plural,
+			zero: 'No',
+		})} ${typeof queryLabel === 'string' ? queryLabel : queryLabel.label}`;
+
+		const results: Mutable<SearchQueryResults> = {
+			label: label,
+			log: log,
+			hasMore: log?.hasMore ?? false,
+		};
+
+		if (results.hasMore) {
+			results.more = async (limit: number | undefined) => {
+				results.log = (await results.log?.more?.(limit)) ?? results.log;
+				const newCount = results.log?.count ?? 0;
+				results.label = `${pluralize(resultsType.singular, newCount, {
+					format: c => (results.log?.hasMore ? `${c}+` : String(c)),
+					plural: resultsType.plural,
+					zero: 'No',
+				})} ${typeof queryLabel === 'string' ? queryLabel : queryLabel.label}`;
+				results.hasMore = results.log?.hasMore ?? true;
+			};
+		}
+
+		return results;
+	};
 }

@@ -1,23 +1,23 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 @command()
 export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenCurrentBranchOnRemote);
+		super('gitlens.openCurrentBranchOnRemote');
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
@@ -26,9 +26,9 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 		if (repository == null) return;
 
 		try {
-			const branch = await repository.git.getBranch();
+			const branch = await repository.git.branches.getBranch();
 			if (branch?.detached) {
-				void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+				void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 					resource: {
 						type: RemoteResourceType.Commit,
 						sha: branch.sha ?? 'HEAD',
@@ -48,7 +48,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 				branchName = branch.name;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: branchName ?? 'HEAD',

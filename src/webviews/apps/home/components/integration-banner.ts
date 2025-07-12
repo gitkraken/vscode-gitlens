@@ -1,10 +1,12 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
+import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand } from '../../../home/protocol';
 import type { GlButton } from '../../shared/components/button';
-import { ipcContext } from '../../shared/context';
+import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
 import '../../shared/components/button';
@@ -42,7 +44,7 @@ export class GlIntegrationBanner extends LitElement {
 	@query('gl-button')
 	private _button!: GlButton;
 
-	override render() {
+	override render(): unknown {
 		if (this.closed || this._state.hasAnyIntegrationConnected || this._state.integrationBannerCollapsed) {
 			return nothing;
 		}
@@ -57,7 +59,10 @@ export class GlIntegrationBanner extends LitElement {
 				<button-container>
 					<gl-button
 						appearance="secondary"
-						href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+						href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+							'gitlens.plus.cloudIntegrations.connect',
+							{ source: { source: 'home' } },
+						)}"
 						full
 						><code-icon icon="plug"></code-icon> Connect Integrations</gl-button
 					>
@@ -78,7 +83,7 @@ export class GlIntegrationBanner extends LitElement {
 		});
 	}
 
-	override focus() {
+	override focus(): void {
 		this._button.focus();
 	}
 }

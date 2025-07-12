@@ -1,17 +1,27 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
-import type { View } from '../viewBase';
+import { first } from '../../system/iterable';
+import type {
+	ViewsWithBranchesNode,
+	ViewsWithRemotesNode,
+	ViewsWithTagsNode,
+	ViewsWithWorktreesNode,
+} from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { BranchNode } from './branchNode';
 import type { TagNode } from './tagNode';
+import type { WorktreeNode } from './worktreeNode';
 
-export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
+export class BranchOrTagFolderNode extends ViewNode<
+	'branch-tag-folder',
+	ViewsWithBranchesNode | ViewsWithRemotesNode | ViewsWithTagsNode | ViewsWithWorktreesNode
+> {
 	constructor(
-		view: View,
+		view: ViewsWithBranchesNode | ViewsWithRemotesNode | ViewsWithTagsNode | ViewsWithWorktreesNode,
 		protected override readonly parent: ViewNode,
-		public readonly folderType: 'branch' | 'remote-branch' | 'tag',
-		public readonly root: HierarchicalItem<BranchNode | TagNode>,
+		public readonly folderType: 'branch' | 'remote-branch' | 'tag' | 'worktree',
+		public readonly root: HierarchicalItem<BranchNode | TagNode | WorktreeNode>,
 		public readonly repoPath: string,
 		public readonly folderName: string,
 		public readonly relativePath: string | undefined,
@@ -31,14 +41,36 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this.root.descendants === undefined || this.root.children === undefined) return [];
+		if (!this.root.descendants?.length || !this.root.children?.size) return [];
 
-		const children: (BranchOrTagFolderNode | BranchNode | TagNode)[] = [];
+		const children: (BranchOrTagFolderNode | BranchNode | TagNode | WorktreeNode)[] = [];
+		const { compact } = this.view.config.branches;
 
 		for (const folder of this.root.children.values()) {
-			if (folder.value === undefined) {
-				// If the folder contains the current branch, expand it by default
-				const expand = folder.descendants?.some(n => n.is('branch') && (n.current || n.worktree?.opened));
+			if (folder.value != null) {
+				// Make sure to set the parent
+				folder.value.parent = this.folderName ? this : this.parent;
+				children.push(folder.value);
+			}
+
+			if (!folder.children?.size) continue;
+			if (folder.children.size === 1 && compact) {
+				const child = first(folder.children.values());
+				if (child?.value != null) {
+					// Make sure to set the parent
+					child.value.parent = this.folderName ? this : this.parent;
+					if ('compacted' in child.value && typeof child.value.compacted === 'boolean') {
+						child.value.compacted = true;
+					}
+					children.push(child.value);
+				}
+			} else {
+				// If the folder contains the current branch or an active worktree, expand it by default
+				const expand = folder.descendants?.some(
+					n =>
+						(n.is('branch') && (n.current || n.worktree?.opened)) ||
+						(n.is('worktree') && n.worktree?.opened),
+				);
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,
@@ -51,12 +83,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 						expand,
 					),
 				);
-				continue;
 			}
-
-			// Make sure to set the parent
-			folder.value.parent = this.folderName ? this : this.parent;
-			children.push(folder.value);
 		}
 
 		return children;
@@ -68,7 +95,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 			this._expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = ContextValues.Folder;
+		item.contextValue = ContextValues.BranchOrTagFolder;
 		item.iconPath = ThemeIcon.Folder;
 		item.tooltip = this.label;
 		return item;

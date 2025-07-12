@@ -2,23 +2,24 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vs
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { previewBadge, urls } from '../constants';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { gate } from '../system/decorators/gate';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { openUrl } from '../system/-webview/vscode/uris';
+import { openWorkspace } from '../system/-webview/vscode/workspaces';
 import { debug } from '../system/decorators/log';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { openUrl, openWorkspace } from '../system/vscode/utils';
 import { ViewNode } from './nodes/abstract/viewNode';
 import { MessageNode } from './nodes/common';
 import { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
+import type { RevealOptions } from './viewBase';
 import { disposeChildren, ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
@@ -29,6 +30,8 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 	private _children: (WorkspaceNode | MessageNode | RepositoriesNode)[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.message = undefined;
+
 		if (this._children == null) {
 			const children: (WorkspaceNode | MessageNode | RepositoriesNode)[] = [];
 
@@ -70,9 +73,8 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 		return item;
 	}
 
-	@gate()
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		if (this._children == null) return;
 
 		disposeChildren(this._children);
@@ -91,12 +93,12 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		this.disposables.push(container.workspaces.onDidResetWorkspaces(() => void this.refresh(true)));
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
 
-	protected getRoot() {
+	protected getRoot(): WorkspacesViewNode {
 		return new WorkspacesViewNode(this);
 	}
 
@@ -105,7 +107,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		return super.show(options);
 	}
 
-	async findWorkspaceNode(workspaceId: string, token?: CancellationToken) {
+	async findWorkspaceNode(workspaceId: string, token?: CancellationToken): Promise<ViewNode | undefined> {
 		return this.findNode((n: any) => n.workspace?.id === workspaceId, {
 			allowPaging: false,
 			maxDepth: 2,
@@ -118,14 +120,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		});
 	}
 
-	async revealWorkspaceNode(
-		workspaceId: string,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
+	async revealWorkspaceNode(workspaceId: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -136,7 +131,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				const node = await this.findWorkspaceNode(workspaceId, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
@@ -148,7 +143,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 			registerViewCommand(this.getQualifiedCommand('info'), () => openUrl(urls.workspaces), this),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(
@@ -313,7 +308,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

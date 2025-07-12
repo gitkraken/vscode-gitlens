@@ -24,7 +24,7 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 **GitLens Pro** takes your workflow to the next level by unlocking advanced features and seamless integrations:
 
-- **Accelerate PR reviews** with Launchpad, a clean and actionable PR hub built directly into VS Code.
+- **Accelerate PR reviews** and easily manage your end-to-end workflows with a clean and actionable PR, issue, and branch Home View built directly into VS Code.
 - **Manage commits effortlessly** using the Commit Graph, where you can execute advanced actions like rebase, merge, and more. With powerful search and filtering, quickly locate commits, branches, or files.
 - **Enhance collaboration** by integrating with platforms like GitHub, GitLab, and Bitbucket, reducing context switching. View and manage PRs directly in VS Code through Launchpad.
 
@@ -48,6 +48,27 @@ GitLens offers a wide range of features—here are the three most popular workfl
 - [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place. Prioritize tasks and identify bottlenecks right in VS Code with Launchpad when you integrate Github or other host providers. Work on multiple branches at once without disrupting your main workspace with Worktrees.
 
 - [**Streamline Collaboration**](#streamline-collaboration) &mdash; GitLens isn’t just for solo developers—it’s designed to enhance team collaboration. With Cloud Patches and Code Suggest, you can share and discuss suggested changes with any GitLens or GitKraken user, on multiple files and even PRs.
+
+## Home View - Your VS Code Workflow Hub
+
+Compact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue and create PRs in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
+
+## Accelerate Your Workflow with AI (Preview)
+
+GitLens leverages AI to simplify tedious tasks like writing commit messages, crafting pull request descriptions, generating changelogs and more—allowing you to focus on your code.
+
+- **Generate Commit and Stash Messages**: Quickly create descriptive commit or stash messages tailored to your code changes.
+
+- **Explain Commits**: Instantly understand the context of a commit through concise AI-generated explanations in the Inspect view.
+
+- **Open Pull Requests**: Automatically generate clear PR titles and descriptions directly from your branch changes, speeding up review cycles.
+
+- **Generate Changelogs**: Effortlessly summarize repository changes for release notes or documentation updates.
+- More coming soon!
+
+**Community Features**: Community users can generate commit messages for free if they are using GitHub Copilot or have a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account with an API key connected to other providers like OpenAI, Anthropic, DeepSeek, Gemini, etc.
+
+**Pro Features**: Subscribe to GitLens Pro to access all AI features with GitKraken AI (Preview)—no manual key management required.
 
 # Interactive Code History
 
@@ -266,18 +287,6 @@ All integrations provide automatic linking, while rich integrations with GitHub,
 
 Use autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.
 
-# GitKraken Labs
-
-Our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.
-
-## 🧪AI Explain Commit
-
-Use the Explain panel on the **Inspect** view to leverage AI to help you understand the changes introduced by a commit.
-
-## 🧪Automatically Generate Commit Message
-
-Use the `Generate Commit Message` command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.
-
 # Ready for GitLens Pro?
 
 When you're ready to unlock the full potential of GitLens and enjoy all the benefits, consider [upgrading to GitLens Pro](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web). With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
@@ -435,8 +444,10 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - Jean Pierre ([@jeanp413](https://github.com/jeanp413)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jeanp413)
 - Dawn Hwang ([@hwangh95](https://github.com/hwangh95)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=hwangh95)
 - Emmanuel Ferdman ([@emmanuel-ferdman](https://github.com/emmanuel-ferdman)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=emmanuel-ferdman)
+- Jordon Kashanchi ([@jordonkash](https://github.com/JordonKash)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jordonkash)
+- JounQin ([@JounQin](https://github.com/JounQin)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=JounQin)
+- Noritaka Kobayashi ([@noritaka1166](https://github.com/noritaka1166)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=noritaka1166)
 - Ehab Younes ([@EhabY](https://github.com/EhabY)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=EhabY)
-
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

@@ -63,6 +63,28 @@ export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<Promi
 	}
 }
 
+export async function batch<T>(items: T[], batchSize: number, task: (item: T) => Promise<void>): Promise<void> {
+	for (let i = 0; i < items.length; i += batchSize) {
+		const batch = items.slice(i, i + batchSize);
+		await Promise.allSettled(batch.map(item => task(item)));
+	}
+}
+
+export async function batchResults<T, R>(
+	items: T[],
+	batchSize: number,
+	task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<Awaited<R>>[]> {
+	const results: PromiseSettledResult<Awaited<R>>[] = [];
+
+	for (let i = 0; i < items.length; i += batchSize) {
+		const batch = items.slice(i, i + batchSize);
+		results.push(...(await Promise.allSettled(batch.map(item => task(item)))));
+	}
+
+	return results;
+}
+
 export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extends Error {
 	constructor(
 		public readonly promise: T,
@@ -187,6 +209,12 @@ export function getSettledValue<T>(
 	return promise?.status === 'fulfilled' ? promise.value : defaultValue;
 }
 
+export function getSettledValues<T extends string | number | boolean | symbol | bigint | object>(
+	promises: readonly PromiseSettledResult<T>[],
+): T[] {
+	return promises.map(getSettledValue).filter((v): v is T => v != null);
+}
+
 export function isPromise<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
 	return obj != null && (obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function');
 }
@@ -277,7 +305,7 @@ export function pauseOnCancelOrTimeout<T>(
 					setTimeout(() => continuation(r), 0);
 				}
 				return r;
-		  });
+			});
 }
 
 export async function pauseOnCancelOrTimeoutMap<Id, T>(
@@ -417,7 +445,7 @@ export async function pauseOnCancelOrTimeoutMapTuple<Id, T, U extends unknown[]>
 						promise.catch(() => undefined),
 						cancellation,
 						timeout,
-				  ).then(result => [id, [result as MaybePausedResult<T | undefined> | undefined, ...rest]] as const),
+					).then(result => [id, [result as MaybePausedResult<T | undefined> | undefined, ...rest]] as const),
 		),
 	);
 

@@ -1,12 +1,11 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand, TogglePreviewEnabledCommand } from '../../../home/protocol';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../shared/context';
+import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
 import '../../shared/components/button-container';
@@ -24,6 +23,10 @@ export class GlPreviewBanner extends LitElement {
 	static override styles = [
 		linkBase,
 		css`
+			.title {
+				margin-block-end: 0.4em;
+			}
+
 			.text-button {
 				padding: 0.4rem 0.8rem;
 			}
@@ -52,6 +55,10 @@ export class GlPreviewBanner extends LitElement {
 			.feedback {
 				white-space: nowrap;
 			}
+
+			p {
+				margin-block: 0;
+			}
 		`,
 	];
 
@@ -69,11 +76,11 @@ export class GlPreviewBanner extends LitElement {
 	@query('button')
 	private _button!: HTMLButtonElement;
 
-	get isNewInstall() {
+	get isNewInstall(): boolean {
 		return this._state.newInstall;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this._state.previewEnabled !== true) {
 			return html`
 				<gl-tooltip placement="bottom">
@@ -95,26 +102,12 @@ export class GlPreviewBanner extends LitElement {
 
 		return html`
 			<gl-card>
-				<p><strong>Welcome to the ${this.isNewInstall ? 'GitLens ' : 'new '}Home View!</strong></p>
+				<h4 class="title">Welcome to the GitLens Home View</h4>
 				<p>
-					${this.isNewInstall
-						? html`This is a hub for your current, future, and recent work. `
-						: html`We've reimagined GitLens' Home to be a more helpful daily workflow tool. `}We're
-					continuing to refine this experience and welcome your
-					<a class="feedback" href="https://github.com/gitkraken/vscode-gitlens/discussions/3721"
-						><code-icon icon="feedback"></code-icon> feedback</a
-					>.
+					Streamline your workflow — effortlessly track, manage, and collaborate on your branches and pull
+					requests, all in one intuitive hub.
+					<a class="feedback" href="https://help.gitkraken.com/gitlens/home-view/">Learn more</a>
 				</p>
-				${when(
-					!this.isNewInstall,
-					() => html`
-						<button-container>
-							<gl-button appearance="secondary" @click=${() => this.togglePreview(true)} full
-								><code-icon icon="arrow-left"></code-icon> Revert to Old Home View</gl-button
-							>
-						</button-container>
-					`,
-				)}
 				<gl-button slot="actions" appearance="toolbar" tooltip="Dismiss Welcome" @click=${() => this.onClose()}
 					><code-icon icon="close"></code-icon
 				></gl-button>
@@ -139,7 +132,7 @@ export class GlPreviewBanner extends LitElement {
 		});
 	}
 
-	override focus() {
+	override focus(): void {
 		this._button?.focus();
 	}
 }

@@ -1,24 +1,25 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
-import { createReference } from '../git/models/reference';
+import { createReference } from '../git/utils/reference.utils';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { ActiveEditorCachedCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface ShowQuickCommitFileCommandArgs {
 	commit?: GitCommit | GitStashCommit;
@@ -31,14 +32,14 @@ export interface ShowQuickCommitFileCommandArgs {
 @command()
 export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 	static createMarkdownCommandLink(args: ShowQuickCommitFileCommandArgs): string {
-		return createMarkdownCommandLink<ShowQuickCommitFileCommandArgs>(Commands.ShowQuickCommitFile, args);
+		return createMarkdownCommandLink<ShowQuickCommitFileCommandArgs>('gitlens.showQuickCommitFileDetails', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.ShowQuickCommitFile);
+		super('gitlens.showQuickCommitFileDetails');
 	}
 
-	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs): Promise<void> {
 		if (context.type === 'editorLine') {
 			args = { ...args, line: context.line };
 		}
@@ -54,7 +55,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitFileCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitFileCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -110,9 +111,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				if (args.fileLog == null) {
 					const repoPath = args.commit?.repoPath ?? gitUri.repoPath;
-					args.commit = await this.container.git.getCommitForFile(repoPath, gitUri, {
-						ref: args.sha,
-					});
+					args.commit = await this.container.git
+						.getRepositoryService(repoPath!)
+						.commits.getCommitForFile(gitUri, args.sha);
 					if (args.commit == null) {
 						void showCommitNotFoundWarningMessage('Unable to show commit file details');
 
@@ -129,7 +130,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
 			if (isCommit(args.commit)) {
-				if (args.commit.files == null) {
+				if (!args.commit.hasFullDetails({ allowFilteredFiles: true })) {
 					await args.commit.ensureFullDetails();
 				}
 			}
@@ -152,14 +153,10 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 @command()
 export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
-		super([
-			Commands.ShowQuickCommitRevision,
-			Commands.ShowQuickCommitRevisionInDiffLeft,
-			Commands.ShowQuickCommitRevisionInDiffRight,
-		]);
+		super('gitlens.showQuickRevisionDetails');
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

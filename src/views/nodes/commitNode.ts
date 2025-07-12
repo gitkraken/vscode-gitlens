@@ -2,7 +2,6 @@ import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants.colors';
-import { Commands } from '../../constants.commands';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -10,13 +9,15 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
+import { createCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { getContext } from '../../system/-webview/context';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
 import { sortCompare } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
-import { getContext } from '../../system/vscode/context';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
 import { disposeChildren } from '../viewBase';
@@ -41,7 +42,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		protected readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
 		protected readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
-		protected readonly _options: { expand?: boolean } = {},
+		protected readonly _options: { allowFilteredFiles?: boolean; expand?: boolean } = {},
 	) {
 		super('commit', commit.getGitUri(), view, parent);
 
@@ -49,7 +50,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.children = undefined;
 	}
@@ -129,7 +130,10 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				}
 			}
 
-			const commits = await commit.getCommitsForFiles();
+			const commits = await commit.getCommitsForFiles({
+				allowFilteredFiles: this._options.allowFilteredFiles,
+				include: { stats: true },
+			});
 			for (const c of commits) {
 				children.push(new CommitFileNode(this.view, this, c.file!, c));
 			}
@@ -187,33 +191,30 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.unpublished
-				  ? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
-				  : this.view.config.avatars
-				    ? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
-				    : undefined;
+					? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
+					: this.view.config.avatars
+						? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
+						: undefined;
 		// item.tooltip = this.tooltip;
 
 		return item;
 	}
 
 	override getCommand(): Command | undefined {
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: this.uri,
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				commit: this.commit,
+				uri: this.uri,
+				range: editorLineToDiffRange(0),
+				showOptions: { preserveFocus: true, preview: true },
 			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		);
 	}
 
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		void super.refresh?.(reset);
 
 		this.children = undefined;
@@ -223,9 +224,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 
@@ -253,8 +252,13 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath, cancellation),
-			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
+			this.view.container.git
+				.getRepositoryService(this.commit.repoPath)
+				.remotes.getBestRemotesWithProviders(cancellation),
+			this.commit.ensureFullDetails({
+				allowFilteredFiles: this._options.allowFilteredFiles,
+				include: { stats: true },
+			}),
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
@@ -265,7 +269,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.hasIntegration()) {
+		if (remote?.supportsIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
 				this.getAssociatedPullRequest(this.commit, remote),

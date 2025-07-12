@@ -10,12 +10,10 @@ export function base64(data: string | Uint8Array): string {
 	for (let i = 0, { length } = bytes; i < length; i++) {
 		output += fromCharCode(bytes[i]);
 	}
-	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	return globalThis.btoa(output);
 }
 
 export function fromBase64(s: string): Uint8Array {
-	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	const decoded = globalThis.atob(s);
 
 	const len = decoded.length;

@@ -24,7 +24,7 @@ let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat>
 
 const numberFormatCache = new Map<string | undefined, Intl.NumberFormat>();
 
-export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
+export function setDefaultDateLocales(locales: string | string[] | null | undefined): void {
 	if (typeof locales === 'string') {
 		if (locales === 'system' || locales.trim().length === 0) {
 			defaultLocales = undefined;
@@ -135,7 +135,7 @@ export function formatDate(
 	format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined,
 	locale?: string,
 	cache: boolean = true,
-) {
+): string {
 	format = format ?? undefined;
 
 	const key = `${locale ?? ''}:${format}`;
@@ -347,6 +347,13 @@ function getDateTimeFormatOptionsFromFormatString(
 	return options;
 }
 
+export function getTimeRemaining(
+	expiresOn: string | undefined,
+	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
+): number | undefined {
+	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit, Math.round) : undefined;
+}
+
 const ordinals = ['th', 'st', 'nd', 'rd'];
 function formatWithOrdinal(n: number): string {
 	const v = n % 100;
@@ -358,6 +365,14 @@ export function formatNumeric(
 	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
 	locale?: string,
 ): string {
+	const format = getNumericFormat(style, locale);
+	return format(value);
+}
+
+export function getNumericFormat(
+	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
+	locale?: string,
+): Intl.NumberFormat['format'] {
 	if (style == null) {
 		style = 'decimal';
 	}
@@ -381,5 +396,5 @@ export function formatNumeric(
 		numberFormatCache.set(key, formatter);
 	}
 
-	return formatter.format(value);
+	return formatter.format;
 }

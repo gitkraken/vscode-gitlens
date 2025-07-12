@@ -1,8 +1,8 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { Autolink } from '../../autolinks';
+import type { Autolink } from '../../autolinks/models/autolinks';
 import { GitUri } from '../../git/gitUri';
-import type { IssueOrPullRequest } from '../../git/models/issue';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
+import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons';
 import { fromNow } from '../../system/date';
 import { isPromise } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
@@ -70,10 +70,10 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 				pending
 					? 'loading~spin'
 					: autolink.type == null
-					  ? 'link'
-					  : autolink.type === 'pullrequest'
-					    ? 'git-pull-request'
-					    : 'issues',
+						? 'link'
+						: autolink.type === 'pullrequest'
+							? 'git-pull-request'
+							: 'issues',
 			);
 			item.contextValue = ContextValues.AutolinkedItem;
 			item.tooltip = new MarkdownString(
@@ -84,9 +84,9 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 								autolink.type == null
 									? 'Autolinked'
 									: autolink.type === 'pullrequest'
-									  ? 'Autolinked Pull Request'
-									  : 'Autolinked Issue'
-						  } ${autolink.prefix}${autolink.id}`
+										? 'Autolinked Pull Request'
+										: 'Autolinked Issue'
+							} ${autolink.prefix}${autolink.id}`
 				} \\\n[${autolink.url}](${autolink.url}${autolink.title != null ? ` "${autolink.title}"` : ''})`,
 			);
 			return item;

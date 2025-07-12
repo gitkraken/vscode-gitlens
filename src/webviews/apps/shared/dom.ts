@@ -85,7 +85,7 @@ export namespace DOM {
 }
 
 /** Parses a CSS duration and returns the number of milliseconds. */
-export function parseDuration(delay: number | string) {
+export function parseDuration(delay: number | string): number {
 	delay = delay.toString().toLowerCase();
 
 	if (delay.includes('ms')) {
@@ -100,7 +100,7 @@ export function parseDuration(delay: number | string) {
 }
 
 /** Waits for a specific event to be emitted from an element. Ignores events that bubble up from child elements. */
-export function waitForEvent(el: HTMLElement, eventName: string) {
+export function waitForEvent(el: HTMLElement, eventName: string): Promise<void> {
 	return new Promise<void>(resolve => {
 		function done(event: Event) {
 			if (event.target === el) {

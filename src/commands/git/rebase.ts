@@ -1,15 +1,19 @@
+import { ThemeIcon } from 'vscode';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
-import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
+import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { getHostEditorCommand } from '../../system/-webview/vscode';
 import { pluralize } from '../../system/string';
-import { getEditorCommand } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -78,12 +82,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	async execute(state: RebaseStepState) {
+	private async execute(state: RebaseStepState) {
 		let configs: string[] | undefined;
 		if (state.flags.includes('--interactive')) {
 			await this.container.rebaseEditor.enableForNextUse();
 
-			const editor = getEditorCommand();
+			const editor = await getHostEditorCommand();
 			configs = ['-c', `"sequence.editor=${editor}"`];
 		}
 
@@ -131,7 +135,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.branch == null) {
-				const branch = await state.repo.git.getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				if (branch == null) break;
 
 				context.branch = branch;
@@ -177,26 +181,26 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag != null &&
 				(context.pickCommit || context.pickCommitForItem || state.destination.ref === context.branch.ref)
 			) {
-				const ref = context.selectedBranchOrTag.ref;
+				const rev = context.selectedBranchOrTag.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits.getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as RebaseStepState, context, {
 					ignoreFocusOut: true,
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
-							  })}`
+								})}`
 							: `Choose a commit to rebase ${getReferenceLabel(context.branch, {
 									icon: false,
-							  })} onto`,
+								})} onto`,
 					picked: state.destination?.ref,
 				});
 				if (result === StepResultBreak) continue;
@@ -217,10 +221,11 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await this.container.git.getLeftRightCommitCount(
-			state.repo.path,
+		const counts = await state.repo.git.commits.getLeftRightCommitCount(
 			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
-			{ excludeMerges: true },
+			{
+				excludeMerges: true,
+			},
 		);
 
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
@@ -248,7 +253,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
-		const rebaseItems = [
+		const items: FlagsQuickPickItem<Flags>[] = [
 			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 				label: `Interactive ${this.title}`,
 				description: '--interactive',
@@ -257,11 +262,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 					label: false,
 				})}`,
+				picked: behind === 0,
 			}),
 		];
 
 		if (behind > 0) {
-			rebaseItems.unshift(
+			items.unshift(
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will update ${getReferenceLabel(context.branch, {
@@ -269,14 +275,61 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 						label: false,
 					})}`,
+					picked: true,
 				}),
 			);
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${title}`, state, context),
-			rebaseItems,
-		);
+		let potentialConflict;
+		const subscription = await this.container.subscription.getSubscription();
+		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
+				context.branch.name,
+				state.destination.ref,
+			);
+		}
+
+		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
+
+		const notices: DirectiveQuickPickItem[] = [];
+		if (potentialConflict) {
+			void potentialConflict?.then(conflict => {
+				notices.splice(
+					0,
+					1,
+					conflict == null
+						? createDirectiveQuickPickItem(Directive.Noop, false, {
+								label: 'No Conflicts Detected',
+								iconPath: new ThemeIcon('check'),
+							})
+						: createDirectiveQuickPickItem(Directive.Noop, false, {
+								label: 'Conflicts Detected',
+								detail: `Will result in ${pluralize(
+									'conflicting file',
+									conflict.files.length,
+								)} that will need to be resolved`,
+								iconPath: new ThemeIcon('warning'),
+							}),
+				);
+
+				if (step.quickpick != null) {
+					const active = step.quickpick.activeItems;
+					step.quickpick.items = [...notices, ...items];
+					step.quickpick.activeItems = active;
+				}
+			});
+
+			notices.push(
+				createDirectiveQuickPickItem(Directive.Noop, false, {
+					label: `$(loading~spin) \u00a0Detecting Conflicts...`,
+					// Don't use this, because the spin here causes the icon to spin incorrectly
+					//iconPath: new ThemeIcon('loading~spin'),
+				}),
+				createQuickPickSeparator(),
+			);
+		}
+
+		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), [...notices, ...items]);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

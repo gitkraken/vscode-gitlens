@@ -1,19 +1,23 @@
-import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Selection } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { deletedOrMissing } from '../../git/models/constants';
 import type { GitFile } from '../../git/models/file';
-import { GitFileIndexStatus } from '../../git/models/file';
+import { GitFileIndexStatus } from '../../git/models/fileStatus';
 import type { GitLog } from '../../git/models/log';
-import { isUncommitted } from '../../git/models/reference';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { gate } from '../../system/decorators/gate';
+import { deletedOrMissing } from '../../git/models/revision';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
+import { isUncommitted } from '../../git/utils/revision.utils';
+import { gate } from '../../system/decorators/-webview/gate';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import { weakEvent } from '../../system/event';
-import { filterMap } from '../../system/iterable';
-import { Logger } from '../../system/logger';
+import { filterMap, find } from '../../system/iterable';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
+import { getSettledValue } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
@@ -21,16 +25,14 @@ import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<'line-history', FileHistoryView | LineHistoryView>
 	implements PageableViewNode
 {
 	limit: number | undefined;
-
-	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -63,63 +65,49 @@ export class LineHistoryNode
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = `${this.label}${
+		this.view.description = `${this.view.groupedLabel ? `${this.view.groupedLabel}: ` : ''}${this.label}${
 			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
 		}`;
 
 		const children: ViewNode[] = [];
 		if (this.uri.repoPath == null) return children;
 
-		let selection = this.selection;
+		const { sha } = this.uri;
+		const selection = this.selection;
 
-		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
-		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath);
+		const range = this.branch != null ? await getBranchAheadRange(svc, this.branch) : undefined;
+		const [logResult, blameResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 			this.getLog(selection),
-			this.uri.sha == null || isUncommitted(this.uri.sha)
+			sha == null || isUncommitted(sha)
 				? this.editorContents
 					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
-			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch?.name),
-			range
-				? this.view.container.git.getLogRefsOnly(this.uri.repoPath, {
-						limit: 0,
-						ref: range,
-				  })
-				: undefined,
+			svc.getBranchesAndTagsTipsLookup(this.branch?.name),
+			range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
 		]);
 
 		// Check for any uncommitted changes in the range
-		if (blame != null) {
-			for (const commit of blame.commits.values()) {
-				if (!commit.isUncommitted) continue;
+		const blame = getSettledValue(blameResult);
+		if (blame?.lines.length) {
+			const uncommittedCommit = find(blame.commits.values(), c => c.isUncommitted);
+			if (uncommittedCommit != null) {
+				const relativePath = svc.getRelativePath(this.uri, this.uri.repoPath);
 
-				const firstLine = blame.lines[0];
-				const lastLine = blame.lines[blame.lines.length - 1];
-
-				// Since there could be a change in the line numbers, update the selection
-				const firstActive = selection.active.line === firstLine.line - 1;
-				selection = new Selection(
-					(firstActive ? lastLine : firstLine).originalLine - 1,
-					selection.anchor.character,
-					(firstActive ? firstLine : lastLine).originalLine - 1,
-					selection.active.character,
-				);
-
-				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath, this.uri);
-
+				const status = await svc.status.getStatusForFile?.(this.uri);
 				if (status != null) {
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
-						path: commit.file?.path ?? '',
+						path: uncommittedCommit.file?.path ?? relativePath,
 						indexStatus: status?.indexStatus,
-						originalPath: commit.file?.originalPath,
+						originalPath: uncommittedCommit.file?.originalPath,
 						repoPath: this.uri.repoPath,
 						status: status?.status ?? GitFileIndexStatus.Modified,
 						workingTreeStatus: status?.workingTreeStatus,
 					};
 
-					const currentUser = await this.view.container.git.getCurrentUser(this.uri.repoPath);
+					const currentUser = await svc.config.getCurrentUser();
 					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
 					if (pseudoCommits != null) {
 						for (const commit of pseudoCommits.reverse()) {
@@ -131,11 +119,13 @@ export class LineHistoryNode
 						}
 					}
 				}
-
-				break;
 			}
 		}
 
+		const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
+		const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
+
+		const log = getSettledValue(logResult);
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
@@ -146,7 +136,7 @@ export class LineHistoryNode
 									getBranchAndTagTips: getBranchAndTagTips,
 									selection: selection,
 									unpublished: unpublishedCommits?.has(c.ref),
-							  })
+								})
 							: undefined,
 					),
 					this,
@@ -163,8 +153,6 @@ export class LineHistoryNode
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const label = this.label;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.LineHistory;
@@ -173,28 +161,28 @@ export class LineHistoryNode
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
 		}`;
 
-		this.view.description = `${label}${
+		this.view.description = `${this.view.groupedLabel ? `${this.view.groupedLabel}: ` : ''}${label}${
 			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
 		}`;
 
 		return item;
 	}
 
-	get label() {
+	get label(): string {
 		return `${this.uri.fileName}${this.lines}${
 			this.uri.sha ? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}` : ''
 		}`;
 	}
 
 	@memoize()
-	get lines() {
+	get lines(): string {
 		return this.selection.isSingleLine
 			? `:${this.selection.start.line + 1}`
 			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable | undefined {
 		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
@@ -217,7 +205,7 @@ export class LineHistoryNode
 				RepositoryChange.Heads,
 				RepositoryChange.Remotes,
 				RepositoryChange.RemoteProviders,
-				RepositoryChange.Status,
+				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
 			)
@@ -225,48 +213,53 @@ export class LineHistoryNode
 			return;
 		}
 
-		Logger.debug(`LineHistoryNode.onRepositoryChanged(${e.toString()}); triggering node refresh`);
+		using scope = startLogScope(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
 
 	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
+		if (!e.uris.has(this.uri)) return;
 
-		Logger.debug(`LineHistoryNode.onFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
+		using scope = startLogScope(
+			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
+			false,
+		);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset: boolean = false): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._log = undefined;
 		}
+		return super.refresh(reset);
 	}
 
 	private _log: GitLog | undefined;
-	private async getLog(selection?: Selection) {
-		if (this._log == null) {
-			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri, {
+	private async getLog(selection?: Selection): Promise<GitLog | undefined> {
+		this._log ??= await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.commits.getLogForPath(this.uri, this.uri.sha, {
 				all: false,
+				isFolder: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,
-				ref: this.uri.sha,
 				renames: false,
 			});
-		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

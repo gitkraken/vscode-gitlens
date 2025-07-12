@@ -1,9 +1,9 @@
-import type { RequestInit, Response } from '@env/fetch';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
+import type { RequestInit, Response } from '@env/fetch';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
+import { isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
@@ -16,7 +16,7 @@ import {
 } from '../../../../errors';
 import type { Account } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
@@ -24,28 +24,33 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages';
+import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import { equalsIgnoreCase } from '../../../../system/string';
-import { configuration } from '../../../../system/vscode/configuration';
 import type {
 	GitLabCommit,
 	GitLabIssue,
 	GitLabMergeRequest,
+	GitLabMergeRequestFull,
 	GitLabMergeRequestREST,
 	GitLabMergeRequestState,
 	GitLabProjectREST,
 	GitLabUser,
 } from './models';
-import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
+import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
 
 // drop it as soon as we switch to @gitkraken/providers-api
 const gitlabUserIdPrefix = 'gid://gitlab/User/';
-function buildGitLabUserId(id: string | undefined): string | undefined {
-	return id?.startsWith(gitlabUserIdPrefix) ? id.substring(gitlabUserIdPrefix.length) : id;
+const gitlabMergeRequestIdPrefix = 'gid://gitlab/MergeRequest/';
+
+function buildGitLabUserId(id: string | number | undefined): string | undefined {
+	return typeof id === 'string' && id?.startsWith(gitlabUserIdPrefix)
+		? id.substring(gitlabUserIdPrefix.length)
+		: String(id);
 }
 
 export class GitLabApi implements Disposable {
@@ -92,7 +97,7 @@ export class GitLabApi implements Disposable {
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		rev: string,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -109,7 +114,7 @@ export class GitLabApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/projects/${projectId}/repository/commits/${ref}?stats=false`,
+				`v4/projects/${projectId}/repository/commits/${rev}?stats=false`,
 				{
 					method: 'GET',
 					// ...options,
@@ -528,7 +533,7 @@ export class GitLabApi implements Disposable {
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		rev: string,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -545,7 +550,7 @@ export class GitLabApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/projects/${projectId}/repository/commits/${ref}/merge_requests`,
+				`v4/projects/${projectId}/repository/commits/${rev}/merge_requests`,
 				{
 					method: 'GET',
 					// ...options,
@@ -564,6 +569,94 @@ export class GitLabApi implements Disposable {
 			}
 
 			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo });
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getPullRequest(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: number,
+		options?: {
+			baseUrl?: string;
+		},
+		cancellation?: CancellationToken,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		interface QueryResult {
+			data: {
+				project: {
+					mergeRequest: GitLabMergeRequestFull | null;
+				} | null;
+			};
+		}
+
+		try {
+			const query = `query getMergeRequest(
+	$fullPath: ID!
+	$iid: String!
+) {
+	project(fullPath: $fullPath) {
+		mergeRequest(iid: $iid) {
+			id,
+			iid
+			state,
+			author {
+				id
+				name
+				avatarUrl
+				webUrl
+			}
+			diffRefs {
+				baseSha
+				headSha
+			}
+			title
+			description
+			webUrl
+			createdAt
+			updatedAt
+			mergedAt
+			targetBranch
+			sourceBranch
+			project {
+				id
+				fullPath
+				webUrl
+			}
+			sourceProject {
+				id
+				fullPath
+				webUrl
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options?.baseUrl,
+				query,
+				{
+					fullPath: `${owner}/${repo}`,
+					iid: String(id),
+				},
+				cancellation,
+				scope,
+			);
+
+			if (rsp?.data?.project?.mergeRequest == null) return undefined;
+
+			const pr = rsp.data.project.mergeRequest;
+			return fromGitLabMergeRequest(pr, provider);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -612,11 +705,121 @@ export class GitLabApi implements Disposable {
 						? {
 								owner: proj.forked_from_project.namespace.full_path,
 								name: proj.forked_from_project.path,
-						  }
+							}
 						: undefined,
 			} satisfies RepositoryMetadata;
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async searchPullRequests(
+		provider: Provider,
+		token: string,
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[]> {
+		const scope = getLogScope();
+		const search = options?.search;
+		if (!search) {
+			return [];
+		}
+		try {
+			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
+			const restPRs = await this.request<GitLabMergeRequestREST[]>(
+				provider,
+				token,
+				options?.baseUrl,
+				`v4/search/?scope=merge_requests&search=${search}&per_page=${perPageLimit}`,
+				{
+					method: 'GET',
+				},
+				cancellation,
+				scope,
+			);
+			if (restPRs.length === 0) {
+				return [];
+			}
+
+			interface QueryResult {
+				data: Record<`mergeRequest_${number}`, GitLabMergeRequestFull>;
+			}
+
+			const queryArgs = restPRs.map((_, i) => `$id_${i}: MergeRequestID!`).join('\n');
+			const queryFields = restPRs
+				.map((_, i) => `mergeRequest_${i}: mergeRequest(id: $id_${i}) { ...mergeRequestFields }`)
+				.join('\n');
+			// Set of fields includes only additional fields that are not included in GitLabMergeRequestREST.
+			// It's limited as much as possible to reduce complexity of the query.
+			const queryMrFields = `fragment mergeRequestFields on MergeRequest {
+				diffRefs {
+					baseSha
+					headSha
+				}
+				project {
+					id
+					fullPath
+					webUrl
+				}
+				sourceProject {
+					id
+					fullPath
+					webUrl
+				}
+			}`;
+			const query = `query getMergeRequests (${queryArgs}) {${queryFields}} ${queryMrFields}`;
+
+			const params = restPRs.reduce<Record<`id_${number}`, string>>((ids, gitlabRestPr, i) => {
+				ids[`id_${i}`] = `${gitlabMergeRequestIdPrefix}${gitlabRestPr.id}`;
+				return ids;
+			}, {});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options?.baseUrl,
+				query,
+				params,
+				cancellation,
+				scope,
+			);
+			if (rsp?.data != null) {
+				const resultPRs = restPRs.reduce<PullRequest[]>((accum, restPR, i) => {
+					const graphQlPR = rsp.data[`mergeRequest_${i}`];
+					if (graphQlPR == null) {
+						return accum;
+					}
+
+					const fullPr: GitLabMergeRequestFull = {
+						...graphQlPR,
+						iid: String(restPR.iid),
+						id: String(restPR.id),
+						state: restPR.state,
+						author: {
+							id: buildGitLabUserId(restPR.author?.id) ?? '',
+							name: restPR.author?.name ?? 'Unknown',
+							avatarUrl: restPR.author?.avatar_url ?? '',
+							webUrl: restPR.author?.web_url ?? '',
+						},
+						title: restPR.title,
+						description: restPR.description,
+						webUrl: restPR.web_url,
+						createdAt: restPR.created_at,
+						updatedAt: restPR.updated_at,
+						mergedAt: restPR.merged_at,
+						sourceBranch: restPR.source_branch,
+						targetBranch: restPR.target_branch,
+					};
+					accum.push(fromGitLabMergeRequest(fullPr, provider));
+					return accum;
+				}, []);
+				return resultPRs;
+			}
+			return [];
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return [];
 
 			throw this.handleException(ex, provider, scope);
 		}

@@ -1,7 +1,7 @@
-import type { PullRequestState } from '../../../../git/models/pullRequest';
-import { PullRequest } from '../../../../git/models/pullRequest';
+import type { PullRequestRefs, PullRequestState } from '../../../../git/models/pullRequest';
+import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
-import type { Integration } from '../../integration';
+import type { Integration } from '../../models/integration';
 import type { ProviderPullRequest } from '../models';
 import { fromProviderPullRequest } from '../models';
 
@@ -65,6 +65,24 @@ export interface GitLabMergeRequest {
 	webUrl: string;
 }
 
+export interface GitLabRepositoryStub {
+	id: string;
+	fullPath: string;
+	webUrl: string;
+}
+
+export interface GitLabMergeRequestFull extends GitLabMergeRequest {
+	id: string;
+	targetBranch: string;
+	sourceBranch: string;
+	diffRefs: {
+		baseSha: string | null;
+		headSha: string;
+	} | null;
+	project: GitLabRepositoryStub;
+	sourceProject: GitLabRepositoryStub | null;
+}
+
 export type GitLabMergeRequestState = 'opened' | 'closed' | 'locked' | 'merged';
 
 export function fromGitLabMergeRequestState(state: GitLabMergeRequestState): PullRequestState {
@@ -91,6 +109,15 @@ export interface GitLabMergeRequestREST {
 	updated_at: string;
 	closed_at: string | null;
 	merged_at: string | null;
+	diff_refs: {
+		base_sha: string;
+		head_sha: string;
+		start_sha: string;
+	};
+	source_branch: string;
+	source_project_id: number;
+	target_branch: string;
+	target_project_id: number;
 	web_url: string;
 }
 
@@ -149,4 +176,81 @@ export function fromGitLabMergeRequestProvidersApi(pr: ProviderPullRequest, prov
 		},
 	};
 	return fromProviderPullRequest(wrappedPr, provider);
+}
+
+export function fromGitLabMergeRequest(pr: GitLabMergeRequestFull, provider: Provider): PullRequest {
+	let avatarUrl: string | undefined;
+	try {
+		avatarUrl = new URL(pr.author?.avatarUrl ?? '').toString();
+	} catch {
+		try {
+			const authorUrl = new URL(pr.author?.webUrl ?? '');
+			authorUrl.pathname = '';
+			authorUrl.search = '';
+			authorUrl.hash = '';
+			avatarUrl = pr.author?.avatarUrl ? authorUrl.toString() + pr.author?.avatarUrl : undefined;
+		} catch {
+			avatarUrl = undefined;
+		}
+	}
+	const [owner, repo] = pr.project.fullPath.split('/');
+
+	return new PullRequest(
+		provider,
+		{
+			// author
+			id: pr.author?.id ?? '',
+			name: pr.author?.name ?? 'Unknown',
+			avatarUrl: avatarUrl,
+			url: pr.author?.webUrl ?? '',
+		},
+		pr.iid, // id
+		pr.id, // nodeId
+		pr.title,
+		pr.webUrl || '',
+		{
+			// IssueRepository
+			owner: owner,
+			repo: repo,
+			url: pr.project.webUrl,
+		},
+		fromGitLabMergeRequestState(pr.state), // PullRequestState
+		new Date(pr.createdAt),
+		new Date(pr.updatedAt),
+		// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
+		pr.state !== 'closed' ? undefined : new Date(pr.updatedAt),
+		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+		PullRequestMergeableState.Unknown,
+		undefined, // viewerCanUpdate
+		fromGitLabMergeRequestRefs(pr), // PullRequestRefs
+	);
+}
+
+function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs | undefined {
+	if (pr.sourceProject == null) {
+		return undefined;
+	}
+	return {
+		base: {
+			owner: getRepoNamespace(pr.sourceProject.fullPath),
+			branch: pr.sourceBranch,
+			exists: true,
+			url: pr.sourceProject.webUrl,
+			repo: pr.sourceProject.fullPath,
+			sha: pr.diffRefs?.baseSha || '',
+		},
+		head: {
+			owner: getRepoNamespace(pr.project.fullPath),
+			branch: pr.targetBranch,
+			exists: true,
+			url: pr.project.webUrl,
+			repo: pr.project.fullPath,
+			sha: pr.diffRefs?.headSha || '',
+		},
+		isCrossRepository: pr.sourceProject.id !== pr.project.id,
+	};
+}
+
+function getRepoNamespace(projectFullPath: string) {
+	return projectFullPath.split('/').slice(0, -1).join('/');
 }

@@ -3,18 +3,18 @@ import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
-import { UriComparer } from '../system/comparers';
+import { formatPath } from '../system/-webview/formatPath';
+import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
+import { isVirtualUri } from '../system/-webview/vscode/uris';
+import { memoize } from '../system/decorators/-webview/memoize';
 import { debug } from '../system/decorators/log';
-import { memoize } from '../system/decorators/memoize';
 import { basename, normalizePath } from '../system/path';
-import { formatPath } from '../system/vscode/formatPath';
-import { getBestPath, relativeDir, splitPath } from '../system/vscode/path';
-import { isVirtualUri } from '../system/vscode/utils';
+import { areUrisEqual } from '../system/uri';
 import type { RevisionUriData } from './gitProvider';
 import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
-import { uncommittedStaged } from './models/constants';
 import type { GitFile } from './models/file';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/reference';
+import { uncommittedStaged } from './models/revision';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from './utils/revision.utils';
 
 const slash = 47; //slash;
 
@@ -200,7 +200,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	@memoize()
-	documentUri() {
+	documentUri(): Uri {
 		// TODO@eamodio which is correct?
 		return Uri.from({
 			scheme: this.scheme,
@@ -209,11 +209,11 @@ export class GitUri extends (Uri as any as UriEx) {
 			query: this.query,
 			fragment: this.fragment,
 		});
-		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
+		// return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
-	equals(uri: Uri | undefined) {
-		if (!UriComparer.equals(this, uri)) return false;
+	equals(uri: Uri | undefined): boolean {
+		if (!areUrisEqual(this, uri)) return false;
 
 		return this.sha === (isGitUri(uri) ? uri.sha : undefined);
 	}
@@ -223,7 +223,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	@memoize()
-	toFileUri() {
+	toFileUri(): Uri {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
@@ -239,10 +239,10 @@ export class GitUri extends (Uri as any as UriEx) {
 					repoPath: repoPath,
 					// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
 					sha: typeof file !== 'string' && file.status === '?' ? `${ref}^3` : ref,
-			  });
+				});
 	}
 
-	static fromRepoPath(repoPath: string, ref?: string) {
+	static fromRepoPath(repoPath: string, ref?: string): GitUri {
 		return !ref
 			? new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), repoPath)
 			: new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), { repoPath: repoPath, sha: ref });
@@ -332,6 +332,6 @@ export class GitUri extends (Uri as any as UriEx) {
 
 export const unknownGitUri = Object.freeze(new GitUri());
 
-export function isGitUri(uri: any): uri is GitUri {
+export function isGitUri(uri: unknown): uri is GitUri {
 	return uri instanceof GitUri;
 }

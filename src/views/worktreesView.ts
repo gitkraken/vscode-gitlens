@@ -1,38 +1,46 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
+import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config';
 import { proBadge } from '../constants';
-import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { gate } from '../system/decorators/gate';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
 	getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new WorktreesNode(this.uri, this.view, this, this.repo);
-		}
-
+		this.child ??= new WorktreesNode(this.uri, this.view, this, this.repo);
 		return this.child.getChildren();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
+		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			return true;
+		}
+
 		return e.changed(
 			RepositoryChange.Config,
+			RepositoryChange.Heads,
+			RepositoryChange.Index,
+			RepositoryChange.Remotes,
+			RepositoryChange.RemoteProviders,
+			RepositoryChange.PausedOperationStatus,
 			RepositoryChange.Worktrees,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
@@ -46,26 +54,29 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access(PlusFeatures.Worktrees);
+			const access = await this.view.container.git.access('worktrees');
 			if (access.allowed === false) return [];
 
+			if (this.view.container.git.isDiscoveringRepositories) {
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (!repositories.length) {
+				this.view.message = 'No worktrees could be found.';
+				return [];
+			}
+
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
+			if (repo != null && !(await repo.git.supports('git:worktrees'))) return [];
+
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
 			}
 
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading worktrees...'
-					: 'No worktrees could be found.';
-
-				return [];
-			}
-
-			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 			);
 		}
 
@@ -96,7 +107,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
-	constructor(container: Container, grouped?: boolean) {
+	constructor(container: Container, grouped?: GroupedViewContext) {
 		super(container, 'worktrees', 'Worktrees', 'worktreesView', grouped);
 	}
 
@@ -110,7 +121,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
@@ -118,7 +129,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return super.show(options);
 	}
 
-	protected getRoot() {
+	protected getRoot(): WorktreesViewNode {
 		return new WorktreesViewNode(this);
 	}
 
@@ -126,17 +137,19 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					this.container.git.resetCaches('worktrees');
+					this.container.git.resetCaches('branches', 'status', 'worktrees');
 					return this.refresh(true);
 				},
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -180,7 +193,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -201,16 +214,16 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return true;
 	}
 
-	findWorktree(worktree: GitWorktree, token?: CancellationToken) {
+	findWorktree(worktree: GitWorktree, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath, uri } = worktree;
 		const url = uri.toString();
 
-		return this.findNode(n => n instanceof WorktreeNode && worktree.uri.toString() === url, {
+		return this.findNode(n => n instanceof WorktreeNode && n.worktree.uri.toString() === url, {
 			maxDepth: 2,
 			canTraverse: n => {
 				if (n instanceof WorktreesViewNode) return true;
 
-				if (n instanceof WorktreesRepositoryNode) {
+				if (n instanceof WorktreesRepositoryNode || n instanceof BranchOrTagFolderNode) {
 					return n.repoPath === repoPath;
 				}
 
@@ -221,10 +234,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof WorktreesViewNode || n instanceof RepositoryFolderNode,
@@ -238,14 +248,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	@gate(() => '')
-	revealWorktree(
-		worktree: GitWorktree,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
+	async revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -256,11 +259,15 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 
-				await this.ensureRevealNode(node, options);
+				await this.revealDeep(node, options);
 
 				return node;
 			},
 		);
+	}
+
+	private setLayout(layout: ViewBranchesLayout) {
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

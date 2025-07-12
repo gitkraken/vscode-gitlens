@@ -1,5 +1,5 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { commands, ThemeIcon, Uri } from 'vscode';
+import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
 	AsyncStepResultGenerator,
@@ -13,7 +13,6 @@ import {
 	canPickStepContinue,
 	createPickStep,
 	endSteps,
-	freezeStep,
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
@@ -23,6 +22,8 @@ import {
 	LaunchpadSettingsQuickInputButton,
 	LearnAboutProQuickInputButton,
 	MergeQuickInputButton,
+	OpenOnAzureDevOpsQuickInputButton,
+	OpenOnBitbucketQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
 	OpenOnWebQuickInputButton,
@@ -36,91 +37,101 @@ import {
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
-import { Commands } from '../../constants.commands';
-import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import type { IntegrationIds } from '../../constants.integrations';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { PlusFeatures } from '../../features';
-import { doesPullRequestSatisfyRepositoryURLIdentity } from '../../git/models/pullRequest';
-import { getPullRequestIdentityValuesFromSearch } from '../../git/models/pullRequest.utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer';
+import { executeCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
-import { createAsyncDebouncer } from '../../system/vscode/asyncDebouncer';
-import { executeCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { openUrl } from '../../system/vscode/utils';
+import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
-import type {
-	LaunchpadAction,
-	LaunchpadActionCategory,
-	LaunchpadCategorizedResult,
-	LaunchpadGroup,
-	LaunchpadItem,
-	LaunchpadTargetAction,
-} from './launchpadProvider';
+import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
 import {
 	countLaunchpadItemGroups,
 	getLaunchpadItemIdHash,
 	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadGroupLabelMap,
-	launchpadGroups,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider';
+import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad';
+import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad';
 
-const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
-	['mergeable', ['Ready to Merge', 'Ready to merge']],
-	['unassigned-reviewers', ['Unassigned Reviewers', 'You need to assign reviewers']],
-	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
-	['conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts']],
-	['needs-my-review', ['Needs Your Review', `\${author} requested your review`]],
-	['code-suggestions', ['Code Suggestions', 'Code suggestions have been made on this pull request']],
-	['changes-requested', ['Changes Requested', 'Reviewers requested changes before this can be merged']],
-	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
-	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
-	['draft', ['Draft', 'Continue working on your draft']],
-	['other', ['Other', `Opened by \${author} \${createdDateRelative}`]],
-]);
+export interface LaunchpadItemQuickPickItem extends QuickPickItem {
+	readonly type: 'item';
+	readonly item: LaunchpadItem;
+	readonly group: LaunchpadGroup;
 
-export interface LaunchpadItemQuickPickItem extends QuickPickItemOfT<LaunchpadItem> {
-	group: LaunchpadGroup;
+	searchModeEnabled?: never;
 }
 
-type ConnectMoreIntegrationsItem = QuickPickItem & {
-	item: undefined;
-	group: undefined;
-};
-const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
-	label: 'Connect more integrations',
-	detail: 'Connect integration with more Git providers',
-	item: undefined,
-	group: undefined,
-};
-function isConnectMoreIntegrationsItem(item: unknown): item is ConnectMoreIntegrationsItem {
-	return item === connectMoreIntegrationsItem;
+interface ConnectMoreIntegrationsQuickPickItem extends QuickPickItem {
+	readonly type: 'integrations';
+	readonly item?: never;
+	readonly group?: never;
+
+	searchModeEnabled?: never;
 }
+
+interface ToggleSearchModeQuickPickItem extends QuickPickItem {
+	readonly type: 'searchMode';
+	readonly item?: never;
+	readonly group?: never;
+
+	searchMode: boolean;
+}
+
+type LaunchpadQuickPickItem =
+	| LaunchpadItemQuickPickItem
+	| ConnectMoreIntegrationsQuickPickItem
+	| ToggleSearchModeQuickPickItem
+	| DirectiveQuickPickItem;
+
+function isConnectMoreIntegrationsItem(item: LaunchpadQuickPickItem): item is ConnectMoreIntegrationsQuickPickItem {
+	return !isDirectiveQuickPickItem(item) && item?.type === 'integrations';
+}
+
+// function isLaunchpadItem(item: LaunchpadQuickPickItem): item is LaunchpadItemQuickPickItem {
+// 	return !isDirectiveQuickPickItem(item) && item?.type === 'item';
+// }
+
+function isToggleSearchModeItem(item: LaunchpadQuickPickItem): item is ToggleSearchModeQuickPickItem {
+	return !isDirectiveQuickPickItem(item) && item?.type === 'searchMode';
+}
+
+const connectMoreIntegrationsItem: ConnectMoreIntegrationsQuickPickItem = {
+	type: 'integrations',
+	label: 'Connect an Additional Integration...',
+	detail: 'Connect additional integrations to view their pull requests in Launchpad',
+};
 
 interface Context {
 	result: LaunchpadCategorizedResult;
+	searchResult: LaunchpadCategorizedResult | undefined;
 
 	title: string;
 	collapsed: Map<LaunchpadGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
-	connectedIntegrations: Map<IntegrationId, boolean>;
+	connectedIntegrations: Map<IntegrationIds, boolean>;
+
+	inSearch: boolean | 'mode';
+	updateItemsDebouncer: ReturnType<typeof createAsyncDebouncer>;
 }
 
 interface GroupedLaunchpadItem extends LaunchpadItem {
-	group: LaunchpadGroup;
+	readonly group: LaunchpadGroup;
 }
 
 interface State {
+	id?: { uuid: string; group: LaunchpadGroup };
 	item?: GroupedLaunchpadItem;
 	action?: LaunchpadAction | LaunchpadTargetAction;
 	initialGroup?: LaunchpadGroup;
@@ -148,10 +159,9 @@ const instanceCounter = getScopedCounter();
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
 export class LaunchpadCommand extends QuickCommand<State> {
-	// TODO: The debouncer needs to be cancelled when the step is changed when the quickpick is closed
-	private readonly updateItemsDebouncer = createAsyncDebouncer(500);
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
+	private savedSearch: string | undefined;
 
 	constructor(container: Container, args?: LaunchpadCommandArgs) {
 		super(container, 'launchpad', 'launchpad', `GitLens Launchpad\u00a0\u00a0${proBadge}`, {
@@ -162,7 +172,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			args?.source === 'launchpad-indicator' &&
 			container.storage.get('launchpad:indicator:hasInteracted') == null
 		) {
-			void container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString());
+			void container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString()).catch();
 		}
 
 		this.source = { source: args?.source ?? 'commandPalette' };
@@ -188,8 +198,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		};
 	}
 
-	private async ensureIntegrationConnected(id: IntegrationId) {
+	private async ensureIntegrationConnected(id: IntegrationIds) {
 		const integration = await this.container.integrations.get(id);
+		if (integration == null) return false;
+
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
 			connected = await integration.connect('launchpad');
@@ -218,18 +230,31 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 		}
 
+		using updateItemsDebouncer = createAsyncDebouncer(500);
+
 		const context: Context = {
 			result: { items: [] },
+			searchResult: undefined,
 			title: this.title,
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
 			connectedIntegrations: await this.container.launchpad.getConnectedIntegrations(),
+			inSearch: false,
+			updateItemsDebouncer: updateItemsDebouncer,
+		};
+
+		const toggleSearchMode = (enabled: boolean) => {
+			context.inSearch = enabled ? 'mode' : false;
+			context.searchResult = undefined;
+			context.updateItemsDebouncer.cancel();
+			state.item = undefined;
 		};
 
 		let opened = false;
 
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
+			context.updateItemsDebouncer.cancel();
 
 			let newlyConnected = false;
 			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
@@ -265,12 +290,23 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				newlyConnected = Boolean(connected);
 			}
 
-			const result = yield* ensureAccessStep(state, context, PlusFeatures.Launchpad);
+			const result = yield* ensureAccessStep(this.container, state, context, 'launchpad');
 			if (result === StepResultBreak) continue;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
 
 			if (state.counter < 1 || state.item == null) {
+				if (state.id != null) {
+					const item = context.result.items?.find(item => item.uuid === state.id?.uuid);
+					if (item != null) {
+						state.item = { ...item, group: state.id.group };
+						if (state.counter < 1) {
+							state.counter = 1;
+						}
+						continue;
+					}
+				}
+
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						opened ? 'launchpad/steps/main' : 'launchpad/opened',
@@ -285,12 +321,17 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				opened = true;
 
 				const result = yield* this.pickLaunchpadItemStep(state, context, {
-					picked: state.item?.graphQLId,
+					picked: state.item?.graphQLId ?? state.item?.uuid,
 					selectTopItem: state.selectTopItem,
 				});
-				if (result === StepResultBreak) continue;
+				if (result === StepResultBreak) {
+					toggleSearchMode(false);
+					continue;
+				}
 
 				if (isConnectMoreIntegrationsItem(result)) {
+					toggleSearchMode(false);
+
 					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 					const result = isUsingCloudIntegrations
 						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
@@ -302,10 +343,19 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					const connected = result.connected;
 					newlyConnected = Boolean(connected);
 					await updateContextItems(this.container, context, { force: newlyConnected });
+
+					state.counter--;
 					continue;
 				}
 
-				state.item = result;
+				if (isToggleSearchModeItem(result)) {
+					toggleSearchMode(result.searchMode);
+
+					state.counter--;
+					continue;
+				}
+
+				state.item = { ...result.item, group: result.group };
 			}
 
 			assertsLaunchpadStepState(state);
@@ -341,7 +391,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						void this.container.launchpad.switchTo(state.item);
 						break;
 					case 'open-worktree':
-						void this.container.launchpad.switchTo(state.item, { skipWorktreeConfirmations: true });
+						void this.container.launchpad.switchTo(state.item, { openInWorktree: true });
 						break;
 					case 'switch-and-code-suggest':
 					case 'code-suggest':
@@ -373,7 +423,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		state: StepState<State>,
 		context: Context,
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
-	): StepResultGenerator<GroupedLaunchpadItem | ConnectMoreIntegrationsItem> {
+	): StepResultGenerator<
+		LaunchpadItemQuickPickItem | ConnectMoreIntegrationsQuickPickItem | ToggleSearchModeQuickPickItem
+	> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
 
 		const buildGroupHeading = (
@@ -442,6 +494,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			return {
+				type: 'item',
 				label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
 				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
 				description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
@@ -455,182 +508,291 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				alwaysShow: alwaysShow,
 				buttons: buttons,
-				iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
+				iconPath:
+					i.provider.id === GitCloudHostIntegrationId.AzureDevOps
+						? new ThemeIcon('account')
+						: i.author?.avatarUrl != null
+							? Uri.parse(i.author.avatarUrl)
+							: new ThemeIcon('account'),
 				item: i,
-				picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
+				picked:
+					i.graphQLId != null
+						? i.graphQLId === picked || i.graphQLId === topItem?.graphQLId
+						: i.uuid != null
+							? i.uuid === picked || i.uuid === topItem?.uuid
+							: false,
 				group: ui,
 			};
 		};
 
-		const getItems = (result: LaunchpadCategorizedResult, isSearching?: boolean) => {
-			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
+		const getLaunchpadQuickPickItems = (items: LaunchpadItem[] = [], isFiltering?: boolean) => {
+			const groupedAndSorted: (
+				| LaunchpadItemQuickPickItem
+				| DirectiveQuickPickItem
+				| ConnectMoreIntegrationsQuickPickItem
+				| ToggleSearchModeQuickPickItem
+			)[] = [];
 
-			if (result.items?.length) {
-				const uiGroups = groupAndSortLaunchpadItems(result.items);
+			if (items.length) {
+				const uiGroups = groupAndSortLaunchpadItems(items);
 				const topItem: LaunchpadItem | undefined =
 					!selectTopItem || picked != null
 						? undefined
 						: uiGroups.get('mergeable')?.[0] ||
-						  uiGroups.get('blocked')?.[0] ||
-						  uiGroups.get('follow-up')?.[0] ||
-						  uiGroups.get('needs-review')?.[0];
-				for (const [ui, groupItems] of uiGroups) {
+							uiGroups.get('blocked')?.[0] ||
+							uiGroups.get('follow-up')?.[0] ||
+							uiGroups.get('needs-review')?.[0];
+				for (let [ui, groupItems] of uiGroups) {
+					if (context.inSearch) {
+						groupItems = groupItems.filter(i => i.isSearched);
+					}
+
 					if (!groupItems.length) continue;
 
-					if (!isSearching) {
-						items.push(...buildGroupHeading(ui, groupItems.length));
+					if (!isFiltering) {
+						groupedAndSorted.push(...buildGroupHeading(ui, groupItems.length));
 						if (context.collapsed.get(ui)) {
 							continue;
 						}
 					}
 
-					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem, isSearching)));
+					groupedAndSorted.push(
+						...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem, Boolean(context.inSearch))),
+					);
 				}
 			}
 
-			return items;
+			return groupedAndSorted;
 		};
 
-		function getItemsAndPlaceholder(isSearching?: boolean) {
-			if (context.result.error != null) {
+		function getItemsAndQuickpickProps(isFiltering?: boolean) {
+			const result = context.inSearch ? context.searchResult : context.result;
+
+			if (result?.error != null) {
 				return {
+					title: `${context.title} \u00a0\u2022\u00a0 Unable to Load Items`,
 					placeholder: `Unable to load items (${
-						context.result.error.name === 'HttpError' &&
-						'status' in context.result.error &&
-						typeof context.result.error.status === 'number'
-							? `${context.result.error.status}: ${String(context.result.error)}`
-							: String(context.result.error)
+						result.error.name === 'HttpError' &&
+						'status' in result.error &&
+						typeof result.error.status === 'number'
+							? `${result.error.status}: ${String(result.error)}`
+							: String(result.error)
 					})`,
 					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
 				};
 			}
 
-			if (!context.result.items.length) {
+			if (!result?.items.length) {
+				if (context.inSearch === 'mode') {
+					return {
+						title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
+						placeholder: 'Enter a term to search for a pull request to act on',
+						items: [
+							{
+								type: 'searchMode',
+								searchMode: false,
+								label: 'Cancel Searching',
+								detail: isFiltering ? 'No pull requests found' : 'Go back to Launchpad',
+								alwaysShow: true,
+								picked: true,
+							} satisfies ToggleSearchModeQuickPickItem,
+						],
+					};
+				}
+
 				return {
+					title: context.title,
 					placeholder: 'All done! Take a vacation',
-					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
+					items: [
+						{
+							type: 'searchMode',
+							searchMode: true,
+							label: 'Search for Pull Request...',
+							alwaysShow: true,
+							picked: true,
+						} satisfies ToggleSearchModeQuickPickItem,
+					],
 				};
 			}
 
+			const items = getLaunchpadQuickPickItems(result.items, isFiltering);
+			const hasPicked = items.some(i => i.picked);
+			if (context.inSearch === 'mode') {
+				const offItem: ToggleSearchModeQuickPickItem = {
+					type: 'searchMode',
+					searchMode: false,
+					label: 'Cancel Searching',
+					detail: 'Go back to Launchpad',
+					alwaysShow: true,
+					picked: !isFiltering && !hasPicked,
+				};
+
+				return {
+					title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
+					placeholder: 'Enter a term to search for a pull request to act on',
+					items: isFiltering ? [...items, offItem] : [offItem, ...items],
+				};
+			}
+
+			const onItem: ToggleSearchModeQuickPickItem = {
+				type: 'searchMode',
+				searchMode: true,
+				label: 'Search for Pull Request...',
+				alwaysShow: true,
+				picked: !isFiltering && !hasPicked,
+			};
+
 			return {
-				placeholder: 'Choose an item, type a term to search, or paste in a PR URL',
-				items: getItems(context.result, isSearching),
+				title: context.title,
+				placeholder: 'Choose a pull request or paste a pull request URL to act on',
+				items: isFiltering
+					? [...items, onItem]
+					: [onItem, ...getLaunchpadQuickPickItems(result.items, isFiltering)],
 			};
 		}
 
-		const combineQuickpickItemsWithSearchResults = <T extends { item: { id: string } } | object>(
-			arr: readonly T[],
-			items: T[],
-		) => {
-			const ids: Set<string> = new Set(
-				arr.map(i => 'item' in i && i.item?.id).filter(id => typeof id === 'string'),
-			);
-			const result = [...arr];
-			for (const item of items) {
-				if ('item' in item && item.item?.id && !ids.has(item.item.id)) {
-					result.push(item);
-				}
-			}
-			return result;
-		};
-
 		const updateItems = async (
-			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			quickpick: QuickPick<
+				| LaunchpadItemQuickPickItem
+				| DirectiveQuickPickItem
+				| ConnectMoreIntegrationsQuickPickItem
+				| ToggleSearchModeQuickPickItem
+			>,
+			options?: { force?: boolean; immediate?: boolean },
 		) => {
-			const search = quickpick.value;
+			const search = context.inSearch ? quickpick.value : undefined;
 			quickpick.busy = true;
 			try {
-				await this.updateItemsDebouncer(async cancellationToken => {
+				const update = async (cancellationToken: CancellationToken | undefined) => {
+					if (context.inSearch === 'mode') {
+						quickpick.items = [
+							{
+								type: 'searchMode',
+								searchMode: false,
+								label: `Searching for "${quickpick.value}"...`,
+								detail: 'Click to cancel searching',
+								alwaysShow: true,
+								picked: true,
+							} satisfies ToggleSearchModeQuickPickItem,
+						];
+					}
+
 					await updateContextItems(
 						this.container,
 						context,
-						{ force: true, search: search },
+						{ force: options?.force, search: search },
 						cancellationToken,
 					);
-					if (cancellationToken.isCancellationRequested) {
-						return;
-					}
-					const { items, placeholder } = getItemsAndPlaceholder(Boolean(search));
+
+					if (cancellationToken?.isCancellationRequested) return;
+
+					const { items, placeholder, title } = getItemsAndQuickpickProps(Boolean(search));
+					quickpick.title = title;
 					quickpick.placeholder = placeholder;
-					quickpick.items = search ? combineQuickpickItemsWithSearchResults(quickpick.items, items) : items;
-				});
+					quickpick.items = items;
+				};
+
+				if (options?.immediate) {
+					context.updateItemsDebouncer.cancel();
+					await update(undefined);
+				} else {
+					await context.updateItemsDebouncer(update);
+				}
 			} finally {
 				quickpick.busy = false;
 			}
 		};
 
-		const { items, placeholder } = getItemsAndPlaceholder();
-		const nonGroupedItems = items.filter(i => !isDirectiveQuickPickItem(i));
+		// Should only be used for optimistic update of the list when some UI property (like pinned, snoozed) changed with an
+		// item. For all other cases, use updateItems.
+		const optimisticallyUpdateItems = (
+			quickpick: QuickPick<
+				| LaunchpadItemQuickPickItem
+				| DirectiveQuickPickItem
+				| ConnectMoreIntegrationsQuickPickItem
+				| ToggleSearchModeQuickPickItem
+			>,
+		) => {
+			const { items, placeholder, title } = getItemsAndQuickpickProps(Boolean(quickpick.value));
+			quickpick.title = title;
+			quickpick.placeholder = placeholder;
+			quickpick.items = items;
+		};
 
+		const { items, placeholder, title } = getItemsAndQuickpickProps();
+
+		const inSearchMode = context.inSearch === 'mode';
 		const step = createPickStep({
-			title: context.title,
+			title: title,
 			placeholder: placeholder,
-			matchOnDescription: true,
-			matchOnDetail: true,
+			matchOnDescription: !inSearchMode,
+			matchOnDetail: !inSearchMode,
 			items: items,
 			buttons: [
+				...(inSearchMode ? [QuickInputButtons.Back] : []),
 				// FeedbackQuickInputButton,
 				OpenOnWebQuickInputButton,
 				...(hasDisconnectedIntegrations ? [ConnectIntegrationButton] : []),
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: async quickpick => {
-				const { value } = quickpick;
-				const hideGroups = Boolean(value?.length);
-				const consideredItems = hideGroups ? nonGroupedItems : items;
+			// Used to persist the search value when switching between non-search and search mode
+			onDidActivate: quickpick => {
+				if (!this.savedSearch?.length) return;
 
-				let updated = false;
-				for (const item of consideredItems) {
-					if (item.alwaysShow) {
-						item.alwaysShow = false;
-						updated = true;
-					}
+				if (context.inSearch === 'mode') {
+					quickpick.value = this.savedSearch;
 				}
 
-				// By doing the following we make sure we operate with the PRs that belong to Launchpad initially.
-				// Also, when we re-create the array, we make sure that `alwaysShow` updates are applied.
-				quickpick.items =
-					updated && quickpick.items === consideredItems ? [...consideredItems] : consideredItems;
+				this.savedSearch = undefined;
+			},
+			onDidChangeValue: async quickpick => {
+				const { value } = quickpick;
+				this.savedSearch = value;
 
+				// Nothing to search
 				if (!value?.length) {
-					// Nothing to search
-					this.updateItemsDebouncer.cancel();
+					context.updateItemsDebouncer.cancel();
+
+					context.searchResult = undefined;
+					if (context.inSearch === true) {
+						context.inSearch = false;
+					}
+
+					// Restore category/divider items
+					const { items, placeholder, title } = getItemsAndQuickpickProps();
+					quickpick.title = title;
+					quickpick.placeholder = placeholder;
+					quickpick.items = items;
+
 					return true;
 				}
 
-				// TODO: This needs to be generalized to work outside of GitHub,
-				// The current idea is that we should iterate the connected integrations and apply their parsing.
-				// Probably we even want to build a map like this: { integrationId: identity }
-				// Then when we iterate local items we can check them to corresponding identitie according to the item's repo type.
-				// Same with API: we iterate connected integrations and search in each of them with the corresponding identity.
-				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+				// In API search mode, search the API and update the quickpick
+				if (context.inSearch || this.container.launchpad.isMaybeSupportedLaunchpadPullRequestSearchUrl(value)) {
+					let immediate = false;
+					if (!context.inSearch) {
+						immediate = value.length >= 3;
 
-				if (prUrlIdentity.prNumber != null) {
-					// We can identify the PR number, so let's try to find it locally:
-					const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
-					let item = launchpadItems.find(i =>
-						// perform strict match first
-						doesPullRequestSatisfyRepositoryURLIdentity(i.item, prUrlIdentity),
-					);
-					if (item == null) {
-						// Haven't found full match, so let's at least find something with the same pr number
-						item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
+						// Hide the category/divider items quickly
+						const { items } = getItemsAndQuickpickProps(true);
+						quickpick.items = items;
+
+						context.inSearch = true;
 					}
-					if (item != null) {
-						if (!item.alwaysShow) {
-							item.alwaysShow = true;
-							// Force quickpick to update by changing the items object:
-							quickpick.items = [...quickpick.items];
-						}
-						// We have found an item that matches to the URL.
-						// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
-						this.updateItemsDebouncer.cancel();
-						return true;
-					}
+
+					await updateItems(quickpick, { force: true, immediate: immediate });
+				} else {
+					// Out of API search mode
+					context.updateItemsDebouncer.cancel();
+
+					// Hide the category/divider items quickly
+					const { items } = getItemsAndQuickpickProps(true);
+					quickpick.title = title;
+					quickpick.placeholder = placeholder;
+					quickpick.items = items;
 				}
 
-				await updateItems(quickpick);
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
@@ -656,7 +818,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 					case RefreshQuickInputButton:
 						this.sendTitleActionTelemetry('refresh', context);
-						await updateItems(quickpick);
+						await updateItems(quickpick, { force: true, immediate: true });
 						break;
 				}
 				return undefined;
@@ -673,30 +835,64 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				switch (button) {
 					case OpenOnGitHubQuickInputButton:
 					case OpenOnGitLabQuickInputButton:
+					case OpenOnAzureDevOpsQuickInputButton:
+					case OpenOnBitbucketQuickInputButton:
 						this.sendItemActionTelemetry('soft-open', item, group, context);
 						this.container.launchpad.open(item);
 						break;
 
-					case SnoozeQuickInputButton:
+					case SnoozeQuickInputButton: {
 						this.sendItemActionTelemetry('snooze', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.snoozed = true;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.snooze(item);
 						break;
-
-					case UnsnoozeQuickInputButton:
+					}
+					case UnsnoozeQuickInputButton: {
 						this.sendItemActionTelemetry('unsnooze', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.snoozed = false;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.unsnooze(item);
 						break;
-
-					case PinQuickInputButton:
+					}
+					case PinQuickInputButton: {
 						this.sendItemActionTelemetry('pin', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.pinned = true;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.pin(item);
 						break;
-
-					case UnpinQuickInputButton:
+					}
+					case UnpinQuickInputButton: {
 						this.sendItemActionTelemetry('unpin', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.pinned = false;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.unpin(item);
 						break;
-
+					}
 					case MergeQuickInputButton:
 						this.sendItemActionTelemetry('merge', item, group, context);
 						await this.container.launchpad.merge(item);
@@ -704,7 +900,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 					case OpenWorktreeInNewWindowQuickInputButton:
 						this.sendItemActionTelemetry('open-worktree', item, group, context);
-						await this.container.launchpad.switchTo(item, { skipWorktreeConfirmations: true });
+						await this.container.launchpad.switchTo(item, { openInWorktree: true });
 						break;
 				}
 
@@ -713,14 +909,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		});
 
 		const selection: StepSelection<typeof step> = yield step;
-		if (!canPickStepContinue(step, state, selection)) {
-			return StepResultBreak;
-		}
-		const element = selection[0];
-		if (isConnectMoreIntegrationsItem(element)) {
-			return element;
-		}
-		return { ...element.item, group: element.group };
+		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
+
+		return selection[0];
 	}
 
 	private *confirmStep(
@@ -749,7 +940,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							createdDateRelative: fromNow(state.item.createdDate),
 						}),
 						iconPath:
-							state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
+							state.item.provider.id === GitCloudHostIntegrationId.AzureDevOps
+								? new ThemeIcon('account')
+								: state.item.author?.avatarUrl != null
+									? Uri.parse(state.item.author.avatarUrl)
+									: undefined,
 						buttons: [
 							...gitProviderWebButtons,
 							...(state.item.isSearched
@@ -757,7 +952,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								: [
 										state.item.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
 										state.item.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-								  ]),
+									]),
 						],
 					},
 					'soft-open',
@@ -908,6 +1103,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					switch (button) {
 						case OpenOnGitHubQuickInputButton:
 						case OpenOnGitLabQuickInputButton:
+						case OpenOnAzureDevOpsQuickInputButton:
+						case OpenOnBitbucketQuickInputButton:
 							this.sendItemActionTelemetry('soft-open', state.item, state.item.group, context);
 							this.container.launchpad.open(state.item);
 							break;
@@ -977,28 +1174,31 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
-		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [
-			createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-				label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-				detail: 'Click to learn more about Launchpad',
-				iconPath: new ThemeIcon('rocket'),
-				onDidSelect: () =>
-					void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'accelerate-pr-reviews',
-						source: 'launchpad',
-						detail: 'info',
-					}),
-			}),
-			createQuickPickSeparator(),
-		];
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
+		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
+		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] =
+			!hasConnectedIntegration && isWalkthroughSupported()
+				? [
+						createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+							label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+							detail: 'Click to learn more about Launchpad',
+							iconPath: new ThemeIcon('rocket'),
+							onDidSelect: () =>
+								void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
+									step: 'accelerate-pr-reviews',
+									source: { source: 'launchpad', detail: 'info' },
+								}),
+						}),
+						createQuickPickSeparator(),
+					]
+				: [];
 
 		for (const integration of supportedLaunchpadIntegrations) {
 			if (context.connectedIntegrations.get(integration)) {
 				continue;
 			}
 			switch (integration) {
-				case HostingIntegrationId.GitHub:
+				case GitCloudHostIntegrationId.GitHub:
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -1009,7 +1209,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						),
 					);
 					break;
-				case HostingIntegrationId.GitLab:
+				case GitCloudHostIntegrationId.GitLab:
 					confirmations.push(
 						createQuickPickItemOfT(
 							{
@@ -1032,19 +1232,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			{ placeholder: 'Connect an integration to get started with Launchpad', buttons: [], ignoreFocusOut: false },
 		);
 
-		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
-		// Otherwise it disappears.
-		let freeze!: () => Disposable;
-		step.onDidActivate = qp => {
-			freeze = () => freezeStep(step, qp);
-		};
-
 		const selection: StepSelection<typeof step> = yield step;
 		if (canPickStepContinue(step, state, selection)) {
-			const resume = freeze();
+			const resume = step.freeze?.();
 			const chosenIntegrationId = selection[0].item;
 			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
-			return { connected: connected ? chosenIntegrationId : false, resume: () => resume[Symbol.dispose]() };
+			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.dispose() };
 		}
 
 		return StepResultBreak;
@@ -1053,23 +1246,26 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async *confirmCloudIntegrationsConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const step = this.createConfirmStep(
 			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
 			[
-				createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-					label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-					detail: 'Click to learn more about Launchpad',
-					iconPath: new ThemeIcon('rocket'),
-					onDidSelect: () =>
-						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'accelerate-pr-reviews',
-							source: 'launchpad',
-							detail: 'info',
-						}),
-				}),
-				createQuickPickSeparator(),
+				...(hasConnectedIntegration || !isWalkthroughSupported()
+					? []
+					: [
+							createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+								label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+								detail: 'Click to learn more about Launchpad',
+								iconPath: new ThemeIcon('rocket'),
+								onDidSelect: () =>
+									void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
+										step: 'accelerate-pr-reviews',
+										source: { source: 'launchpad', detail: 'info' },
+									}),
+							}),
+							createQuickPickSeparator(),
+						]),
 				createQuickPickItemOfT(
 					{
 						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
@@ -1091,30 +1287,25 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			},
 		);
 
-		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
-		// Otherwise it disappears.
-		let freeze!: () => Disposable;
-		let quickpick!: QuickPick<any>;
-		step.onDidActivate = qp => {
-			quickpick = qp;
-			freeze = () => freezeStep(step, qp);
-		};
-
 		const selection: StepSelection<typeof step> = yield step;
 
 		if (canPickStepContinue(step, state, selection)) {
-			const previousPlaceholder = quickpick.placeholder;
-			quickpick.placeholder = 'Connecting integrations...';
-			quickpick.ignoreFocusOut = true;
-			const resume = freeze();
+			let previousPlaceholder: string | undefined;
+			if (step.quickpick) {
+				previousPlaceholder = step.quickpick.placeholder;
+				step.quickpick.placeholder = 'Connecting integrations...';
+			}
+			const resume = step.freeze?.();
 			const connected = await this.container.integrations.connectCloudIntegrations(
 				{ integrationIds: supportedLaunchpadIntegrations },
 				{
 					source: 'launchpad',
 				},
 			);
-			quickpick.placeholder = previousPlaceholder;
-			return { connected: connected, resume: () => resume[Symbol.dispose]() };
+			if (step.quickpick) {
+				step.quickpick.placeholder = previousPlaceholder;
+			}
+			return { connected: connected, resume: () => resume?.dispose() };
 		}
 
 		return StepResultBreak;
@@ -1302,7 +1493,12 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 	for (const review of item.reviews) {
 		const isCurrentUser = review.reviewer.username === item.currentViewer.username;
 		let reviewLabel: string | undefined;
-		const iconPath = review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined;
+		const iconPath =
+			item.provider.id === GitCloudHostIntegrationId.AzureDevOps
+				? new ThemeIcon('account')
+				: review.reviewer.avatarUrl != null
+					? Uri.parse(review.reviewer.avatarUrl)
+					: new ThemeIcon('account');
 		switch (review.state) {
 			case ProviderPullRequestReviewState.Approved:
 				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
@@ -1391,12 +1587,19 @@ function getOpenActionLabel(actionCategory: string) {
 
 function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.GitLabSelfHosted:
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return OpenOnGitLabQuickInputButton;
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.GitHubEnterprise:
+		case GitCloudHostIntegrationId.GitHub:
+		case GitSelfManagedHostIntegrationId.GitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
+		case GitCloudHostIntegrationId.AzureDevOps:
+			return OpenOnAzureDevOpsQuickInputButton;
+		case GitCloudHostIntegrationId.Bitbucket:
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
+			return OpenOnBitbucketQuickInputButton;
 		default:
 			return undefined;
 	}
@@ -1409,12 +1612,20 @@ function getOpenOnGitProviderQuickInputButtons(integrationId: string): QuickInpu
 
 function getIntegrationTitle(integrationId: string): string {
 	switch (integrationId) {
-		case HostingIntegrationId.GitLab:
-		case SelfHostedIntegrationId.GitLabSelfHosted:
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return 'GitLab';
-		case HostingIntegrationId.GitHub:
-		case SelfHostedIntegrationId.GitHubEnterprise:
+		case GitCloudHostIntegrationId.GitHub:
+		case GitSelfManagedHostIntegrationId.GitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return 'GitHub';
+		case GitCloudHostIntegrationId.AzureDevOps:
+			return 'Azure DevOps';
+		case GitCloudHostIntegrationId.Bitbucket:
+			return 'Bitbucket';
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
+			return 'Bitbucket Data Center';
 		default:
 			return integrationId;
 	}
@@ -1426,9 +1637,14 @@ async function updateContextItems(
 	options?: { force?: boolean; search?: string },
 	cancellation?: CancellationToken,
 ) {
-	context.result = await container.launchpad.getCategorizedItems(options, cancellation);
-	if (container.telemetry.enabled) {
-		updateTelemetryContext(context);
+	const result = await container.launchpad.getCategorizedItems(options, cancellation);
+	if (context.inSearch) {
+		context.searchResult = result;
+	} else {
+		context.result = result;
+		if (container.telemetry.enabled) {
+			updateTelemetryContext(context);
+		}
 	}
 	context.connectedIntegrations = await container.launchpad.getConnectedIntegrations();
 }

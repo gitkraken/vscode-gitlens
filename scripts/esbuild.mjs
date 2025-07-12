@@ -90,7 +90,7 @@ async function buildExtension(target, mode) {
 		sourcemap: mode !== 'production',
 		// splitting: target !== 'webworker',
 		// chunkNames: 'feature-[name]-[hash]',
-		target: ['es2022', 'chrome102', 'node16.14.2'],
+		target: ['es2023', 'chrome124', 'node20.14.0'],
 		treeShaking: true,
 		tsconfig: target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
 		// watch: watch,
@@ -144,15 +144,6 @@ async function buildGraphWebview(mode) {
 		entryNames: '[dir]/graph',
 		alias: {
 			'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
-			tslib: path.resolve(__dirname, 'node_modules/tslib/tslib.es6.js'),
-			'@microsoft/fast-foundation': path.resolve(
-				__dirname,
-				'node_modules/@microsoft/fast-foundation/dist/esm/index.js',
-			),
-			'@microsoft/fast-react-wrapper': path.resolve(
-				__dirname,
-				'node_modules/@microsoft/fast-react-wrapper/dist/esm/index.js',
-			),
 		},
 		drop: ['debugger'],
 		external: ['vscode'],
@@ -165,7 +156,7 @@ async function buildGraphWebview(mode) {
 		outdir: out,
 		platform: 'browser',
 		sourcemap: true,
-		target: ['es2022', 'chrome102'],
+		target: ['es2023', 'chrome124'],
 		treeShaking: true,
 		tsconfig: 'src/webviews/apps/tsconfig.json',
 		// watch: watch,

@@ -1,20 +1,23 @@
 import type { CancellationToken, Command, Selection, Uri } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants.colors';
-import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
+import type { DiffRange } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import { configuration } from '../../system/vscode/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -59,18 +62,14 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const [mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
-			this.view.container.git.getMergeStatus(this.commit.repoPath),
-			this.view.container.git.getRebaseStatus(this.commit.repoPath),
-		]);
-
-		const mergeStatus = getSettledValue(mergeStatusResult);
-		const rebaseStatus = getSettledValue(rebaseStatusResult);
-		if (mergeStatus == null && rebaseStatus == null) return [];
+		const pausedOpStatus = await this.view.container.git
+			.getRepositoryService(this.commit.repoPath)
+			.status.getPausedOperationStatus?.();
+		if (pausedOpStatus == null) return [];
 
 		return [
-			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
-			new MergeConflictIncomingChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
+			new MergeConflictCurrentChangesNode(this.view, this, pausedOpStatus, this.file),
+			new MergeConflictIncomingChangesNode(this.view, this, pausedOpStatus, this.file),
 		];
 	}
 
@@ -79,10 +78,9 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			// Try to get the commit directly from the multi-file commit
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
-					limit: 2,
-					ref: this.commit.sha,
-				});
+				const log = await this.view.container.git
+					.getRepositoryService(this.repoPath)
+					.commits.getLogForPath(this.file.path, this.commit.sha, { isFolder: false, limit: 1 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
@@ -139,70 +137,59 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		return this.commit.file?.hasConflicts
 			? `${ContextValues.File}+conflicted`
 			: this.commit.isUncommittedStaged
-			  ? `${ContextValues.File}+staged`
-			  : `${ContextValues.File}+unstaged`;
+				? `${ContextValues.File}+staged`
+				: `${ContextValues.File}+unstaged`;
 	}
 
 	override getCommand(): Command | undefined {
-		let line;
+		let range: DiffRange;
 		if (this.commit.lines.length) {
-			line = this.commit.lines[0].line - 1;
+			// TODO@eamodio should the endLine be the last line of the commit?
+			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
 		} else {
-			line = this._options.selection?.active.line ?? 0;
+			range = this.commit.file?.range ?? selectionToDiffRange(this._options?.selection);
 		}
 
 		if (this.commit.file?.hasConflicts) {
-			return {
-				title: 'Open Changes',
-				command: Commands.DiffWith,
-				arguments: [
-					{
-						lhs: {
-							sha: 'MERGE_HEAD',
-							uri: GitUri.fromFile(this.file, this.repoPath, undefined, true),
-						},
-						rhs: {
-							sha: 'HEAD',
-							uri: GitUri.fromFile(this.file, this.repoPath),
-						},
-						repoPath: this.repoPath,
-						line: 0,
-						showOptions: {
-							preserveFocus: false,
-							preview: false,
-						},
-					},
-				],
-			};
+			return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
+				lhs: {
+					sha: 'MERGE_HEAD',
+					uri: GitUri.fromFile(this.file, this.repoPath, undefined, true),
+				},
+				rhs: {
+					sha: 'HEAD',
+					uri: GitUri.fromFile(this.file, this.repoPath),
+				},
+				repoPath: this.repoPath,
+				range: editorLineToDiffRange(0),
+				showOptions: { preserveFocus: false, preview: false },
+			});
 		}
 
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: GitUri.fromFile(this.file, this.commit.repoPath),
-			line: line,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				commit: this.commit,
+				uri: GitUri.fromFile(this.file, this.commit.repoPath),
+				range: range,
+				showOptions: { preserveFocus: true, preview: true },
 			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		);
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 
 	async getConflictBaseUri(): Promise<Uri | undefined> {
 		if (!this.commit.file?.hasConflicts) return undefined;
 
-		const mergeBase = await this.view.container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
+		const mergeBase = await this.view.container.git
+			.getRepositoryService(this.repoPath)
+			.refs.getMergeBase('MERGE_HEAD', 'HEAD');
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 
@@ -236,9 +223,9 @@ export async function getFileRevisionAsCommitTooltip(
 		getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined;
 		unpublished?: boolean;
 	},
-) {
+): Promise<string | undefined> {
 	const [remotesResult, _] = await Promise.allSettled([
-		container.git.getBestRemotesWithProviders(commit.repoPath, options?.cancellation),
+		container.git.getRepositoryService(commit.repoPath).remotes.getBestRemotesWithProviders(options?.cancellation),
 		commit.message == null ? commit.ensureFullDetails() : undefined,
 	]);
 
@@ -250,7 +237,7 @@ export async function getFileRevisionAsCommitTooltip(
 	let enrichedAutolinks;
 	let pr;
 
-	if (remote?.hasIntegration()) {
+	if (remote?.supportsIntegration()) {
 		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote), options?.cancellation),
 			commit.getAssociatedPullRequest(remote),
@@ -266,6 +253,9 @@ export async function getFileRevisionAsCommitTooltip(
 	const status = StatusFileFormatter.fromTemplate(
 		`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
 		file,
+		{
+			outputFormat: 'markdown',
+		},
 	);
 	return CommitFormatter.fromTemplateAsync(tooltipWithStatusFormat.replace('{{slot-status}}', status), commit, {
 		enrichedAutolinks: enrichedAutolinks,

@@ -1,28 +1,8 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { GitFileStatus } from '../../../../../git/models/file';
-
-// TODO: use the model version
-const statusTextMap: Record<string, string> = {
-	'.': 'Unchanged',
-	'!': 'Ignored',
-	'?': 'Untracked',
-	A: 'Added',
-	D: 'Deleted',
-	M: 'Modified',
-	R: 'Renamed',
-	C: 'Copied',
-	AA: 'Conflict',
-	AU: 'Conflict',
-	UA: 'Conflict',
-	DD: 'Conflict',
-	DU: 'Conflict',
-	UD: 'Conflict',
-	UU: 'Conflict',
-	T: 'Modified',
-	U: 'Updated but Unmerged',
-};
+import type { GitFileStatus } from '../../../../../git/models/fileStatus';
+import { getGitFileStatusText } from '../../../../../git/utils/fileStatus.utils';
 
 @customElement('gl-git-status')
 export class GlGitStatus extends LitElement {
@@ -71,9 +51,9 @@ export class GlGitStatus extends LitElement {
 	status?: GitFileStatus | 'T';
 
 	@state()
-	get statusName() {
+	get statusName(): string {
 		if (!this.status) return '';
-		return statusTextMap[this.status];
+		return getGitFileStatusText(this.status);
 	}
 
 	override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
@@ -87,7 +67,7 @@ export class GlGitStatus extends LitElement {
 		}
 	}
 
-	renderIgnored() {
+	private renderIgnored() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -100,7 +80,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderUntracked() {
+	private renderUntracked() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -113,7 +93,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderAdded() {
+	private renderAdded() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -126,7 +106,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderDeleted() {
+	private renderDeleted() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -139,7 +119,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderModified() {
+	private renderModified() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -152,7 +132,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderRenamed() {
+	private renderRenamed() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -165,7 +145,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderCopied() {
+	private renderCopied() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -178,7 +158,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderConflict() {
+	private renderConflict() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -191,7 +171,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderUnknown() {
+	private renderUnknown() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -204,7 +184,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		switch (this.status) {
 			case '!':
 				return this.renderIgnored();

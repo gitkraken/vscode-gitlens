@@ -6,6 +6,7 @@ import type { Container } from '../container';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
+import { configuration } from '../system/-webview/configuration';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
 import { first } from '../system/iterable';
@@ -13,7 +14,6 @@ import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { TokenOptions } from '../system/string';
 import { getTokensFromTemplate, getWidth } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider';
 import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './annotations';
@@ -39,7 +39,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		super(container, onDidChangeStatus, 'blame', editor, trackedDocument);
 	}
 
-	override async clear() {
+	override async clear(): Promise<void> {
 		await super.clear();
 
 		if (Decorations.gutterBlameHighlight != null) {
@@ -71,7 +71,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let getBranchAndTagTips;
 		if (CommitFormatter.has(cfg.format, 'tips')) {
-			getBranchAndTagTips = await this.container.git.getBranchesAndTagsTipsFn(blame.repoPath);
+			getBranchAndTagTips = await this.container.git
+				.getRepositoryService(blame.repoPath)
+				.getBranchesAndTagsTipsLookup();
 		}
 
 		const options: CommitFormatOptions = {
@@ -233,7 +235,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const highlightDecorationRanges = filterMap(blame.lines, l =>
 			l.sha === sha
 				? // editor lines are 0-based
-				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, maxSmallIntegerV8))
+					this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, maxSmallIntegerV8))
 				: undefined,
 		);
 

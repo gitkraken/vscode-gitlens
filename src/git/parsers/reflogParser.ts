@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
 import type { GitReflog } from '../models/reflog';
 import { GitReflogRecord } from '../models/reflog';
@@ -18,6 +19,7 @@ export const parseGitRefLogDefaultFormat = [
 ].join('');
 
 export function parseGitRefLog(
+	container: Container,
 	data: string,
 	repoPath: string,
 	commands: string[],
@@ -25,7 +27,10 @@ export function parseGitRefLog(
 	totalLimit: number,
 ): GitReflog | undefined {
 	using sw = maybeStopWatch(`Git.parseRefLog(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const records: GitReflogRecord[] = [];
 
@@ -94,6 +99,7 @@ export function parseGitRefLog(
 
 		if (commands.includes(command)) {
 			record = new GitReflogRecord(
+				container,
 				repoPath,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 				` ${sha}`.substring(1),

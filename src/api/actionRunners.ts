@@ -1,14 +1,14 @@
 import type { Event, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Config } from '../config';
-import { Commands } from '../constants.commands';
+import { actionCommandPrefix } from '../constants.commands';
 import type { Container } from '../container';
+import { registerCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { getScopedCounter } from '../system/counter';
 import { sortCompare } from '../system/string';
-import { registerCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
 type Actions = ActionContext['type'];
@@ -68,7 +68,7 @@ class RegisteredActionRunner<T extends ActionContext = ActionContext> implements
 		this.id = runnerIdGenerator.next();
 	}
 
-	dispose() {
+	dispose(): void {
 		this.unregister();
 	}
 
@@ -128,6 +128,7 @@ export class ActionRunners implements Disposable {
 
 	constructor(private readonly container: Container) {
 		const subscriptions: Disposable[] = [
+			this._onDidChange,
 			configuration.onDidChange(e => {
 				if (!configuration.changed(e, 'partners')) return;
 
@@ -137,7 +138,7 @@ export class ActionRunners implements Disposable {
 
 		for (const action of actions) {
 			subscriptions.push(
-				registerCommand(`${Commands.ActionPrefix}${action}`, (context: ActionContext, runnerId?: number) =>
+				registerCommand(`${actionCommandPrefix}${action}`, (context: ActionContext, runnerId?: number) =>
 					this.run(context, runnerId),
 				),
 			);
@@ -146,7 +147,7 @@ export class ActionRunners implements Disposable {
 		this._disposable = Disposable.from(...subscriptions);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 
 		for (const runners of this._actionRunners.values()) {
@@ -238,7 +239,7 @@ export class ActionRunners implements Disposable {
 		);
 	}
 
-	async run<T extends ActionContext>(context: T, runnerId?: number) {
+	async run<T extends ActionContext>(context: T, runnerId?: number): Promise<void> {
 		let runners = this.get(context.type);
 		if (runners == null || runners.length === 0) return;
 

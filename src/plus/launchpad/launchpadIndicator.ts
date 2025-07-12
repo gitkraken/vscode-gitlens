@@ -3,23 +3,21 @@ import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } fr
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
-import { Commands } from '../../constants.commands';
-import type { HostingIntegrationId } from '../../constants.integrations';
+import type { GitCloudHostIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
+import { createCommand, executeCommand, registerCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { once } from '../../system/event';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
-import { executeCommand, registerCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
+import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { LaunchpadCommandArgs } from './launchpad';
-import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
-import {
-	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadPriorityGroups,
-	supportedLaunchpadIntegrations,
-} from './launchpadProvider';
+import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
+import { groupAndSortLaunchpadItems, supportedLaunchpadIntegrations } from './launchpadProvider';
+import type { LaunchpadGroup } from './models/launchpad';
+import { launchpadGroupIconMap, launchpadPriorityGroups } from './models/launchpad';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
@@ -41,16 +39,16 @@ export class LaunchpadIndicator implements Disposable {
 	) {
 		this._disposable = Disposable.from(
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
+			provider.onDidChange(this.onLaunchpadChanged, this),
 			provider.onDidRefresh(this.onLaunchpadRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
+			once(container.onReady)(this.onReady, this),
 			...this.registerCommands(),
 		);
-
-		void this.onReady();
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearRefreshTimer();
 		this._statusBarLaunchpad?.dispose();
 		this._disposable.dispose();
@@ -68,7 +66,7 @@ export class LaunchpadIndicator implements Disposable {
 	}
 
 	private async onConnectedIntegrationsChanged(e: ConnectionStateChangeEvent) {
-		if (supportedLaunchpadIntegrations.includes(e.key as HostingIntegrationId)) {
+		if (supportedLaunchpadIntegrations.includes(e.key as GitCloudHostIntegrationId)) {
 			await this.maybeLoadData(true);
 		}
 	}
@@ -132,6 +130,24 @@ export class LaunchpadIndicator implements Disposable {
 		}
 
 		this.updateStatusBarState('load', e.items);
+	}
+
+	private async onLaunchpadChanged() {
+		this._hasRefreshed = false;
+		if (!this.pollingEnabled) {
+			this.updateStatusBarState('idle');
+
+			return;
+		}
+
+		const items = await this.provider.getCategorizedItems();
+		if (items.error != null) {
+			this.updateStatusBarState('failed');
+
+			return;
+		}
+
+		this.updateStatusBarState('load', items.items);
 	}
 
 	private async onReady(): Promise<void> {
@@ -237,11 +253,19 @@ export class LaunchpadIndicator implements Disposable {
 		tooltip.isTrusted = true;
 
 		tooltip.appendMarkdown(`GitLens Launchpad ${proBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`);
-		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`);
+		if (isWalkthroughSupported()) {
+			tooltip.appendMarkdown(
+				`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`,
+			);
+		}
 		tooltip.appendMarkdown('\u00a0');
 		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);
 		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
 		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?%22hide%22 "Hide")`);
+
+		const launchpadLink = isWalkthroughSupported()
+			? '[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "Learn about Launchpad")'
+			: 'Launchpad';
 
 		if (
 			state === 'idle' ||
@@ -251,7 +275,7 @@ export class LaunchpadIndicator implements Disposable {
 		) {
 			tooltip.appendMarkdown('\n\n---\n\n');
 			tooltip.appendMarkdown(
-				'[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+				`${launchpadLink} organizes your pull requests into actionable groups to help you focus and keep your team unblocked.`,
 			);
 			tooltip.appendMarkdown(
 				"\n\nIt's always accessible using the `GitLens: Open Launchpad` command from the Command Palette.",
@@ -306,16 +330,14 @@ export class LaunchpadIndicator implements Disposable {
 
 	private updateStatusBarCommand() {
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
-		this._statusBarLaunchpad.command = {
-			title: 'Open Launchpad',
-			command: Commands.ShowLaunchpad,
-			arguments: [
-				{
-					source: 'launchpad-indicator',
-					state: { selectTopItem: labelType === 'item' },
-				} satisfies Omit<LaunchpadCommandArgs, 'command'>,
-			],
-		};
+		this._statusBarLaunchpad.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
+			'gitlens.showLaunchpad',
+			'Open Launchpad',
+			{
+				source: 'launchpad-indicator',
+				state: { selectTopItem: labelType === 'item' },
+			} satisfies Omit<LaunchpadCommandArgs, 'command'>,
+		);
 	}
 
 	private updateStatusBarWithItems(tooltip: MarkdownString, categorizedItems: LaunchpadItem[] | undefined) {
@@ -368,7 +390,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'mergeable',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Ready to Merge in Launchpad")`,
@@ -429,7 +451,10 @@ export class LaunchpadIndicator implements Disposable {
 							}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
-									state: { initialGroup: 'blocked', selectTopItem: labelType === 'item' },
+									state: {
+										initialGroup: 'blocked',
+										selectTopItem: true,
+									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Blocked in Launchpad")`,
 						);
@@ -465,7 +490,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'follow-up',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Follow-Up in Launchpad")`,
@@ -488,7 +513,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'needs-review',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Needs Your Review in Launchpad")`,
@@ -540,10 +565,9 @@ export class LaunchpadIndicator implements Disposable {
 				this.storeFirstInteractionIfNeeded();
 				switch (action) {
 					case 'info': {
-						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 							step: 'accelerate-pr-reviews',
-							source: 'launchpad-indicator',
-							detail: 'info',
+							source: { source: 'launchpad-indicator', detail: 'info' },
 						});
 						break;
 					}
@@ -584,7 +608,7 @@ export class LaunchpadIndicator implements Disposable {
 
 		const hasLoaded = this.container.storage.get('launchpad:indicator:hasLoaded') ?? false;
 		if (!hasLoaded) {
-			void this.container.storage.store('launchpad:indicator:hasLoaded', true);
+			void this.container.storage.store('launchpad:indicator:hasLoaded', true).catch();
 			this.container.telemetry.sendEvent('launchpad/indicator/firstLoad');
 		}
 	}

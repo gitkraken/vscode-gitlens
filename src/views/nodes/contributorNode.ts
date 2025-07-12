@@ -1,21 +1,24 @@
+import type { Uri } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { GitLog } from '../../git/models/log';
-import { gate } from '../../system/decorators/gate';
+import { configuration } from '../../system/-webview/configuration';
+import { formatNumeric } from '../../system/date';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ViewsWithContributors } from '../viewBase';
 import type { ClipboardType, PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class ContributorNode extends ViewNode<'contributor', ViewsWithContributors> implements PageableViewNode {
 	limit: number | undefined;
@@ -30,6 +33,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			ref?: string;
 			presence: Map<string, ContactPresence> | undefined;
 			showMergeCommits?: boolean;
+			pathspec?: { uri: Uri; isFolder: boolean };
 		},
 	) {
 		super('contributor', uri, view, parent);
@@ -65,12 +69,22 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const hasPathspec = this.options?.pathspec != null;
+		const useFileRevisionAsCommit = this.options?.pathspec != null && !this.options.pathspec.isFolder;
+
+		const getBranchAndTagTips = await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.getBranchesAndTagsTipsLookup();
 		const children = [
 			...insertDateMarkers(
-				map(
-					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
+				map(log.commits.values(), c =>
+					useFileRevisionAsCommit
+						? new FileRevisionAsCommitNode(this.view, this, c.file!, c, {
+								getBranchAndTagTips: getBranchAndTagTips,
+							})
+						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
+								allowFilteredFiles: hasPathspec,
+							}),
 				),
 				this,
 			),
@@ -85,6 +99,17 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	async getTreeItem(): Promise<TreeItem> {
 		const presence = this.options?.presence?.get(this.contributor.email!);
 
+		const shortStats =
+			this.contributor.stats != null
+				? ` (${pluralize('file', this.contributor.stats.files)}, +${formatNumeric(
+						this.contributor.stats.additions,
+					)} -${formatNumeric(this.contributor.stats.deletions)} ${pluralize(
+						'line',
+						this.contributor.stats.additions + this.contributor.stats.deletions,
+						{ only: true },
+					)})`
+				: '';
+
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
 			TreeItemCollapsibleState.Collapsed,
@@ -97,10 +122,10 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
+		}${this.contributor.latestCommitDate != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
-			this.contributor.count,
-		)}`;
+			this.contributor.contributionCount,
+		)}${shortStats}`;
 
 		let avatarUri;
 		let avatarMarkdown;
@@ -112,7 +137,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.count ? 'You are' : `${this.contributor.label} is`} ${
+				const title = `${this.contributor.contributionCount ? 'You are' : `${this.contributor.label} is`} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 
@@ -128,17 +153,12 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			}
 		}
 
-		const numberFormatter = new Intl.NumberFormat();
-
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${pluralize('file', this.contributor.stats.files, {
-						format: numberFormatter.format,
-				  })} changed, ${pluralize('addition', this.contributor.stats.additions, {
-						format: numberFormatter.format,
-				  })}, ${pluralize('deletion', this.contributor.stats.deletions, {
-						format: numberFormatter.format,
-				  })}`
+				? `\\\n${pluralize('file', this.contributor.stats.files)} changed, ${pluralize(
+						'addition',
+						this.contributor.stats.additions,
+					)}, ${pluralize('deletion', this.contributor.stats.deletions)}`
 				: '';
 
 		const link = this.contributor.email
@@ -146,16 +166,18 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			: `__${this.contributor.label}__`;
 
 		const lastCommitted =
-			this.contributor.date != null
+			this.contributor.latestCommitDate != null
 				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
 				: '';
 
+		const pathContext = this.options?.pathspec?.uri
+			? ` to \`${this.view.container.git.getRelativePath(this.options?.pathspec?.uri, this.uri.repoPath!)}\``
+			: '';
 		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
-				this.contributor.count,
-				{ format: numberFormatter.format },
-			)}${stats}`,
+				this.contributor.contributionCount,
+			)}${pathContext}${stats}`,
 		);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
@@ -166,9 +188,8 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		return item;
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -176,38 +197,37 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log == null) {
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+
+		const { name, email, username, id } = this.contributor;
+
+		// If a Uri is provided, get log for the specific path, otherwise get all commits by author
+		if (this.options?.pathspec?.uri) {
+			this._log ??= await svc.commits.getLogForPath(this.uri, this.options?.ref, {
 				all: this.options?.all,
-				ref: this.options?.ref,
+				authors: [{ name: name, email: email, username: username, id: id }],
+				isFolder: this.options?.pathspec.isFolder,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				merges: this.options?.showMergeCommits,
-				authors: [
-					{
-						name: this.contributor.name,
-						email: this.contributor.email,
-						username: this.contributor.username,
-						id: this.contributor.id,
-					},
-				],
+			});
+		} else {
+			this._log ??= await svc.commits.getLog(this.options?.ref, {
+				all: this.options?.all,
+				authors: [{ name: name, email: email, username: username, id: id }],
+				limit: this.limit ?? this.view.config.defaultItemLimit,
+				merges: this.options?.showMergeCommits,
 			});
 		}
-
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
-		let log = await window.withProgress(
-			{
-				location: { viewId: this.view.id },
-			},
-			() => this.getLog(),
-		);
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
+		let log = await window.withProgress({ location: { viewId: this.view.id } }, () => this.getLog());
 		if (!log?.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);

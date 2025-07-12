@@ -1,7 +1,8 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { consume } from '@lit/context';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { urls } from '../../../../../constants';
-import { Commands } from '../../../../../constants.commands';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
@@ -10,10 +11,12 @@ import {
 import type { Source } from '../../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../../features';
 import { getFeaturePreviewStatus } from '../../../../../features';
-import type { Promo } from '../../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
+import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GlButton } from '../../../shared/components/button';
+import type { PromosContext } from '../../../shared/contexts/promos';
+import { promosContext } from '../../../shared/contexts/promos';
 import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';
 import '../../../shared/components/promo';
@@ -33,10 +36,9 @@ export class GlFeatureGatePlusState extends LitElement {
 		css`
 			:host {
 				--gk-action-radius: 0.3rem;
-				container-type: inline-size;
 			}
 
-			:host([appearance='welcome']) gl-button {
+			:host([appearance='welcome']) gl-button:only-child {
 				width: 100%;
 				max-width: 300px;
 			}
@@ -96,6 +98,9 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property()
 	featureWithArticleIfNeeded?: string;
 
+	@consume({ context: promosContext })
+	private promos!: PromosContext;
+
 	@property({ type: Object })
 	source?: Source;
 
@@ -105,21 +110,19 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property({ type: String })
 	webroot?: string;
 
-	protected override firstUpdated() {
+	protected override firstUpdated(): void {
 		if (this.appearance === 'alert') {
 			queueMicrotask(() => this.button.focus());
 		}
 	}
 
-	override render() {
-		if (this.state == null) {
-			this.hidden = true;
-			return undefined;
-		}
+	override render(): unknown {
+		const hidden = this.state == null;
+		// eslint-disable-next-line lit/no-this-assign-in-render
+		this.hidden = hidden;
+		if (hidden) return undefined;
 
-		this.hidden = false;
-		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
-		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
+		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : undefined;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -128,41 +131,21 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p class="actions">
 						<gl-button
 							class="inline"
-							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusResendVerification, this.source)}"
+							appearance="${ifDefined(appearance)}"
+							href="${createCommandLink<Source>('gitlens.plus.resendVerification', this.source)}"
 							>Resend Email</gl-button
 						>
 						<gl-button
 							class="inline"
-							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusValidate, this.source)}"
+							appearance="${ifDefined(appearance)}"
+							href="${createCommandLink<Source>('gitlens.plus.validate', this.source)}"
 							><code-icon icon="refresh"></code-icon
 						></gl-button>
 					</p>
 					<p>You must verify your email before you can continue.</p>
 				`;
 
-			// case SubscriptionState.Community:
-			// 	return html`
-			// 		<gl-button
-			// 			appearance="${appearance}"
-			// 			href="${generateCommandLink(Commands.PlusStartPreviewTrial, this.source)}"
-			// 			>Continue</gl-button
-			// 		>
-			// 		<p>
-			// 			Continuing gives you 3 days to preview
-			// 			${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
-			// 			Pro features.<br />
-			// 			${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
-			// 			<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
-			// 				>start your free ${proTrialLengthInDays}-day Pro trial</a
-			// 			>
-			// 			or
-			// 			<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.
-			// 		</p>
-			// 	`;
 			case SubscriptionState.Community:
-			case SubscriptionState.ProPreviewExpired:
 				if (this.featurePreview && getFeaturePreviewStatus(this.featurePreview) !== 'expired') {
 					return html`${this.renderFeaturePreview(this.featurePreview)}`;
 				}
@@ -175,12 +158,12 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p class="actions-row">
 						<gl-button
 							class="inline"
-							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+							appearance="${ifDefined(appearance)}"
+							href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
 							>&nbsp;Try GitLens Pro&nbsp;</gl-button
 						><span
 							>or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+							<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In"
 								>sign in</a
 							></span
 						>
@@ -190,37 +173,30 @@ export class GlFeatureGatePlusState extends LitElement {
 						<a href="${urls.communityVsPro}">GitLens Pro</a> for free — no credit card required.
 					</p>`;
 
-			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.TrialExpired:
 				return html`<slot name="feature"></slot>
 					<p>Use on privately-hosted repos requires <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
 					<p class="actions-row">
 						<gl-button
 							class="inline"
-							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
+							appearance="${ifDefined(appearance)}"
+							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+								plan: 'pro',
+								...(this.source ?? { source: 'feature-gate' }),
+							})}"
 							>Upgrade to Pro</gl-button
-						><span
-							>or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
-								>sign in</a
-							></span
 						>
 					</p>
-					<p>${this.renderPromo(promo)}</p>`;
+					<p>${this.renderPromo()}</p>`;
 
-			case SubscriptionState.ProTrialReactivationEligible:
+			case SubscriptionState.TrialReactivationEligible:
 				return html`<slot name="feature"></slot>
 					<p class="actions-row">
 						<gl-button
 							class="inline"
-							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusReactivateProTrial, this.source)}"
+							appearance="${ifDefined(appearance)}"
+							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
 							>Continue</gl-button
-						><span
-							>or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
-								>sign in</a
-							></span
 						>
 					</p>
 					<p>
@@ -234,19 +210,22 @@ export class GlFeatureGatePlusState extends LitElement {
 	}
 
 	private renderFeaturePreview(featurePreview: FeaturePreview) {
-		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
+		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : undefined;
 		const used = featurePreview.usages.length;
 
 		if (used === 0) {
 			return html`<slot name="feature"></slot>
-				<gl-button appearance="${appearance}" href="${this.featurePreviewCommandLink}">Continue</gl-button>
+				<gl-button appearance="${ifDefined(appearance)}" href="${ifDefined(this.featurePreviewCommandLink)}"
+					>Continue</gl-button
+				>
 				<p>
 					Continue to preview
 					${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately-hosted
 					repos, or
-					<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.<br />
+					<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In">sign in</a
+					>.<br />
 					${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
-					<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+					<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
 						>start your free ${proTrialLengthInDays}-day Pro trial</a
 					>
 					— no credit card required.
@@ -258,11 +237,16 @@ export class GlFeatureGatePlusState extends LitElement {
 		return html`
 			${this.renderFeaturePreviewStep(featurePreview, used)}
 			<p class="actions-row">
-				<gl-button class="inline" appearance="${appearance}" href="${this.featurePreviewCommandLink}"
+				<gl-button
+					class="inline"
+					appearance="${ifDefined(appearance)}"
+					href="${ifDefined(this.featurePreviewCommandLink)}"
 					>Continue Preview</gl-button
 				><span
 					>or
-					<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a></span
+					<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In"
+						>sign in</a
+					></span
 				>
 			</p>
 			<p>
@@ -270,7 +254,7 @@ export class GlFeatureGatePlusState extends LitElement {
 				${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately-hosted
 				repos.<br />
 				${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
-				<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+				<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
 					>start your free ${proTrialLengthInDays}-day Pro trial</a
 				>
 				— no credit card required.
@@ -321,11 +305,10 @@ export class GlFeatureGatePlusState extends LitElement {
 		}
 	}
 
-	private renderPromo(promo: Promo | undefined) {
-		return html`<gl-promo .promo=${promo}></gl-promo>`;
+	private renderPromo() {
+		return html`<gl-promo
+			.promoPromise=${this.promos.getApplicablePromo(undefined, 'gate')}
+			.source=${this.source}
+		></gl-promo>`;
 	}
-}
-
-function generateCommandLink(command: Commands, source: Source | undefined) {
-	return `command:${command}${source ? `?${encodeURIComponent(JSON.stringify(source))}` : ''}`;
 }
