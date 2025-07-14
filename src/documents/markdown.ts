@@ -27,16 +27,11 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 	constructor(private container: Container) {
 		this.registration = workspace.registerTextDocumentContentProvider(Schemes.GitLensAIMarkdown, this);
 
-		// Track document visibility to detect when content needs recovery
+		// Track tab changes to detect when content needs recovery
 		this.visibilityTracker = Disposable.from(
 			window.tabGroups.onDidChangeTabs((e: TabChangeEvent) => {
 				this.onTabsChanged(e);
 			}),
-			// // Also track when tabs change which might affect preview visibility
-			// window.onDidChangeActiveTextEditor(() => {
-			// 	// Delay to allow VS Code to finish tab switching
-			// 	setTimeout(() => this.forceRecoveryForAllOpenedDocuments(), 1000);
-			// }),
 		);
 
 		workspace.onDidCloseTextDocument(document => {
@@ -117,25 +112,6 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 		this.registration.dispose();
 		this.visibilityTracker.dispose();
 	}
-
-	// /**
-	//  * Checks preview visibility by examining workspace documents
-	//  */
-	// private forceRecoveryForAllOpenedDocuments(): void {
-	// 	// Check all workspace documents for our markdown scheme
-	// 	for (const document of workspace.textDocuments) {
-	// 		if (document.uri.scheme === Schemes.GitLensAIMarkdown) {
-	// 			const uriString = document.uri.toString();
-	// 			if (this.contents.has(uriString)) {
-	// 				console.log(`[GitLens] Checking preview visibility for: ${document.uri.path}`);
-	// 				// Trigger recovery check for this document
-	// 				setTimeout(() => {
-	// 					this.forceContentRecovery(document.uri);
-	// 				}, 1000);
-	// 			}
-	// 		}
-	// 	}
-	// }
 
 	private onTabsChanged(e: TabChangeEvent) {
 		for (const tab of e.changed) {
