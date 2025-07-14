@@ -841,7 +841,14 @@ export class PatchDetailsWebviewProvider
 
 			if (result == null) throw new Error('Error retrieving content');
 
-			params = { result: result.parsed };
+			const { aiPromise } = result;
+
+			const aiResult = await aiPromise;
+			if (aiResult === 'cancelled') throw new Error('Operation was canceled');
+
+			if (aiResult == null) throw new Error('Error retrieving content');
+
+			params = { result: aiResult.parsed };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };

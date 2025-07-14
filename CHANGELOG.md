@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes branch creation to avoid setting an upstream branch if the new branch name and remote branch name don't match ([#4477](https://github.com/gitkraken/vscode-gitlens/issues/4477))
+- Supports opening an explain summary document before summary content is generated ([#4328](https://github.com/gitkraken/vscode-gitlens/issues/4328))
 
 ### Fixed
 

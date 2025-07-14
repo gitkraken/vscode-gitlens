@@ -287,8 +287,9 @@ export function extractAIResultContext(container: Container, uri: Uri | undefine
 		if (!authority) return undefined;
 
 		try {
+			const context: AIResultContext | undefined = container.aiFeedback.getMarkdownDocument(uri.toString());
 			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
-			return metadata.context;
+			return context ?? metadata.context;
 		} catch (ex) {
 			Logger.error(ex, 'extractResultContext');
 			return undefined;

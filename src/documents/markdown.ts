@@ -1,5 +1,5 @@
-import type { Disposable, Event, TextDocumentContentProvider } from 'vscode';
-import { EventEmitter, Uri, workspace } from 'vscode';
+import type { Event, TabChangeEvent, TextDocumentContentProvider } from 'vscode';
+import { Disposable, EventEmitter, TabInputCustom, Uri, window, workspace } from 'vscode';
 import { Schemes } from '../constants';
 import type { GlCommands } from '../constants.commands';
 import type { Container } from '../container';
@@ -17,6 +17,7 @@ export interface MarkdownContentMetadata {
 export class MarkdownContentProvider implements TextDocumentContentProvider {
 	private contents = new Map<string, string>();
 	private registration: Disposable;
+	private visibilityTracker: Disposable;
 
 	private _onDidChange = new EventEmitter<Uri>();
 	get onDidChange(): Event<Uri> {
@@ -25,6 +26,13 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 
 	constructor(private container: Container) {
 		this.registration = workspace.registerTextDocumentContentProvider(Schemes.GitLensAIMarkdown, this);
+
+		// Track tab changes to detect when content needs recovery
+		this.visibilityTracker = Disposable.from(
+			window.tabGroups.onDidChangeTabs((e: TabChangeEvent) => {
+				this.onTabsChanged(e);
+			}),
+		);
 
 		workspace.onDidCloseTextDocument(document => {
 			if (document.uri.scheme === Schemes.GitLensAIMarkdown) {
@@ -71,6 +79,30 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 		this._onDidChange.fire(uri);
 	}
 
+	/**
+	 * Forces content recovery for a document - useful when content gets corrupted
+	 */
+	forceContentRecovery(uri: Uri): void {
+		const uriString = uri.toString();
+		if (!this.contents.has(uriString)) return;
+
+		const storedContent = this.contents.get(uriString);
+		if (!storedContent) return;
+
+		// I'm deleting the content because if I just fire the change once to make VSCode
+		// reach our `provideTextDocumentContent` method
+		// and `provideTextDocumentContent` returns the unchanged conent,
+		// VSCode will not refresh the content, instead it keeps displaying the original conetnt
+		// that the view had when it was opened initially.
+		// That's why I need to blink the content.
+		if (storedContent.at(storedContent.length - 1) === '\n') {
+			this.contents.set(uriString, storedContent.substring(0, storedContent.length - 1));
+		} else {
+			this.contents.set(uriString, `${storedContent}\n`);
+		}
+		this._onDidChange.fire(uri);
+	}
+
 	closeDocument(uri: Uri): void {
 		this.contents.delete(uri.toString());
 	}
@@ -78,6 +110,16 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 	dispose(): void {
 		this.contents.clear();
 		this.registration.dispose();
+		this.visibilityTracker.dispose();
+	}
+
+	private onTabsChanged(e: TabChangeEvent) {
+		for (const tab of e.changed) {
+			if (tab.input instanceof TabInputCustom && tab.input.uri.scheme === Schemes.GitLensAIMarkdown) {
+				const uri = tab.input.uri;
+				this.forceContentRecovery(uri);
+			}
+		}
 	}
 }
 
