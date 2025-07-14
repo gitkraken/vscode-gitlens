@@ -134,19 +134,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@state() private aiAllowed = true;
 
 	get hasFilters() {
-		if (this.graphState.state.config?.onlyFollowFirstParent) return true;
-		if (this.graphState.state.excludeTypes == null) return false;
+		if (this.graphState.config?.onlyFollowFirstParent) return true;
+		if (this.graphState.excludeTypes == null) return false;
 
-		return Object.values(this.graphState.state.excludeTypes).includes(true);
+		return Object.values(this.graphState.excludeTypes).includes(true);
 	}
 
 	get excludeRefs() {
-		return Object.values(this.graphState.state.excludeRefs ?? {}).sort(compareGraphRefOpts);
+		return Object.values(this.graphState.excludeRefs ?? {}).sort(compareGraphRefOpts);
 	}
 
 	override updated(changedProperties: PropertyValues): void {
-		this.aiAllowed =
-			(this.graphState.state.config?.aiEnabled ?? true) && (this.graphState.state.orgSettings?.ai ?? true);
+		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && (this.graphState.orgSettings?.ai ?? true);
 		super.updated(changedProperties);
 	}
 
@@ -328,7 +327,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			case 'stashes':
 			case 'tags': {
 				const key = $el.value satisfies keyof GraphExcludeTypes;
-				const currentFilter = this.graphState.state.excludeTypes?.[key];
+				const currentFilter = this.graphState.excludeTypes?.[key];
 				if ((currentFilter == null && checked) || (currentFilter != null && currentFilter !== checked)) {
 					this.onExcludeTypesChanged(key, checked);
 				}
@@ -555,7 +554,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	handleMinimapToggled() {
-		this.changeGraphConfiguration({ minimap: !this.graphState.state.config?.minimap });
+		this.changeGraphConfiguration({ minimap: !this.graphState.config?.minimap });
 	}
 
 	private changeGraphConfiguration(changes: UpdateGraphConfigurationParams['changes']) {
@@ -563,30 +562,30 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private handleMinimapDataTypeChanged(e: Event) {
-		if (this.graphState.state.config == null) return;
+		if (this.graphState.config == null) return;
 
 		const $el = e.target as RadioGroup;
 		const minimapDataType = $el.value === 'lines' ? 'lines' : 'commits';
-		if (this.graphState.state.config.minimapDataType === minimapDataType) return;
+		if (this.graphState.config.minimapDataType === minimapDataType) return;
 
 		this.changeGraphConfiguration({ minimapDataType: minimapDataType });
 	}
 
 	private handleMinimapAdditionalTypesChanged(e: Event) {
-		if (this.graphState.state.config?.minimapMarkerTypes == null) return;
+		if (this.graphState.config?.minimapMarkerTypes == null) return;
 
 		const $el = e.target as HTMLInputElement;
 		const value = $el.value as GraphMinimapMarkerTypes;
 
 		if ($el.checked) {
-			if (!this.graphState.state.config.minimapMarkerTypes.includes(value)) {
-				const minimapMarkerTypes = [...this.graphState.state.config.minimapMarkerTypes, value];
+			if (!this.graphState.config.minimapMarkerTypes.includes(value)) {
+				const minimapMarkerTypes = [...this.graphState.config.minimapMarkerTypes, value];
 				this.changeGraphConfiguration({ minimapMarkerTypes: minimapMarkerTypes });
 			}
 		} else {
-			const index = this.graphState.state.config.minimapMarkerTypes.indexOf(value);
+			const index = this.graphState.config.minimapMarkerTypes.indexOf(value);
 			if (index !== -1) {
-				const minimapMarkerTypes = [...this.graphState.state.config.minimapMarkerTypes];
+				const minimapMarkerTypes = [...this.graphState.config.minimapMarkerTypes];
 				minimapMarkerTypes.splice(index, 1);
 				this.changeGraphConfiguration({ minimapMarkerTypes: minimapMarkerTypes });
 			}
@@ -613,19 +612,17 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private readonly searchEl!: GlSearchBox;
 
 	override render() {
-		const repo = this.graphState.state.repositories?.find(
-			repo => repo.id === this.graphState.state.selectedRepository,
-		);
+		const repo = this.graphState.repositories?.find(repo => repo.id === this.graphState.selectedRepository);
 		const { searchResults } = this.graphState;
 
-		const hasMultipleRepositories = (this.graphState.state.repositories?.length ?? 0) > 1;
+		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
 		return cache(
 			html`<header class="titlebar graph-app__header">
 				<div class="titlebar__row titlebar__row--wrap">
 					<div class="titlebar__group">
 						<gl-repo-button-group
-							?disabled=${this.graphState.state.loading || !hasMultipleRepositories}
+							?disabled=${this.graphState.loading || !hasMultipleRepositories}
 							?hasMultipleRepositories=${hasMultipleRepositories}
 							.repository=${repo}
 							.source=${{ source: 'graph' } as const}
@@ -637,10 +634,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</span></gl-repo-button-group
 						>
 						${when(
-							this.graphState.state.allowed && repo,
+							this.graphState.allowed && repo,
 							() => html`
 								<span><code-icon icon="chevron-right"></code-icon></span>${when(
-									this.graphState.state.branchState?.pr,
+									this.graphState.branchState?.pr,
 									pr => html`
 										<gl-popover placement="bottom">
 											<button slot="anchor" type="button" class="action-button">
@@ -659,8 +656,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 													identifier=${`#${pr.id}`}
 													status=${pr.state}
 													.date=${pr.updatedDate}
-													.dateFormat=${this.graphState.state.config?.dateFormat}
-													.dateStyle=${this.graphState.state.config?.dateStyle}
+													.dateFormat=${this.graphState.config?.dateFormat}
+													.dateStyle=${this.graphState.config?.dateStyle}
 													details
 													@gl-issue-pull-request-details=${() => {
 														this.onOpenPullRequest(pr);
@@ -674,19 +671,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								<gl-ref-button
 									href=${createWebviewCommandLink(
 										'gitlens.graph.switchToAnotherBranch',
-										this.graphState.state.webviewId,
-										this.graphState.state.webviewInstanceId,
+										this.graphState.webviewId,
+										this.graphState.webviewInstanceId,
 									)}
 									icon
-									.ref=${this.graphState.state.branch}
-									?worktree=${this.graphState.state.branchState?.worktree}
+									.ref=${this.graphState.branch}
+									?worktree=${this.graphState.branchState?.worktree}
 								>
 									<div slot="tooltip">
 										Switch Branch...
 										<hr />
 										<code-icon icon="git-branch" aria-hidden="true"></code-icon>
-										<span class="inline-code">${this.graphState.state.branch?.name}</span>${when(
-											this.graphState.state.branchState?.worktree,
+										<span class="inline-code">${this.graphState.branch?.name}</span>${when(
+											this.graphState.branchState?.worktree,
 											() => html`<i> (in a worktree)</i> `,
 										)}
 									</div>
@@ -703,10 +700,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									<code-icon icon="chevron-right"></code-icon>
 								</span>
 								<gl-git-actions-buttons
-									.branchName=${this.graphState.state.branch?.name}
-									.branchState=${this.graphState.state.branchState}
-									.lastFetched=${this.graphState.state.lastFetched}
-									.state=${this.graphState.state}
+									.branchName=${this.graphState.branch?.name}
+									.branchState=${this.graphState.branchState}
+									.lastFetched=${this.graphState.lastFetched}
+									.state=${this.graphState}
 								></gl-git-actions-buttons>
 							`,
 						)}
@@ -718,7 +715,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								href=${createCommandLink<BranchGitCommandArgs>('gitlens.gitCommands.branch', {
 									state: {
 										subcommand: 'create',
-										reference: this.graphState.state.branch,
+										reference: this.graphState.branch,
 									},
 									command: 'branch',
 									confirm: true,
@@ -729,7 +726,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<span slot="content">
 								Create New Branch from
 								<code-icon icon="git-branch"></code-icon>
-								<span class="inline-code">${this.graphState.state.branch?.name}</span>
+								<span class="inline-code">${this.graphState.branch?.name}</span>
 							</span>
 						</gl-tooltip>
 						<gl-tooltip placement="bottom">
@@ -752,8 +749,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<a
 								href=${createWebviewCommandLink(
 									'gitlens.visualizeHistory.repo:graph',
-									this.graphState.state.webviewId,
-									this.graphState.state.webviewInstanceId,
+									this.graphState.webviewId,
+									this.graphState.webviewInstanceId,
 								)}
 								class="action-button"
 								aria-label=${`Open Visual History`}
@@ -791,12 +788,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</span>
 						</gl-tooltip>
 						${when(
-							this.graphState.state.subscription == null ||
-								!isSubscriptionPaid(this.graphState.state.subscription),
+							this.graphState.subscription == null || !isSubscriptionPaid(this.graphState.subscription),
 							() => html`
 								<gl-feature-badge
 									.source=${{ source: 'graph', detail: 'badge' } as const}
-									.subscription=${this.graphState.state.subscription}
+									.subscription=${this.graphState.subscription}
 								></gl-feature-badge>
 							`,
 						)}
@@ -804,36 +800,36 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				</div>
 
 				${when(
-					this.graphState.state.allowed &&
-						this.graphState.state.workingTreeStats != null &&
-						(this.graphState.state.workingTreeStats.hasConflicts ||
-							this.graphState.state.workingTreeStats.pausedOpStatus),
+					this.graphState.allowed &&
+						this.graphState.workingTreeStats != null &&
+						(this.graphState.workingTreeStats.hasConflicts ||
+							this.graphState.workingTreeStats.pausedOpStatus),
 					() => html`
 						<div class="merge-conflict-warning">
 							<gl-merge-rebase-status
 								class="merge-conflict-warning__content"
-								?conflicts=${this.graphState.state.workingTreeStats?.hasConflicts}
-								.pausedOpStatus=${this.graphState.state.workingTreeStats?.pausedOpStatus}
+								?conflicts=${this.graphState.workingTreeStats?.hasConflicts}
+								.pausedOpStatus=${this.graphState.workingTreeStats?.pausedOpStatus}
 								skipCommand="gitlens.graph.skipPausedOperation"
 								continueCommand="gitlens.graph.continuePausedOperation"
 								abortCommand="gitlens.graph.abortPausedOperation"
 								openEditorCommand="gitlens.graph.openRebaseEditor"
 								.webviewCommandContext=${{
-									webview: this.graphState.state.webviewId,
-									webviewInstance: this.graphState.state.webviewInstanceId,
+									webview: this.graphState.webviewId,
+									webviewInstance: this.graphState.webviewInstanceId,
 								}}
 							></gl-merge-rebase-status>
 						</div>
 					`,
 				)}
 				${when(
-					this.graphState.state.allowed,
+					this.graphState.allowed,
 					() => html`
 						<div class="titlebar__row">
 							<div class="titlebar__group">
 								<gl-tooltip placement="top" content="Branches Visibility">
 									<sl-select
-										value=${ifDefined(this.graphState.state.branchesVisibility)}
+										value=${ifDefined(this.graphState.branchesVisibility)}
 										@sl-change=${this.handleBranchesVisibility}
 										hoist
 									>
@@ -864,7 +860,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									</sl-select>
 								</gl-tooltip>
 								<div
-									class=${`shrink ${!Object.values(this.graphState.state.excludeRefs ?? {}).length && 'hidden'}`}
+									class=${`shrink ${!Object.values(this.graphState.excludeRefs ?? {}).length && 'hidden'}`}
 								>
 									<gl-popover
 										class="popover"
@@ -876,7 +872,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										<gl-tooltip placement="top" slot="anchor">
 											<button type="button" id="hiddenRefs" class="action-button">
 												<code-icon icon=${`eye-closed`}></code-icon>
-												${Object.values(this.graphState.state.excludeRefs ?? {}).length}
+												${Object.values(this.graphState.excludeRefs ?? {}).length}
 												<code-icon
 													class="action-button__more"
 													icon="chevron-down"
@@ -955,8 +951,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 														<gl-checkbox
 															value="onlyFollowFirstParent"
 															@gl-change-value=${this.handleFilterChange}
-															?checked=${this.graphState.state.config
-																?.onlyFollowFirstParent ?? false}
+															?checked=${this.graphState.config?.onlyFollowFirstParent ??
+															false}
 														>
 															Simplify Merge History
 														</gl-checkbox>
@@ -967,7 +963,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 													<gl-checkbox
 														value="remotes"
 														@gl-change-value=${this.handleFilterChange}
-														?checked=${this.graphState.state.excludeTypes?.remotes ?? false}
+														?checked=${this.graphState.excludeTypes?.remotes ?? false}
 													>
 														Hide Remote-only Branches
 													</gl-checkbox>
@@ -976,7 +972,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 													<gl-checkbox
 														value="stashes"
 														@gl-change-value=${this.handleFilterChange}
-														?checked=${this.graphState.state.excludeTypes?.stashes ?? false}
+														?checked=${this.graphState.excludeTypes?.stashes ?? false}
 													>
 														Hide Stashes
 													</gl-checkbox>
@@ -987,7 +983,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											<gl-checkbox
 												value="tags"
 												@gl-change-value=${this.handleFilterChange}
-												?checked=${this.graphState.state.excludeTypes?.tags ?? false}
+												?checked=${this.graphState.excludeTypes?.tags ?? false}
 											>
 												Hide Tags
 											</gl-checkbox>
@@ -997,7 +993,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											<gl-checkbox
 												value="mergeCommits"
 												@gl-change-value=${this.handleFilterChange}
-												?checked=${this.graphState.state.config?.dimMergeCommits ?? false}
+												?checked=${this.graphState.config?.dimMergeCommits ?? false}
 											>
 												Dim Merge Commit Rows
 											</gl-checkbox>
@@ -1010,8 +1006,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								<gl-search-box
 									?aiAllowed=${this.aiAllowed}
 									errorMessage=${this.graphState.searchResultsError?.error ?? ''}
-									?filter=${this.graphState.state.defaultSearchMode === 'filter'}
-									?naturalLanguage=${Boolean(this.graphState.state.useNaturalLanguageSearch)}
+									?filter=${this.graphState.defaultSearchMode === 'filter'}
+									?naturalLanguage=${Boolean(this.graphState.useNaturalLanguageSearch)}
 									?more=${searchResults?.paging?.hasMore ?? false}
 									?resultsHidden=${this.graphState.searchResultsHidden}
 									?resultsLoaded=${searchResults != null}
@@ -1035,7 +1031,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											role="checkbox"
 											class="action-button"
 											aria-label="Toggle Minimap"
-											aria-checked=${this.graphState.state.config?.minimap ?? false}
+											aria-checked=${this.graphState.config?.minimap ?? false}
 											@click=${() => this.handleMinimapToggled()}
 										>
 											<code-icon class="action-button__icon" icon="graph-line"></code-icon>
@@ -1063,7 +1059,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											<menu-label>Minimap</menu-label>
 											<menu-item role="none">
 												<gl-radio-group
-													value=${this.graphState.state.config?.minimapDataType ?? 'commits'}
+													value=${this.graphState.config?.minimapDataType ?? 'commits'}
 													@gl-change-value=${this.handleMinimapDataTypeChanged}
 												>
 													<gl-radio name="minimap-datatype" value="commits">
@@ -1080,7 +1076,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 												<gl-checkbox
 													value="localBranches"
 													@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-													?checked=${this.graphState.state.config?.minimapMarkerTypes?.includes(
+													?checked=${this.graphState.config?.minimapMarkerTypes?.includes(
 														'localBranches',
 													) ?? false}
 												>
@@ -1095,7 +1091,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 												<gl-checkbox
 													value="remoteBranches"
 													@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-													?checked=${this.graphState.state.config?.minimapMarkerTypes?.includes(
+													?checked=${this.graphState.config?.minimapMarkerTypes?.includes(
 														'remoteBranches',
 													) ?? true}
 												>
@@ -1110,7 +1106,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 												<gl-checkbox
 													value="pullRequests"
 													@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-													?checked=${this.graphState.state.config?.minimapMarkerTypes?.includes(
+													?checked=${this.graphState.config?.minimapMarkerTypes?.includes(
 														'pullRequests',
 													) ?? true}
 												>
@@ -1125,7 +1121,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 												<gl-checkbox
 													value="stashes"
 													@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-													?checked=${this.graphState.state.config?.minimapMarkerTypes?.includes(
+													?checked=${this.graphState.config?.minimapMarkerTypes?.includes(
 														'stashes',
 													) ?? false}
 												>
@@ -1137,7 +1133,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 												<gl-checkbox
 													value="tags"
 													@gl-change-value=${this.handleMinimapAdditionalTypesChanged}
-													?checked=${this.graphState.state.config?.minimapMarkerTypes?.includes(
+													?checked=${this.graphState.config?.minimapMarkerTypes?.includes(
 														'tags',
 													) ?? true}
 												>
@@ -1153,13 +1149,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					`,
 				)}
 				<div
-					class=${`progress-container infinite${
-						this.graphState.state.loading ||
-						this.graphState.state.rowsStatsLoading ||
-						this.graphState.loading
-							? ' active'
-							: ''
-					}`}
+					class=${`progress-container infinite${this.graphState.isBusy ? ' active' : ''}`}
 					role="progressbar"
 				>
 					<div class="progress-bar"></div>
