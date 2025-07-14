@@ -11,6 +11,7 @@ import type { AIModel } from '../plus/ai/models/model';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { showMarkdownPreview } from '../system/-webview/markdown';
+import { setMarkdownDocument } from './aiFeedback';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
@@ -135,9 +136,13 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 		result: AISummarizeResult,
 		metadata: MarkdownContentMetadata,
 	): void {
-		const metadataWithContext: MarkdownContentMetadata = { ...metadata, context: getAIResultContext(result) };
+		const context = getAIResultContext(result);
+		const metadataWithContext: MarkdownContentMetadata = { ...metadata, context: context };
 		const headerContent = getMarkdownHeaderContent(metadataWithContext, this.container.telemetry.enabled);
 		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+
+		// Store the AI result context in the feedback provider for documents that cannot store it in their URI
+		setMarkdownDocument(documentUri.toString(), context, this.container);
 
 		this.container.markdown.updateDocument(documentUri, content);
 	}
