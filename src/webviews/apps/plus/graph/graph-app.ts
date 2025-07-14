@@ -72,33 +72,27 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-select-commits=${this.handleHeaderSearchNavigation}
 				></gl-graph-header>
 				<div class="graph__workspace">
-					${when(
-						!this.graphState.state.allowed,
-						() => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`,
-					)}
+					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
 					<main id="main" class="graph__panes">
 						<div class="graph__graph-pane">
 							${when(
-								this.graphState.state.config?.minimap !== false,
+								this.graphState.config?.minimap !== false,
 								() => html`
 									<gl-graph-minimap-container
 										.activeDay=${this.graphState.activeDay}
-										.disabled=${!this.graphState.state.config?.minimap}
-										.rows=${this.graphState.state.rows ?? []}
-										.rowsStats=${this.graphState.state.rowsStats}
-										.dataType=${this.graphState.state.config?.minimapDataType ?? 'commits'}
-										.markerTypes=${this.graphState.state.config?.minimapMarkerTypes ?? []}
-										.refMetadata=${this.graphState.state.refsMetadata}
+										.disabled=${!this.graphState.config?.minimap}
+										.rows=${this.graphState.rows ?? []}
+										.rowsStats=${this.graphState.rowsStats}
+										.dataType=${this.graphState.config?.minimapDataType ?? 'commits'}
+										.markerTypes=${this.graphState.config?.minimapMarkerTypes ?? []}
+										.refMetadata=${this.graphState.refsMetadata}
 										.searchResults=${this.graphState.searchResults}
 										.visibleDays=${this.graphState.visibleDays}
 										@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
 									></gl-graph-minimap-container>
 								`,
 							)}
-							${when(
-								this.graphState.state.config?.sidebar,
-								() => html`<gl-graph-sidebar></gl-graph-sidebar>`,
-							)}
+							${when(this.graphState.config?.sidebar, () => html`<gl-graph-sidebar></gl-graph-sidebar>`)}
 							<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
 							<gl-graph-wrapper
 								@gl-graph-change-selection=${this.handleGraphSelectionChanged}
@@ -121,7 +115,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleMinimapDaySelected(e: CustomEvent<GraphMinimapDaySelectedEventDetail>) {
-		if (!this.graphState.state.rows) return;
+		if (!this.graphState.rows) return;
 
 		let { sha } = e.detail;
 		if (sha == null) {
@@ -129,7 +123,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (date == null) return;
 
 			// Find closest row to the date
-			const closest = this.graphState.state.rows.reduce((prev, curr) => {
+			const closest = this.graphState.rows.reduce((prev, curr) => {
 				return Math.abs(curr.date - date) < Math.abs(prev.date - date) ? curr : prev;
 			});
 			sha = closest.sha;

@@ -41,10 +41,7 @@ type ReactiveElementHost = Partial<ReactiveControllerHost> & HTMLElement;
 interface AppState {
 	activeDay?: number;
 	activeRow?: string;
-	visibleDays?: {
-		top: number;
-		bottom: number;
-	};
+	visibleDays?: { top: number; bottom: number };
 }
 
 function getSearchResultModel(searchResults: State['searchResults']): {
@@ -65,13 +62,25 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 
 export const graphStateContext = createContext<GraphStateProvider>('graph-state-context');
 
-export class GraphStateProvider implements StateProvider<State>, AppState {
+export class GraphStateProvider implements StateProvider<State>, State, AppState {
 	private readonly disposable: Disposable;
 	private readonly provider: ContextProvider<{ __context__: GraphStateProvider }, ReactiveElementHost>;
 
 	private readonly _state: State;
 	get state() {
 		return this._state;
+	}
+
+	get webviewId() {
+		return this._state.webviewId;
+	}
+
+	get webviewInstanceId() {
+		return this._state.webviewInstanceId;
+	}
+
+	get timestamp() {
+		return this._state.timestamp;
 	}
 
 	// App state members moved from GraphAppState
@@ -121,33 +130,131 @@ export class GraphStateProvider implements StateProvider<State>, AppState {
 	@signalState()
 	accessor selectedRows: undefined | GraphSelectedRows;
 
-	private updateState(partial: Partial<State>) {
-		for (const key in partial) {
-			// @ts-expect-error dynamic object key ejection doesn't work in typescript
-			this._state[key] = partial[key];
+	// State accessors for all top-level State properties
+	@signalState()
+	accessor windowFocused: boolean | undefined;
 
-			// this should probably only happen the first time the state is set or when the state is reset
+	@signalState()
+	accessor webroot: string | undefined;
+
+	@signalState()
+	accessor repositories: State['repositories'];
+
+	@signalState()
+	accessor selectedRepository: string | undefined;
+
+	@signalState()
+	accessor selectedRepositoryVisibility: State['selectedRepositoryVisibility'];
+
+	@signalState()
+	accessor branchesVisibility: State['branchesVisibility'];
+
+	@signalState()
+	accessor branch: State['branch'];
+
+	@signalState()
+	accessor branchState: State['branchState'];
+
+	@signalState()
+	accessor lastFetched: Date | undefined;
+
+	@signalState()
+	accessor subscription: State['subscription'];
+
+	@signalState()
+	accessor allowed: boolean = false;
+
+	@signalState()
+	accessor avatars: State['avatars'];
+
+	@signalState()
+	accessor refsMetadata: State['refsMetadata'];
+
+	@signalState()
+	accessor rows: State['rows'];
+
+	@signalState()
+	accessor rowsStats: State['rowsStats'];
+
+	@signalState()
+	accessor rowsStatsLoading: boolean | undefined;
+
+	@signalState()
+	accessor downstreams: State['downstreams'];
+
+	@signalState()
+	accessor paging: State['paging'];
+
+	@signalState()
+	accessor columns: State['columns'];
+
+	@signalState()
+	accessor config: State['config'];
+
+	@signalState()
+	accessor context: State['context'];
+
+	@signalState()
+	accessor nonce: string | undefined;
+
+	@signalState()
+	accessor workingTreeStats: State['workingTreeStats'];
+
+	@signalState()
+	accessor defaultSearchMode: State['defaultSearchMode'];
+
+	@signalState()
+	accessor useNaturalLanguageSearch: boolean | undefined;
+
+	@signalState()
+	accessor excludeRefs: State['excludeRefs'];
+
+	@signalState()
+	accessor excludeTypes: State['excludeTypes'];
+
+	@signalState()
+	accessor includeOnlyRefs: State['includeOnlyRefs'];
+
+	@signalState()
+	accessor featurePreview: State['featurePreview'];
+
+	@signalState()
+	accessor orgSettings: State['orgSettings'];
+
+	get isBusy() {
+		return this.loading || this.searching || this.rowsStatsLoading || false;
+	}
+
+	private updateState(partial: Partial<State>, silent?: boolean) {
+		for (const key in partial) {
+			const value = partial[key as keyof State];
+			// @ts-expect-error key is a key of State
+			this._state[key] = value;
+
+			if (['timestamp', 'webviewId', 'webviewInstanceId'].includes(key)) continue;
+
+			// Update corresponding accessors
 			switch (key) {
+				case 'allowed':
+					this.allowed = partial.allowed ?? false;
+					break;
 				case 'loading':
 					this.loading = partial.loading ?? false;
 					break;
-				case 'selectedRows':
-					this.selectedRows = partial.selectedRows;
-					break;
-				case 'searchResults':
-					this.searchResultsResponse = partial.searchResults;
+				default:
+					// @ts-expect-error key is a key of State
+					this[key as keyof Omit<State, 'timestamp' | 'webviewId' | 'webviewInstanceId'>] = value;
 					break;
 			}
 		}
+
+		if (silent) return;
+
 		this.options.onStateUpdate?.(partial);
-		// console.count('GraphStateProvider.updateState');
 		this.fireProviderUpdate();
 	}
 
-	private fireProviderUpdate = debounce(() => {
-		// console.countReset('GraphStateProvider.updateState');
-		this.provider.setValue(this, true);
-	}, 100);
+	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
 	constructor(
 		host: ReactiveElementHost,
@@ -158,6 +265,7 @@ export class GraphStateProvider implements StateProvider<State>, AppState {
 	) {
 		this._state = state;
 		this.provider = new ContextProvider(host, { context: graphStateContext, initialValue: this });
+		this.updateState(state, true);
 
 		this.disposable = this._ipc.onReceiveMessage(msg => {
 			const scope = getLogScope();
