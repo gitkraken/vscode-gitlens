@@ -152,7 +152,7 @@ export class GlDetailsBase extends LitElement {
 			}
 		}
 
-		if (staged.length === 0 || unstaged.length === 0) {
+		if (staged.length === 0 && unstaged.length === 0) {
 			children.push(...this.createFileTreeModel(mode, files, isTree, compact));
 		} else {
 			if (staged.length) {
