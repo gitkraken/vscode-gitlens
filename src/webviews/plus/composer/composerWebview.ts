@@ -17,4 +17,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			...this.host.getTelemetryContext(),
 		};
 	}
+
+	includeBootstrap(): State {
+		return {
+			...this.host.baseWebviewState,
+		};
+	}
+
+	onShowing(): [boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined] {
+		return [true, undefined];
+	}
 }
