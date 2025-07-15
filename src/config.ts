@@ -108,6 +108,7 @@ export type DateStyle = 'absolute' | 'relative';
 export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
 export type GitCommandSorting = 'name' | 'usage';
 export type GraphBranchesVisibility = 'all' | 'smart' | 'current';
+export type GraphMultiSelectionMode = boolean | 'topological';
 export type GraphScrollMarkersAdditionalTypes =
 	| 'localBranches'
 	| 'remoteBranches'
@@ -412,7 +413,7 @@ export interface GraphConfig {
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 	};
-	readonly multiselect: boolean;
+	readonly multiselect: GraphMultiSelectionMode;
 	readonly onlyFollowFirstParent: boolean;
 	readonly pageItemLimit: number;
 	readonly pullRequests: {

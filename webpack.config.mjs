@@ -648,6 +648,13 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
 		},
+		ignoreWarnings: [
+			// Ignore warnings about findDOMNode being removed from React 19
+			{
+				module: /@gitkraken\/gitkraken-components/,
+				message: /export 'findDOMNode'/,
+			},
+		],
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,

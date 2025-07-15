@@ -527,7 +527,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			enabledRefMetadataTypes={config.enabledRefMetadataTypes}
 			enabledScrollMarkerTypes={config.scrollMarkerTypes}
 			enableShowHideRefsOptions
-			enableMultiSelection={config.enableMultiSelection}
+			enableMultiSelection={config.multiSelectionMode !== false}
 			excludeRefsById={props.excludeRefs}
 			excludeByType={props.excludeTypes}
 			formatCommitDateTime={getGraphDateFormatter(config)}
@@ -579,7 +579,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			rowsStatsLoading={props.rowsStatsLoading}
 			searchMode={props.filter?.filter ? 'filter' : 'normal'}
 			shaLength={config.idLength}
-			shiftSelectMode="simple"
+			shiftSelectMode={config.multiSelectionMode === 'topological' ? 'topological' : 'simple'}
 			suppressNonRefRowTooltips
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}

@@ -1156,7 +1156,7 @@ or
   'context.config.minimap.additionalTypes': string,
   'context.config.minimap.dataType': 'commits' | 'lines',
   'context.config.minimap.enabled': boolean,
-  'context.config.multiselect': boolean,
+  'context.config.multiselect': boolean | 'simple' | 'topological',
   'context.config.onlyFollowFirstParent': boolean,
   'context.config.pageItemLimit': number,
   'context.config.pullRequests.enabled': boolean,

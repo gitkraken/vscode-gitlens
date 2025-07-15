@@ -22,7 +22,7 @@ import type {
 	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
-import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
+import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config';
 import type { SearchQuery } from '../../../constants.search';
 import type { FeaturePreview } from '../../../features';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
@@ -184,12 +184,12 @@ export interface GraphComponentConfig {
 	dateStyle: DateStyle;
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
-	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
+	multiSelectionMode?: GraphMultiSelectionMode;
 	onlyFollowFirstParent?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
