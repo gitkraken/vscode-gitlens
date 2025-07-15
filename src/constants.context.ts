@@ -39,6 +39,7 @@ export type ContextKeys = {
 	'gitlens:schemes:trackable': string[];
 	'gitlens:tabs:ai:helpful': Uri[];
 	'gitlens:tabs:ai:unhelpful': Uri[];
+	'gitlens:tabs:ai:changelog': Uri[];
 	'gitlens:tabs:annotated': Uri[];
 	'gitlens:tabs:annotated:computing': Uri[];
 	'gitlens:tabs:blameable': Uri[];

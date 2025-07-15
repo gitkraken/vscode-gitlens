@@ -1036,6 +1036,7 @@ export type Sources =
 	| 'account'
 	| 'ai'
 	| 'ai:markdown-preview'
+	| 'ai:markdown-editor'
 	| 'ai:picker'
 	| 'associateIssueWithBranch'
 	| 'cloud-patches'
