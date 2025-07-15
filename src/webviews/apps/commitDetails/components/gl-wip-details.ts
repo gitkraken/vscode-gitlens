@@ -208,6 +208,8 @@ export class GlWipDetails extends GlDetailsBase {
 			</p>`;
 		}
 
+		if ((this.wip?.changes?.files.length ?? 0) === 0) return undefined;
+
 		return html`<p class="button-container">
 			<span class="button-group button-group--single">
 				<gl-button
