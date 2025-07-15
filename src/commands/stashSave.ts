@@ -56,6 +56,14 @@ export class StashSaveCommand extends GlCommandBase {
 				if (repo != null) {
 					args = { ...args };
 					args.repoPath = repo.path;
+
+					const status = await repo.git.status.getStatus();
+					for (const file of status?.files ?? []) {
+						if (file.status === '?') {
+							args.includeUntracked = true;
+							break;
+						}
+					}
 				}
 			}
 		} else if (context.type === 'scm-states') {
@@ -126,23 +134,23 @@ async function getStashSaveArgsForScmStates(
 	}
 
 	let hasStaged = 0;
-	// let hasWorking = 0;
-	// let hasUntracked = 0;
+	let hasWorking = false;
+	let hasUntracked = false;
 
 	const status = await repo?.git.status.getStatus();
 	for (const file of status?.files ?? []) {
 		if (file.indexStatus) {
 			hasStaged++;
 		}
-		// if (file.workingTreeStatus) {
-		// 	hasWorking++;
-		// }
-		// if (file.status === '?') {
-		// 	hasUntracked++;
-		// }
+		if (file.workingTreeStatus) {
+			hasWorking = true;
+		}
+		if (file.status === '?') {
+			hasUntracked = true;
+		}
 	}
 
-	if (!selectedWorking && !selectedUntracked) {
+	if (!selectedWorking && !selectedUntracked && (hasWorking || hasUntracked)) {
 		if (!(await repo?.git?.supports('git:stash:push:staged'))) {
 			const confirm = { title: 'Stash All' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
