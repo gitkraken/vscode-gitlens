@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes unstaging files doesn't work in the Inspect/Details views ([#4485](https://github.com/gitkraken/vscode-gitlens/issues/4485))
 - Fixes error when stashing only staged changes ([#4490](https://github.com/gitkraken/vscode-gitlens/issues/4490))
+- Fixes AI stash message generation when all changes are staged
 
 ## [17.3.0] - 2025-07-08
 

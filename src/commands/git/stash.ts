@@ -642,11 +642,21 @@ export class StashGitCommand extends QuickCommand<State> {
 					using resume = step.freeze?.();
 
 					try {
-						const diff = await state.repo.git.diff.getDiff?.(
+						let diff = await state.repo.git.diff.getDiff?.(
 							state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
 							undefined,
 							state.uris?.length ? { uris: state.uris } : undefined,
 						);
+
+						// If we didn't find a diff, check if everything is staged (e.g. diff to uncommittedStaged)
+						if (!diff?.contents && !state.flags.includes('--staged')) {
+							diff = await state.repo.git.diff.getDiff?.(
+								uncommittedStaged,
+								undefined,
+								state.uris?.length ? { uris: state.uris } : undefined,
+							);
+						}
+
 						if (!diff?.contents) {
 							void window.showInformationMessage('No changes to generate a stash message from.');
 							return;
