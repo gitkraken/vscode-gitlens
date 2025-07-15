@@ -5,7 +5,7 @@ import type { State } from './protocol';
 export type ComposerCommandArgs = Record<string, unknown>;
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];
 
-export function registerSettingsWebviewPanel(
+export function registerComposerWebviewPanel(
 	controller: WebviewsController,
 ): WebviewPanelsProxy<'gitlens.composer', ComposerWebviewShowingArgs, State> {
 	return controller.registerWebviewPanel<'gitlens.composer', State, State, ComposerWebviewShowingArgs>(
