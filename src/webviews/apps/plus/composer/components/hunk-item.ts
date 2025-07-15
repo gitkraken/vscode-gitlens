@@ -42,6 +42,22 @@ export class HunkItem extends LitElement {
 			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 		}
 
+		.hunk-item.selected {
+			border-color: var(--vscode-focusBorder);
+			background: var(--vscode-list-activeSelectionBackground);
+		}
+
+		.hunk-item.multi-selected {
+			border-color: var(--vscode-focusBorder);
+			border-style: dashed;
+			background: var(--vscode-list-inactiveSelectionBackground);
+		}
+
+		.hunk-item.multi-selected.selected {
+			border-style: solid;
+			background: var(--vscode-list-activeSelectionBackground);
+		}
+
 		.hunk-header {
 			display: flex;
 			align-items: center;
@@ -152,6 +168,12 @@ export class HunkItem extends LitElement {
 	@property({ type: Number })
 	deletions!: number;
 
+	@property({ type: Boolean })
+	selected = false;
+
+	@property({ type: Boolean })
+	multiSelected = false;
+
 	private renderDiffContent() {
 		const lines = this.content.split('\n');
 		return lines.map(line => {
@@ -171,9 +193,34 @@ export class HunkItem extends LitElement {
 		this.dataset.hunkId = this.hunkId;
 	}
 
+	private handleClick(e: MouseEvent) {
+		// Don't select hunk if clicking on drag handle
+		if ((e.target as HTMLElement).closest('.drag-handle')) {
+			return;
+		}
+
+		// Prevent text selection when shift-clicking
+		if (e.shiftKey) {
+			e.preventDefault();
+		}
+
+		this.dispatchEvent(
+			new CustomEvent('hunk-selected', {
+				detail: {
+					hunkId: this.hunkId,
+					shiftKey: e.shiftKey,
+				},
+				bubbles: true,
+			}),
+		);
+	}
+
 	override render() {
 		return html`
-			<div class="hunk-item">
+			<div
+				class="hunk-item ${this.selected ? 'selected' : ''} ${this.multiSelected ? 'multi-selected' : ''}"
+				@click=${this.handleClick}
+			>
 				<div class="drag-handle">
 					<code-icon icon="gripper"></code-icon>
 				</div>

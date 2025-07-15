@@ -18,6 +18,7 @@ export class CommitItem extends LitElement {
 			cursor: pointer;
 			transition: all 0.2s ease;
 			position: relative;
+			user-select: none;
 		}
 
 		.commit-item:hover {
@@ -28,6 +29,17 @@ export class CommitItem extends LitElement {
 		.commit-item.selected {
 			background: var(--vscode-list-activeSelectionBackground);
 			border-color: var(--vscode-focusBorder);
+		}
+
+		.commit-item.multi-selected {
+			background: var(--vscode-list-inactiveSelectionBackground);
+			border-color: var(--vscode-focusBorder);
+			border-style: dashed;
+		}
+
+		.commit-item.multi-selected.selected {
+			background: var(--vscode-list-activeSelectionBackground);
+			border-style: solid;
 		}
 
 		.commit-item.sortable-ghost {
@@ -49,7 +61,7 @@ export class CommitItem extends LitElement {
 
 		.commit-header {
 			display: flex;
-			align-items: center;
+			align-items: flex-start;
 			gap: 0.8rem;
 			margin-bottom: 0.4rem;
 		}
@@ -63,8 +75,12 @@ export class CommitItem extends LitElement {
 			color: var(--vscode-foreground);
 			flex: 1;
 			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
+			display: -webkit-box;
+			-webkit-line-clamp: 3;
+			-webkit-box-orient: vertical;
+			line-height: 1.4;
+			max-width: 180px;
+			word-wrap: break-word;
 		}
 
 		.commit-stats {
@@ -114,6 +130,8 @@ export class CommitItem extends LitElement {
 			font-size: 0.9em;
 			transition: all 0.2s ease;
 			opacity: 0.7;
+			box-sizing: border-box;
+			width: 100%;
 		}
 
 		.drop-zone:hover,
@@ -121,6 +139,12 @@ export class CommitItem extends LitElement {
 			border-color: var(--vscode-focusBorder);
 			background: var(--vscode-list-dropBackground);
 			opacity: 1;
+		}
+
+		/* Hide drop zone text when dragging over it */
+		.drop-zone.sortable-chosen,
+		.drop-zone:has(.sortable-ghost) {
+			color: transparent;
 		}
 	`;
 
@@ -136,21 +160,32 @@ export class CommitItem extends LitElement {
 	@property({ type: Boolean })
 	selected = false;
 
+	@property({ type: Boolean })
+	multiSelected = false;
+
 	override connectedCallback() {
 		super.connectedCallback?.();
 		// Set the data attribute for sortable access
 		this.dataset.commitId = this.commitId;
 	}
 
-	private handleClick(e: Event) {
+	private handleClick(e: MouseEvent) {
 		// Don't select commit if clicking on drag handle
 		if ((e.target as HTMLElement).closest('.drag-handle')) {
 			return;
 		}
 
+		// Prevent text selection when shift-clicking
+		if (e.shiftKey) {
+			e.preventDefault();
+		}
+
 		this.dispatchEvent(
 			new CustomEvent('commit-selected', {
-				detail: { commitId: this.commitId },
+				detail: {
+					commitId: this.commitId,
+					shiftKey: e.shiftKey,
+				},
 				bubbles: true,
 			}),
 		);
@@ -158,7 +193,10 @@ export class CommitItem extends LitElement {
 
 	override render() {
 		return html`
-			<div class="commit-item ${this.selected ? 'selected' : ''}" @click=${this.handleClick}>
+			<div
+				class="commit-item ${this.selected ? 'selected' : ''} ${this.multiSelected ? 'multi-selected' : ''}"
+				@click=${this.handleClick}
+			>
 				<div class="drag-handle">
 					<code-icon icon="gripper"></code-icon>
 				</div>
