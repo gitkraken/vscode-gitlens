@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.3.1] - 2025-07-15
+
 ### Changed
 
 - Changes branch creation to avoid setting an upstream branch if the new branch name and remote branch name don't match ([#4477](https://github.com/gitkraken/vscode-gitlens/issues/4477))
@@ -6246,7 +6248,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.1...HEAD
+[17.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...gitkraken:v17.3.1
 [17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.3.0
 [17.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...gitkraken:v17.2.1
 [17.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...gitkraken:v17.2.0
