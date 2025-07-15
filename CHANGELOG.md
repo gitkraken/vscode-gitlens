@@ -9,11 +9,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes branch creation to avoid setting an upstream branch if the new branch name and remote branch name don't match ([#4477](https://github.com/gitkraken/vscode-gitlens/issues/4477))
+- Improves performance of the _Commit Graph_ by consolidating state management and reducing theme color computation
 
 ### Fixed
 
 - Fixes unstaging files doesn't work in the Inspect/Details views ([#4485](https://github.com/gitkraken/vscode-gitlens/issues/4485))
 - Fixes error when stashing only staged changes ([#4490](https://github.com/gitkraken/vscode-gitlens/issues/4490))
+- Fixes staged/unstaged headers missing in _Inspect_ view when working changes are all staged or unstaged ([#4487](https://github.com/gitkraken/vscode-gitlens/issues/4487))
 - Fixes AI stash message generation when all changes are staged
 
 ## [17.3.0] - 2025-07-08
