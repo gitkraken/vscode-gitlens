@@ -846,15 +846,27 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 															Shows only relevant branches
 															<br />
 															<br />
-															<i>
-																Includes the current branch, its upstream, and its base
-																or target branch
-															</i>
+															<i
+																>Includes the current branch, its upstream, and its base
+																or target branch</i
+															>
 														</span>
 													</gl-tooltip>
 												`,
 												() => html` <code-icon icon="info" slot="suffix"></code-icon> `,
 											)}
+										</sl-option>
+										<sl-option value="favorited" ?disabled=${repo?.virtual}>
+											Favorited Branches
+											<gl-tooltip placement="right" slot="suffix">
+												<code-icon icon="info"></code-icon>
+												<span slot="content">
+													Shows only branches that have been starred as favorites
+													<br />
+													<br />
+													<i>Also includes the current branch</i>
+												</span>
+											</gl-tooltip>
 										</sl-option>
 										<sl-option value="current">Current Branch</sl-option>
 									</sl-select>

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds expanded and improved branch favoriting ([#4497](https://github.com/gitkraken/vscode-gitlens/issues/4497))
+  - Adds a new "Favorited Branches" option to the branches visibility dropdown on the _Commit Graph_
+  - Adds _Add to Favorites_ or _Remove from Favorites_ context menu items to branches in the _Commit Graph_
+  - Adds _Add to Favorites_ or _Remove from Favorites_ context menu items to worktrees in the views
+
+### Changed
+
+- Changes branch favoriting to apply to both local and remote branch pairs ([#4497](https://github.com/gitkraken/vscode-gitlens/issues/4497))
+
 ## [17.3.1] - 2025-07-15
 
 ### Changed

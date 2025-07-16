@@ -193,3 +193,10 @@ export function isBranchStarred(container: Container, branchId: string): boolean
 	const starred = container.storage.getWorkspace('starred:branches');
 	return starred?.[branchId] === true;
 }
+
+export function getStarredBranchIds(container: Container): Set<string> {
+	const starred = container.storage.getWorkspace('starred:branches');
+	if (starred == null) return new Set();
+
+	return new Set(Object.keys(starred).filter(branchId => starred[branchId] === true));
+}

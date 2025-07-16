@@ -1076,12 +1076,14 @@
 						"enum": [
 							"all",
 							"smart",
-							"current"
+							"current",
+							"favorited"
 						],
 						"enumDescriptions": [
 							"Shows all branches",
 							"Shows only relevant branches",
-							"Shows only the current branch"
+							"Shows only the current branch",
+							"Shows only favorited branches"
 						],
 						"default": "all",
 						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
