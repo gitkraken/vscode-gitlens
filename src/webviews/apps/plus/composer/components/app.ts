@@ -131,34 +131,23 @@ export class ComposerApp extends LitElement {
 		}
 
 		.details-panel.split-view {
-			flex-direction: row;
-			overflow-x: auto;
+			flex-direction: column;
+			overflow-y: auto;
 			scroll-behavior: smooth;
 		}
 
 		.commit-details {
-			flex: 1;
+			flex: 0 0 auto;
 			display: flex;
 			flex-direction: column;
 			min-width: 0;
-			border-right: 1px solid var(--vscode-panel-border);
-		}
-
-		/* When there are exactly 2 commits, they should fit perfectly */
-		.details-panel.split-view.two-commits .commit-details {
-			flex: 1;
-			min-width: 0;
-			max-width: 50%;
-		}
-
-		/* When there are 3 or more commits, each should be at least 50% width */
-		.details-panel.split-view.many-commits .commit-details {
-			flex: 0 0 50%;
-			min-width: 50%;
+			border-bottom: 1px solid var(--vscode-panel-border);
+			margin-bottom: 1.5rem;
 		}
 
 		.commit-details:last-child {
-			border-right: none;
+			border-bottom: none;
+			margin-bottom: 0;
 		}
 
 		.details-header {
@@ -199,7 +188,8 @@ export class ComposerApp extends LitElement {
 			gap: 0.6rem;
 			overflow-y: auto;
 			flex: 1;
-			min-height: 0;
+			min-height: 200px;
+			max-height: calc(100vh - 300px);
 		}
 
 		.empty-state {
@@ -314,9 +304,21 @@ export class ComposerApp extends LitElement {
 			padding: 0.8rem;
 			overflow: hidden;
 			box-sizing: border-box;
-			max-height: 300px;
 			display: flex;
 			flex-direction: column;
+		}
+
+		/* Files changed section should expand to fill space */
+		.section-content.files-changed {
+			flex: 1;
+			min-height: 0;
+		}
+
+		/* Commit message and AI explanation should have limited height */
+		.section-content.commit-message,
+		.section-content.ai-explanation {
+			flex: 0 0 auto;
+			max-height: 200px;
 		}
 
 		.section-content.collapsed {
@@ -558,7 +560,7 @@ export class ComposerApp extends LitElement {
 	private selectedCommitId: string | null = null;
 
 	@state()
-	private unassignedChangesSelected = false;
+	private selectedUnassignedSection: 'staged' | 'unstaged' | 'unassigned' | null = null;
 
 	@state()
 	private selectedCommitIds: Set<string> = new Set();
@@ -589,8 +591,6 @@ export class ComposerApp extends LitElement {
 
 	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
-	private autoScrollInterval?: number;
-	private detailsPanel?: HTMLElement;
 	private isDragging = false;
 	private lastMouseEvent?: MouseEvent;
 
@@ -670,22 +670,15 @@ export class ComposerApp extends LitElement {
 					sort: false,
 					onStart: evt => {
 						this.isDragging = true;
-						console.log('Drag started - setting up independent auto-scroll');
 						const draggedHunkId = evt.item.dataset.hunkId;
-						// If dragging a selected hunk and there are multiple selected, prepare multi-drag
 						if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
-							// Store the selected hunk IDs for the drop handler
 							evt.item.dataset.multiDragHunkIds = Array.from(this.selectedHunkIds).join(',');
 						}
-
-						// Start independent auto-scroll monitoring that ignores SortableJS events
-						this.startIndependentAutoScroll();
+						this.startAutoScroll();
 					},
 					onEnd: () => {
 						this.isDragging = false;
-						console.log('Drag ended - stopping auto-scroll');
-						// Stop auto-scrolling
-						this.stopIndependentAutoScroll();
+						this.stopAutoScroll();
 					},
 					onAdd: evt => {
 						const hunkId = evt.item.dataset.hunkId;
@@ -693,7 +686,7 @@ export class ComposerApp extends LitElement {
 						const targetCommitId = evt.to.dataset.commitId;
 
 						if (targetCommitId) {
-							if (multiDragHunkIds) {
+							if (multiDragHunkIds && typeof multiDragHunkIds === 'string') {
 								// Multi-drag: move all selected hunks
 								const hunkIds = multiDragHunkIds.split(',');
 								console.log('Multi-drop between split views:', {
@@ -736,7 +729,7 @@ export class ComposerApp extends LitElement {
 					const hunkId = evt.item.dataset.hunkId;
 					const multiDragHunkIds = evt.item.dataset.multiDragHunkIds;
 
-					if (multiDragHunkIds) {
+					if (multiDragHunkIds && typeof multiDragHunkIds === 'string') {
 						// Multi-drag: create new commit with all selected hunks
 						const hunkIds = multiDragHunkIds.split(',');
 						console.log('Multi-drop to new commit:', hunkIds);
@@ -779,7 +772,7 @@ export class ComposerApp extends LitElement {
 							const targetCommitId = commitElement.dataset.commitId;
 
 							if (targetCommitId) {
-								if (multiDragHunkIds) {
+								if (multiDragHunkIds && typeof multiDragHunkIds === 'string') {
 									// Multi-drag: move all selected hunks
 									const hunkIds = multiDragHunkIds.split(',');
 									console.log('Multi-drop detected:', {
@@ -1051,7 +1044,7 @@ export class ComposerApp extends LitElement {
 		}
 
 		// Clear unassigned changes selection
-		this.unassignedChangesSelected = false;
+		this.selectedUnassignedSection = null;
 
 		// Reinitialize sortables after the DOM updates
 		void this.updateComplete.then(() => {
@@ -1062,19 +1055,17 @@ export class ComposerApp extends LitElement {
 		});
 	}
 
-	private selectUnassignedChanges() {
+	private selectUnassignedSection(section: 'staged' | 'unstaged' | 'unassigned') {
 		// Clear commit selection
 		this.selectedCommitId = null;
 		this.selectedCommitIds = new Set();
 
-		// Select unassigned changes
-		this.unassignedChangesSelected = true;
+		// Select unassigned section
+		this.selectedUnassignedSection = section;
 
 		// Clear hunk selection
 		this.selectedHunkId = null;
 		this.selectedHunkIds = new Set();
-
-		console.log('Selected unassigned changes');
 
 		// Reinitialize sortables after the DOM updates to include unassigned hunks
 		void this.updateComplete.then(() => {
@@ -1140,143 +1131,112 @@ export class ComposerApp extends LitElement {
 		this.filesChangedExpanded = !this.filesChangedExpanded;
 	}
 
-	private renderUnassignedChangesItem() {
-		if (!this.hasUnassignedChanges) {
-			return nothing;
+	private renderUnassignedChangesItems() {
+		const items = [];
+
+		if (this.unassignedChanges.mode === 'staged-unstaged') {
+			// Render staged changes item
+			if (this.unassignedChanges.staged && this.unassignedChanges.staged.length > 0) {
+				items.push(html`
+					<div
+						class="unassigned-changes-item ${this.selectedUnassignedSection === 'staged' ? 'selected' : ''}"
+						@click=${() => this.selectUnassignedSection('staged')}
+					>
+						<code-icon icon="add"></code-icon>
+						<div class="title">Staged Changes</div>
+						<div class="count">(${this.unassignedChanges.staged.length} hunks)</div>
+					</div>
+				`);
+			}
+
+			// Render unstaged changes item
+			if (this.unassignedChanges.unstaged && this.unassignedChanges.unstaged.length > 0) {
+				items.push(html`
+					<div
+						class="unassigned-changes-item ${this.selectedUnassignedSection === 'unstaged'
+							? 'selected'
+							: ''}"
+						@click=${() => this.selectUnassignedSection('unstaged')}
+					>
+						<code-icon icon="circle-outline"></code-icon>
+						<div class="title">Unstaged Changes</div>
+						<div class="count">(${this.unassignedChanges.unstaged.length} hunks)</div>
+					</div>
+				`);
+			}
+		} else if (this.unassignedChanges.unassigned && this.unassignedChanges.unassigned.length > 0) {
+			// Render unassigned changes item
+			items.push(html`
+				<div
+					class="unassigned-changes-item ${this.selectedUnassignedSection === 'unassigned' ? 'selected' : ''}"
+					@click=${() => this.selectUnassignedSection('unassigned')}
+				>
+					<code-icon icon="question"></code-icon>
+					<div class="title">Unassigned Changes</div>
+					<div class="count">(${this.unassignedChanges.unassigned.length} hunks)</div>
+				</div>
+			`);
 		}
 
-		const totalHunks =
-			this.unassignedChanges.mode === 'staged-unstaged'
-				? (this.unassignedChanges.staged?.length ?? 0) + (this.unassignedChanges.unstaged?.length ?? 0)
-				: (this.unassignedChanges.unassigned?.length ?? 0);
-
-		return html`
-			<div
-				class="unassigned-changes-item ${this.unassignedChangesSelected ? 'selected' : ''}"
-				@click=${this.selectUnassignedChanges}
-			>
-				<code-icon icon="git-branch"></code-icon>
-				<div class="title">Unassigned Changes</div>
-				<div class="count">(${totalHunks} hunks)</div>
-			</div>
-		`;
+		return items;
 	}
 
-	private renderUnassignedChangesDetails() {
-		if (!this.unassignedChangesSelected || !this.hasUnassignedChanges) {
+	private renderUnassignedSectionDetails() {
+		if (!this.selectedUnassignedSection) {
+			return nothing;
+		}
+
+		let hunks: MockHunk[] = [];
+		let sectionTitle = '';
+
+		switch (this.selectedUnassignedSection) {
+			case 'staged':
+				hunks = this.unassignedChanges.staged ?? [];
+				sectionTitle = 'Staged Changes';
+				break;
+			case 'unstaged':
+				hunks = this.unassignedChanges.unstaged ?? [];
+				sectionTitle = 'Unstaged Changes';
+				break;
+			case 'unassigned':
+				hunks = this.unassignedChanges.unassigned ?? [];
+				sectionTitle = 'Unassigned Changes';
+				break;
+		}
+
+		if (hunks.length === 0) {
 			return nothing;
 		}
 
 		return html`
-			${this.unassignedChanges.mode === 'staged-unstaged'
-				? html`
-						${this.unassignedChanges.staged && this.unassignedChanges.staged.length > 0
-							? html`
-									<!-- Staged Changes Section -->
-									<div class="unassigned-changes-section">
-										<div class="section-header" @click=${this.toggleCommitMessageExpanded}>
-											<h4>Staged Changes (${this.unassignedChanges.staged.length})</h4>
-											<code-icon
-												class="section-toggle ${this.commitMessageExpanded ? 'expanded' : ''}"
-												icon="chevron-right"
-											></code-icon>
-										</div>
-										<div class="section-content ${this.commitMessageExpanded ? '' : 'collapsed'}">
-											<div class="hunks-list" data-source="staged">
-												${repeat(
-													this.unassignedChanges.staged,
-													hunk => hunk.id,
-													hunk => html`
-														<gl-hunk-item
-															.hunkId=${hunk.id}
-															.fileName=${hunk.fileName}
-															.content=${hunk.content}
-															.additions=${hunk.additions}
-															.deletions=${hunk.deletions}
-															.selected=${this.selectedHunkId === hunk.id ||
-															this.selectedHunkIds.has(hunk.id)}
-															.multiSelected=${this.selectedHunkIds.has(hunk.id)}
-															@hunk-selected=${(e: CustomEvent) =>
-																this.selectHunk(hunk.id, e.detail.shiftKey)}
-														></gl-hunk-item>
-													`,
-												)}
-											</div>
-										</div>
-									</div>
-								`
-							: nothing}
-						${this.unassignedChanges.unstaged && this.unassignedChanges.unstaged.length > 0
-							? html`
-									<!-- Unstaged Changes Section -->
-									<div class="unassigned-changes-section">
-										<div class="section-header" @click=${this.toggleAiExplanationExpanded}>
-											<h4>Unstaged Changes (${this.unassignedChanges.unstaged.length})</h4>
-											<code-icon
-												class="section-toggle ${this.aiExplanationExpanded ? 'expanded' : ''}"
-												icon="chevron-right"
-											></code-icon>
-										</div>
-										<div class="section-content ${this.aiExplanationExpanded ? '' : 'collapsed'}">
-											<div class="hunks-list" data-source="unstaged">
-												${repeat(
-													this.unassignedChanges.unstaged,
-													hunk => hunk.id,
-													hunk => html`
-														<gl-hunk-item
-															.hunkId=${hunk.id}
-															.fileName=${hunk.fileName}
-															.content=${hunk.content}
-															.additions=${hunk.additions}
-															.deletions=${hunk.deletions}
-															.selected=${this.selectedHunkId === hunk.id ||
-															this.selectedHunkIds.has(hunk.id)}
-															.multiSelected=${this.selectedHunkIds.has(hunk.id)}
-															@hunk-selected=${(e: CustomEvent) =>
-																this.selectHunk(hunk.id, e.detail.shiftKey)}
-														></gl-hunk-item>
-													`,
-												)}
-											</div>
-										</div>
-									</div>
-								`
-							: nothing}
-					`
-				: html`
-						<!-- Unassigned Changes Section -->
-						<div class="unassigned-changes-section">
-							<div class="section-header" @click=${this.toggleFilesChangedExpanded}>
-								<h4>Unassigned Changes (${this.unassignedChanges.unassigned?.length ?? 0})</h4>
-								<code-icon
-									class="section-toggle ${this.filesChangedExpanded ? 'expanded' : ''}"
-									icon="chevron-right"
-								></code-icon>
-							</div>
-							<div class="section-content ${this.filesChangedExpanded ? '' : 'collapsed'}">
-								<div class="hunks-list" data-source="unassigned">
-									${repeat(
-										this.unassignedChanges.unassigned ?? [],
-										hunk => hunk.id,
-										hunk => html`
-											<gl-hunk-item
-												.hunkId=${hunk.id}
-												.fileName=${hunk.fileName}
-												.content=${hunk.content}
-												.additions=${hunk.additions}
-												.deletions=${hunk.deletions}
-												.selected=${this.selectedHunkId === hunk.id ||
-												this.selectedHunkIds.has(hunk.id)}
-												.multiSelected=${this.selectedHunkIds.has(hunk.id)}
-												@hunk-selected=${(e: CustomEvent) =>
-													this.selectHunk(hunk.id, e.detail.shiftKey)}
-											></gl-hunk-item>
-										`,
-									)}
-								</div>
-							</div>
-						</div>
-					`}
+			<!-- Files Changed Section -->
+			<div class="section-header" @click=${this.toggleFilesChangedExpanded}>
+				<h4>${sectionTitle} (${hunks.length})</h4>
+				<code-icon
+					class="section-toggle ${this.filesChangedExpanded ? 'expanded' : ''}"
+					icon="chevron-right"
+				></code-icon>
+			</div>
+			<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
+				<div class="hunks-list" data-source="${this.selectedUnassignedSection}">
+					${repeat(
+						hunks,
+						hunk => hunk.id,
+						hunk => html`
+							<gl-hunk-item
+								.hunkId=${hunk.id}
+								.fileName=${hunk.fileName}
+								.content=${hunk.content}
+								.additions=${hunk.additions}
+								.deletions=${hunk.deletions}
+								.selected=${this.selectedHunkId === hunk.id || this.selectedHunkIds.has(hunk.id)}
+								.multiSelected=${this.selectedHunkIds.has(hunk.id)}
+								@hunk-selected=${(e: CustomEvent) => this.selectHunk(hunk.id, e.detail.shiftKey)}
+							></gl-hunk-item>
+						`,
+					)}
+				</div>
+			</div>
 		`;
 	}
 
@@ -1291,7 +1251,7 @@ export class ComposerApp extends LitElement {
 						icon="chevron-right"
 					></code-icon>
 				</div>
-				<div class="section-content ${this.commitMessageExpanded ? '' : 'collapsed'}">
+				<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
 					<textarea
 						class="commit-message-input"
 						.value=${commit.message}
@@ -1309,7 +1269,7 @@ export class ComposerApp extends LitElement {
 						icon="chevron-right"
 					></code-icon>
 				</div>
-				<div class="section-content ${this.aiExplanationExpanded ? '' : 'collapsed'}">
+				<div class="section-content ai-explanation ${this.aiExplanationExpanded ? '' : 'collapsed'}">
 					<p class="ai-explanation ${commit.aiExplanation ? '' : 'placeholder'}">
 						${commit.aiExplanation || 'No AI explanation available for this commit.'}
 					</p>
@@ -1323,7 +1283,7 @@ export class ComposerApp extends LitElement {
 						icon="chevron-right"
 					></code-icon>
 				</div>
-				<div class="section-content ${this.filesChangedExpanded ? '' : 'collapsed'}">
+				<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
 					<div class="hunks-list" data-commit-id=${commit.id}>
 						${repeat(
 							commit.hunks,
@@ -1347,149 +1307,91 @@ export class ComposerApp extends LitElement {
 		`;
 	}
 
-	private stopAutoScroll() {
-		// Legacy method - now handled by stopIndependentAutoScroll
-		if (this.autoScrollInterval) {
-			clearInterval(this.autoScrollInterval);
-			this.autoScrollInterval = undefined;
-		}
-	}
-
-	private independentScrollActive = false;
+	private autoScrollActive = false;
+	private autoScrollTimer?: number;
 	private mouseTracker = (e: MouseEvent) => {
 		this.lastMouseEvent = e;
-		console.log(
-			'Mouse tracker called:',
-			e.clientX,
-			e.clientY,
-			'isDragging:',
-			this.isDragging,
-			'scrollActive:',
-			this.independentScrollActive,
-		);
-		// Immediately check for auto-scroll on every mouse move
-		if (this.independentScrollActive && this.isDragging) {
-			console.log('Calling performIndependentAutoScroll');
-			this.performIndependentAutoScroll(e.clientX, e.clientY);
-		}
 	};
 
-	private startIndependentAutoScroll() {
-		console.log('🚀 Starting AGGRESSIVE independent auto-scroll system');
-		console.log('Setting independentScrollActive to true, isDragging:', this.isDragging);
-		this.independentScrollActive = true;
+	private startAutoScroll() {
+		this.autoScrollActive = true;
 
-		// Track mouse position with maximum priority
-		console.log('Adding mousemove event listener');
 		document.addEventListener('mousemove', this.mouseTracker, {
-			passive: false, // Not passive so we can preventDefault if needed
+			passive: false,
+			capture: true,
+		});
+		document.addEventListener('dragover', this.mouseTracker, {
+			passive: false,
+			capture: true,
+		});
+		document.addEventListener('pointermove', this.mouseTracker, {
+			passive: false,
 			capture: true,
 		});
 
-		console.log('Starting requestAnimationFrame loop');
-		// Also use requestAnimationFrame for maximum responsiveness
-		const animationLoop = () => {
-			if (!this.independentScrollActive || !this.isDragging) {
-				console.log(
-					'Animation loop stopping - scrollActive:',
-					this.independentScrollActive,
-					'isDragging:',
-					this.isDragging,
-				);
+		this.autoScrollTimer = window.setInterval(() => {
+			if (!this.autoScrollActive || !this.isDragging || !this.lastMouseEvent) {
 				return;
 			}
 
-			if (this.lastMouseEvent) {
-				this.performIndependentAutoScroll(this.lastMouseEvent.clientX, this.lastMouseEvent.clientY);
+			try {
+				this.performAutoScroll(this.lastMouseEvent.clientX, this.lastMouseEvent.clientY);
+			} catch (error) {
+				console.error('Auto-scroll error:', error);
 			}
-
-			requestAnimationFrame(animationLoop);
-		};
-
-		requestAnimationFrame(animationLoop);
+		}, 50);
 	}
 
-	private stopIndependentAutoScroll() {
-		console.log('Stopping independent auto-scroll system');
+	private stopAutoScroll() {
+		this.autoScrollActive = false;
 
-		this.independentScrollActive = false;
+		if (this.autoScrollTimer) {
+			clearInterval(this.autoScrollTimer);
+			this.autoScrollTimer = undefined;
+		}
 
 		document.removeEventListener('mousemove', this.mouseTracker, true);
-		this.stopAutoScroll();
+		document.removeEventListener('dragover', this.mouseTracker, true);
+		document.removeEventListener('pointermove', this.mouseTracker, true);
 	}
 
-	private performIndependentAutoScroll(mouseX: number, mouseY: number) {
-		console.log('🔍 performIndependentAutoScroll called with:', mouseX, mouseY);
-		// SIMPLE approach - just check distance from container edges
-		const scrollThreshold = 200; // Large trigger area - 200px from edges
+	private performAutoScroll(_mouseX: number, mouseY: number) {
+		const scrollThreshold = 200;
 
-		// Horizontal scrolling - check distance from split view container edges
+		// Vertical scrolling for multi-commit details panel
 		const detailsPanel = this.shadowRoot?.querySelector('.details-panel.split-view') as HTMLElement;
 		if (detailsPanel && this.selectedCommitIds.size >= 2) {
 			const rect = detailsPanel.getBoundingClientRect();
+			const topDistance = mouseY - rect.top;
+			const bottomDistance = rect.bottom - mouseY;
 
-			// Simple distance calculation from container edges
-			const leftDistance = mouseX - rect.left;
-			const rightDistance = rect.right - mouseX;
-
-			console.log(
-				'Mouse position:',
-				mouseX,
-				'Container:',
-				rect.left,
-				'to',
-				rect.right,
-				'Distances:',
-				leftDistance,
-				rightDistance,
-			);
-
-			// Left edge scrolling
-			if (leftDistance >= 0 && leftDistance < scrollThreshold && detailsPanel.scrollLeft > 0) {
-				detailsPanel.scrollLeft = Math.max(0, detailsPanel.scrollLeft - 25);
-				console.log(
-					'SCROLLING LEFT - distance from left edge:',
-					leftDistance,
-					'new scrollLeft:',
-					detailsPanel.scrollLeft,
-				);
+			if (topDistance >= 0 && topDistance < scrollThreshold && detailsPanel.scrollTop > 0) {
+				detailsPanel.scrollBy(0, -50);
 				return;
 			}
 
-			// Right edge scrolling
-			if (rightDistance >= 0 && rightDistance < scrollThreshold) {
-				const maxScroll = detailsPanel.scrollWidth - detailsPanel.clientWidth;
-				if (detailsPanel.scrollLeft < maxScroll) {
-					detailsPanel.scrollLeft = Math.min(maxScroll, detailsPanel.scrollLeft + 25);
-					console.log(
-						'SCROLLING RIGHT - distance from right edge:',
-						rightDistance,
-						'new scrollLeft:',
-						detailsPanel.scrollLeft,
-						'max:',
-						maxScroll,
-					);
+			if (bottomDistance >= 0 && bottomDistance < scrollThreshold) {
+				const maxScroll = detailsPanel.scrollHeight - detailsPanel.clientHeight;
+				if (detailsPanel.scrollTop < maxScroll) {
+					detailsPanel.scrollBy(0, 50);
 					return;
 				}
 			}
 		}
 
-		// Vertical scrolling - simple approach for commits panel
+		// Vertical scrolling for commits panel
 		const commitsPanel = this.shadowRoot?.querySelector('.commits-panel') as HTMLElement;
 		if (commitsPanel) {
 			const rect = commitsPanel.getBoundingClientRect();
 			const topDistance = mouseY - rect.top;
 			const bottomDistance = rect.bottom - mouseY;
 
-			// Top edge scrolling
 			if (topDistance >= 0 && topDistance < scrollThreshold && commitsPanel.scrollTop > 0) {
-				commitsPanel.scrollTop = Math.max(0, commitsPanel.scrollTop - 15);
-			}
-			// Bottom edge scrolling
-			else if (bottomDistance >= 0 && bottomDistance < scrollThreshold) {
+				commitsPanel.scrollTop = Math.max(0, commitsPanel.scrollTop - 30);
+			} else if (bottomDistance >= 0 && bottomDistance < scrollThreshold) {
 				const maxScroll = commitsPanel.scrollHeight - commitsPanel.clientHeight;
 				if (commitsPanel.scrollTop < maxScroll) {
-					commitsPanel.scrollTop = Math.min(maxScroll, commitsPanel.scrollTop + 15);
+					commitsPanel.scrollTop = Math.min(maxScroll, commitsPanel.scrollTop + 30);
 				}
 			}
 		}
@@ -1569,7 +1471,7 @@ export class ComposerApp extends LitElement {
 							`,
 						)}
 					</div>
-					${this.renderUnassignedChangesItem()}
+					${this.renderUnassignedChangesItems()}
 					<div class="commits-list">
 						${repeat(
 							this.commits,
@@ -1591,16 +1493,10 @@ export class ComposerApp extends LitElement {
 					<div class="new-commit-drop-zone">Drop hunk here to create new commit</div>
 				</div>
 
-				<div
-					class="details-panel ${isMultiSelect ? 'split-view' : ''} ${selectedCommits.length === 2
-						? 'two-commits'
-						: selectedCommits.length > 2
-							? 'many-commits'
-							: ''}"
-				>
+				<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
 					${when(
-						this.unassignedChangesSelected,
-						() => this.renderUnassignedChangesDetails(),
+						this.selectedUnassignedSection,
+						() => this.renderUnassignedSectionDetails(),
 						() =>
 							when(
 								isMultiSelect,

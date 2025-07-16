@@ -175,6 +175,9 @@ export class HunkItem extends LitElement {
 	multiSelected = false;
 
 	private renderDiffContent() {
+		if (!this.content || typeof this.content !== 'string') {
+			return html`<span class="diff-line">No content available</span>`;
+		}
 		const lines = this.content.split('\n');
 		return lines.map(line => {
 			if (line.startsWith('+')) {
