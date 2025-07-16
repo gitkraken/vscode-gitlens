@@ -1072,11 +1072,13 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
-	@command('gitlens.views.star')
-	@command('gitlens.views.star.multi', { multiselect: 'sequential' })
+	@command('gitlens.star.branch:views')
+	@command('gitlens.star.branch.multi:views', { multiselect: 'sequential' })
+	@command('gitlens.star.repository:views')
+	@command('gitlens.star.repository.multi:views', { multiselect: 'sequential' })
 	@log()
-	private async star(node: BranchNode | RepositoryNode | RepositoryFolderNode): Promise<void> {
-		if (!node.isAny('branch', 'repository', 'repo-folder')) {
+	private async star(node: BranchNode | RepositoryNode | RepositoryFolderNode | WorktreeNode): Promise<void> {
+		if (!node.isAny('branch', 'repository', 'repo-folder', 'worktree')) {
 			return Promise.resolve();
 		}
 
@@ -1135,11 +1137,13 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
-	@command('gitlens.views.unstar')
-	@command('gitlens.views.unstar.multi', { multiselect: 'sequential' })
+	@command('gitlens.unstar.branch:views')
+	@command('gitlens.unstar.branch.multi:views', { multiselect: 'sequential' })
+	@command('gitlens.unstar.repository:views')
+	@command('gitlens.unstar.repository.multi:views', { multiselect: 'sequential' })
 	@log()
-	private async unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode): Promise<void> {
-		if (!node.isAny('branch', 'repository', 'repo-folder')) return Promise.resolve();
+	private async unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode | WorktreeNode): Promise<void> {
+		if (!node.isAny('branch', 'repository', 'repo-folder', 'worktree')) return Promise.resolve();
 
 		return node.unstar();
 	}

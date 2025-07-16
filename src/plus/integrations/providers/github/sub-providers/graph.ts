@@ -22,6 +22,7 @@ import type { GitUser } from '../../../../../git/models/user';
 import type { GitWorktree } from '../../../../../git/models/worktree';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../../git/search';
+import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons';
 import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
@@ -231,7 +232,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				context = {
 					webviewItem: `gitlens:branch${head ? '+current' : ''}${
 						headBranch?.upstream != null ? '+tracking' : ''
-					}`,
+					}${headBranch?.starred ? '+starred' : ''}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(headBranch.name, repoPath, {
@@ -267,7 +268,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						getRemoteIconUri(this.container, remote, asWebviewUri)
 					)?.toString(true);
 					context = {
-						webviewItem: 'gitlens:branch+remote',
+						webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(headBranch.name, repoPath, {
@@ -321,7 +322,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							getRemoteIconUri(this.container, remote, asWebviewUri)
 						)?.toString(true);
 						context = {
-							webviewItem: 'gitlens:branch+remote',
+							webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
 							webviewItemValue: {
 								type: 'branch',
 								ref: createReference(b, repoPath, {

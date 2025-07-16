@@ -15,7 +15,7 @@ import { shortenRevision } from '../../git/utils/revision.utils';
 import { getContext } from '../../system/-webview/context';
 import { getBestPath } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
-import { debug } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
@@ -385,6 +385,10 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
 		}
 
+		if (this.worktree.branch?.starred) {
+			tooltip.appendMarkdown('\n\n$(star-full) Favorited');
+		}
+
 		let label: string;
 		switch (viewAs) {
 			case 'path':
@@ -410,7 +414,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${
 			this.worktree.opened ? '+active' : ''
-		}${hasChanges ? '+working' : ''}`;
+		}${hasChanges ? '+working' : ''}${this.worktree.branch?.starred ? '+starred' : ''}`;
 		item.iconPath =
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
@@ -418,7 +422,11 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 					? new ThemeIcon('check')
 					: icon;
 		item.tooltip = tooltip;
-		item.resourceUri = createViewDecorationUri('worktree', { hasChanges: hasChanges, missing: missing });
+		item.resourceUri = createViewDecorationUri('worktree', {
+			hasChanges: hasChanges,
+			missing: missing,
+			starred: this.worktree.branch?.starred,
+		});
 
 		return item;
 	}
@@ -430,6 +438,22 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			this.deleteState();
 		}
 		return super.refresh(reset);
+	}
+
+	@log()
+	async star(): Promise<void> {
+		if (this.worktree.branch == null) return;
+
+		await this.worktree.branch.star();
+		void this.view.refresh(true);
+	}
+
+	@log()
+	async unstar(): Promise<void> {
+		if (this.worktree.branch == null) return;
+
+		await this.worktree.branch.unstar();
+		void this.view.refresh(true);
 	}
 
 	private async getAssociatedPullRequest(

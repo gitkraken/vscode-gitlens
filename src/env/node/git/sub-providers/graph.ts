@@ -30,6 +30,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
+import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
 import {
@@ -302,7 +303,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										getRemoteIconUri(this.container, remote, asWebviewUri)
 									)?.toString(true);
 									context = {
-										webviewItem: 'gitlens:branch+remote',
+										webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
 										webviewItemValue: {
 											type: 'branch',
 											ref: createReference(tip, repoPath, {
@@ -355,7 +356,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										: branchIdOfMainWorktree === branchId
 											? '+checkedout'
 											: ''
-								}`,
+								}${branch?.starred ? '+starred' : ''}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: createReference(tip, repoPath, {

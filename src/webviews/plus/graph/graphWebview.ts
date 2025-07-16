@@ -514,6 +514,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.graph.createBranch', this.createBranch),
 			this.host.registerWebviewCommand('gitlens.graph.deleteBranch', this.deleteBranch),
+			this.host.registerWebviewCommand('gitlens.star.branch:graph', this.star),
+			this.host.registerWebviewCommand('gitlens.unstar.branch:graph', this.unstar),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.copyRemoteBranchUrl', item =>
 				this.openBranchOnRemote(item, true),
 			),
@@ -982,6 +984,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// RepositoryChange.Index,
 				RepositoryChange.Remotes,
 				// RepositoryChange.RemoteProviders,
+				RepositoryChange.Starred,
 				RepositoryChange.Stash,
 				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Tags,
@@ -1822,10 +1825,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		if (this._notifyDidChangeStateDebounced == null) {
-			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 250);
-		}
-
+		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 250);
 		void this._notifyDidChangeStateDebounced();
 	}
 
@@ -3242,6 +3242,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return BranchActions.remove(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
+	private async star(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			const branch = await this.container.git.getRepositoryService(ref.repoPath).branches.getBranch(ref.name);
+			if (branch != null) return branch.star();
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
+	private async unstar(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			const branch = await this.container.git.getRepositoryService(ref.repoPath).branches.getBranch(ref.name);
+			if (branch != null) return branch.unstar();
 		}
 
 		return Promise.resolve();
