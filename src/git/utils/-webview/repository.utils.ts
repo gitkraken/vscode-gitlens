@@ -1,4 +1,7 @@
-import { convertRemoteProviderIdToIntegrationId } from '../../../plus/integrations/utils/-webview/integration.utils';
+import {
+	convertRemoteProviderIdToIntegrationId,
+	getIntegrationIdForRemote,
+} from '../../../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { formatDate, fromNow } from '../../../system/date';
 import { map } from '../../../system/iterable';
@@ -78,13 +81,16 @@ export async function toRepositoryShapeWithProvider(
 			icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
 			integration: remote.supportsIntegration()
 				? {
-						id: convertRemoteProviderIdToIntegrationId(remote.provider.id)!,
+						id: getIntegrationIdForRemote(remote.provider)!,
 						connected: remote.maybeIntegrationConnected ?? false,
 					}
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
 			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
 		};
+		if (provider.integration?.id == null) {
+			provider.integration = undefined;
+		}
 	}
 
 	return { ...toRepositoryShape(repo), provider: provider };
