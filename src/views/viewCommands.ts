@@ -950,6 +950,15 @@ export class ViewCommands implements Disposable {
 		return BranchActions.rename(node.repoPath, node.branch);
 	}
 
+	@command('gitlens.changeUpstream:views')
+	@command('gitlens.setUpstream:views')
+	@log()
+	private changeUpstreamBranch(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		return BranchActions.changeUpstream(node.repoPath, node.branch);
+	}
+
 	@command('gitlens.views.resetCommit')
 	@log()
 	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
