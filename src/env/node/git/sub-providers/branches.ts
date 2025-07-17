@@ -829,6 +829,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
+	async setUpstreamBranch(repoPath: string, name: string, upstream: string | undefined): Promise<void> {
+		try {
+			if (upstream == null) {
+				await this.git.branch(repoPath, '--unset-upstream', name);
+			} else {
+				await this.git.branch(repoPath, '--set-upstream-to', upstream, name);
+			}
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.update({ branch: name, action: 'set-upstream' });
+			}
+
+			throw ex;
+		}
+	}
+
+	@log()
 	async storeBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
 		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-base`, base);
 	}
