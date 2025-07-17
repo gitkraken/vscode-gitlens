@@ -11,6 +11,7 @@ export enum GitSelfManagedHostIntegrationId {
 	CloudGitHubEnterprise = 'cloud-github-enterprise',
 	GitLabSelfHosted = 'gitlab-self-hosted',
 	CloudGitLabSelfHosted = 'cloud-gitlab-self-hosted',
+	AzureDevOpsServer = 'azure-devops-server',
 }
 
 export enum IssuesCloudHostIntegrationId {
@@ -21,6 +22,7 @@ export enum IssuesCloudHostIntegrationId {
 export type CloudGitSelfManagedHostIntegrationIds =
 	| GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
 	| GitSelfManagedHostIntegrationId.BitbucketServer
+	| GitSelfManagedHostIntegrationId.AzureDevOpsServer
 	| GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 
 export type GitHostIntegrationIds = GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId;
@@ -35,6 +37,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	GitCloudHostIntegrationId.GitLab,
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	GitCloudHostIntegrationId.Bitbucket,
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 	IssuesCloudHostIntegrationId.Jira,
@@ -88,6 +91,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 	{
 		id: GitCloudHostIntegrationId.AzureDevOps,
 		name: 'Azure DevOps',
+		icon: 'gl-provider-azdo',
+		supports: ['prs', 'issues'],
+		requiresPro: true,
+	},
+	{
+		id: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		name: 'Azure DevOps Server',
 		icon: 'gl-provider-azdo',
 		supports: ['prs', 'issues'],
 		requiresPro: true,
