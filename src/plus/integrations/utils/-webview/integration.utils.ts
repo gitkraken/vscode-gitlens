@@ -17,6 +17,7 @@ const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	GitSelfManagedHostIntegrationId.GitLabSelfHosted,
 	GitSelfManagedHostIntegrationId.BitbucketServer,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 ] as const;
 
 export const supportedIntegrationIds: IntegrationIds[] = [
@@ -70,7 +71,7 @@ export function getIntegrationIdForRemote(
 			if (isAzureCloudDomain(remote.provider.domain)) {
 				return GitCloudHostIntegrationId.AzureDevOps;
 			}
-			return undefined;
+			return remote.provider.custom ? undefined : GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 		case 'bitbucket':
 		case 'bitbucket-server':
 			if (isBitbucketCloudDomain(remote.provider.domain)) {
@@ -103,6 +104,7 @@ export function isCloudGitSelfManagedHostIntegrationId(
 		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 		case GitSelfManagedHostIntegrationId.BitbucketServer:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			return true;
 		default:
 			return false;

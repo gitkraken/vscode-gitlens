@@ -486,6 +486,20 @@ export class IntegrationService implements Disposable {
 					) as GitHostIntegration as IntegrationById<T>;
 					break;
 
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
+
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps-server')
+					).AzureDevOpsServerIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+						domain,
+					) as GitHostIntegration as IntegrationById<T>;
+					break;
+
 				case IssuesCloudHostIntegrationId.Jira:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/jira')

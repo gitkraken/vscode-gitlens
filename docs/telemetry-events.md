@@ -589,7 +589,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello'
 }
 ```
 
@@ -600,7 +600,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello'
 }
 ```
 
@@ -611,7 +611,7 @@ void
 ```typescript
 {
   'issueProvider.key': string,
-  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello'
 }
 ```
 
@@ -622,7 +622,7 @@ void
 ```typescript
 {
   'issueProvider.key': string,
-  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello'
 }
 ```
 
@@ -656,7 +656,7 @@ or when connection refresh is skipped due to being a non-cloud session
 
 ```typescript
 {
-  'integration.id': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'integration.id': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello'
 }
 ```
 
@@ -1799,7 +1799,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello',
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello',
   // @deprecated: true
   'remoteProviders.key': string
 }
@@ -1812,7 +1812,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello',
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'trello',
   // @deprecated: true
   'remoteProviders.key': string
 }
