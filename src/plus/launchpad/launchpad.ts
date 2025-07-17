@@ -1596,6 +1596,7 @@ function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInput
 		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
 		case GitCloudHostIntegrationId.AzureDevOps:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			return OpenOnAzureDevOpsQuickInputButton;
 		case GitCloudHostIntegrationId.Bitbucket:
 		case GitSelfManagedHostIntegrationId.BitbucketServer:
@@ -1622,6 +1623,8 @@ function getIntegrationTitle(integrationId: string): string {
 			return 'GitHub';
 		case GitCloudHostIntegrationId.AzureDevOps:
 			return 'Azure DevOps';
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+			return 'Azure DevOps Server';
 		case GitCloudHostIntegrationId.Bitbucket:
 			return 'Bitbucket';
 		case GitSelfManagedHostIntegrationId.BitbucketServer:
