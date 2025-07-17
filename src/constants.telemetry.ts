@@ -962,6 +962,7 @@ interface UsageTrackEvent {
 
 interface WalkthroughEvent {
 	step?: WalkthroughSteps;
+	usingFallbackUrl?: boolean;
 }
 
 type WalkthroughActionNames =
