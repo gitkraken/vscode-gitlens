@@ -2,7 +2,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
+import type { ConnectRemoteProviderCommandArgs } from '../../../../commands/remoteProviders';
 import type { Source } from '../../../../constants.telemetry';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape';
 import { createCommandLink } from '../../../../system/commands';
@@ -198,9 +198,9 @@ export class GlRepoButtonGroup extends GlElement {
 							return html`
 								<code-icon style="margin-top: -3px" icon="plug" aria-hidden="true"></code-icon>
 								<a
-									href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-										'gitlens.plus.cloudIntegrations.connect',
-										{ integrationIds: [provider.integration!.id], source: this.source },
+									href=${createCommandLink<ConnectRemoteProviderCommandArgs>(
+										'gitlens.connectRemoteProvider',
+										{ remote: provider.bestRemoteName!, repoPath: repo.path },
 									)}
 								>
 									Connect to ${repo.provider!.name}
@@ -227,10 +227,10 @@ export class GlRepoButtonGroup extends GlElement {
 			<gl-button
 				part="connect-icon"
 				appearance="toolbar"
-				href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-					'gitlens.plus.cloudIntegrations.connect',
-					{ integrationIds: [provider.integration.id], source: this.source },
-				)}
+				href=${createCommandLink<ConnectRemoteProviderCommandArgs>('gitlens.connectRemoteProvider', {
+					remote: provider.bestRemoteName!,
+					repoPath: repo.path,
+				})}
 			>
 				<code-icon icon="plug" style="color: var(--titlebar-fg)"></code-icon>
 				<span slot="tooltip">
