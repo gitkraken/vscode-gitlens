@@ -194,6 +194,7 @@ const supportedRemoteProvidersToEnrich: Record<RemoteProvider['id'], EnrichedIte
 
 const supportedIntegrationIdsToEnrich: Record<IntegrationIds, EnrichedItemResponse['provider'] | undefined> = {
 	[GitCloudHostIntegrationId.AzureDevOps]: 'azure',
+	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: 'azure',
 	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
 	[GitCloudHostIntegrationId.GitHub]: 'github',
 	[GitCloudHostIntegrationId.Bitbucket]: 'bitbucket',

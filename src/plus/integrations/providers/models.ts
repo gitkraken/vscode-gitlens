@@ -544,6 +544,20 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
+	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
+		domain: '',
+		id: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		name: 'Azure DevOps Server',
+		type: 'git',
+		iconKey: GitCloudHostIntegrationId.AzureDevOps,
+		issuesPagingMode: PagingMode.Project,
+		pullRequestsPagingMode: PagingMode.Repo,
+		// Use 'id' property on account for PR filters
+		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+		// Use 'name' property on account for issue filters
+		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
+	},
 	[IssuesCloudHostIntegrationId.Jira]: {
 		domain: 'atlassian.net',
 		id: IssuesCloudHostIntegrationId.Jira,

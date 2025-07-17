@@ -222,7 +222,7 @@ export class BitbucketApi implements Disposable {
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
-		if (options?.type !== 'issue') {
+		if (options?.type === undefined || options?.type === 'pullrequest') {
 			try {
 				const prResponse = await this.request<BitbucketPullRequest>(
 					provider,
@@ -246,7 +246,7 @@ export class BitbucketApi implements Disposable {
 			}
 		}
 
-		if (options?.type !== 'pullrequest') {
+		if (options?.type === undefined || options?.type === 'issue') {
 			try {
 				const issueResponse = await this.request<BitbucketIssue>(
 					provider,

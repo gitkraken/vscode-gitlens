@@ -44,6 +44,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	supports(providerId: string): boolean {
 		switch (providerId) {
 			case GitCloudHostIntegrationId.AzureDevOps:
+			case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			case GitCloudHostIntegrationId.Bitbucket:
 			case GitSelfManagedHostIntegrationId.GitHubEnterprise:
 			case GitCloudHostIntegrationId.GitLab:
@@ -66,6 +67,11 @@ export class IntegrationAuthenticationService implements Disposable {
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
 					).AzureDevOpsAuthenticationProvider(this.container, this, this.configuredIntegrationService);
+					break;
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
+					).AzureDevOpsServerAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case GitCloudHostIntegrationId.Bitbucket:
 					provider = new (

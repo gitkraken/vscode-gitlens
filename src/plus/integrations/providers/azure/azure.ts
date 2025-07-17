@@ -15,7 +15,7 @@ import {
 } from '../../../../errors';
 import type { UnidentifiedAuthor } from '../../../../git/models/author';
 import type { Issue } from '../../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
@@ -135,7 +135,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=7.1`,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=4.1`,
 				{
 					method: 'POST',
 					body: JSON.stringify({
@@ -181,89 +181,97 @@ export class AzureDevOpsApi implements Disposable {
 		id: string,
 		options: {
 			baseUrl: string;
+			type?: IssueOrPullRequestType;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 		const [projectName, _, repoName] = repo.split('/');
 
-		try {
-			// Try to get the Work item (wit) first with specific fields
-			const issueResult = await this.request<WorkItem>(
-				provider,
-				token,
-				options?.baseUrl,
-				`${owner}/${projectName}/_apis/wit/workItems/${id}`,
-				{
-					method: 'GET',
-				},
-				scope,
-			);
-
-			if (issueResult != null) {
-				const issueType = issueResult.fields['System.WorkItemType'];
-				const state = issueResult.fields['System.State'];
-				const stateCategory = await this.getWorkItemStateCategory(
-					issueType,
-					state,
+		if (options?.type === undefined || options?.type === 'issue') {
+			try {
+				// Try to get the Work item (wit) first with specific fields
+				const issueResult = await this.request<WorkItem>(
 					provider,
 					token,
-					owner,
-					projectName,
-					options,
+					options?.baseUrl,
+					`${owner}/${projectName}/_apis/wit/workItems/${id}`,
+					{
+						method: 'GET',
+					},
+					scope,
 				);
 
-				return {
-					id: issueResult.id.toString(),
-					type: 'issue',
-					nodeId: issueResult.id.toString(),
-					provider: provider,
-					createdDate: new Date(issueResult.fields['System.CreatedDate']),
-					updatedDate: new Date(issueResult.fields['System.ChangedDate']),
-					state: azureWorkItemsStateCategoryToState(stateCategory),
-					closed: isClosedAzureWorkItemStateCategory(stateCategory),
-					title: issueResult.fields['System.Title'],
-					url: issueResult._links.html.href,
-				};
+				if (issueResult != null) {
+					const issueType = issueResult.fields['System.WorkItemType'];
+					const state = issueResult.fields['System.State'];
+					const stateCategory = await this.getWorkItemStateCategory(
+						issueType,
+						state,
+						provider,
+						token,
+						owner,
+						projectName,
+						options,
+					);
+
+					return {
+						id: issueResult.id.toString(),
+						type: 'issue',
+						nodeId: issueResult.id.toString(),
+						provider: provider,
+						createdDate: new Date(issueResult.fields['System.CreatedDate']),
+						updatedDate: new Date(issueResult.fields['System.ChangedDate']),
+						state: azureWorkItemsStateCategoryToState(stateCategory),
+						closed: isClosedAzureWorkItemStateCategory(stateCategory),
+						title: issueResult.fields['System.Title'],
+						url: issueResult._links.html.href,
+					};
+				}
+			} catch (ex) {
+				if (ex.original?.status !== 404) {
+					Logger.error(ex, scope);
+					return undefined;
+				}
 			}
-		} catch (ex) {
-			if (ex.original?.status !== 404) {
-				Logger.error(ex, scope);
+		}
+
+		if (options?.type === undefined || options?.type === 'pullrequest') {
+			try {
+				const prResult = await this.request<AzurePullRequestWithLinks>(
+					provider,
+					token,
+					options?.baseUrl,
+					`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests/${id}`,
+					{
+						method: 'GET',
+					},
+					scope,
+				);
+
+				if (prResult != null) {
+					return {
+						id: prResult.pullRequestId.toString(),
+						type: 'pullrequest',
+						nodeId: prResult.pullRequestId.toString(), // prResult.artifactId maybe?
+						provider: provider,
+						createdDate: new Date(prResult.creationDate),
+						updatedDate: new Date(prResult.creationDate),
+						state: azurePullRequestStatusToState(prResult.status),
+						closed: isClosedAzurePullRequestStatus(prResult.status),
+						title: prResult.title,
+						url: getAzurePullRequestWebUrl(prResult),
+					};
+				}
+
 				return undefined;
+			} catch (ex) {
+				if (ex.original?.status !== 404) {
+					Logger.error(ex, scope);
+					return undefined;
+				}
 			}
 		}
-
-		try {
-			const prResult = await this.request<AzurePullRequestWithLinks>(
-				provider,
-				token,
-				options?.baseUrl,
-				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests/${id}`,
-				{
-					method: 'GET',
-				},
-				scope,
-			);
-
-			if (prResult != null) {
-				return {
-					id: prResult.pullRequestId.toString(),
-					type: 'pullrequest',
-					nodeId: prResult.pullRequestId.toString(), // prResult.artifactId maybe?
-					provider: provider,
-					createdDate: new Date(prResult.creationDate),
-					updatedDate: new Date(prResult.creationDate),
-					state: azurePullRequestStatusToState(prResult.status),
-					closed: isClosedAzurePullRequestStatus(prResult.status),
-					title: prResult.title,
-					url: getAzurePullRequestWebUrl(prResult),
-				};
-			}
-
-			return undefined;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
+		return undefined;
 	}
 
 	@debug<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })

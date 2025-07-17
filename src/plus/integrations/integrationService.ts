@@ -486,6 +486,46 @@ export class IntegrationService implements Disposable {
 					) as GitHostIntegration as IntegrationById<T>;
 					break;
 
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+					if (domain == null) {
+						integration = this.findCachedById(id);
+						// return immediately in order to not to cache it after the "switch" block:
+						if (integration != null) return integration;
+
+						const configured = this.getConfiguredLite(GitSelfManagedHostIntegrationId.AzureDevOpsServer);
+						if (configured.length) {
+							const { domain: configuredDomain } = configured[0];
+							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
+
+							integration = new (
+								await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
+							).AzureDevOpsServerIntegration(
+								this.container,
+								this.authenticationService,
+								this.getProvidersApi.bind(this),
+								this._onDidChangeIntegrationConnection,
+								configuredDomain,
+							) as GitHostIntegration as IntegrationById<T>;
+
+							// assign domain because it's part of caching key:
+							domain = configuredDomain;
+							break;
+						}
+
+						return undefined;
+					}
+
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
+					).AzureDevOpsServerIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+						domain,
+					) as GitHostIntegration as IntegrationById<T>;
+					break;
+
 				case IssuesCloudHostIntegrationId.Jira:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/jira')

@@ -139,6 +139,7 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 		case 'azure':
 		case 'azureDevOps':
 		case 'azure-devops':
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			return EntityIdentifierProviderType.Azure;
 		case 'bitbucket':
 			return EntityIdentifierProviderType.Bitbucket;
