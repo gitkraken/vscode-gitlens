@@ -5,6 +5,10 @@ import { executeGitCommand } from '../actions';
 import type { GitBranchReference, GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
 
+export function changeUpstream(repo?: string | Repository, branch?: GitBranchReference): Promise<void> {
+	return executeGitCommand({ command: 'branch', state: { subcommand: 'upstream', repo: repo, reference: branch } });
+}
+
 export function create(repo?: string | Repository, ref?: GitReference, name?: string): Promise<void> {
 	return executeGitCommand({
 		command: 'branch',

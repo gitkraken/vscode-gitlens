@@ -1,4 +1,4 @@
-import { QuickInputButtons, window } from 'vscode';
+import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
 import { BranchError, BranchErrorReason } from '../../git/errors';
 import type { IssueShape } from '../../git/models/issue';
@@ -47,6 +47,7 @@ import {
 	pickBranchesStep,
 	pickBranchOrTagStep,
 	pickBranchStep,
+	pickOrResetBranchStep,
 	pickRepositoryStep,
 } from '../quickCommand.steps';
 import { getSteps } from '../quickWizard.utils';
@@ -98,7 +99,15 @@ interface RenameState {
 	flags: RenameFlags[];
 }
 
-type State = CreateState | DeleteState | PruneState | RenameState;
+interface UpstreamState {
+	subcommand: 'upstream';
+	repo: string | Repository;
+	reference: GitBranchReference;
+	/** Specifies the desired upstream; use `null` to unset */
+	upstream?: GitBranchReference | null;
+}
+
+type State = CreateState | DeleteState | PruneState | RenameState | UpstreamState;
 type BranchStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
 
 type CreateStepState<T extends CreateState = CreateState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
@@ -133,6 +142,14 @@ function assertStateStepRename(state: PartialStepState<State>): asserts state is
 	throw new Error('Missing repository');
 }
 
+type UpstreamStepState<T extends UpstreamState = UpstreamState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepUpstream(state: PartialStepState<State>): asserts state is UpstreamStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'upstream') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
 function assertStateStepDeleteBranches(
 	state: DeleteStepState | PruneStepState,
 ): asserts state is ExcludeSome<typeof state, 'references', GitBranchReference> {
@@ -147,6 +164,7 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['delete', 'Delete'],
 	['prune', 'Prune'],
 	['rename', 'Rename'],
+	['upstream', 'Change Upstream'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -205,6 +223,16 @@ export class BranchGitCommand extends QuickCommand {
 					}
 
 					if (args.state.name != null) {
+						counter++;
+					}
+
+					break;
+				case 'upstream':
+					if (args.state.reference != null) {
+						counter++;
+					}
+
+					if (args.state.upstream != null) {
 						counter++;
 					}
 
@@ -310,6 +338,10 @@ export class BranchGitCommand extends QuickCommand {
 					// Clear any chosen name, since we are exiting this subcommand
 					state.name = undefined!;
 					break;
+				case 'upstream':
+					assertStateStepUpstream(state);
+					yield* this.upstreamCommandSteps(state, context);
+					break;
 				default:
 					endSteps(state);
 					break;
@@ -352,6 +384,12 @@ export class BranchGitCommand extends QuickCommand {
 					description: 'renames the specified branch',
 					picked: state.subcommand === 'rename',
 					item: 'rename',
+				},
+				{
+					label: 'upstream',
+					description: 'manages upstream tracking for branches',
+					picked: state.subcommand === 'upstream',
+					item: 'upstream',
 				},
 			],
 			buttons: [QuickInputButtons.Back],
@@ -669,14 +707,14 @@ export class BranchGitCommand extends QuickCommand {
 					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--remotes'], {
 						label: 'Delete Local & Remote Branches',
 						description: '--remotes',
-						detail: `Will delete ${getReferenceLabel(state.references)} and any remote tracking branches`,
+						detail: `Will delete ${getReferenceLabel(state.references)} and any upstream tracking branches`,
 					}),
 					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--remotes'], {
 						label: 'Force Delete Local & Remote Branches',
 						description: '--force --remotes',
 						detail: `Will forcibly delete ${getReferenceLabel(
 							state.references,
-						)} and any remote tracking branches`,
+						)} and any upstream tracking branches`,
 					}),
 				);
 			}
@@ -748,5 +786,84 @@ export class BranchGitCommand extends QuickCommand {
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+	}
+
+	private async *upstreamCommandSteps(state: UpstreamStepState, context: Context): AsyncStepResultGenerator<void> {
+		while (this.canStepsContinue(state)) {
+			if (state.counter < 3 || state.reference == null) {
+				const result = yield* pickBranchStep(state, context, {
+					filter: b => !b.remote,
+					picked: state.reference?.ref,
+					placeholder: 'Choose a branch to change its upstream tracking',
+				});
+				// Always break on the first step (so we will go back)
+				if (result === StepResultBreak) break;
+
+				state.reference = result;
+			}
+
+			if (state.counter < 4 || state.upstream === undefined) {
+				const result = yield* pickOrResetBranchStep(state, context, {
+					filter: b => b.remote,
+					placeholder: 'Choose an upstream branch to track',
+					picked: state.upstream?.ref,
+					// title: `Set Upstream for ${getReferenceLabel(state.reference, false)}`,
+					reset:
+						state.reference.upstream != null
+							? {
+									label: 'Unset Upstream',
+									description: 'Remove any upstream tracking',
+									button: { icon: new ThemeIcon('discard'), tooltip: 'Unset Upstream' },
+								}
+							: undefined,
+				});
+				if (result === StepResultBreak) break;
+
+				state.upstream = result ?? null;
+			}
+
+			const result = yield* this.upstreamCommandConfirmStep(state, context);
+			if (result === StepResultBreak) break;
+
+			endSteps(state);
+			try {
+				await state.repo.git.branches.setUpstreamBranch?.(
+					state.reference.name,
+					state.upstream?.name ?? undefined,
+				);
+			} catch (ex) {
+				Logger.error(ex, context.title);
+				void showGenericErrorMessage('Unable to manage upstream tracking');
+			}
+		}
+	}
+
+	private *upstreamCommandConfirmStep(state: UpstreamStepState, context: Context): StepResultGenerator<void> {
+		let title;
+		let detail;
+		if (state.upstream == null) {
+			title = 'Unset Upstream';
+			detail = `Will remove the upstream tracking from ${getReferenceLabel(state.reference)}`;
+		} else if (state.reference.upstream == null) {
+			title = 'Set Upstream';
+			detail = `Will set the upstream tracking for ${getReferenceLabel(state.reference)} to ${getReferenceLabel(
+				state.upstream,
+				{ label: false },
+			)}`;
+		} else {
+			title = `Change Upstream`;
+			detail = `Will change the upstream tracking for ${getReferenceLabel(state.reference)} to ${getReferenceLabel(
+				state.upstream,
+				{ label: false },
+			)}`;
+		}
+
+		const step: QuickPickStep = createConfirmStep(
+			appendReposToTitle(`Confirm ${title}`, state, context),
+			[{ label: title, detail: detail }],
+			context,
+		);
+		const selection: StepSelection<typeof step> = yield step;
+		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
 	}
 }

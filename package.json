@@ -6359,6 +6359,18 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.changeUpstream:graph",
+				"title": "Change Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.changeUpstream:views",
+				"title": "Change Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.clearFileAnnotations",
 				"title": "Clear File Annotations",
 				"category": "GitLens",
@@ -7594,6 +7606,18 @@
 				"command": "gitlens.revealCommitInView",
 				"title": "Reveal Commit in Side Bar",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.setUpstream:graph",
+				"title": "Set Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.setUpstream:views",
+				"title": "Set Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.shareAsCloudPatch",
@@ -10900,6 +10924,14 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.changeUpstream:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.changeUpstream:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.clearFileAnnotations",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated || resource in gitlens:tabs:annotated)"
 				},
@@ -11858,6 +11890,14 @@
 				{
 					"command": "gitlens.revealCommitInView",
 					"when": "resource in gitlens:tabs:blameable"
+				},
+				{
+					"command": "gitlens.setUpstream:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.setUpstream:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.shareAsCloudPatch",
@@ -16922,6 +16962,16 @@
 					"command": "gitlens.views.renameBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_2@2"
+				},
+				{
+					"command": "gitlens.changeUpstream:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
+					"command": "gitlens.setUpstream:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
 				},
 				{
 					"command": "gitlens.views.deleteBranch",
@@ -22756,8 +22806,18 @@
 					"group": "1_gitlens_actions_2@2"
 				},
 				{
+					"command": "gitlens.changeUpstream:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
 					"command": "gitlens.graph.deleteBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
+					"command": "gitlens.setUpstream:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_2@3"
 				},
 				{

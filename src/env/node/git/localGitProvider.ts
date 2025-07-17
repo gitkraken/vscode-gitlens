@@ -1095,7 +1095,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			remoteName = branch.getRemoteName() ?? options?.publish?.remote;
 			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
 
-			// Git can't setup remote tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
+			// Git can't setup upstream tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
 			if (options?.publish?.remote != null && options?.reference != null) {
 				setUpstream = {
 					branch: branch.getNameWithoutRemote(),
@@ -1134,7 +1134,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				publish: options?.publish != null,
 			});
 
-			// Since Git can't setup remote tracking when publishing a new branch to a specific commit, do it now
+			// Since Git can't setup upstream tracking when publishing a new branch to a specific commit, do it now
 			if (setUpstream != null) {
 				await this.git.exec(
 					{ cwd: repoPath },
