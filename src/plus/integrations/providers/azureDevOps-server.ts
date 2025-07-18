@@ -62,7 +62,15 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 			avatarSize?: number;
 		},
 	): Promise<UnidentifiedAuthor | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getAccountForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+			options,
+		);
 	}
 
 	protected override async getProviderAccountForEmail(
