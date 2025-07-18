@@ -135,7 +135,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=7.1`,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=4.1`,
 				{
 					method: 'POST',
 					body: JSON.stringify({

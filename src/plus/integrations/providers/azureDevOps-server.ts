@@ -118,7 +118,14 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 		repo: AzureRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getPullRequestForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+		);
 	}
 
 	protected override async getProviderRepositoryMetadata(
