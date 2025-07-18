@@ -39,6 +39,11 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 		this.key = `${this.id}:${this.domain}`;
 	}
 
+	protected get apiBaseUrl(): string {
+		const protocol = this._session?.protocol ?? 'https:';
+		return `${protocol}//${this.domain}`;
+	}
+
 	protected override async mergeProviderPullRequest(
 		{ accessToken: _accessToken }: AuthenticationSession,
 		_pr: PullRequest,
@@ -103,7 +108,9 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 			avatarSize?: number;
 		},
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getPullRequestForBranch(this, accessToken, repo.owner, repo.name, branch, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderPullRequestForCommit(
