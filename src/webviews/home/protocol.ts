@@ -54,12 +54,12 @@ export interface IntegrationState extends IntegrationDescriptor {
 }
 
 export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
+export type OverviewFavoritesThreshold = 'OneDay' | 'OneWeek' | 'OneMonth' | 'All';
 export type OverviewStaleThreshold = 'OneYear';
 
 export interface OverviewFilters {
-	recent: {
-		threshold: OverviewRecentThreshold;
-	};
+	recent: { threshold: OverviewRecentThreshold };
+	favorites: { show: boolean; threshold: OverviewFavoritesThreshold };
 	stale: { threshold: OverviewStaleThreshold; show: boolean; limit: number };
 }
 
@@ -84,6 +84,7 @@ export interface GetOverviewBranch {
 	timestamp?: number;
 	status: GitBranchStatus;
 	upstream: GitTrackingUpstream | undefined;
+	starred: boolean;
 
 	remote?: Promise<
 		| {
@@ -223,6 +224,7 @@ export const GetActiveOverview = new IpcRequest<undefined, GetActiveOverviewResp
 export type GetInactiveOverviewResponse =
 	| {
 			repository: OverviewRepository;
+			favorites?: GetOverviewBranch[];
 			recent: GetOverviewBranch[];
 			stale?: GetOverviewBranch[];
 	  }
@@ -251,7 +253,7 @@ export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthroug
 export const DidChangeAiAllAccessBanner = new IpcNotification<boolean>(scope, 'ai/allAccess/didChange');
 export const DismissAiAllAccessBannerCommand = new IpcCommand<void>(scope, 'ai/allAccess/dismiss');
 
-export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
+export const UpdateOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/update');
 
 export type OpenInGraphParams =
 	| { type: 'repo'; repoPath: string; branchId?: never }
@@ -263,6 +265,9 @@ export type OpenInTimelineParams =
 	| { type: 'repo'; repoPath: string; branchId?: never }
 	| { type: 'branch'; repoPath: string; branchId: string }
 	| undefined;
+
+export const StarBranchCommand = new IpcCommand<BranchRef>(scope, 'branch/star');
+export const UnstarBranchCommand = new IpcCommand<BranchRef>(scope, 'branch/unstar');
 
 // NOTIFICATIONS
 
@@ -330,12 +335,12 @@ export interface DidChangeOrgSettingsParams {
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
 
-export interface DidChangeOwnerFilterParams {
+export interface DidChangeOverviewFilterParams {
 	filter: OverviewFilters;
 }
-export const DidChangeOverviewFilter = new IpcNotification<DidChangeOwnerFilterParams>(
+export const DidChangeOverviewFilter = new IpcNotification<DidChangeOverviewFilterParams>(
 	scope,
-	'home/ownerFilter/didChange',
+	'home/overviewFilter/didChange',
 );
 
 export const DidFocusAccount = new IpcNotification<undefined>(scope, 'account/didFocus');

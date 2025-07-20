@@ -126,8 +126,10 @@ import {
 	GetLaunchpadSummary,
 	GetOverviewFilterState,
 	OpenInGraphCommand,
-	SetOverviewFilter,
+	StarBranchCommand,
 	TogglePreviewEnabledCommand,
+	UnstarBranchCommand,
+	UpdateOverviewFilter,
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
@@ -194,14 +196,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private _overviewBranchFilter: OverviewFilters = {
-		recent: {
-			threshold: 'OneWeek',
-		},
-		stale: {
-			threshold: 'OneYear',
-			show: false,
-			limit: 9,
-		},
+		recent: { threshold: 'OneWeek' },
+		favorites: { threshold: 'All', show: false },
+		stale: { threshold: 'OneYear', show: false, limit: 9 },
 	};
 
 	onShowing(
@@ -399,7 +396,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			case DismissAiAllAccessBannerCommand.is(e):
 				void this.dismissAiAllAccessBanner();
 				break;
-			case SetOverviewFilter.is(e):
+			case UpdateOverviewFilter.is(e):
 				this.setOverviewFilter(e.params);
 				break;
 			case GetLaunchpadSummary.is(e):
@@ -417,6 +414,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				break;
 			case OpenInGraphCommand.is(e):
 				this.openInGraph(e.params);
+				break;
+			case StarBranchCommand.is(e):
+				await this.starBranch(e.params);
+				break;
+			case UnstarBranchCommand.is(e):
+				await this.unstarBranch(e.params);
 				break;
 			case GetActiveOverview.is(e):
 				void this.host.respond(GetActiveOverview, e, await this.getActiveBranchOverview());
@@ -528,6 +531,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				});
 			}
 		}
+	}
+
+	@log<HomeWebviewProvider['starBranch']>({
+		args: { 0: p => `repoPath=${p?.repoPath}, branchName=${p?.branchName}` },
+	})
+	private async starBranch(params: BranchRef): Promise<void> {
+		const { repo, branch } = await this.getRepoInfoFromRef(params);
+		if (repo == null || branch == null) return;
+
+		await repo.star(branch);
+		this.resetBranchOverview();
+	}
+
+	@log<HomeWebviewProvider['unstarBranch']>({
+		args: { 0: p => `repoPath=${p?.repoPath}, branchName=${p?.branchName}` },
+	})
+	private async unstarBranch(params: BranchRef): Promise<void> {
+		const { repo, branch } = await this.getRepoInfoFromRef(params);
+		if (repo == null || branch == null) return;
+
+		await repo.unstar(branch);
+		this.resetBranchOverview();
 	}
 
 	@log<HomeWebviewProvider['openInView']>({
@@ -958,32 +983,26 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		]);
 
 		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
-		const recentBranches = branches.filter(
-			branch => this.getBranchOverviewType(branch, worktreesByBranch) === 'recent',
-		);
 		const isPro = getSettledValue(proSubscriptionResult)!;
 
-		let staleBranches: GitBranch[] | undefined;
-		if (this._overviewBranchFilter.stale.show) {
-			sortBranches(branches, {
-				missingUpstream: true,
-				orderBy: 'date:asc',
-			});
+		const recentBranches: GitBranch[] = [];
+		const favoriteBranches: GitBranch[] = [];
+		const staleBranches: GitBranch[] = [];
 
-			for (const branch of branches) {
-				if (staleBranches != null && staleBranches.length > this._overviewBranchFilter.stale.limit) {
+		for (const branch of branches) {
+			if (branch.starred) {
+				favoriteBranches.push(branch);
+			}
+
+			switch (this.getBranchOverviewType(branch, worktreesByBranch)) {
+				case 'recent':
+					recentBranches.push(branch);
 					break;
-				}
-				if (recentBranches.some(b => b.id === branch.id)) {
-					continue;
-				}
-
-				if (this.getBranchOverviewType(branch, worktreesByBranch) !== 'stale') {
-					continue;
-				}
-
-				staleBranches ??= [];
-				staleBranches.push(branch);
+				case 'stale':
+					if (!recentBranches.some(b => b.id === branch.id)) {
+						staleBranches.push(branch);
+					}
+					break;
 			}
 		}
 
@@ -993,10 +1012,25 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			worktreesByBranch,
 			isPro,
 		);
-		const staleOverviewBranches =
-			staleBranches == null
-				? undefined
-				: getOverviewBranchesCore(this.container, staleBranches, worktreesByBranch, isPro);
+
+		const favoriteOverviewBranches = getOverviewBranchesCore(
+			this.container,
+			favoriteBranches,
+			worktreesByBranch,
+			isPro,
+		);
+
+		let staleOverviewBranches: GetOverviewBranch[] | undefined;
+		if (staleBranches.length && this._overviewBranchFilter.stale.show) {
+			sortBranches(staleBranches, { missingUpstream: true, orderBy: 'date:asc' });
+
+			staleOverviewBranches = getOverviewBranchesCore(
+				this.container,
+				staleBranches.slice(0, this._overviewBranchFilter.stale.limit),
+				worktreesByBranch,
+				isPro,
+			);
+		}
 
 		// TODO: revisit invalidation
 		if (!forceRepo) {
@@ -1006,6 +1040,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return {
 			repository: getSettledValue(formatRepositoryResult)!,
 			recent: recentOverviewBranches,
+			favorites: favoriteOverviewBranches,
 			stale: staleOverviewBranches,
 		};
 	}
@@ -1067,6 +1102,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						// RepositoryChange.Index,
 						RepositoryChange.Remotes,
 						RepositoryChange.PausedOperationStatus,
+						RepositoryChange.Starred,
 						RepositoryChange.Unknown,
 						RepositoryChangeComparisonMode.Any,
 					)
@@ -1132,7 +1168,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			const [branchesResult] = await Promise.allSettled([
 				repo.git.branches.getBranches({
 					filter: b => !b.remote,
-					sort: { current: true, openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch) },
+					sort: {
+						current: true,
+						openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch),
+						orderBy: 'date:desc',
+					},
 				}),
 			]);
 
@@ -1645,7 +1685,7 @@ function getOverviewBranchesCore(
 		includeMergeTarget?: boolean;
 	},
 ): GetOverviewBranch[] {
-	if (branches.length === 0) return [];
+	if (!branches.length) return [];
 
 	const isActive = options?.isActive ?? false;
 	const forceOptions = options?.forceStatus ? { force: true } : undefined;
@@ -1704,6 +1744,7 @@ function getOverviewBranchesCore(
 			timestamp: timestamp,
 			status: branch.status,
 			upstream: branch.upstream,
+			starred: branch.starred,
 			worktree: wt ? { name: wt.name, uri: wt.uri.toString(), isDefault: wt.isDefault } : undefined,
 		});
 	}

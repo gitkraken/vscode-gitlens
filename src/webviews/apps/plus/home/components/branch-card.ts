@@ -25,11 +25,14 @@ import type {
 	OpenWorktreeCommandArgs,
 	State,
 } from '../../../../home/protocol';
+import { StarBranchCommand, UnstarBranchCommand } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
 import { GlElement, observe } from '../../../shared/components/element';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
+import { ipcContext } from '../../../shared/contexts/ipc';
+import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
@@ -101,6 +104,13 @@ export const branchCardStyles = css`
 		flex: none;
 	}
 
+	.branch-item__name-container {
+		flex-grow: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	.branch-item__name {
 		flex-grow: 1;
 		white-space: nowrap;
@@ -124,6 +134,46 @@ export const branchCardStyles = css`
 		gap: 0.6rem;
 		max-width: 100%;
 		margin-block: 0;
+	}
+
+	.branch-item__star {
+		flex-shrink: 0;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	/* Show star if branch is starred */
+	.branch-item__star--starred {
+		opacity: 1;
+	}
+
+	/* Show star on hover of the entire work item (both expanded and collapsed) */
+	.work-item:hover .branch-item__star,
+	:host(:hover) .branch-item__star {
+		opacity: 1;
+	}
+
+	/* Show star when branch card is expanded */
+	:host([expanded]) .branch-item__star {
+		opacity: 1;
+	}
+
+	.branch-item__star-icon {
+		cursor: pointer;
+		color: var(--vscode-icon-foreground);
+		opacity: 0.6;
+		transition: opacity 0.2s ease;
+		pointer-events: auto;
+		z-index: 1;
+	}
+
+	.branch-item__star-icon:hover {
+		opacity: 1;
+	}
+
+	.branch-item__star-icon[icon='star-full'] {
+		color: var(--vscode-gitDecoration-addedResourceForeground, #81b88b);
+		opacity: 1;
 	}
 
 	.branch-item__changes {
@@ -258,6 +308,9 @@ export abstract class GlBranchCardBase extends GlElement {
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
 	protected _homeState!: State;
+
+	@consume({ context: ipcContext })
+	private readonly _ipc!: HostIpc;
 
 	@property()
 	repo!: string;
@@ -735,7 +788,10 @@ export abstract class GlBranchCardBase extends GlElement {
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon"> ${this.renderBranchIcon()} </span>
-						<span class="branch-item__name">${this.branch.name}</span>
+						<span class="branch-item__name-container">
+							<span class="branch-item__name">${this.branch.name}</span>
+							${this.renderStarredIcon()}
+						</span>
 					</p>
 				</div>
 				${when(
@@ -771,6 +827,49 @@ export abstract class GlBranchCardBase extends GlElement {
 			?worktree=${this.branch.worktree != null}
 			?is-default=${this.branch.worktree?.isDefault ?? false}
 		></gl-branch-icon>`;
+	}
+
+	private renderStarredIcon() {
+		const starred = this.branch.starred;
+
+		// Only show star icon if: branch is starred, card is expanded, or card is hovered
+		// We'll use CSS to handle the hover state visibility
+		const icon = starred ? 'star-full' : 'star-empty';
+
+		return html`<gl-tooltip
+			class="branch-item__star ${starred ? 'branch-item__star--starred' : ''}"
+			content="${starred ? 'Remove from Favorites' : 'Add to Favorites'}"
+			placement="bottom"
+			@click=${this.onToggleStarred}
+		>
+			<code-icon icon="${icon}" class="branch-item__star-icon"></code-icon>
+		</gl-tooltip>`;
+	}
+
+	private onToggleStarred(e: Event): void {
+		e.preventDefault();
+		e.stopPropagation();
+
+		try {
+			const previousStarred = this.branch.starred;
+
+			// Optimistically update the UI immediately
+			this.branch.starred = !previousStarred;
+			this.requestUpdate();
+
+			if (previousStarred) {
+				this._ipc.sendCommand(UnstarBranchCommand, this.branchRef);
+			} else {
+				this._ipc.sendCommand(StarBranchCommand, this.branchRef);
+			}
+
+			// Note: If the backend command fails, the next data refresh will correct the state
+		} catch (ex) {
+			// Revert the optimistic update on error
+			this.branch.starred = !this.branch.starred;
+			this.requestUpdate();
+			console.error('Failed to toggle branch star, reverted:', ex);
+		}
 	}
 
 	protected renderPrItem(): TemplateResult | NothingType {

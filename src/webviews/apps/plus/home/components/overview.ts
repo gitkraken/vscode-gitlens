@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GetInactiveOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
-import { SetOverviewFilter } from '../../../../home/protocol';
+import { UpdateOverviewFilter } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
@@ -80,12 +80,17 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	private readonly _ipc!: HostIpc;
 
 	private readonly onChangeRecentThresholdFilter = (e: CustomEvent<{ threshold: OverviewRecentThreshold }>) => {
-		if (!this._inactiveOverviewState.filter.stale || !this._inactiveOverviewState.filter.recent) {
+		if (
+			!this._inactiveOverviewState.filter.recent ||
+			!this._inactiveOverviewState.filter.favorites ||
+			!this._inactiveOverviewState.filter.stale
+		) {
 			return;
 		}
-		this._ipc.sendCommand(SetOverviewFilter, {
-			stale: this._inactiveOverviewState.filter.stale,
+		this._ipc.sendCommand(UpdateOverviewFilter, {
 			recent: { ...this._inactiveOverviewState.filter.recent, threshold: e.detail.threshold },
+			favorites: this._inactiveOverviewState.filter.favorites,
+			stale: this._inactiveOverviewState.filter.stale,
 		});
 	};
 
