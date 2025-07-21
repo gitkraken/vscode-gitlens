@@ -1,38 +1,24 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { consume } from '@lit/context';
+import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
+import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
+import { stateContext } from '../context';
+import { updateHunkAssignments } from './utils';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 import './commit-item';
+import './commits-panel';
+import './details-panel';
 import './hunk-item';
-
-export interface MockCommit {
-	id: string;
-	message: string;
-	aiExplanation?: string;
-	hunks: MockHunk[];
-}
-
-export interface MockUnassignedChanges {
-	mode: 'staged-unstaged' | 'unassigned';
-	staged?: MockHunk[];
-	unstaged?: MockHunk[];
-	unassigned?: MockHunk[];
-}
-
-export interface MockHunk {
-	id: string;
-	fileName: string;
-	content: string;
-	additions: number;
-	deletions: number;
-}
 
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
+	@consume({ context: stateContext, subscribe: true })
+	state!: State;
+
 	static override styles = css`
 		:host {
 			display: flex;
@@ -61,181 +47,15 @@ export class ComposerApp extends LitElement {
 			min-height: 0;
 		}
 
-		.commits-panel {
+		gl-commits-panel {
 			flex: 0 0 300px;
 			min-width: 300px;
 			max-width: 300px;
-			display: flex;
-			flex-direction: column;
-			gap: 1.2rem;
-			overflow: hidden;
 		}
 
-		.commits-header {
-			display: flex;
-			flex-direction: column;
-			gap: 0.4rem;
-		}
-
-		.commits-header h3 {
-			margin: 0;
-		}
-
-		.commits-header small {
-			color: var(--vscode-descriptionForeground);
-			font-size: 0.9em;
-		}
-
-		.commits-actions {
-			min-height: 40px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 0.8rem;
-			padding: 0.8rem;
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			background: var(--vscode-editorGroupHeader-tabsBackground);
-		}
-
-		.commits-actions:empty {
-			display: none;
-		}
-
-		.commits-actions gl-button {
-			min-width: 160px;
-			padding-left: 1.6rem;
-			padding-right: 1.6rem;
-		}
-
-		.commits-list {
+		gl-details-panel {
 			flex: 1;
-			overflow-y: auto;
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			padding: 0.8rem;
-			background: var(--vscode-editor-background);
 			min-width: 0;
-			box-sizing: border-box;
-		}
-
-		.details-panel {
-			flex: 1;
-			display: flex;
-			flex-direction: column;
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			background: var(--vscode-editor-background);
-			overflow: hidden;
-			min-width: 0;
-		}
-
-		.details-panel.split-view {
-			flex-direction: column;
-			overflow-y: auto;
-			scroll-behavior: smooth;
-		}
-
-		.commit-details {
-			flex: 0 0 auto;
-			display: flex;
-			flex-direction: column;
-			min-width: 0;
-			border-bottom: 1px solid var(--vscode-panel-border);
-			margin-bottom: 1.5rem;
-		}
-
-		.commit-details:last-child {
-			border-bottom: none;
-			margin-bottom: 0;
-		}
-
-		.details-header {
-			padding: 1.2rem;
-			border-bottom: 1px solid var(--vscode-panel-border);
-			background: var(--vscode-editorGroupHeader-tabsBackground);
-		}
-
-		.details-content {
-			flex: 1;
-			overflow-y: auto;
-			padding: 1.2rem;
-		}
-
-		.commit-message-input {
-			width: 100%;
-			max-width: 100%;
-			box-sizing: border-box;
-			padding: 0.6rem;
-			border: 1px solid var(--vscode-input-border);
-			border-radius: 4px;
-			background: var(--vscode-input-background);
-			color: var(--vscode-input-foreground);
-			font-family: inherit;
-			font-size: inherit;
-			resize: vertical;
-			min-height: 50px;
-		}
-
-		.commit-message-input:focus {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
-		}
-
-		.hunks-list {
-			display: flex;
-			flex-direction: column;
-			gap: 0.6rem;
-			overflow-y: auto;
-			flex: 1;
-			min-height: 200px;
-			max-height: calc(100vh - 300px);
-		}
-
-		.empty-state {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			height: 100%;
-			color: var(--vscode-descriptionForeground);
-			text-align: center;
-		}
-
-		.empty-state code-icon {
-			font-size: 4.8rem;
-			margin-bottom: 1.2rem;
-			opacity: 0.6;
-		}
-
-		.new-commit-drop-zone {
-			min-height: 60px;
-			border: 2px dashed var(--vscode-panel-border);
-			border-radius: 4px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			color: var(--vscode-descriptionForeground);
-			margin-top: 0.8rem;
-			transition: all 0.2s ease;
-			box-sizing: border-box;
-			width: 100%;
-		}
-
-		.new-commit-drop-zone.drag-over {
-			border-color: var(--vscode-focusBorder);
-			background: var(--vscode-list-hoverBackground);
-		}
-
-		/* Hide drop zone content when dragging over it */
-		.new-commit-drop-zone.sortable-chosen,
-		.new-commit-drop-zone:has(.sortable-ghost) {
-			color: transparent;
-		}
-
-		.new-commit-drop-zone.sortable-chosen code-icon,
-		.new-commit-drop-zone:has(.sortable-ghost) code-icon {
-			opacity: 0;
 		}
 
 		.modal-overlay {
@@ -383,180 +203,6 @@ export class ComposerApp extends LitElement {
 	`;
 
 	@state()
-	private unassignedChanges: MockUnassignedChanges = {
-		mode: 'staged-unstaged',
-		staged: [
-			{
-				id: 'staged-1',
-				fileName: 'src/components/Header.tsx',
-				content:
-					'@@ -15,7 +15,7 @@ export function Header() {\n   return (\n     <header className="app-header">\n-      <h1>My App</h1>\n+      <h1>GitLens Composer</h1>\n       <nav>\n         <a href="/home">Home</a>\n         <a href="/about">About</a>',
-				additions: 1,
-				deletions: 1,
-			},
-			{
-				id: 'staged-2',
-				fileName: 'src/styles/theme.css',
-				content:
-					'@@ -8,4 +8,8 @@\n   --primary-color: #007acc;\n   --secondary-color: #f0f0f0;\n   --text-color: #333;\n+  --accent-color: #ff6b35;\n+  --border-radius: 8px;\n+  --shadow: 0 2px 4px rgba(0,0,0,0.1);\n }',
-				additions: 3,
-				deletions: 0,
-			},
-		],
-		unstaged: [
-			{
-				id: 'unstaged-1',
-				fileName: 'src/utils/helpers.ts',
-				content:
-					'@@ -12,6 +12,10 @@ export function formatDate(date: Date): string {\n   return date.toLocaleDateString();\n }\n \n+export function formatTime(date: Date): string {\n+  return date.toLocaleTimeString();\n+}\n+\n export function capitalize(str: string): string {\n   return str.charAt(0).toUpperCase() + str.slice(1);\n }',
-				additions: 4,
-				deletions: 0,
-			},
-			{
-				id: 'unstaged-2',
-				fileName: 'README.md',
-				content:
-					'@@ -1,4 +1,6 @@\n # My Project\n \n-This is a sample project.\n+This is a sample project built with GitLens Composer.\n+\n+## Features',
-				additions: 3,
-				deletions: 1,
-			},
-		],
-		// Mock data for unassigned mode (not currently used)
-		unassigned: [
-			{
-				id: 'unassigned-1',
-				fileName: 'src/components/Button.tsx',
-				content:
-					'@@ -5,7 +5,7 @@ interface ButtonProps {\n }\n \n export function Button({ children, onClick }: ButtonProps) {\n-  return <button onClick={onClick}>{children}</button>;\n+  return <button className="btn" onClick={onClick}>{children}</button>;\n }',
-				additions: 1,
-				deletions: 1,
-			},
-		],
-	};
-
-	@state()
-	private commits: MockCommit[] = [
-		{
-			id: 'commit-1',
-			message: 'Add user authentication system',
-			aiExplanation:
-				'This commit introduces a comprehensive user authentication system with login validation, user types, and session management. The changes include creating a validateUser function for credential checking, defining User and LoginCredentials interfaces with role-based access control, and implementing secure session management with UUID-based session IDs and expiration handling.',
-			hunks: [
-				{
-					id: 'hunk-1',
-					fileName: 'src/auth/login.ts',
-					content:
-						'+  const validateUser = (username: string, password: string) => {\n+    return authService.validate(username, password);\n+  };',
-					additions: 3,
-					deletions: 0,
-				},
-				{
-					id: 'hunk-2',
-					fileName: 'src/auth/types.ts',
-					content:
-						'+  export interface User {\n+    id: string;\n+    username: string;\n+    email: string;\n+    role: UserRole;\n+    createdAt: Date;\n+  };\n+\n+  export interface LoginCredentials {\n+    username: string;\n+    password: string;\n+  };\n+\n+  export enum UserRole {\n+    ADMIN = "admin",\n+    USER = "user",\n+    GUEST = "guest"\n+  }',
-					additions: 17,
-					deletions: 0,
-				},
-				{
-					id: 'hunk-3',
-					fileName: 'src/auth/session.ts',
-					content:
-						'-  // TODO: Implement session management\n-  const sessions = new Map();\n+  import { v4 as uuidv4 } from "uuid";\n+\n+  interface Session {\n+    id: string;\n+    userId: string;\n+    expiresAt: Date;\n+  }\n+\n+  const sessions = new Map<string, Session>();\n+\n+  export const createSession = async (userId: string): Promise<string> => {\n+    const sessionId = uuidv4();\n+    const session: Session = {\n+      id: sessionId,\n+      userId,\n+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours\n+    };\n+    sessions.set(sessionId, session);\n+    return sessionId;\n+  };',
-					additions: 17,
-					deletions: 2,
-				},
-			],
-		},
-		{
-			id: 'commit-2',
-			message: 'Implement user dashboard',
-			aiExplanation:
-				'This commit creates a user dashboard interface with React components for displaying user information and activity. The implementation includes a main Dashboard component that welcomes users, a UserProfile component showing user details like email and role, and an ActivityFeed component that fetches and displays recent user activities with proper state management.',
-			hunks: [
-				{
-					id: 'hunk-4',
-					fileName: 'src/components/Dashboard.tsx',
-					content:
-						'+  import React from "react";\n+  import { User } from "../auth/types";\n+  import { UserProfile } from "./UserProfile";\n+  import { ActivityFeed } from "./ActivityFeed";\n+\n+  interface DashboardProps {\n+    user: User;\n+  }\n+\n+  const Dashboard: React.FC<DashboardProps> = ({ user }) => {\n+    return (\n+      <div className="dashboard">\n+        <h1>Welcome, {user.username}!</h1>\n+        <div className="dashboard-content">\n+          <UserProfile user={user} />\n+          <ActivityFeed userId={user.id} />\n+        </div>\n+      </div>\n+    );\n+  };\n+\n+  export default Dashboard;',
-					additions: 21,
-					deletions: 0,
-				},
-				{
-					id: 'hunk-5',
-					fileName: 'src/components/UserProfile.tsx',
-					content:
-						'+  import React from "react";\n+  import { User } from "../auth/types";\n+\n+  interface UserProfileProps {\n+    user: User;\n+  }\n+\n+  export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {\n+    return (\n+      <div className="user-profile">\n+        <h2>Profile</h2>\n+        <p>Email: {user.email}</p>\n+        <p>Role: {user.role}</p>\n+        <p>Member since: {user.createdAt.toLocaleDateString()}</p>\n+      </div>\n+    );\n+  };',
-					additions: 16,
-					deletions: 0,
-				},
-				{
-					id: 'hunk-6',
-					fileName: 'src/components/ActivityFeed.tsx',
-					content:
-						'-  // Placeholder component\n-  export const ActivityFeed = () => <div>Coming soon...</div>;\n+  import React, { useEffect, useState } from "react";\n+\n+  interface Activity {\n+    id: string;\n+    type: string;\n+    message: string;\n+    timestamp: Date;\n+  }\n+\n+  interface ActivityFeedProps {\n+    userId: string;\n+  }\n+\n+  export const ActivityFeed: React.FC<ActivityFeedProps> = ({ userId }) => {\n+    const [activities, setActivities] = useState<Activity[]>([]);\n+\n+    useEffect(() => {\n+      // Fetch user activities\n+      fetchActivities(userId).then(setActivities);\n+    }, [userId]);\n+\n+    return (\n+      <div className="activity-feed">\n+        <h2>Recent Activity</h2>\n+        {activities.map(activity => (\n+          <div key={activity.id} className="activity-item">\n+            <span className="activity-type">{activity.type}</span>\n+            <span className="activity-message">{activity.message}</span>\n+            <span className="activity-time">{activity.timestamp.toLocaleString()}</span>\n+          </div>\n+        ))}\n+      </div>\n+    );\n+  };',
-					additions: 26,
-					deletions: 2,
-				},
-			],
-		},
-		{
-			id: 'commit-3',
-			message: 'Add error handling and logging',
-			aiExplanation:
-				'This commit establishes a robust error handling and logging infrastructure. It introduces custom error classes (AuthError, ValidationError, NetworkError) for better error categorization and a comprehensive Logger class with different log levels (ERROR, WARN, INFO, DEBUG) to replace basic console logging with structured, configurable logging throughout the application.',
-			hunks: [
-				{
-					id: 'hunk-7',
-					fileName: 'src/utils/errors.ts',
-					content:
-						'+  export class AuthError extends Error {\n+    constructor(message: string) {\n+      super(message);\n+      this.name = "AuthError";\n+    }\n+  }\n+\n+  export class ValidationError extends Error {\n+    constructor(message: string, public field: string) {\n+      super(message);\n+      this.name = "ValidationError";\n+    }\n+  }\n+\n+  export class NetworkError extends Error {\n+    constructor(message: string, public statusCode?: number) {\n+      super(message);\n+      this.name = "NetworkError";\n+    }\n+  }',
-					additions: 19,
-					deletions: 0,
-				},
-				{
-					id: 'hunk-8',
-					fileName: 'src/utils/logger.ts',
-					content:
-						'-  console.log("Debug mode enabled");\\n-  const debug = true;\\n+  enum LogLevel {\\n+    ERROR = 0,\\n+    WARN = 1,\\n+    INFO = 2,\\n+    DEBUG = 3\\n+  }\\n+\\n+  class Logger {\\n+    private level: LogLevel = LogLevel.INFO;\\n+\\n+    setLevel(level: LogLevel) {\\n+      this.level = level;\\n+    }\\n+\\n+    error(message: string, ...args: any[]) {\\n+      if (this.level >= LogLevel.ERROR) {\\n+        console.error("[ERROR] " + message, ...args);\\n+      }\\n+    }\\n+\\n+    warn(message: string, ...args: any[]) {\\n+      if (this.level >= LogLevel.WARN) {\\n+        console.warn("[WARN] " + message, ...args);\\n+      }\\n+    }\\n+\\n+    info(message: string, ...args: any[]) {\\n+      if (this.level >= LogLevel.INFO) {\\n+        console.info("[INFO] " + message, ...args);\\n+      }\\n+    }\\n+\\n+    debug(message: string, ...args: any[]) {\\n+      if (this.level >= LogLevel.DEBUG) {\\n+        console.debug("[DEBUG] " + message, ...args);\\n+      }\\n+    }\\n+  }\\n+\\n+  export const logger = new Logger();',
-					additions: 35,
-					deletions: 2,
-				},
-			],
-		},
-		{
-			id: 'commit-4',
-			message: 'Update documentation and cleanup',
-			hunks: [
-				{
-					id: 'hunk-9',
-					fileName: 'README.md',
-					content:
-						'+  # User Management System\\n+\\n+  ## Authentication\\n+  \\n+  This application includes a comprehensive user authentication system with:\\n+  - User login and session management\\n+  - Role-based access control\\n+  - Error handling and logging\\n+\\n+  ## Features\\n+  \\n+  - User dashboard with profile information\\n+  - Activity feed\\n+  - Secure session management\\n-  TODO: Add authentication\\n-  Basic user system needed',
-					additions: 13,
-					deletions: 2,
-				},
-				{
-					id: 'hunk-10',
-					fileName: 'src/legacy/oldAuth.js',
-					content:
-						'-  // Legacy authentication code - remove this file\\n-  function authenticate(user, pass) {\\n-    if (user === "admin" && pass === "password") {\\n-      return true;\\n-    }\\n-    return false;\\n-  }\\n-\\n-  module.exports = { authenticate };',
-					additions: 0,
-					deletions: 9,
-				},
-				{
-					id: 'hunk-11',
-					fileName: 'package.json',
-					content:
-						'   "dependencies": {\\n+    "uuid": "^9.0.0",\\n+    "@types/uuid": "^9.0.0",\\n     "react": "^18.2.0",\\n-    "lodash": "^4.17.21"\\n+    "react-dom": "^18.2.0"\\n   }',
-					additions: 3,
-					deletions: 1,
-				},
-			],
-		},
-	];
-
-	@state()
 	private selectedCommitId: string | null = null;
 
 	@state()
@@ -571,6 +217,9 @@ export class ComposerApp extends LitElement {
 	@state()
 	private selectedHunkIds: Set<string> = new Set();
 
+	private currentDropTarget: HTMLElement | null = null;
+	private lastSelectedHunkId: string | null = null;
+
 	@state()
 	private commitMessageExpanded = true;
 
@@ -583,12 +232,6 @@ export class ComposerApp extends LitElement {
 	@state()
 	private showModal = false;
 
-	@state()
-	private nextCommitId = 5;
-
-	@state()
-	private nextHunkId = 12;
-
 	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
 	private isDragging = false;
@@ -597,6 +240,7 @@ export class ComposerApp extends LitElement {
 	override firstUpdated() {
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
+		this.initializeDragTracking();
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -689,17 +333,9 @@ export class ComposerApp extends LitElement {
 							if (multiDragHunkIds && typeof multiDragHunkIds === 'string') {
 								// Multi-drag: move all selected hunks
 								const hunkIds = multiDragHunkIds.split(',');
-								console.log('Multi-drop between split views:', {
-									hunkIds: hunkIds,
-									targetCommitId: targetCommitId,
-								});
 								this.moveHunksToCommit(hunkIds, targetCommitId);
 							} else if (hunkId) {
 								// Single drag
-								console.log('Drop between split views:', {
-									hunkId: hunkId,
-									targetCommitId: targetCommitId,
-								});
 								this.moveHunkToCommit(hunkId, targetCommitId);
 							}
 						}
@@ -732,7 +368,6 @@ export class ComposerApp extends LitElement {
 					if (multiDragHunkIds && typeof multiDragHunkIds === 'string') {
 						// Multi-drag: create new commit with all selected hunks
 						const hunkIds = multiDragHunkIds.split(',');
-						console.log('Multi-drop to new commit:', hunkIds);
 						this.createNewCommitWithHunks(hunkIds);
 					} else if (hunkId) {
 						// Single drag
@@ -775,14 +410,9 @@ export class ComposerApp extends LitElement {
 								if (multiDragHunkIds && typeof multiDragHunkIds === 'string') {
 									// Multi-drag: move all selected hunks
 									const hunkIds = multiDragHunkIds.split(',');
-									console.log('Multi-drop detected:', {
-										hunkIds: hunkIds,
-										targetCommitId: targetCommitId,
-									});
 									this.moveHunksToCommit(hunkIds, targetCommitId);
 								} else if (hunkId) {
 									// Single drag
-									console.log('Drop detected:', { hunkId: hunkId, targetCommitId: targetCommitId });
 									this.moveHunkToCommit(hunkId, targetCommitId);
 								}
 							}
@@ -795,179 +425,169 @@ export class ComposerApp extends LitElement {
 	}
 
 	private reorderCommits(oldIndex: number, newIndex: number) {
-		const newCommits = [...this.commits];
+		const newCommits = [...this.state.commits];
 		const [movedCommit] = newCommits.splice(oldIndex, 1);
 		newCommits.splice(newIndex, 0, movedCommit);
-		this.commits = newCommits;
+		this.state.commits = newCommits;
+		this.requestUpdate();
+	}
+
+	private handleHunkDragStart(hunkIds: string[]) {
+		// Set dragging state and start auto-scroll
+		this.isDragging = true;
+		this.startAutoScroll();
+
+		// Forward the drag start event to the commits panel
+		const commitsPanel = this.shadowRoot?.querySelector('gl-commits-panel');
+		if (commitsPanel) {
+			commitsPanel.dispatchEvent(
+				new CustomEvent('hunk-drag-start', {
+					detail: { hunkIds: hunkIds },
+					bubbles: true,
+				}),
+			);
+		}
+	}
+
+	private handleHunkDragEnd() {
+		// Forward the drag end event to the commits panel
+		const commitsPanel = this.shadowRoot?.querySelector('gl-commits-panel');
+		if (commitsPanel) {
+			commitsPanel.dispatchEvent(
+				new CustomEvent('hunk-drag-end', {
+					bubbles: true,
+				}),
+			);
+		}
+
+		// Reset drag tracking
+		this.currentDropTarget = null;
+		this.isDragging = false;
+		this.stopAutoScroll();
+	}
+
+	private initializeDragTracking() {
+		// Add global drag event listeners to track current drop target
+		document.addEventListener('dragover', e => {
+			e.preventDefault();
+			const target = e.target as HTMLElement;
+
+			// Find the closest drop zone
+			const dropZone = target.closest('.new-commit-drop-zone, .unassign-drop-zone, gl-commit-item');
+			this.currentDropTarget = dropZone as HTMLElement;
+		});
+
+		document.addEventListener('dragleave', e => {
+			// Only clear if we're leaving the document or going to a non-droppable area
+			if (!e.relatedTarget || !(e.relatedTarget as HTMLElement).closest('.composer-container')) {
+				this.currentDropTarget = null;
+			}
+		});
+
+		document.addEventListener('drop', () => {
+			// Reset after any drop
+			this.currentDropTarget = null;
+			this.isDragging = false;
+		});
+	}
+
+	private handleHunkMove(hunkId: string, targetCommitId: string, _sourceSection?: string) {
+		// Move hunk from source to target commit
+		const hunkIndex = parseInt(hunkId, 10);
+
+		// Remove hunk from source commit if it was assigned to one
+		const sourceCommit = this.state.commits.find(commit => commit.hunkIndices.includes(hunkIndex));
+		if (sourceCommit) {
+			sourceCommit.hunkIndices = sourceCommit.hunkIndices.filter(index => index !== hunkIndex);
+		}
+
+		// Add hunk to target commit
+		const targetCommit = this.state.commits.find(commit => commit.id === targetCommitId);
+		if (targetCommit && !targetCommit.hunkIndices.includes(hunkIndex)) {
+			targetCommit.hunkIndices.push(hunkIndex);
+		}
+
+		// Remove commits that no longer have any hunks
+		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
+
+		// Clear selections and trigger re-render
+		this.selectedHunkIds = new Set();
+		this.requestUpdate();
+	}
+
+	private createNewCommitWithHunks(hunkIds: string[]) {
+		// Convert hunk IDs to indices
+		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
+
+		// Remove hunks from any existing commits
+		this.state.commits.forEach(commit => {
+			commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
+		});
+
+		// Create new commit
+		const newCommit: ComposerCommit = {
+			id: `commit-${Date.now()}`,
+			message: `New Commit`,
+			hunkIndices: hunkIndices,
+		};
+
+		// Add to commits
+		this.state.commits.push(newCommit);
+
+		// Update the state and trigger re-render
+		this.state.commits = [...this.state.commits];
+		this.selectedCommitId = newCommit.id;
+		this.selectedCommitIds = new Set();
+		this.selectedHunkIds = new Set();
+		this.requestUpdate();
+	}
+
+	private unassignHunks(hunkIds: string[]) {
+		// Convert hunk IDs to indices
+		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
+
+		// Remove hunks from all commits
+		this.state.commits.forEach(commit => {
+			commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
+		});
+
+		// Remove commits that no longer have any hunks
+		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
+
+		// Clear selections and trigger re-render
+		this.selectedHunkIds = new Set();
+		this.requestUpdate();
 	}
 
 	private moveHunksToCommit(hunkIds: string[], targetCommitId: string) {
-		console.log('Moving hunks to commit:', hunkIds, '->', targetCommitId);
+		// Convert hunk IDs to indices
+		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
-		const newCommits = [...this.commits];
-		const targetCommitIndex = newCommits.findIndex(c => c.id === targetCommitId);
-
-		if (targetCommitIndex < 0) return;
-
-		const hunksToMove: MockHunk[] = [];
-		const commitsToUpdate = new Map<string, MockCommit>();
-
-		// Collect all hunks to move from commits and unassigned changes
-		for (const hunkId of hunkIds) {
-			// Check commits first
-			const sourceCommit = newCommits.find(c => c.hunks.some(h => h.id === hunkId));
-			let hunk = sourceCommit?.hunks.find(h => h.id === hunkId);
-
-			if (sourceCommit && hunk && sourceCommit.id !== targetCommitId) {
-				hunksToMove.push(hunk);
-
-				if (!commitsToUpdate.has(sourceCommit.id)) {
-					commitsToUpdate.set(sourceCommit.id, {
-						...sourceCommit,
-						hunks: sourceCommit.hunks.filter(h => !hunkIds.includes(h.id)),
-					});
-				}
-			} else {
-				// Check unassigned changes
-				if (this.unassignedChanges.mode === 'staged-unstaged') {
-					hunk =
-						this.unassignedChanges.staged?.find(h => h.id === hunkId) ||
-						this.unassignedChanges.unstaged?.find(h => h.id === hunkId);
-				} else {
-					hunk = this.unassignedChanges.unassigned?.find(h => h.id === hunkId);
-				}
-
-				if (hunk) {
-					hunksToMove.push(hunk);
-				}
-			}
-		}
-
-		if (hunksToMove.length === 0) return;
-
-		// Update source commits (remove hunks)
-		for (const [commitId, updatedCommit] of commitsToUpdate) {
-			const commitIndex = newCommits.findIndex(c => c.id === commitId);
-			if (commitIndex >= 0) {
-				newCommits[commitIndex] = updatedCommit;
-			}
-		}
-
-		// Remove hunks from unassigned changes
-		this.removeHunksFromUnassigned(hunkIds);
+		// Remove hunks from source commits
+		this.state.commits.forEach(commit => {
+			commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
+		});
 
 		// Add hunks to target commit
-		newCommits[targetCommitIndex] = {
-			...newCommits[targetCommitIndex],
-			hunks: [...newCommits[targetCommitIndex].hunks, ...hunksToMove],
-		};
+		const targetCommit = this.state.commits.find(commit => commit.id === targetCommitId);
+		if (targetCommit) {
+			hunkIndices.forEach(index => {
+				if (!targetCommit.hunkIndices.includes(index)) {
+					targetCommit.hunkIndices.push(index);
+				}
+			});
+		}
 
-		// Remove empty commits
-		const finalCommits = newCommits.filter(c => c.hunks.length > 0);
+		// Remove commits that no longer have any hunks
+		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
 
-		this.commits = finalCommits;
-		this.selectedHunkIds = new Set(); // Clear selection after move
-		this.selectedHunkId = null;
-
-		console.log('Updated commits:', this.commits);
-
-		// Force a complete re-render
+		// Clear selections and trigger re-render
+		this.selectedHunkIds = new Set();
 		this.requestUpdate();
-
-		// Reinitialize sortables after the update
-		void this.updateComplete.then(() => {
-			setTimeout(() => {
-				this.initializeHunksSortable();
-				this.initializeCommitDropZones();
-			}, 100);
-		});
 	}
 
 	private moveHunkToCommit(hunkId: string, targetCommitId: string) {
 		this.moveHunksToCommit([hunkId], targetCommitId);
-	}
-
-	private createNewCommitWithHunks(hunkIds: string[]) {
-		console.log('Creating new commit with hunks:', hunkIds);
-
-		const newCommits = [...this.commits];
-		const hunksToMove: MockHunk[] = [];
-		const commitsToUpdate = new Map<string, MockCommit>();
-
-		// Collect all hunks to move from commits and unassigned changes
-		for (const hunkId of hunkIds) {
-			// Check commits first
-			const sourceCommit = newCommits.find(c => c.hunks.some(h => h.id === hunkId));
-			let hunk = sourceCommit?.hunks.find(h => h.id === hunkId);
-
-			if (sourceCommit && hunk) {
-				hunksToMove.push(hunk);
-
-				if (!commitsToUpdate.has(sourceCommit.id)) {
-					commitsToUpdate.set(sourceCommit.id, {
-						...sourceCommit,
-						hunks: sourceCommit.hunks.filter(h => !hunkIds.includes(h.id)),
-					});
-				}
-			} else {
-				// Check unassigned changes
-				if (this.unassignedChanges.mode === 'staged-unstaged') {
-					hunk =
-						this.unassignedChanges.staged?.find(h => h.id === hunkId) ||
-						this.unassignedChanges.unstaged?.find(h => h.id === hunkId);
-				} else {
-					hunk = this.unassignedChanges.unassigned?.find(h => h.id === hunkId);
-				}
-
-				if (hunk) {
-					hunksToMove.push(hunk);
-				}
-			}
-		}
-
-		if (hunksToMove.length === 0) return;
-
-		// Create new commit with the hunks
-		const newCommit: MockCommit = {
-			id: `commit-${this.nextCommitId}`,
-			message: `New Commit ${this.nextCommitId}`,
-			hunks: hunksToMove,
-		};
-		this.nextCommitId++;
-
-		// Update source commits (remove hunks)
-		for (const [commitId, updatedCommit] of commitsToUpdate) {
-			const commitIndex = newCommits.findIndex(c => c.id === commitId);
-			if (commitIndex >= 0) {
-				newCommits[commitIndex] = updatedCommit;
-			}
-		}
-
-		// Remove hunks from unassigned changes
-		this.removeHunksFromUnassigned(hunkIds);
-
-		// Add new commit to the list
-		newCommits.push(newCommit);
-
-		// Remove empty commits
-		const finalCommits = newCommits.filter(c => c.hunks.length > 0);
-
-		this.commits = finalCommits;
-		this.selectedHunkIds = new Set(); // Clear selection after move
-		this.selectedHunkId = null;
-
-		console.log('New commits array:', this.commits);
-
-		// Force a complete re-render
-		this.requestUpdate();
-
-		// Reinitialize sortables after the update
-		void this.updateComplete.then(() => {
-			setTimeout(() => {
-				this.initializeHunksSortable();
-				this.initializeCommitDropZones();
-			}, 100);
-		});
 	}
 
 	private createNewCommitWithHunk(hunkId: string) {
@@ -984,6 +604,24 @@ export class ComposerApp extends LitElement {
 				newSelection.add(this.selectedHunkId);
 			}
 
+			// If we have a previous selection, select range between last and current
+			if (this.lastSelectedHunkId && this.lastSelectedHunkId !== hunkId) {
+				const hunks = this.hunksWithAssignments;
+				const lastIndex = hunks.findIndex(h => h.index.toString() === this.lastSelectedHunkId);
+				const currentIndex = hunks.findIndex(h => h.index.toString() === hunkId);
+
+				if (lastIndex !== -1 && currentIndex !== -1) {
+					const startIndex = Math.min(lastIndex, currentIndex);
+					const endIndex = Math.max(lastIndex, currentIndex);
+
+					// Select all hunks in the range
+					for (let i = startIndex; i <= endIndex; i++) {
+						newSelection.add(hunks[i].index.toString());
+					}
+					return;
+				}
+			}
+
 			// Toggle the clicked hunk in multi-selection
 			if (newSelection.has(hunkId)) {
 				newSelection.delete(hunkId);
@@ -992,6 +630,7 @@ export class ComposerApp extends LitElement {
 			}
 
 			this.selectedHunkIds = newSelection;
+			this.lastSelectedHunkId = hunkId;
 
 			// If we have multi-selection, clear single selection
 			if (this.selectedHunkIds.size > 1) {
@@ -1006,6 +645,7 @@ export class ComposerApp extends LitElement {
 			// Single select (clear multi-selection)
 			this.selectedHunkIds = new Set();
 			this.selectedHunkId = hunkId;
+			this.lastSelectedHunkId = hunkId;
 		}
 	}
 
@@ -1077,46 +717,11 @@ export class ComposerApp extends LitElement {
 	}
 
 	private updateCommitMessage(commitId: string, message: string) {
-		const commit = this.commits.find(c => c.id === commitId);
+		const commit = this.state.commits.find(c => c.id === commitId);
 		if (commit) {
 			commit.message = message;
 			this.requestUpdate();
 		}
-	}
-
-	private generateCommits() {
-		this.showModal = true;
-	}
-
-	private combineSelectedCommits() {
-		if (this.selectedCommitIds.size < 2) return;
-
-		const selectedCommits = this.commits.filter(c => this.selectedCommitIds.has(c.id));
-		const firstCommitIndex = this.commits.findIndex(c => c.id === selectedCommits[0].id);
-
-		// Combine all hunks from selected commits
-		const combinedHunks: MockHunk[] = [];
-		selectedCommits.forEach(commit => {
-			combinedHunks.push(...commit.hunks);
-		});
-
-		// Create new combined commit
-		const combinedCommit: MockCommit = {
-			id: `commit-${this.nextCommitId}`,
-			message: `New Commit ${this.nextCommitId}`,
-			hunks: combinedHunks,
-		};
-		this.nextCommitId++;
-
-		// Remove selected commits and insert combined commit at the position of the first selected commit
-		const newCommits = this.commits.filter(c => !this.selectedCommitIds.has(c.id));
-		newCommits.splice(firstCommitIndex, 0, combinedCommit);
-
-		this.commits = newCommits;
-		this.selectedCommitIds = new Set();
-		this.selectedCommitId = combinedCommit.id;
-
-		console.log('Combined commits into:', combinedCommit);
 	}
 
 	private toggleCommitMessageExpanded() {
@@ -1129,182 +734,6 @@ export class ComposerApp extends LitElement {
 
 	private toggleFilesChangedExpanded() {
 		this.filesChangedExpanded = !this.filesChangedExpanded;
-	}
-
-	private renderUnassignedChangesItems() {
-		const items = [];
-
-		if (this.unassignedChanges.mode === 'staged-unstaged') {
-			// Render staged changes item
-			if (this.unassignedChanges.staged && this.unassignedChanges.staged.length > 0) {
-				items.push(html`
-					<div
-						class="unassigned-changes-item ${this.selectedUnassignedSection === 'staged' ? 'selected' : ''}"
-						@click=${() => this.selectUnassignedSection('staged')}
-					>
-						<code-icon icon="add"></code-icon>
-						<div class="title">Staged Changes</div>
-						<div class="count">(${this.unassignedChanges.staged.length} hunks)</div>
-					</div>
-				`);
-			}
-
-			// Render unstaged changes item
-			if (this.unassignedChanges.unstaged && this.unassignedChanges.unstaged.length > 0) {
-				items.push(html`
-					<div
-						class="unassigned-changes-item ${this.selectedUnassignedSection === 'unstaged'
-							? 'selected'
-							: ''}"
-						@click=${() => this.selectUnassignedSection('unstaged')}
-					>
-						<code-icon icon="circle-outline"></code-icon>
-						<div class="title">Unstaged Changes</div>
-						<div class="count">(${this.unassignedChanges.unstaged.length} hunks)</div>
-					</div>
-				`);
-			}
-		} else if (this.unassignedChanges.unassigned && this.unassignedChanges.unassigned.length > 0) {
-			// Render unassigned changes item
-			items.push(html`
-				<div
-					class="unassigned-changes-item ${this.selectedUnassignedSection === 'unassigned' ? 'selected' : ''}"
-					@click=${() => this.selectUnassignedSection('unassigned')}
-				>
-					<code-icon icon="question"></code-icon>
-					<div class="title">Unassigned Changes</div>
-					<div class="count">(${this.unassignedChanges.unassigned.length} hunks)</div>
-				</div>
-			`);
-		}
-
-		return items;
-	}
-
-	private renderUnassignedSectionDetails() {
-		if (!this.selectedUnassignedSection) {
-			return nothing;
-		}
-
-		let hunks: MockHunk[] = [];
-		let sectionTitle = '';
-
-		switch (this.selectedUnassignedSection) {
-			case 'staged':
-				hunks = this.unassignedChanges.staged ?? [];
-				sectionTitle = 'Staged Changes';
-				break;
-			case 'unstaged':
-				hunks = this.unassignedChanges.unstaged ?? [];
-				sectionTitle = 'Unstaged Changes';
-				break;
-			case 'unassigned':
-				hunks = this.unassignedChanges.unassigned ?? [];
-				sectionTitle = 'Unassigned Changes';
-				break;
-		}
-
-		if (hunks.length === 0) {
-			return nothing;
-		}
-
-		return html`
-			<!-- Files Changed Section -->
-			<div class="section-header" @click=${this.toggleFilesChangedExpanded}>
-				<h4>${sectionTitle} (${hunks.length})</h4>
-				<code-icon
-					class="section-toggle ${this.filesChangedExpanded ? 'expanded' : ''}"
-					icon="chevron-right"
-				></code-icon>
-			</div>
-			<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
-				<div class="hunks-list" data-source="${this.selectedUnassignedSection}">
-					${repeat(
-						hunks,
-						hunk => hunk.id,
-						hunk => html`
-							<gl-hunk-item
-								.hunkId=${hunk.id}
-								.fileName=${hunk.fileName}
-								.content=${hunk.content}
-								.additions=${hunk.additions}
-								.deletions=${hunk.deletions}
-								.selected=${this.selectedHunkId === hunk.id || this.selectedHunkIds.has(hunk.id)}
-								.multiSelected=${this.selectedHunkIds.has(hunk.id)}
-								@hunk-selected=${(e: CustomEvent) => this.selectHunk(hunk.id, e.detail.shiftKey)}
-							></gl-hunk-item>
-						`,
-					)}
-				</div>
-			</div>
-		`;
-	}
-
-	private renderCommitDetails(commit: MockCommit) {
-		return html`
-			<div class="commit-details" data-commit-id=${commit.id}>
-				<!-- Commit Message Section -->
-				<div class="section-header" @click=${this.toggleCommitMessageExpanded}>
-					<h4>Commit Message</h4>
-					<code-icon
-						class="section-toggle ${this.commitMessageExpanded ? 'expanded' : ''}"
-						icon="chevron-right"
-					></code-icon>
-				</div>
-				<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
-					<textarea
-						class="commit-message-input"
-						.value=${commit.message}
-						@input=${(e: Event) =>
-							this.updateCommitMessage(commit.id, (e.target as HTMLTextAreaElement).value)}
-						placeholder="Enter commit message..."
-					></textarea>
-				</div>
-
-				<!-- AI Explanation Section -->
-				<div class="section-header" @click=${this.toggleAiExplanationExpanded}>
-					<h4>AI Explanation</h4>
-					<code-icon
-						class="section-toggle ${this.aiExplanationExpanded ? 'expanded' : ''}"
-						icon="chevron-right"
-					></code-icon>
-				</div>
-				<div class="section-content ai-explanation ${this.aiExplanationExpanded ? '' : 'collapsed'}">
-					<p class="ai-explanation ${commit.aiExplanation ? '' : 'placeholder'}">
-						${commit.aiExplanation || 'No AI explanation available for this commit.'}
-					</p>
-				</div>
-
-				<!-- Files Changed Section -->
-				<div class="section-header" @click=${this.toggleFilesChangedExpanded}>
-					<h4>Files Changed (${commit.hunks.length})</h4>
-					<code-icon
-						class="section-toggle ${this.filesChangedExpanded ? 'expanded' : ''}"
-						icon="chevron-right"
-					></code-icon>
-				</div>
-				<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
-					<div class="hunks-list" data-commit-id=${commit.id}>
-						${repeat(
-							commit.hunks,
-							hunk => hunk.id,
-							hunk => html`
-								<gl-hunk-item
-									.hunkId=${hunk.id}
-									.fileName=${hunk.fileName}
-									.content=${hunk.content}
-									.additions=${hunk.additions}
-									.deletions=${hunk.deletions}
-									.selected=${this.selectedHunkId === hunk.id || this.selectedHunkIds.has(hunk.id)}
-									.multiSelected=${this.selectedHunkIds.has(hunk.id)}
-									@hunk-selected=${(e: CustomEvent) => this.selectHunk(hunk.id, e.detail.shiftKey)}
-								></gl-hunk-item>
-							`,
-						)}
-					</div>
-				</div>
-			</div>
-		`;
 	}
 
 	private autoScrollActive = false;
@@ -1397,49 +826,90 @@ export class ComposerApp extends LitElement {
 		}
 	}
 
-	private get hasUnassignedChanges(): boolean {
-		if (this.unassignedChanges.mode === 'staged-unstaged') {
-			return (
-				(this.unassignedChanges.staged?.length ?? 0) > 0 || (this.unassignedChanges.unstaged?.length ?? 0) > 0
-			);
-		}
-		return (this.unassignedChanges.unassigned?.length ?? 0) > 0;
-	}
-
-	private get canFinishAndCommit(): boolean {
-		// In unassigned mode, all changes must be assigned before finishing
-		if (this.unassignedChanges.mode === 'unassigned') {
-			return !this.hasUnassignedChanges;
-		}
-		// In staged-unstaged mode, user can finish even with unassigned changes
-		return true;
-	}
-
-	private removeHunksFromUnassigned(hunkIds: string[]) {
-		if (this.unassignedChanges.mode === 'staged-unstaged') {
-			if (this.unassignedChanges.staged) {
-				this.unassignedChanges.staged = this.unassignedChanges.staged.filter(h => !hunkIds.includes(h.id));
-			}
-			if (this.unassignedChanges.unstaged) {
-				this.unassignedChanges.unstaged = this.unassignedChanges.unstaged.filter(h => !hunkIds.includes(h.id));
-			}
-		} else if (this.unassignedChanges.unassigned) {
-			this.unassignedChanges.unassigned = this.unassignedChanges.unassigned.filter(h => !hunkIds.includes(h.id));
-		}
-	}
-
 	private closeModal() {
 		this.showModal = false;
 		// Close the webview
 		window.close();
 	}
 
+	// Convert state commits to UI format for rendering
+	// Ensure hunks have updated assigned property
+	private get hunksWithAssignments(): ComposerHunk[] {
+		if (!this.state?.hunks || !this.state?.commits) {
+			return [];
+		}
+
+		return updateHunkAssignments(this.state.hunks, this.state.commits);
+	}
+
+	private get canFinishAndCommit(): boolean {
+		// User can finish and commit if there are commits, regardless of unassigned hunks
+		return this.state.commits.length > 0;
+	}
+
+	private generateCommits() {
+		this.showModal = true;
+	}
+
+	private combineSelectedCommits() {
+		if (this.selectedCommitIds.size < 2) return;
+
+		const selectedCommits = this.state.commits.filter(c => this.selectedCommitIds.has(c.id));
+
+		// Combine all hunk indices from selected commits
+		const combinedHunkIndices: number[] = [];
+		selectedCommits.forEach(commit => {
+			combinedHunkIndices.push(...commit.hunkIndices);
+		});
+
+		// Create new combined commit
+		const combinedCommit: ComposerCommit = {
+			id: `commit-${Date.now()}`,
+			message: `Combined commit`,
+			hunkIndices: combinedHunkIndices,
+		};
+
+		// Create new commits array by replacing selected commits with combined commit
+		const newCommits: ComposerCommit[] = [];
+		let combinedCommitInserted = false;
+
+		this.state.commits.forEach(commit => {
+			if (this.selectedCommitIds.has(commit.id)) {
+				// Insert combined commit at the position of the first selected commit
+				if (!combinedCommitInserted) {
+					newCommits.push(combinedCommit);
+					combinedCommitInserted = true;
+				}
+				// Skip the selected commit (don't add it to newCommits)
+			} else {
+				// Keep non-selected commits
+				newCommits.push(commit);
+			}
+		});
+
+		this.state.commits = newCommits;
+		this.selectedCommitIds = new Set();
+		this.selectedCommitId = combinedCommit.id;
+		this.requestUpdate();
+	}
+
 	override render() {
-		const selectedCommit = this.selectedCommitId ? this.commits.find(c => c.id === this.selectedCommitId) : null;
-		const selectedCommits = Array.from(this.selectedCommitIds)
-			.map(id => this.commits.find(c => c.id === id))
-			.filter(Boolean) as MockCommit[];
-		const isMultiSelect = this.selectedCommitIds.size > 1;
+		// Check if state is ready
+		if (!this.state?.commits || !this.state?.hunks) {
+			return html`<div class="loading">Loading...</div>`;
+		}
+
+		// Include both single selected commit and multi-selected commits
+		const selectedCommitIds = new Set(this.selectedCommitIds);
+		if (this.selectedCommitId && !this.selectedUnassignedSection) {
+			selectedCommitIds.add(this.selectedCommitId);
+		}
+		const selectedCommits = Array.from(selectedCommitIds)
+			.map(id => this.state.commits.find(c => c.id === id))
+			.filter(Boolean) as ComposerCommit[];
+
+		// Get hunks with updated assignments
+		const hunks = this.hunksWithAssignments;
 
 		return html`
 			<div class="header">
@@ -1447,83 +917,45 @@ export class ComposerApp extends LitElement {
 			</div>
 
 			<div class="main-content">
-				<div class="commits-panel">
-					<div class="commits-header">
-						<h3>Commits (${this.commits.length})</h3>
-						<small>Shift+click to multi-select</small>
-					</div>
-					<div class="commits-actions">
-						${when(
-							this.selectedCommitIds.size > 1,
-							() => html`
-								<gl-button appearance="secondary" @click=${this.combineSelectedCommits}>
-									Combine ${this.selectedCommitIds.size} Commits
-								</gl-button>
-							`,
-							() => html`
-								<gl-button
-									appearance="primary"
-									?disabled=${!this.canFinishAndCommit}
-									@click=${this.generateCommits}
-								>
-									Finish and Commit
-								</gl-button>
-							`,
-						)}
-					</div>
-					${this.renderUnassignedChangesItems()}
-					<div class="commits-list">
-						${repeat(
-							this.commits,
-							commit => commit.id,
-							commit => html`
-								<gl-commit-item
-									.commitId=${commit.id}
-									.message=${commit.message}
-									.hunkCount=${commit.hunks.length}
-									.selected=${this.selectedCommitId === commit.id ||
-									this.selectedCommitIds.has(commit.id)}
-									.multiSelected=${this.selectedCommitIds.has(commit.id)}
-									@commit-selected=${(e: CustomEvent) =>
-										this.selectCommit(commit.id, e.detail.shiftKey)}
-								></gl-commit-item>
-							`,
-						)}
-					</div>
-					<div class="new-commit-drop-zone">Drop hunk here to create new commit</div>
-				</div>
+				<gl-commits-panel
+					.commits=${this.state.commits}
+					.hunks=${hunks}
+					.selectedCommitId=${this.selectedCommitId}
+					.selectedCommitIds=${this.selectedCommitIds}
+					.selectedUnassignedSection=${this.selectedUnassignedSection}
+					.canFinishAndCommit=${this.canFinishAndCommit}
+					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
+					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
+					@combine-commits=${this.combineSelectedCommits}
+					@finish-and-commit=${this.generateCommits}
+					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
+					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
+					@unassign-hunks=${(e: CustomEvent) => this.unassignHunks(e.detail.hunkIds)}
+					@move-hunks-to-commit=${(e: CustomEvent) =>
+						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+				></gl-commits-panel>
 
-				<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
-					${when(
-						this.selectedUnassignedSection,
-						() => this.renderUnassignedSectionDetails(),
-						() =>
-							when(
-								isMultiSelect,
-								() => html`
-									${repeat(
-										selectedCommits,
-										commit => commit.id,
-										commit => this.renderCommitDetails(commit),
-									)}
-								`,
-								() =>
-									when(
-										selectedCommit,
-										() => this.renderCommitDetails(selectedCommit!),
-										() => html`
-											<div class="empty-state">
-												<code-icon icon="git-commit"></code-icon>
-												<h3>Select a commit to view details</h3>
-												<p>
-													Click on a commit from the list to see its files and make changes.
-												</p>
-											</div>
-										`,
-									),
-							),
-					)}
-				</div>
+				<gl-details-panel
+					.selectedCommits=${selectedCommits}
+					.hunks=${hunks}
+					.selectedUnassignedSection=${this.selectedUnassignedSection}
+					.commitMessageExpanded=${this.commitMessageExpanded}
+					.aiExplanationExpanded=${this.aiExplanationExpanded}
+					.filesChangedExpanded=${this.filesChangedExpanded}
+					.selectedHunkIds=${this.selectedHunkIds}
+					@toggle-commit-message=${this.toggleCommitMessageExpanded}
+					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
+					@toggle-files-changed=${this.toggleFilesChangedExpanded}
+					@update-commit-message=${(e: CustomEvent) =>
+						this.updateCommitMessage(e.detail.commitId, e.detail.message)}
+					@hunk-selected=${(e: CustomEvent) => this.selectHunk(e.detail.hunkId, e.detail.shiftKey)}
+					@hunk-drag-start=${(e: CustomEvent) => this.handleHunkDragStart(e.detail.hunkIds)}
+					@hunk-drag-end=${() => this.handleHunkDragEnd()}
+					@hunk-move=${(e: CustomEvent) =>
+						this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId, e.detail.sourceSection)}
+					@move-hunks-to-commit=${(e: CustomEvent) =>
+						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+				></gl-details-panel>
 			</div>
 
 			${when(
@@ -1532,7 +964,7 @@ export class ComposerApp extends LitElement {
 					<div class="modal-overlay" @click=${this.closeModal}>
 						<div class="modal" @click=${(e: Event) => e.stopPropagation()}>
 							<h2>Commits Generated</h2>
-							<p>${this.commits.length} commits have been generated successfully!</p>
+							<p>${this.state.commits.length} commits have been generated successfully!</p>
 							<gl-button appearance="primary" @click=${this.closeModal}>OK</gl-button>
 						</div>
 					</div>
