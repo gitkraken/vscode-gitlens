@@ -427,6 +427,160 @@ export class AzureDevOpsApi implements Disposable {
 			return undefined;
 		}
 	}
+
+	@debug<AzureDevOpsApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async searchMyPullRequests(
+		provider: Provider,
+		token: string,
+		baseUrl: string,
+		options?: {
+			authorLogin?: string;
+		},
+	): Promise<PullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			// For Azure DevOps Server, the projects endpoint might not be available
+			// Let's try alternative approaches
+			console.log(`[Azure API] Azure DevOps Server detected, trying alternative approaches`);
+
+			// Try to get projects from different endpoints
+			const alternativeEndpoints = [
+				'_apis/projectcollections/DefaultCollection/projects?api-version=6.0',
+				'_apis/projectcollections/DefaultCollection/projects',
+				'DefaultCollection/_apis/projects?api-version=6.0',
+				'DefaultCollection/_apis/projects',
+				'_apis/projects?api-version=6.0',
+				'_apis/projects',
+			];
+
+			let projectsResult: { value: AzureProjectDescriptor[] } | undefined;
+
+			for (const endpoint of alternativeEndpoints) {
+				try {
+					console.log(`[Azure API] Trying projects endpoint: ${baseUrl}/${endpoint}`);
+					projectsResult = await this.request<{ value: AzureProjectDescriptor[] }>(
+						provider,
+						token,
+						baseUrl,
+						endpoint,
+						{
+							method: 'GET',
+						},
+						scope,
+					);
+					console.log(`[Azure API] Successfully got projects with endpoint: ${endpoint}`);
+					break;
+				} catch (ex) {
+					console.log(
+						`[Azure API] Projects endpoint failed: ${endpoint}`,
+						ex instanceof Error ? ex.message : ex,
+					);
+					// Continue to next endpoint
+				}
+			}
+
+			if (!projectsResult) {
+				console.log(
+					`[Azure API] All project endpoints failed, cannot search pull requests without project information`,
+				);
+				return undefined;
+			}
+
+			if (!projectsResult?.value || projectsResult.value.length === 0) {
+				console.log(`[Azure API] No projects found`);
+				return [];
+			}
+
+			console.log(`[Azure API] Found ${projectsResult.value.length} projects`);
+			const allPullRequests: PullRequest[] = [];
+
+			// For each project, get all repositories and their pull requests
+			for (const project of projectsResult.value) {
+				try {
+					// Get repositories for this project - use DefaultCollection path structure
+					console.log(`[Azure API] Getting repositories for project: ${project.name}`);
+					const repoEndpoint = `DefaultCollection/${project.name}/_apis/git/repositories?api-version=6.0`;
+					const reposResult = await this.request<{ value: { id: string; name: string }[] }>(
+						provider,
+						token,
+						baseUrl,
+						repoEndpoint,
+						{
+							method: 'GET',
+						},
+						scope,
+					);
+
+					if (!reposResult?.value) {
+						console.log(`[Azure API] No repositories found for project: ${project.name}`);
+						continue;
+					}
+
+					console.log(
+						`[Azure API] Found ${reposResult.value.length} repositories in project: ${project.name}`,
+					);
+
+					// For each repository, get pull requests
+					for (const repo of reposResult.value) {
+						try {
+							let searchCriteria = 'api-version=6.0&status=all';
+							if (options?.authorLogin) {
+								searchCriteria += `&createdBy=${encodeURIComponent(options.authorLogin)}`;
+							}
+
+							const prEndpoint = `DefaultCollection/${project.name}/_apis/git/repositories/${repo.id}/pullRequests?${searchCriteria}`;
+							console.log(`[Azure API] Getting pull requests from: ${baseUrl}/${prEndpoint}`);
+
+							const prResult = await this.request<{ value: AzurePullRequest[] }>(
+								provider,
+								token,
+								baseUrl,
+								prEndpoint,
+								{
+									method: 'GET',
+								},
+								scope,
+							);
+
+							if (prResult?.value) {
+								console.log(
+									`[Azure API] Found ${prResult.value.length} pull requests in repository: ${repo.name}`,
+								);
+								const pullRequests = prResult.value.map(pr =>
+									fromAzurePullRequest(pr, provider, project.name),
+								);
+								allPullRequests.push(...pullRequests);
+							}
+						} catch (ex) {
+							// Continue with other repositories if one fails
+							console.error(
+								`[Azure API] Failed to get pull requests for repository ${repo.name} in project ${project.name}:`,
+								ex,
+							);
+							Logger.warn(
+								ex,
+								scope,
+								`Failed to get pull requests for repository ${repo.name} in project ${project.name}`,
+							);
+						}
+					}
+				} catch (ex) {
+					// Continue with other projects if one fails
+					console.error(`[Azure API] Failed to get repositories for project ${project.name}:`, ex);
+					Logger.warn(ex, scope, `Failed to get repositories for project ${project.name}`);
+				}
+			}
+
+			console.log(`[Azure API] Total pull requests found: ${allPullRequests.length}`);
+			return allPullRequests;
+		} catch (ex) {
+			console.error(`[Azure API] Failed to get projects:`, ex);
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
 	async getWorkItemStateCategory(
 		issueType: string,
 		state: string,

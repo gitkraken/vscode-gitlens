@@ -177,11 +177,27 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 	}
 
 	protected override async searchProviderMyPullRequests(
-		_session: AuthenticationSession,
+		session: AuthenticationSession,
 		_repos?: AzureRepositoryDescriptor[],
 	): Promise<PullRequest[] | undefined> {
-		// TODO: Implement Azure DevOps Server pull request search
-		return Promise.resolve(undefined);
+		if (_repos != null) {
+			// TODO: implement repos version
+			return undefined;
+		}
+
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		try {
+			const azure = await this.container.azure;
+			if (azure == null) return undefined;
+
+			return await azure.searchMyPullRequests(this, session.accessToken, this.apiBaseUrl, {
+				authorLogin: user.username,
+			});
+		} catch (_ex) {
+			return undefined;
+		}
 	}
 
 	protected override async searchProviderMyIssues(
