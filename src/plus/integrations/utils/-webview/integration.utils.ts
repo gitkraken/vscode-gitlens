@@ -4,8 +4,7 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../../../../constants.integrations';
-import type { GitRemote } from '../../../../git/models/remote';
-import type { RemoteProviderId } from '../../../../git/remotes/remoteProvider';
+import type { RemoteProvider, RemoteProviderId } from '../../../../git/remotes/remoteProvider';
 import type { IntegrationConnectedKey } from '../../models/integration';
 import { isAzureCloudDomain } from '../../providers/azureDevOps';
 import { isBitbucketCloudDomain } from '../../providers/bitbucket';
@@ -64,30 +63,30 @@ export function getIntegrationConnectedKey<T extends IntegrationIds>(
 }
 
 export function getIntegrationIdForRemote(
-	remote: GitRemote,
+	provider: RemoteProvider | undefined,
 ): GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId | undefined {
-	switch (remote.provider?.id) {
+	switch (provider?.id) {
 		case 'azure-devops':
-			if (isAzureCloudDomain(remote.provider.domain)) {
+			if (isAzureCloudDomain(provider.domain)) {
 				return GitCloudHostIntegrationId.AzureDevOps;
 			}
-			return remote.provider.custom ? undefined : GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+			return provider.custom ? undefined : GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 		case 'bitbucket':
 		case 'bitbucket-server':
-			if (isBitbucketCloudDomain(remote.provider.domain)) {
+			if (isBitbucketCloudDomain(provider.domain)) {
 				return GitCloudHostIntegrationId.Bitbucket;
 			}
 			return GitSelfManagedHostIntegrationId.BitbucketServer;
 		case 'github':
-			if (remote.provider.domain != null && !isGitHubDotCom(remote.provider.domain)) {
-				return remote.provider.custom
+			if (provider.domain != null && !isGitHubDotCom(provider.domain)) {
+				return provider.custom
 					? GitSelfManagedHostIntegrationId.GitHubEnterprise
 					: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
 			}
 			return GitCloudHostIntegrationId.GitHub;
 		case 'gitlab':
-			if (remote.provider.domain != null && !isGitLabDotCom(remote.provider.domain)) {
-				return remote.provider.custom
+			if (provider.domain != null && !isGitLabDotCom(provider.domain)) {
+				return provider.custom
 					? GitSelfManagedHostIntegrationId.GitLabSelfHosted
 					: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 			}
