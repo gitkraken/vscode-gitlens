@@ -4,7 +4,7 @@ import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
@@ -95,8 +95,12 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 		{ accessToken }: AuthenticationSession,
 		repo: AzureRepositoryDescriptor,
 		id: string,
+		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getIssueOrPullRequest(this, accessToken, repo.owner, repo.name, id, {
+			baseUrl: this.apiBaseUrl,
+			type: type,
+		});
 	}
 
 	protected override async getProviderIssue(
