@@ -51,7 +51,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	get maybeIntegrationConnected(): boolean | undefined {
 		if (!this.provider?.id) return false;
 
-		const integrationId = getIntegrationIdForRemote(this);
+		const integrationId = getIntegrationIdForRemote(this.provider);
 		if (integrationId == null) return false;
 
 		// Special case for GitHub, since we support the legacy GitHub integration
@@ -105,7 +105,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	async getIntegration(): Promise<GitHostIntegration | undefined> {
-		const integrationId = getIntegrationIdForRemote(this);
+		const integrationId = getIntegrationIdForRemote(this.provider);
 		return integrationId && this.container.integrations.get(integrationId, this.provider?.domain);
 	}
 
@@ -125,7 +125,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	supportsIntegration(): this is GitRemote<RemoteProvider> {
-		return Boolean(getIntegrationIdForRemote(this));
+		return Boolean(getIntegrationIdForRemote(this.provider));
 	}
 }
 
