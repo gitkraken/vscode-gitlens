@@ -419,6 +419,7 @@ export type AIFeedbackUnhelpfulReasons =
 export interface AIFeedbackEvent extends AIEventDataBase {
 	/** The AI feature that feedback was submitted for */
 	type: AIActionType;
+	feature: string;
 	sentiment: 'helpful' | 'unhelpful';
 	/** Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values */
 	'unhelpful.reasons'?: string;
