@@ -44,6 +44,34 @@ export class AzureDevOpsServerIntegration extends GitHostIntegration<
 		return `${protocol}//${this.domain}`;
 	}
 
+	private _accounts: Map<string, Account | undefined> | undefined;
+	protected override async getProviderCurrentAccount({
+		accessToken,
+	}: AuthenticationSession): Promise<Account | undefined> {
+		this._accounts ??= new Map<string, Account | undefined>();
+
+		const cachedAccount = this._accounts.get(accessToken);
+		if (cachedAccount == null) {
+			const azure = await this.container.azure;
+			const user = azure ? await azure.getCurrentUser(this, accessToken, this.apiBaseUrl) : undefined;
+			this._accounts.set(
+				accessToken,
+				user
+					? {
+							provider: this,
+							id: user.id,
+							name: user.name ?? undefined,
+							email: user.email ?? undefined,
+							avatarUrl: user.avatarUrl ?? undefined,
+							username: user.username ?? undefined,
+						}
+					: undefined,
+			);
+		}
+
+		return this._accounts.get(accessToken);
+	}
+
 	protected override async mergeProviderPullRequest(
 		{ accessToken: _accessToken }: AuthenticationSession,
 		_pr: PullRequest,
