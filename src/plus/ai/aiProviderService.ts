@@ -1064,6 +1064,7 @@ export class AIProviderService implements Disposable {
 		return {
 			...rq,
 			...result,
+			type: 'generate-rebase',
 		};
 	}
 
