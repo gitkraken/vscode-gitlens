@@ -146,6 +146,7 @@
 
 ```typescript
 {
+  'feature': string,
   'id': string,
   'model.id': string,
   'model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',

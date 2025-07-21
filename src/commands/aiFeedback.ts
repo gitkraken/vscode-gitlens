@@ -121,6 +121,7 @@ function sendFeedbackEvent(
 ): void {
 	const eventData: AIFeedbackEvent = {
 		type: context.type,
+		feature: context.feature,
 		sentiment: sentiment,
 		'unhelpful.reasons': unhelpful?.reasons?.length ? unhelpful.reasons.join(',') : undefined,
 		'unhelpful.custom': unhelpful?.custom?.trim() ?? undefined,

@@ -120,6 +120,7 @@ function dedent(template: string): string {
 export interface AIResult {
 	readonly id: string;
 	readonly type: AIActionType;
+	readonly feature: string;
 	readonly content: string;
 	readonly model: AIModel;
 	readonly usage?: {
@@ -647,7 +648,12 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, type: 'explain-changes', parsed: parseSummarizeResult(result.content) }
+				? {
+						...result,
+						type: 'explain-changes',
+						feature: `explain-${type}`,
+						parsed: parseSummarizeResult(result.content),
+					}
 				: undefined;
 	}
 
@@ -703,7 +709,12 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, type: 'generate-commitMessage', parsed: parseSummarizeResult(result.content) }
+				? {
+						...result,
+						type: 'generate-commitMessage',
+						feature: 'generate-commitMessage',
+						parsed: parseSummarizeResult(result.content),
+					}
 				: undefined;
 	}
 
@@ -767,7 +778,12 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, type: 'generate-create-pullRequest', parsed: parseSummarizeResult(result.content) }
+				? {
+						...result,
+						type: 'generate-create-pullRequest',
+						feature: 'generate-create-pullRequest',
+						parsed: parseSummarizeResult(result.content),
+					}
 				: undefined;
 	}
 
@@ -839,6 +855,9 @@ export class AIProviderService implements Disposable {
 				? {
 						...result,
 						type: options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
+						feature: options?.codeSuggestion
+							? 'generate-create-codeSuggestion'
+							: 'generate-create-cloudPatch',
 						parsed: parseSummarizeResult(result.content),
 					}
 				: undefined;
@@ -896,7 +915,12 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, type: 'generate-stashMessage', parsed: parseSummarizeResult(result.content) }
+				? {
+						...result,
+						type: 'generate-stashMessage',
+						feature: 'generate-stashMessage',
+						parsed: parseSummarizeResult(result.content),
+					}
 				: undefined;
 	}
 
@@ -943,7 +967,11 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result === 'cancelled' ? result : result != null ? { ...result, type: 'generate-changelog' } : undefined;
+		return result === 'cancelled'
+			? result
+			: result != null
+				? { ...result, type: 'generate-changelog', feature: 'generate-changelog' }
+				: undefined;
 	}
 
 	async generateSearchQuery(
@@ -990,7 +1018,7 @@ export class AIProviderService implements Disposable {
 		return result === 'cancelled'
 			? result
 			: result != null
-				? { ...result, type: 'generate-searchQuery' }
+				? { ...result, type: 'generate-searchQuery', feature: 'generate-searchQuery' }
 				: undefined;
 	}
 
@@ -1065,6 +1093,7 @@ export class AIProviderService implements Disposable {
 			...rq,
 			...result,
 			type: 'generate-rebase',
+			feature: options?.generateCommits ? 'generate-commits' : 'generate-rebase',
 		};
 	}
 

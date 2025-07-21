@@ -261,6 +261,7 @@ export function getAIResultContext(result: AIResult): AIResultContext {
 	return {
 		id: result.id,
 		type: result.type,
+		feature: result.feature,
 		model: result.model,
 		usage:
 			result.usage != null
