@@ -160,6 +160,9 @@ export class HunkItem extends LitElement {
 	fileName!: string;
 
 	@property()
+	hunkHeader?: string;
+
+	@property()
 	content!: string;
 
 	@property({ type: Number })
@@ -230,7 +233,7 @@ export class HunkItem extends LitElement {
 				<div class="hunk-header">
 					<div class="file-info">
 						<code-icon class="file-icon" icon="file-code"></code-icon>
-						<span class="file-name">${this.fileName}</span>
+						<span class="file-name">${this.hunkHeader || this.fileName}</span>
 					</div>
 					<div class="hunk-stats">
 						<div class="stat additions">

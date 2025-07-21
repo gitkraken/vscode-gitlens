@@ -32,7 +32,7 @@ export class CommitItem extends LitElement {
 		}
 
 		.commit-item.multi-selected {
-			background: var(--vscode-list-inactiveSelectionBackground);
+			background: var(--vscode-list-activeSelectionBackground);
 			border-color: var(--vscode-focusBorder);
 			border-style: dashed;
 		}
@@ -91,10 +91,26 @@ export class CommitItem extends LitElement {
 			font-size: 0.9em;
 		}
 
-		.hunk-count {
+		.file-count {
 			display: flex;
 			align-items: center;
 			gap: 0.2rem;
+		}
+
+		.diff-stats {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			font-size: 0.8rem;
+			font-weight: 500;
+		}
+
+		.additions {
+			color: var(--vscode-gitDecoration-addedResourceForeground);
+		}
+
+		.deletions {
+			color: var(--vscode-gitDecoration-deletedResourceForeground);
 		}
 
 		.drag-handle {
@@ -155,7 +171,13 @@ export class CommitItem extends LitElement {
 	message!: string;
 
 	@property({ type: Number })
-	hunkCount!: number;
+	fileCount!: number;
+
+	@property({ type: Number })
+	additions!: number;
+
+	@property({ type: Number })
+	deletions!: number;
 
 	@property({ type: Boolean })
 	selected = false;
@@ -205,9 +227,13 @@ export class CommitItem extends LitElement {
 					<div class="commit-message">${this.message}</div>
 				</div>
 				<div class="commit-stats">
-					<div class="hunk-count">
+					<div class="file-count">
 						<code-icon icon="file-code"></code-icon>
-						${this.hunkCount} ${this.hunkCount === 1 ? 'file' : 'files'}
+						${this.fileCount} ${this.fileCount === 1 ? 'file' : 'files'}
+					</div>
+					<div class="diff-stats">
+						<span class="additions">+${this.additions}</span>
+						<span class="deletions">-${this.deletions}</span>
 					</div>
 				</div>
 				<div class="drop-zone">Drop hunks here</div>
