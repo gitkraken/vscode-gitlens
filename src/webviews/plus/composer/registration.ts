@@ -1,8 +1,16 @@
 import { ViewColumn } from 'vscode';
+import type { Sources } from '../../../constants.telemetry';
 import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
-import type { State } from './protocol';
+import type { ComposerHunk, ComposerHunkMap, State } from './protocol';
 
-export type ComposerCommandArgs = Record<string, unknown>;
+export interface ComposerCommandArgs {
+	hunks?: ComposerHunk[];
+	hunkMap?: ComposerHunkMap[];
+	baseCommit?: string;
+	commits?: any[];
+	source?: Sources;
+}
+
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];
 
 export function registerComposerWebviewPanel(

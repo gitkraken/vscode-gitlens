@@ -23,6 +23,37 @@
 				]
 			}
 		},
+		"gitlens.ai.composeCommits": {
+			"label": "Compose Commits with AI (Preview)...",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.ai.composeCommits:graph": {
+			"label": "Compose Commits with AI (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.ai.composeCommits:views": {
+			"label": "Compose Commits with AI (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "3_gitlens_ai",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.ai.explainBranch": {
 			"label": "Explain Branch Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"

@@ -5,6 +5,7 @@ import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
+import type { ComposeCommandArgs } from '../../commands/composer';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
 import type { GenerateCommitsCommandArgs } from '../../commands/generateRebase';
@@ -379,6 +380,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
+			registerCommand('gitlens.ai.composeCommits:home', this.composeCommits, this),
 		];
 	}
 
@@ -624,6 +626,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
 			repoPath: repo.path,
 			source: { source: 'home' },
+		});
+	}
+
+	@log<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
+	private async composeCommits(ref: BranchRef) {
+		const { repo } = await this.getRepoInfoFromRef(ref);
+		if (repo == null) return;
+
+		void executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommits', {
+			repoPath: repo.path,
+			source: 'home',
 		});
 	}
 

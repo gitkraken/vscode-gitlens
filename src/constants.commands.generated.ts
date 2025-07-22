@@ -4,6 +4,8 @@
 export type ContributedCommands =
 	| ContributedKeybindingCommands
 	| ContributedPaletteCommands
+	| 'gitlens.ai.composeCommits:graph'
+	| 'gitlens.ai.composeCommits:views'
 	| 'gitlens.ai.explainBranch:graph'
 	| 'gitlens.ai.explainBranch:views'
 	| 'gitlens.ai.explainCommit:graph'
@@ -649,6 +651,7 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
+	| 'gitlens.ai.composeCommits'
 	| 'gitlens.ai.explainBranch'
 	| 'gitlens.ai.explainCommit'
 	| 'gitlens.ai.explainStash'
