@@ -151,6 +151,47 @@ export class HunkItem extends LitElement {
 		.hunk-item:hover .drag-handle {
 			opacity: 1;
 		}
+
+		/* Rename-specific styles */
+		.rename-info {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+
+		.rename-line {
+			display: flex;
+			align-items: center;
+			gap: 0.8rem;
+			font-weight: 500;
+		}
+
+		.rename-text {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+
+		.original-name {
+			color: var(--vscode-gitDecoration-deletedResourceForeground);
+			text-decoration: line-through;
+		}
+
+		.arrow {
+			color: var(--vscode-descriptionForeground);
+			font-weight: bold;
+		}
+
+		.new-name {
+			color: var(--vscode-gitDecoration-addedResourceForeground);
+			font-weight: 500;
+		}
+
+		.similarity-info {
+			color: var(--vscode-descriptionForeground);
+			font-size: 0.9em;
+			font-style: italic;
+		}
 	`;
 
 	@property()
@@ -177,10 +218,37 @@ export class HunkItem extends LitElement {
 	@property({ type: Boolean })
 	multiSelected = false;
 
+	@property({ type: Boolean })
+	isRename = false;
+
+	@property()
+	originalFileName?: string;
+
 	private renderDiffContent() {
 		if (!this.content || typeof this.content !== 'string') {
 			return html`<span class="diff-line">No content available</span>`;
 		}
+
+		// Special rendering for rename hunks
+		if (this.isRename) {
+			return html`
+				<div class="rename-info">
+					<div class="rename-line">
+						<code-icon icon="arrow-right"></code-icon>
+						<span class="rename-text">
+							<span class="original-name">${this.originalFileName}</span>
+							<span class="arrow">→</span>
+							<span class="new-name">${this.fileName}</span>
+						</span>
+					</div>
+					<div class="similarity-info">
+						${this.content.split('\n').find(line => line.includes('similarity'))}
+					</div>
+				</div>
+			`;
+		}
+
+		// Regular diff content rendering
 		const lines = this.content.split('\n');
 		return lines.map(line => {
 			if (line.startsWith('+')) {
@@ -232,8 +300,10 @@ export class HunkItem extends LitElement {
 				</div>
 				<div class="hunk-header">
 					<div class="file-info">
-						<code-icon class="file-icon" icon="file-code"></code-icon>
-						<span class="file-name">${this.hunkHeader || this.fileName}</span>
+						<code-icon class="file-icon" icon=${this.isRename ? 'arrow-right' : 'file-code'}></code-icon>
+						<span class="file-name"
+							>${this.isRename ? 'File Rename' : this.hunkHeader || this.fileName}</span
+						>
 					</div>
 					<div class="hunk-stats">
 						<div class="stat additions">

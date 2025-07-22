@@ -472,11 +472,14 @@ export class DetailsPanel extends LitElement {
 									<gl-hunk-item
 										data-hunk-id=${hunk.index.toString()}
 										.hunkId=${hunk.index.toString()}
+										.fileName=${hunk.fileName}
 										.hunkHeader=${hunk.hunkHeader}
 										.content=${hunk.content}
 										.additions=${hunk.additions}
 										.deletions=${hunk.deletions}
 										.selected=${this.selectedHunkIds.has(hunk.index.toString())}
+										.isRename=${hunk.isRename || false}
+										.originalFileName=${hunk.originalFileName}
 										@hunk-selected=${(e: CustomEvent) =>
 											this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
 									></gl-hunk-item>

@@ -138,13 +138,27 @@ export function createCombinedDiffForCommit(
 			filePatches.set(diffHeader, []);
 		}
 
-		filePatches.get(diffHeader)!.push(hunk.content);
+		// For rename hunks, the content is already properly formatted
+		// For regular hunks, we need to add the hunk header before the content
+		if (hunk.isRename) {
+			// For renames, the diffHeader already contains the rename info, just add empty content
+			filePatches.get(diffHeader)!.push('');
+		} else {
+			// Combine hunk header and content for regular hunks
+			const hunkContent = `${hunk.hunkHeader}\n${hunk.content}`;
+			filePatches.get(diffHeader)!.push(hunkContent);
+		}
 	});
 
 	// Build the complete patch string
 	let commitPatch = '';
 	for (const [header, hunkContents] of filePatches.entries()) {
-		commitPatch += `${header.trim()}\n${hunkContents.join('\n')}\n`;
+		commitPatch += `${header.trim()}\n`;
+		// Only add hunk contents if they exist (renames might have empty content)
+		const nonEmptyContents = hunkContents.filter(content => content.trim() !== '');
+		if (nonEmptyContents.length > 0) {
+			commitPatch += `${nonEmptyContents.join('\n')}\n`;
+		}
 	}
 
 	return { patch: commitPatch, filePatches: filePatches };
@@ -171,4 +185,90 @@ export function convertToComposerDiffInfo(
 			patch: patch,
 		};
 	});
+}
+
+/**
+ * Generates markdown content for composer commits
+ * @param commits Array of composer commits
+ * @param hunks Array of all hunks
+ * @param title Title for the markdown document
+ * @returns Markdown content string
+ */
+export function generateComposerMarkdown(
+	commits: ComposerCommit[],
+	hunks: ComposerHunk[],
+	title = 'Generated Commits',
+): string {
+	if (!commits.length) {
+		return `# ${title}\n\nNo commits generated.`;
+	}
+
+	let markdown = `# ${title}\n\n`;
+	markdown += "Here's the breakdown of the commits created from the provided changes:\n\n";
+
+	// Add explanations section
+	markdown += '## Commit Explanations\n\n';
+	for (let i = 0; i < commits.length; i++) {
+		const commit = commits[i];
+		const commitTitle = `### Commit ${i + 1}: ${commit.message}`;
+
+		if (commit.aiExplanation) {
+			markdown += `${commitTitle}\n\n${commit.aiExplanation}\n\n`;
+		} else {
+			markdown += `${commitTitle}\n\nNo explanation provided.\n\n`;
+		}
+	}
+
+	// Add changes section
+	markdown += '## Changes\n\n';
+	for (let i = 0; i < commits.length; i++) {
+		const commit = commits[i];
+		const commitTitle = `### Commit ${i + 1}: ${commit.message}`;
+		markdown += `${commitTitle}\n\n`;
+
+		// Get hunks for this commit
+		const commitHunks = commit.hunkIndices
+			.map(index => hunks.find(hunk => hunk.index === index))
+			.filter((hunk): hunk is ComposerHunk => hunk !== undefined);
+
+		if (commitHunks.length === 0) {
+			markdown += 'No changes in this commit.\n\n';
+			continue;
+		}
+
+		// Group hunks by file
+		const fileGroups = new Map<string, ComposerHunk[]>();
+		commitHunks.forEach(hunk => {
+			const fileName = hunk.fileName;
+			if (!fileGroups.has(fileName)) {
+				fileGroups.set(fileName, []);
+			}
+			fileGroups.get(fileName)!.push(hunk);
+		});
+
+		// Output each file with its changes
+		for (const [_fileName, fileHunks] of fileGroups.entries()) {
+			markdown += '```diff\n';
+
+			// Use the first hunk's diff header for the file
+			const firstHunk = fileHunks[0];
+			if (firstHunk.isRename) {
+				// For renames, show the rename information
+				markdown += `${firstHunk.diffHeader}\n`;
+			} else {
+				// For regular files, show the diff header
+				markdown += `${firstHunk.diffHeader}\n`;
+
+				// Add each hunk's content
+				for (const hunk of fileHunks) {
+					markdown += `${hunk.hunkHeader}\n`;
+					markdown += `${hunk.content}\n`;
+				}
+			}
+
+			markdown += '```\n\n';
+		}
+	}
+
+	return markdown;
 }
