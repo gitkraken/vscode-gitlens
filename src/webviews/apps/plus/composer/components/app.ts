@@ -4,7 +4,11 @@ import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
-import { GenerateCommitMessageCommand, GenerateCommitsCommand } from '../../../../plus/composer/protocol';
+import {
+	FinishAndCommitCommand,
+	GenerateCommitMessageCommand,
+	GenerateCommitsCommand,
+} from '../../../../plus/composer/protocol';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
 import { stateContext } from '../context';
@@ -854,7 +858,15 @@ export class ComposerApp extends LitElement {
 	}
 
 	private generateCommits() {
-		this.showModal = true;
+		console.log('generateCommits (finish and commit) called');
+		console.log('this.state:', this.state);
+
+		// Send IPC command to finish and commit
+		this._ipc.sendCommand(FinishAndCommitCommand, {
+			commits: this.state.commits,
+			hunks: this.hunksWithAssignments,
+			baseCommit: this.state.baseCommit,
+		});
 	}
 
 	private generateCommitsWithAI() {
@@ -881,8 +893,8 @@ export class ComposerApp extends LitElement {
 		}
 
 		// Create combined diff for the commit
-		const diff = createCombinedDiffForCommit(commit, this.hunksWithAssignments);
-		if (!diff) {
+		const { patch } = createCombinedDiffForCommit(commit, this.hunksWithAssignments);
+		if (!patch) {
 			console.error('No diff generated for commit:', commitId);
 			return;
 		}
@@ -890,7 +902,7 @@ export class ComposerApp extends LitElement {
 		// Send IPC command to generate commit message
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
-			diff: diff,
+			diff: patch,
 		});
 	}
 
@@ -968,6 +980,7 @@ export class ComposerApp extends LitElement {
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
 					.canFinishAndCommit=${this.canFinishAndCommit}
 					.generating=${this.state.generating}
+					.committing=${this.state.committing}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
@@ -989,6 +1002,7 @@ export class ComposerApp extends LitElement {
 					.filesChangedExpanded=${this.filesChangedExpanded}
 					.selectedHunkIds=${this.selectedHunkIds}
 					.generatingCommitMessage=${this.state.generatingCommitMessage}
+					.committing=${this.state.committing}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
