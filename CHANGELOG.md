@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.3.2] - 2025-07-22
+
 ### Changed
 
 - Updates token count in account hover messaging
@@ -6258,7 +6260,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.2...HEAD
+[17.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.1...gitkraken:v17.3.2
 [17.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...gitkraken:v17.3.1
 [17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.2...gitkraken:v17.3.0
 [17.2.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.2.2
