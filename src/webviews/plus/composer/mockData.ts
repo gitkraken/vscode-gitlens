@@ -1,7 +1,7 @@
 // Mock data for the composer following the proper data model
 // This represents the structure that would come from AI rebase results
 
-import type { ComposerCallbacks, ComposerCommit, ComposerHunk, ComposerHunkMap } from './protocol';
+import type { ComposerCommit, ComposerHunk, ComposerHunkMap } from './protocol';
 
 // Mock hunks following the AI rebase result structure
 export const mockHunks: ComposerHunk[] = [
@@ -348,28 +348,7 @@ export const mockCommits: ComposerCommit[] = [
 	},
 ];
 
-// Mock callbacks
-export const mockCallbacks: ComposerCallbacks = {
-	onComposeCommits: (commits: ComposerCommit[], unassignedHunkIndices: number[]) => {
-		console.log('Finish and commit called with:', {
-			commits: commits,
-			unassignedHunkIndices: unassignedHunkIndices,
-		});
-		// In real implementation, this would trigger the actual commit process
-	},
-	onGenerateCommits: (hunks: ComposerHunk[], commits: ComposerCommit[], baseCommit: string) => {
-		console.log('Generate commits called with:', {
-			hunks: hunks,
-			commits: commits,
-			baseCommit: baseCommit,
-		});
-		// In real implementation, this would call the AI service to generate commits
-	},
-	onGenerateCommitMessage: (commitId: string, hunkIndices: number[]) => {
-		console.log('Generate commit message called with:', { commitId: commitId, hunkIndices: hunkIndices });
-		// In real implementation, this would generate a commit message using AI
-	},
-};
+// Callbacks are no longer used - replaced with IPC commands
 
 // Mock hunk map (maps hunk indices to hunk headers for combined diff)
 export const mockHunkMap: ComposerHunkMap[] = [
