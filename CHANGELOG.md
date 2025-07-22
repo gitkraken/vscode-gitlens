@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Updates token count in account hover messaging
+
 ## [17.3.1] - 2025-07-15
 
 ### Changed
