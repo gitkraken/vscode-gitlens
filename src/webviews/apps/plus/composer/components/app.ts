@@ -4,8 +4,15 @@ import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
+import {
+	FinishAndCommitCommand,
+	GenerateCommitMessageCommand,
+	GenerateCommitsCommand,
+} from '../../../../plus/composer/protocol';
+import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
+import { ipcContext } from '../../../shared/contexts/ipc';
+import type { HostIpc } from '../../../shared/ipc';
 import { stateContext } from '../context';
-import { updateHunkAssignments } from './utils';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
@@ -14,10 +21,42 @@ import './commits-panel';
 import './details-panel';
 import './hunk-item';
 
+// Internal history management interfaces
+interface ComposerDataSnapshot {
+	hunks: ComposerHunk[];
+	commits: ComposerCommit[];
+	selectedCommitId: string | null;
+	selectedCommitIds: Set<string>;
+	selectedUnassignedSection: string | null;
+	selectedHunkIds: Set<string>;
+}
+
+interface ComposerHistory {
+	resetState: ComposerDataSnapshot | null;
+	undoStack: ComposerDataSnapshot[];
+	redoStack: ComposerDataSnapshot[];
+}
+
+const historyLimit = 3;
+
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
 	@consume({ context: stateContext, subscribe: true })
 	state!: State;
+
+	@consume({ context: ipcContext })
+	private _ipc!: HostIpc;
+
+	// Internal history management
+	private history: ComposerHistory = {
+		resetState: null,
+		undoStack: [],
+		redoStack: [],
+	};
+
+	// Debounce timer for commit message updates
+	private commitMessageDebounceTimer?: number;
+	private commitMessageBeingEdited: string | null = null; // Track which commit is being edited
 
 	static override styles = css`
 		:host {
@@ -26,6 +65,7 @@ export class ComposerApp extends LitElement {
 			height: 100vh;
 			padding: 1.6rem;
 			gap: 1.6rem;
+			box-sizing: border-box;
 		}
 
 		.header {
@@ -38,6 +78,32 @@ export class ComposerApp extends LitElement {
 			margin: 0;
 			font-size: 2.4rem;
 			font-weight: 600;
+		}
+
+		.header-actions {
+			display: flex;
+			gap: 0.8rem;
+			align-items: center;
+		}
+
+		.history-button {
+			padding: 0.4rem 0.8rem;
+			border: 1px solid var(--vscode-button-border);
+			background: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 0.9rem;
+			transition: all 0.2s ease;
+		}
+
+		.history-button:hover:not(:disabled) {
+			background: var(--vscode-button-secondaryHoverBackground);
+		}
+
+		.history-button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
 		}
 
 		.main-content {
@@ -221,15 +287,6 @@ export class ComposerApp extends LitElement {
 	private lastSelectedHunkId: string | null = null;
 
 	@state()
-	private commitMessageExpanded = true;
-
-	@state()
-	private aiExplanationExpanded = true;
-
-	@state()
-	private filesChangedExpanded = true;
-
-	@state()
 	private showModal = false;
 
 	private commitsSortable?: Sortable;
@@ -238,6 +295,8 @@ export class ComposerApp extends LitElement {
 	private lastMouseEvent?: MouseEvent;
 
 	override firstUpdated() {
+		// Initialize reset state
+		this.initializeResetState();
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
@@ -256,6 +315,10 @@ export class ComposerApp extends LitElement {
 		super.disconnectedCallback?.();
 		this.commitsSortable?.destroy();
 		this.hunksSortable?.destroy();
+		if (this.commitMessageDebounceTimer) {
+			clearTimeout(this.commitMessageDebounceTimer);
+		}
+		this.commitMessageBeingEdited = null;
 	}
 
 	private initializeSortable() {
@@ -424,7 +487,98 @@ export class ComposerApp extends LitElement {
 		}, 50);
 	}
 
+	// History management methods
+	private createDataSnapshot(): ComposerDataSnapshot {
+		return {
+			hunks: JSON.parse(JSON.stringify(this.state.hunks)),
+			commits: JSON.parse(JSON.stringify(this.state.commits)),
+			selectedCommitId: this.state.selectedCommitId,
+			selectedCommitIds: new Set([...this.selectedCommitIds]),
+			selectedUnassignedSection: this.state.selectedUnassignedSection,
+			selectedHunkIds: new Set([...this.selectedHunkIds]),
+		};
+	}
+
+	private applyDataSnapshot(snapshot: ComposerDataSnapshot) {
+		this.state.hunks = snapshot.hunks;
+		this.state.commits = snapshot.commits;
+		this.state.selectedCommitId = snapshot.selectedCommitId;
+		this.selectedCommitIds = snapshot.selectedCommitIds;
+		this.state.selectedUnassignedSection = snapshot.selectedUnassignedSection;
+		this.selectedHunkIds = snapshot.selectedHunkIds;
+		this.requestUpdate();
+	}
+
+	private saveToHistory() {
+		// Clear redo stack when new action is performed
+		this.history.redoStack = [];
+
+		// Trim undo stack to (historyLimit - 1) before adding new snapshot
+		while (this.history.undoStack.length >= historyLimit) {
+			this.history.undoStack.shift(); // Remove oldest entries
+		}
+
+		// Save current state to undo stack
+		this.history.undoStack.push(this.createDataSnapshot());
+	}
+
+	private initializeResetState() {
+		if (!this.history.resetState) {
+			this.history.resetState = this.createDataSnapshot();
+		}
+	}
+
+	private canUndo(): boolean {
+		return this.history.undoStack.length > 0;
+	}
+
+	private canRedo(): boolean {
+		return this.history.redoStack.length > 0;
+	}
+
+	private undo() {
+		if (!this.canUndo()) return;
+
+		// Trim redo stack to (historyLimit - 1) before adding current state
+		while (this.history.redoStack.length >= historyLimit) {
+			this.history.redoStack.shift(); // Remove oldest entries
+		}
+
+		// Save current state to redo stack
+		this.history.redoStack.push(this.createDataSnapshot());
+
+		// Restore previous state
+		const previousState = this.history.undoStack.pop()!;
+		this.applyDataSnapshot(previousState);
+	}
+
+	private redo() {
+		if (!this.canRedo()) return;
+
+		// Trim undo stack to (historyLimit - 1) before adding current state
+		while (this.history.undoStack.length >= historyLimit) {
+			this.history.undoStack.shift(); // Remove oldest entries
+		}
+
+		// Save current state to undo stack
+		this.history.undoStack.push(this.createDataSnapshot());
+
+		// Restore next state
+		const nextState = this.history.redoStack.pop()!;
+		this.applyDataSnapshot(nextState);
+	}
+
+	private reset() {
+		if (!this.history.resetState) return;
+
+		// Save current state to undo stack
+		this.saveToHistory();
+		// Restore reset state
+		this.applyDataSnapshot(this.history.resetState);
+	}
+
 	private reorderCommits(oldIndex: number, newIndex: number) {
+		this.saveToHistory();
 		const newCommits = [...this.state.commits];
 		const [movedCommit] = newCommits.splice(oldIndex, 1);
 		newCommits.splice(newIndex, 0, movedCommit);
@@ -491,7 +645,7 @@ export class ComposerApp extends LitElement {
 		});
 	}
 
-	private handleHunkMove(hunkId: string, targetCommitId: string, _sourceSection?: string) {
+	private handleHunkMove(hunkId: string, targetCommitId: string) {
 		// Move hunk from source to target commit
 		const hunkIndex = parseInt(hunkId, 10);
 
@@ -516,6 +670,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private createNewCommitWithHunks(hunkIds: string[]) {
+		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
@@ -543,6 +698,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private unassignHunks(hunkIds: string[]) {
+		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
@@ -560,6 +716,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private moveHunksToCommit(hunkIds: string[], targetCommitId: string) {
+		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
@@ -719,21 +876,40 @@ export class ComposerApp extends LitElement {
 	private updateCommitMessage(commitId: string, message: string) {
 		const commit = this.state.commits.find(c => c.id === commitId);
 		if (commit) {
+			// If this is the first change to this commit message, save a snapshot
+			if (this.commitMessageBeingEdited !== commitId) {
+				this.saveToHistory();
+				this.commitMessageBeingEdited = commitId;
+			}
+
+			// Clear existing debounce timer
+			if (this.commitMessageDebounceTimer) {
+				clearTimeout(this.commitMessageDebounceTimer);
+			}
+
+			// Clear the editing state after 1 second of no changes
+			this.commitMessageDebounceTimer = window.setTimeout(() => {
+				this.commitMessageBeingEdited = null;
+			}, 1000);
+
 			commit.message = message;
 			this.requestUpdate();
 		}
 	}
 
 	private toggleCommitMessageExpanded() {
-		this.commitMessageExpanded = !this.commitMessageExpanded;
+		this.state.detailsSectionExpanded.commitMessage = !this.state.detailsSectionExpanded.commitMessage;
+		this.requestUpdate();
 	}
 
 	private toggleAiExplanationExpanded() {
-		this.aiExplanationExpanded = !this.aiExplanationExpanded;
+		this.state.detailsSectionExpanded.aiExplanation = !this.state.detailsSectionExpanded.aiExplanation;
+		this.requestUpdate();
 	}
 
 	private toggleFilesChangedExpanded() {
-		this.filesChangedExpanded = !this.filesChangedExpanded;
+		this.state.detailsSectionExpanded.filesChanged = !this.state.detailsSectionExpanded.filesChanged;
+		this.requestUpdate();
 	}
 
 	private autoScrollActive = false;
@@ -764,9 +940,9 @@ export class ComposerApp extends LitElement {
 			}
 
 			try {
-				this.performAutoScroll(this.lastMouseEvent.clientX, this.lastMouseEvent.clientY);
-			} catch (error) {
-				console.error('Auto-scroll error:', error);
+				this.performAutoScroll(this.lastMouseEvent.clientY);
+			} catch {
+				// Auto-scroll error - ignore
 			}
 		}, 50);
 	}
@@ -784,7 +960,7 @@ export class ComposerApp extends LitElement {
 		document.removeEventListener('pointermove', this.mouseTracker, true);
 	}
 
-	private performAutoScroll(_mouseX: number, mouseY: number) {
+	private performAutoScroll(mouseY: number) {
 		const scrollThreshold = 200;
 
 		// Vertical scrolling for multi-commit details panel
@@ -832,8 +1008,6 @@ export class ComposerApp extends LitElement {
 		window.close();
 	}
 
-	// Convert state commits to UI format for rendering
-	// Ensure hunks have updated assigned property
 	private get hunksWithAssignments(): ComposerHunk[] {
 		if (!this.state?.hunks || !this.state?.commits) {
 			return [];
@@ -842,17 +1016,55 @@ export class ComposerApp extends LitElement {
 		return updateHunkAssignments(this.state.hunks, this.state.commits);
 	}
 
+	private get aiEnabled(): boolean {
+		return this.state?.aiEnabled?.org === true && this.state?.aiEnabled?.config === true;
+	}
+
 	private get canFinishAndCommit(): boolean {
-		// User can finish and commit if there are commits, regardless of unassigned hunks
 		return this.state.commits.length > 0;
 	}
 
 	private generateCommits() {
-		this.showModal = true;
+		this._ipc.sendCommand(FinishAndCommitCommand, {
+			commits: this.state.commits,
+			hunks: this.hunksWithAssignments,
+			baseCommit: this.state.baseCommit,
+		});
+	}
+
+	private generateCommitsWithAI() {
+		this.saveToHistory();
+		this._ipc.sendCommand(GenerateCommitsCommand, {
+			hunks: this.hunksWithAssignments,
+			commits: this.state.commits,
+			hunkMap: this.state.hunkMap,
+			baseCommit: this.state.baseCommit,
+		});
+	}
+
+	private generateCommitMessage(commitId: string) {
+		// Find the commit
+		const commit = this.state.commits.find(c => c.id === commitId);
+		if (!commit) {
+			return;
+		}
+
+		// Create combined diff for the commit
+		const { patch } = createCombinedDiffForCommit(commit, this.hunksWithAssignments);
+		if (!patch) {
+			return;
+		}
+
+		this._ipc.sendCommand(GenerateCommitMessageCommand, {
+			commitId: commitId,
+			diff: patch,
+		});
 	}
 
 	private combineSelectedCommits() {
 		if (this.selectedCommitIds.size < 2) return;
+
+		this.saveToHistory();
 
 		const selectedCommits = this.state.commits.filter(c => this.selectedCommitIds.has(c.id));
 
@@ -862,11 +1074,24 @@ export class ComposerApp extends LitElement {
 			combinedHunkIndices.push(...commit.hunkIndices);
 		});
 
+		// Combine commit messages from selected commits
+		const combinedMessage = selectedCommits
+			.map(commit => commit.message)
+			.filter(message => message && message.trim() !== '')
+			.join('\n\n');
+
+		// Combine AI explanations from selected commits
+		const combinedExplanation = selectedCommits
+			.map(commit => commit.aiExplanation)
+			.filter(explanation => explanation && explanation.trim() !== '')
+			.join('\n\n');
+
 		// Create new combined commit
 		const combinedCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: `Combined commit`,
+			message: combinedMessage || 'Combined commit',
 			hunkIndices: combinedHunkIndices,
+			aiExplanation: combinedExplanation || undefined,
 		};
 
 		// Create new commits array by replacing selected commits with combined commit
@@ -875,14 +1100,11 @@ export class ComposerApp extends LitElement {
 
 		this.state.commits.forEach(commit => {
 			if (this.selectedCommitIds.has(commit.id)) {
-				// Insert combined commit at the position of the first selected commit
 				if (!combinedCommitInserted) {
 					newCommits.push(combinedCommit);
 					combinedCommitInserted = true;
 				}
-				// Skip the selected commit (don't add it to newCommits)
 			} else {
-				// Keep non-selected commits
 				newCommits.push(commit);
 			}
 		});
@@ -914,6 +1136,30 @@ export class ComposerApp extends LitElement {
 		return html`
 			<div class="header">
 				<h1>GitLens Composer</h1>
+				<div class="header-actions">
+					<button
+						class="history-button"
+						?disabled=${!this.canUndo()}
+						@click=${this.undo}
+						title="Undo last action"
+					>
+						<code-icon icon="arrow-left"></code-icon>
+						Undo
+					</button>
+					<button
+						class="history-button"
+						?disabled=${!this.canRedo()}
+						@click=${this.redo}
+						title="Redo last undone action"
+					>
+						<code-icon icon="arrow-right"></code-icon>
+						Redo
+					</button>
+					<button class="history-button" @click=${this.reset} title="Reset to initial state">
+						<code-icon icon="refresh"></code-icon>
+						Reset
+					</button>
+				</div>
 			</div>
 
 			<div class="main-content">
@@ -924,10 +1170,14 @@ export class ComposerApp extends LitElement {
 					.selectedCommitIds=${this.selectedCommitIds}
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
 					.canFinishAndCommit=${this.canFinishAndCommit}
+					.generating=${this.state.generatingCommits}
+					.committing=${this.state.committing}
+					.aiEnabled=${this.aiEnabled}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
 					@finish-and-commit=${this.generateCommits}
+					@generate-commits-with-ai=${this.generateCommitsWithAI}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
 					@unassign-hunks=${(e: CustomEvent) => this.unassignHunks(e.detail.hunkIds)}
@@ -939,20 +1189,23 @@ export class ComposerApp extends LitElement {
 					.selectedCommits=${selectedCommits}
 					.hunks=${hunks}
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
-					.commitMessageExpanded=${this.commitMessageExpanded}
-					.aiExplanationExpanded=${this.aiExplanationExpanded}
-					.filesChangedExpanded=${this.filesChangedExpanded}
+					.commitMessageExpanded=${this.state.detailsSectionExpanded.commitMessage}
+					.aiExplanationExpanded=${this.state.detailsSectionExpanded.aiExplanation}
+					.filesChangedExpanded=${this.state.detailsSectionExpanded.filesChanged}
 					.selectedHunkIds=${this.selectedHunkIds}
+					.generatingCommitMessage=${this.state.generatingCommitMessage}
+					.committing=${this.state.committing}
+					.aiEnabled=${this.aiEnabled}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
 					@update-commit-message=${(e: CustomEvent) =>
 						this.updateCommitMessage(e.detail.commitId, e.detail.message)}
+					@generate-commit-message=${(e: CustomEvent) => this.generateCommitMessage(e.detail.commitId)}
 					@hunk-selected=${(e: CustomEvent) => this.selectHunk(e.detail.hunkId, e.detail.shiftKey)}
 					@hunk-drag-start=${(e: CustomEvent) => this.handleHunkDragStart(e.detail.hunkIds)}
 					@hunk-drag-end=${() => this.handleHunkDragEnd()}
-					@hunk-move=${(e: CustomEvent) =>
-						this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId, e.detail.sourceSection)}
+					@hunk-move=${(e: CustomEvent) => this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
 				></gl-details-panel>
