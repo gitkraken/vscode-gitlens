@@ -370,6 +370,88 @@ User Query: \${query}
 Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
 };
 
+export const generateCommits: PromptTemplate<'generate-commits'> = {
+	id: 'generate-commits',
+	variables: ['hunks', 'existingCommits', 'hunkMap', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a complete set of commits that are related, grouped logically, atomic, and easy to review. You will be working with individual code hunks and may have some existing commits that already have hunks assigned.
+
+First, examine the following JSON array of code hunks that need to be organized:
+
+<hunks>
+\${hunks}
+</hunks>
+
+Next, examine the following JSON array of existing commits (if any) that already have some hunks assigned:
+
+<existing_commits>
+\${existingCommits}
+</existing_commits>
+
+Finally, examine the following JSON array which represents a mapping of hunk indices to hunk headers for reference:
+
+<hunk_map>
+\${hunkMap}
+</hunk_map>
+
+Your task is to create a complete commit organization that includes:
+1. All existing commits (unchanged) that already have hunks assigned
+2. New commits for any unassigned hunks, organized logically
+
+Follow these guidelines:
+
+1. Preserve all existing commits exactly as they are - do not modify their messages, explanations, or assigned hunks
+2. For unassigned hunks, group them into logical units that make sense together and can be applied atomically
+3. Use each hunk only once. Ensure all hunks are assigned to exactly one commit
+4. Ensure each new commit is self-contained and atomic
+5. Write meaningful commit messages that accurately describe the changes in each new commit
+6. Provide detailed explanations for new commits
+7. Order commits logically (existing commits first, then new commits in dependency order)
+
+Output your complete commit organization as a JSON array. Each commit in the array should be an object with the following properties:
+- "message": A string containing the commit message
+- "explanation": A string with a detailed explanation of the changes in the commit
+- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
+  - "hunk": The hunk index (number) from the hunk_map
+
+Here's an example of the expected JSON structure:
+
+[
+  {
+    "message": "feat: add user authentication",
+    "explanation": "Implements user login and registration functionality with proper validation",
+    "hunks": [
+      {
+        "hunk": 1
+      },
+      {
+        "hunk": 3
+      }
+    ]
+  },
+  {
+    "message": "fix: handle edge cases in validation",
+    "explanation": "Adds proper error handling for invalid input scenarios",
+    "hunks": [
+      {
+        "hunk": 2
+      }
+    ]
+  }
+]
+
+Remember:
+- Include all existing commits unchanged
+- Organize all unassigned hunks into new commits
+- Every hunk must be assigned to exactly one commit
+- Base your organization on the actual code changes in the hunks
+
+\${instructions}
+
+Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the complete commit organization, and nothing else.
+Do not include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
+`,
+};
+
 export const generateRebase: PromptTemplate<'generate-rebase'> = {
 	id: 'generate-rebase',
 	variables: ['diff', 'commits', 'data', 'context', 'instructions'],

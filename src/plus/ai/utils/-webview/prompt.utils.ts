@@ -10,6 +10,7 @@ import {
 	explainChanges,
 	generateChangelog,
 	generateCommitMessage,
+	generateCommits,
 	generateCreateCloudPatch,
 	generateCreateCodeSuggest,
 	generateCreatePullRequest,
@@ -40,6 +41,8 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return generateSearchQuery as PromptTemplate<T>;
 		case 'generate-rebase':
 			return generateRebase as PromptTemplate<T>;
+		case 'generate-commits':
+			return generateCommits as PromptTemplate<T>;
 		case 'explain-changes':
 			return explainChanges as PromptTemplate<T>;
 	}
