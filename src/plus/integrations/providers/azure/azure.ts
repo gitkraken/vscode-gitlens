@@ -501,7 +501,9 @@ export class AzureDevOpsApi implements Disposable {
 					// Get repositories for this project - use DefaultCollection path structure
 					console.log(`[Azure API] Getting repositories for project: ${project.name}`);
 					const repoEndpoint = `DefaultCollection/${project.name}/_apis/git/repositories?api-version=6.0`;
-					const reposResult = await this.request<{ value: { id: string; name: string }[] }>(
+					const reposResult = await this.request<{
+						value: { id: string; isDisabled?: boolean; name: string }[];
+					}>(
 						provider,
 						token,
 						baseUrl,
@@ -523,8 +525,12 @@ export class AzureDevOpsApi implements Disposable {
 
 					// For each repository, get pull requests
 					for (const repo of reposResult.value) {
+						if (!repo || repo.isDisabled) {
+							continue;
+						}
+
 						try {
-							let searchCriteria = 'api-version=6.0&status=all';
+							let searchCriteria = 'api-version=6.0&status=active';
 							if (options?.authorLogin) {
 								searchCriteria += `&createdBy=${encodeURIComponent(options.authorLogin)}`;
 							}
