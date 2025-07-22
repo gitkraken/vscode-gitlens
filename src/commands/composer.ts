@@ -125,7 +125,17 @@ export class ComposeCommand extends GlCommandBase {
 	): void {
 		let counter = startCounter;
 
-		// Extract hunk headers and create hunk map entries
+		// First, check for rename-only files (files with no hunks but rename headers)
+		const renameHunks = this.extractRenameHunks(diffContent, source, counter);
+		for (const renameHunk of renameHunks) {
+			const hunkIndex = ++counter;
+			renameHunk.index = hunkIndex;
+
+			hunkMap.push({ index: hunkIndex, hunkHeader: renameHunk.hunkHeader });
+			hunks.push(renameHunk);
+		}
+
+		// Then extract regular hunk headers and create hunk map entries
 		for (const hunkHeaderMatch of diffContent.matchAll(/@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@(.*)$/gm)) {
 			const hunkHeader = hunkHeaderMatch[0];
 			const hunkIndex = ++counter;
@@ -216,8 +226,11 @@ export class ComposeCommand extends GlCommandBase {
 					? nextDiffIndex - 1
 					: undefined;
 
-		// Extract the content (including the hunk header)
-		return diffContent.substring(hunkIndex, nextIndex);
+		// Extract the content (excluding the hunk header)
+		const hunkHeaderEndIndex = diffContent.indexOf('\n', hunkIndex);
+		if (hunkHeaderEndIndex === -1) return null;
+
+		return diffContent.substring(hunkHeaderEndIndex + 1, nextIndex);
 	}
 
 	private calculateHunkStats(hunkContent: string): { additions: number; deletions: number } {
@@ -234,5 +247,63 @@ export class ComposeCommand extends GlCommandBase {
 		}
 
 		return { additions: additions, deletions: deletions };
+	}
+
+	private extractRenameHunks(
+		diffContent: string,
+		source: 'staged' | 'unstaged',
+		_startCounter: number,
+	): ComposerHunk[] {
+		const renameHunks: ComposerHunk[] = [];
+
+		// Split diff content into file sections
+		const fileSections = diffContent.split(/^diff --git /m).filter(Boolean);
+
+		for (const fileSection of fileSections) {
+			// Check if this file section has no hunks (no @@ headers)
+			if (fileSection.includes('\n@@ -')) {
+				continue; // This file has regular hunks, skip it
+			}
+
+			// Parse the diff header line
+			const lines = fileSection.split('\n');
+			const firstLine = `diff --git ${lines[0]}`;
+			const diffHeaderMatch = firstLine.match(/^diff --git a\/(.+?) b\/(.+)$/);
+			if (!diffHeaderMatch) continue;
+
+			const [, originalPath, newPath] = diffHeaderMatch;
+
+			// Look for rename indicators in the file section
+			const hasRenameFrom = lines.some(line => line.startsWith('rename from '));
+			const hasRenameTo = lines.some(line => line.startsWith('rename to '));
+
+			if (hasRenameFrom && hasRenameTo) {
+				// Extract the full diff header (everything before any potential hunks)
+				const diffHeader = `${firstLine}\n${lines.slice(1).join('\n')}`;
+
+				// Extract similarity percentage if available
+				const similarityMatch = lines.find(line => line.startsWith('similarity index '))?.match(/(\d+)%/);
+				const similarity = similarityMatch ? parseInt(similarityMatch[1], 10) : 100;
+
+				// Create a virtual hunk for the rename
+				const renameHunk: ComposerHunk = {
+					index: 0, // Will be set by caller
+					fileName: newPath,
+					originalFileName: originalPath,
+					diffHeader: diffHeader,
+					hunkHeader: 'rename',
+					content: `rename from ${originalPath}\nrename to ${newPath}\nsimilarity index ${similarity}%`,
+					additions: 0,
+					deletions: 0,
+					source: source,
+					assigned: false,
+					isRename: true,
+				};
+
+				renameHunks.push(renameHunk);
+			}
+		}
+
+		return renameHunks;
 	}
 }
