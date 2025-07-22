@@ -253,6 +253,9 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Set })
 	selectedHunkIds: Set<string> = new Set();
 
+	@property({ type: String })
+	generatingCommitMessage: string | null = null;
+
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -550,10 +553,15 @@ export class DetailsPanel extends LitElement {
 						<gl-button
 							appearance="secondary"
 							size="small"
+							?disabled=${this.generatingCommitMessage === commit.id}
 							@click=${() => this.handleGenerateCommitMessage(commit.id)}
-							title="Generate Commit Message with AI"
+							title=${this.generatingCommitMessage === commit.id
+								? 'Generating...'
+								: 'Generate Commit Message with AI'}
 						>
-							<code-icon icon="sparkle"></code-icon>
+							<code-icon
+								icon=${this.generatingCommitMessage === commit.id ? 'loading~spin' : 'sparkle'}
+							></code-icon>
 						</gl-button>
 					</div>
 					<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">

@@ -35,6 +35,8 @@ export interface State extends WebviewState {
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
 	baseCommit: string;
+	generating: boolean;
+	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
 
 	// UI state
 	selectedCommitId: string | null;
@@ -67,11 +69,6 @@ export interface GenerateWithAIParams {
 	unassignedHunkIndices: number[];
 }
 
-export interface GenerateCommitMessageParams {
-	commitId: string;
-	hunkIndices: number[];
-}
-
 // Notifications that can be sent from the host to the webview
 export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
@@ -96,9 +93,18 @@ export const FinishAndCommitCommand = new IpcCommand<FinishAndCommitParams>(ipcS
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
+export const DidStartGeneratingNotification = new IpcNotification<void>(ipcScope, 'didStartGenerating');
+export const DidStartGeneratingCommitMessageNotification = new IpcNotification<{ commitId: string }>(
+	ipcScope,
+	'didStartGeneratingCommitMessage',
+);
 export const DidGenerateCommitsNotification = new IpcNotification<DidGenerateCommitsParams>(
 	ipcScope,
 	'didGenerateCommits',
+);
+export const DidGenerateCommitMessageNotification = new IpcNotification<DidGenerateCommitMessageParams>(
+	ipcScope,
+	'didGenerateCommitMessage',
 );
 
 // Parameters for IPC messages
@@ -111,7 +117,7 @@ export interface GenerateCommitsParams {
 
 export interface GenerateCommitMessageParams {
 	commitId: string;
-	hunkIndices: number[];
+	diff: string;
 }
 
 export interface FinishAndCommitParams {
@@ -128,4 +134,9 @@ export interface DidChangeComposerDataParams {
 
 export interface DidGenerateCommitsParams {
 	commits: ComposerCommit[];
+}
+
+export interface DidGenerateCommitMessageParams {
+	commitId: string;
+	message: string;
 }

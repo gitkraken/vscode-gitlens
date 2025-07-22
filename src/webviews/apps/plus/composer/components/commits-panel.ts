@@ -234,6 +234,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Boolean })
 	canFinishAndCommit: boolean = true;
 
+	@property({ type: Boolean })
+	generating: boolean = false;
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -592,7 +595,11 @@ export class CommitsPanel extends LitElement {
 				${when(
 					this.selectedCommitIds.size > 1,
 					() => html`
-						<gl-button appearance="secondary" @click=${this.dispatchCombineCommits}>
+						<gl-button
+							appearance="secondary"
+							?disabled=${this.generating}
+							@click=${this.dispatchCombineCommits}
+						>
 							Combine ${this.selectedCommitIds.size} Commits
 						</gl-button>
 					`,
@@ -600,15 +607,22 @@ export class CommitsPanel extends LitElement {
 						when(
 							this.commits.length === 0,
 							() => html`
-								<gl-button appearance="primary" @click=${this.dispatchGenerateCommitsWithAI}>
-									<code-icon icon="sparkle" slot="prefix"></code-icon>
-									Generate Commits with AI
+								<gl-button
+									appearance="primary"
+									?disabled=${this.generating}
+									@click=${this.dispatchGenerateCommitsWithAI}
+								>
+									<code-icon
+										icon=${this.generating ? 'loading~spin' : 'sparkle'}
+										slot="prefix"
+									></code-icon>
+									${this.generating ? 'Generating Commits...' : 'Generate Commits with AI'}
 								</gl-button>
 							`,
 							() => html`
 								<gl-button
 									appearance="primary"
-									?disabled=${!this.canFinishAndCommit}
+									?disabled=${!this.canFinishAndCommit || this.generating}
 									@click=${this.dispatchFinishAndCommit}
 								>
 									Finish and Commit

@@ -1,6 +1,11 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
-import { DidGenerateCommitsNotification } from '../../../plus/composer/protocol';
+import {
+	DidGenerateCommitMessageNotification,
+	DidGenerateCommitsNotification,
+	DidStartGeneratingCommitMessageNotification,
+	DidStartGeneratingNotification,
+} from '../../../plus/composer/protocol';
 import type { ReactiveElementHost, StateProvider } from '../../shared/appHost';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
@@ -27,10 +32,37 @@ export class ComposerStateProvider implements StateProvider<State> {
 		// Handle IPC messages from the webview provider
 		this.disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
-				case DidGenerateCommitsNotification.is(msg): {
-					// Update commits when AI generation completes
+				case DidStartGeneratingNotification.is(msg): {
+					// Set loading state when AI generation starts
 					const updatedState = {
 						...this._state,
+						generating: true,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					console.log('Started AI generation - set loading state');
+					break;
+				}
+				case DidStartGeneratingCommitMessageNotification.is(msg): {
+					// Set loading state for specific commit message generation
+					const updatedState = {
+						...this._state,
+						generatingCommitMessage: msg.params.commitId,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					console.log('Started commit message generation for commit:', msg.params.commitId);
+					break;
+				}
+				case DidGenerateCommitsNotification.is(msg): {
+					// Update commits when AI generation completes and clear loading state
+					const updatedState = {
+						...this._state,
+						generating: false,
 						commits: msg.params.commits,
 						hunks: this._state.hunks.map(hunk => ({
 							...hunk,
@@ -47,6 +79,29 @@ export class ComposerStateProvider implements StateProvider<State> {
 					(this as any)._state = updatedState;
 					this.provider.setValue(this._state, true);
 					console.log('Updated state with AI-generated commits:', msg.params.commits);
+					break;
+				}
+				case DidGenerateCommitMessageNotification.is(msg): {
+					// Update specific commit message and clear loading state
+					const updatedCommits = this._state.commits.map(commit =>
+						commit.id === msg.params.commitId ? { ...commit, message: msg.params.message } : commit,
+					);
+
+					const updatedState = {
+						...this._state,
+						generatingCommitMessage: null,
+						commits: updatedCommits,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					console.log(
+						'Updated commit message for commit:',
+						msg.params.commitId,
+						'with message:',
+						msg.params.message,
+					);
 					break;
 				}
 			}

@@ -3,8 +3,15 @@ import type { Container } from '../../../container';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
-import type { GenerateCommitsParams, State } from './protocol';
-import { DidGenerateCommitsNotification, GenerateCommitsCommand } from './protocol';
+import type { GenerateCommitMessageParams, GenerateCommitsParams, State } from './protocol';
+import {
+	DidGenerateCommitMessageNotification,
+	DidGenerateCommitsNotification,
+	DidStartGeneratingCommitMessageNotification,
+	DidStartGeneratingNotification,
+	GenerateCommitMessageCommand,
+	GenerateCommitsCommand,
+} from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
@@ -21,6 +28,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		switch (true) {
 			case GenerateCommitsCommand.is(e):
 				void this.onGenerateCommits(e.params);
+				break;
+			case GenerateCommitMessageCommand.is(e):
+				void this.onGenerateCommitMessage(e.params);
 				break;
 		}
 	}
@@ -45,6 +55,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			commits: commits,
 			hunkMap: hunkMap,
 			baseCommit: baseCommit,
+			generating: false,
+			generatingCommitMessage: null,
 
 			// UI state
 			selectedCommitId: null,
@@ -84,6 +96,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		try {
 			console.log('ComposerWebviewProvider onGenerateCommits called with:', params);
 
+			// Notify webview that generation is starting
+			await this.host.notify(DidStartGeneratingNotification, undefined);
+
 			// Transform the data for the AI service
 			const hunks = params.hunks.map(hunk => ({
 				index: hunk.index,
@@ -115,14 +130,60 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					hunkIndices: commit.hunks.map(h => h.hunk),
 				}));
 
-				// Notify the webview with the generated commits
+				// Notify the webview with the generated commits (this will also clear loading state)
 				await this.host.notify(DidGenerateCommitsNotification, { commits: newCommits });
 				console.log('Successfully generated and sent commits:', newCommits);
 			} else {
 				console.log('AI generation was cancelled or failed');
+				// Clear loading state even if cancelled/failed
+				await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
 			}
 		} catch (error) {
 			console.error('Error in onGenerateCommits:', error);
+			// Clear loading state on error
+			await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
+		}
+	}
+
+	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
+		try {
+			console.log('ComposerWebviewProvider onGenerateCommitMessage called with:', params);
+
+			// Notify webview that commit message generation is starting
+			await this.host.notify(DidStartGeneratingCommitMessageNotification, { commitId: params.commitId });
+
+			// Call the AI service to generate commit message
+			const result = await this.container.ai.generateCommitMessage(params.diff, {
+				source: 'ai',
+			});
+
+			if (result && result !== 'cancelled') {
+				// Combine summary and body into a single message
+				const message = result.parsed.body
+					? `${result.parsed.summary}\n\n${result.parsed.body}`
+					: result.parsed.summary;
+
+				// Notify the webview with the generated commit message
+				await this.host.notify(DidGenerateCommitMessageNotification, {
+					commitId: params.commitId,
+					message: message,
+				});
+				console.log('Successfully generated commit message for commit:', params.commitId);
+			} else {
+				console.log('Commit message generation was cancelled or failed');
+				// Clear loading state even if cancelled/failed
+				await this.host.notify(DidGenerateCommitMessageNotification, {
+					commitId: params.commitId,
+					message: '',
+				});
+			}
+		} catch (error) {
+			console.error('Error in onGenerateCommitMessage:', error);
+			// Clear loading state on error
+			await this.host.notify(DidGenerateCommitMessageNotification, {
+				commitId: params.commitId,
+				message: '',
+			});
 		}
 	}
 }
