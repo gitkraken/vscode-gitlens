@@ -1,8 +1,10 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
 import {
+	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
+	DidStartCommittingNotification,
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
 } from '../../../plus/composer/protocol';
@@ -102,6 +104,32 @@ export class ComposerStateProvider implements StateProvider<State> {
 						'with message:',
 						msg.params.message,
 					);
+					break;
+				}
+				case DidStartCommittingNotification.is(msg): {
+					// Set committing state when finish and commit starts
+					const updatedState = {
+						...this._state,
+						committing: true,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					console.log('Started committing - set loading state');
+					break;
+				}
+				case DidFinishCommittingNotification.is(msg): {
+					// Clear committing state when finish and commit completes
+					const updatedState = {
+						...this._state,
+						committing: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					console.log('Finished committing - cleared loading state');
 					break;
 				}
 			}

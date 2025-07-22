@@ -37,6 +37,7 @@ export interface State extends WebviewState {
 	baseCommit: string;
 	generating: boolean;
 	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
+	committing: boolean; // true when finish and commit is in progress
 
 	// UI state
 	selectedCommitId: string | null;
@@ -59,10 +60,6 @@ export interface State extends WebviewState {
 }
 
 // Commands that can be sent from the webview to the host
-export interface FinishAndCommitParams {
-	commits: ComposerCommit[];
-	unassignedHunkIndices: number[];
-}
 
 export interface GenerateWithAIParams {
 	commits: ComposerCommit[];
@@ -106,6 +103,8 @@ export const DidGenerateCommitMessageNotification = new IpcNotification<DidGener
 	ipcScope,
 	'didGenerateCommitMessage',
 );
+export const DidStartCommittingNotification = new IpcNotification<void>(ipcScope, 'didStartCommitting');
+export const DidFinishCommittingNotification = new IpcNotification<void>(ipcScope, 'didFinishCommitting');
 
 // Parameters for IPC messages
 export interface GenerateCommitsParams {
@@ -122,7 +121,8 @@ export interface GenerateCommitMessageParams {
 
 export interface FinishAndCommitParams {
 	commits: ComposerCommit[];
-	unassignedHunkIndices: number[];
+	hunks: ComposerHunk[];
+	baseCommit: string;
 }
 
 export interface DidChangeComposerDataParams {

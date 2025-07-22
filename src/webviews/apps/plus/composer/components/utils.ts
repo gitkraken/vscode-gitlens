@@ -112,45 +112,63 @@ export function getFileChanges(hunks: ComposerHunk[]): { additions: number; dele
 }
 
 /**
- * Combines hunks assigned to a commit into a single diff string
+ * Combines hunks assigned to a commit into a single diff string and file patches map
  * @param commit The commit containing hunk indices
  * @param hunks Array of all available hunks
- * @returns A valid git diff string combining all hunks for the commit
+ * @returns Object containing the combined diff string and file patches map
  */
-export function createCombinedDiffForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): string {
+export function createCombinedDiffForCommit(
+	commit: ComposerCommit,
+	hunks: ComposerHunk[],
+): { patch: string; filePatches: Map<string, string[]> } {
 	// Get hunks for this commit
 	const commitHunks = commit.hunkIndices
 		.map(index => hunks.find(hunk => hunk.index === index))
 		.filter((hunk): hunk is ComposerHunk => hunk !== undefined);
 
 	if (commitHunks.length === 0) {
-		return '';
+		return { patch: '', filePatches: new Map() };
 	}
 
 	// Group hunks by file (diffHeader)
-	const hunksByFile = new Map<string, ComposerHunk[]>();
+	const filePatches = new Map<string, string[]>();
 	commitHunks.forEach(hunk => {
 		const diffHeader = hunk.diffHeader || `diff --git a/${hunk.fileName} b/${hunk.fileName}`;
-		if (!hunksByFile.has(diffHeader)) {
-			hunksByFile.set(diffHeader, []);
+		if (!filePatches.has(diffHeader)) {
+			filePatches.set(diffHeader, []);
 		}
-		hunksByFile.get(diffHeader)!.push(hunk);
+
+		filePatches.get(diffHeader)!.push(hunk.content);
 	});
 
-	// Build the combined diff string
-	const diffParts: string[] = [];
-
-	for (const [diffHeader, fileHunks] of hunksByFile) {
-		// Add the diff header for this file
-		diffParts.push(diffHeader);
-
-		// Add each hunk for this file
-		fileHunks.forEach(hunk => {
-			diffParts.push(hunk.hunkHeader);
-			diffParts.push(hunk.content);
-		});
+	// Build the complete patch string
+	let commitPatch = '';
+	for (const [header, hunkContents] of filePatches.entries()) {
+		commitPatch += `${header.trim()}\n${hunkContents.join('\n')}\n`;
 	}
 
-	// Join with appropriate newlines to create a valid diff
-	return diffParts.join('\n');
+	return { patch: commitPatch, filePatches: filePatches };
+}
+
+/**
+ * Converts composer commits and hunks to ComposerDiffInfo format for the rebase infrastructure
+ * @param commits Array of composer commits
+ * @param hunks Array of all available hunks
+ * @returns Array of ComposerDiffInfo objects ready for createUnreachableCommitsFromPatches
+ */
+export function convertToComposerDiffInfo(
+	commits: ComposerCommit[],
+	hunks: ComposerHunk[],
+): Array<{ message: string; explanation?: string; filePatches: Map<string, string[]>; patch: string }> {
+	return commits.map(commit => {
+		// Use the consolidated createCombinedDiffForCommit function
+		const { patch, filePatches } = createCombinedDiffForCommit(commit, hunks);
+
+		return {
+			message: commit.message,
+			explanation: commit.aiExplanation,
+			filePatches: filePatches,
+			patch: patch,
+		};
+	});
 }

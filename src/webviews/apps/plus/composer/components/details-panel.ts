@@ -256,6 +256,9 @@ export class DetailsPanel extends LitElement {
 	@property({ type: String })
 	generatingCommitMessage: string | null = null;
 
+	@property({ type: Boolean })
+	committing: boolean = false;
+
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -553,7 +556,7 @@ export class DetailsPanel extends LitElement {
 						<gl-button
 							appearance="secondary"
 							size="small"
-							?disabled=${this.generatingCommitMessage === commit.id}
+							?disabled=${this.generatingCommitMessage === commit.id || this.committing}
 							@click=${() => this.handleGenerateCommitMessage(commit.id)}
 							title=${this.generatingCommitMessage === commit.id
 								? 'Generating...'
