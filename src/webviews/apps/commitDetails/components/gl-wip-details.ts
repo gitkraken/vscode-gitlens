@@ -4,6 +4,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { ComposeCommandArgs } from '../../../../commands/composer';
 import type { GenerateCommitsCommandArgs } from '../../../../commands/generateRebase';
 import { createCommandLink } from '../../../../system/commands';
 import { equalsIgnoreCase } from '../../../../system/string';
@@ -138,6 +139,16 @@ export class GlWipDetails extends GlDetailsBase {
 						tooltip="Generate Commits with AI (Preview) — organize working changes into meaningful commits"
 						.tooltipPlacement=${'top'}
 						>Commit with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
+					></gl-button>
+					<gl-button
+						appearance="secondary"
+						.href=${createCommandLink('gitlens.ai.composeCommits', {
+							repoPath: this.wip?.repo.path,
+							source: 'inspect',
+						} as ComposeCommandArgs)}
+						tooltip="Compose Commits with AI (Preview) — interactively organize working changes into meaningful commits"
+						.tooltipPlacement=${'top'}
+						>Compose with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
 					></gl-button>
 					<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
 						><code-icon rotate="45" icon="arrow-up"></code-icon
