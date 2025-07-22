@@ -515,6 +515,14 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
+	private dispatchGenerateCommitsWithAI() {
+		this.dispatchEvent(
+			new CustomEvent('generate-commits-with-ai', {
+				bubbles: true,
+			}),
+		);
+	}
+
 	private renderUnassignedSection() {
 		const unassignedHunks = getUnassignedHunks(this.hunks);
 		const sections = [];
@@ -588,15 +596,25 @@ export class CommitsPanel extends LitElement {
 							Combine ${this.selectedCommitIds.size} Commits
 						</gl-button>
 					`,
-					() => html`
-						<gl-button
-							appearance="primary"
-							?disabled=${!this.canFinishAndCommit}
-							@click=${this.dispatchFinishAndCommit}
-						>
-							Finish and Commit
-						</gl-button>
-					`,
+					() =>
+						when(
+							this.commits.length === 0,
+							() => html`
+								<gl-button appearance="primary" @click=${this.dispatchGenerateCommitsWithAI}>
+									<code-icon icon="sparkle" slot="prefix"></code-icon>
+									Generate Commits with AI
+								</gl-button>
+							`,
+							() => html`
+								<gl-button
+									appearance="primary"
+									?disabled=${!this.canFinishAndCommit}
+									@click=${this.dispatchFinishAndCommit}
+								>
+									Finish and Commit
+								</gl-button>
+							`,
+						),
 				)}
 			</div>
 			<div class="commits-list">

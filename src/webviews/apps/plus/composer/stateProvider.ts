@@ -1,5 +1,6 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
+import { DidGenerateCommitsNotification } from '../../../plus/composer/protocol';
 import type { ReactiveElementHost, StateProvider } from '../../shared/appHost';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
@@ -19,22 +20,36 @@ export class ComposerStateProvider implements StateProvider<State> {
 		state: State,
 		private readonly _ipc: HostIpc,
 	) {
+		console.log('ComposerStateProvider constructor - received state:', state);
 		this._state = state;
-		this.provider = new ContextProvider(host, { context: stateContext, initialValue: state });
+		this.provider = new ContextProvider(host, { context: stateContext, initialValue: this._state });
 
-		// For now, we don't have any IPC messages to handle
-		// In the future, this would handle messages like DidChangeComposerData
-		this.disposable = this._ipc.onReceiveMessage(_msg => {
-			// Handle incoming messages here
-			// switch (true) {
-			//   case DidChangeComposerData.is(msg):
-			//     this._state.hunks = msg.params.hunks;
-			//     this._state.commits = msg.params.commits;
-			//     this._state.baseCommit = msg.params.baseCommit;
-			//     this._state.timestamp = Date.now();
-			//     this.provider.setValue(this._state, true);
-			//     break;
-			// }
+		// Handle IPC messages from the webview provider
+		this.disposable = this._ipc.onReceiveMessage(msg => {
+			switch (true) {
+				case DidGenerateCommitsNotification.is(msg): {
+					// Update commits when AI generation completes
+					const updatedState = {
+						...this._state,
+						commits: msg.params.commits,
+						hunks: this._state.hunks.map(hunk => ({
+							...hunk,
+							assigned: true,
+						})),
+						unassignedChanges: {
+							mode: 'staged-unstaged' as const,
+							staged: [],
+							unstaged: [],
+						},
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					console.log('Updated state with AI-generated commits:', msg.params.commits);
+					break;
+				}
+			}
 		});
 	}
 

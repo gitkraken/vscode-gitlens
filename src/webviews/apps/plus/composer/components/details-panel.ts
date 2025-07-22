@@ -96,11 +96,20 @@ export class DetailsPanel extends LitElement {
 				padding: 0.75rem 1rem;
 				background: var(--vscode-sideBar-background);
 				border-bottom: 1px solid var(--vscode-panel-border);
-				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 0.5rem;
+				font-weight: 500;
+			}
+
+			.section-header-left {
 				display: flex;
 				align-items: center;
 				gap: 0.5rem;
-				font-weight: 500;
+				cursor: pointer;
+				user-select: none;
+				flex: 1;
 			}
 
 			.section-header:hover {
@@ -401,6 +410,19 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
+	private handleGenerateCommitMessage(commitId: string) {
+		// Get hunk indices for this commit
+		const commit = this.selectedCommits.find(c => c.id === commitId);
+		const hunkIndices = commit?.hunkIndices || [];
+
+		this.dispatchEvent(
+			new CustomEvent('generate-commit-message', {
+				detail: { commitId: commitId, hunkIndices: hunkIndices },
+				bubbles: true,
+			}),
+		);
+	}
+
 	private handleFilesListDragEnter = (e: Event) => {
 		e.preventDefault();
 		(e.currentTarget as HTMLElement).classList.add('drag-over');
@@ -518,9 +540,21 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section">
-					<div class="section-header" @click=${() => this.toggleSection('commitMessage')}>
-						<code-icon icon=${this.commitMessageExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						Commit Message
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('commitMessage')}>
+							<code-icon
+								icon=${this.commitMessageExpanded ? 'chevron-down' : 'chevron-right'}
+							></code-icon>
+							Commit Message
+						</div>
+						<gl-button
+							appearance="secondary"
+							size="small"
+							@click=${() => this.handleGenerateCommitMessage(commit.id)}
+							title="Generate Commit Message with AI"
+						>
+							<code-icon icon="sparkle"></code-icon>
+						</gl-button>
 					</div>
 					<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
 						<textarea

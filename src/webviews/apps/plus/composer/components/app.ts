@@ -4,6 +4,9 @@ import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
+import { GenerateCommitsCommand } from '../../../../plus/composer/protocol';
+import { ipcContext } from '../../../shared/contexts/ipc';
+import type { HostIpc } from '../../../shared/ipc';
 import { stateContext } from '../context';
 import { updateHunkAssignments } from './utils';
 import '../../../shared/components/button';
@@ -18,6 +21,9 @@ import './hunk-item';
 export class ComposerApp extends LitElement {
 	@consume({ context: stateContext, subscribe: true })
 	state!: State;
+
+	@consume({ context: ipcContext })
+	private _ipc!: HostIpc;
 
 	static override styles = css`
 		:host {
@@ -851,6 +857,24 @@ export class ComposerApp extends LitElement {
 		this.showModal = true;
 	}
 
+	private generateCommitsWithAI() {
+		console.log('generateCommitsWithAI called');
+		console.log('this.state:', this.state);
+
+		// Send IPC command to generate commits
+		this._ipc.sendCommand(GenerateCommitsCommand, {
+			hunks: this.hunksWithAssignments,
+			commits: this.state.commits,
+			hunkMap: this.state.hunkMap,
+			baseCommit: this.state.baseCommit,
+		});
+	}
+
+	private generateCommitMessage(commitId: string, hunkIndices: number[]) {
+		// TODO: Implement IPC command for generating commit messages
+		console.log('generateCommitMessage called for commit:', commitId, 'with hunks:', hunkIndices);
+	}
+
 	private combineSelectedCommits() {
 		if (this.selectedCommitIds.size < 2) return;
 
@@ -928,6 +952,7 @@ export class ComposerApp extends LitElement {
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
 					@finish-and-commit=${this.generateCommits}
+					@generate-commits-with-ai=${this.generateCommitsWithAI}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
 					@unassign-hunks=${(e: CustomEvent) => this.unassignHunks(e.detail.hunkIds)}
@@ -948,6 +973,8 @@ export class ComposerApp extends LitElement {
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
 					@update-commit-message=${(e: CustomEvent) =>
 						this.updateCommitMessage(e.detail.commitId, e.detail.message)}
+					@generate-commit-message=${(e: CustomEvent) =>
+						this.generateCommitMessage(e.detail.commitId, e.detail.hunkIndices)}
 					@hunk-selected=${(e: CustomEvent) => this.selectHunk(e.detail.hunkId, e.detail.shiftKey)}
 					@hunk-drag-start=${(e: CustomEvent) => this.handleHunkDragStart(e.detail.hunkIds)}
 					@hunk-drag-end=${() => this.handleHunkDragEnd()}

@@ -1,4 +1,5 @@
 import type { IpcScope, WebviewState } from '../../protocol';
+import { IpcCommand, IpcNotification } from '../../protocol';
 
 export const scope: IpcScope = 'composer';
 
@@ -22,11 +23,7 @@ export interface ComposerCommit {
 	hunkIndices: number[]; // References to hunk indices in the hunk map
 }
 
-export interface ComposerCallbacks {
-	onGenerateCommits: (hunks: ComposerHunk[], commits: ComposerCommit[], baseCommit: string) => void;
-	onGenerateCommitMessage: (commitId: string, hunkIndices: number[]) => void;
-	onComposeCommits: (commits: ComposerCommit[], unassignedHunkIndices: number[]) => void;
-}
+// Remove callbacks - use IPC instead
 
 export interface ComposerHunkMap {
 	index: number;
@@ -38,7 +35,6 @@ export interface State extends WebviewState {
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
 	baseCommit: string;
-	callbacks: ComposerCallbacks;
 
 	// UI state
 	selectedCommitId: string | null;
@@ -85,4 +81,51 @@ export interface DidChangeComposerDataParams {
 
 export interface DidChangeUnassignedChangesParams {
 	unassignedChanges: State['unassignedChanges'];
+}
+
+// IPC Commands and Notifications
+const ipcScope = 'composer';
+
+// Commands sent from webview to host
+export const GenerateCommitsCommand = new IpcCommand<GenerateCommitsParams>(ipcScope, 'generateCommits');
+export const GenerateCommitMessageCommand = new IpcCommand<GenerateCommitMessageParams>(
+	ipcScope,
+	'generateCommitMessage',
+);
+export const FinishAndCommitCommand = new IpcCommand<FinishAndCommitParams>(ipcScope, 'finishAndCommit');
+
+// Notifications sent from host to webview
+export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
+export const DidGenerateCommitsNotification = new IpcNotification<DidGenerateCommitsParams>(
+	ipcScope,
+	'didGenerateCommits',
+);
+
+// Parameters for IPC messages
+export interface GenerateCommitsParams {
+	hunks: ComposerHunk[];
+	commits: ComposerCommit[];
+	hunkMap: ComposerHunkMap[];
+	baseCommit: string;
+}
+
+export interface GenerateCommitMessageParams {
+	commitId: string;
+	hunkIndices: number[];
+}
+
+export interface FinishAndCommitParams {
+	commits: ComposerCommit[];
+	unassignedHunkIndices: number[];
+}
+
+export interface DidChangeComposerDataParams {
+	hunks: ComposerHunk[];
+	commits: ComposerCommit[];
+	hunkMap: ComposerHunkMap[];
+	baseCommit: string;
+}
+
+export interface DidGenerateCommitsParams {
+	commits: ComposerCommit[];
 }
