@@ -39,6 +39,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes editing search result in Search & Compare view failure ([#4431](https://github.com/gitkraken/vscode-gitlens/issues/4431))
 - Fixes search results not paging properly on the _Commit Graph_ when the first page of results is contained within the already loaded commits
 
+## [17.2.2] - 2025-07-03
+
+### Changed
+
+- Updates promo banners and content
+
 ## [17.2.1] - 2025-06-26
 
 ### Changed
@@ -6250,7 +6256,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 [unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.1...HEAD
 [17.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...gitkraken:v17.3.1
-[17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.3.0
+[17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.2...gitkraken:v17.3.0
+[17.2.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.1...gitkraken:v17.2.2
 [17.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.0...gitkraken:v17.2.1
 [17.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...gitkraken:v17.2.0
 [17.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...gitkraken:v17.1.1
