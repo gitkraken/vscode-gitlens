@@ -1,5 +1,9 @@
+import { commands, window } from 'vscode';
 import type { WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
+import { createReference } from '../../../git/utils/reference.utils';
+import { executeCommand } from '../../../system/-webview/command';
+import { showMarkdownPreview } from '../../../system/-webview/markdown';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
@@ -201,11 +205,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Notify webview that committing is starting
 			await this.host.notify(DidStartCommittingNotification, undefined);
 
-			// Import the utility function and generateRebase logic
-			const { convertToComposerDiffInfo } = await import('../../apps/plus/composer/components/utils');
-			const { executeCommand } = await import('../../../system/-webview/command');
-			const { createReference } = await import('../../../git/utils/reference.utils');
-			const { window, commands } = await import('vscode');
+			// Import the utility functions
+			const { convertToComposerDiffInfo, generateComposerMarkdown } = await import(
+				'../../apps/plus/composer/components/utils'
+			);
 
 			// Convert composer data to ComposerDiffInfo format
 			const diffInfo = convertToComposerDiffInfo(params.commits, params.hunks);
@@ -221,7 +224,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Create unreachable commits from patches
+			console.log('Creating unreachable commits from patches...');
+			console.log('Base commit:', params.baseCommit);
+			console.log('Diff info:', diffInfo);
+
 			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit, diffInfo);
+			console.log('Created commit SHAs:', shas);
+
 			if (!shas?.length) {
 				throw new Error('Failed to create commits from patches');
 			}
@@ -271,9 +280,32 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Capture the new HEAD after reset
 			const generatedHeadRef = createReference(shas[shas.length - 1], svc.path, { refType: 'revision' });
 
-			// Close the composer webview first
+			// Generate and show markdown document
+			console.log('Generating markdown for commits:', params.commits.length);
+			const markdownContent = generateComposerMarkdown(params.commits, params.hunks, 'Generated Commits');
+			console.log('Generated markdown content length:', markdownContent.length);
+
+			const documentUri = this.container.markdown.openDocument(
+				markdownContent,
+				`/generate/commits/uncommitted/composer`,
+				'Generated Commits',
+			);
+			console.log('Created markdown document URI:', documentUri.toString());
+
+			// Open the markdown preview and wait a moment for it to load
+			console.log('Opening markdown preview...');
+			showMarkdownPreview(documentUri);
+
+			// Wait a bit to ensure the markdown preview opens before closing the composer
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// Close the composer webview
 			await this.host.notify(DidFinishCommittingNotification, undefined);
-			void commands.executeCommand('workbench.action.closeActiveEditor');
+
+			// Use a slight delay before closing to ensure the markdown is visible
+			setTimeout(() => {
+				void commands.executeCommand('workbench.action.closeActiveEditor');
+			}, 100);
 
 			// Show success notification with Undo button
 			const undoButton = { title: 'Undo' };

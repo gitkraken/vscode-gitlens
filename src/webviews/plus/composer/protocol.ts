@@ -7,12 +7,14 @@ export interface ComposerHunk {
 	index: number; // Unique hunk index (1-based to match hunkMap)
 	fileName: string;
 	diffHeader: string; // Git diff header (e.g., "diff --git a/file.ts b/file.ts")
-	hunkHeader: string; // Hunk header (e.g., "@@ -1,5 +1,7 @@")
-	content: string; // The actual diff content (lines starting with +, -, or space)
+	hunkHeader: string; // Hunk header (e.g., "@@ -1,5 +1,7 @@") or "rename" for rename hunks
+	content: string; // The actual diff content (lines starting with +, -, or space) or rename info
 	additions: number;
 	deletions: number;
 	source: 'staged' | 'unstaged' | 'commits' | string; // commit SHA or source type
 	assigned?: boolean; // True when this hunk's index is in any commit's hunkIndices array
+	isRename?: boolean; // True for rename-only hunks
+	originalFileName?: string; // Original filename for renames
 }
 
 export interface ComposerCommit {
