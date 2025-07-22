@@ -110,3 +110,47 @@ export function getFileChanges(hunks: ComposerHunk[]): { additions: number; dele
 		{ additions: 0, deletions: 0 },
 	);
 }
+
+/**
+ * Combines hunks assigned to a commit into a single diff string
+ * @param commit The commit containing hunk indices
+ * @param hunks Array of all available hunks
+ * @returns A valid git diff string combining all hunks for the commit
+ */
+export function createCombinedDiffForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): string {
+	// Get hunks for this commit
+	const commitHunks = commit.hunkIndices
+		.map(index => hunks.find(hunk => hunk.index === index))
+		.filter((hunk): hunk is ComposerHunk => hunk !== undefined);
+
+	if (commitHunks.length === 0) {
+		return '';
+	}
+
+	// Group hunks by file (diffHeader)
+	const hunksByFile = new Map<string, ComposerHunk[]>();
+	commitHunks.forEach(hunk => {
+		const diffHeader = hunk.diffHeader || `diff --git a/${hunk.fileName} b/${hunk.fileName}`;
+		if (!hunksByFile.has(diffHeader)) {
+			hunksByFile.set(diffHeader, []);
+		}
+		hunksByFile.get(diffHeader)!.push(hunk);
+	});
+
+	// Build the combined diff string
+	const diffParts: string[] = [];
+
+	for (const [diffHeader, fileHunks] of hunksByFile) {
+		// Add the diff header for this file
+		diffParts.push(diffHeader);
+
+		// Add each hunk for this file
+		fileHunks.forEach(hunk => {
+			diffParts.push(hunk.hunkHeader);
+			diffParts.push(hunk.content);
+		});
+	}
+
+	// Join with appropriate newlines to create a valid diff
+	return diffParts.join('\n');
+}
