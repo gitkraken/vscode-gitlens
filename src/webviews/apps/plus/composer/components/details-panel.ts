@@ -10,7 +10,7 @@ import {
 	getHunksForCommit,
 	getUnassignedHunks,
 	groupHunksByFile,
-} from './utils';
+} from '../../../../plus/composer/utils';
 import './hunk-item';
 
 @customElement('gl-details-panel')
@@ -39,13 +39,25 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.commit-details {
-				flex: 1;
 				display: flex;
 				flex-direction: column;
 				min-width: 0;
 				border-bottom: 1px solid var(--vscode-panel-border);
 				margin-bottom: 1.5rem;
-				min-height: 0;
+				background: var(--vscode-editor-background);
+			}
+
+			/* Single commit: take full height */
+			:host(:not([multiple-commits])) .commit-details {
+				flex: 1;
+				margin-bottom: 0;
+			}
+
+			/* Multiple commits: fixed height containers that stack */
+			:host([multiple-commits]) .commit-details {
+				height: 100vh;
+				flex: none;
+				margin-bottom: 2rem;
 			}
 
 			.commit-details:last-child {
@@ -86,6 +98,7 @@ export class DetailsPanel extends LitElement {
 			.section.files-changed-section {
 				flex: 1;
 				min-height: 0;
+				max-height: 75vh;
 			}
 
 			.section:last-child {
@@ -96,11 +109,20 @@ export class DetailsPanel extends LitElement {
 				padding: 0.75rem 1rem;
 				background: var(--vscode-sideBar-background);
 				border-bottom: 1px solid var(--vscode-panel-border);
-				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 0.5rem;
+				font-weight: 500;
+			}
+
+			.section-header-left {
 				display: flex;
 				align-items: center;
 				gap: 0.5rem;
-				font-weight: 500;
+				cursor: pointer;
+				user-select: none;
+				flex: 1;
 			}
 
 			.section-header:hover {
@@ -112,8 +134,8 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.section-content.collapsed {
-				max-height: 0;
-				overflow: hidden;
+				max-height: 0 !important;
+				overflow: hidden !important;
 			}
 
 			.section-content.commit-message {
@@ -133,6 +155,16 @@ export class DetailsPanel extends LitElement {
 				flex: 1;
 				overflow-y: auto;
 				min-height: 0;
+				max-height: 100%;
+			}
+
+			.section-content.files-changed.collapsed {
+				overflow: hidden !important;
+			}
+
+			.section-content.files-changed.drag-over {
+				border: 2px solid var(--vscode-focusBorder);
+				background: var(--vscode-list-dropBackground);
 			}
 
 			.ai-explanation {
@@ -203,11 +235,6 @@ export class DetailsPanel extends LitElement {
 				flex-direction: column;
 			}
 
-			.files-list.drag-over {
-				border: 2px solid var(--vscode-focusBorder);
-				background: var(--vscode-list-dropBackground);
-			}
-
 			.commit-message-textarea {
 				width: 100%;
 				min-width: 0;
@@ -244,9 +271,20 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Set })
 	selectedHunkIds: Set<string> = new Set();
 
+	@property({ type: String })
+	generatingCommitMessage: string | null = null;
+
+	@property({ type: Boolean })
+	committing: boolean = false;
+
+	@property({ type: Boolean })
+	aiEnabled: boolean = false;
+
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
+	private autoScrollInterval?: number;
+	private dragOverCleanupTimeout?: number;
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
@@ -254,12 +292,18 @@ export class DetailsPanel extends LitElement {
 		// Reinitialize sortables when commits or hunks change
 		if (changedProperties.has('selectedCommits') || changedProperties.has('hunks')) {
 			this.initializeHunksSortable();
+			this.setupAutoScroll();
 		}
 	}
 
 	override disconnectedCallback() {
 		super.disconnectedCallback?.();
 		this.destroyHunksSortables();
+		this.cleanupAutoScroll();
+		if (this.dragOverCleanupTimeout) {
+			clearTimeout(this.dragOverCleanupTimeout);
+			this.dragOverCleanupTimeout = undefined;
+		}
 	}
 
 	private destroyHunksSortables() {
@@ -278,18 +322,12 @@ export class DetailsPanel extends LitElement {
 					group: {
 						name: 'hunks',
 						pull: true, // Allow pulling hunks out
-						put: true, // Allow dropping hunks between commits
+						put: false, // Allow dropping hunks between commits
 					},
-					animation: 150,
-					ghostClass: 'sortable-ghost',
-					chosenClass: 'sortable-chosen',
+					animation: 0,
 					dragClass: 'sortable-drag',
+					selectedClass: 'sortable-selected',
 					sort: false, // Don't allow reordering within the same container
-					scroll: true,
-					scrollSensitivity: 60,
-					scrollSpeed: 15,
-					bubbleScroll: true,
-					forceAutoScrollFallback: true,
 					onStart: evt => {
 						const draggedHunkId = evt.item.dataset.hunkId;
 						if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
@@ -303,23 +341,6 @@ export class DetailsPanel extends LitElement {
 						// Store original element for restoration if needed
 						evt.item.setAttribute('data-original-parent', evt.from.id || 'unknown');
 					},
-					onAdd: evt => {
-						// Handle dropping hunk into different commit's files changed section
-						const targetCommitId = evt.to.closest('[data-commit-id]')?.getAttribute('data-commit-id');
-						const hunkIds = this.isDraggingHunks
-							? this.draggedHunkIds
-							: ([evt.item.dataset.hunkId].filter(Boolean) as string[]);
-
-						if (targetCommitId && hunkIds.length > 0) {
-							this.dispatchEvent(
-								new CustomEvent('move-hunks-to-commit', {
-									detail: { hunkIds: hunkIds, targetCommitId: targetCommitId },
-									bubbles: true,
-								}),
-							);
-						}
-						evt.item.remove(); // Remove the dragged element
-					},
 					onEnd: () => {
 						this.dispatchHunkDragEnd();
 					},
@@ -329,13 +350,143 @@ export class DetailsPanel extends LitElement {
 		}
 
 		// Add drag event listeners to files-list containers for visual feedback
-		const filesListContainers = this.shadowRoot?.querySelectorAll('.files-list');
+		const filesListContainers = this.shadowRoot?.querySelectorAll('.files-changed');
 		filesListContainers?.forEach(container => {
-			container.addEventListener('dragenter', this.handleFilesListDragEnter);
-			container.addEventListener('dragleave', this.handleFilesListDragLeave);
+			container.addEventListener('dragover', this.handleFilesListDragOver);
 			container.addEventListener('drop', this.handleFilesListDrop);
 		});
 	}
+
+	private handleFilesListDragOver = (e: Event) => {
+		e.preventDefault();
+		const target = e.currentTarget as HTMLElement;
+
+		// Only add drag-over if we're actually dragging hunks
+		if (this.isDraggingHunks) {
+			target.classList.add('drag-over');
+
+			// Clear any existing cleanup timeout for this container
+			if (this.dragOverCleanupTimeout) {
+				clearTimeout(this.dragOverCleanupTimeout);
+			}
+
+			// Only set cleanup timeout if we're not auto-scrolling
+			// (auto-scrolling can cause dragover events to be inconsistent)
+			if (!this.autoScrollInterval) {
+				this.dragOverCleanupTimeout = window.setTimeout(() => {
+					target.classList.remove('drag-over');
+				}, 150); // Remove highlight after 150ms of no dragover events
+			}
+		}
+	};
+
+	private handleFilesListDrop = (e: Event) => {
+		e.preventDefault();
+		(e.currentTarget as HTMLElement).classList.remove('drag-over');
+
+		// Find the target commit ID
+		const targetCommitId = (e.currentTarget as HTMLElement)
+			.closest('[data-commit-id]')
+			?.getAttribute('data-commit-id');
+
+		if (targetCommitId && this.isDraggingHunks && this.draggedHunkIds.length > 0) {
+			this.dispatchEvent(
+				new CustomEvent('move-hunks-to-commit', {
+					detail: { hunkIds: this.draggedHunkIds, targetCommitId: targetCommitId },
+					bubbles: true,
+				}),
+			);
+		}
+
+		// Always end the drag operation to clean up state
+		this.dispatchHunkDragEnd();
+	};
+
+	private setupAutoScroll() {
+		const detailsPanel = this.shadowRoot?.querySelector('.details-panel');
+		if (!detailsPanel) return;
+
+		// Remove existing listeners
+		this.cleanupAutoScroll();
+
+		// Add dragover listener for auto-scroll
+		detailsPanel.addEventListener('dragover', this.handleDragOverForAutoScroll);
+		// Add global dragend listener as a safety net to clean up drag state
+		document.addEventListener('dragend', this.handleGlobalDragEnd);
+	}
+
+	private cleanupAutoScroll() {
+		const detailsPanel = this.shadowRoot?.querySelector('.details-panel');
+		if (detailsPanel) {
+			detailsPanel.removeEventListener('dragover', this.handleDragOverForAutoScroll);
+		}
+		document.removeEventListener('dragend', this.handleGlobalDragEnd);
+		if (this.autoScrollInterval) {
+			clearInterval(this.autoScrollInterval);
+			this.autoScrollInterval = undefined;
+		}
+	}
+
+	private handleGlobalDragEnd = () => {
+		// Safety net: always clean up drag state when any drag operation ends
+		if (this.isDraggingHunks) {
+			this.dispatchHunkDragEnd();
+		}
+	};
+
+	private handleDragOverForAutoScroll = (e: Event) => {
+		// Only auto-scroll when in split-view (multiple commits) and we're dragging hunks
+		const detailsPanel = this.shadowRoot?.querySelector('.details-panel');
+		if (!detailsPanel?.classList.contains('split-view') || !this.isDraggingHunks) {
+			return;
+		}
+
+		const dragEvent = e as DragEvent;
+		dragEvent.preventDefault();
+
+		const scrollContainer = dragEvent.currentTarget as HTMLElement;
+		const rect = scrollContainer.getBoundingClientRect();
+		const scrollZone = 120;
+		const scrollSpeed = 25;
+
+		const mouseY = dragEvent.clientY;
+		const relativeY = mouseY - rect.top;
+
+		// Clear existing interval
+		if (this.autoScrollInterval) {
+			clearInterval(this.autoScrollInterval);
+			this.autoScrollInterval = undefined;
+		}
+
+		// Check if we're near the top or bottom
+		if (relativeY < scrollZone && scrollContainer.scrollTop > 0) {
+			// Scroll up
+			this.autoScrollInterval = window.setInterval(() => {
+				if (scrollContainer.scrollTop <= 0) {
+					// Stop scrolling when we reach the top
+					clearInterval(this.autoScrollInterval);
+					this.autoScrollInterval = undefined;
+					return;
+				}
+				scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - scrollSpeed);
+			}, 16); // ~60fps
+		} else if (
+			relativeY > rect.height - scrollZone &&
+			scrollContainer.scrollTop < scrollContainer.scrollHeight - scrollContainer.clientHeight
+		) {
+			// Scroll down
+			this.autoScrollInterval = window.setInterval(() => {
+				const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+				if (scrollContainer.scrollTop >= maxScroll) {
+					// Stop scrolling when we reach the bottom
+					clearInterval(this.autoScrollInterval);
+					this.autoScrollInterval = undefined;
+					return;
+				}
+				scrollContainer.scrollTop = Math.min(maxScroll, scrollContainer.scrollTop + scrollSpeed);
+			}, 16); // ~60fps
+		}
+	};
 
 	private dispatchHunkDragStart(hunkIds: string[]) {
 		this.isDraggingHunks = true;
@@ -351,45 +502,30 @@ export class DetailsPanel extends LitElement {
 	private dispatchHunkDragEnd() {
 		this.isDraggingHunks = false;
 		this.draggedHunkIds = [];
+
+		// Stop auto-scroll when drag ends
+		if (this.autoScrollInterval) {
+			clearInterval(this.autoScrollInterval);
+			this.autoScrollInterval = undefined;
+		}
+
+		// Clear drag over cleanup timeout
+		if (this.dragOverCleanupTimeout) {
+			clearTimeout(this.dragOverCleanupTimeout);
+			this.dragOverCleanupTimeout = undefined;
+		}
+
+		// Remove drag-over class from all files-changed containers
+		const filesListContainers = this.shadowRoot?.querySelectorAll('.files-changed');
+		filesListContainers?.forEach(container => {
+			container.classList.remove('drag-over');
+		});
+
 		this.dispatchEvent(
 			new CustomEvent('hunk-drag-end', {
 				bubbles: true,
 			}),
 		);
-	}
-
-	private setupFilesListDropZone(container: HTMLElement) {
-		container.addEventListener('dragover', e => {
-			e.preventDefault();
-			if (e.dataTransfer) {
-				e.dataTransfer.dropEffect = 'move';
-			}
-			container.classList.add('drag-over');
-		});
-
-		container.addEventListener('dragleave', e => {
-			e.preventDefault();
-			if (!container.contains(e.relatedTarget as Node)) {
-				container.classList.remove('drag-over');
-			}
-		});
-
-		container.addEventListener('drop', e => {
-			e.preventDefault();
-			container.classList.remove('drag-over');
-
-			// Find the target commit ID
-			const targetCommitId = container.closest('[data-commit-id]')?.getAttribute('data-commit-id');
-
-			if (targetCommitId && this.isDraggingHunks && this.draggedHunkIds.length > 0) {
-				this.dispatchEvent(
-					new CustomEvent('move-hunks-to-commit', {
-						detail: { hunkIds: this.draggedHunkIds, targetCommitId: targetCommitId },
-						bubbles: true,
-					}),
-				);
-			}
-		});
 	}
 
 	private handleCommitMessageChange(commitId: string, message: string) {
@@ -401,26 +537,24 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
-	private handleFilesListDragEnter = (e: Event) => {
-		e.preventDefault();
-		(e.currentTarget as HTMLElement).classList.add('drag-over');
-	};
+	private handleGenerateCommitMessage(commitId: string) {
+		// Get hunk indices for this commit
+		const commit = this.selectedCommits.find(c => c.id === commitId);
+		const hunkIndices = commit?.hunkIndices || [];
 
-	private handleFilesListDragLeave = (e: Event) => {
-		e.preventDefault();
-		(e.currentTarget as HTMLElement).classList.remove('drag-over');
-	};
-
-	private handleFilesListDrop = (e: Event) => {
-		e.preventDefault();
-		(e.currentTarget as HTMLElement).classList.remove('drag-over');
-	};
+		this.dispatchEvent(
+			new CustomEvent('generate-commit-message', {
+				detail: { commitId: commitId, hunkIndices: hunkIndices },
+				bubbles: true,
+			}),
+		);
+	}
 
 	private renderFileHierarchy(hunks: ComposerHunk[]) {
 		const fileGroups = groupHunksByFile(hunks);
 
 		return Array.from(fileGroups.entries())
-			.filter(([_fileName, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
+			.filter(([, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
 			.map(([fileName, fileHunks]) => {
 				const fileChanges = getFileChanges(fileHunks);
 
@@ -444,11 +578,14 @@ export class DetailsPanel extends LitElement {
 									<gl-hunk-item
 										data-hunk-id=${hunk.index.toString()}
 										.hunkId=${hunk.index.toString()}
+										.fileName=${hunk.fileName}
 										.hunkHeader=${hunk.hunkHeader}
 										.content=${hunk.content}
 										.additions=${hunk.additions}
 										.deletions=${hunk.deletions}
 										.selected=${this.selectedHunkIds.has(hunk.index.toString())}
+										.isRename=${hunk.isRename || false}
+										.originalFileName=${hunk.originalFileName}
 										@hunk-selected=${(e: CustomEvent) =>
 											this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
 									></gl-hunk-item>
@@ -461,17 +598,24 @@ export class DetailsPanel extends LitElement {
 	}
 
 	private toggleSection(section: 'commitMessage' | 'aiExplanation' | 'filesChanged') {
+		let eventName: string;
 		switch (section) {
 			case 'commitMessage':
-				this.commitMessageExpanded = !this.commitMessageExpanded;
+				eventName = 'toggle-commit-message';
 				break;
 			case 'aiExplanation':
-				this.aiExplanationExpanded = !this.aiExplanationExpanded;
+				eventName = 'toggle-ai-explanation';
 				break;
 			case 'filesChanged':
-				this.filesChangedExpanded = !this.filesChangedExpanded;
+				eventName = 'toggle-files-changed';
 				break;
 		}
+
+		this.dispatchEvent(
+			new CustomEvent(eventName, {
+				bubbles: true,
+			}),
+		);
 	}
 
 	private dispatchHunkSelect(hunkId: string, shiftKey: boolean = false) {
@@ -495,9 +639,11 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section files-changed-section">
-					<div class="section-header" @click=${() => this.toggleSection('filesChanged')}>
-						<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						Files Changed (${hunks.length})
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
+							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
+							Files Changed (${hunks.length})
+						</div>
 					</div>
 					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
 						<div class="files-list" data-source="${this.selectedUnassignedSection}">
@@ -518,9 +664,32 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section">
-					<div class="section-header" @click=${() => this.toggleSection('commitMessage')}>
-						<code-icon icon=${this.commitMessageExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						Commit Message
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('commitMessage')}>
+							<code-icon
+								icon=${this.commitMessageExpanded ? 'chevron-down' : 'chevron-right'}
+							></code-icon>
+							Commit Message
+						</div>
+						${this.aiEnabled
+							? html`
+									<gl-button
+										appearance="secondary"
+										size="small"
+										?disabled=${this.generatingCommitMessage === commit.id || this.committing}
+										@click=${() => this.handleGenerateCommitMessage(commit.id)}
+										title=${this.generatingCommitMessage === commit.id
+											? 'Generating...'
+											: 'Generate Commit Message with AI'}
+									>
+										<code-icon
+											icon=${this.generatingCommitMessage === commit.id
+												? 'loading~spin'
+												: 'sparkle'}
+										></code-icon>
+									</gl-button>
+								`
+							: ''}
 					</div>
 					<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
 						<textarea
@@ -535,9 +704,13 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section">
-					<div class="section-header" @click=${() => this.toggleSection('aiExplanation')}>
-						<code-icon icon=${this.aiExplanationExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						AI Explanation
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('aiExplanation')}>
+							<code-icon
+								icon=${this.aiExplanationExpanded ? 'chevron-down' : 'chevron-right'}
+							></code-icon>
+							AI Explanation
+						</div>
 					</div>
 					<div class="section-content ai-explanation ${this.aiExplanationExpanded ? '' : 'collapsed'}">
 						<p class="ai-explanation ${commit.aiExplanation ? '' : 'placeholder'}">
@@ -547,9 +720,11 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section files-changed-section">
-					<div class="section-header" @click=${() => this.toggleSection('filesChanged')}>
-						<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						Files Changed (${getFileCountForCommit(commit, this.hunks)})
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
+							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
+							Files Changed (${getFileCountForCommit(commit, this.hunks)})
+						</div>
 					</div>
 					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
 						<div class="files-list" data-commit-id=${commit.id}>

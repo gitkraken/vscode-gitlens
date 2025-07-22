@@ -6157,6 +6157,22 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.ai.composeCommits",
+				"title": "Compose Commits with AI (Preview)...",
+				"category": "GitLens",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.composeCommits:graph",
+				"title": "Compose Commits with AI (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.composeCommits:views",
+				"title": "Compose Commits with AI (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.ai.explainBranch",
 				"title": "Explain Branch Changes (Preview)...",
 				"category": "GitLens"
@@ -10820,6 +10836,18 @@
 				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.ai.composeCommits",
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.composeCommits:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.composeCommits:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.explainBranch",
@@ -18660,6 +18688,11 @@
 					"group": "3_gitlens_ai@10"
 				},
 				{
+					"command": "gitlens.ai.composeCommits:views",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_ai@2"
+				},
+				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "viewItem == gitlens:views:branches && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@10"
@@ -23331,6 +23364,11 @@
 					"command": "gitlens.ai.generateCommits:graph",
 					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.ai.composeCommits:graph",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens@3"
 				},
 				{
 					"command": "gitlens.stashSave:graph",

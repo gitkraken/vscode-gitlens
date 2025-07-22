@@ -144,6 +144,10 @@ export interface AIRebaseResult extends AIResult {
 	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];
 }
 
+export interface AIGenerateCommitsResult {
+	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];
+}
+
 export interface AIGenerateChangelogChange {
 	readonly message: string;
 	readonly issues: readonly { readonly id: string; readonly url: string; readonly title: string | undefined }[];
@@ -2089,6 +2093,155 @@ export class AIProviderService implements Disposable {
 
 				this._onDidChangeModel.fire({ model: defaultModel });
 			}
+		}
+	}
+
+	/**
+	 * Generates commits using AI to organize existing hunks into logical commits.
+	 * Similar to generateRebase but works with existing hunks instead of generating a diff.
+	 */
+	async generateCommits(
+		hunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+		hunkMap: { index: number; hunkHeader: string }[],
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
+		const confirmed = this.container.storage.get('confirm:ai:generateCommits', false);
+		if (!confirmed) {
+			const accept: MessageItem = { title: 'Continue' };
+			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+
+			const confirmResult = await window.showInformationMessage(
+				'This will organize your changes into logical commits using AI.',
+				{ modal: true },
+				accept,
+				cancel,
+			);
+
+			if (confirmResult === cancel) {
+				return undefined;
+			} else if (confirmResult === accept) {
+				await this.container.storage.store('confirm:ai:generateCommits', true);
+			}
+		}
+
+		// Send AI request to generate commits
+		const result = await this.sendRequest(
+			'generate-rebase',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				// Prepare the data for the AI prompt
+				const hunksJson = JSON.stringify(hunks);
+				const existingCommitsJson = JSON.stringify(existingCommits);
+				const hunkMapJson = JSON.stringify(hunkMap);
+
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const { prompt } = await this.getPrompt(
+					'generate-commits',
+					model,
+					{
+						hunks: hunksJson,
+						existingCommits: existingCommitsJson,
+						hunkMap: hunkMapJson,
+						context: options?.context,
+						instructions: undefined,
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				return messages;
+			},
+			m => `Generating commits with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'rebase',
+					id: undefined,
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+
+		if (result === 'cancelled') return result;
+		if (result == null) return undefined;
+
+		// Parse and validate the AI response
+		const parsedResult = this.parseGenerateCommitsResponse(result, hunkMap);
+		if (parsedResult == null) return undefined;
+
+		return parsedResult;
+	}
+
+	private parseGenerateCommitsResponse(
+		result: AIRequestResult,
+		hunkMap: { index: number; hunkHeader: string }[],
+	): AIGenerateCommitsResult | undefined {
+		try {
+			// Parse the JSON response from the AI
+			const parsed = JSON.parse(result.content);
+
+			if (!Array.isArray(parsed)) {
+				Logger.warn('AIProviderService', 'parseGenerateCommitsResponse', 'Response is not an array');
+				return undefined;
+			}
+
+			// Validate that all commits have required properties
+			const commits = parsed.map((commit: any) => {
+				if (typeof commit.message !== 'string' || typeof commit.explanation !== 'string') {
+					throw new Error('Invalid commit structure: missing message or explanation');
+				}
+
+				if (!Array.isArray(commit.hunks)) {
+					throw new Error('Invalid commit structure: hunks must be an array');
+				}
+
+				// Validate hunk indices
+				const hunks = commit.hunks.map((hunk: any) => {
+					if (typeof hunk.hunk !== 'number') {
+						throw new Error('Invalid hunk structure: hunk index must be a number');
+					}
+
+					// Verify hunk index exists in hunk map
+					if (!hunkMap.some(h => h.index === hunk.hunk)) {
+						throw new Error(`Invalid hunk index: ${hunk.hunk} not found in hunk map`);
+					}
+
+					return { hunk: hunk.hunk };
+				});
+
+				return {
+					message: commit.message,
+					explanation: commit.explanation,
+					hunks: hunks,
+				};
+			});
+
+			return { commits: commits };
+		} catch (error) {
+			Logger.error(error, 'AIProviderService', 'parseGenerateCommitsResponse');
+			return undefined;
 		}
 	}
 }

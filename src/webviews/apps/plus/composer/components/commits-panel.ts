@@ -10,7 +10,7 @@ import {
 	getFileCountForCommit,
 	getUnassignedHunks,
 	getUniqueFileNames,
-} from './utils';
+} from '../../../../plus/composer/utils';
 import '../../../shared/components/button';
 import './commit-item';
 
@@ -234,6 +234,15 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Boolean })
 	canFinishAndCommit: boolean = true;
 
+	@property({ type: Boolean })
+	generating: boolean = false;
+
+	@property({ type: Boolean })
+	committing: boolean = false;
+
+	@property({ type: Boolean })
+	aiEnabled: boolean = false;
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -319,14 +328,17 @@ export class CommitsPanel extends LitElement {
 			if (dragEvent.dataTransfer) {
 				dragEvent.dataTransfer.dropEffect = 'move';
 			}
-			element.classList.add('drag-over');
+			// Only add drag-over class if we're dragging hunks, not commits
+			if (this.isDraggingHunks) {
+				element.classList.add('drag-over');
+			}
 		});
 
 		element.addEventListener('dragleave', e => {
 			e.preventDefault();
 			const dragEvent = e;
-			// Only remove if we're actually leaving the element
-			if (!element.contains(dragEvent.relatedTarget as Node)) {
+			// Only remove if we're actually leaving the element and we were dragging hunks
+			if (!element.contains(dragEvent.relatedTarget as Node) && this.isDraggingHunks) {
 				element.classList.remove('drag-over');
 			}
 		});
@@ -474,7 +486,7 @@ export class CommitsPanel extends LitElement {
 		return draggedIndices.some(index => assignedIndices.has(index));
 	}
 
-	private handleHunkDragEnd(_event: Event) {
+	private handleHunkDragEnd() {
 		this.isDraggingHunks = false;
 		this.draggedHunkIds = [];
 		this.removeDropZoneHoverEffects();
@@ -510,6 +522,14 @@ export class CommitsPanel extends LitElement {
 	private dispatchFinishAndCommit() {
 		this.dispatchEvent(
 			new CustomEvent('finish-and-commit', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	private dispatchGenerateCommitsWithAI() {
+		this.dispatchEvent(
+			new CustomEvent('generate-commits-with-ai', {
 				bubbles: true,
 			}),
 		);
@@ -584,19 +604,41 @@ export class CommitsPanel extends LitElement {
 				${when(
 					this.selectedCommitIds.size > 1,
 					() => html`
-						<gl-button appearance="secondary" @click=${this.dispatchCombineCommits}>
+						<gl-button
+							appearance="secondary"
+							?disabled=${this.generating || this.committing}
+							@click=${this.dispatchCombineCommits}
+						>
 							Combine ${this.selectedCommitIds.size} Commits
 						</gl-button>
 					`,
-					() => html`
-						<gl-button
-							appearance="primary"
-							?disabled=${!this.canFinishAndCommit}
-							@click=${this.dispatchFinishAndCommit}
-						>
-							Finish and Commit
-						</gl-button>
-					`,
+					() =>
+						when(
+							this.commits.length === 0 && this.aiEnabled,
+							() => html`
+								<gl-button
+									appearance="primary"
+									?disabled=${this.generating || this.committing}
+									@click=${this.dispatchGenerateCommitsWithAI}
+								>
+									<code-icon
+										icon=${this.generating ? 'loading~spin' : 'sparkle'}
+										slot="prefix"
+									></code-icon>
+									${this.generating ? 'Generating Commits...' : 'Generate Commits with AI'}
+								</gl-button>
+							`,
+							() => html`
+								<gl-button
+									appearance="primary"
+									?disabled=${!this.canFinishAndCommit || this.generating || this.committing}
+									@click=${this.dispatchFinishAndCommit}
+								>
+									<code-icon icon=${this.committing ? 'loading~spin' : ''} slot="prefix"></code-icon>
+									${this.committing ? 'Committing...' : 'Finish and Commit'}
+								</gl-button>
+							`,
+						),
 				)}
 			</div>
 			<div class="commits-list">

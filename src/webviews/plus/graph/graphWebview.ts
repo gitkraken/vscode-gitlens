@@ -3,6 +3,7 @@ import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/commandContext.utils';
+import type { ComposeCommandArgs } from '../../../commands/composer';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
@@ -711,6 +712,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
 			this.host.registerWebviewCommand('gitlens.ai.generateCommits:graph', this.generateCommits),
+			this.host.registerWebviewCommand('gitlens.ai.composeCommits:graph', this.composeCommits),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
@@ -4075,6 +4077,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			await executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
 				repoPath: ref.repoPath,
 				source: { source: 'graph' },
+			});
+		}
+		return Promise.resolve();
+	}
+
+	@log()
+	private async composeCommits(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'revision')) {
+			const { ref } = item.webviewItemValue;
+
+			await executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommits', {
+				repoPath: ref.repoPath,
+				source: 'graph',
 			});
 		}
 		return Promise.resolve();

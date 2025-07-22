@@ -1,5 +1,14 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
+import {
+	DidChangeAiEnabledNotification,
+	DidFinishCommittingNotification,
+	DidGenerateCommitMessageNotification,
+	DidGenerateCommitsNotification,
+	DidStartCommittingNotification,
+	DidStartGeneratingCommitMessageNotification,
+	DidStartGeneratingNotification,
+} from '../../../plus/composer/protocol';
 import type { ReactiveElementHost, StateProvider } from '../../shared/appHost';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
@@ -20,25 +29,105 @@ export class ComposerStateProvider implements StateProvider<State> {
 		private readonly _ipc: HostIpc,
 	) {
 		this._state = state;
-		this.provider = new ContextProvider(host, { context: stateContext, initialValue: state });
+		this.provider = new ContextProvider(host, { context: stateContext, initialValue: this._state });
 
-		// For now, we don't have any IPC messages to handle
-		// In the future, this would handle messages like DidChangeComposerData
-		this.disposable = this._ipc.onReceiveMessage(_msg => {
-			// Handle incoming messages here
-			// switch (true) {
-			//   case DidChangeComposerData.is(msg):
-			//     this._state.hunks = msg.params.hunks;
-			//     this._state.commits = msg.params.commits;
-			//     this._state.baseCommit = msg.params.baseCommit;
-			//     this._state.timestamp = Date.now();
-			//     this.provider.setValue(this._state, true);
-			//     break;
-			// }
+		this.disposable = this._ipc.onReceiveMessage(msg => {
+			switch (true) {
+				case DidStartGeneratingNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						generatingCommits: true,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidStartGeneratingCommitMessageNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						generatingCommitMessage: msg.params.commitId,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidGenerateCommitsNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						generatingCommits: false,
+						commits: msg.params.commits,
+						hunks: this._state.hunks.map(hunk => ({
+							...hunk,
+							assigned: true,
+						})),
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidGenerateCommitMessageNotification.is(msg): {
+					const updatedCommits = this._state.commits.map(commit =>
+						commit.id === msg.params.commitId ? { ...commit, message: msg.params.message } : commit,
+					);
+
+					const updatedState = {
+						...this._state,
+						generatingCommitMessage: null,
+						commits: updatedCommits,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidStartCommittingNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						committing: true,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidFinishCommittingNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						committing: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidChangeAiEnabledNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						aiEnabled: {
+							...this._state.aiEnabled,
+							...(msg.params.org !== undefined && { org: msg.params.org }),
+							...(msg.params.config !== undefined && { config: msg.params.config }),
+						},
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+			}
 		});
 	}
 
-	// Methods to update state
 	updateSelectedCommit(commitId: string | null, multiSelect: boolean = false) {
 		if (multiSelect && commitId) {
 			const newSelection = new Set(this._state.selectedCommitIds);
@@ -62,7 +151,6 @@ export class ComposerStateProvider implements StateProvider<State> {
 			this._state.selectedCommitId = commitId;
 		}
 
-		// Clear unassigned changes selection
 		this._state.selectedUnassignedSection = null;
 		this._state.timestamp = Date.now();
 		this.provider.setValue(this._state, true);
@@ -96,13 +184,13 @@ export class ComposerStateProvider implements StateProvider<State> {
 	updateSectionExpansion(section: 'commitMessage' | 'aiExplanation' | 'filesChanged', expanded: boolean) {
 		switch (section) {
 			case 'commitMessage':
-				this._state.commitMessageExpanded = expanded;
+				this._state.detailsSectionExpanded.commitMessage = expanded;
 				break;
 			case 'aiExplanation':
-				this._state.aiExplanationExpanded = expanded;
+				this._state.detailsSectionExpanded.aiExplanation = expanded;
 				break;
 			case 'filesChanged':
-				this._state.filesChangedExpanded = expanded;
+				this._state.detailsSectionExpanded.filesChanged = expanded;
 				break;
 		}
 
