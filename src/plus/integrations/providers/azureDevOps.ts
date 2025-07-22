@@ -82,7 +82,7 @@ export class AzureDevOpsIntegration extends GitHostIntegration<
 			const account = await this.getProviderCurrentAccount(session);
 			if (account?.id == null) return undefined;
 
-			const resources = await api.getAzureResourcesForUser(account.id, {
+			const resources = await api.getAzureResourcesForUser(account.id, this.id, {
 				accessToken: convertTokentoPAT(accessToken),
 				isPAT: true,
 			});
@@ -121,7 +121,7 @@ export class AzureDevOpsIntegration extends GitHostIntegration<
 			const azureProjects = (
 				await Promise.allSettled(
 					resourcesWithoutProjects.map(resource =>
-						api.getAzureProjectsForResource(resource.name, {
+						api.getAzureProjectsForResource(resource.name, this.id, {
 							accessToken: convertTokentoPAT(accessToken),
 							isPAT: true,
 						}),
@@ -170,7 +170,7 @@ export class AzureDevOpsIntegration extends GitHostIntegration<
 		await Promise.all(
 			projects.map(async project => {
 				const repos = (
-					await api.getReposForAzureProject(project.resourceName, project.name, {
+					await api.getReposForAzureProject(project.resourceName, project.name, this.id, {
 						accessToken: convertTokentoPAT(accessToken),
 						isPAT: true,
 					})
@@ -373,14 +373,14 @@ export class AzureDevOpsIntegration extends GitHostIntegration<
 
 		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
 		const assignedPrs = (
-			await api.getPullRequestsForAzureProjects(projectInputs, {
+			await api.getPullRequestsForAzureProjects(projectInputs, this.id, {
 				accessToken: convertTokentoPAT(session.accessToken),
 				isPAT: true,
 				assigneeLogins: [user.username],
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
-			await api.getPullRequestsForAzureProjects(projectInputs, {
+			await api.getPullRequestsForAzureProjects(projectInputs, this.id, {
 				accessToken: convertTokentoPAT(session.accessToken),
 				isPAT: true,
 				authorLogin: user.username,
@@ -578,6 +578,6 @@ export function isAzureCloudDomain(domain: string | undefined): boolean {
 	return domain != null && azureCloudDomainRegex.test(domain);
 }
 
-function convertTokentoPAT(accessToken: string): string {
+export function convertTokentoPAT(accessToken: string): string {
 	return base64(`PAT:${accessToken}`);
 }
