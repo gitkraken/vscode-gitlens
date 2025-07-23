@@ -240,6 +240,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Boolean })
 	committing: boolean = false;
 
+	@property({ type: Boolean })
+	aiEnabled: boolean = false;
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -608,7 +611,7 @@ export class CommitsPanel extends LitElement {
 					`,
 					() =>
 						when(
-							this.commits.length === 0,
+							this.commits.length === 0 && this.aiEnabled,
 							() => html`
 								<gl-button
 									appearance="primary"

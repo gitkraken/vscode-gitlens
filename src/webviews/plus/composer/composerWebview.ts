@@ -1,14 +1,19 @@
-import { commands, window } from 'vscode';
+import type { ConfigurationChangeEvent } from 'vscode';
+import { commands, Disposable, window } from 'vscode';
+import type { ContextKeys } from '../../../constants.context';
 import type { WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { createReference } from '../../../git/utils/reference.utils';
 import { executeCommand } from '../../../system/-webview/command';
+import { configuration } from '../../../system/-webview/configuration';
+import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import { showMarkdownPreview } from '../../../system/-webview/markdown';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
 import type { FinishAndCommitParams, GenerateCommitMessageParams, GenerateCommitsParams, State } from './protocol';
 import {
+	DidChangeAiEnabledNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
@@ -23,14 +28,22 @@ import type { ComposerWebviewShowingArgs } from './registration';
 import { convertToComposerDiffInfo, generateComposerMarkdown } from './utils';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
+	private readonly _disposable: Disposable;
 	private _args?: ComposerWebviewShowingArgs[0];
 
 	constructor(
 		protected readonly container: Container,
 		protected readonly host: WebviewHost<'gitlens.composer'>,
-	) {}
+	) {
+		this._disposable = Disposable.from(
+			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
+		);
+	}
 
-	dispose(): void {}
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	onMessageReceived(e: IpcMessage): void {
 		switch (true) {
@@ -82,6 +95,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			generatingCommits: false,
 			generatingCommitMessage: null,
 			committing: false,
+
+			// AI settings
+			aiEnabled: this.getAiEnabled(),
 		};
 
 		return state;
@@ -300,5 +316,30 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				`Failed to commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`,
 			);
 		}
+	}
+
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'ai.enabled')) {
+			// Update AI config setting in state
+			void this.host.notify(DidChangeAiEnabledNotification, {
+				config: configuration.get('ai.enabled', undefined, true),
+			});
+		}
+	}
+
+	private onContextChanged(key: keyof ContextKeys) {
+		if (key === 'gitlens:gk:organization:ai:enabled') {
+			// Update AI org setting in state
+			void this.host.notify(DidChangeAiEnabledNotification, {
+				org: getContext('gitlens:gk:organization:ai:enabled', true),
+			});
+		}
+	}
+
+	private getAiEnabled() {
+		return {
+			org: getContext('gitlens:gk:organization:ai:enabled', true),
+			config: configuration.get('ai.enabled', undefined, true),
+		};
 	}
 }

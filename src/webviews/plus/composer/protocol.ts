@@ -52,6 +52,12 @@ export interface State extends WebviewState {
 	generatingCommits: boolean;
 	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
 	committing: boolean; // true when finish and commit is in progress
+
+	// AI settings
+	aiEnabled: {
+		org: boolean;
+		config: boolean;
+	};
 }
 
 // Commands that can be sent from the webview to the host
@@ -96,6 +102,10 @@ export const DidGenerateCommitMessageNotification = new IpcNotification<DidGener
 );
 export const DidStartCommittingNotification = new IpcNotification<void>(ipcScope, 'didStartCommitting');
 export const DidFinishCommittingNotification = new IpcNotification<void>(ipcScope, 'didFinishCommitting');
+export const DidChangeAiEnabledNotification = new IpcNotification<DidChangeAiEnabledParams>(
+	ipcScope,
+	'didChangeAiEnabled',
+);
 
 // Parameters for IPC messages
 export interface GenerateCommitsParams {
@@ -130,4 +140,9 @@ export interface DidGenerateCommitsParams {
 export interface DidGenerateCommitMessageParams {
 	commitId: string;
 	message: string;
+}
+
+export interface DidChangeAiEnabledParams {
+	org?: boolean;
+	config?: boolean;
 }
