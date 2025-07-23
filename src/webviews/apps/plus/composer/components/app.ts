@@ -9,10 +9,10 @@ import {
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
 } from '../../../../plus/composer/protocol';
+import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
 import { stateContext } from '../context';
-import { createCombinedDiffForCommit, updateHunkAssignments } from './utils';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
@@ -229,15 +229,6 @@ export class ComposerApp extends LitElement {
 
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
-
-	@state()
-	private commitMessageExpanded = true;
-
-	@state()
-	private aiExplanationExpanded = true;
-
-	@state()
-	private filesChangedExpanded = true;
 
 	@state()
 	private showModal = false;
@@ -501,7 +492,7 @@ export class ComposerApp extends LitElement {
 		});
 	}
 
-	private handleHunkMove(hunkId: string, targetCommitId: string, _sourceSection?: string) {
+	private handleHunkMove(hunkId: string, targetCommitId: string) {
 		// Move hunk from source to target commit
 		const hunkIndex = parseInt(hunkId, 10);
 
@@ -735,15 +726,18 @@ export class ComposerApp extends LitElement {
 	}
 
 	private toggleCommitMessageExpanded() {
-		this.commitMessageExpanded = !this.commitMessageExpanded;
+		this.state.detailsSectionExpanded.commitMessage = !this.state.detailsSectionExpanded.commitMessage;
+		this.requestUpdate();
 	}
 
 	private toggleAiExplanationExpanded() {
-		this.aiExplanationExpanded = !this.aiExplanationExpanded;
+		this.state.detailsSectionExpanded.aiExplanation = !this.state.detailsSectionExpanded.aiExplanation;
+		this.requestUpdate();
 	}
 
 	private toggleFilesChangedExpanded() {
-		this.filesChangedExpanded = !this.filesChangedExpanded;
+		this.state.detailsSectionExpanded.filesChanged = !this.state.detailsSectionExpanded.filesChanged;
+		this.requestUpdate();
 	}
 
 	private autoScrollActive = false;
@@ -774,9 +768,9 @@ export class ComposerApp extends LitElement {
 			}
 
 			try {
-				this.performAutoScroll(this.lastMouseEvent.clientX, this.lastMouseEvent.clientY);
-			} catch (error) {
-				console.error('Auto-scroll error:', error);
+				this.performAutoScroll(this.lastMouseEvent.clientY);
+			} catch {
+				// Auto-scroll error - ignore
 			}
 		}, 50);
 	}
@@ -794,7 +788,7 @@ export class ComposerApp extends LitElement {
 		document.removeEventListener('pointermove', this.mouseTracker, true);
 	}
 
-	private performAutoScroll(_mouseX: number, mouseY: number) {
+	private performAutoScroll(mouseY: number) {
 		const scrollThreshold = 200;
 
 		// Vertical scrolling for multi-commit details panel
@@ -842,8 +836,6 @@ export class ComposerApp extends LitElement {
 		window.close();
 	}
 
-	// Convert state commits to UI format for rendering
-	// Ensure hunks have updated assigned property
 	private get hunksWithAssignments(): ComposerHunk[] {
 		if (!this.state?.hunks || !this.state?.commits) {
 			return [];
@@ -853,15 +845,10 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canFinishAndCommit(): boolean {
-		// User can finish and commit if there are commits, regardless of unassigned hunks
 		return this.state.commits.length > 0;
 	}
 
 	private generateCommits() {
-		console.log('generateCommits (finish and commit) called');
-		console.log('this.state:', this.state);
-
-		// Send IPC command to finish and commit
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
 			hunks: this.hunksWithAssignments,
@@ -870,10 +857,6 @@ export class ComposerApp extends LitElement {
 	}
 
 	private generateCommitsWithAI() {
-		console.log('generateCommitsWithAI called');
-		console.log('this.state:', this.state);
-
-		// Send IPC command to generate commits
 		this._ipc.sendCommand(GenerateCommitsCommand, {
 			hunks: this.hunksWithAssignments,
 			commits: this.state.commits,
@@ -882,24 +865,19 @@ export class ComposerApp extends LitElement {
 		});
 	}
 
-	private generateCommitMessage(commitId: string, hunkIndices: number[]) {
-		console.log('generateCommitMessage called for commit:', commitId, 'with hunks:', hunkIndices);
-
+	private generateCommitMessage(commitId: string) {
 		// Find the commit
 		const commit = this.state.commits.find(c => c.id === commitId);
 		if (!commit) {
-			console.error('Commit not found:', commitId);
 			return;
 		}
 
 		// Create combined diff for the commit
 		const { patch } = createCombinedDiffForCommit(commit, this.hunksWithAssignments);
 		if (!patch) {
-			console.error('No diff generated for commit:', commitId);
 			return;
 		}
 
-		// Send IPC command to generate commit message
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
 			diff: patch,
@@ -943,14 +921,11 @@ export class ComposerApp extends LitElement {
 
 		this.state.commits.forEach(commit => {
 			if (this.selectedCommitIds.has(commit.id)) {
-				// Insert combined commit at the position of the first selected commit
 				if (!combinedCommitInserted) {
 					newCommits.push(combinedCommit);
 					combinedCommitInserted = true;
 				}
-				// Skip the selected commit (don't add it to newCommits)
 			} else {
-				// Keep non-selected commits
 				newCommits.push(commit);
 			}
 		});
@@ -992,7 +967,7 @@ export class ComposerApp extends LitElement {
 					.selectedCommitIds=${this.selectedCommitIds}
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
 					.canFinishAndCommit=${this.canFinishAndCommit}
-					.generating=${this.state.generating}
+					.generating=${this.state.generatingCommits}
 					.committing=${this.state.committing}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
@@ -1010,9 +985,9 @@ export class ComposerApp extends LitElement {
 					.selectedCommits=${selectedCommits}
 					.hunks=${hunks}
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
-					.commitMessageExpanded=${this.commitMessageExpanded}
-					.aiExplanationExpanded=${this.aiExplanationExpanded}
-					.filesChangedExpanded=${this.filesChangedExpanded}
+					.commitMessageExpanded=${this.state.detailsSectionExpanded.commitMessage}
+					.aiExplanationExpanded=${this.state.detailsSectionExpanded.aiExplanation}
+					.filesChangedExpanded=${this.state.detailsSectionExpanded.filesChanged}
 					.selectedHunkIds=${this.selectedHunkIds}
 					.generatingCommitMessage=${this.state.generatingCommitMessage}
 					.committing=${this.state.committing}
@@ -1021,13 +996,11 @@ export class ComposerApp extends LitElement {
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
 					@update-commit-message=${(e: CustomEvent) =>
 						this.updateCommitMessage(e.detail.commitId, e.detail.message)}
-					@generate-commit-message=${(e: CustomEvent) =>
-						this.generateCommitMessage(e.detail.commitId, e.detail.hunkIndices)}
+					@generate-commit-message=${(e: CustomEvent) => this.generateCommitMessage(e.detail.commitId)}
 					@hunk-selected=${(e: CustomEvent) => this.selectHunk(e.detail.hunkId, e.detail.shiftKey)}
 					@hunk-drag-start=${(e: CustomEvent) => this.handleHunkDragStart(e.detail.hunkIds)}
 					@hunk-drag-end=${() => this.handleHunkDragEnd()}
-					@hunk-move=${(e: CustomEvent) =>
-						this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId, e.detail.sourceSection)}
+					@hunk-move=${(e: CustomEvent) => this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
 				></gl-details-panel>

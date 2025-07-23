@@ -22,7 +22,8 @@
 		"../../env/browser/**/*",
 		"../../features.ts",
 		"../../system/**/*.ts",
-		"../../**/webview/**/*"
+		"../../**/webview/**/*",
+		"../plus/composer/utils.ts"
 	],
 	"exclude": ["src/**/__tests__/**/*", "src/**/-webview/**/*"]
 }
