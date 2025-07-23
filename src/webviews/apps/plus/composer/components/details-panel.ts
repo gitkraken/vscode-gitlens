@@ -121,7 +121,7 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.section-content.collapsed {
-				max-height: 0;
+				max-height: 0 !important;
 				overflow: hidden;
 			}
 
@@ -495,17 +495,24 @@ export class DetailsPanel extends LitElement {
 	}
 
 	private toggleSection(section: 'commitMessage' | 'aiExplanation' | 'filesChanged') {
+		let eventName: string;
 		switch (section) {
 			case 'commitMessage':
-				this.commitMessageExpanded = !this.commitMessageExpanded;
+				eventName = 'toggle-commit-message';
 				break;
 			case 'aiExplanation':
-				this.aiExplanationExpanded = !this.aiExplanationExpanded;
+				eventName = 'toggle-ai-explanation';
 				break;
 			case 'filesChanged':
-				this.filesChangedExpanded = !this.filesChangedExpanded;
+				eventName = 'toggle-files-changed';
 				break;
 		}
+
+		this.dispatchEvent(
+			new CustomEvent(eventName, {
+				bubbles: true,
+			}),
+		);
 	}
 
 	private dispatchHunkSelect(hunkId: string, shiftKey: boolean = false) {
@@ -529,9 +536,11 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section files-changed-section">
-					<div class="section-header" @click=${() => this.toggleSection('filesChanged')}>
-						<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						Files Changed (${hunks.length})
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
+							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
+							Files Changed (${hunks.length})
+						</div>
 					</div>
 					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
 						<div class="files-list" data-source="${this.selectedUnassignedSection}">
@@ -592,9 +601,13 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section">
-					<div class="section-header" @click=${() => this.toggleSection('aiExplanation')}>
-						<code-icon icon=${this.aiExplanationExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						AI Explanation
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('aiExplanation')}>
+							<code-icon
+								icon=${this.aiExplanationExpanded ? 'chevron-down' : 'chevron-right'}
+							></code-icon>
+							AI Explanation
+						</div>
 					</div>
 					<div class="section-content ai-explanation ${this.aiExplanationExpanded ? '' : 'collapsed'}">
 						<p class="ai-explanation ${commit.aiExplanation ? '' : 'placeholder'}">
@@ -604,9 +617,11 @@ export class DetailsPanel extends LitElement {
 				</div>
 
 				<div class="section files-changed-section">
-					<div class="section-header" @click=${() => this.toggleSection('filesChanged')}>
-						<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-						Files Changed (${getFileCountForCommit(commit, this.hunks)})
+					<div class="section-header">
+						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
+							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
+							Files Changed (${getFileCountForCommit(commit, this.hunks)})
+						</div>
 					</div>
 					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
 						<div class="files-list" data-commit-id=${commit.id}>
