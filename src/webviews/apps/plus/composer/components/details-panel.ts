@@ -259,6 +259,9 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	committing: boolean = false;
 
+	@property({ type: Boolean })
+	aiEnabled: boolean = false;
+
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -556,19 +559,25 @@ export class DetailsPanel extends LitElement {
 							></code-icon>
 							Commit Message
 						</div>
-						<gl-button
-							appearance="secondary"
-							size="small"
-							?disabled=${this.generatingCommitMessage === commit.id || this.committing}
-							@click=${() => this.handleGenerateCommitMessage(commit.id)}
-							title=${this.generatingCommitMessage === commit.id
-								? 'Generating...'
-								: 'Generate Commit Message with AI'}
-						>
-							<code-icon
-								icon=${this.generatingCommitMessage === commit.id ? 'loading~spin' : 'sparkle'}
-							></code-icon>
-						</gl-button>
+						${this.aiEnabled
+							? html`
+									<gl-button
+										appearance="secondary"
+										size="small"
+										?disabled=${this.generatingCommitMessage === commit.id || this.committing}
+										@click=${() => this.handleGenerateCommitMessage(commit.id)}
+										title=${this.generatingCommitMessage === commit.id
+											? 'Generating...'
+											: 'Generate Commit Message with AI'}
+									>
+										<code-icon
+											icon=${this.generatingCommitMessage === commit.id
+												? 'loading~spin'
+												: 'sparkle'}
+										></code-icon>
+									</gl-button>
+								`
+							: ''}
 					</div>
 					<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
 						<textarea

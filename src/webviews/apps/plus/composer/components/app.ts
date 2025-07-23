@@ -844,6 +844,10 @@ export class ComposerApp extends LitElement {
 		return updateHunkAssignments(this.state.hunks, this.state.commits);
 	}
 
+	private get aiEnabled(): boolean {
+		return this.state?.aiEnabled?.org === true && this.state?.aiEnabled?.config === true;
+	}
+
 	private get canFinishAndCommit(): boolean {
 		return this.state.commits.length > 0;
 	}
@@ -969,6 +973,7 @@ export class ComposerApp extends LitElement {
 					.canFinishAndCommit=${this.canFinishAndCommit}
 					.generating=${this.state.generatingCommits}
 					.committing=${this.state.committing}
+					.aiEnabled=${this.aiEnabled}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
@@ -991,6 +996,7 @@ export class ComposerApp extends LitElement {
 					.selectedHunkIds=${this.selectedHunkIds}
 					.generatingCommitMessage=${this.state.generatingCommitMessage}
 					.committing=${this.state.committing}
+					.aiEnabled=${this.aiEnabled}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
