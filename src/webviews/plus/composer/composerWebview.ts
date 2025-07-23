@@ -292,20 +292,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			);
 			console.log('Created markdown document URI:', documentUri.toString());
 
-			// Open the markdown preview and wait a moment for it to load
-			console.log('Opening markdown preview...');
-			showMarkdownPreview(documentUri);
-
-			// Wait a bit to ensure the markdown preview opens before closing the composer
-			await new Promise(resolve => setTimeout(resolve, 500));
-
-			// Close the composer webview
+			// Clear the committing state and close the composer webview first
 			await this.host.notify(DidFinishCommittingNotification, undefined);
+			void commands.executeCommand('workbench.action.closeActiveEditor');
 
-			// Use a slight delay before closing to ensure the markdown is visible
-			setTimeout(() => {
-				void commands.executeCommand('workbench.action.closeActiveEditor');
-			}, 100);
+			// Delay opening the markdown preview until after the composer is closed
+			queueMicrotask(() => {
+				console.log('Opening markdown preview...');
+				showMarkdownPreview(documentUri);
+			});
 
 			// Show success notification with Undo button
 			const undoButton = { title: 'Undo' };
