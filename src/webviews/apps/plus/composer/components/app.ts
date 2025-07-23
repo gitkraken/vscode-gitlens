@@ -917,11 +917,24 @@ export class ComposerApp extends LitElement {
 			combinedHunkIndices.push(...commit.hunkIndices);
 		});
 
+		// Combine commit messages from selected commits
+		const combinedMessage = selectedCommits
+			.map(commit => commit.message)
+			.filter(message => message && message.trim() !== '')
+			.join('\n\n');
+
+		// Combine AI explanations from selected commits
+		const combinedExplanation = selectedCommits
+			.map(commit => commit.aiExplanation)
+			.filter(explanation => explanation && explanation.trim() !== '')
+			.join('\n\n');
+
 		// Create new combined commit
 		const combinedCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: `Combined commit`,
+			message: combinedMessage || 'Combined commit',
 			hunkIndices: combinedHunkIndices,
+			aiExplanation: combinedExplanation || undefined,
 		};
 
 		// Create new commits array by replacing selected commits with combined commit
