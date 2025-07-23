@@ -33,32 +33,25 @@ export interface ComposerHunkMap {
 }
 
 export interface State extends WebviewState {
+	// data model
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
 	baseCommit: string;
-	generating: boolean;
-	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
-	committing: boolean; // true when finish and commit is in progress
 
 	// UI state
 	selectedCommitId: string | null;
 	selectedCommitIds: Set<string>;
 	selectedUnassignedSection: string | null;
 	selectedHunkIds: Set<string>;
-
-	// Section expansion state
-	commitMessageExpanded: boolean;
-	aiExplanationExpanded: boolean;
-	filesChangedExpanded: boolean;
-
-	// Unassigned changes
-	unassignedChanges: {
-		mode: 'staged-unstaged' | 'unassigned';
-		staged?: ComposerHunk[];
-		unstaged?: ComposerHunk[];
-		unassigned?: ComposerHunk[];
-	} | null;
+	detailsSectionExpanded: {
+		commitMessage: boolean;
+		aiExplanation: boolean;
+		filesChanged: boolean;
+	};
+	generatingCommits: boolean;
+	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
+	committing: boolean; // true when finish and commit is in progress
 }
 
 // Commands that can be sent from the webview to the host
@@ -73,10 +66,6 @@ export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	baseCommit: string;
-}
-
-export interface DidChangeUnassignedChangesParams {
-	unassignedChanges: State['unassignedChanges'];
 }
 
 // IPC Commands and Notifications

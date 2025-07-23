@@ -10,7 +10,7 @@ import {
 	getFileCountForCommit,
 	getUnassignedHunks,
 	getUniqueFileNames,
-} from './utils';
+} from '../../../../plus/composer/utils';
 import '../../../shared/components/button';
 import './commit-item';
 
@@ -480,7 +480,7 @@ export class CommitsPanel extends LitElement {
 		return draggedIndices.some(index => assignedIndices.has(index));
 	}
 
-	private handleHunkDragEnd(_event: Event) {
+	private handleHunkDragEnd() {
 		this.isDraggingHunks = false;
 		this.draggedHunkIds = [];
 		this.removeDropZoneHoverEffects();

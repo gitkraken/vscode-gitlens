@@ -10,7 +10,7 @@ import {
 	getHunksForCommit,
 	getUnassignedHunks,
 	groupHunksByFile,
-} from './utils';
+} from '../../../../plus/composer/utils';
 import './hunk-item';
 
 @customElement('gl-details-panel')
@@ -448,7 +448,7 @@ export class DetailsPanel extends LitElement {
 		const fileGroups = groupHunksByFile(hunks);
 
 		return Array.from(fileGroups.entries())
-			.filter(([_fileName, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
+			.filter(([, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
 			.map(([fileName, fileHunks]) => {
 				const fileChanges = getFileChanges(fileHunks);
 
