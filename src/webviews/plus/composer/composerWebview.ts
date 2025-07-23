@@ -20,6 +20,7 @@ import {
 	GenerateCommitsCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
+import { convertToComposerDiffInfo, generateComposerMarkdown } from './utils';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private _args?: ComposerWebviewShowingArgs[0];
@@ -65,9 +66,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			commits: commits,
 			hunkMap: hunkMap,
 			baseCommit: baseCommit,
-			generating: false,
-			generatingCommitMessage: null,
-			committing: false,
 
 			// UI state
 			selectedCommitId: null,
@@ -76,16 +74,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			selectedHunkIds: new Set<string>(),
 
 			// Section expansion state
-			commitMessageExpanded: true,
-			aiExplanationExpanded: true,
-			filesChangedExpanded: true,
-
-			// Unassigned changes - use real hunks if provided
-			unassignedChanges: {
-				mode: 'staged-unstaged' as const,
-				staged: hunks.filter(h => h.source === 'staged'),
-				unstaged: hunks.filter(h => h.source === 'unstaged'),
+			detailsSectionExpanded: {
+				commitMessage: true,
+				aiExplanation: true,
+				filesChanged: true,
 			},
+			generatingCommits: false,
+			generatingCommitMessage: null,
+			committing: false,
 		};
 
 		return state;
@@ -105,8 +101,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
 		try {
-			console.log('ComposerWebviewProvider onGenerateCommits called with:', params);
-
 			// Notify webview that generation is starting
 			await this.host.notify(DidStartGeneratingNotification, undefined);
 
@@ -143,14 +137,11 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 				// Notify the webview with the generated commits (this will also clear loading state)
 				await this.host.notify(DidGenerateCommitsNotification, { commits: newCommits });
-				console.log('Successfully generated and sent commits:', newCommits);
 			} else {
-				console.log('AI generation was cancelled or failed');
 				// Clear loading state even if cancelled/failed
 				await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
 			}
-		} catch (error) {
-			console.error('Error in onGenerateCommits:', error);
+		} catch {
 			// Clear loading state on error
 			await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
 		}
@@ -158,8 +149,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
 		try {
-			console.log('ComposerWebviewProvider onGenerateCommitMessage called with:', params);
-
 			// Notify webview that commit message generation is starting
 			await this.host.notify(DidStartGeneratingCommitMessageNotification, { commitId: params.commitId });
 
@@ -179,17 +168,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					commitId: params.commitId,
 					message: message,
 				});
-				console.log('Successfully generated commit message for commit:', params.commitId);
 			} else {
-				console.log('Commit message generation was cancelled or failed');
 				// Clear loading state even if cancelled/failed
 				await this.host.notify(DidGenerateCommitMessageNotification, {
 					commitId: params.commitId,
 					message: '',
 				});
 			}
-		} catch (error) {
-			console.error('Error in onGenerateCommitMessage:', error);
+		} catch {
 			// Clear loading state on error
 			await this.host.notify(DidGenerateCommitMessageNotification, {
 				commitId: params.commitId,
@@ -200,15 +186,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onFinishAndCommit(params: FinishAndCommitParams): Promise<void> {
 		try {
-			console.log('ComposerWebviewProvider onFinishAndCommit called with:', params);
-
 			// Notify webview that committing is starting
 			await this.host.notify(DidStartCommittingNotification, undefined);
-
-			// Import the utility functions
-			const { convertToComposerDiffInfo, generateComposerMarkdown } = await import(
-				'../../apps/plus/composer/components/utils'
-			);
 
 			// Convert composer data to ComposerDiffInfo format
 			const diffInfo = convertToComposerDiffInfo(params.commits, params.hunks);
@@ -224,12 +203,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Create unreachable commits from patches
-			console.log('Creating unreachable commits from patches...');
-			console.log('Base commit:', params.baseCommit);
-			console.log('Diff info:', diffInfo);
-
 			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit, diffInfo);
-			console.log('Created commit SHAs:', shas);
 
 			if (!shas?.length) {
 				throw new Error('Failed to create commits from patches');
@@ -281,16 +255,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			const generatedHeadRef = createReference(shas[shas.length - 1], svc.path, { refType: 'revision' });
 
 			// Generate and show markdown document
-			console.log('Generating markdown for commits:', params.commits.length);
 			const markdownContent = generateComposerMarkdown(params.commits, params.hunks, 'Generated Commits');
-			console.log('Generated markdown content length:', markdownContent.length);
 
 			const documentUri = this.container.markdown.openDocument(
 				markdownContent,
 				`/generate/commits/uncommitted/composer`,
 				'Generated Commits',
 			);
-			console.log('Created markdown document URI:', documentUri.toString());
 
 			// Clear the committing state and close the composer webview first
 			await this.host.notify(DidFinishCommittingNotification, undefined);
@@ -298,7 +269,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Delay opening the markdown preview until after the composer is closed
 			queueMicrotask(() => {
-				console.log('Opening markdown preview...');
 				showMarkdownPreview(documentUri);
 			});
 
@@ -321,7 +291,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				});
 			}
 		} catch (error) {
-			console.error('Error in onFinishAndCommit:', error);
 			// Clear loading state on error
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 

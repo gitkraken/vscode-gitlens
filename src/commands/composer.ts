@@ -62,34 +62,25 @@ export class ComposeCommand extends GlCommandBase {
 	}
 
 	private async composeCommits(repo: Repository, source: Sources): Promise<void> {
-		// Step 1: Get diffs for staged and unstaged changes
-		const stagedDiff = await repo.git.diff.getDiff?.(
-			uncommittedStaged, // staged changes vs HEAD
-		);
+		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
 
-		const unstagedDiff = await repo.git.diff.getDiff?.(
-			uncommitted, // unstaged changes vs HEAD
-		);
+		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
 
-		// Check if we have any changes
 		if (!stagedDiff?.contents && !unstagedDiff?.contents) {
 			void showGenericErrorMessage('No changes found to compose commits from.');
 			return;
 		}
 
-		// Step 2: Create hunk map and hunks array
 		const { hunkMap, hunks } = this.createHunksFromDiffs(stagedDiff?.contents, unstagedDiff?.contents);
 
-		// Step 3: Get base commit SHA
 		const baseCommit = await repo.git.commits.getCommit('HEAD');
 		const baseCommitSha = baseCommit?.sha ?? 'HEAD';
 
-		// Step 4: Load composer webview
 		await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showComposerPage', undefined, {
 			hunks: hunks,
 			hunkMap: hunkMap,
 			baseCommit: baseCommitSha,
-			commits: [], // Start with no commits - all hunks unassigned
+			commits: [],
 			source: source,
 		});
 	}
@@ -102,13 +93,11 @@ export class ComposeCommand extends GlCommandBase {
 		const hunks: ComposerHunk[] = [];
 		let counter = 0;
 
-		// Process staged changes
 		if (stagedDiffContent) {
 			this.processHunksFromDiff(stagedDiffContent, 'staged', counter, hunkMap, hunks);
 			counter = hunkMap.length;
 		}
 
-		// Process unstaged changes
 		if (unstagedDiffContent) {
 			this.processHunksFromDiff(unstagedDiffContent, 'unstaged', counter, hunkMap, hunks);
 		}
@@ -125,8 +114,7 @@ export class ComposeCommand extends GlCommandBase {
 	): void {
 		let counter = startCounter;
 
-		// First, check for rename-only files (files with no hunks but rename headers)
-		const renameHunks = this.extractRenameHunks(diffContent, source, counter);
+		const renameHunks = this.extractRenameHunks(diffContent, source);
 		for (const renameHunk of renameHunks) {
 			const hunkIndex = ++counter;
 			renameHunk.index = hunkIndex;
@@ -135,14 +123,12 @@ export class ComposeCommand extends GlCommandBase {
 			hunks.push(renameHunk);
 		}
 
-		// Then extract regular hunk headers and create hunk map entries
 		for (const hunkHeaderMatch of diffContent.matchAll(/@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@(.*)$/gm)) {
 			const hunkHeader = hunkHeaderMatch[0];
 			const hunkIndex = ++counter;
 
 			hunkMap.push({ index: hunkIndex, hunkHeader: hunkHeader });
 
-			// Extract hunk details
 			const hunk = this.extractHunkFromDiff(diffContent, hunkHeader, hunkIndex, source);
 			if (hunk) {
 				hunks.push(hunk);
@@ -156,22 +142,18 @@ export class ComposeCommand extends GlCommandBase {
 		hunkIndex: number,
 		source: 'staged' | 'unstaged',
 	): ComposerHunk | null {
-		// Find the hunk header position
 		const hunkHeaderIndex = diffContent.indexOf(hunkHeader);
 		if (hunkHeaderIndex === -1) return null;
 
-		// Find the diff header for this file
 		const diffLines = diffContent.substring(0, hunkHeaderIndex).split('\n').reverse();
 		const diffHeaderIndex = diffLines.findIndex(line => line.startsWith('diff --git'));
 		if (diffHeaderIndex === -1) return null;
 
 		const diffHeaderLine = diffLines[diffHeaderIndex];
 
-		// Extract file name from diff header
 		const fileNameMatch = diffHeaderLine.match(/diff --git a\/(.+?) b\/(.+)/);
 		const fileName = fileNameMatch ? fileNameMatch[2] : 'unknown';
 
-		// Extract the full diff header (including index, mode changes, etc.)
 		const lastHunkHeaderIndex = diffLines.slice(0, diffHeaderIndex).findLastIndex(line => line.startsWith('@@ -'));
 
 		let diffHeader = diffLines
@@ -183,11 +165,9 @@ export class ComposeCommand extends GlCommandBase {
 			diffHeader += '\n';
 		}
 
-		// Extract hunk content
 		const hunkContent = this.extractHunkContent(diffContent, diffHeader, hunkHeader);
 		if (!hunkContent) return null;
 
-		// Calculate additions and deletions
 		const { additions, deletions } = this.calculateHunkStats(hunkContent);
 
 		return {
@@ -199,25 +179,21 @@ export class ComposeCommand extends GlCommandBase {
 			additions: additions,
 			deletions: deletions,
 			source: source,
-			assigned: false, // Initially unassigned
+			assigned: false,
 		};
 	}
 
 	private extractHunkContent(diffContent: string, diffHeader: string, hunkHeader: string): string | null {
-		// Find the file section in the diff
 		const diffIndex = diffContent.indexOf(diffHeader);
 		if (diffIndex === -1) return null;
 
-		// Find the file section end
 		const nextDiffIndex = diffContent.indexOf('diff --git', diffIndex + 1);
 
-		// Find the hunk within the file content
 		const hunkIndex = diffContent.indexOf(hunkHeader, diffIndex);
 		if (hunkIndex === -1) return null;
 
 		if (nextDiffIndex !== -1 && hunkIndex > nextDiffIndex) return null;
 
-		// Find the next hunk or end of file
 		const nextHunkIndex = diffContent.indexOf('\n@@ -', hunkIndex + 1);
 		const nextIndex =
 			nextHunkIndex !== -1 && (nextHunkIndex < nextDiffIndex || nextDiffIndex === -1)
@@ -226,7 +202,6 @@ export class ComposeCommand extends GlCommandBase {
 					? nextDiffIndex - 1
 					: undefined;
 
-		// Extract the content (excluding the hunk header)
 		const hunkHeaderEndIndex = diffContent.indexOf('\n', hunkIndex);
 		if (hunkHeaderEndIndex === -1) return null;
 
@@ -249,23 +224,16 @@ export class ComposeCommand extends GlCommandBase {
 		return { additions: additions, deletions: deletions };
 	}
 
-	private extractRenameHunks(
-		diffContent: string,
-		source: 'staged' | 'unstaged',
-		_startCounter: number,
-	): ComposerHunk[] {
+	private extractRenameHunks(diffContent: string, source: 'staged' | 'unstaged'): ComposerHunk[] {
 		const renameHunks: ComposerHunk[] = [];
 
-		// Split diff content into file sections
 		const fileSections = diffContent.split(/^diff --git /m).filter(Boolean);
 
 		for (const fileSection of fileSections) {
-			// Check if this file section has no hunks (no @@ headers)
 			if (fileSection.includes('\n@@ -')) {
-				continue; // This file has regular hunks, skip it
+				continue;
 			}
 
-			// Parse the diff header line
 			const lines = fileSection.split('\n');
 			const firstLine = `diff --git ${lines[0]}`;
 			const diffHeaderMatch = firstLine.match(/^diff --git a\/(.+?) b\/(.+)$/);
@@ -273,19 +241,15 @@ export class ComposeCommand extends GlCommandBase {
 
 			const [, originalPath, newPath] = diffHeaderMatch;
 
-			// Look for rename indicators in the file section
 			const hasRenameFrom = lines.some(line => line.startsWith('rename from '));
 			const hasRenameTo = lines.some(line => line.startsWith('rename to '));
 
 			if (hasRenameFrom && hasRenameTo) {
-				// Extract the full diff header (everything before any potential hunks)
 				const diffHeader = `${firstLine}\n${lines.slice(1).join('\n')}`;
 
-				// Extract similarity percentage if available
 				const similarityMatch = lines.find(line => line.startsWith('similarity index '))?.match(/(\d+)%/);
 				const similarity = similarityMatch ? parseInt(similarityMatch[1], 10) : 100;
 
-				// Create a virtual hunk for the rename
 				const renameHunk: ComposerHunk = {
 					index: 0, // Will be set by caller
 					fileName: newPath,
