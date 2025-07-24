@@ -39,13 +39,25 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.commit-details {
-				flex: 1;
 				display: flex;
 				flex-direction: column;
 				min-width: 0;
 				border-bottom: 1px solid var(--vscode-panel-border);
 				margin-bottom: 1.5rem;
-				min-height: 0;
+				background: var(--vscode-editor-background);
+			}
+
+			/* Single commit: take full height */
+			:host(:not([multiple-commits])) .commit-details {
+				flex: 1;
+				margin-bottom: 0;
+			}
+
+			/* Multiple commits: fixed height containers that stack */
+			:host([multiple-commits]) .commit-details {
+				height: 100vh;
+				flex: none;
+				margin-bottom: 2rem;
 			}
 
 			.commit-details:last-child {
@@ -86,6 +98,7 @@ export class DetailsPanel extends LitElement {
 			.section.files-changed-section {
 				flex: 1;
 				min-height: 0;
+				max-height: 75vh;
 			}
 
 			.section:last-child {
@@ -122,7 +135,7 @@ export class DetailsPanel extends LitElement {
 
 			.section-content.collapsed {
 				max-height: 0 !important;
-				overflow: hidden;
+				overflow: hidden !important;
 			}
 
 			.section-content.commit-message {
@@ -142,6 +155,11 @@ export class DetailsPanel extends LitElement {
 				flex: 1;
 				overflow-y: auto;
 				min-height: 0;
+				max-height: 100%;
+			}
+
+			.section-content.files-changed.collapsed {
+				overflow: hidden !important;
 			}
 
 			.ai-explanation {

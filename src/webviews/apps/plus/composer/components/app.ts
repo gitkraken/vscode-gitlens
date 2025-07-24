@@ -36,6 +36,7 @@ export class ComposerApp extends LitElement {
 			height: 100vh;
 			padding: 1.6rem;
 			gap: 1.6rem;
+			box-sizing: border-box;
 		}
 
 		.header {
