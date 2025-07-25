@@ -328,14 +328,17 @@ export class CommitsPanel extends LitElement {
 			if (dragEvent.dataTransfer) {
 				dragEvent.dataTransfer.dropEffect = 'move';
 			}
-			element.classList.add('drag-over');
+			// Only add drag-over class if we're dragging hunks, not commits
+			if (this.isDraggingHunks) {
+				element.classList.add('drag-over');
+			}
 		});
 
 		element.addEventListener('dragleave', e => {
 			e.preventDefault();
 			const dragEvent = e;
-			// Only remove if we're actually leaving the element
-			if (!element.contains(dragEvent.relatedTarget as Node)) {
+			// Only remove if we're actually leaving the element and we were dragging hunks
+			if (!element.contains(dragEvent.relatedTarget as Node) && this.isDraggingHunks) {
 				element.classList.remove('drag-over');
 			}
 		});
