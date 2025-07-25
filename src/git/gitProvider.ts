@@ -289,6 +289,7 @@ export interface GitBranchesSubProvider {
 	/** Gets the stored user merge target branch name */
 	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
+	setUpstreamBranch?(repoPath: string, name: string, upstream: string | undefined): Promise<void>;
 	storeBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
 	storeMergeTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
 	storeUserMergeTargetBranchName?(repoPath: string, ref: string, target: string | undefined): Promise<void>;

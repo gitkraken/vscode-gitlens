@@ -1,3 +1,4 @@
+import { ThemeIcon } from 'vscode';
 import type { Container } from '../container';
 import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
@@ -92,11 +93,14 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 				picked: state.mergeBranch,
 				placeholder: 'Pick a merge target branch',
 				filter: (branch: GitBranch) => branch.remote && branch.name !== state.branch,
-				reset: {
-					allowed: userMergeTarget != null && detectedMergeTarget !== userMergeTarget,
-					label: 'Reset Merge Target',
-					detail: 'Reset the merge target branch to be automatically detected',
-				},
+				reset:
+					userMergeTarget != null && detectedMergeTarget !== userMergeTarget
+						? {
+								label: 'Reset Merge Target',
+								detail: 'Reset the merge target branch to be automatically detected',
+								button: { icon: new ThemeIcon('discard'), tooltip: 'Reset Merge Target' },
+							}
+						: undefined,
 			});
 			if (result === StepResultBreak) continue;
 

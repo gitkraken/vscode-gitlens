@@ -756,7 +756,7 @@ export function* pickBranchStep<
 		filter: filter,
 		picked: picked,
 	}).then(branches =>
-		branches.length === 0
+		!branches.length
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: branches,
 	);
@@ -797,13 +797,16 @@ export function* pickOrResetBranchStep<
 		filter?: (b: GitBranch) => boolean;
 		picked?: string | string[];
 		placeholder: string;
-		title?: string;
-		reset: {
-			allowed: boolean;
-			label?: string;
+		reset?: {
+			label: string;
 			description?: string;
 			detail?: string;
+			button?: {
+				icon: ThemeIcon;
+				tooltip: string;
+			};
 		};
+		title?: string;
 	},
 ): StepResultGenerator<GitBranchReference | undefined> {
 	const items = getBranches(state.repo, {
@@ -811,10 +814,10 @@ export function* pickOrResetBranchStep<
 		filter: filter,
 		picked: picked,
 	}).then(branches =>
-		branches.length === 0
+		!branches.length
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: [
-					...(reset.allowed
+					...(reset
 						? [
 								createDirectiveQuickPickItem(Directive.Reset, false, {
 									label: reset.label,
@@ -827,18 +830,17 @@ export function* pickOrResetBranchStep<
 				],
 	);
 
-	const resetButton: QuickInputButton = {
-		iconPath: new ThemeIcon('discard'),
-		tooltip: reset.label,
-	};
-
+	const resetButton: QuickInputButton | undefined = reset?.button
+		? { iconPath: reset.button.icon, tooltip: reset.button?.tooltip }
+		: undefined;
 	let resetButtonClicked = false;
+
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
 		placeholder: count => (!count ? `No branches found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		additionalButtons: reset.allowed ? [resetButton] : [],
+		additionalButtons: resetButton ? [resetButton] : [],
 		onDidClickButton: (_quickpick, button) => {
 			if (button === resetButton) {
 				resetButtonClicked = true;
@@ -858,9 +860,8 @@ export function* pickOrResetBranchStep<
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	if (resetButtonClicked) {
-		return undefined;
-	}
+	if (resetButtonClicked) return undefined;
+
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
