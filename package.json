@@ -970,7 +970,7 @@
 							"Allows selecting multiple commits without restriction",
 							"Allows selecting multiple commits topologically"
 						],
-						"default": true,
+						"default": "topological",
 						"markdownDescription": "Specifies whether to allow selecting multiple commits and whether to restrict the selection topologically in the _Commit Graph_",
 						"scope": "window",
 						"order": 10
