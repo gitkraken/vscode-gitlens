@@ -21,6 +21,24 @@ import './commits-panel';
 import './details-panel';
 import './hunk-item';
 
+// Internal history management interfaces
+interface ComposerDataSnapshot {
+	hunks: ComposerHunk[];
+	commits: ComposerCommit[];
+	selectedCommitId: string | null;
+	selectedCommitIds: Set<string>;
+	selectedUnassignedSection: string | null;
+	selectedHunkIds: Set<string>;
+}
+
+interface ComposerHistory {
+	resetState: ComposerDataSnapshot | null;
+	undoStack: ComposerDataSnapshot[];
+	redoStack: ComposerDataSnapshot[];
+}
+
+const historyLimit = 3;
+
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
 	@consume({ context: stateContext, subscribe: true })
@@ -28,6 +46,17 @@ export class ComposerApp extends LitElement {
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
+
+	// Internal history management
+	private history: ComposerHistory = {
+		resetState: null,
+		undoStack: [],
+		redoStack: [],
+	};
+
+	// Debounce timer for commit message updates
+	private commitMessageDebounceTimer?: number;
+	private commitMessageBeingEdited: string | null = null; // Track which commit is being edited
 
 	static override styles = css`
 		:host {
@@ -49,6 +78,32 @@ export class ComposerApp extends LitElement {
 			margin: 0;
 			font-size: 2.4rem;
 			font-weight: 600;
+		}
+
+		.header-actions {
+			display: flex;
+			gap: 0.8rem;
+			align-items: center;
+		}
+
+		.history-button {
+			padding: 0.4rem 0.8rem;
+			border: 1px solid var(--vscode-button-border);
+			background: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 0.9rem;
+			transition: all 0.2s ease;
+		}
+
+		.history-button:hover:not(:disabled) {
+			background: var(--vscode-button-secondaryHoverBackground);
+		}
+
+		.history-button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
 		}
 
 		.main-content {
@@ -240,6 +295,8 @@ export class ComposerApp extends LitElement {
 	private lastMouseEvent?: MouseEvent;
 
 	override firstUpdated() {
+		// Initialize reset state
+		this.initializeResetState();
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
@@ -258,6 +315,10 @@ export class ComposerApp extends LitElement {
 		super.disconnectedCallback?.();
 		this.commitsSortable?.destroy();
 		this.hunksSortable?.destroy();
+		if (this.commitMessageDebounceTimer) {
+			clearTimeout(this.commitMessageDebounceTimer);
+		}
+		this.commitMessageBeingEdited = null;
 	}
 
 	private initializeSortable() {
@@ -426,7 +487,98 @@ export class ComposerApp extends LitElement {
 		}, 50);
 	}
 
+	// History management methods
+	private createDataSnapshot(): ComposerDataSnapshot {
+		return {
+			hunks: JSON.parse(JSON.stringify(this.state.hunks)),
+			commits: JSON.parse(JSON.stringify(this.state.commits)),
+			selectedCommitId: this.state.selectedCommitId,
+			selectedCommitIds: new Set([...this.selectedCommitIds]),
+			selectedUnassignedSection: this.state.selectedUnassignedSection,
+			selectedHunkIds: new Set([...this.selectedHunkIds]),
+		};
+	}
+
+	private applyDataSnapshot(snapshot: ComposerDataSnapshot) {
+		this.state.hunks = snapshot.hunks;
+		this.state.commits = snapshot.commits;
+		this.state.selectedCommitId = snapshot.selectedCommitId;
+		this.selectedCommitIds = snapshot.selectedCommitIds;
+		this.state.selectedUnassignedSection = snapshot.selectedUnassignedSection;
+		this.selectedHunkIds = snapshot.selectedHunkIds;
+		this.requestUpdate();
+	}
+
+	private saveToHistory() {
+		// Clear redo stack when new action is performed
+		this.history.redoStack = [];
+
+		// Trim undo stack to (historyLimit - 1) before adding new snapshot
+		while (this.history.undoStack.length >= historyLimit) {
+			this.history.undoStack.shift(); // Remove oldest entries
+		}
+
+		// Save current state to undo stack
+		this.history.undoStack.push(this.createDataSnapshot());
+	}
+
+	private initializeResetState() {
+		if (!this.history.resetState) {
+			this.history.resetState = this.createDataSnapshot();
+		}
+	}
+
+	private canUndo(): boolean {
+		return this.history.undoStack.length > 0;
+	}
+
+	private canRedo(): boolean {
+		return this.history.redoStack.length > 0;
+	}
+
+	private undo() {
+		if (!this.canUndo()) return;
+
+		// Trim redo stack to (historyLimit - 1) before adding current state
+		while (this.history.redoStack.length >= historyLimit) {
+			this.history.redoStack.shift(); // Remove oldest entries
+		}
+
+		// Save current state to redo stack
+		this.history.redoStack.push(this.createDataSnapshot());
+
+		// Restore previous state
+		const previousState = this.history.undoStack.pop()!;
+		this.applyDataSnapshot(previousState);
+	}
+
+	private redo() {
+		if (!this.canRedo()) return;
+
+		// Trim undo stack to (historyLimit - 1) before adding current state
+		while (this.history.undoStack.length >= historyLimit) {
+			this.history.undoStack.shift(); // Remove oldest entries
+		}
+
+		// Save current state to undo stack
+		this.history.undoStack.push(this.createDataSnapshot());
+
+		// Restore next state
+		const nextState = this.history.redoStack.pop()!;
+		this.applyDataSnapshot(nextState);
+	}
+
+	private reset() {
+		if (!this.history.resetState) return;
+
+		// Save current state to undo stack
+		this.saveToHistory();
+		// Restore reset state
+		this.applyDataSnapshot(this.history.resetState);
+	}
+
 	private reorderCommits(oldIndex: number, newIndex: number) {
+		this.saveToHistory();
 		const newCommits = [...this.state.commits];
 		const [movedCommit] = newCommits.splice(oldIndex, 1);
 		newCommits.splice(newIndex, 0, movedCommit);
@@ -518,6 +670,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private createNewCommitWithHunks(hunkIds: string[]) {
+		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
@@ -545,6 +698,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private unassignHunks(hunkIds: string[]) {
+		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
@@ -562,6 +716,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private moveHunksToCommit(hunkIds: string[], targetCommitId: string) {
+		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
 
@@ -721,6 +876,22 @@ export class ComposerApp extends LitElement {
 	private updateCommitMessage(commitId: string, message: string) {
 		const commit = this.state.commits.find(c => c.id === commitId);
 		if (commit) {
+			// If this is the first change to this commit message, save a snapshot
+			if (this.commitMessageBeingEdited !== commitId) {
+				this.saveToHistory();
+				this.commitMessageBeingEdited = commitId;
+			}
+
+			// Clear existing debounce timer
+			if (this.commitMessageDebounceTimer) {
+				clearTimeout(this.commitMessageDebounceTimer);
+			}
+
+			// Clear the editing state after 1 second of no changes
+			this.commitMessageDebounceTimer = window.setTimeout(() => {
+				this.commitMessageBeingEdited = null;
+			}, 1000);
+
 			commit.message = message;
 			this.requestUpdate();
 		}
@@ -862,6 +1033,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private generateCommitsWithAI() {
+		this.saveToHistory();
 		this._ipc.sendCommand(GenerateCommitsCommand, {
 			hunks: this.hunksWithAssignments,
 			commits: this.state.commits,
@@ -891,6 +1063,8 @@ export class ComposerApp extends LitElement {
 
 	private combineSelectedCommits() {
 		if (this.selectedCommitIds.size < 2) return;
+
+		this.saveToHistory();
 
 		const selectedCommits = this.state.commits.filter(c => this.selectedCommitIds.has(c.id));
 
@@ -962,6 +1136,30 @@ export class ComposerApp extends LitElement {
 		return html`
 			<div class="header">
 				<h1>GitLens Composer</h1>
+				<div class="header-actions">
+					<button
+						class="history-button"
+						?disabled=${!this.canUndo()}
+						@click=${this.undo}
+						title="Undo last action"
+					>
+						<code-icon icon="arrow-left"></code-icon>
+						Undo
+					</button>
+					<button
+						class="history-button"
+						?disabled=${!this.canRedo()}
+						@click=${this.redo}
+						title="Redo last undone action"
+					>
+						<code-icon icon="arrow-right"></code-icon>
+						Redo
+					</button>
+					<button class="history-button" @click=${this.reset} title="Reset to initial state">
+						<code-icon icon="refresh"></code-icon>
+						Reset
+					</button>
+				</div>
 			</div>
 
 			<div class="main-content">
