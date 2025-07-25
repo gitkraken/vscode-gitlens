@@ -320,6 +320,10 @@
 			"icon": "$(sparkle)",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
+		"gitlens.ai.mcp.install": {
+			"label": "Install MCP Server",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
 		"gitlens.ai.rebaseOntoCommit:graph": {
 			"label": "AI Rebase Current Branch onto Commit (Preview)...",
 			"icon": "$(sparkle)",
