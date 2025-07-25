@@ -31,6 +31,7 @@ export class HunkItem extends LitElement {
 
 		.hunk-item.sortable-ghost {
 			opacity: 0.5;
+			transform: scale(0.5);
 		}
 
 		.hunk-item.sortable-chosen {
@@ -38,11 +39,12 @@ export class HunkItem extends LitElement {
 		}
 
 		.hunk-item.sortable-drag {
-			transform: rotate(1deg);
+			opacity: 0.5;
+			transform: scale(0.5);
 			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 		}
 
-		.hunk-item.selected {
+		.hunk-item.sortable-selected {
 			border-color: var(--vscode-focusBorder);
 			background: var(--vscode-list-activeSelectionBackground);
 		}
@@ -268,15 +270,15 @@ export class HunkItem extends LitElement {
 	}
 
 	private handleClick(e: MouseEvent) {
-		// Don't select hunk if clicking on drag handle
+		/*// Don't select hunk if clicking on drag handle
 		if ((e.target as HTMLElement).closest('.drag-handle')) {
 			return;
-		}
+		} */
 
 		// Prevent text selection when shift-clicking
-		if (e.shiftKey) {
+		/* if (e.shiftKey) {
 			e.preventDefault();
-		}
+		} */
 
 		this.dispatchEvent(
 			new CustomEvent('hunk-selected', {
