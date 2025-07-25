@@ -18,6 +18,7 @@ import {
 	supportedOrderedCloudIntegrationIds,
 } from '../../constants.integrations';
 import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { revealBranch } from '../../git/actions/branch';
@@ -175,7 +176,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChange(this.onIntegrationsChanged, this),
-			this.container.walkthrough?.onDidChangeProgress(this.onWalkthroughProgressChanged, this) ?? emptyDisposable,
+			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
@@ -763,9 +764,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getWalkthroughDismissed() {
-		return (
-			this.container.walkthrough == null || (this.container.storage.get('home:walkthrough:dismissed') ?? false)
-		);
+		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
 	}
 
 	private getPreviewCollapsed() {
@@ -867,15 +866,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
-			walkthroughSupported: this.container.walkthrough != null,
-			walkthroughProgress:
-				!this.getWalkthroughDismissed() && this.container.walkthrough != null
-					? {
-							allCount: this.container.walkthrough.walkthroughSize,
-							doneCount: this.container.walkthrough.doneCount,
-							progress: this.container.walkthrough.progress,
-						}
-					: undefined,
+			walkthroughSupported: this.container.walkthrough.isWalkthroughSupported,
+			walkthroughProgress: this.getWalkthroughProgress(),
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
@@ -1273,14 +1265,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this._notifyDidChangeRepositoriesDebounced();
 	}
 
-	private notifyDidChangeProgress() {
-		if (this.container.walkthrough == null) return;
+	private getWalkthroughProgress(): State['walkthroughProgress'] {
+		if (this.getWalkthroughDismissed()) return undefined;
 
-		void this.host.notify(DidChangeWalkthroughProgress, {
+		const walkthroughState = this.container.walkthrough.getState();
+		const state: Record<string, boolean> = {};
+		for (const [key, value] of walkthroughState) {
+			state[key] = value;
+		}
+
+		return {
 			allCount: this.container.walkthrough.walkthroughSize,
 			doneCount: this.container.walkthrough.doneCount,
 			progress: this.container.walkthrough.progress,
-		});
+			state: state as Record<WalkthroughContextKeys, boolean>,
+		};
+	}
+
+	private notifyDidChangeProgress() {
+		const state = this.getWalkthroughProgress();
+		if (state == null) return;
+
+		void this.host.notify(DidChangeWalkthroughProgress, state);
 	}
 
 	private notifyDidChangeConfig() {
