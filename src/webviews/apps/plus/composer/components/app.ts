@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
@@ -114,9 +114,8 @@ export class ComposerApp extends LitElement {
 		}
 
 		gl-commits-panel {
-			flex: 0 0 300px;
-			min-width: 300px;
-			max-width: 300px;
+			flex: none;
+			width: clamp(30rem, 28vw, 44rem);
 		}
 
 		gl-details-panel {
@@ -124,17 +123,8 @@ export class ComposerApp extends LitElement {
 			min-width: 0;
 		}
 
-		.modal-overlay {
-			position: fixed;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
+		::backdrop {
 			background: rgba(0, 0, 0, 0.5);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			z-index: 1000;
 		}
 
 		.modal {
@@ -286,8 +276,8 @@ export class ComposerApp extends LitElement {
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
 
-	@state()
-	private showModal = false;
+	@query('#commits-generated-modal')
+	private commitsGeneratedModal!: HTMLDialogElement;
 
 	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
@@ -1007,9 +997,13 @@ export class ComposerApp extends LitElement {
 	}
 
 	private closeModal() {
-		this.showModal = false;
+		this.commitsGeneratedModal.close();
 		// Close the webview
 		window.close();
+	}
+
+	private openModal() {
+		this.commitsGeneratedModal.showModal();
 	}
 
 	private get hunksWithAssignments(): ComposerHunk[] {
@@ -1174,7 +1168,7 @@ export class ComposerApp extends LitElement {
 		const hunks = this.hunksWithAssignments;
 
 		return html`
-			<div class="header">
+			<header class="header">
 				<h1>GitLens Composer</h1>
 				${when(
 					this.showHistoryButtons,
@@ -1205,9 +1199,9 @@ export class ComposerApp extends LitElement {
 						</div>
 					`,
 				)}
-			</div>
+			</header>
 
-			<div class="main-content">
+			<main class="main-content">
 				<gl-commits-panel
 					.commits=${this.state.commits}
 					.hunks=${hunks}
@@ -1263,20 +1257,13 @@ export class ComposerApp extends LitElement {
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
 				></gl-details-panel>
-			</div>
+			</main>
 
-			${when(
-				this.showModal,
-				() => html`
-					<div class="modal-overlay" @click=${this.closeModal}>
-						<div class="modal" @click=${(e: Event) => e.stopPropagation()}>
-							<h2>Commits Generated</h2>
-							<p>${this.state.commits.length} commits have been generated successfully!</p>
-							<gl-button appearance="primary" @click=${this.closeModal}>OK</gl-button>
-						</div>
-					</div>
-				`,
-			)}
+			<dialog id="commits-generated-modal" class="modal">
+				<h2>Commits Generated</h2>
+				<p>${this.state.commits.length} commits have been generated successfully!</p>
+				<gl-button @click=${this.closeModal}>Exit Composer</gl-button>
+			</dialog>
 		`;
 	}
 }

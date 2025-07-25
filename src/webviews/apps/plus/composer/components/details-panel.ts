@@ -11,11 +11,14 @@ import {
 	getUnassignedHunks,
 	groupHunksByFile,
 } from '../../../../plus/composer/utils';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import './hunk-item';
 
 @customElement('gl-details-panel')
 export class DetailsPanel extends LitElement {
 	static override styles = [
+		boxSizingBase,
+		scrollableBase,
 		css`
 			:host {
 				display: flex;
@@ -42,9 +45,10 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				min-width: 0;
-				border-bottom: 1px solid var(--vscode-panel-border);
+				border-bottom: 0.1rem solid var(--vscode-panel-border);
 				margin-bottom: 1.5rem;
 				background: var(--vscode-editor-background);
+				border-radius: 0.3rem;
 			}
 
 			/* Single commit: take full height */
@@ -91,8 +95,6 @@ export class DetailsPanel extends LitElement {
 
 			.section {
 				border-bottom: 1px solid var(--vscode-panel-border);
-				display: flex;
-				flex-direction: column;
 			}
 
 			.section.files-changed-section {
@@ -133,24 +135,19 @@ export class DetailsPanel extends LitElement {
 				transition: max-height 0.3s ease;
 			}
 
-			.section-content.collapsed {
-				max-height: 0 !important;
-				overflow: hidden !important;
-			}
-
-			.section-content.commit-message {
+			.section-content--commit-message {
 				padding: 1rem;
 				max-height: 200px;
 				overflow-y: auto;
 			}
 
-			.section-content.ai-explanation {
+			.section-content--ai-explanation {
 				padding: 1rem;
 				max-height: 300px;
 				overflow-y: auto;
 			}
 
-			.section-content.files-changed {
+			.section-content--files-changed {
 				padding: 0;
 				flex: 1;
 				overflow-y: auto;
@@ -158,16 +155,13 @@ export class DetailsPanel extends LitElement {
 				max-height: 100%;
 			}
 
-			.section-content.files-changed.collapsed {
-				overflow: hidden !important;
-			}
-
-			.section-content.files-changed.drag-over {
+			.section-content--files-changed.drag-over {
 				border: 2px solid var(--vscode-focusBorder);
 				background: var(--vscode-list-dropBackground);
 			}
 
 			.ai-explanation {
+				margin-block: 0;
 				line-height: 1.5;
 				color: var(--vscode-editor-foreground);
 			}
@@ -246,6 +240,20 @@ export class DetailsPanel extends LitElement {
 				font-family: inherit;
 				font-size: inherit;
 				box-sizing: border-box;
+			}
+
+			.empty-state {
+				padding: 2rem;
+				text-align: center;
+				color: var(--vscode-descriptionForeground);
+				margin-block: auto;
+				font-weight: bold;
+			}
+
+			.empty-state__icon {
+				font-size: 7.2rem;
+				margin-block-end: 0.8rem;
+				opacity: 0.75;
 			}
 		`,
 	];
@@ -610,19 +618,25 @@ export class DetailsPanel extends LitElement {
 			});
 	}
 
-	private toggleSection(section: 'commitMessage' | 'aiExplanation' | 'filesChanged') {
+	private toggleSection(section: 'commitMessage' | 'aiExplanation' | 'filesChanged', open?: boolean) {
 		let eventName: string;
+		let currentState: boolean;
 		switch (section) {
 			case 'commitMessage':
 				eventName = 'toggle-commit-message';
+				currentState = this.commitMessageExpanded;
 				break;
 			case 'aiExplanation':
 				eventName = 'toggle-ai-explanation';
+				currentState = this.aiExplanationExpanded;
 				break;
 			case 'filesChanged':
 				eventName = 'toggle-files-changed';
+				currentState = this.filesChangedExpanded;
 				break;
 		}
+
+		if (open !== undefined && open === currentState) return;
 
 		this.dispatchEvent(
 			new CustomEvent(eventName, {
@@ -651,19 +665,24 @@ export class DetailsPanel extends LitElement {
 					<div class="commit-message">${this.getSectionTitle(this.selectedUnassignedSection)}</div>
 				</div>
 
-				<div class="section files-changed-section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
+				<details
+					class="section files-changed-section"
+					?open=${this.filesChangedExpanded}
+					@toggle=${(e: ToggleEvent) =>
+						this.toggleSection('filesChanged', (e.target as HTMLDetailsElement)?.open)}
+				>
+					<summary class="section-header">
+						<div class="section-header-left">
 							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
 							Files Changed (${hunks.length})
 						</div>
-					</div>
-					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
+					</summary>
+					<div class="section-content section-content--files-changed">
 						<div class="files-list" data-source="${this.selectedUnassignedSection}">
 							${this.renderFileHierarchy(hunks)}
 						</div>
 					</div>
-				</div>
+				</details>
 			</div>
 		`;
 	}
@@ -676,9 +695,14 @@ export class DetailsPanel extends LitElement {
 					<div class="commit-message truncated">${commit.message}</div>
 				</div>
 
-				<div class="section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('commitMessage')}>
+				<details
+					class="section"
+					?open=${this.commitMessageExpanded}
+					@toggle=${(e: ToggleEvent) =>
+						this.toggleSection('commitMessage', (e.target as HTMLDetailsElement)?.open)}
+				>
+					<summary class="section-header">
+						<div class="section-header-left">
 							<code-icon
 								icon=${this.commitMessageExpanded ? 'chevron-down' : 'chevron-right'}
 							></code-icon>
@@ -703,8 +727,8 @@ export class DetailsPanel extends LitElement {
 									</gl-button>
 								`
 							: ''}
-					</div>
-					<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
+					</summary>
+					<div class="section-content section-content--commit-message">
 						<textarea
 							class="commit-message-textarea"
 							.value=${commit.message}
@@ -714,37 +738,47 @@ export class DetailsPanel extends LitElement {
 								this.handleCommitMessageChange(commit.id, (e.target as HTMLTextAreaElement).value)}
 						></textarea>
 					</div>
-				</div>
+				</details>
 
-				<div class="section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('aiExplanation')}>
+				<details
+					class="section"
+					?open=${this.aiExplanationExpanded}
+					@toggle=${(e: ToggleEvent) =>
+						this.toggleSection('aiExplanation', (e.target as HTMLDetailsElement)?.open)}
+				>
+					<summary class="section-header">
+						<div class="section-header-left">
 							<code-icon
 								icon=${this.aiExplanationExpanded ? 'chevron-down' : 'chevron-right'}
 							></code-icon>
 							AI Explanation
 						</div>
-					</div>
-					<div class="section-content ai-explanation ${this.aiExplanationExpanded ? '' : 'collapsed'}">
+					</summary>
+					<div class="section-content section-content--ai-explanation">
 						<p class="ai-explanation ${commit.aiExplanation ? '' : 'placeholder'}">
 							${commit.aiExplanation || 'No AI explanation available for this commit.'}
 						</p>
 					</div>
-				</div>
+				</details>
 
-				<div class="section files-changed-section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
+				<details
+					class="section files-changed-section"
+					?open=${this.filesChangedExpanded}
+					@toggle=${(e: ToggleEvent) =>
+						this.toggleSection('filesChanged', (e.target as HTMLDetailsElement)?.open)}
+				>
+					<summary class="section-header">
+						<div class="section-header-left">
 							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
 							Files Changed (${getFileCountForCommit(commit, this.hunks)})
 						</div>
-					</div>
-					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
+					</summary>
+					<div class="section-content section-content--files-changed">
 						<div class="files-list" data-commit-id=${commit.id}>
 							${this.renderFileHierarchy(commitHunks)}
 						</div>
 					</div>
-				</div>
+				</details>
 			</div>
 		`;
 	}
@@ -781,7 +815,7 @@ export class DetailsPanel extends LitElement {
 		const isMultiSelect = this.selectedCommits.length > 1;
 
 		return html`
-			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
+			<div class="details-panel ${isMultiSelect ? 'split-view scrollable' : ''}">
 				${when(
 					this.selectedUnassignedSection,
 					() => this.renderUnassignedSectionDetails(),
@@ -795,10 +829,11 @@ export class DetailsPanel extends LitElement {
 									commit => this.renderCommitDetails(commit),
 								),
 							() =>
-								html`<div
-									style="padding: 2rem; text-align: center; color: var(--vscode-descriptionForeground);"
-								>
-									Select a commit or unassigned changes to view details
+								html`<div class="commit-details">
+									<p class="empty-state">
+										<code-icon class="empty-state__icon" icon="list-unordered"></code-icon><br />
+										Select a commit or unassigned changes to view details
+									</p>
 								</div>`,
 						),
 				)}

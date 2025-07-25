@@ -11,12 +11,16 @@ import {
 	getUnassignedHunks,
 	getUniqueFileNames,
 } from '../../../../plus/composer/utils';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
+import '../../../shared/components/button-container';
 import './commit-item';
 
 @customElement('gl-commits-panel')
 export class CommitsPanel extends LitElement {
 	static override styles = [
+		boxSizingBase,
+		scrollableBase,
 		css`
 			:host {
 				display: flex;
@@ -43,14 +47,14 @@ export class CommitsPanel extends LitElement {
 
 			.commits-actions {
 				min-height: 40px;
-				display: flex;
+				/* display: flex;
 				align-items: center;
 				justify-content: center;
 				gap: 0.8rem;
 				padding: 0.8rem;
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 4px;
-				background: var(--vscode-editorGroupHeader-tabsBackground);
+				background: var(--vscode-editorGroupHeader-tabsBackground); */
 			}
 
 			.commits-actions:empty {
@@ -66,7 +70,6 @@ export class CommitsPanel extends LitElement {
 			.commits-list {
 				flex: 1;
 				overflow-y: auto;
-				padding: 0.5rem;
 				display: flex;
 				flex-direction: column;
 				gap: 0.5rem;
@@ -622,44 +625,54 @@ export class CommitsPanel extends LitElement {
 				${when(
 					this.selectedCommitIds.size > 1 && !this.isAIPreviewMode,
 					() => html`
-						<gl-button
-							appearance="secondary"
-							?disabled=${this.generating || this.committing}
-							@click=${this.dispatchCombineCommits}
-						>
-							Combine ${this.selectedCommitIds.size} Commits
-						</gl-button>
+						<button-container layout="editor">
+							<gl-button
+								full
+								appearance="secondary"
+								?disabled=${this.generating || this.committing}
+								@click=${this.dispatchCombineCommits}
+							>
+								Combine ${this.selectedCommitIds.size} Commits
+							</gl-button>
+						</button-container>
 					`,
 					() =>
 						when(
 							this.commits.length === 0 && this.aiEnabled,
 							() => html`
-								<gl-button
-									appearance="primary"
-									?disabled=${this.generating || this.committing}
-									@click=${this.dispatchGenerateCommitsWithAI}
-								>
-									<code-icon
-										icon=${this.generating ? 'loading~spin' : 'sparkle'}
-										slot="prefix"
-									></code-icon>
-									${this.generating ? 'Generating Commits...' : 'Generate Commits with AI'}
-								</gl-button>
+								<button-container layout="editor">
+									<gl-button
+										full
+										?disabled=${this.generating || this.committing}
+										@click=${this.dispatchGenerateCommitsWithAI}
+									>
+										<code-icon
+											icon=${this.generating ? 'loading~spin' : 'sparkle'}
+											slot="prefix"
+										></code-icon>
+										${this.generating ? 'Generating Commits...' : 'Generate Commits with AI'}
+									</gl-button>
+								</button-container>
 							`,
 							() => html`
-								<gl-button
-									appearance="primary"
-									?disabled=${!this.canFinishAndCommit || this.generating || this.committing}
-									@click=${this.dispatchFinishAndCommit}
-								>
-									<code-icon icon=${this.committing ? 'loading~spin' : ''} slot="prefix"></code-icon>
-									${this.committing ? 'Committing...' : 'Finish and Commit'}
-								</gl-button>
+								<button-container layout="editor">
+									<gl-button
+										full
+										?disabled=${!this.canFinishAndCommit || this.generating || this.committing}
+										@click=${this.dispatchFinishAndCommit}
+									>
+										<code-icon
+											icon=${this.committing ? 'loading~spin' : ''}
+											slot="prefix"
+										></code-icon>
+										${this.committing ? 'Committing...' : 'Finish and Commit'}
+									</gl-button>
+								</button-container>
 							`,
 						),
 				)}
 			</div>
-			<div class="commits-list">
+			<div class="commits-list scrollable">
 				${this.renderUnassignedSection()}
 
 				<div class="commits-only">

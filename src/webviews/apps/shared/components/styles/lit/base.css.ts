@@ -15,6 +15,12 @@ export const elementBase = css`
 	}
 `;
 
+export const boxSizingBase = css`
+	* {
+		box-sizing: border-box;
+	}
+`;
+
 export const linkBase = css`
 	a {
 		color: var(--vscode-textLink-foreground);

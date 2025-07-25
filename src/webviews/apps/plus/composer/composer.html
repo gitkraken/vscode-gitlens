@@ -24,9 +24,7 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<gl-composer-apphost name="ComposerView" placement="#{placement}" bootstrap="#{state}">
-			<gl-composer-app></gl-composer-app>
-		</gl-composer-apphost>
+		<gl-composer-apphost name="ComposerView" placement="#{placement}" bootstrap="#{state}"></gl-composer-apphost>
 		#{endOfBody}
 	</body>
 </html>
