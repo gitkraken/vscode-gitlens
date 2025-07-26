@@ -20,13 +20,15 @@ export interface State extends WebviewState<CustomEditorIds> {
 export interface RebaseEntry {
 	readonly action: RebaseEntryAction;
 	readonly sha: string;
+	readonly branch: string;
 	readonly message: string;
 	readonly index: number;
 
 	commit?: Commit;
+	refUpdate?: RefUpdate;
 }
 
-export type RebaseEntryAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'break' | 'drop';
+export type RebaseEntryAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'break' | 'drop' | 'update-ref';
 
 export interface Author {
 	readonly author: string;
@@ -44,6 +46,10 @@ export interface Commit {
 	// readonly email: string | undefined;
 	readonly message: string;
 	// readonly command: string;
+}
+
+export interface RefUpdate {
+	readonly branch: string;
 }
 
 // COMMANDS
