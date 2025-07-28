@@ -78,7 +78,7 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 
 		const metadataWithContext: MarkdownContentMetadata = { ...metadata, context: loadingContext };
 		const headerContent = getMarkdownHeaderContent(metadataWithContext, this.container.telemetry.enabled);
-		const loadingContent = `${headerContent}\n\n---\n\n🤖 **Generating explanation...**\n\nPlease wait while the AI analyzes the changes and generates an explanation. This document will update automatically when the content is ready.\n\n*This may take a few moments depending on the complexity of the changes.*`;
+		const loadingContent = `${headerContent}\n\n> 🤖 **Generating explanation...**\n> Please wait while the AI analyzes the changes and generates an explanation. This document will update automatically when the content is ready.\n>\n> *This may take a few moments depending on the complexity of the changes.*`;
 
 		// Open the document immediately with loading content
 		const documentUri = this.container.markdown.openDocument(
