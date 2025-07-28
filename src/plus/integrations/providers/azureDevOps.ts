@@ -50,24 +50,26 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		const cachedAccount = this._accounts.get(accessToken);
 		if (cachedAccount == null) {
-			const api = await this.getProvidersApi();
-			const user = await api.getCurrentUser(this.id, this.getApiOptions(accessToken, true));
-			this._accounts.set(
-				accessToken,
-				user
-					? {
-							provider: this,
-							id: user.id,
-							name: user.name ?? undefined,
-							email: user.email ?? undefined,
-							avatarUrl: user.avatarUrl ?? undefined,
-							username: user.username ?? undefined,
-						}
-					: undefined,
-			);
+			const user = await this._requestForCurrentUser(accessToken);
+			this._accounts.set(accessToken, user);
 		}
 
 		return this._accounts.get(accessToken);
+	}
+
+	protected async _requestForCurrentUser(accessToken: string): Promise<Account | undefined> {
+		const api = await this.getProvidersApi();
+		const user = await api.getCurrentUser(this.id, this.getApiOptions(accessToken, true));
+		return user
+			? {
+					provider: this,
+					id: user.id,
+					name: user.name ?? undefined,
+					email: user.email ?? undefined,
+					avatarUrl: user.avatarUrl ?? undefined,
+					username: user.username ?? undefined,
+				}
+			: undefined;
 	}
 
 	private _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;
@@ -614,6 +616,21 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const options = super.getApiOptions(accessToken, doNotConvertToPat);
 		options.baseUrl = this.apiBaseUrl;
 		return options;
+	}
+
+	protected override async _requestForCurrentUser(accessToken: string): Promise<Account | undefined> {
+		const azure = await this.container.azure;
+		const user = azure ? await azure.getCurrentUserOnServer(this, accessToken, this.apiBaseUrl) : undefined;
+		return user
+			? {
+					provider: this,
+					id: user.id,
+					name: user.name ?? undefined,
+					email: user.email ?? undefined,
+					avatarUrl: user.avatarUrl ?? undefined,
+					username: user.username ?? undefined,
+				}
+			: undefined;
 	}
 }
 
