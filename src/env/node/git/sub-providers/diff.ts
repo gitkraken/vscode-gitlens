@@ -576,10 +576,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 					currentPath = relativePath;
 					rev = '';
 				}
-			} else if (!skipFirstRev) {
-				currentSha = '';
-				currentPath = relativePath;
-				rev = '';
 			}
 		} else if (!skipFirstRev) {
 			currentSha = rev;
@@ -635,6 +631,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			for (const commit of parser.parse(result.stdout)) {
 				const path = relativePath;
 				file = commit.files.find(f => f.path === path || f.originalPath === path);
+				// If we couldn't find the file, but there is only one file in the commit, use that one and assume the filename changed
+				if (file == null && commit.files.length === 1) {
+					file = commit.files[0];
+					relativePath = file.path;
+				}
 				// Keep track of the file changing paths
 				if (file?.originalPath && file.originalPath !== relativePath) {
 					relativePath = file.originalPath;
