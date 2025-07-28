@@ -373,6 +373,61 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
+	@debug<AzureDevOpsApi['getCurrentUserOnServer']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getCurrentUserOnServer(
+		provider: Provider,
+		token: string,
+		baseUrl: string,
+	): Promise<{ id: string; name?: string; email?: string; username?: string; avatarUrl?: string } | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const connectionData = await this.request<{
+				authenticatedUser?: {
+					id: string;
+					descriptor: string;
+					isActive: boolean;
+					metTypeId: number;
+					providerDisplayName?: string;
+					emailAddress?: string;
+					resourceVersion: 2;
+					subjectDescriptor: string;
+					properties?: {
+						Account?: {
+							$type: string;
+							$value: string;
+						};
+					};
+				};
+			}>(
+				provider,
+				token,
+				baseUrl,
+				'_apis/connectionData',
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			const user = connectionData?.authenticatedUser;
+			const username = user?.properties?.Account?.$value;
+			if (!username) {
+				return undefined;
+			}
+
+			return {
+				id: user.id,
+				name: user.providerDisplayName,
+				email: user.emailAddress,
+				username: username,
+			};
+		} catch (ex) {
+			Logger.error(ex, scope, `Failed to get current user from ${baseUrl}`);
+			return undefined;
+		}
+	}
+
 	async getWorkItemStateCategory(
 		issueType: string,
 		state: string,
