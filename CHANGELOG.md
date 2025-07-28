@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Commit Graph elements referencing previous state context ([#4513](https://github.com/gitkraken/vscode-gitlens/issues/4513))
+
 ## [17.3.2] - 2025-07-22
 
 ### Changed
