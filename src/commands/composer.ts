@@ -1,4 +1,3 @@
-import { ProgressLocation } from 'vscode';
 import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { Repository } from '../git/models/repository';
@@ -20,12 +19,13 @@ import {
 export interface ComposeCommandArgs {
 	repoPath?: string;
 	source?: Sources;
+	mode?: 'interactive' | 'ai-preview';
 }
 
 @command()
 export class ComposeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.ai.composeCommits');
+		super(['gitlens.ai.composeCommits', 'gitlens.ai.composeCommitsPreview']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ComposeCommandArgs): Promise<void> {
@@ -43,6 +43,10 @@ export class ComposeCommand extends GlCommandBase {
 			args.source = args.source ?? 'view';
 		}
 
+		if (args != null) {
+			args.mode = context.command === 'gitlens.ai.composeCommitsPreview' ? 'ai-preview' : 'interactive';
+		}
+
 		return this.execute(args);
 	}
 
@@ -55,14 +59,18 @@ export class ComposeCommand extends GlCommandBase {
 			repo ??= await getRepositoryOrShowPicker('Compose Commits');
 			if (repo == null) return;
 
-			await this.composeCommits(repo, args?.source ?? 'commandPalette');
+			await this.composeCommits(repo, args?.mode, args?.source ?? 'commandPalette');
 		} catch (ex) {
 			Logger.error(ex, 'ComposeCommand', 'execute');
 			void showGenericErrorMessage('Unable to compose commits');
 		}
 	}
 
-	private async composeCommits(repo: Repository, source: Sources): Promise<void> {
+	private async composeCommits(
+		repo: Repository,
+		mode: 'interactive' | 'ai-preview' = 'interactive',
+		source: Sources,
+	): Promise<void> {
 		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
 
 		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
@@ -83,101 +91,7 @@ export class ComposeCommand extends GlCommandBase {
 			baseCommit: baseCommitSha,
 			commits: [],
 			source: source,
-		});
-	}
-}
-
-export interface ComposeWithAICommandArgs {
-	repoPath?: string;
-	source?: Sources;
-}
-
-@command()
-export class ComposeWithAICommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.ai.composeCommitsWithAI'); // TODO: Add to GlCommands type
-	}
-
-	protected override preExecute(context: CommandContext, args?: ComposeWithAICommandArgs): Promise<void> {
-		if (isCommandContextViewNodeHasWorktree(context)) {
-			args = { ...args };
-			args.repoPath = context.node.worktree.path;
-			args.source = args.source ?? 'view';
-		} else if (isCommandContextViewNodeHasRepository(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repo.path;
-			args.source = args.source ?? 'view';
-		} else if (isCommandContextViewNodeHasRepoPath(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repoPath;
-			args.source = args.source ?? 'view';
-		}
-
-		return this.execute(args);
-	}
-
-	async execute(args?: ComposeWithAICommandArgs): Promise<void> {
-		try {
-			let repo;
-			if (args?.repoPath != null) {
-				repo = this.container.git.getRepository(args.repoPath);
-			}
-			repo ??= await getRepositoryOrShowPicker('Compose Commits with AI');
-			if (repo == null) return;
-
-			await this.composeCommitsWithAI(repo, args?.source ?? 'commandPalette');
-		} catch (ex) {
-			Logger.error(ex, 'ComposeWithAICommand', 'execute');
-			void showGenericErrorMessage('Unable to compose commits with AI');
-		}
-	}
-
-	private async composeCommitsWithAI(repo: Repository, source: Sources): Promise<void> {
-		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
-		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
-
-		if (!stagedDiff?.contents && !unstagedDiff?.contents) {
-			void showGenericErrorMessage('No changes found to compose commits from.');
-			return;
-		}
-
-		const { hunkMap, hunks } = createHunksFromDiffs(stagedDiff?.contents, unstagedDiff?.contents);
-		const baseCommit = await repo.git.commits.getCommit('HEAD');
-		const baseCommitSha = baseCommit?.sha ?? 'HEAD';
-
-		// Generate commits with AI first
-		const result = await this.container.ai.generateCommits(
-			hunks,
-			[],
-			hunkMap,
-			{
-				source: source,
-			},
-			{
-				progress: { location: ProgressLocation.Notification },
-			},
-		);
-
-		if (!result || result === 'cancelled') {
-			return;
-		}
-
-		// Transform AI result to ComposerCommit format
-		const aiCommits = result.commits.map((commit, index) => ({
-			id: `ai-commit-${index}`,
-			message: commit.message,
-			aiExplanation: commit.explanation,
-			hunkIndices: commit.hunks.map(h => h.hunk),
-		}));
-
-		// Open composer with AI-generated commits in locked mode
-		await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showComposerPage', undefined, {
-			hunks: hunks,
-			hunkMap: hunkMap,
-			baseCommit: baseCommitSha,
-			commits: aiCommits,
-			source: source,
-			mode: 'ai-preview', // New mode for locked AI preview
+			mode: mode,
 		});
 	}
 }
