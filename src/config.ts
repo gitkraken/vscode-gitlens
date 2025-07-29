@@ -212,6 +212,11 @@ export interface AdvancedConfig {
 
 interface AIConfig {
 	readonly enabled: boolean;
+	readonly experimental: {
+		readonly composer: {
+			readonly enabled: boolean;
+		};
+	};
 	readonly azure: {
 		readonly url: string | null;
 	};

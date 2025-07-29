@@ -4122,6 +4122,16 @@
 					"preview"
 				],
 				"properties": {
+					"gitlens.ai.experimental.composer.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable the experimental version of the commit composer",
+						"scope": "window",
+						"order": 10,
+						"tags": [
+							"experimental"
+						]
+					},
 					"gitlens.ai.model": {
 						"type": [
 							"string",
@@ -6155,19 +6165,29 @@
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.composeCommitsWithAI",
-				"title": "Compose Commits with AI (Preview)...",
+				"command": "gitlens.ai.composeCommits:graph",
+				"title": "Compose Commits (Experimental)...",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.composeCommits:views",
+				"title": "Compose Commits (Experimental)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.composeCommitsPreview",
+				"title": "Compose Commits (Preview)...",
 				"category": "GitLens",
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.composeCommitsWithAI:graph",
-				"title": "Compose Commits with AI (Preview)",
+				"command": "gitlens.ai.composeCommitsPreview:graph",
+				"title": "Compose Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.composeCommitsWithAI:views",
-				"title": "Compose Commits with AI (Preview)",
+				"command": "gitlens.ai.composeCommitsPreview:views",
+				"title": "Compose Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
@@ -10827,18 +10847,26 @@
 				},
 				{
 					"command": "gitlens.ai.composeCommits",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.composer.enabled"
 				},
 				{
-					"command": "gitlens.ai.composeCommitsWithAI",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-				},
-				{
-					"command": "gitlens.ai.composeCommitsWithAI:graph",
+					"command": "gitlens.ai.composeCommits:graph",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.composeCommitsWithAI:views",
+					"command": "gitlens.ai.composeCommits:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.composeCommitsPreview",
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && !config.gitlens.ai.experimental.composer.enabled"
+				},
+				{
+					"command": "gitlens.ai.composeCommitsPreview:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.composeCommitsPreview:views",
 					"when": "false"
 				},
 				{
@@ -18655,8 +18683,13 @@
 					"group": "3_gitlens_ai@1"
 				},
 				{
-					"command": "gitlens.ai.composeCommitsWithAI:views",
-					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.ai.composeCommits:views",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.composer.enabled",
+					"group": "3_gitlens_ai@2"
+				},
+				{
+					"command": "gitlens.ai.composeCommitsPreview:views",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && !config.gitlens.ai.experimental.composer.enabled",
 					"group": "3_gitlens_ai@2"
 				},
 				{
@@ -23328,8 +23361,13 @@
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.ai.composeCommitsWithAI:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.ai.composeCommits:graph",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.experimental.composer.enabled",
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.ai.composeCommitsPreview:graph",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && !config.gitlens.ai.experimental.composer.enabled",
 					"group": "1_gitlens@3"
 				},
 				{

@@ -40,6 +40,9 @@ export class GlWipDetails extends GlDetailsBase {
 	@property({ type: Object })
 	generate?: GenerateState;
 
+	@property({ type: Boolean })
+	experimentalComposerEnabled = false;
+
 	@state()
 	get inReview(): boolean {
 		return this.draftState?.inReview ?? false;
@@ -142,10 +145,15 @@ export class GlWipDetails extends GlDetailsBase {
 					></gl-button>
 					<gl-button
 						appearance="secondary"
-						.href=${createCommandLink('gitlens.ai.composeCommits', {
-							repoPath: this.wip?.repo.path,
-							source: 'inspect',
-						} as ComposeCommandArgs)}
+						.href=${createCommandLink(
+							this.experimentalComposerEnabled
+								? 'gitlens.ai.composeCommits'
+								: 'gitlens.ai.composeCommitsPreview',
+							{
+								repoPath: this.wip?.repo.path,
+								source: 'inspect',
+							} as ComposeCommandArgs,
+						)}
 						tooltip="Compose Commits (Experimental) — interactively organize working changes into meaningful commits"
 						.tooltipPlacement=${'top'}
 						>Compose (Experimental)<code-icon icon="sparkle" slot="prefix"></code-icon

@@ -256,6 +256,50 @@ export class ComposerApp extends LitElement {
 		.unassigned-changes-section:last-child {
 			margin-bottom: 0;
 		}
+
+		/* Loading overlay styles */
+		.loading-overlay {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(var(--vscode-editor-background-rgb, 30, 30, 30), 0.8);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 100;
+			backdrop-filter: blur(2px);
+		}
+
+		.loading-content {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 1.2rem;
+			padding: 2.4rem;
+			background: var(--vscode-editor-background);
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 8px;
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+		}
+
+		.loading-spinner {
+			font-size: 2.4rem;
+			color: var(--vscode-progressBar-background);
+		}
+
+		.loading-text {
+			font-size: 1.4rem;
+			color: var(--vscode-foreground);
+			text-align: center;
+			font-weight: 500;
+		}
+
+		/* Make main-content relative for absolute positioning of overlay */
+		.main-content {
+			position: relative;
+		}
 	`;
 
 	@state()
@@ -480,11 +524,11 @@ export class ComposerApp extends LitElement {
 	// History management methods
 	private createDataSnapshot(): ComposerDataSnapshot {
 		return {
-			hunks: JSON.parse(JSON.stringify(this.state.hunks)),
-			commits: JSON.parse(JSON.stringify(this.state.commits)),
-			selectedCommitId: this.state.selectedCommitId,
+			hunks: JSON.parse(JSON.stringify(this.state?.hunks ?? [])),
+			commits: JSON.parse(JSON.stringify(this.state?.commits ?? [])),
+			selectedCommitId: this.state?.selectedCommitId ?? null,
 			selectedCommitIds: new Set([...this.selectedCommitIds]),
-			selectedUnassignedSection: this.state.selectedUnassignedSection,
+			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
 		};
 	}
@@ -1043,7 +1087,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canGenerateCommitsWithAI(): boolean {
-		return !this.isAIPreviewMode && this.aiEnabled;
+		return this.aiEnabled; // Allow in both interactive and ai-preview modes
 	}
 
 	private get canEditCommitMessages(): boolean {
@@ -1257,6 +1301,23 @@ export class ComposerApp extends LitElement {
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
 				></gl-details-panel>
+
+				<!-- Loading overlay for AI operations -->
+				${when(
+					this.state.generatingCommits || this.state.generatingCommitMessage,
+					() => html`
+						<div class="loading-overlay">
+							<div class="loading-content">
+								<code-icon icon="loading~spin" class="loading-spinner"></code-icon>
+								<div class="loading-text">
+									${this.state.generatingCommits
+										? 'Generating commits with AI...'
+										: 'Generating commit message with AI...'}
+								</div>
+							</div>
+						</div>
+					`,
+				)}
 			</main>
 
 			<dialog id="commits-generated-modal" class="modal">

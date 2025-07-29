@@ -318,7 +318,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.ai.composeCommitsWithAI:home')}
+						href=${this.createCommandLink(
+							this._homeState.experimentalComposerEnabled
+								? 'gitlens.ai.composeCommits:home'
+								: 'gitlens.ai.composeCommitsPreview:home',
+						)}
 						>Compose Commits (Experimental)</menu-item
 					>`,
 				);

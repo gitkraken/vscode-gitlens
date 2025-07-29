@@ -278,7 +278,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled'])) {
+		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled', 'ai.experimental.composer.enabled'])) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -382,7 +382,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
-			registerCommand('gitlens.ai.composeCommitsWithAI:home', this.composeCommitsWithAI, this),
+			registerCommand(
+				'gitlens.ai.composeCommitsPreview:home',
+				ref => this.composeCommits(ref, 'ai-preview'),
+				this,
+			),
+			registerCommand('gitlens.ai.composeCommits:home', ref => this.composeCommits(ref, 'interactive'), this),
 		];
 	}
 
@@ -631,15 +636,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	@log<HomeWebviewProvider['composeCommitsWithAI']>({ args: { 0: r => r.branchId } })
-	private async composeCommitsWithAI(ref: BranchRef) {
+	@log<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
+	private async composeCommits(ref: BranchRef, mode: 'interactive' | 'ai-preview' = 'interactive') {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		void executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommitsWithAI', {
-			repoPath: repo.path,
-			source: 'home',
-		});
+		void executeCommand<ComposeCommandArgs>(
+			mode === 'interactive' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
+			{
+				repoPath: repo.path,
+				source: 'home',
+			},
+		);
 	}
 
 	@log()
@@ -791,6 +799,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return configuration.get('ai.enabled');
 	}
 
+	private getExperimentalComposerEnabled() {
+		return configuration.get('ai.experimental.composer.enabled', undefined, false);
+	}
+
 	private getAmaBannerCollapsed() {
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
@@ -876,6 +888,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
+			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, false),
@@ -1300,6 +1313,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			aiEnabled: this.getAiEnabled(),
+			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
 		});
 	}
 

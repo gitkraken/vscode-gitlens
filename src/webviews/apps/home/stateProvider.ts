@@ -81,6 +81,7 @@ export class HomeStateProvider implements StateProvider<State> {
 					this._state.previewEnabled = msg.params.previewEnabled;
 					this._state.previewCollapsed = msg.params.previewCollapsed;
 					this._state.aiEnabled = msg.params.aiEnabled;
+					this._state.experimentalComposerEnabled = msg.params.experimentalComposerEnabled;
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);
