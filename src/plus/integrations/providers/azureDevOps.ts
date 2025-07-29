@@ -8,7 +8,7 @@ import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
-import { getSettledValue } from '../../../system/promise';
+import { flatSettled } from '../../../system/promise';
 import { base64 } from '../../../system/string';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
@@ -119,16 +119,13 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
-			const azureProjects = (
-				await Promise.allSettled(
-					resourcesWithoutProjects.map(resource =>
-						api.getAzureProjectsForResource(resource.name, this.id, this.getApiOptions(accessToken)),
-					),
-				)
-			)
-				.map(r => getSettledValue(r)?.values)
-				.flat()
-				.filter(p => p != null);
+			const azureProjects = await flatSettled(
+				resourcesWithoutProjects.map(
+					async resource =>
+						(await api.getAzureProjectsForResource(resource.name, this.id, this.getApiOptions(accessToken)))
+							.values,
+				),
+			);
 
 			for (const resource of resourcesWithoutProjects) {
 				const projects = azureProjects?.filter(p => p.namespace === resource.name);
@@ -412,32 +409,28 @@ export abstract class AzureDevOpsIntegrationBase<
 		const projects = await this.getProviderProjectsForResources(session, orgs);
 		if (projects == null || projects.length === 0) return undefined;
 
-		const assignedIssues = (
-			await Promise.all(
-				projects.map(async p => {
-					const issuesResponse = (
-						await api.getIssuesForAzureProject(this.id, p.resourceName, p.name, {
-							...this.getApiOptions(session.accessToken),
-							assigneeLogins: [user.username!],
-						})
-					).values;
-					return issuesResponse.map(i => fromProviderIssue(i, this as any, { project: p }));
-				}),
-			)
-		).flat();
-		const authoredIssues = (
-			await Promise.all(
-				projects.map(async p => {
-					const issuesResponse = (
-						await api.getIssuesForAzureProject(this.id, p.resourceName, p.name, {
-							...this.getApiOptions(session.accessToken),
-							authorLogin: user.username!,
-						})
-					).values;
-					return issuesResponse.map(i => fromProviderIssue(i, this as any, { project: p }));
-				}),
-			)
-		).flat();
+		const assignedIssues = await flatSettled(
+			projects.map(async p => {
+				const issuesResponse = (
+					await api.getIssuesForAzureProject(this.id, p.resourceName, p.name, {
+						...this.getApiOptions(session.accessToken),
+						assigneeLogins: [user.username!],
+					})
+				).values;
+				return issuesResponse.map(i => fromProviderIssue(i, this as any, { project: p }));
+			}),
+		);
+		const authoredIssues = await flatSettled(
+			projects.map(async p => {
+				const issuesResponse = (
+					await api.getIssuesForAzureProject(this.id, p.resourceName, p.name, {
+						...this.getApiOptions(session.accessToken),
+						authorLogin: user.username!,
+					})
+				).values;
+				return issuesResponse.map(i => fromProviderIssue(i, this as any, { project: p }));
+			}),
+		);
 		// TODO: Add mentioned issues
 		const issuesById = new Map<string, IssueShape>();
 

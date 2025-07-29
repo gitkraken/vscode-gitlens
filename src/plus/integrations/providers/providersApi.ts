@@ -1035,7 +1035,7 @@ export class ProvidersApi {
 		providerId: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 		namespace: string,
 		project: string,
-		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean },
+		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
@@ -1050,6 +1050,7 @@ export class ProvidersApi {
 			token,
 			options?.cursor,
 			options?.isPAT,
+			options?.baseUrl,
 		);
 	}
 
