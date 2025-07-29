@@ -712,7 +712,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
 			this.host.registerWebviewCommand('gitlens.ai.generateCommits:graph', this.generateCommits),
-			this.host.registerWebviewCommand('gitlens.ai.composeCommits:graph', this.composeCommits),
+			this.host.registerWebviewCommand('gitlens.ai.composeCommitsWithAI:graph', this.composeCommitsWithAI),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
@@ -4083,11 +4083,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async composeCommits(item?: GraphItemContext) {
+	private async composeCommitsWithAI(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 
-			await executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommits', {
+			await executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommitsWithAI', {
 				repoPath: ref.repoPath,
 				source: 'graph',
 			});

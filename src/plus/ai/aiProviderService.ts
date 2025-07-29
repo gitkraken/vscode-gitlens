@@ -2099,6 +2099,15 @@ export class AIProviderService implements Disposable {
 	/**
 	 * Generates commits using AI to organize existing hunks into logical commits.
 	 * Similar to generateRebase but works with existing hunks instead of generating a diff.
+	 *
+	 * This method includes automatic retry logic that validates the AI response and
+	 * continues the conversation if the response has issues like:
+	 * - Missing hunks that were in the original hunk map
+	 * - Extra hunks that weren't in the original hunk map
+	 * - Duplicate hunks used multiple times
+	 *
+	 * The method will retry up to 3 times, providing specific feedback to the AI
+	 * about what was wrong with the previous response.
 	 */
 	async generateCommits(
 		hunks: {
@@ -2138,8 +2147,124 @@ export class AIProviderService implements Disposable {
 			}
 		}
 
-		// Send AI request to generate commits
-		const result = await this.sendRequest(
+		// Use retry logic similar to generateRebase
+		const result = await this.sendCommitsRequestWithRetry(hunks, existingCommits, hunkMap, source, options);
+		if (result === 'cancelled' || result == null) return result;
+
+		return result;
+	}
+
+	private async sendCommitsRequestWithRetry(
+		hunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+		hunkMap: { index: number; hunkHeader: string }[],
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
+		let conversationMessages: AIChatMessage[] = [];
+		let attempt = 0;
+		const maxAttempts = 4;
+
+		// First attempt - send initial request
+		const firstAttemptResult = await this.sendCommitsFirstAttempt(hunks, existingCommits, hunkMap, source, options);
+
+		if (firstAttemptResult === 'cancelled' || firstAttemptResult == null) {
+			return firstAttemptResult;
+		}
+
+		let rq = firstAttemptResult.response;
+		conversationMessages = firstAttemptResult.conversationMessages;
+
+		while (attempt < maxAttempts) {
+			const validationResult = this.validateCommitsResponse(rq, hunkMap);
+			if (validationResult.isValid) {
+				return { commits: validationResult.commits };
+			}
+
+			Logger.warn(
+				undefined,
+				'AIProviderService',
+				'sendCommitsRequestWithRetry',
+				`Validation failed on attempt ${attempt + 1}: ${validationResult.errorMessage}`,
+			);
+
+			// If this was the last attempt, throw the error
+			if (attempt === maxAttempts - 1) {
+				throw new Error(validationResult.errorMessage);
+			}
+
+			// Prepare retry message for conversation
+			conversationMessages.push(
+				{ role: 'assistant', content: rq.content },
+				{ role: 'user', content: validationResult.retryPrompt },
+			);
+
+			attempt++;
+
+			// Send retry request
+			const currentAttempt = attempt;
+			const retryResult = await this.sendRequest(
+				'generate-rebase',
+				async () => Promise.resolve(conversationMessages),
+				m => `Generating commits with ${m.name}... (attempt ${currentAttempt + 1})`,
+				source,
+				m => ({
+					key: 'ai/generate',
+					data: {
+						type: 'rebase',
+						id: undefined,
+						'model.id': m.id,
+						'model.provider.id': m.provider.id,
+						'model.provider.name': m.provider.name,
+						'retry.count': currentAttempt,
+					},
+				}),
+				options,
+			);
+
+			if (retryResult === 'cancelled' || retryResult == null) {
+				return retryResult;
+			}
+
+			rq = retryResult;
+		}
+
+		return undefined;
+	}
+
+	private async sendCommitsFirstAttempt(
+		hunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+		hunkMap: { index: number; hunkHeader: string }[],
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<{ response: AIRequestResult; conversationMessages: AIChatMessage[] } | 'cancelled' | undefined> {
+		let storedPrompt = '';
+		const rq = await this.sendRequest(
 			'generate-rebase',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				// Prepare the data for the AI prompt
@@ -2165,6 +2290,9 @@ export class AIProviderService implements Disposable {
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
+				// Store the prompt for later use in conversation messages
+				storedPrompt = prompt;
+
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
@@ -2184,64 +2312,163 @@ export class AIProviderService implements Disposable {
 			options,
 		);
 
-		if (result === 'cancelled') return result;
-		if (result == null) return undefined;
+		if (rq === 'cancelled') return rq;
 
-		// Parse and validate the AI response
-		const parsedResult = this.parseGenerateCommitsResponse(result, hunkMap);
-		if (parsedResult == null) return undefined;
+		if (rq == null) return undefined;
 
-		return parsedResult;
+		return {
+			response: rq,
+			conversationMessages: [{ role: 'user', content: storedPrompt }],
+		};
 	}
 
-	private parseGenerateCommitsResponse(
-		result: AIRequestResult,
-		hunkMap: { index: number; hunkHeader: string }[],
-	): AIGenerateCommitsResult | undefined {
+	private validateCommitsResponse(
+		rq: AIRequestResult,
+		inputHunkMap: { index: number; hunkHeader: string }[],
+	):
+		| {
+				isValid: true;
+				commits: {
+					readonly message: string;
+					readonly explanation: string;
+					readonly hunks: { hunk: number }[];
+				}[];
+		  }
+		| { isValid: false; errorMessage: string; retryPrompt: string } {
 		try {
-			// Parse the JSON response from the AI
-			const parsed = JSON.parse(result.content);
+			// Parse the JSON response
+			const commits: {
+				readonly message: string;
+				readonly explanation: string;
+				readonly hunks: { hunk: number }[];
+			}[] = JSON.parse(rq.content);
 
-			if (!Array.isArray(parsed)) {
-				Logger.warn('AIProviderService', 'parseGenerateCommitsResponse', 'Response is not an array');
-				return undefined;
+			if (!Array.isArray(commits)) {
+				const errorMessage = 'Invalid commits result: response is not an array';
+				const retryPrompt = dedent(`
+					Your previous response is not a valid JSON array. Please provide a JSON array of commits following this structure:
+					[
+					  {
+					    "message": "commit message",
+					    "explanation": "detailed explanation",
+					    "hunks": [{"hunk": 1}, {"hunk": 2}]
+					  }
+					]
+
+					Here was your previous response:
+					${rq.content}
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 			}
 
-			// Validate that all commits have required properties
-			const commits = parsed.map((commit: any) => {
-				if (typeof commit.message !== 'string' || typeof commit.explanation !== 'string') {
-					throw new Error('Invalid commit structure: missing message or explanation');
+			// Collect all hunk indices used in the commits
+			const usedHunkIndices = new Set<number>();
+			const duplicateHunks: number[] = [];
+
+			for (const commit of commits) {
+				if (!commit.hunks || !Array.isArray(commit.hunks)) {
+					const errorMessage = 'Invalid commit structure: missing or invalid hunks array';
+					const retryPrompt = dedent(`
+						Your previous response has an invalid commit structure. Each commit must have "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
+
+						Here was your previous response:
+						${rq.content}
+
+						Please provide a valid JSON array of commits following this structure:
+						[
+						  {
+						    "message": "commit message",
+						    "explanation": "detailed explanation",
+						    "hunks": [{"hunk": 1}, {"hunk": 2}]
+						  }
+						]
+					`);
+					return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 				}
 
-				if (!Array.isArray(commit.hunks)) {
-					throw new Error('Invalid commit structure: hunks must be an array');
+				for (const hunkRef of commit.hunks) {
+					const hunkIndex = hunkRef.hunk;
+					if (usedHunkIndices.has(hunkIndex)) {
+						duplicateHunks.push(hunkIndex);
+					}
+					usedHunkIndices.add(hunkIndex);
 				}
+			}
 
-				// Validate hunk indices
-				const hunks = commit.hunks.map((hunk: any) => {
-					if (typeof hunk.hunk !== 'number') {
-						throw new Error('Invalid hunk structure: hunk index must be a number');
-					}
+			// Check for duplicate hunks
+			if (duplicateHunks.length > 0) {
+				const errorMessage = `Duplicate hunks found: ${duplicateHunks.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response uses some hunks multiple times. Each hunk can only be used once across all commits.
 
-					// Verify hunk index exists in hunk map
-					if (!hunkMap.some(h => h.index === hunk.hunk)) {
-						throw new Error(`Invalid hunk index: ${hunk.hunk} not found in hunk map`);
-					}
+					Duplicate hunks: ${duplicateHunks.join(', ')}
 
-					return { hunk: hunk.hunk };
-				});
+					Here was your previous response:
+					${rq.content}
 
-				return {
-					message: commit.message,
-					explanation: commit.explanation,
-					hunks: hunks,
-				};
-			});
+					Please provide a corrected response where each hunk is used only once.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
 
-			return { commits: commits };
-		} catch (error) {
-			Logger.error(error, 'AIProviderService', 'parseGenerateCommitsResponse');
-			return undefined;
+			// Check for missing hunks
+			const inputHunkIndices = new Set(inputHunkMap.map(h => h.index));
+			const missingHunks = Array.from(inputHunkIndices).filter(index => !usedHunkIndices.has(index));
+
+			if (missingHunks.length > 0) {
+				const errorMessage = `Missing hunks: ${missingHunks.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response is missing some hunks that were in the original input. All hunks must be included in the commits.
+
+					Missing hunks: ${missingHunks.join(', ')}
+
+					Here was your previous response:
+					${rq.content}
+
+					Please provide a corrected response that includes all hunks.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// Check for extra hunks
+			const extraHunks = Array.from(usedHunkIndices).filter(index => !inputHunkIndices.has(index));
+
+			if (extraHunks.length > 0) {
+				const errorMessage = `Extra hunks found: ${extraHunks.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response includes hunks that were not in the original input. Only use the hunks that were provided.
+
+					Extra hunks: ${extraHunks.join(', ')}
+
+					Here was your previous response:
+					${rq.content}
+
+					Please provide a corrected response that only uses the provided hunks.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// If validation passes, return the commits
+			return { isValid: true, commits: commits };
+		} catch {
+			// Handle any errors during hunk validation (e.g., malformed commit structure)
+			const errorMessage = 'Invalid commit structure in commits result';
+			const retryPrompt = dedent(`
+				Your previous response has an invalid commit structure. Each commit must have "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
+
+				Here was your previous response:
+				${rq.content}
+
+				Please provide a valid JSON array of commits following this structure:
+				[
+				  {
+				    "message": "commit message",
+				    "explanation": "detailed explanation",
+				    "hunks": [{"hunk": 1}, {"hunk": 2}]
+				  }
+				]
+			`);
+			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 		}
 	}
 }

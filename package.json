@@ -6150,17 +6150,23 @@
 			},
 			{
 				"command": "gitlens.ai.composeCommits",
+				"title": "Compose Commits (Experimental)...",
+				"category": "GitLens",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.composeCommitsWithAI",
 				"title": "Compose Commits with AI (Preview)...",
 				"category": "GitLens",
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.composeCommits:graph",
+				"command": "gitlens.ai.composeCommitsWithAI:graph",
 				"title": "Compose Commits with AI (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.composeCommits:views",
+				"command": "gitlens.ai.composeCommitsWithAI:views",
 				"title": "Compose Commits with AI (Preview)",
 				"icon": "$(sparkle)"
 			},
@@ -10824,11 +10830,15 @@
 					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
-					"command": "gitlens.ai.composeCommits:graph",
+					"command": "gitlens.ai.composeCommitsWithAI",
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.composeCommitsWithAI:graph",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.composeCommits:views",
+					"command": "gitlens.ai.composeCommitsWithAI:views",
 					"when": "false"
 				},
 				{
@@ -18645,7 +18655,7 @@
 					"group": "3_gitlens_ai@1"
 				},
 				{
-					"command": "gitlens.ai.composeCommits:views",
+					"command": "gitlens.ai.composeCommitsWithAI:views",
 					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "3_gitlens_ai@2"
 				},
@@ -23318,7 +23328,7 @@
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.ai.composeCommits:graph",
+					"command": "gitlens.ai.composeCommitsWithAI:graph",
 					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens@3"
 				},

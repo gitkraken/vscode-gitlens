@@ -280,6 +280,9 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	aiEnabled: boolean = false;
 
+	@property({ type: Boolean })
+	isAIPreviewMode: boolean = false;
+
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -289,8 +292,12 @@ export class DetailsPanel extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
 
-		// Reinitialize sortables when commits or hunks change
-		if (changedProperties.has('selectedCommits') || changedProperties.has('hunks')) {
+		// Reinitialize sortables when commits, hunks, or AI preview mode change
+		if (
+			changedProperties.has('selectedCommits') ||
+			changedProperties.has('hunks') ||
+			changedProperties.has('isAIPreviewMode')
+		) {
 			this.initializeHunksSortable();
 			this.setupAutoScroll();
 		}
@@ -313,6 +320,11 @@ export class DetailsPanel extends LitElement {
 
 	private initializeHunksSortable() {
 		this.destroyHunksSortables();
+
+		// Don't initialize sortable in AI preview mode
+		if (this.isAIPreviewMode) {
+			return;
+		}
 
 		// Find all file hunks containers (could be multiple in split view)
 		const fileHunksContainers = this.shadowRoot?.querySelectorAll('.file-hunks');
@@ -586,6 +598,7 @@ export class DetailsPanel extends LitElement {
 										.selected=${this.selectedHunkIds.has(hunk.index.toString())}
 										.isRename=${hunk.isRename || false}
 										.originalFileName=${hunk.originalFileName}
+										.isAIPreviewMode=${this.isAIPreviewMode}
 										@hunk-selected=${(e: CustomEvent) =>
 											this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
 									></gl-hunk-item>

@@ -1,5 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import '../../../shared/components/code-icon';
 
 @customElement('gl-hunk-item')
@@ -226,6 +227,9 @@ export class HunkItem extends LitElement {
 	@property()
 	originalFileName?: string;
 
+	@property({ type: Boolean })
+	isAIPreviewMode = false;
+
 	private renderDiffContent() {
 		if (!this.content || typeof this.content !== 'string') {
 			return html`<span class="diff-line">No content available</span>`;
@@ -297,9 +301,14 @@ export class HunkItem extends LitElement {
 				class="hunk-item ${this.selected ? 'selected' : ''} ${this.multiSelected ? 'multi-selected' : ''}"
 				@click=${this.handleClick}
 			>
-				<div class="drag-handle">
-					<code-icon icon="gripper"></code-icon>
-				</div>
+				${when(
+					!this.isAIPreviewMode,
+					() => html`
+						<div class="drag-handle">
+							<code-icon icon="gripper"></code-icon>
+						</div>
+					`,
+				)}
 				<div class="hunk-header">
 					<div class="file-info">
 						<code-icon class="file-icon" icon=${this.isRename ? 'arrow-right' : 'file-code'}></code-icon>

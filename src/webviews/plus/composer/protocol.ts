@@ -53,6 +53,9 @@ export interface State extends WebviewState {
 	generatingCommitMessage: string | null; // commitId of the commit currently generating a message, or null
 	committing: boolean; // true when finish and commit is in progress
 
+	// Mode controls
+	mode: 'interactive' | 'ai-preview'; // interactive = normal mode, ai-preview = locked AI preview mode
+
 	// AI settings
 	aiEnabled: {
 		org: boolean;
