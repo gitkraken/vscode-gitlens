@@ -74,7 +74,6 @@ import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/strin
 import { compare, fromString } from '../../../system/version';
 import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
-import { registerCommitMessageProvider } from './commitMessageProvider';
 import type { Git, PushForceOptions } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
@@ -244,8 +243,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		async function subscribeToScmOpenCloseRepository(this: LocalGitProvider) {
 			const scmGit = await scmGitPromise;
 			if (scmGit == null) return;
-
-			registerCommitMessageProvider(this.container, scmGit);
 
 			// Find env to pass to Git
 			if ('env' in scmGit.git) {
