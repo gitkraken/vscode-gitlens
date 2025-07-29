@@ -34,6 +34,10 @@ export class ScmGroupedView implements Disposable {
 	private _cleared: Deferred<void> | undefined;
 	private _clearLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 	private readonly _disposable: Disposable;
+	private _lastSelectedByView = new Map<
+		GroupableTreeViewTypes,
+		{ node: ViewNode; parents: ViewNode[] | undefined; expanded: boolean }
+	>();
 	private _loaded: Deferred<void> | undefined;
 	private _onDidChangeTreeData: EventEmitter<ViewNode | undefined> | undefined;
 	private _tree: TreeView<ViewNode> | undefined;
@@ -62,6 +66,26 @@ export class ScmGroupedView implements Disposable {
 
 	async clearView<T extends GroupableTreeViewTypes>(type: T): Promise<void> {
 		if (this._view == null || this._view.type === type) return;
+
+		// Save current selection before switching views
+		const node: ViewNode | undefined = this._view.selection?.[0];
+		if (node != null) {
+			const parents: ViewNode[] = [];
+
+			let parent: ViewNode | undefined = node;
+			while (true) {
+				parent = parent.getParent();
+				if (parent == null) break;
+
+				parents.unshift(parent);
+			}
+
+			this._lastSelectedByView.set(this._view.type, {
+				node: node,
+				parents: parents,
+				expanded: this._view.isNodeExpanded(node),
+			});
+		}
 
 		void setContext('gitlens:views:scm:grouped:loading', true);
 		clearTimeout(this._clearLoadingTimer);
@@ -114,11 +138,39 @@ export class ScmGroupedView implements Disposable {
 		this._loaded?.cancel();
 		this._loaded = defer<void>();
 		void this._loaded.promise.then(
-			() => {
+			async () => {
 				this._loaded = undefined;
 
-				if (focus) {
-					setTimeout(() => void this._view?.show({ preserveFocus: false }), 50);
+				const view = this._view;
+				if (view != null) {
+					if (!view.visible) {
+						await view.show({ preserveFocus: !focus });
+					}
+
+					let selection = this._lastSelectedByView.get(type);
+
+					setTimeout(async () => {
+						if (selection == null && view.selection?.length) {
+							selection = { node: view.selection[0], parents: undefined, expanded: false };
+						}
+						if (selection == null) {
+							if (focus) {
+								await view.show({ preserveFocus: false });
+							}
+							return;
+						}
+
+						const { node, parents, expanded } = selection;
+						if (parents == null) {
+							await view.revealDeep(node, { expand: expanded, focus: focus ?? false, select: true });
+						} else {
+							await view.revealDeep(node, parents, {
+								expand: expanded,
+								focus: focus ?? false,
+								select: true,
+							});
+						}
+					}, 50);
 				}
 
 				this._clearLoadingTimer = setTimeout(

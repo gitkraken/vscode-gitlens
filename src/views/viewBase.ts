@@ -448,6 +448,7 @@ export abstract class ViewBase<
 			this.tree = window.createTreeView<ViewNode>(this.id, { ...options, treeDataProvider: this });
 			this.disposables.push(this.tree);
 		}
+		this._defaultSelection = [];
 
 		this.disposables.push(
 			configuration.onDidChange(e => {
@@ -513,12 +514,20 @@ export abstract class ViewBase<
 			if (!children.length) return children;
 
 			const index = children.findIndex(n => n instanceof GroupedHeaderNode);
-			if (index === 0) return children.length === 1 ? [] : children;
+			if (index === 0) {
+				this._defaultSelection = [children[0]];
+				return children.length === 1 ? [] : children;
+			}
 
+			let header: ViewNode | undefined;
 			if (index === -1) {
-				children.unshift(new GroupedHeaderNode(this as unknown as View, node));
+				header = new GroupedHeaderNode(this as unknown as View, node);
 			} else if (index > 0) {
-				children.unshift(children.splice(index, 1)[0]);
+				header = children.splice(index, 1)[0];
+			}
+			if (header != null) {
+				this._defaultSelection = [header];
+				children.unshift(header);
 			}
 
 			return children;
@@ -666,10 +675,11 @@ export abstract class ViewBase<
 		return this.tree.selection[0];
 	}
 
+	private _defaultSelection: readonly ViewNode[] = [];
 	get selection(): readonly ViewNode[] {
 		if (this.tree == null || this.root == null) return [];
 
-		return this.tree.selection;
+		return this.tree.selection.length === 0 ? this._defaultSelection : this.tree.selection;
 	}
 
 	get visible(): boolean {
