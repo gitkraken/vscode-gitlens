@@ -9,6 +9,7 @@ export interface ComposerCommandArgs {
 	baseCommit?: string;
 	commits?: any[];
 	source?: Sources;
+	mode?: 'interactive' | 'ai-preview';
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];

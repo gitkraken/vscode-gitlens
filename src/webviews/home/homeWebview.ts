@@ -382,7 +382,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
-			registerCommand('gitlens.ai.composeCommits:home', this.composeCommits, this),
+			registerCommand('gitlens.ai.composeCommitsWithAI:home', this.composeCommitsWithAI, this),
 		];
 	}
 
@@ -631,12 +631,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	@log<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
-	private async composeCommits(ref: BranchRef) {
+	@log<HomeWebviewProvider['composeCommitsWithAI']>({ args: { 0: r => r.branchId } })
+	private async composeCommitsWithAI(ref: BranchRef) {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		void executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommits', {
+		void executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommitsWithAI', {
 			repoPath: repo.path,
 			source: 'home',
 		});

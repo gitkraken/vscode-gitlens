@@ -24,11 +24,16 @@
 			}
 		},
 		"gitlens.ai.composeCommits": {
+			"label": "Compose Commits (Experimental)...",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.ai.composeCommitsWithAI": {
 			"label": "Compose Commits with AI (Preview)...",
 			"icon": "$(sparkle)",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
-		"gitlens.ai.composeCommits:graph": {
+		"gitlens.ai.composeCommitsWithAI:graph": {
 			"label": "Compose Commits with AI (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
@@ -41,7 +46,7 @@
 				]
 			}
 		},
-		"gitlens.ai.composeCommits:views": {
+		"gitlens.ai.composeCommitsWithAI:views": {
 			"label": "Compose Commits with AI (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {

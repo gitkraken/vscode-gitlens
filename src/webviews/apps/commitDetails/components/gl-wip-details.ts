@@ -146,9 +146,9 @@ export class GlWipDetails extends GlDetailsBase {
 							repoPath: this.wip?.repo.path,
 							source: 'inspect',
 						} as ComposeCommandArgs)}
-						tooltip="Compose Commits with AI (Preview) — interactively organize working changes into meaningful commits"
+						tooltip="Compose Commits (Experimental) — interactively organize working changes into meaningful commits"
 						.tooltipPlacement=${'top'}
-						>Compose with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
+						>Compose (Experimental)<code-icon icon="sparkle" slot="prefix"></code-icon
 					></gl-button>
 					<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
 						><code-icon rotate="45" icon="arrow-up"></code-icon

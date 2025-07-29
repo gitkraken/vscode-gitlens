@@ -243,6 +243,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Boolean })
 	aiEnabled: boolean = false;
 
+	@property({ type: Boolean })
+	isAIPreviewMode: boolean = false;
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -257,8 +260,8 @@ export class CommitsPanel extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
 
-		// Reinitialize sortables when commits change
-		if (changedProperties.has('commits')) {
+		// Reinitialize sortables when commits change or AI preview mode changes
+		if (changedProperties.has('commits') || changedProperties.has('isAIPreviewMode')) {
 			// Destroy existing sortable first
 			this.commitsSortable?.destroy();
 
@@ -274,6 +277,11 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeSortable() {
+		// Don't initialize sortable in AI preview mode
+		if (this.isAIPreviewMode) {
+			return;
+		}
+
 		const commitsContainer = this.shadowRoot?.querySelector('.commits-only');
 		if (commitsContainer) {
 			this.commitsSortable = Sortable.create(commitsContainer as HTMLElement, {
@@ -296,6 +304,11 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeDropZones() {
+		// Don't initialize drop zones in AI preview mode
+		if (this.isAIPreviewMode) {
+			return;
+		}
+
 		// Initialize drop zone for creating new commits (native drag and drop)
 		const newCommitZone = this.shadowRoot?.querySelector('.new-commit-drop-zone');
 		if (newCommitZone) {
@@ -313,6 +326,11 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeCommitDropZones() {
+		// Don't initialize commit drop zones in AI preview mode
+		if (this.isAIPreviewMode) {
+			return;
+		}
+
 		const commitItems = this.shadowRoot?.querySelectorAll('gl-commit-item');
 
 		commitItems?.forEach(commitItem => {
@@ -602,7 +620,7 @@ export class CommitsPanel extends LitElement {
 			</div>
 			<div class="commits-actions">
 				${when(
-					this.selectedCommitIds.size > 1,
+					this.selectedCommitIds.size > 1 && !this.isAIPreviewMode,
 					() => html`
 						<gl-button
 							appearance="secondary"
@@ -659,6 +677,7 @@ export class CommitsPanel extends LitElement {
 									.deletions=${changes.deletions}
 									.selected=${this.selectedCommitId === commit.id}
 									.multiSelected=${this.selectedCommitIds.has(commit.id)}
+									.isAIPreviewMode=${this.isAIPreviewMode}
 									@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e.shiftKey)}
 								></gl-commit-item>
 							`;
@@ -666,21 +685,31 @@ export class CommitsPanel extends LitElement {
 					)}
 				</div>
 
-				<!-- Drop zone for creating new commits -->
-				<div class="new-commit-drop-zone">
-					<div class="drop-zone-content">
-						<code-icon icon="plus"></code-icon>
-						<span>Drop hunks here to create new commit</span>
-					</div>
-				</div>
+				<!-- Drop zone for creating new commits (hidden in AI preview mode) -->
+				${when(
+					!this.isAIPreviewMode,
+					() => html`
+						<div class="new-commit-drop-zone">
+							<div class="drop-zone-content">
+								<code-icon icon="plus"></code-icon>
+								<span>Drop hunks here to create new commit</span>
+							</div>
+						</div>
+					`,
+				)}
 
-				<!-- Drop zone for unassigning hunks (hidden when not dragging) -->
-				<div class="unassign-drop-zone ${this.shouldShowUnassignZone ? '' : 'hidden'}">
-					<div class="drop-zone-content">
-						<code-icon icon="trash"></code-icon>
-						<span>Drop hunks here to unassign</span>
-					</div>
-				</div>
+				<!-- Drop zone for unassigning hunks (hidden when not dragging or in AI preview mode) -->
+				${when(
+					!this.isAIPreviewMode && this.shouldShowUnassignZone,
+					() => html`
+						<div class="unassign-drop-zone">
+							<div class="drop-zone-content">
+								<code-icon icon="trash"></code-icon>
+								<span>Drop hunks here to unassign</span>
+							</div>
+						</div>
+					`,
+				)}
 			</div>
 		`;
 	}

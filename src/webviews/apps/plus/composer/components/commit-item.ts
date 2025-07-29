@@ -1,5 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import '../../../shared/components/code-icon';
 
 @customElement('gl-commit-item')
@@ -185,6 +186,9 @@ export class CommitItem extends LitElement {
 	@property({ type: Boolean })
 	multiSelected = false;
 
+	@property({ type: Boolean })
+	isAIPreviewMode = false;
+
 	override connectedCallback() {
 		super.connectedCallback?.();
 		// Set the data attribute for sortable access
@@ -219,9 +223,14 @@ export class CommitItem extends LitElement {
 				class="commit-item ${this.selected ? 'selected' : ''} ${this.multiSelected ? 'multi-selected' : ''}"
 				@click=${this.handleClick}
 			>
-				<div class="drag-handle">
-					<code-icon icon="gripper"></code-icon>
-				</div>
+				${when(
+					!this.isAIPreviewMode,
+					() => html`
+						<div class="drag-handle">
+							<code-icon icon="gripper"></code-icon>
+						</div>
+					`,
+				)}
 				<div class="commit-header">
 					<code-icon class="commit-icon" icon="git-commit"></code-icon>
 					<div class="commit-message">${this.message}</div>
@@ -236,7 +245,7 @@ export class CommitItem extends LitElement {
 						<span class="deletions">-${this.deletions}</span>
 					</div>
 				</div>
-				<div class="drop-zone">Drop hunks here</div>
+				${when(!this.isAIPreviewMode, () => html`<div class="drop-zone">Drop hunks here</div>`)}
 			</div>
 		`;
 	}

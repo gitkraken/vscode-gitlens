@@ -578,6 +578,8 @@ export class ComposerApp extends LitElement {
 	}
 
 	private reorderCommits(oldIndex: number, newIndex: number) {
+		if (!this.canReorderCommits) return;
+
 		this.saveToHistory();
 		const newCommits = [...this.state.commits];
 		const [movedCommit] = newCommits.splice(oldIndex, 1);
@@ -716,6 +718,8 @@ export class ComposerApp extends LitElement {
 	}
 
 	private moveHunksToCommit(hunkIds: string[], targetCommitId: string) {
+		if (!this.canMoveHunks) return;
+
 		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
@@ -1024,6 +1028,38 @@ export class ComposerApp extends LitElement {
 		return this.state.commits.length > 0;
 	}
 
+	private get isAIPreviewMode(): boolean {
+		return this.state?.mode === 'ai-preview';
+	}
+
+	private get canReorderCommits(): boolean {
+		return !this.isAIPreviewMode;
+	}
+
+	private get canCombineCommits(): boolean {
+		return !this.isAIPreviewMode;
+	}
+
+	private get showHistoryButtons(): boolean {
+		return !this.isAIPreviewMode;
+	}
+
+	private get canMoveHunks(): boolean {
+		return !this.isAIPreviewMode;
+	}
+
+	private get canGenerateCommitsWithAI(): boolean {
+		return !this.isAIPreviewMode && this.aiEnabled;
+	}
+
+	private get canEditCommitMessages(): boolean {
+		return true; // Always allowed
+	}
+
+	private get canGenerateCommitMessages(): boolean {
+		return this.aiEnabled; // Allowed in both modes if AI is enabled
+	}
+
 	private generateCommits() {
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
@@ -1033,6 +1069,8 @@ export class ComposerApp extends LitElement {
 	}
 
 	private generateCommitsWithAI() {
+		if (!this.canGenerateCommitsWithAI) return;
+
 		this.saveToHistory();
 		this._ipc.sendCommand(GenerateCommitsCommand, {
 			hunks: this.hunksWithAssignments,
@@ -1043,6 +1081,8 @@ export class ComposerApp extends LitElement {
 	}
 
 	private generateCommitMessage(commitId: string) {
+		if (!this.canGenerateCommitMessages) return;
+
 		// Find the commit
 		const commit = this.state.commits.find(c => c.id === commitId);
 		if (!commit) {
@@ -1062,7 +1102,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private combineSelectedCommits() {
-		if (this.selectedCommitIds.size < 2) return;
+		if (this.selectedCommitIds.size < 2 || !this.canCombineCommits) return;
 
 		this.saveToHistory();
 
@@ -1136,30 +1176,35 @@ export class ComposerApp extends LitElement {
 		return html`
 			<div class="header">
 				<h1>GitLens Composer</h1>
-				<div class="header-actions">
-					<button
-						class="history-button"
-						?disabled=${!this.canUndo()}
-						@click=${this.undo}
-						title="Undo last action"
-					>
-						<code-icon icon="arrow-left"></code-icon>
-						Undo
-					</button>
-					<button
-						class="history-button"
-						?disabled=${!this.canRedo()}
-						@click=${this.redo}
-						title="Redo last undone action"
-					>
-						<code-icon icon="arrow-right"></code-icon>
-						Redo
-					</button>
-					<button class="history-button" @click=${this.reset} title="Reset to initial state">
-						<code-icon icon="refresh"></code-icon>
-						Reset
-					</button>
-				</div>
+				${when(
+					this.showHistoryButtons,
+					() => html`
+						<div class="header-actions">
+							<button
+								class="history-button"
+								?disabled=${!this.canUndo()}
+								@click=${this.undo}
+								title="Undo last action"
+							>
+								<code-icon icon="arrow-left"></code-icon>
+								Undo
+							</button>
+							<button
+								class="history-button"
+								?disabled=${!this.canRedo()}
+								@click=${this.redo}
+								title="Redo last undone action"
+							>
+								<code-icon icon="arrow-right"></code-icon>
+								Redo
+							</button>
+							<button class="history-button" @click=${this.reset} title="Reset to initial state">
+								<code-icon icon="refresh"></code-icon>
+								Reset
+							</button>
+						</div>
+					`,
+				)}
 			</div>
 
 			<div class="main-content">
@@ -1173,6 +1218,11 @@ export class ComposerApp extends LitElement {
 					.generating=${this.state.generatingCommits}
 					.committing=${this.state.committing}
 					.aiEnabled=${this.aiEnabled}
+					.canReorderCommits=${this.canReorderCommits}
+					.canCombineCommits=${this.canCombineCommits}
+					.canMoveHunks=${this.canMoveHunks}
+					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
+					.isAIPreviewMode=${this.isAIPreviewMode}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
@@ -1195,7 +1245,11 @@ export class ComposerApp extends LitElement {
 					.selectedHunkIds=${this.selectedHunkIds}
 					.generatingCommitMessage=${this.state.generatingCommitMessage}
 					.committing=${this.state.committing}
+					.canEditCommitMessages=${this.canEditCommitMessages}
+					.canGenerateCommitMessages=${this.canGenerateCommitMessages}
+					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
+					.isAIPreviewMode=${this.isAIPreviewMode}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}

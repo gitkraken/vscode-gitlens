@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { commands, Disposable, window } from 'vscode';
+import { commands, Disposable, ProgressLocation, window } from 'vscode';
 import type { ContextKeys } from '../../../constants.context';
 import type { WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -96,6 +96,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			generatingCommitMessage: null,
 			committing: false,
 
+			// Mode controls
+			mode: args?.mode ?? 'interactive',
+
 			// AI settings
 			aiEnabled: this.getAiEnabled(),
 		};
@@ -138,9 +141,17 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}));
 
 			// Call the AI service
-			const result = await this.container.ai.generateCommits(hunks, existingCommits, params.hunkMap, {
-				source: 'ai',
-			});
+			const result = await this.container.ai.generateCommits(
+				hunks,
+				existingCommits,
+				params.hunkMap,
+				{
+					source: 'ai',
+				},
+				{
+					progress: { location: ProgressLocation.Notification },
+				},
+			);
 
 			if (result && result !== 'cancelled') {
 				// Transform AI result back to ComposerCommit format
