@@ -255,6 +255,42 @@ export class DetailsPanel extends LitElement {
 				margin-block-end: 0.8rem;
 				opacity: 0.75;
 			}
+
+			/* History buttons styles */
+			.history-actions {
+				display: flex;
+				gap: 0.6rem;
+				padding: 0.8rem 1.2rem;
+				border-bottom: 1px solid var(--vscode-panel-border);
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+			}
+
+			.history-button {
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
+				padding: 0.4rem 0.8rem;
+				border: 1px solid var(--vscode-button-border);
+				background: var(--vscode-button-secondaryBackground);
+				color: var(--vscode-button-secondaryForeground);
+				border-radius: 3px;
+				cursor: pointer;
+				font-size: 0.85rem;
+				transition: all 0.2s ease;
+			}
+
+			.history-button:hover:not(:disabled) {
+				background: var(--vscode-button-secondaryHoverBackground);
+			}
+
+			.history-button:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+
+			.history-button code-icon {
+				font-size: 0.9rem;
+			}
 		`,
 	];
 
@@ -290,6 +326,15 @@ export class DetailsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	isAIPreviewMode: boolean = false;
+
+	@property({ type: Boolean })
+	showHistoryButtons: boolean = false;
+
+	@property({ type: Boolean })
+	canUndo: boolean = false;
+
+	@property({ type: Boolean })
+	canRedo: boolean = false;
 
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
@@ -654,6 +699,43 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
+	private dispatchHistoryUndo() {
+		this.dispatchEvent(
+			new CustomEvent('history-undo', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	private dispatchHistoryRedo() {
+		this.dispatchEvent(
+			new CustomEvent('history-redo', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	private dispatchHistoryReset() {
+		this.dispatchEvent(
+			new CustomEvent('history-reset', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	public focusCommitMessageInput(commitId: string) {
+		// Find the commit message textarea for the specified commit
+		const commitElement = this.shadowRoot?.querySelector(`[data-commit-id="${commitId}"]`);
+		if (commitElement) {
+			const textarea = commitElement.querySelector('textarea') as HTMLTextAreaElement;
+			if (textarea) {
+				textarea.focus();
+				// Select all text so user can start typing immediately
+				textarea.select();
+			}
+		}
+	}
+
 	private renderUnassignedSectionDetails() {
 		if (!this.selectedUnassignedSection) return nothing;
 
@@ -816,6 +898,39 @@ export class DetailsPanel extends LitElement {
 
 		return html`
 			<div class="details-panel ${isMultiSelect ? 'split-view scrollable' : ''}">
+				${when(
+					this.showHistoryButtons,
+					() => html`
+						<div class="history-actions">
+							<button
+								class="history-button"
+								?disabled=${!this.canUndo}
+								@click=${this.dispatchHistoryUndo}
+								title="Undo last action"
+							>
+								<code-icon icon="arrow-left"></code-icon>
+								Undo
+							</button>
+							<button
+								class="history-button"
+								?disabled=${!this.canRedo}
+								@click=${this.dispatchHistoryRedo}
+								title="Redo last undone action"
+							>
+								<code-icon icon="arrow-right"></code-icon>
+								Redo
+							</button>
+							<button
+								class="history-button"
+								@click=${this.dispatchHistoryReset}
+								title="Reset to initial state"
+							>
+								<code-icon icon="trash"></code-icon>
+								Reset
+							</button>
+						</div>
+					`,
+				)}
 				${when(
 					this.selectedUnassignedSection,
 					() => this.renderUnassignedSectionDetails(),

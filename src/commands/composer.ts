@@ -83,13 +83,42 @@ export class ComposeCommand extends GlCommandBase {
 		const { hunkMap, hunks } = createHunksFromDiffs(stagedDiff?.contents, unstagedDiff?.contents);
 
 		const baseCommit = await repo.git.commits.getCommit('HEAD');
-		const baseCommitSha = baseCommit?.sha ?? 'HEAD';
+		const currentBranch = await repo.git.branches.getBranch();
+
+		// Create initial commit with appropriate message based on changes
+		const hasStagedChanges = stagedDiff?.contents != null;
+		const hasUnstagedChanges = unstagedDiff?.contents != null;
+
+		let initialCommitMessage: string;
+		let initialHunkIndices: number[];
+
+		if (hasStagedChanges && hasUnstagedChanges) {
+			// Both staged and unstaged - assign only staged to initial commit
+			initialCommitMessage = 'Draft commit from staged changes';
+			initialHunkIndices = hunks.filter(h => h.source === 'staged').map(h => h.index);
+		} else {
+			// Only staged or only unstaged - assign all to initial commit
+			initialCommitMessage = 'Draft commit from changes';
+			initialHunkIndices = hunks.map(h => h.index);
+		}
+
+		const initialCommit = {
+			id: 'draft-commit-1',
+			message: initialCommitMessage,
+			aiExplanation: '',
+			hunkIndices: initialHunkIndices,
+		};
 
 		await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showComposerPage', undefined, {
 			hunks: hunks,
 			hunkMap: hunkMap,
-			baseCommit: baseCommitSha,
-			commits: [],
+			baseCommit: {
+				sha: baseCommit?.sha ?? 'HEAD',
+				message: baseCommit?.message ?? 'HEAD',
+				repoName: repo.name,
+				branchName: currentBranch?.name ?? 'main',
+			},
+			commits: [initialCommit],
 			source: source,
 			mode: mode,
 		});

@@ -80,32 +80,6 @@ export class ComposerApp extends LitElement {
 			font-weight: 600;
 		}
 
-		.header-actions {
-			display: flex;
-			gap: 0.8rem;
-			align-items: center;
-		}
-
-		.history-button {
-			padding: 0.4rem 0.8rem;
-			border: 1px solid var(--vscode-button-border);
-			background: var(--vscode-button-secondaryBackground);
-			color: var(--vscode-button-secondaryForeground);
-			border-radius: 3px;
-			cursor: pointer;
-			font-size: 0.9rem;
-			transition: all 0.2s ease;
-		}
-
-		.history-button:hover:not(:disabled) {
-			background: var(--vscode-button-secondaryHoverBackground);
-		}
-
-		.history-button:disabled {
-			opacity: 0.5;
-			cursor: not-allowed;
-		}
-
 		.main-content {
 			display: flex;
 			flex: 1;
@@ -316,6 +290,9 @@ export class ComposerApp extends LitElement {
 
 	@state()
 	private selectedHunkIds: Set<string> = new Set();
+
+	@state()
+	private includeUnstagedChanges: boolean = false;
 
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
@@ -616,8 +593,14 @@ export class ComposerApp extends LitElement {
 
 		this.saveToHistory();
 		const newCommits = [...this.state.commits];
-		const [movedCommit] = newCommits.splice(oldIndex, 1);
-		newCommits.splice(newIndex, 0, movedCommit);
+
+		// Since we display commits in reverse order (bottom to top), we need to convert
+		// the display indices to actual array indices
+		const actualOldIndex = newCommits.length - 1 - oldIndex;
+		const actualNewIndex = newCommits.length - 1 - newIndex;
+
+		const [movedCommit] = newCommits.splice(actualOldIndex, 1);
+		newCommits.splice(actualNewIndex, 0, movedCommit);
 		this.state.commits = newCommits;
 		this.requestUpdate();
 	}
@@ -1079,7 +1062,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get showHistoryButtons(): boolean {
-		return !this.isAIPreviewMode;
+		return true; // Show history buttons in both interactive and AI preview modes
 	}
 
 	private get canMoveHunks(): boolean {
@@ -1087,7 +1070,45 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canGenerateCommitsWithAI(): boolean {
-		return this.aiEnabled; // Allow in both interactive and ai-preview modes
+		if (!this.aiEnabled) return false;
+
+		// Check if there are any eligible hunks for AI generation
+		const eligibleHunks = this.getEligibleHunksForAI(this.includeUnstagedChanges);
+		return eligibleHunks.length > 0;
+	}
+
+	private getEligibleHunksForAI(includeUnstagedChanges: boolean): typeof this.hunksWithAssignments {
+		let availableHunks: typeof this.hunksWithAssignments;
+
+		if (this.isAIPreviewMode) {
+			// In AI preview mode, treat all hunks as available (ignore existing commits)
+			availableHunks = this.hunksWithAssignments;
+		} else {
+			// In interactive mode, only consider unassigned hunks
+			const assignedHunkIndices = new Set<number>();
+			this.state.commits.forEach(commit => {
+				commit.hunkIndices.forEach(index => assignedHunkIndices.add(index));
+			});
+			availableHunks = this.hunksWithAssignments.filter(hunk => !assignedHunkIndices.has(hunk.index));
+		}
+
+		// Apply filtering logic based on includeUnstagedChanges
+		if (!includeUnstagedChanges) {
+			const hasStagedChanges = availableHunks.some(hunk => hunk.source === 'staged');
+			const hasNonUnstagedChanges = availableHunks.some(hunk => hunk.source !== 'unstaged');
+
+			if (hasStagedChanges) {
+				// If staged changes exist, only use staged changes
+				return availableHunks.filter(hunk => hunk.source === 'staged');
+			} else if (hasNonUnstagedChanges) {
+				// If changes NOT from unstaged exist, only use those
+				return availableHunks.filter(hunk => hunk.source !== 'unstaged');
+			}
+			// Otherwise, use all available hunks
+			return availableHunks;
+		}
+		// Include all available hunks when checkbox is checked
+		return availableHunks;
 	}
 
 	private get canEditCommitMessages(): boolean {
@@ -1098,7 +1119,7 @@ export class ComposerApp extends LitElement {
 		return this.aiEnabled; // Allowed in both modes if AI is enabled
 	}
 
-	private generateCommits() {
+	private composeCommits() {
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
 			hunks: this.hunksWithAssignments,
@@ -1106,13 +1127,55 @@ export class ComposerApp extends LitElement {
 		});
 	}
 
-	private generateCommitsWithAI() {
-		if (!this.canGenerateCommitsWithAI) return;
+	private handleGenerateCommitsWithAI(e: CustomEvent) {
+		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
+		this.generateCommitsWithAI(e.detail?.includeUnstagedChanges);
+	}
+
+	private handleIncludeUnstagedChange(e: CustomEvent) {
+		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
+	}
+
+	private handleFocusCommitMessage(e: CustomEvent) {
+		const commitId = e.detail?.commitId;
+		if (!commitId) return;
+
+		// Select the commit first
+		this.selectedCommitId = commitId;
+		this.selectedCommitIds.clear();
+		this.selectedCommitIds.add(commitId);
+		this.selectedUnassignedSection = null;
+
+		// Focus the commit message input in the details panel
+		this.requestUpdate();
+
+		// Use a small delay to ensure the details panel has rendered and focus the input
+		setTimeout(() => {
+			const detailsPanel = this.shadowRoot?.querySelector('gl-details-panel') as any;
+			if (detailsPanel && typeof detailsPanel.focusCommitMessageInput === 'function') {
+				detailsPanel.focusCommitMessageInput(commitId);
+			}
+		}, 100);
+	}
+
+	private generateCommitsWithAI(includeUnstagedChanges: boolean = false) {
+		if (!this.aiEnabled) return;
+
+		// Get eligible hunks using the shared logic
+		const hunksToGenerate = this.getEligibleHunksForAI(includeUnstagedChanges);
+
+		// Early return if no eligible hunks (this should be prevented by UI, but safety check)
+		if (hunksToGenerate.length === 0) {
+			return;
+		}
 
 		this.saveToHistory();
+
 		this._ipc.sendCommand(GenerateCommitsCommand, {
-			hunks: this.hunksWithAssignments,
-			commits: this.state.commits,
+			hunks: hunksToGenerate,
+			// In AI preview mode, send empty commits array to overwrite existing commits
+			// In interactive mode, send existing commits to preserve them
+			commits: this.isAIPreviewMode ? [] : this.state.commits,
 			hunkMap: this.state.hunkMap,
 			baseCommit: this.state.baseCommit,
 		});
@@ -1214,35 +1277,6 @@ export class ComposerApp extends LitElement {
 		return html`
 			<header class="header">
 				<h1>GitLens Composer</h1>
-				${when(
-					this.showHistoryButtons,
-					() => html`
-						<div class="header-actions">
-							<button
-								class="history-button"
-								?disabled=${!this.canUndo()}
-								@click=${this.undo}
-								title="Undo last action"
-							>
-								<code-icon icon="arrow-left"></code-icon>
-								Undo
-							</button>
-							<button
-								class="history-button"
-								?disabled=${!this.canRedo()}
-								@click=${this.redo}
-								title="Redo last undone action"
-							>
-								<code-icon icon="arrow-right"></code-icon>
-								Redo
-							</button>
-							<button class="history-button" @click=${this.reset} title="Reset to initial state">
-								<code-icon icon="refresh"></code-icon>
-								Reset
-							</button>
-						</div>
-					`,
-				)}
 			</header>
 
 			<main class="main-content">
@@ -1261,11 +1295,15 @@ export class ComposerApp extends LitElement {
 					.canMoveHunks=${this.canMoveHunks}
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
 					.isAIPreviewMode=${this.isAIPreviewMode}
+					.baseCommit=${this.state.baseCommit}
+					.includeUnstagedChanges=${this.includeUnstagedChanges}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
-					@finish-and-commit=${this.generateCommits}
-					@generate-commits-with-ai=${this.generateCommitsWithAI}
+					@finish-and-commit=${this.composeCommits}
+					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
+					@include-unstaged-change=${this.handleIncludeUnstagedChange}
+					@focus-commit-message=${this.handleFocusCommitMessage}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
 					@unassign-hunks=${(e: CustomEvent) => this.unassignHunks(e.detail.hunkIds)}
@@ -1288,6 +1326,9 @@ export class ComposerApp extends LitElement {
 					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
 					.isAIPreviewMode=${this.isAIPreviewMode}
+					.showHistoryButtons=${this.showHistoryButtons}
+					.canUndo=${this.canUndo()}
+					.canRedo=${this.canRedo()}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
@@ -1300,6 +1341,9 @@ export class ComposerApp extends LitElement {
 					@hunk-move=${(e: CustomEvent) => this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+					@history-undo=${this.undo}
+					@history-redo=${this.redo}
+					@history-reset=${this.reset}
 				></gl-details-panel>
 
 				<!-- Loading overlay for AI operations -->

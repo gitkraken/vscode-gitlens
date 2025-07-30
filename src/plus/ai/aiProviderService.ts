@@ -2188,7 +2188,7 @@ export class AIProviderService implements Disposable {
 		conversationMessages = firstAttemptResult.conversationMessages;
 
 		while (attempt < maxAttempts) {
-			const validationResult = this.validateCommitsResponse(rq, hunkMap);
+			const validationResult = this.validateCommitsResponse(rq, hunks, existingCommits);
 			if (validationResult.isValid) {
 				return { commits: validationResult.commits };
 			}
@@ -2324,7 +2324,15 @@ export class AIProviderService implements Disposable {
 
 	private validateCommitsResponse(
 		rq: AIRequestResult,
-		inputHunkMap: { index: number; hunkHeader: string }[],
+		inputHunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
 	):
 		| {
 				isValid: true;
@@ -2412,15 +2420,22 @@ export class AIProviderService implements Disposable {
 			}
 
 			// Check for missing hunks
-			const inputHunkIndices = new Set(inputHunkMap.map(h => h.index));
-			const missingHunks = Array.from(inputHunkIndices).filter(index => !usedHunkIndices.has(index));
+			const inputHunkIndices = new Set(inputHunks.map(h => h.index));
+			const previouslyAssignedHunkIndices = new Set(existingCommits.flatMap(c => c.hunkIndices));
+			const unassignedHunkIndices = new Set(
+				[...inputHunkIndices].filter(i => !previouslyAssignedHunkIndices.has(i)),
+			);
+			const illegallyAssignedHunkIndices = Array.from(usedHunkIndices).filter(i => !inputHunkIndices.has(i));
+			const missingHunkIndices = Array.from(unassignedHunkIndices).filter(i => !usedHunkIndices.has(i));
+			const extraHunkIndices = Array.from(usedHunkIndices).filter(index => !inputHunkIndices.has(index));
 
-			if (missingHunks.length > 0) {
-				const errorMessage = `Missing hunks: ${missingHunks.join(', ')}`;
+			// Check for missing hunks
+			if (missingHunkIndices.length > 0) {
+				const errorMessage = `Missing hunks: ${missingHunkIndices.join(', ')}`;
 				const retryPrompt = dedent(`
 					Your previous response is missing some hunks that were in the original input. All hunks must be included in the commits.
 
-					Missing hunks: ${missingHunks.join(', ')}
+					Missing hunks: ${missingHunkIndices.join(', ')}
 
 					Here was your previous response:
 					${rq.content}
@@ -2431,19 +2446,33 @@ export class AIProviderService implements Disposable {
 			}
 
 			// Check for extra hunks
-			const extraHunks = Array.from(usedHunkIndices).filter(index => !inputHunkIndices.has(index));
-
-			if (extraHunks.length > 0) {
-				const errorMessage = `Extra hunks found: ${extraHunks.join(', ')}`;
+			if (extraHunkIndices.length > 0) {
+				const errorMessage = `Extra hunks found: ${extraHunkIndices.join(', ')}`;
 				const retryPrompt = dedent(`
 					Your previous response includes hunks that were not in the original input. Only use the hunks that were provided.
 
-					Extra hunks: ${extraHunks.join(', ')}
+					Extra hunks: ${extraHunkIndices.join(', ')}
 
 					Here was your previous response:
 					${rq.content}
 
 					Please provide a corrected response that only uses the provided hunks.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// Check for illegally assigned hunks
+			if (illegallyAssignedHunkIndices.length > 0) {
+				const errorMessage = `Illegally assigned hunks: ${illegallyAssignedHunkIndices.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response includes hunks that are already assigned to existing commits. Do not reassign hunks that are already assigned.
+
+					Illegally assigned hunks: ${illegallyAssignedHunkIndices.join(', ')}
+
+					Here was your previous response:
+					${rq.content}
+
+					Please provide a corrected response that does not reassign existing hunks.
 				`);
 				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 			}

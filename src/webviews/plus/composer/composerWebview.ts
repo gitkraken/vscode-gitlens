@@ -71,7 +71,18 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const hunks = args?.hunks ?? mockHunks;
 		const commits = args?.commits ?? mockCommits;
 		const hunkMap = args?.hunkMap ?? mockHunkMap;
-		const baseCommit = args?.baseCommit ?? mockBaseCommit;
+
+		// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
+		let baseCommit = args?.baseCommit ?? mockBaseCommit;
+		if (typeof baseCommit === 'string') {
+			// Convert old string format to new ComposerBaseCommit format
+			baseCommit = {
+				sha: baseCommit,
+				message: 'HEAD',
+				repoName: 'Repository',
+				branchName: 'main',
+			};
+		}
 
 		const state = {
 			...this.host.baseWebviewState,
@@ -230,7 +241,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Create unreachable commits from patches
-			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit, diffInfo);
+			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit.sha, diffInfo);
 
 			if (!shas?.length) {
 				throw new Error('Failed to create commits from patches');
