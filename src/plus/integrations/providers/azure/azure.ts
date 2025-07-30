@@ -98,14 +98,32 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests`,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs/heads/${branch}`,
 				{
 					method: 'GET',
 				},
 				scope,
 			);
 
-			const pr = prResult?.value.find(pr => pr.sourceRefName.endsWith(branch));
+			// Sort PRs: open PRs first, then by most recent activity (creation or closure date)
+			const sortedPRs = prResult?.value.sort((a, b) => {
+				// First, prioritize open PRs (active/notSet) over closed ones (abandoned/completed)
+				const aIsOpen = a.status === 'active' || a.status === 'notSet';
+				const bIsOpen = b.status === 'active' || b.status === 'notSet';
+
+				if (aIsOpen !== bIsOpen) {
+					return aIsOpen ? -1 : 1; // Open PRs come first
+				}
+
+				// Among PRs with the same status, sort by most recent activity
+				// Use closedDate if available, otherwise use creationDate
+				const aDate = new Date(a.closedDate || a.creationDate);
+				const bDate = new Date(b.closedDate || b.creationDate);
+
+				return bDate.getTime() - aDate.getTime(); // Most recent first
+			});
+
+			const pr = sortedPRs?.[0];
 			if (pr == null) return undefined;
 
 			return fromAzurePullRequest(pr, provider, owner);
