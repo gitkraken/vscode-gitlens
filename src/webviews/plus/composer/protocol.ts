@@ -32,12 +32,19 @@ export interface ComposerHunkMap {
 	hunkHeader: string;
 }
 
+export interface ComposerBaseCommit {
+	sha: string;
+	message: string;
+	repoName: string;
+	branchName: string;
+}
+
 export interface State extends WebviewState {
 	// data model
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
-	baseCommit: string;
+	baseCommit: ComposerBaseCommit;
 
 	// UI state
 	selectedCommitId: string | null;
@@ -74,7 +81,7 @@ export interface GenerateWithAIParams {
 export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
-	baseCommit: string;
+	baseCommit: ComposerBaseCommit;
 }
 
 // IPC Commands and Notifications
@@ -115,7 +122,7 @@ export interface GenerateCommitsParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
-	baseCommit: string;
+	baseCommit: ComposerBaseCommit;
 }
 
 export interface GenerateCommitMessageParams {
@@ -126,14 +133,14 @@ export interface GenerateCommitMessageParams {
 export interface FinishAndCommitParams {
 	commits: ComposerCommit[];
 	hunks: ComposerHunk[];
-	baseCommit: string;
+	baseCommit: ComposerBaseCommit;
 }
 
 export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
-	baseCommit: string;
+	baseCommit: ComposerBaseCommit;
 }
 
 export interface DidGenerateCommitsParams {
