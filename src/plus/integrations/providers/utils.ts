@@ -43,6 +43,9 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		provider = EntityIdentifierProviderType.GitlabSelfHosted;
 		domain = entity.provider.domain;
 	}
+	if (provider === EntityIdentifierProviderType.AzureDevOpsServer) {
+		domain = entity.provider.domain;
+	}
 
 	let projectId = null;
 	let resourceId = null;
@@ -55,7 +58,10 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 
 		projectId = entity.project.id;
 		resourceId = entity.project.resourceId;
-	} else if (provider === EntityIdentifierProviderType.Azure) {
+	} else if (
+		provider === EntityIdentifierProviderType.Azure ||
+		provider === EntityIdentifierProviderType.AzureDevOpsServer
+	) {
 		const project = isLaunchpadItem(entity) ? entity.underlyingPullRequest?.project : entity.project;
 		if (project == null) {
 			throw new Error('Azure issues and PRs must have a project to be encoded');
@@ -75,7 +81,10 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 	}
 
 	let entityId = isLaunchpadItem(entity) ? entity.graphQLId! : entity.nodeId!;
-	if (provider === EntityIdentifierProviderType.Azure) {
+	if (
+		provider === EntityIdentifierProviderType.Azure ||
+		provider === EntityIdentifierProviderType.AzureDevOpsServer
+	) {
 		entityId = isLaunchpadItem(entity) ? entity.underlyingPullRequest?.id : entity.id;
 	}
 
@@ -113,6 +122,8 @@ export function getProviderIdFromEntityIdentifier(
 			return IssuesCloudHostIntegrationId.Jira;
 		case EntityIdentifierProviderType.Azure:
 			return GitCloudHostIntegrationId.AzureDevOps;
+		case EntityIdentifierProviderType.AzureDevOpsServer:
+			return GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 		case EntityIdentifierProviderType.Bitbucket:
 			return GitCloudHostIntegrationId.Bitbucket;
 		case EntityIdentifierProviderType.BitbucketServer:
@@ -139,8 +150,9 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 		case 'azure':
 		case 'azureDevOps':
 		case 'azure-devops':
-		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			return EntityIdentifierProviderType.Azure;
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+			return EntityIdentifierProviderType.AzureDevOpsServer;
 		case 'bitbucket':
 			return EntityIdentifierProviderType.Bitbucket;
 		case 'bitbucket-server':
@@ -246,6 +258,7 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.GitlabSelfHosted &&
 		identifier.provider !== EntityIdentifierProviderType.Bitbucket &&
 		identifier.provider !== EntityIdentifierProviderType.BitbucketServer &&
+		identifier.provider !== EntityIdentifierProviderType.AzureDevOpsServer &&
 		identifier.provider !== EntityIdentifierProviderType.Azure
 	) {
 		return undefined;
