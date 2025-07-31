@@ -18,7 +18,7 @@ import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 import './commit-item';
 import './commits-panel';
-import './details-panel';
+import type { DetailsPanel } from './details-panel';
 import './hunk-item';
 
 // Internal history management interfaces
@@ -1136,6 +1136,9 @@ export class ComposerApp extends LitElement {
 		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
 	}
 
+	@query('gl-details-panel')
+	private detailsPanel!: DetailsPanel;
+
 	private handleFocusCommitMessage(e: CustomEvent) {
 		const commitId = e.detail?.commitId;
 		if (!commitId) return;
@@ -1151,10 +1154,7 @@ export class ComposerApp extends LitElement {
 
 		// Use a small delay to ensure the details panel has rendered and focus the input
 		setTimeout(() => {
-			const detailsPanel = this.shadowRoot?.querySelector('gl-details-panel') as any;
-			if (detailsPanel && typeof detailsPanel.focusCommitMessageInput === 'function') {
-				detailsPanel.focusCommitMessageInput(commitId);
-			}
+			this.detailsPanel?.focusCommitMessageInput?.(commitId);
 		}, 100);
 	}
 
