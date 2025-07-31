@@ -1,18 +1,13 @@
-import type { Disposable, TextEditor, Uri } from 'vscode';
-import { window, workspace } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import type { AIFeedbackEvent, AIFeedbackUnhelpfulReasons, Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { AIResultContext } from '../plus/ai/aiProviderService';
 import { extractAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { command } from '../system/-webview/command';
-import { setContext } from '../system/-webview/context';
-import { UriMap } from '../system/-webview/uriMap';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import { filterMap, map } from '../system/iterable';
+import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { createDisposable } from '../system/unifiedDisposable';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
@@ -46,40 +41,12 @@ export class AIFeedbackUnhelpfulCommand extends ActiveEditorCommand {
 
 type UnhelpfulResult = { reasons?: AIFeedbackUnhelpfulReasons[]; custom?: string };
 
-let _documentCloseTracker: Disposable | undefined;
-const _markdownDocuments = new Map<string, AIResultContext>();
-export function getMarkdownDocument(documentUri: string): AIResultContext | undefined {
-	return _markdownDocuments.get(documentUri);
-}
-export function setMarkdownDocument(documentUri: string, context: AIResultContext, container: Container): void {
-	_markdownDocuments.set(documentUri, context);
-
-	if (!_documentCloseTracker) {
-		_documentCloseTracker = workspace.onDidCloseTextDocument(document => {
-			deleteMarkdownDocument(document.uri.toString());
-		});
-		container.context.subscriptions.push(
-			createDisposable(() => {
-				_documentCloseTracker?.dispose();
-				_documentCloseTracker = undefined;
-				_markdownDocuments.clear();
-			}),
-		);
-	}
-}
-function deleteMarkdownDocument(documentUri: string): void {
-	_markdownDocuments.delete(documentUri);
-}
-
-const uriResponses = new UriMap<AIFeedbackEvent['sentiment']>();
-let _updateContextDebounced: Deferrable<() => void> | undefined;
-
 async function sendFeedback(container: Container, uri: Uri, sentiment: AIFeedbackEvent['sentiment']): Promise<void> {
-	const context = extractAIResultContext(uri);
+	const context = extractAIResultContext(container, uri);
 	if (!context) return;
 
 	try {
-		const previous = uriResponses.get(uri);
+		const previous = container.aiFeedback.getFeedbackResponse(uri);
 		if (sentiment === previous) return;
 
 		let unhelpful: UnhelpfulResult | undefined;
@@ -87,16 +54,7 @@ async function sendFeedback(container: Container, uri: Uri, sentiment: AIFeedbac
 			unhelpful = await showUnhelpfulFeedbackPicker();
 		}
 
-		uriResponses.set(uri, sentiment);
-		_updateContextDebounced ??= debounce(() => {
-			void setContext('gitlens:tabs:ai:helpful', [
-				...filterMap(uriResponses, ([uri, sentiment]) => (sentiment === 'helpful' ? uri : undefined)),
-			]);
-			void setContext('gitlens:tabs:ai:unhelpful', [
-				...filterMap(uriResponses, ([uri, sentiment]) => (sentiment === 'unhelpful' ? uri : undefined)),
-			]);
-		}, 100);
-		_updateContextDebounced();
+		container.aiFeedback.setFeedbackResponse(uri, sentiment);
 
 		sendFeedbackEvent(container, { source: 'ai:markdown-preview' }, context, sentiment, unhelpful);
 	} catch (ex) {
