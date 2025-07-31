@@ -1,0 +1,35 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\helhu\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.4.2
+2 info using node@v24.4.1
+3 silly config load:file:C:\Users\helhu\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\helhu\.npmrc
+5 silly config load:file:C:\Users\helhu\AppData\Roaming\npm\etc\npmrc
+6 verbose title npm install pnpm
+7 verbose argv "install" "--global" "pnpm"
+8 verbose logfile logs-max:10 dir:C:\Users\helhu\OneDrive\Documentos\ElMayordomo2025\vscode-gitlens\clean\_logs\2025-07-31T11_15_18_854Z-
+9 verbose logfile C:\Users\helhu\OneDrive\Documentos\ElMayordomo2025\vscode-gitlens\clean\_logs\2025-07-31T11_15_18_854Z-debug-0.log
+10 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+11 silly logfile done cleaning log files
+12 silly idealTree buildDeps
+13 silly fetch manifest pnpm@*
+14 silly packumentCache full:https://registry.npmjs.org/pnpm cache-miss
+15 http fetch GET 200 https://registry.npmjs.org/npm 322ms
+16 http fetch GET 200 https://registry.npmjs.org/pnpm 361ms (cache miss)
+17 silly packumentCache full:https://registry.npmjs.org/pnpm set size:undefined disposed:false
+18 silly placeDep ROOT pnpm@10.13.1 OK for:  want: *
+19 silly reify moves {}
+20 http cache pnpm@https://registry.npmjs.org/pnpm/-/pnpm-10.13.1.tgz 0ms (cache hit)
+21 silly tarball no local data for pnpm@https://registry.npmjs.org/pnpm/-/pnpm-10.13.1.tgz. Extracting by manifest.
+22 http fetch GET 200 https://registry.npmjs.org/pnpm/-/pnpm-10.13.1.tgz 2180ms (cache miss)
+23 silly ADD node_modules/pnpm
+24 verbose cwd C:\Users\helhu\OneDrive\Documentos\ElMayordomo2025\vscode-gitlens
+25 verbose os Windows_NT 10.0.26100
+26 verbose node v24.4.1
+27 verbose npm  v11.4.2
+28 notice
+28 notice New [33mminor[39m version of npm available! [33m11.4.2[39m -> [34m11.5.2[39m
+28 notice Changelog: [34mhttps://github.com/npm/cli/releases/tag/v11.5.2[39m
+28 notice To update run: [4mnpm install -g npm@11.5.2[24m
+28 notice  { force: true, Symbol(proc-log.meta): true }
+29 verbose exit 0
+30 info ok
