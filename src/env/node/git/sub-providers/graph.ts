@@ -359,7 +359,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										: branchIdOfMainWorktree === branchId
 											? '+checkedout'
 											: ''
-								}${branch?.starred ? '+starred' : ''}`,
+								}${branch?.starred ? '+starred' : ''}${branch?.upstream?.state.ahead ? '+ahead' : ''}${
+									branch?.upstream?.state.behind ? '+behind' : ''
+								}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: createReference(tip, repoPath, {

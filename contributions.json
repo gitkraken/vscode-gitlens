@@ -113,6 +113,19 @@
 				]
 			}
 		},
+		"gitlens.ai.explainUnpushed:graph": {
+			"label": "Explain Unpushed Changes (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_ai",
+						"order": 20
+					}
+				]
+			}
+		},
 		"gitlens.ai.explainWip": {
 			"label": "Explain Working Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
