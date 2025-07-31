@@ -719,6 +719,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.copyWorkingChangesToWorktree,
 			),
 			this.host.registerWebviewCommand('gitlens.ai.generateCommitMessage:graph', this.generateCommitMessage),
+			this.host.registerWebviewCommand('gitlens.ai.explainUnpushed:graph', this.aiExplainUnpushed),
 			this.host.registerWebviewCommand('gitlens.ai.explainBranch:graph', this.explainBranch),
 			this.host.registerWebviewCommand('gitlens.ai.explainCommit:graph', this.explainCommit),
 			this.host.registerWebviewCommand('gitlens.ai.explainStash:graph', this.explainStash),
@@ -3990,6 +3991,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	@log()
+	private aiExplainUnpushed(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+
+			if (!ref.upstream) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
+				repoPath: ref.repoPath,
+				ref: ref.ref,
+				baseBranch: ref.upstream.name,
+				source: { source: 'graph', context: { type: 'branch' } },
+			});
+		}
+
+		return Promise.resolve();
+	}
 	@log()
 	private explainBranch(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'branch');
