@@ -152,6 +152,11 @@
 						"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 1
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+						"group": "navigation",
+						"order": 1
 					}
 				]
 			}
@@ -163,6 +168,11 @@
 				"editor/title": [
 					{
 						"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 1
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
 						"group": "navigation",
 						"order": 1
 					}
@@ -178,6 +188,11 @@
 						"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 2
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+						"group": "navigation",
+						"order": 2
 					}
 				]
 			}
@@ -191,6 +206,11 @@
 						"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 2
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+						"group": "navigation",
+						"order": 1
 					}
 				]
 			}

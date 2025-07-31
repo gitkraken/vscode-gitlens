@@ -14165,14 +14165,19 @@
 			],
 			"editor/title": [
 				{
+					"command": "gitlens.graph.refresh",
+					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-99"
+				},
+				{
 					"command": "gitlens.timeline.refresh",
 					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
 				},
 				{
-					"submenu": "gitlens/graph/configuration",
-					"when": "activeWebviewPanelId === gitlens.graph",
-					"group": "navigation@-98"
+					"command": "gitlens.graph.split",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
+					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.timeline.split",
@@ -14188,37 +14193,6 @@
 					"command": "gitlens.computingFileAnnotations",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated == computing || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.diffWithPrevious",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@97",
-					"alt": "gitlens.diffWithRevision"
-				},
-				{
-					"command": "gitlens.showQuickRevisionDetails",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@98"
-				},
-				{
-					"command": "gitlens.diffWithNext",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.diffWithWorking",
-					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-					"group": "navigation@-99"
-				},
-				{
-					"command": "gitlens.graph.refresh",
-					"when": "activeWebviewPanelId === gitlens.graph",
-					"group": "navigation@-99"
-				},
-				{
-					"command": "gitlens.graph.split",
-					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
-					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.toggleFileBlame",
@@ -14244,13 +14218,39 @@
 					"group": "navigation@100"
 				},
 				{
+					"command": "gitlens.diffWithPrevious",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@97",
+					"alt": "gitlens.diffWithRevision"
+				},
+				{
+					"command": "gitlens.showQuickRevisionDetails",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.diffWithNext",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.openWorkingFile",
 					"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
 					"group": "navigation@-98"
 				},
 				{
+					"command": "gitlens.diffWithWorking",
+					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+					"group": "navigation@-99"
+				},
+				{
 					"command": "gitlens.openWorkingFile",
 					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+					"group": "navigation@-98"
+				},
+				{
+					"submenu": "gitlens/graph/configuration",
+					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-98"
 				},
 				{
@@ -14282,6 +14282,26 @@
 					"command": "gitlens.regenerateMarkdownDocument",
 					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
 					"group": "navigation@3"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful.chosen",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful.chosen",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.openPatch",
