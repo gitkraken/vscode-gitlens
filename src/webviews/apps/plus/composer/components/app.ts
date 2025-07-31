@@ -13,12 +13,13 @@ import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
 import { stateContext } from '../context';
+import type { DetailsPanel } from './details-panel';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 import './commit-item';
 import './commits-panel';
-import type { DetailsPanel } from './details-panel';
+import './details-panel';
 import './hunk-item';
 
 // Internal history management interfaces
