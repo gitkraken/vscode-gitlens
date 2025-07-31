@@ -1,6 +1,5 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import { getMarkdownDocument } from '../../../../commands/aiFeedback';
 import { Schemes } from '../../../../constants';
 import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
@@ -289,7 +288,7 @@ export function extractAIResultContext(container: Container, uri: Uri | undefine
 		if (!authority) return undefined;
 
 		try {
-			const context: AIResultContext | undefined = getMarkdownDocument(uri.toString());
+			const context: AIResultContext | undefined = container.aiFeedback.getMarkdownDocument(uri.toString());
 			if (context) return context;
 
 			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);

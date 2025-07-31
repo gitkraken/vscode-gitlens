@@ -12,7 +12,9 @@ export class AIFeedbackProvider implements Disposable {
 	constructor() {
 		// Listen for document close events to clean up contexts
 		this._disposables.push(
-			workspace.onDidCloseTextDocument(document => this.removeChangelogDocument(document.uri)),
+			workspace.onDidCloseTextDocument(document => {
+				this.removeDocument(document.uri);
+			}),
 		);
 	}
 
@@ -21,9 +23,11 @@ export class AIFeedbackProvider implements Disposable {
 		this.addChangelogUri(uri);
 	}
 
-	private removeChangelogDocument(uri: Uri): void {
-		this.deleteChangelogDocument(uri.toString());
+	private removeDocument(uri: Uri): void {
+		const uriString = uri.toString();
+		this.deleteChangelogDocument(uriString);
 		this.removeChangelogUri(uri);
+		this.deleteMarkdownDocument(uriString);
 	}
 
 	private readonly _disposables: Disposable[] = [];
@@ -31,6 +35,7 @@ export class AIFeedbackProvider implements Disposable {
 		this._disposables.forEach(d => void d.dispose());
 		this._uriResponses.clear();
 		this._changelogDocuments.clear();
+		this._markdownDocuments.clear();
 		this._changelogUris.clear();
 		this._updateFeedbackContextDebounced = undefined;
 		this._updateChangelogContextDebounced = undefined;
@@ -68,6 +73,18 @@ export class AIFeedbackProvider implements Disposable {
 	}
 	private deleteChangelogDocument(documentUri: string): void {
 		this._changelogDocuments.delete(documentUri);
+	}
+
+	// Storage for AI feedback context associated with any document
+	private readonly _markdownDocuments = new Map<string, AIResultContext>();
+	getMarkdownDocument(documentUri: string): AIResultContext | undefined {
+		return this._markdownDocuments.get(documentUri);
+	}
+	setMarkdownDocument(documentUri: string, context: AIResultContext): void {
+		this._markdownDocuments.set(documentUri, context);
+	}
+	private deleteMarkdownDocument(documentUri: string): void {
+		this._markdownDocuments.delete(documentUri);
 	}
 
 	// Storage for AI feedback responses by URI
