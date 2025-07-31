@@ -103,6 +103,7 @@ export const supportedStartWorkIntegrations = [
 	GitCloudHostIntegrationId.GitLab,
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	GitCloudHostIntegrationId.Bitbucket,
 	IssuesCloudHostIntegrationId.Jira,
 ];
@@ -736,6 +737,7 @@ function buildItemTelemetryData(item: StartWorkItem) {
 function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
 		case GitCloudHostIntegrationId.AzureDevOps:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			return OpenOnAzureDevOpsQuickInputButton;
 		case GitCloudHostIntegrationId.Bitbucket:
 			return OpenOnBitbucketQuickInputButton;

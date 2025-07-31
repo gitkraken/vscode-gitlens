@@ -24548,7 +24548,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.8",
-		"@gitkraken/provider-apis": "0.28.5",
+		"@gitkraken/provider-apis": "0.29.6",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
 		"@lit-labs/signals": "0.1.3",

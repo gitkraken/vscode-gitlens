@@ -8,7 +8,7 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/mo
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { uniqueBy } from '../../../system/iterable';
-import { getSettledValue } from '../../../system/promise';
+import { flatSettled, nonnullSettled } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { GitHostIntegration } from '../models/gitHostIntegration';
@@ -350,16 +350,4 @@ export class BitbucketIntegration extends GitHostIntegration<
 const bitbucketCloudDomainRegex = /^bitbucket\.org$/i;
 export function isBitbucketCloudDomain(domain: string | undefined): boolean {
 	return domain != null && bitbucketCloudDomainRegex.test(domain);
-}
-
-type MaybePromiseArr<T> = (Promise<T | undefined> | T | undefined)[];
-
-async function nonnullSettled<T>(arr: MaybePromiseArr<T>): Promise<T[]> {
-	const all = await Promise.allSettled(arr);
-	return all.map(r => getSettledValue(r)).filter(v => v != null);
-}
-
-async function flatSettled<T>(arr: MaybePromiseArr<(T | undefined)[]>): Promise<T[]> {
-	const all = await nonnullSettled(arr);
-	return all.flat().filter(v => v != null);
 }

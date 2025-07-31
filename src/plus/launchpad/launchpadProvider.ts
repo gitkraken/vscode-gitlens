@@ -136,6 +136,7 @@ export const supportedLaunchpadIntegrations: (GitCloudHostIntegrationId | CloudG
 	GitCloudHostIntegrationId.GitLab,
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	GitCloudHostIntegrationId.Bitbucket,
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 ];

@@ -381,6 +381,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
+							providerId,
 							projectInput.namespace,
 							projectInput.project,
 							{
