@@ -1,5 +1,5 @@
-import type { Disposable, TextEditor, Uri } from 'vscode';
-import { window, workspace } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import type { AIFeedbackEvent, AIFeedbackUnhelpfulReasons, Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { AIResultContext } from '../plus/ai/aiProviderService';
@@ -8,7 +8,6 @@ import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { command } from '../system/-webview/command';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { createDisposable } from '../system/unifiedDisposable';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 
@@ -41,31 +40,6 @@ export class AIFeedbackUnhelpfulCommand extends ActiveEditorCommand {
 }
 
 type UnhelpfulResult = { reasons?: AIFeedbackUnhelpfulReasons[]; custom?: string };
-
-let _documentCloseTracker: Disposable | undefined;
-const _markdownDocuments = new Map<string, AIResultContext>();
-export function getMarkdownDocument(documentUri: string): AIResultContext | undefined {
-	return _markdownDocuments.get(documentUri);
-}
-export function setMarkdownDocument(documentUri: string, context: AIResultContext, container: Container): void {
-	_markdownDocuments.set(documentUri, context);
-
-	if (!_documentCloseTracker) {
-		_documentCloseTracker = workspace.onDidCloseTextDocument(document => {
-			deleteMarkdownDocument(document.uri.toString());
-		});
-		container.context.subscriptions.push(
-			createDisposable(() => {
-				_documentCloseTracker?.dispose();
-				_documentCloseTracker = undefined;
-				_markdownDocuments.clear();
-			}),
-		);
-	}
-}
-function deleteMarkdownDocument(documentUri: string): void {
-	_markdownDocuments.delete(documentUri);
-}
 
 async function sendFeedback(container: Container, uri: Uri, sentiment: AIFeedbackEvent['sentiment']): Promise<void> {
 	const context = extractAIResultContext(container, uri);
