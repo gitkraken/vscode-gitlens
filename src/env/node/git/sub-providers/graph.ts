@@ -348,8 +348,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							branch = branchMap.get(tip);
 							branchId = branch?.id ?? getBranchId(repoPath, false, tip);
 
-							// Check if branch has commits that can be recomposed
-							const recomposable = await this.isBranchRecomposable(branch, repoPath);
+							// Check if branch has commits that can be recomposed and get merge base
+							const mergeBaseCommit = await this.getMergeBaseCommit(branch, repoPath);
 
 							context = {
 								webviewItem: `gitlens:branch${head ? '+current' : ''}${
@@ -362,7 +362,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 											: ''
 								}${branch?.starred ? '+starred' : ''}${branch?.upstream?.state.ahead ? '+ahead' : ''}${
 									branch?.upstream?.state.behind ? '+behind' : ''
-								}${recomposable ? '+recomposable' : ''}`,
+								}${mergeBaseCommit ? '+recomposable' : ''}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: createReference(tip, repoPath, {
@@ -372,6 +372,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										remote: false,
 										upstream: branch?.upstream,
 									}),
+									mergeBaseCommit: mergeBaseCommit,
 								},
 							};
 
@@ -621,8 +622,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
 	}
 
-	private async isBranchRecomposable(branch: GitBranch | undefined, repoPath: string): Promise<boolean> {
-		if (!branch || branch.remote) return false;
+	private async getMergeBaseCommit(branch: GitBranch | undefined, repoPath: string): Promise<string | undefined> {
+		if (!branch || branch.remote) return undefined;
 
 		try {
 			const upstreamName = branch.upstream?.name;
@@ -643,10 +644,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const validTargets = [validStoredTarget, validStoredMergeBase];
 			const targetCommit = await this.selectMostRecentMergeBase(branch.name, validTargets, svc);
 
-			return Boolean(targetCommit && targetCommit !== branch.sha);
+			const isRecomposable = Boolean(targetCommit && targetCommit !== branch.sha);
+			return isRecomposable ? targetCommit : undefined;
 		} catch {
 			// If we can't determine, assume not recomposable
-			return false;
+			return undefined;
 		}
 	}
 
