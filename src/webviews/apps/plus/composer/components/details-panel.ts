@@ -75,10 +75,13 @@ export class DetailsPanel extends LitElement {
 				display: -webkit-box;
 				-webkit-line-clamp: 2;
 				-webkit-box-orient: vertical;
+				padding: 0.5rem 0.8rem;
+				font-size: 1.3rem;
+				line-height: 1.4;
 				overflow-wrap: break-word;
 				word-wrap: break-word;
-				border: 1px solid var(--vscode-input-border);
-				border-radius: 0.2rem;
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 0.4rem;
 			}
 
 			.commit-message__input {
@@ -152,17 +155,20 @@ export class DetailsPanel extends LitElement {
 
 			.file-group {
 				border: 1px solid var(--vscode-panel-border);
-				border-radius: 4px;
+				border-radius: 0.4rem;
 				overflow: hidden;
 			}
 
 			.file-group__header {
 				display: flex;
 				align-items: center;
-				padding: 0.5rem 0.75rem;
+				padding: 0.5rem 0.8rem;
 				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border-bottom: 1px solid var(--vscode-panel-border);
 				cursor: pointer;
+			}
+
+			.file-group[open] .file-group__header {
+				border-bottom: 1px solid var(--vscode-panel-border);
 			}
 
 			.file-group__header:hover {

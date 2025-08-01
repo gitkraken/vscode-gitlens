@@ -67,8 +67,6 @@ export class HunkItem extends LitElement {
 			/* justify-content: space-between; */
 			gap: 0.8rem;
 			padding: 0.8rem;
-			background: var(--vscode-editorGroupHeader-tabsBackground);
-			border-bottom: 1px solid var(--vscode-panel-border);
 		}
 
 		.file-info {
