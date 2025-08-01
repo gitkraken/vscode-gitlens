@@ -173,7 +173,7 @@ export class GlTreeBase extends GlElement {
 			level: 1,
 			checkable: true,
 			checked: true,
-			icon: 'repo',
+			icon: 'gl-repository',
 			label: name,
 			description: description,
 			context: [path],

@@ -43,7 +43,7 @@ export class GlBranchName extends LitElement {
 		return html`<span class="${this.worktree ? 'worktree' : 'branch'}"
 			><code-icon
 				class="icon"
-				icon="${this.worktree ? 'gl-worktrees-view' : 'git-branch'}"
+				icon="${this.worktree ? 'gl-worktree' : 'git-branch'}"
 				size="${this.size}"
 			></code-icon
 			><span class="label">${this.name ?? '<missing>'}</span></span

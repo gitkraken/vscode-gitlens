@@ -153,7 +153,7 @@ export class GlRepoButtonGroup extends GlElement {
 		if (!repo?.provider) {
 			return html`
 				<gl-button part="provider-icon" appearance="toolbar" ?disabled=${true}>
-					<code-icon icon="repo" aria-hidden="true"></code-icon>
+					<code-icon icon="gl-repository" aria-hidden="true"></code-icon>
 				</gl-button>
 			`;
 		}
