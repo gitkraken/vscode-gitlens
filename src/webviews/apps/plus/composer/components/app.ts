@@ -1,7 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
@@ -16,6 +15,7 @@ import { stateContext } from '../context';
 import type { DetailsPanel } from './details-panel';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
+import '../../../shared/components/overlays/dialog';
 import '../../../shared/components/overlays/tooltip';
 import './commit-item';
 import './commits-panel';
@@ -98,15 +98,7 @@ export class ComposerApp extends LitElement {
 			min-width: 0;
 		}
 
-		::backdrop {
-			background: rgba(0, 0, 0, 0.5);
-		}
-
-		.modal {
-			background: var(--vscode-editor-background);
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 8px;
-			padding: 2.4rem;
+		.modal::part(base) {
 			min-width: 300px;
 			text-align: center;
 		}
@@ -231,50 +223,6 @@ export class ComposerApp extends LitElement {
 		.unassigned-changes-section:last-child {
 			margin-bottom: 0;
 		}
-
-		/* Loading overlay styles */
-		.loading-overlay {
-			position: absolute;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			background: rgba(var(--vscode-editor-background-rgb, 30, 30, 30), 0.8);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			z-index: 100;
-			backdrop-filter: blur(2px);
-		}
-
-		.loading-content {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 1.2rem;
-			padding: 2.4rem;
-			background: var(--vscode-editor-background);
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 8px;
-			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-		}
-
-		.loading-spinner {
-			font-size: 2.4rem;
-			color: var(--vscode-progressBar-background);
-		}
-
-		.loading-text {
-			font-size: 1.4rem;
-			color: var(--vscode-foreground);
-			text-align: center;
-			font-weight: 500;
-		}
-
-		/* Make main-content relative for absolute positioning of overlay */
-		.main-content {
-			position: relative;
-		}
 	`;
 
 	@state()
@@ -298,8 +246,8 @@ export class ComposerApp extends LitElement {
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
 
-	@query('#commits-generated-modal')
-	private commitsGeneratedModal!: HTMLDialogElement;
+	@state()
+	private showCommitsGeneratedModal: boolean = false;
 
 	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
@@ -1025,13 +973,9 @@ export class ComposerApp extends LitElement {
 	}
 
 	private closeModal() {
-		this.commitsGeneratedModal.close();
+		this.showCommitsGeneratedModal = false;
 		// Close the webview
 		window.close();
-	}
-
-	private openModal() {
-		this.commitsGeneratedModal.showModal();
 	}
 
 	private get hunksWithAssignments(): ComposerHunk[] {
@@ -1348,28 +1292,18 @@ export class ComposerApp extends LitElement {
 				></gl-details-panel>
 
 				<!-- Loading overlay for AI operations -->
-				${when(
-					this.state.generatingCommits || this.state.generatingCommitMessage,
-					() => html`
-						<div class="loading-overlay">
-							<div class="loading-content">
-								<code-icon icon="loading~spin" class="loading-spinner"></code-icon>
-								<div class="loading-text">
-									${this.state.generatingCommits
-										? 'Generating commits with AI...'
-										: 'Generating commit message with AI...'}
-								</div>
-							</div>
-						</div>
-					`,
-				)}
+				<gl-dialog ?open=${this.state.generatingCommits || this.state.generatingCommitMessage != null} modal>
+					${this.state.generatingCommits
+						? 'Generating commits with AI...'
+						: 'Generating commit message with AI...'}
+				</gl-dialog>
 			</main>
 
-			<dialog id="commits-generated-modal" class="modal">
+			<gl-dialog ?open=${this.showCommitsGeneratedModal} modal class="modal">
 				<h2>Commits Generated</h2>
 				<p>${this.state.commits.length} commits have been generated successfully!</p>
 				<gl-button @click=${this.closeModal}>Exit Composer</gl-button>
-			</dialog>
+			</gl-dialog>
 		`;
 	}
 }
