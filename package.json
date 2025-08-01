@@ -10686,6 +10686,34 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f142"
 				}
+			},
+			"gitlens-repository": {
+				"description": "repository icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f143"
+				}
+			},
+			"gitlens-worktree": {
+				"description": "worktree icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f144"
+				}
+			},
+			"gitlens-worktree-filled": {
+				"description": "worktree-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f145"
+				}
+			},
+			"gitlens-repository-cloud": {
+				"description": "repository-cloud icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f146"
+				}
 			}
 		},
 		"menus": {

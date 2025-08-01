@@ -195,7 +195,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 
 		return html`<gl-breadcrumb-item
 			collapsibleState="${this.state.scope?.relativePath ? 'collapsed' : 'expanded'}"
-			icon="repo"
+			icon="gl-repository"
 			shrink="10000000"
 			type="repo"
 		>

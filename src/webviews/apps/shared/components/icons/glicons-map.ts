@@ -66,4 +66,8 @@ export const iconMap = Object.freeze({
 	'launchpad-view-filled': '\\f140',
 	'merge-target': '\\f141',
 	'history-view-filled': '\\f142',
+	'repository': '\\f143',
+	'worktree': '\\f144',
+	'worktree-filled': '\\f145',
+	'repository-cloud': '\\f146',
 });
