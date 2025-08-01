@@ -3279,6 +3279,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@log()
 	private aiRebaseBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref, mergeBaseCommit } = item.webviewItemValue;
+
+			if (!mergeBaseCommit) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
+				repoPath: ref.repoPath,
+				head: ref,
+				base: createReference(mergeBaseCommit, ref.repoPath, { refType: 'revision' }),
+				source: { source: 'graph' },
+			});
 		}
 
 		return Promise.resolve();

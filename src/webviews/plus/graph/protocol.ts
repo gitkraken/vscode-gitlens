@@ -570,6 +570,7 @@ export interface GraphIssueContextValue {
 export interface GraphBranchContextValue {
 	type: 'branch';
 	ref: GitBranchReference;
+	mergeBaseCommit?: string;
 }
 
 export interface GraphCommitContextValue {
