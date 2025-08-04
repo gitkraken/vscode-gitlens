@@ -3291,7 +3291,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				base: createReference(mergeBase.branch, ref.repoPath, {
 					refType: 'branch',
 					name: mergeBase.branch,
-					remote: false,
+					remote: mergeBase.remote,
 				}),
 				source: { source: 'graph' },
 			});
