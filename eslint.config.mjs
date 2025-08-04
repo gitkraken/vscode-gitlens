@@ -344,6 +344,7 @@ export default ts.config(
 			'@typescript-eslint/no-restricted-imports': restrictedImports.extension,
 			'@typescript-eslint/no-unnecessary-condition': 'off',
 			'@typescript-eslint/no-unnecessary-boolean-literal-compare': 'off',
+			'@typescript-eslint/no-unnecessary-type-conversion': 'off',
 			'@typescript-eslint/no-unnecessary-type-parameters': 'off', // https://github.com/typescript-eslint/typescript-eslint/issues/9705
 			'@typescript-eslint/no-unsafe-argument': 'off',
 			'@typescript-eslint/no-unsafe-assignment': 'off',
