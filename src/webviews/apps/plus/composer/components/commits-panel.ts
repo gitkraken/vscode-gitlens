@@ -76,6 +76,13 @@ export class CommitsPanel extends LitElement {
 				gap: 0.5rem;
 			}
 
+			/* Draft commit styling */
+			.commits-only gl-commit-item {
+				border: 2px dotted var(--vscode-panel-border);
+				border-radius: 6px;
+				padding: 0.4rem;
+			}
+
 			.unassigned-section {
 				background: var(--vscode-editor-background);
 				border: 1px solid var(--vscode-panel-border);
@@ -280,6 +287,55 @@ export class CommitsPanel extends LitElement {
 				margin: 0;
 				cursor: pointer;
 			}
+
+			/* Auto-Compose container styles */
+			.auto-compose-container {
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 6px;
+				padding: 1.2rem;
+				margin-bottom: 1.2rem;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+			}
+
+			.auto-compose-header {
+				font-size: 1.1rem;
+				font-weight: 600;
+				color: var(--vscode-foreground);
+				margin-bottom: 0.6rem;
+			}
+
+			.auto-compose-description {
+				font-size: 1rem;
+				color: var(--vscode-descriptionForeground);
+				line-height: 1.4;
+				margin-bottom: 1rem;
+			}
+
+			.custom-instructions-container {
+				margin-bottom: 1rem;
+			}
+
+			.custom-instructions-input {
+				width: 100%;
+				padding: 0.6rem;
+				border: 1px solid var(--vscode-input-border);
+				border-radius: 3px;
+				background: var(--vscode-input-background);
+				color: var(--vscode-input-foreground);
+				font-family: inherit;
+				font-size: 1rem;
+				resize: vertical;
+				min-height: 2.4rem;
+			}
+
+			.custom-instructions-input::placeholder {
+				color: var(--vscode-input-placeholderForeground);
+			}
+
+			.custom-instructions-input:focus {
+				outline: none;
+				border-color: var(--vscode-focusBorder);
+			}
 		`,
 	];
 
@@ -318,6 +374,9 @@ export class CommitsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	includeUnstagedChanges: boolean = false;
+
+	@property({ type: String })
+	customInstructions: string = '';
 
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
@@ -655,7 +714,10 @@ export class CommitsPanel extends LitElement {
 	private dispatchGenerateCommitsWithAI() {
 		this.dispatchEvent(
 			new CustomEvent('generate-commits-with-ai', {
-				detail: { includeUnstagedChanges: this.includeUnstagedChanges },
+				detail: {
+					includeUnstagedChanges: this.includeUnstagedChanges,
+					customInstructions: this.customInstructions,
+				},
 				bubbles: true,
 			}),
 		);
@@ -669,6 +731,19 @@ export class CommitsPanel extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('include-unstaged-change', {
 				detail: { includeUnstagedChanges: this.includeUnstagedChanges },
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleCustomInstructionsChange(e: Event) {
+		const input = e.target as HTMLInputElement;
+		this.customInstructions = input.value;
+
+		// Dispatch event to notify app component of custom instructions change
+		this.dispatchEvent(
+			new CustomEvent('custom-instructions-change', {
+				detail: { customInstructions: this.customInstructions },
 				bubbles: true,
 			}),
 		);
@@ -736,7 +811,7 @@ export class CommitsPanel extends LitElement {
 	override render() {
 		return html`
 			<div class="commits-header">
-				<h3>Commits (${this.commits.length})</h3>
+				<h3>Draft Commits</h3>
 				<small>Shift+click to multi-select</small>
 			</div>
 
@@ -831,42 +906,62 @@ export class CommitsPanel extends LitElement {
 						</button-container>
 					`,
 					() => html`
-						<!-- Always show Generate Commits with AI button when AI is enabled -->
+						<!-- Auto-Compose Commits with AI container -->
 						${when(
 							this.aiEnabled,
 							() => html`
-								<!-- Include unstaged changes checkbox -->
-								${when(
-									this.shouldShowIncludeUnstagedCheckbox,
-									() => html`
-										<div class="include-unstaged-container">
-											<label class="include-unstaged-label">
-												<input
-													type="checkbox"
-													class="include-unstaged-checkbox"
-													?checked=${this.includeUnstagedChanges}
-													@change=${this.handleIncludeUnstagedChange}
-												/>
-												Include unstaged changes
-											</label>
-										</div>
-									`,
-								)}
+								<div class="auto-compose-container">
+									<div class="auto-compose-header">Auto-Compose Commits with AI (Preview)</div>
+									<div class="auto-compose-description">
+										Save time by leveraging AI to organize all of your working changes into commits
+										with well-written messages and descriptions.
+									</div>
 
-								<button-container layout="editor">
-									<gl-button
-										full
-										appearance="secondary"
-										?disabled=${this.generating || this.committing}
-										@click=${this.dispatchGenerateCommitsWithAI}
-									>
-										<code-icon
-											icon=${this.generating ? 'loading~spin' : 'sparkle'}
-											slot="prefix"
-										></code-icon>
-										${this.generating ? 'Generating Commits...' : 'Generate Commits with AI'}
-									</gl-button>
-								</button-container>
+									<!-- Include unstaged changes checkbox -->
+									${when(
+										this.shouldShowIncludeUnstagedCheckbox,
+										() => html`
+											<div class="include-unstaged-container">
+												<label class="include-unstaged-label">
+													<input
+														type="checkbox"
+														class="include-unstaged-checkbox"
+														?checked=${this.includeUnstagedChanges}
+														@change=${this.handleIncludeUnstagedChange}
+													/>
+													Include unstaged changes
+												</label>
+											</div>
+										`,
+									)}
+
+									<!-- Custom instructions input -->
+									<div class="custom-instructions-container">
+										<input
+											type="text"
+											class="custom-instructions-input"
+											placeholder="Add custom instructions"
+											.value=${this.customInstructions}
+											@input=${this.handleCustomInstructionsChange}
+										/>
+									</div>
+
+									<!-- Auto-Compose button -->
+									<button-container layout="editor">
+										<gl-button
+											full
+											appearance="secondary"
+											?disabled=${this.generating || this.committing}
+											@click=${this.dispatchGenerateCommitsWithAI}
+										>
+											<code-icon
+												icon=${this.generating ? 'loading~spin' : 'sparkle'}
+												slot="prefix"
+											></code-icon>
+											${this.generating ? 'Generating Commits...' : 'Auto-Compose Commits'}
+										</gl-button>
+									</button-container>
+								</div>
 							`,
 						)}
 

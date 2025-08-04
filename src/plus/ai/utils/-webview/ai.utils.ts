@@ -47,6 +47,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Pull Request Details (Preview)';
 		case 'generate-rebase':
 			return 'Generate Rebase (Preview)';
+		case 'generate-commits':
+			return 'Generate Commits (Preview)';
 		case 'generate-searchQuery':
 			return 'Generate Search Query (Preview)';
 	}

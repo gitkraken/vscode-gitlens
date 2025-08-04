@@ -243,6 +243,9 @@ export class ComposerApp extends LitElement {
 	@state()
 	private includeUnstagedChanges: boolean = false;
 
+	@state()
+	private customInstructions: string = '';
+
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
 
@@ -1074,11 +1077,16 @@ export class ComposerApp extends LitElement {
 
 	private handleGenerateCommitsWithAI(e: CustomEvent) {
 		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
-		this.generateCommitsWithAI(e.detail?.includeUnstagedChanges);
+		this.customInstructions = e.detail?.customInstructions ?? '';
+		this.generateCommitsWithAI(e.detail?.includeUnstagedChanges, e.detail?.customInstructions);
 	}
 
 	private handleIncludeUnstagedChange(e: CustomEvent) {
 		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
+	}
+
+	private handleCustomInstructionsChange(e: CustomEvent) {
+		this.customInstructions = e.detail?.customInstructions ?? '';
 	}
 
 	@query('gl-details-panel')
@@ -1103,7 +1111,7 @@ export class ComposerApp extends LitElement {
 		}, 100);
 	}
 
-	private generateCommitsWithAI(includeUnstagedChanges: boolean = false) {
+	private generateCommitsWithAI(includeUnstagedChanges: boolean = false, customInstructions: string = '') {
 		if (!this.aiEnabled) return;
 
 		// Get eligible hunks using the shared logic
@@ -1123,6 +1131,7 @@ export class ComposerApp extends LitElement {
 			commits: this.isAIPreviewMode ? [] : this.state.commits,
 			hunkMap: this.state.hunkMap,
 			baseCommit: this.state.baseCommit,
+			customInstructions: customInstructions || undefined,
 		});
 	}
 
@@ -1242,12 +1251,14 @@ export class ComposerApp extends LitElement {
 					.isAIPreviewMode=${this.isAIPreviewMode}
 					.baseCommit=${this.state.baseCommit}
 					.includeUnstagedChanges=${this.includeUnstagedChanges}
+					.customInstructions=${this.customInstructions}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
 					@finish-and-commit=${this.composeCommits}
 					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
 					@include-unstaged-change=${this.handleIncludeUnstagedChange}
+					@custom-instructions-change=${this.handleCustomInstructionsChange}
 					@focus-commit-message=${this.handleFocusCommitMessage}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
