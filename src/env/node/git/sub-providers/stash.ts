@@ -77,87 +77,78 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		let stashPromise = this.cache.stashes?.get(repoPath);
-		if (stashPromise == null) {
-			async function load(this: StashGitSubProvider): Promise<GitStash> {
-				const parser = getStashLogParser();
-				const args = [...parser.arguments];
+		const stashPromise = this.cache.stashes?.getOrCreate(repoPath, async _cancellable => {
+			const parser = getStashLogParser();
+			const args = [...parser.arguments];
 
-				const similarityThreshold = configuration.get('advanced.similarityThreshold');
-				args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 
-				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation },
-					'stash',
-					'list',
-					...args,
-				);
+			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
 
-				const stashes = new Map<string, GitStashCommit>();
-				const parentShas = new Set<string>();
+			const stashes = new Map<string, GitStashCommit>();
+			const parentShas = new Set<string>();
 
-				// First pass: create stashes and collect parent SHAs
-				for (const s of parser.parse(result.stdout)) {
-					stashes.set(s.sha, createStash(this.container, s, repoPath));
-					// Collect all parent SHAs for timestamp lookup
-					if (s.parents) {
-						for (const parentSha of s.parents.split(' ')) {
-							if (parentSha.trim()) {
-								parentShas.add(parentSha.trim());
-							}
+			// First pass: create stashes and collect parent SHAs
+			for (const s of parser.parse(result.stdout)) {
+				stashes.set(s.sha, createStash(this.container, s, repoPath));
+				// Collect all parent SHAs for timestamp lookup
+				if (s.parents) {
+					for (const parentSha of s.parents.split(' ')) {
+						if (parentSha.trim()) {
+							parentShas.add(parentSha.trim());
 						}
 					}
 				}
-
-				// Second pass: fetch parent timestamps if we have any parents
-				const parentTimestamps = new Map<string, { authorDate: number; committerDate: number }>();
-				if (parentShas.size > 0) {
-					try {
-						const datesParser = getShaAndDatesLogParser();
-						const parentResult = await this.git.exec(
-							{
-								cwd: repoPath,
-								cancellation: cancellation,
-								stdin: Array.from(parentShas).join('\n'),
-							},
-							'log',
-							...datesParser.arguments,
-							'--no-walk',
-							'--stdin',
-						);
-
-						for (const entry of datesParser.parse(parentResult.stdout)) {
-							parentTimestamps.set(entry.sha, {
-								authorDate: Number(entry.authorDate),
-								committerDate: Number(entry.committerDate),
-							});
-						}
-					} catch (_ex) {
-						// If we can't get parent timestamps, continue without them
-						// This could happen if some parent commits are not available
-					}
-				}
-
-				// Third pass: update stashes with parent timestamp information
-				for (const sha of stashes.keys()) {
-					const stash = stashes.get(sha);
-					if (stash?.parents.length) {
-						const parentsWithTimestamps: GitStashParentInfo[] = stash.parents.map(parentSha => ({
-							sha: parentSha,
-							authorDate: parentTimestamps.get(parentSha)?.authorDate,
-							committerDate: parentTimestamps.get(parentSha)?.committerDate,
-						}));
-						// Store the parent timestamp information on the stash
-						stashes.set(sha, stash.with({ parentTimestamps: parentsWithTimestamps }));
-					}
-				}
-
-				return { repoPath: repoPath, stashes: stashes };
 			}
 
-			stashPromise = load.call(this);
-			this.cache.stashes?.set(repoPath, stashPromise);
-		}
+			// Second pass: fetch parent timestamps if we have any parents
+			const parentTimestamps = new Map<string, { authorDate: number; committerDate: number }>();
+			if (parentShas.size > 0) {
+				try {
+					const datesParser = getShaAndDatesLogParser();
+					const parentResult = await this.git.exec(
+						{
+							cwd: repoPath,
+							cancellation: cancellation,
+							stdin: Array.from(parentShas).join('\n'),
+						},
+						'log',
+						...datesParser.arguments,
+						'--no-walk',
+						'--stdin',
+					);
+
+					for (const entry of datesParser.parse(parentResult.stdout)) {
+						parentTimestamps.set(entry.sha, {
+							authorDate: Number(entry.authorDate),
+							committerDate: Number(entry.committerDate),
+						});
+					}
+				} catch (_ex) {
+					// If we can't get parent timestamps, continue without them
+					// This could happen if some parent commits are not available
+				}
+			}
+
+			// Third pass: update stashes with parent timestamp information
+			for (const sha of stashes.keys()) {
+				const stash = stashes.get(sha);
+				if (stash?.parents.length) {
+					const parentsWithTimestamps: GitStashParentInfo[] = stash.parents.map(parentSha => ({
+						sha: parentSha,
+						authorDate: parentTimestamps.get(parentSha)?.authorDate,
+						committerDate: parentTimestamps.get(parentSha)?.committerDate,
+					}));
+					// Store the parent timestamp information on the stash
+					stashes.set(sha, stash.with({ parentTimestamps: parentsWithTimestamps }));
+				}
+			}
+
+			return { repoPath: repoPath, stashes: stashes };
+		});
+
+		if (stashPromise == null) return undefined;
 
 		const stash = await stashPromise;
 		if (!options?.reachableFrom || !stash?.stashes.size) return stash;

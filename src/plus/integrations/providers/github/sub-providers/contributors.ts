@@ -196,7 +196,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					cancelled: cancellation?.isCancellationRequested ? { reason: 'cancelled' } : undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancel();
+				cancellable?.cancelled();
 				Logger.error(ex, scope);
 				debugger;
 

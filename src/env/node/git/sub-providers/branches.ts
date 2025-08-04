@@ -38,6 +38,7 @@ import { getLogScope } from '../../../../system/logger.scope';
 import { PageableResult } from '../../../../system/paging';
 import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
+import { PromiseMap } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
 import { gitConfigsLog, GitError, GitErrors } from '../git';
@@ -62,17 +63,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return branch;
 		}
 
-		let branchPromise = this.cache.branch?.get(repoPath);
-		if (branchPromise == null) {
-			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
-				const {
-					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
-				return branch ?? this.getCurrentBranch(repoPath, cancellation);
-			}
+		const branchPromise = this.cache.branch?.getOrCreate(repoPath, async () => {
+			const {
+				values: [branch],
+			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
+			return branch ?? this.getCurrentBranch(repoPath, cancellation);
+		});
 
-			branchPromise = load.call(this);
-			this.cache.branch?.set(repoPath, branchPromise);
+		if (branchPromise == null) {
+			const {
+				values: [branch],
+			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
+			return branch ?? this.getCurrentBranch(repoPath, cancellation);
 		}
 
 		return branchPromise;
@@ -421,21 +423,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		remote ??= 'origin';
 
-		const cacheByRemote = this.cache.defaultBranchName?.get(repoPath);
-		let promise = cacheByRemote?.get(remote);
-		if (promise == null) {
-			async function load(this: BranchesGitSubProvider): Promise<string | undefined> {
-				return this.git.symbolic_ref__HEAD(repoPath!, remote!, cancellation);
-			}
-
-			promise = load.call(this);
-
-			if (cacheByRemote == null) {
-				this.cache.defaultBranchName?.set(repoPath, new Map([[remote, promise]]));
-			} else {
-				cacheByRemote.set(remote, promise);
-			}
+		let cacheByRemote = this.cache.defaultBranchName?.get(repoPath);
+		if (cacheByRemote == null) {
+			cacheByRemote = new PromiseMap<string, string | undefined>();
+			this.cache.defaultBranchName?.set(repoPath, cacheByRemote);
 		}
+
+		const promise = cacheByRemote.getOrCreate(remote, async () => {
+			return this.git.symbolic_ref__HEAD(repoPath, remote, cancellation);
+		});
 
 		return promise;
 	}

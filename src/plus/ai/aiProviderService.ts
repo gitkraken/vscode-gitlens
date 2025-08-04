@@ -287,7 +287,8 @@ export class AIProviderService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _model: AIModel | undefined;
 	private readonly _promptTemplates = new PromiseCache<PromptTemplateId, PromptTemplate | undefined>({
-		createTTL: 12 * 60 * 60 * 1000, // 12 hours
+		createTTL: 12 * 60 * 60 * 1000, // 12 hours,
+		expireOnError: false,
 	});
 	private _provider: AIProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
@@ -1928,7 +1929,7 @@ export class AIProviderService implements Disposable {
 					variables: result.data.variables as (keyof PromptTemplateContext<T>)[],
 				} satisfies PromptTemplate<T>;
 			} catch (ex) {
-				cancellable.cancel();
+				cancellable.cancelled();
 				if (!(ex instanceof AuthenticationRequiredError)) {
 					debugger;
 					Logger.error(ex, scope, String(ex));
