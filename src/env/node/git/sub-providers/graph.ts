@@ -374,6 +374,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 									}),
 									mergeBase: mergeBase && {
 										...mergeBase,
+										remote: branchMap.get(mergeBase?.branch)?.remote ?? false,
 									},
 								},
 							};
