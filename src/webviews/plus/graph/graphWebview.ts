@@ -3301,6 +3301,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private aiRebaseUnpushed(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
+
+			if (!ref.upstream) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
+				repoPath: ref.repoPath,
+				head: ref,
+				base: createReference(ref.upstream.name, ref.repoPath, {
+					refType: 'branch',
+					name: ref.upstream.name,
+					remote: true,
+				}),
+				source: { source: 'graph' },
+			});
 		}
 
 		return Promise.resolve();
