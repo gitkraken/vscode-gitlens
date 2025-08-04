@@ -2126,6 +2126,7 @@ export class AIProviderService implements Disposable {
 			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
+			customInstructions?: string;
 		},
 	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
 		const confirmed = this.container.storage.get('confirm:ai:generateCommits', false);
@@ -2171,6 +2172,7 @@ export class AIProviderService implements Disposable {
 			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
+			customInstructions?: string;
 		},
 	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
 		let conversationMessages: AIChatMessage[] = [];
@@ -2216,7 +2218,7 @@ export class AIProviderService implements Disposable {
 			// Send retry request
 			const currentAttempt = attempt;
 			const retryResult = await this.sendRequest(
-				'generate-rebase',
+				'generate-commits',
 				async () => Promise.resolve(conversationMessages),
 				m => `Generating commits with ${m.name}... (attempt ${currentAttempt + 1})`,
 				source,
@@ -2261,11 +2263,12 @@ export class AIProviderService implements Disposable {
 			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
+			customInstructions?: string;
 		},
 	): Promise<{ response: AIRequestResult; conversationMessages: AIChatMessage[] } | 'cancelled' | undefined> {
 		let storedPrompt = '';
 		const rq = await this.sendRequest(
-			'generate-rebase',
+			'generate-commits',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				// Prepare the data for the AI prompt
 				const hunksJson = JSON.stringify(hunks);
@@ -2282,7 +2285,7 @@ export class AIProviderService implements Disposable {
 						existingCommits: existingCommitsJson,
 						hunkMap: hunkMapJson,
 						context: options?.context,
-						instructions: undefined,
+						instructions: options?.customInstructions,
 					},
 					maxInputTokens,
 					retries,

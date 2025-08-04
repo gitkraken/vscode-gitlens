@@ -123,6 +123,7 @@ export interface GenerateCommitsParams {
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
 	baseCommit: ComposerBaseCommit;
+	customInstructions?: string;
 }
 
 export interface GenerateCommitMessageParams {

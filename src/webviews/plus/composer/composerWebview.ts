@@ -161,6 +161,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				},
 				{
 					progress: { location: ProgressLocation.Notification },
+					customInstructions: params.customInstructions,
 				},
 			);
 
