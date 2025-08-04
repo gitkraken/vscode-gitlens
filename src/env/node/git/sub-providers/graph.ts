@@ -349,7 +349,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							branchId = branch?.id ?? getBranchId(repoPath, false, tip);
 
 							// Check if branch has commits that can be recomposed and get merge base
-							const mergeBaseCommit = await this.getMergeBaseCommit(branch, repoPath);
+							const mergeBase = await this.getMergeBase(branch, repoPath);
 
 							context = {
 								webviewItem: `gitlens:branch${head ? '+current' : ''}${
@@ -362,7 +362,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 											: ''
 								}${branch?.starred ? '+starred' : ''}${branch?.upstream?.state.ahead ? '+ahead' : ''}${
 									branch?.upstream?.state.behind ? '+behind' : ''
-								}${mergeBaseCommit ? '+recomposable' : ''}`,
+								}${mergeBase?.commit ? '+recomposable' : ''}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: createReference(tip, repoPath, {
@@ -372,7 +372,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										remote: false,
 										upstream: branch?.upstream,
 									}),
-									mergeBaseCommit: mergeBaseCommit,
+									mergeBase: mergeBase && {
+										...mergeBase,
+									},
 								},
 							};
 
@@ -622,7 +624,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
 	}
 
-	private async getMergeBaseCommit(branch: GitBranch | undefined, repoPath: string): Promise<string | undefined> {
+	private async getMergeBase(
+		branch: GitBranch | undefined,
+		repoPath: string,
+	): Promise<{ commit: string; branch: string; remote: boolean } | undefined> {
 		if (!branch || branch.remote) return undefined;
 
 		try {
@@ -642,10 +647,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			// Select target with most recent common commit (closest to branch tip)
 			const validTargets = [validStoredTarget, validStoredMergeBase];
-			const targetCommit = await this.selectMostRecentMergeBase(branch.name, validTargets, svc);
+			const mergeBase = await this.selectMostRecentMergeBase(branch.name, validTargets, svc);
 
-			const isRecomposable = Boolean(targetCommit && targetCommit !== branch.sha);
-			return isRecomposable ? targetCommit : undefined;
+			const isRecomposable = Boolean(mergeBase && mergeBase.commit !== branch.sha);
+			return isRecomposable ? mergeBase : undefined;
 		} catch {
 			// If we can't determine, assume not recomposable
 			return undefined;
@@ -656,18 +661,29 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		branchName: string,
 		targets: (string | undefined)[],
 		svc: ReturnType<typeof this.container.git.getRepositoryService>,
-	): Promise<string | undefined> {
-		const mergeBaseResults = await Promise.allSettled(
-			targets.map(target => target && svc.refs.getMergeBase(branchName, target)),
-		);
+	): Promise<{ commit: string; branch: string; remote: boolean } | undefined> {
 		const isString = (t: string | undefined): t is string => Boolean(t);
-		const mergeBases = mergeBaseResults.map(result => getSettledValue(result)).filter(isString);
+		const mergeBaseResults = await Promise.allSettled(
+			targets.filter(isString).map(async target => {
+				const commit = await svc.refs.getMergeBase(branchName, target);
+				return {
+					commit: commit,
+					branch: target,
+				};
+			}),
+		);
+		const mergeBases = mergeBaseResults
+			.map(result => getSettledValue(result))
+			.filter((r): r is { commit: string; branch: string; remote: boolean } => isString(r?.commit));
 
 		if (mergeBases.length === 0) return undefined;
 
 		let mostRecentMergeBase = mergeBases[0];
 		for (let i = 1; i < mergeBases.length; i++) {
-			const isCurrentMoreRecent = await svc.commits.isAncestorOf(mostRecentMergeBase, mergeBases[i]);
+			const isCurrentMoreRecent = await svc.commits.isAncestorOf(
+				mostRecentMergeBase?.commit,
+				mergeBases[i].commit,
+			);
 			if (isCurrentMoreRecent) {
 				mostRecentMergeBase = mergeBases[i];
 			}
