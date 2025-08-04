@@ -339,7 +339,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (this._etag === this.container.git.etag) return;
 					}
 
-					void this.host.refresh(true);
+					this.updateState();
 				}
 			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
