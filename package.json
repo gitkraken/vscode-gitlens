@@ -24717,6 +24717,7 @@
 		"@shoelace-style/shoelace": "2.20.1",
 		"@vscode/codicons": "0.0.39",
 		"billboard.js": "3.16.0",
+		"diff2html": "^3.4.52",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "3.3.1",

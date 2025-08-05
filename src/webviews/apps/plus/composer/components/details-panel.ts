@@ -16,6 +16,8 @@ import { boxSizingBase, scrollableBase } from '../../../shared/components/styles
 import '../../../shared/components/button';
 import './hunk-item';
 import './explaination';
+// import './diff/diff';
+import './diff/diff-file';
 
 @customElement('gl-details-panel')
 export class DetailsPanel extends LitElement {
@@ -553,49 +555,63 @@ export class DetailsPanel extends LitElement {
 		return Array.from(fileGroups.entries())
 			.filter(([, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
 			.map(([fileName, fileHunks]) => {
-				const fileChanges = getFileChanges(fileHunks);
-
-				return html`
-					<details open class="file-group">
-						<summary class="file-group__header">
-							<code-icon class="file-group__icon file-group__icon--open" icon="chevron-down"></code-icon>
-							<code-icon
-								class="file-group__icon file-group__icon--closed"
-								icon="chevron-right"
-							></code-icon>
-							<div class="file-name">${fileName}</div>
-							<div class="file-stats" hidden>
-								<span class="additions">+${fileChanges.additions}</span>
-								<span class="deletions">-${fileChanges.deletions}</span>
-							</div>
-						</summary>
-						<div class="file-hunks">
-							${repeat(
-								fileHunks,
-								hunk => hunk.index,
-								hunk => html`
-									<gl-hunk-item
-										data-hunk-id=${hunk.index.toString()}
-										.hunkId=${hunk.index.toString()}
-										.fileName=${hunk.fileName}
-										.hunkHeader=${hunk.hunkHeader}
-										.content=${hunk.content}
-										.additions=${hunk.additions}
-										.deletions=${hunk.deletions}
-										.selected=${this.selectedHunkIds.has(hunk.index.toString())}
-										.isRename=${hunk.isRename || false}
-										.originalFileName=${hunk.originalFileName}
-										.isAIPreviewMode=${this.isAIPreviewMode}
-										@hunk-selected=${(e: CustomEvent) =>
-											this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
-									></gl-hunk-item>
-								`,
-							)}
-						</div>
-					</details>
-				`;
+				return this.renderFile(fileName, fileHunks);
+				// return this.renderFileOld(fileName, fileHunks);
 			});
 	}
+
+	private renderFile(fileName: string, fileHunks: ComposerHunk[]) {
+		// const fileChanges = getFileChanges(fileHunks);
+
+		return html`<gl-diff-file .filename=${fileName} .hunks=${fileHunks}></gl-diff-file>`;
+	}
+
+	// private renderFileOld(fileName: string, fileHunks: ComposerHunk[]) {
+	// 	const fileChanges = getFileChanges(fileHunks);
+
+	// 	return html`
+	// 		<details open class="file-group">
+	// 			<summary class="file-group__header">
+	// 				<code-icon class="file-group__icon file-group__icon--open" icon="chevron-down"></code-icon>
+	// 				<code-icon class="file-group__icon file-group__icon--closed" icon="chevron-right"></code-icon>
+	// 				<div class="file-name">${fileName}</div>
+	// 				<div class="file-stats" hidden>
+	// 					<span class="additions">+${fileChanges.additions}</span>
+	// 					<span class="deletions">-${fileChanges.deletions}</span>
+	// 				</div>
+	// 			</summary>
+	// 			<div class="file-hunks">
+	// 				${repeat(
+	// 					fileHunks,
+	// 					hunk => hunk.index,
+	// 					hunk => html`
+	// 						<gl-hunk-item
+	// 							hidden
+	// 							data-hunk-id=${hunk.index.toString()}
+	// 							.hunkId=${hunk.index.toString()}
+	// 							.fileName=${hunk.fileName}
+	// 							.hunkHeader=${hunk.hunkHeader}
+	// 							.content=${hunk.content}
+	// 							.additions=${hunk.additions}
+	// 							.deletions=${hunk.deletions}
+	// 							.selected=${this.selectedHunkIds.has(hunk.index.toString())}
+	// 							.isRename=${hunk.isRename || false}
+	// 							.originalFileName=${hunk.originalFileName}
+	// 							.isAIPreviewMode=${this.isAIPreviewMode}
+	// 							@hunk-selected=${(e: CustomEvent) =>
+	// 								this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
+	// 						></gl-hunk-item>
+	// 						<gl-diff-hunk
+	// 							.diffHeader=${hunk.diffHeader}
+	// 							.hunkHeader=${hunk.hunkHeader}
+	// 							.hunkContent=${hunk.content}
+	// 						></gl-diff-hunk>
+	// 					`,
+	// 				)}
+	// 			</div>
+	// 		</details>
+	// 	`;
+	// }
 
 	private dispatchHunkSelect(hunkId: string, shiftKey: boolean = false) {
 		this.dispatchEvent(
