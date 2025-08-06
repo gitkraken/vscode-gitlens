@@ -34,15 +34,11 @@ export class CommitsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.4rem;
+				margin: 1.2rem 0 0.8rem 0;
 			}
 
 			.commits-header h3 {
 				margin: 0;
-			}
-
-			.commits-header small {
-				color: var(--vscode-descriptionForeground);
-				font-size: 0.9em;
 			}
 
 			.commits-actions {
@@ -67,29 +63,23 @@ export class CommitsPanel extends LitElement {
 				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
-				gap: 0.5rem;
+				gap: 0.2rem;
 			}
 
 			.commits-only {
 				display: flex;
 				flex-direction: column;
-				gap: 0.5rem;
-			}
-
-			/* Draft commit styling */
-			.commits-only gl-commit-item {
-				border: 2px dotted var(--vscode-panel-border);
-				border-radius: 6px;
-				padding: 0.4rem;
+				gap: 0.2rem;
 			}
 
 			.unassigned-section {
 				background: var(--vscode-editor-background);
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 4px;
+				border: 2px dotted var(--vscode-panel-border);
+				border-radius: 12px;
 				padding: 0.75rem;
 				cursor: pointer;
 				transition: background-color 0.2s ease;
+				margin-bottom: 0.5rem;
 			}
 
 			.unassigned-section:hover {
@@ -98,7 +88,6 @@ export class CommitsPanel extends LitElement {
 
 			.unassigned-section.selected {
 				background: var(--vscode-list-activeSelectionBackground);
-				border-color: var(--vscode-focusBorder);
 			}
 
 			.unassigned-header {
@@ -221,50 +210,79 @@ export class CommitsPanel extends LitElement {
 
 			/* Base commit styles */
 			.base-commit {
-				margin-top: 0.8rem;
-				padding: 1.2rem;
 				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 4px;
+				border-radius: 12px;
 				opacity: 0.7;
 				pointer-events: none;
+				display: flex;
+				align-items: stretch;
+				min-height: 60px;
+			}
+
+			.base-commit-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 2.4rem;
+				flex-shrink: 0;
+				position: relative;
+				padding-left: 0.4rem;
+			}
+
+			.base-commit-icon::before {
+				content: '';
+				position: absolute;
+				left: calc(50% + 0.4rem);
+				top: 0;
+				bottom: 0;
+				width: 2px;
+				background: var(--vscode-descriptionForeground);
+				transform: translateX(-50%);
+				opacity: 0.7;
+			}
+
+			.base-commit-icon::after {
+				content: '';
+				position: absolute;
+				left: calc(50% + 0.4rem);
+				top: 50%;
+				width: 20px;
+				height: 20px;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+				border: 2px solid var(--vscode-descriptionForeground);
+				border-radius: 50%;
+				transform: translate(-50%, -50%);
+				z-index: 1;
 			}
 
 			.base-commit-content {
+				flex: 1;
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
-			}
-
-			.base-commit-header {
-				display: flex;
-				align-items: center;
-				gap: 0.8rem;
-				color: var(--vscode-descriptionForeground);
-				font-size: 0.9em;
-				font-weight: 500;
+				justify-content: center;
+				padding: 1.2rem;
+				gap: 0.4rem;
 			}
 
 			.base-commit-message {
-				color: var(--vscode-foreground);
-				font-size: 1em;
+				color: var(--vscode-descriptionForeground);
 				font-weight: 500;
-				margin-left: 2.4rem; /* Align with header text */
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				line-height: 1.4;
 			}
 
 			.base-commit-details {
 				display: flex;
-				gap: 1.2rem;
-				margin-left: 2.4rem; /* Align with header text */
-				font-size: 0.85em;
+				align-items: center;
 				color: var(--vscode-descriptionForeground);
+				font-size: 0.9em;
 			}
 
 			.repo-name,
 			.branch-name {
-				display: flex;
-				align-items: center;
-				gap: 0.4rem;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Include unstaged changes checkbox styles */
@@ -811,13 +829,12 @@ export class CommitsPanel extends LitElement {
 
 	override render() {
 		return html`
-			<div class="commits-header">
-				<h3>Draft Commits</h3>
-				<small>Shift+click to multi-select</small>
-			</div>
-
 			<div class="commits-list scrollable">
 				${this.renderUnassignedSection()}
+
+				<div class="commits-header">
+					<h3>Draft Commits</h3>
+				</div>
 
 				<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
 				${when(
@@ -857,21 +874,13 @@ export class CommitsPanel extends LitElement {
 
 				<!-- Base commit (informational only) -->
 				<div class="base-commit">
+					<div class="base-commit-icon"></div>
 					<div class="base-commit-content">
-						<div class="base-commit-header">
-							<code-icon icon="git-commit"></code-icon>
-							<span class="base-commit-label">Base Commit</span>
-						</div>
 						<div class="base-commit-message">${this.baseCommit?.message || 'HEAD'}</div>
 						<div class="base-commit-details">
-							<span class="repo-name">
-								<code-icon icon="repo"></code-icon>
-								${this.baseCommit?.repoName || 'Repository'}
-							</span>
-							<span class="branch-name">
-								<code-icon icon="git-branch"></code-icon>
-								${this.baseCommit?.branchName || 'main'}
-							</span>
+							<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
+							<span>/</span>
+							<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
 						</div>
 					</div>
 				</div>
