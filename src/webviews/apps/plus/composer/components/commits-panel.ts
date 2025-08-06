@@ -59,7 +59,6 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.commits-list {
-				flex: 1;
 				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
@@ -88,6 +87,66 @@ export class CommitsPanel extends LitElement {
 
 			.unassigned-section.selected {
 				background: var(--vscode-list-activeSelectionBackground);
+			}
+
+			.add-to-draft-button-container {
+				margin-top: 0.8rem;
+			}
+
+			.auto-compose-review-text {
+				text-align: center;
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
+				margin-top: 0.8rem;
+			}
+
+			/* Finish & Commit section styles */
+			.finish-commit-section {
+				margin-top: 0.3rem;
+			}
+
+			.finish-commit-header {
+				display: flex;
+				flex-direction: column;
+				gap: 0.4rem;
+				margin: 1.2rem 0 0.8rem 0;
+			}
+
+			.finish-commit-header h3 {
+				margin: 0;
+			}
+
+			.commit-message-row {
+				display: flex;
+				align-items: center;
+				gap: 0.8rem;
+			}
+
+			.commit-message-button {
+				flex: 1;
+			}
+
+			.ai-sparkle-button {
+				width: 2.4rem;
+				height: 2.4rem;
+				padding: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: var(--vscode-button-secondaryBackground);
+				color: var(--vscode-button-secondaryForeground);
+				border: 1px solid var(--vscode-button-border);
+				border-radius: 4px;
+				cursor: pointer;
+				transition: background-color 0.2s ease;
+			}
+
+			.ai-sparkle-button:hover {
+				background: var(--vscode-button-secondaryHoverBackground);
+			}
+
+			.cancel-button-container {
+				margin-top: 0.8rem;
 			}
 
 			.unassigned-header {
@@ -285,33 +344,12 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 			}
 
-			/* Include unstaged changes checkbox styles */
-			.include-unstaged-container {
-				padding: 0.8rem 0;
-				margin-bottom: 0.4rem;
-			}
-
-			.include-unstaged-label {
-				display: flex;
-				align-items: center;
-				gap: 0.6rem;
-				font-size: 0.9em;
-				color: var(--vscode-foreground);
-				cursor: pointer;
-				user-select: none;
-			}
-
-			.include-unstaged-checkbox {
-				margin: 0;
-				cursor: pointer;
-			}
-
 			/* Auto-Compose container styles */
 			.auto-compose-container {
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 6px;
 				padding: 1.2rem;
-				margin-bottom: 1.2rem;
+				margin: 1.2rem 0 0.3rem 0;
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 			}
 
@@ -338,7 +376,7 @@ export class CommitsPanel extends LitElement {
 				padding: 0.6rem;
 				border: 1px solid var(--vscode-input-border);
 				border-radius: 3px;
-				background: var(--vscode-input-background);
+				background: transparent;
 				color: var(--vscode-input-foreground);
 				font-family: inherit;
 				font-size: 1rem;
@@ -390,11 +428,11 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Object })
 	baseCommit: ComposerBaseCommit | null = null;
 
-	@property({ type: Boolean })
-	includeUnstagedChanges: boolean = false;
-
 	@property({ type: String })
 	customInstructions: string = '';
+
+	@property({ type: Boolean })
+	hasUsedAutoCompose: boolean = false;
 
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
@@ -671,9 +709,9 @@ export class CommitsPanel extends LitElement {
 		return isDraftCommit;
 	}
 
-	private get shouldShowIncludeUnstagedCheckbox(): boolean {
-		// Show checkbox when at least one hunk is NOT from unstaged source
-		return this.hunks.some(hunk => hunk.source !== 'unstaged');
+	private get shouldShowAddToDraftButton(): boolean {
+		// Show button only when there is exactly one commit (regardless of message content)
+		return this.commits.length === 1;
 	}
 
 	private handleHunkDragEnd() {
@@ -730,10 +768,12 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private dispatchGenerateCommitsWithAI() {
+		// Mark that auto-compose has been used
+		this.hasUsedAutoCompose = true;
+
 		this.dispatchEvent(
 			new CustomEvent('generate-commits-with-ai', {
 				detail: {
-					includeUnstagedChanges: this.includeUnstagedChanges,
 					customInstructions: this.customInstructions,
 				},
 				bubbles: true,
@@ -741,14 +781,55 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
-	private handleIncludeUnstagedChange(e: Event) {
-		const checkbox = e.target as HTMLInputElement;
-		this.includeUnstagedChanges = checkbox.checked;
+	private handleAddAllToDraftCommit(sectionKey: string) {
+		// Get all hunks from the specified section
+		const unassignedHunks = getUnassignedHunks(this.hunks);
+		let hunksToAdd: ComposerHunk[] = [];
 
-		// Dispatch event to notify app component of checkbox change
+		switch (sectionKey) {
+			case 'unstaged':
+				hunksToAdd = unassignedHunks.unstaged;
+				break;
+			case 'staged':
+				hunksToAdd = unassignedHunks.staged;
+				break;
+			case 'unassigned':
+				hunksToAdd = unassignedHunks.unassigned;
+				break;
+		}
+
+		if (hunksToAdd.length === 0 || this.commits.length !== 1) return;
+
+		// Dispatch event to add all hunks to the draft commit
 		this.dispatchEvent(
-			new CustomEvent('include-unstaged-change', {
-				detail: { includeUnstagedChanges: this.includeUnstagedChanges },
+			new CustomEvent('add-hunks-to-commit', {
+				detail: {
+					commitId: this.commits[0].id,
+					hunkIndices: hunksToAdd.map(hunk => hunk.index),
+				},
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleGenerateCommitMessageWithAI() {
+		if (this.commits.length !== 1) return;
+
+		// Dispatch event to generate commit message for the draft commit
+		this.dispatchEvent(
+			new CustomEvent('generate-commit-message', {
+				detail: {
+					commitId: this.commits[0].id,
+				},
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleCancel() {
+		// Dispatch event to close the composer webview
+		this.dispatchEvent(
+			new CustomEvent('cancel-composer', {
 				bubbles: true,
 			}),
 		);
@@ -822,6 +903,24 @@ export class CommitsPanel extends LitElement {
 							<span class="deletions">-${section.changes.deletions}</span>
 						</span>
 					</div>
+					${when(
+						this.shouldShowAddToDraftButton,
+						() => html`
+							<button-container layout="editor" class="add-to-draft-button-container">
+								<gl-button
+									full
+									appearance="secondary"
+									@click=${(e: Event) => {
+										e.stopPropagation();
+										this.handleAddAllToDraftCommit(section.key);
+									}}
+								>
+									<code-icon icon="plus" slot="prefix"></code-icon>
+									Add All to Draft Commit
+								</gl-button>
+							</button-container>
+						`,
+					)}
 				</div>
 			`,
 		);
@@ -899,11 +998,67 @@ export class CommitsPanel extends LitElement {
 				)}
 			</div>
 
-			<!-- Actions moved to bottom -->
-			<div class="commits-actions">
+			<!-- Auto-Compose Commits with AI container -->
+			${when(
+				this.aiEnabled,
+				() => html`
+					<div class="auto-compose-container">
+						<div class="auto-compose-header">Auto-Compose Commits with AI (Preview)</div>
+						${when(
+							!this.hasUsedAutoCompose,
+							() => html`
+								<div class="auto-compose-description">
+									Let AI organize your working changes into well-formed commits with clear messages
+									and descriptions that help reviewers.
+								</div>
+							`,
+						)}
+
+						<!-- Custom instructions input -->
+						<div class="custom-instructions-container">
+							<input
+								type="text"
+								class="custom-instructions-input"
+								placeholder="Add custom instructions"
+								.value=${this.customInstructions}
+								@input=${this.handleCustomInstructionsChange}
+							/>
+						</div>
+
+						<!-- Auto-Compose button -->
+						<button-container layout="editor">
+							<gl-button
+								full
+								appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
+								?disabled=${this.generating || this.committing}
+								@click=${this.dispatchGenerateCommitsWithAI}
+							>
+								<code-icon
+									icon=${this.generating ? 'loading~spin' : 'sparkle'}
+									slot="prefix"
+								></code-icon>
+								${this.generating
+									? 'Generating Commits...'
+									: this.hasUsedAutoCompose
+										? 'Recompose Commits'
+										: 'Auto-Compose Commits'}
+							</gl-button>
+						</button-container>
+
+						<!-- Review text (always visible) -->
+						<div class="auto-compose-review-text">You will be able to review before committing</div>
+					</div>
+				`,
+			)}
+
+			<!-- Finish & Commit section -->
+			<div class="finish-commit-section">
 				${when(
 					this.selectedCommitIds.size > 1 && !this.isAIPreviewMode,
 					() => html`
+						<div class="finish-commit-header">
+							<h3>Finish & Commit</h3>
+						</div>
 						<button-container layout="editor">
 							<gl-button
 								full
@@ -914,90 +1069,64 @@ export class CommitsPanel extends LitElement {
 								Combine ${this.selectedCommitIds.size} Commits
 							</gl-button>
 						</button-container>
+
+						<!-- Cancel button -->
+						<button-container layout="editor" class="cancel-button-container">
+							<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
+						</button-container>
 					`,
 					() => html`
-						<!-- Auto-Compose Commits with AI container -->
+						<div class="finish-commit-header">
+							<h3>Finish & Commit</h3>
+						</div>
+
+						<!-- Commit message row with AI button -->
 						${when(
-							this.aiEnabled,
+							this.shouldShowAddCommitMessage,
 							() => html`
-								<div class="auto-compose-container">
-									<div class="auto-compose-header">Auto-Compose Commits with AI (Preview)</div>
-									<div class="auto-compose-description">
-										Save time by leveraging AI to organize all of your working changes into commits
-										with well-written messages and descriptions.
-									</div>
-
-									<!-- Include unstaged changes checkbox -->
-									${when(
-										this.shouldShowIncludeUnstagedCheckbox,
-										() => html`
-											<div class="include-unstaged-container">
-												<label class="include-unstaged-label">
-													<input
-														type="checkbox"
-														class="include-unstaged-checkbox"
-														?checked=${this.includeUnstagedChanges}
-														@change=${this.handleIncludeUnstagedChange}
-													/>
-													Include unstaged changes
-												</label>
-											</div>
-										`,
-									)}
-
-									<!-- Custom instructions input -->
-									<div class="custom-instructions-container">
-										<input
-											type="text"
-											class="custom-instructions-input"
-											placeholder="Add custom instructions"
-											.value=${this.customInstructions}
-											@input=${this.handleCustomInstructionsChange}
-										/>
-									</div>
-
-									<!-- Auto-Compose button -->
-									<button-container layout="editor">
+								<div class="commit-message-row">
+									<button-container layout="editor" class="commit-message-button">
 										<gl-button
 											full
 											appearance="secondary"
 											?disabled=${this.generating || this.committing}
-											@click=${this.dispatchGenerateCommitsWithAI}
+											@click=${this.dispatchFocusCommitMessage}
 										>
-											<code-icon
-												icon=${this.generating ? 'loading~spin' : 'sparkle'}
-												slot="prefix"
-											></code-icon>
-											${this.generating ? 'Generating Commits...' : 'Auto-Compose Commits'}
+											Add a Commit Message
 										</gl-button>
 									</button-container>
+									<button
+										class="ai-sparkle-button"
+										?disabled=${this.generating || this.committing}
+										@click=${this.handleGenerateCommitMessageWithAI}
+										title="Generate commit message with AI"
+									>
+										<code-icon icon="sparkle"></code-icon>
+									</button>
 								</div>
+							`,
+							() => html`
+								<button-container layout="editor">
+									<gl-button
+										full
+										?disabled=${!this.canFinishAndCommit || this.generating || this.committing}
+										@click=${this.dispatchFinishAndCommit}
+									>
+										<code-icon
+											icon=${this.committing ? 'loading~spin' : ''}
+											slot="prefix"
+										></code-icon>
+										${this.committing
+											? 'Committing...'
+											: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
+									</gl-button>
+								</button-container>
 							`,
 						)}
 
-						<!-- Finish and Commit button -->
-						<button-container layout="editor">
-							<gl-button
-								full
-								?disabled=${!this.canFinishAndCommit || this.generating || this.committing}
-								@click=${this.shouldShowAddCommitMessage
-									? this.dispatchFocusCommitMessage
-									: this.dispatchFinishAndCommit}
-							>
-								<code-icon
-									icon=${this.committing
-										? 'loading~spin'
-										: this.shouldShowAddCommitMessage
-											? 'edit'
-											: ''}
-									slot="prefix"
-								></code-icon>
-								${this.committing
-									? 'Committing...'
-									: this.shouldShowAddCommitMessage
-										? 'Add Commit Message'
-										: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
-							</gl-button>
+						<!-- Cancel button (always shown) -->
+						<button-container layout="editor" class="cancel-button-container">
+							<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
 						</button-container>
 					`,
 				)}
