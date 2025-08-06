@@ -13,6 +13,7 @@ import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
 import type { FinishAndCommitParams, GenerateCommitMessageParams, GenerateCommitsParams, State } from './protocol';
 import {
+	CloseComposerCommand,
 	DidChangeAiEnabledNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
@@ -55,6 +56,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case FinishAndCommitCommand.is(e):
 				void this.onFinishAndCommit(e.params);
+				break;
+			case CloseComposerCommand.is(e):
+				void this.close();
 				break;
 		}
 	}
@@ -137,6 +141,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		} else {
 			this.host.title = 'GitLens Composer (Preview)';
 		}
+	}
+
+	private async close(): Promise<void> {
+		await commands.executeCommand('workbench.action.closeActiveEditor');
 	}
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {

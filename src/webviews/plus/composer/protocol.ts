@@ -94,6 +94,7 @@ export const GenerateCommitMessageCommand = new IpcCommand<GenerateCommitMessage
 	'generateCommitMessage',
 );
 export const FinishAndCommitCommand = new IpcCommand<FinishAndCommitParams>(ipcScope, 'finishAndCommit');
+export const CloseComposerCommand = new IpcCommand<void>(ipcScope, 'close');
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');

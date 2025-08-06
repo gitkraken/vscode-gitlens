@@ -4,6 +4,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
+	CloseComposerCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
@@ -241,10 +242,10 @@ export class ComposerApp extends LitElement {
 	private selectedHunkIds: Set<string> = new Set();
 
 	@state()
-	private includeUnstagedChanges: boolean = false;
+	private customInstructions: string = '';
 
 	@state()
-	private customInstructions: string = '';
+	private hasUsedAutoCompose: boolean = false;
 
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
@@ -1021,7 +1022,7 @@ export class ComposerApp extends LitElement {
 		if (!this.aiEnabled) return false;
 
 		// Check if there are any eligible hunks for AI generation
-		const eligibleHunks = this.getEligibleHunksForAI(this.includeUnstagedChanges);
+		const eligibleHunks = this.getEligibleHunksForAI(false);
 		return eligibleHunks.length > 0;
 	}
 
@@ -1075,14 +1076,48 @@ export class ComposerApp extends LitElement {
 		});
 	}
 
-	private handleGenerateCommitsWithAI(e: CustomEvent) {
-		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
-		this.customInstructions = e.detail?.customInstructions ?? '';
-		this.generateCommitsWithAI(e.detail?.includeUnstagedChanges, e.detail?.customInstructions);
+	private closeComposer() {
+		this._ipc.sendCommand(CloseComposerCommand, undefined);
 	}
 
-	private handleIncludeUnstagedChange(e: CustomEvent) {
-		this.includeUnstagedChanges = e.detail?.includeUnstagedChanges ?? false;
+	private handleGenerateCommitsWithAI(e: CustomEvent) {
+		this.customInstructions = e.detail?.customInstructions ?? '';
+		this.hasUsedAutoCompose = true;
+		this.generateCommitsWithAI(false, e.detail?.customInstructions);
+	}
+
+	private handleAddHunksToCommit(e: CustomEvent) {
+		const { commitId, hunkIndices } = e.detail;
+
+		// Find the target commit
+		const targetCommit = this.state.commits.find(c => c.id === commitId);
+		if (!targetCommit) return;
+
+		this.saveToHistory();
+
+		// Remove hunks from any existing commits first
+		this.state.commits.forEach(commit => {
+			if (commit.id !== commitId) {
+				commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
+			}
+		});
+
+		// Add hunks to the target commit (avoid duplicates)
+		const existingIndices = new Set(targetCommit.hunkIndices);
+		hunkIndices.forEach((index: number) => {
+			if (!existingIndices.has(index)) {
+				targetCommit.hunkIndices.push(index);
+			}
+		});
+
+		// Remove commits that no longer have any hunks
+		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
+
+		this.requestUpdate();
+	}
+
+	private handleCloseComposer() {
+		this.closeComposer();
 	}
 
 	private handleCustomInstructionsChange(e: CustomEvent) {
@@ -1250,14 +1285,13 @@ export class ComposerApp extends LitElement {
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
 					.isAIPreviewMode=${this.isAIPreviewMode}
 					.baseCommit=${this.state.baseCommit}
-					.includeUnstagedChanges=${this.includeUnstagedChanges}
 					.customInstructions=${this.customInstructions}
+					.hasUsedAutoCompose=${this.hasUsedAutoCompose}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
 					@finish-and-commit=${this.composeCommits}
 					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
-					@include-unstaged-change=${this.handleIncludeUnstagedChange}
 					@custom-instructions-change=${this.handleCustomInstructionsChange}
 					@focus-commit-message=${this.handleFocusCommitMessage}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
@@ -1265,6 +1299,9 @@ export class ComposerApp extends LitElement {
 					@unassign-hunks=${(e: CustomEvent) => this.unassignHunks(e.detail.hunkIds)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+					@add-hunks-to-commit=${this.handleAddHunksToCommit}
+					@generate-commit-message=${(e: CustomEvent) => this.generateCommitMessage(e.detail.commitId)}
+					@cancel-composer=${this.handleCloseComposer}
 				></gl-commits-panel>
 
 				<gl-details-panel
