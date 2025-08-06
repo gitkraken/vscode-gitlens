@@ -61,7 +61,7 @@ export interface State extends WebviewState {
 	committing: boolean; // true when finish and commit is in progress
 
 	// Mode controls
-	mode: 'interactive' | 'ai-preview'; // interactive = normal mode, ai-preview = locked AI preview mode
+	mode: 'experimental' | 'preview'; // experimental = normal mode, preview = locked AI preview mode
 
 	// AI settings
 	aiEnabled: {

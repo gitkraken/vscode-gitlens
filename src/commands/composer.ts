@@ -19,7 +19,7 @@ import {
 export interface ComposeCommandArgs {
 	repoPath?: string;
 	source?: Sources;
-	mode?: 'interactive' | 'ai-preview';
+	mode?: 'experimental' | 'preview';
 }
 
 @command()
@@ -44,7 +44,7 @@ export class ComposeCommand extends GlCommandBase {
 		}
 
 		if (args != null) {
-			args.mode = context.command === 'gitlens.ai.composeCommitsPreview' ? 'ai-preview' : 'interactive';
+			args.mode = context.command === 'gitlens.ai.composeCommitsPreview' ? 'preview' : 'experimental';
 		}
 
 		return this.execute(args);
@@ -68,7 +68,7 @@ export class ComposeCommand extends GlCommandBase {
 
 	private async composeCommits(
 		repo: Repository,
-		mode: 'interactive' | 'ai-preview' = 'interactive',
+		mode: 'experimental' | 'preview' = 'preview',
 		source: Sources,
 	): Promise<void> {
 		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);

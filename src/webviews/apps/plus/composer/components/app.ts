@@ -998,7 +998,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get isAIPreviewMode(): boolean {
-		return this.state?.mode === 'ai-preview';
+		return this.state?.mode === 'preview';
 	}
 
 	private get canReorderCommits(): boolean {
@@ -1230,7 +1230,7 @@ export class ComposerApp extends LitElement {
 
 		return html`
 			<header class="header">
-				<h1>GitLens Composer</h1>
+				<h1>GitLens Composer ${this.state?.mode === 'experimental' ? '(Experimental)' : '(Preview)'}</h1>
 			</header>
 
 			<main class="main-content">

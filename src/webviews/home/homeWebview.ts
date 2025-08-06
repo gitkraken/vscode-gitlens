@@ -382,12 +382,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
-			registerCommand(
-				'gitlens.ai.composeCommitsPreview:home',
-				ref => this.composeCommits(ref, 'ai-preview'),
-				this,
-			),
-			registerCommand('gitlens.ai.composeCommits:home', ref => this.composeCommits(ref, 'interactive'), this),
+			registerCommand('gitlens.ai.composeCommitsPreview:home', ref => this.composeCommits(ref, 'preview'), this),
+			registerCommand('gitlens.ai.composeCommits:home', ref => this.composeCommits(ref, 'experimental'), this),
 		];
 	}
 
@@ -637,12 +633,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@log<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
-	private async composeCommits(ref: BranchRef, mode: 'interactive' | 'ai-preview' = 'interactive') {
+	private async composeCommits(ref: BranchRef, mode: 'experimental' | 'preview' = 'preview') {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
 		void executeCommand<ComposeCommandArgs>(
-			mode === 'interactive' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
+			mode === 'experimental' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
 			{
 				repoPath: repo.path,
 				source: 'home',

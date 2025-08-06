@@ -108,7 +108,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			committing: false,
 
 			// Mode controls
-			mode: args?.mode ?? 'interactive',
+			mode: args?.mode ?? 'preview',
 
 			// AI settings
 			aiEnabled: this.getAiEnabled(),
@@ -125,8 +125,18 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		// Store the args for use in includeBootstrap
 		if (args?.[0]) {
 			this._args = args[0];
+			this.updateTitle(args[0].mode);
 		}
 		return [true, undefined];
+	}
+
+	private updateTitle(mode?: 'experimental' | 'preview'): void {
+		const currentMode = mode ?? this._args?.mode ?? 'preview';
+		if (currentMode === 'experimental') {
+			this.host.title = 'GitLens Composer (Experimental)';
+		} else {
+			this.host.title = 'GitLens Composer (Preview)';
+		}
 	}
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
