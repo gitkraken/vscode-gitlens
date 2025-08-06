@@ -8,39 +8,47 @@ export class CommitItem extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
-			margin-bottom: 0.8rem;
+			margin-bottom: 0.2rem;
 		}
 
 		.commit-item {
-			padding: 1.2rem;
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
+			display: flex;
+			align-items: stretch;
+			border-radius: 12px;
 			background: var(--vscode-editor-background);
 			cursor: pointer;
 			transition: all 0.2s ease;
 			position: relative;
 			user-select: none;
+			min-height: 60px;
 		}
 
 		.commit-item:hover {
 			background: var(--vscode-list-hoverBackground);
-			border-color: var(--vscode-list-hoverForeground);
+		}
+
+		.commit-item:hover .commit-icon::after {
+			background: var(--vscode-list-hoverBackground);
 		}
 
 		.commit-item.selected {
 			background: var(--vscode-list-activeSelectionBackground);
-			border-color: var(--vscode-focusBorder);
+		}
+
+		.commit-item.selected .commit-icon::after {
+			background: var(--vscode-list-activeSelectionBackground);
 		}
 
 		.commit-item.multi-selected {
 			background: var(--vscode-list-activeSelectionBackground);
-			border-color: var(--vscode-focusBorder);
-			border-style: dashed;
+		}
+
+		.commit-item.multi-selected .commit-icon::after {
+			background: var(--vscode-list-activeSelectionBackground);
 		}
 
 		.commit-item.multi-selected.selected {
 			background: var(--vscode-list-activeSelectionBackground);
-			border-style: solid;
 		}
 
 		.commit-item.sortable-ghost {
@@ -56,46 +64,81 @@ export class CommitItem extends LitElement {
 		}
 
 		.commit-item.drop-target {
-			border-color: var(--vscode-focusBorder);
 			background: var(--vscode-list-dropBackground);
 		}
 
-		.commit-header {
+		.commit-icon {
 			display: flex;
-			align-items: flex-start;
-			gap: 0.8rem;
-			margin-bottom: 0.4rem;
+			align-items: center;
+			justify-content: center;
+			width: 2.4rem;
+			flex-shrink: 0;
+			position: relative;
+			padding-left: 0.4rem;
 		}
 
-		.commit-icon {
-			color: var(--vscode-gitDecoration-modifiedResourceForeground);
+		.commit-icon::before {
+			content: '';
+			position: absolute;
+			left: calc(50% + 0.2rem);
+			top: 0;
+			bottom: 0;
+			width: 0;
+			border-left: 2px dashed var(--vscode-foreground);
+			transform: translateX(-50%);
+		}
+
+		.commit-icon::after {
+			content: '';
+			position: absolute;
+			left: calc(50% + 0.2rem);
+			top: 50%;
+			width: 20px;
+			height: 20px;
+			background: var(--vscode-editor-background);
+			border: 2px dashed var(--vscode-foreground);
+			border-radius: 50%;
+			transform: translate(-50%, -50%);
+			z-index: 1;
+		}
+
+		/* Hide the top portion of the vertical line for the first commit */
+		:host(:first-child) .commit-icon::before {
+			top: 50%;
+		}
+
+		.commit-content {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			padding: 1.2rem;
+			gap: 0.4rem;
+			min-width: 0;
+			overflow: hidden;
 		}
 
 		.commit-message {
 			font-weight: 500;
 			color: var(--vscode-foreground);
-			flex: 1;
 			overflow: hidden;
-			display: -webkit-box;
-			-webkit-line-clamp: 3;
-			-webkit-box-orient: vertical;
+			white-space: nowrap;
+			text-overflow: ellipsis;
 			line-height: 1.4;
-			max-width: 180px;
-			word-wrap: break-word;
+			min-width: 0;
+			flex: 1;
 		}
 
 		.commit-stats {
 			display: flex;
 			align-items: center;
-			gap: 0.4rem;
+			gap: 0.8rem;
 			color: var(--vscode-descriptionForeground);
 			font-size: 0.9em;
 		}
 
 		.file-count {
-			display: flex;
-			align-items: center;
-			gap: 0.2rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.diff-stats {
@@ -133,35 +176,6 @@ export class CommitItem extends LitElement {
 
 		.drag-handle:active {
 			cursor: grabbing;
-		}
-
-		.drop-zone {
-			min-height: 40px;
-			border: 2px dashed var(--vscode-panel-border);
-			border-radius: 4px;
-			margin-top: 0.4rem;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			color: var(--vscode-descriptionForeground);
-			font-size: 0.9em;
-			transition: all 0.2s ease;
-			opacity: 0.7;
-			box-sizing: border-box;
-			width: 100%;
-		}
-
-		.drop-zone:hover,
-		.drop-zone.drag-over {
-			border-color: var(--vscode-focusBorder);
-			background: var(--vscode-list-dropBackground);
-			opacity: 1;
-		}
-
-		/* Hide drop zone text when dragging over it */
-		.drop-zone.sortable-chosen,
-		.drop-zone:has(.sortable-ghost) {
-			color: transparent;
 		}
 	`;
 
@@ -231,21 +245,17 @@ export class CommitItem extends LitElement {
 						</div>
 					`,
 				)}
-				<div class="commit-header">
-					<code-icon class="commit-icon" icon="git-commit"></code-icon>
+				<div class="commit-icon"></div>
+				<div class="commit-content">
 					<div class="commit-message">${this.message}</div>
-				</div>
-				<div class="commit-stats">
-					<div class="file-count">
-						<code-icon icon="file-code"></code-icon>
-						${this.fileCount} ${this.fileCount === 1 ? 'file' : 'files'}
-					</div>
-					<div class="diff-stats">
-						<span class="additions">+${this.additions}</span>
-						<span class="deletions">-${this.deletions}</span>
+					<div class="commit-stats">
+						<div class="file-count">${this.fileCount} ${this.fileCount === 1 ? 'file' : 'files'}</div>
+						<div class="diff-stats">
+							<span class="additions">+${this.additions}</span>
+							<span class="deletions">-${this.deletions}</span>
+						</div>
 					</div>
 				</div>
-				${when(!this.isAIPreviewMode, () => html`<div class="drop-zone">Drop hunks here</div>`)}
 			</div>
 		`;
 	}
