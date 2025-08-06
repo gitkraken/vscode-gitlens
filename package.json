@@ -6191,12 +6191,12 @@
 			},
 			{
 				"command": "gitlens.ai.aiRebaseBranch:graph",
-				"title": "AI Recompose branch commits (Preview)...",
+				"title": "AI Recompose Branch Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.aiRebaseUnpushed:graph",
-				"title": "AI Recompose unpushed commits (Preview)...",
+				"title": "AI Recompose Unpushed Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
@@ -6242,6 +6242,11 @@
 			{
 				"command": "gitlens.ai.explainStash:views",
 				"title": "Explain Changes (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.explainUnpushed:graph",
+				"title": "Explain Unpushed Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
@@ -11056,6 +11061,10 @@
 				},
 				{
 					"command": "gitlens.ai.explainStash:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.explainUnpushed:graph",
 					"when": "false"
 				},
 				{
@@ -23366,6 +23375,11 @@
 					"command": "gitlens.ai.explainBranch:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
+				},
+				{
+					"command": "gitlens.ai.explainUnpushed:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_ai@20"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
