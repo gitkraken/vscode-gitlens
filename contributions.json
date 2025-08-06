@@ -24,7 +24,7 @@
 			}
 		},
 		"gitlens.ai.aiRebaseBranch:graph": {
-			"label": "AI Recompose branch commits (Preview)...",
+			"label": "AI Recompose Branch Commits (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
@@ -37,7 +37,7 @@
 			}
 		},
 		"gitlens.ai.aiRebaseUnpushed:graph": {
-			"label": "AI Recompose unpushed commits (Preview)...",
+			"label": "AI Recompose Unpushed Commits (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
@@ -135,6 +135,19 @@
 						"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "3_gitlens_explore",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.ai.explainUnpushed:graph": {
+			"label": "Explain Unpushed Changes (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions_4",
+						"order": 102
 					}
 				]
 			}
