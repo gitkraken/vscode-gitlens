@@ -181,7 +181,7 @@ export class BranchGitCommand extends QuickCommand {
 
 	constructor(container: Container, args?: BranchGitCommandArgs) {
 		super(container, 'branch', 'branch', 'Branch', {
-			description: 'create, prune, rename, or delete branches',
+			description: 'create, change upstream, prune, rename, or delete branches',
 		});
 
 		let counter = 0;
@@ -387,7 +387,7 @@ export class BranchGitCommand extends QuickCommand {
 				},
 				{
 					label: 'upstream',
-					description: 'manages upstream tracking for branches',
+					description: 'manages upstream tracking for a branch',
 					picked: state.subcommand === 'upstream',
 					item: 'upstream',
 				},
