@@ -4,6 +4,7 @@ import type { ContextKeys } from '../../../constants.context';
 import type { WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { createReference } from '../../../git/utils/reference.utils';
+import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { executeCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
@@ -15,6 +16,7 @@ import type { FinishAndCommitParams, GenerateCommitMessageParams, GenerateCommit
 import {
 	CloseComposerCommand,
 	DidChangeAiEnabledNotification,
+	DidChangeAiModelNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
@@ -24,6 +26,7 @@ import {
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
+	OnSelectAIModelCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
 import { convertToComposerDiffInfo, generateComposerMarkdown } from './utils';
@@ -39,6 +42,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
+			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
 		);
 	}
 
@@ -59,6 +63,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case CloseComposerCommand.is(e):
 				void this.close();
+				break;
+			case OnSelectAIModelCommand.is(e):
+				void this.onSelectAIModel();
 				break;
 		}
 	}
@@ -116,7 +123,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// AI settings
 			aiEnabled: this.getAiEnabled(),
+			ai: {
+				model: undefined, // Will be set asynchronously
+			},
 		};
+
+		// Set AI model asynchronously
+		void this.updateAiModel();
 
 		return state;
 	}
@@ -145,6 +158,23 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async close(): Promise<void> {
 		await commands.executeCommand('workbench.action.closeActiveEditor');
+	}
+
+	private async updateAiModel(): Promise<void> {
+		try {
+			const model = await this.container.ai.getModel({ silent: true }, { source: 'ai' });
+			await this.host.notify(DidChangeAiModelNotification, { model: model });
+		} catch {
+			// Ignore errors when getting AI model
+		}
+	}
+
+	private async onSelectAIModel(): Promise<void> {
+		// Trigger the AI provider/model switch command
+		await commands.executeCommand('gitlens.ai.switchProvider', {
+			source: 'ai',
+			detail: 'model-picker',
+		});
 	}
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
@@ -375,6 +405,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				org: getContext('gitlens:gk:organization:ai:enabled', true),
 			});
 		}
+	}
+
+	private onAIModelChanged(_e: AIModelChangeEvent) {
+		void this.updateAiModel();
 	}
 
 	private getAiEnabled() {

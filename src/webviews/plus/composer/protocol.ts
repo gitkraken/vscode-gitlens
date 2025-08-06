@@ -1,3 +1,4 @@
+import type { AIModel } from '../../../plus/ai/models/model';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification } from '../../protocol';
 
@@ -68,6 +69,9 @@ export interface State extends WebviewState {
 		org: boolean;
 		config: boolean;
 	};
+	ai: {
+		model: AIModel | undefined;
+	};
 }
 
 // Commands that can be sent from the webview to the host
@@ -95,6 +99,7 @@ export const GenerateCommitMessageCommand = new IpcCommand<GenerateCommitMessage
 );
 export const FinishAndCommitCommand = new IpcCommand<FinishAndCommitParams>(ipcScope, 'finishAndCommit');
 export const CloseComposerCommand = new IpcCommand<void>(ipcScope, 'close');
+export const OnSelectAIModelCommand = new IpcCommand<void>(ipcScope, 'selectAIModel');
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
@@ -117,6 +122,7 @@ export const DidChangeAiEnabledNotification = new IpcNotification<DidChangeAiEna
 	ipcScope,
 	'didChangeAiEnabled',
 );
+export const DidChangeAiModelNotification = new IpcNotification<DidChangeAiModelParams>(ipcScope, 'didChangeAiModel');
 
 // Parameters for IPC messages
 export interface GenerateCommitsParams {
@@ -157,4 +163,8 @@ export interface DidGenerateCommitMessageParams {
 export interface DidChangeAiEnabledParams {
 	org?: boolean;
 	config?: boolean;
+}
+
+export interface DidChangeAiModelParams {
+	model: AIModel | undefined;
 }

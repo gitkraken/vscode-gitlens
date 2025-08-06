@@ -100,6 +100,34 @@ export class CommitsPanel extends LitElement {
 				margin-top: 0.8rem;
 			}
 
+			.ai-model-picker {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 0.3rem 0.8rem;
+				margin-bottom: 0.8rem;
+				background: rgba(255, 255, 255, 0.15);
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 50px;
+				cursor: pointer;
+				transition: background-color 0.2s ease;
+				width: 50%;
+			}
+
+			.ai-model-picker:hover {
+				background: rgba(255, 255, 255, 0.2);
+			}
+
+			.ai-model-picker-text {
+				font-size: 1.1rem;
+				font-weight: 600;
+				color: var(--vscode-foreground);
+			}
+
+			.ai-model-picker-icon {
+				color: var(--vscode-foreground);
+			}
+
 			/* Finish & Commit section styles */
 			.finish-commit-section {
 				margin-top: 0.3rem;
@@ -434,6 +462,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Boolean })
 	hasUsedAutoCompose: boolean = false;
 
+	@property({ type: Object })
+	aiModel: any = undefined;
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -714,6 +745,13 @@ export class CommitsPanel extends LitElement {
 		return this.commits.length === 1;
 	}
 
+	private get aiModelDisplayName(): string {
+		if (!this.aiModel) {
+			return 'Choose AI Model';
+		}
+		return (this.aiModel.name as string) || 'Unknown Model';
+	}
+
 	private handleHunkDragEnd() {
 		this.isDraggingHunks = false;
 		this.draggedHunkIds = [];
@@ -821,6 +859,15 @@ export class CommitsPanel extends LitElement {
 				detail: {
 					commitId: this.commits[0].id,
 				},
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleAIModelPickerClick() {
+		// Dispatch event to open AI model picker
+		this.dispatchEvent(
+			new CustomEvent('select-ai-model', {
 				bubbles: true,
 			}),
 		);
@@ -1013,6 +1060,12 @@ export class CommitsPanel extends LitElement {
 								</div>
 							`,
 						)}
+
+						<!-- AI Model Picker -->
+						<div class="ai-model-picker" @click=${this.handleAIModelPickerClick}>
+							<span class="ai-model-picker-text">${this.aiModelDisplayName}</span>
+							<code-icon icon="chevron-down" class="ai-model-picker-icon"></code-icon>
+						</div>
 
 						<!-- Custom instructions input -->
 						<div class="custom-instructions-container">
