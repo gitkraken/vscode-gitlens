@@ -332,6 +332,7 @@ export class WorkspacesService implements Disposable {
 
 		if (options?.force || this._currentWorkspaceAutoAddSetting === 'prompt') {
 			const pick = await showRepositoriesPicker(
+				this.container,
 				'Add Repositories to Workspace',
 				'Choose which repositories to add to the current workspace',
 				repositoriesToAdd,
@@ -889,6 +890,7 @@ export class WorkspacesService implements Disposable {
 			}
 
 			const pick = await showRepositoriesPicker(
+				this.container,
 				'Add Repositories to Workspace',
 				'Choose which repositories to add to the workspace',
 				validRepos,

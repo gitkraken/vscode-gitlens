@@ -3,7 +3,7 @@ import type { AIProviders } from './constants.ai';
 import type { IntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
-import type { GroupableTreeViewTypes } from './constants.views';
+import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
@@ -169,6 +169,8 @@ export type WorkspaceStorage = {
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
 } & {
 	[key in IntegrationConnectedKey]: boolean;
+} & {
+	[key in `views:${TreeViewTypes}:repositoryFilter`]: string[] | undefined;
 };
 
 export interface Stored<T, SchemaVersion extends number = 1> {

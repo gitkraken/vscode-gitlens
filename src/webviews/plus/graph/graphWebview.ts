@@ -1693,18 +1693,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async onChooseRepository() {
-		// Ensure that the current repository is always last
-		const repositories = this.container.git.openRepositories.sort(
-			(a, b) =>
-				(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
-				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-				a.index - b.index,
-		);
+		// // Ensure that the current repository is always last
+		// const repositories = this.container.git.openRepositories.sort(
+		// 	(a, b) =>
+		// 		(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
+		// 		(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+		// 		a.index - b.index,
+		// );
 
 		const pick = await showRepositoryPicker(
+			this.container,
 			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
 			'Choose a repository to switch to',
-			repositories,
+			this.container.git.openRepositories,
+			{ picked: this.repository },
 		);
 		if (pick == null) return;
 

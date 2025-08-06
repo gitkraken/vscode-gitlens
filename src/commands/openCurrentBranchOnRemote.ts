@@ -22,7 +22,12 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Open Current Branch Name');
+		const repository = await getBestRepositoryOrShowPicker(
+			this.container,
+			gitUri,
+			editor,
+			'Open Current Branch Name',
+		);
 		if (repository == null) return;
 
 		try {

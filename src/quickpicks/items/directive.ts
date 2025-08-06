@@ -17,6 +17,7 @@ export enum Directive {
 	RequiresPaidSubscription,
 
 	RefsAllBranches,
+	ReposAll,
 }
 
 export function isDirective<T>(value: Directive | T): value is Directive {
@@ -90,6 +91,10 @@ export function createDirectiveQuickPickItem(
 
 			case Directive.RefsAllBranches:
 				label = 'All Branches';
+				break;
+
+			case Directive.ReposAll:
+				label = 'All Repositories';
 				break;
 		}
 	}

@@ -88,7 +88,7 @@ export class GenerateCommitsCommand extends GlCommandBase {
 			if (args?.repoPath != null) {
 				svc = this.container.git.getRepositoryService(args.repoPath);
 			}
-			svc ??= (await getRepositoryOrShowPicker('Generate Commits from Working Changes'))?.git;
+			svc ??= (await getRepositoryOrShowPicker(this.container, 'Generate Commits from Working Changes'))?.git;
 			if (svc == null) return;
 
 			await generateRebase(

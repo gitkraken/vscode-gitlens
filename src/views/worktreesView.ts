@@ -7,7 +7,6 @@ import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
@@ -61,7 +60,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No worktrees could be found.';
 				return [];
@@ -69,11 +68,6 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 
 			const repo = this.view.container.git.getBestRepositoryOrFirst();
 			if (repo != null && !(await repo.git.supports('git:worktrees'))) return [];
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
-			}
 
 			this.children = repositories.map(
 				r => new WorktreesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
@@ -204,9 +198,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
-			// !configuration.changed(e, 'sortWorktreesBy')
+			!configuration.changed(e, 'sortRepositoriesBy')
+			// && !configuration.changed(e, 'sortWorktreesBy')
 		) {
 			return false;
 		}

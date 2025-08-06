@@ -37,9 +37,14 @@ import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import type { Repository } from '../git/models/repository';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting';
 import { executeCoreCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
+import type { StorageChangeEvent } from '../system/-webview/storage';
 import { getViewFocusCommand } from '../system/-webview/vscode/views';
+import { areEqual } from '../system/array';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function/debounce';
@@ -66,6 +71,24 @@ import type { StashesView } from './stashesView';
 import type { TagsView } from './tagsView';
 import type { WorkspacesView } from './workspacesView';
 import type { WorktreesView } from './worktreesView';
+
+const treeViewTypesSupportsRepositoryFilter: TreeViewTypes[] = [
+	'branches',
+	'commits',
+	'contributors',
+	'remotes',
+	'stashes',
+	'tags',
+	'worktrees',
+];
+const treeViewTypesSupportsWorktreeCollapsing: TreeViewTypes[] = [
+	'branches',
+	'contributors',
+	'remotes',
+	'stashes',
+	'tags',
+	'worktrees',
+];
 
 export type View =
 	| BranchesView
@@ -208,6 +231,11 @@ export abstract class ViewBase<
 
 	get id(): TreeViewIds<Type> {
 		return `gitlens.views.${this.type}`;
+	}
+
+	private _onDidChangeRepositoryFilter = new EventEmitter<void>();
+	get onDidChangeRepositoryFilter(): Event<void> {
+		return this._onDidChangeRepositoryFilter.event;
 	}
 
 	private _onDidChangeSelection = new EventEmitter<TreeViewSelectionChangeEvent<ViewNode>>();
@@ -365,7 +393,37 @@ export abstract class ViewBase<
 		return this._nodeState;
 	}
 
+	get repositoryFilter(): string[] | undefined {
+		return this.container.storage.getWorkspace(`views:${this.type}:repositoryFilter`);
+	}
+	set repositoryFilter(value: string[] | undefined) {
+		if (areEqual(value, this.repositoryFilter)) return;
+
+		for (const type of treeViewTypesSupportsRepositoryFilter) {
+			void this.container.storage.storeWorkspace(
+				`views:${type}:repositoryFilter`,
+				value?.length ? value : undefined,
+			);
+		}
+	}
+
 	protected get showCollapseAll(): boolean {
+		return true;
+	}
+
+	get supportsRepositoryFilter(): boolean {
+		return this.isAny(...treeViewTypesSupportsRepositoryFilter);
+	}
+
+	get supportsWorktreeCollapsing(): boolean {
+		if (
+			!this.isAny(...treeViewTypesSupportsWorktreeCollapsing) ||
+			!configuration.get('views.collapseWorktreesWhenPossible')
+		) {
+			return false;
+		}
+		if (this.is('contributors') && !configuration.get('views.contributors.showAllBranches')) return false;
+
 		return true;
 	}
 
@@ -433,6 +491,33 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
+	async getFilteredRepositories(): Promise<Repository[]> {
+		let repos = this.container.git.openRepositories;
+
+		const filter = this.repositoryFilter;
+		if (filter?.length && repos.length > 1) {
+			const filtered = repos.filter(r => filter.includes(r.id));
+			repos = filtered.length ? filtered : repos;
+		}
+
+		if (repos.length > 1) {
+			const grouped = await groupRepositories(repos);
+			if (this.supportsWorktreeCollapsing) {
+				repos = sortRepositories([...grouped.keys()]);
+			} else {
+				repos = sortRepositoriesGrouped(grouped);
+			}
+		}
+
+		return repos;
+	}
+
+	isRepositoryFilterActive(): boolean {
+		return this.repositoryFilter?.length
+			? this.container.git.openRepositories.some(r => this.repositoryFilter!.includes(r.id))
+			: false;
+	}
+
 	protected abstract getRoot(): RootNode;
 	protected abstract registerCommands(): Disposable[];
 	protected onConfigurationChanged(e?: ConfigurationChangeEvent): void {
@@ -462,6 +547,7 @@ export abstract class ViewBase<
 			this.tree.onDidChangeCheckboxState(this.onCheckboxStateChanged, this),
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
 			this.tree.onDidExpandElement(this.onElementExpanded, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 		);
 
 		if (this._title != null) {
@@ -508,14 +594,22 @@ export abstract class ViewBase<
 	}
 
 	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
-		if (!this.grouped || node !== this.root) return promise;
+		if (node !== this.root) return promise;
+
+		// If we are not grouped and we are either not filterable or there aren't multiple repos open, then just return the promise
+		if (
+			!this.grouped &&
+			(!this.isAny(...treeViewTypesSupportsRepositoryFilter) || this.container.git.openRepositories.length <= 1)
+		) {
+			return promise;
+		}
 
 		const ensureGroupedHeaderNode = (children: ViewNode[]): ViewNode[] => {
 			if (!children.length) return children;
 
 			const index = children.findIndex(n => n instanceof GroupedHeaderNode);
 			if (index === 0) {
-				this._defaultSelection = [children[0]];
+				this._defaultSelection = this.grouped ? [children[0]] : [];
 				return children.length === 1 ? [] : children;
 			}
 
@@ -526,16 +620,14 @@ export abstract class ViewBase<
 				header = children.splice(index, 1)[0];
 			}
 			if (header != null) {
-				this._defaultSelection = [header];
+				this._defaultSelection = this.grouped ? [header] : [];
 				children.unshift(header);
 			}
 
 			return children;
 		};
 
-		if (!isPromise(promise)) return ensureGroupedHeaderNode(promise);
-
-		return promise.then(c => ensureGroupedHeaderNode(c));
+		return isPromise(promise) ? promise.then(c => ensureGroupedHeaderNode(c)) : ensureGroupedHeaderNode(promise);
 	}
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
@@ -613,6 +705,12 @@ export abstract class ViewBase<
 	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>): void {
 		this._onDidChangeSelection.fire(e);
 		this.notifySelections();
+	}
+
+	private onStorageChanged(e: StorageChangeEvent): void {
+		if (e.workspace && e.keys.includes(`views:${this.type}:repositoryFilter`)) {
+			this._onDidChangeRepositoryFilter.fire();
+		}
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {

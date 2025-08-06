@@ -164,7 +164,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);
 		}
-		repo ??= await getRepositoryOrShowPicker(title);
+		repo ??= await getRepositoryOrShowPicker(this.container, title);
 		if (repo == null) return;
 
 		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
@@ -234,7 +234,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 			return;
 		}
 
-		repo ??= await getRepositoryOrShowPicker('Apply Copied Patch');
+		repo ??= await getRepositoryOrShowPicker(this.container, 'Apply Copied Patch');
 		if (repo == null) return;
 
 		try {

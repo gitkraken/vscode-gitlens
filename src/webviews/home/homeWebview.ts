@@ -245,18 +245,20 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async onChooseRepository() {
 		const currentRepo = this.getSelectedRepository();
-		// Ensure that the current repository is always last
-		const repositories = this.container.git.openRepositories.sort(
-			(a, b) =>
-				(a === currentRepo ? 1 : -1) - (b === currentRepo ? 1 : -1) ||
-				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-				a.index - b.index,
-		);
+		// // Ensure that the current repository is always last
+		// const repositories = this.container.git.openRepositories.sort(
+		// 	(a, b) =>
+		// 		(a === currentRepo ? 1 : -1) - (b === currentRepo ? 1 : -1) ||
+		// 		(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+		// 		a.index - b.index,
+		// );
 
 		const pick = await showRepositoryPicker(
+			this.container,
 			`Switch Repository ${GlyphChars.Dot} ${currentRepo?.name}`,
 			'Choose a repository to switch to',
-			repositories,
+			this.container.git.openRepositories,
+			{ picked: currentRepo },
 		);
 
 		if (pick == null || pick === currentRepo) return;

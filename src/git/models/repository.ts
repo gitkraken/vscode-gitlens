@@ -558,6 +558,11 @@ export class Repository implements Disposable {
 		return this._lastFetched ?? 0;
 	}
 
+	@log({ exit: true })
+	async isWorktree(): Promise<boolean> {
+		return (await this.getCommonRepositoryUri()) != null;
+	}
+
 	@log()
 	merge(...args: string[]): void {
 		void this.runTerminalCommand('merge', ...args);

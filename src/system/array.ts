@@ -1,5 +1,12 @@
 import { join } from './iterable';
 
+export function areEqual<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {
+	if (a === b) return true;
+	if (a == null || b == null) return false;
+	if (a.length !== b.length) return false;
+	return a.every((value, index) => value === b[index]);
+}
+
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];
 

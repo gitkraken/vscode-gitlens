@@ -43,6 +43,7 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 			uri = getCommandUri(uri, editor);
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 			const repository = await getBestRepositoryOrShowPicker(
+				this.container,
 				gitUri,
 				editor,
 				this.pickerTitle,

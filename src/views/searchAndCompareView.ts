@@ -184,7 +184,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		ref?: string | StoredNamedRef,
 		options?: { prompt?: boolean },
 	): Promise<void> {
-		repoPath ??= (await getRepositoryOrShowPicker('Compare'))?.path;
+		repoPath ??= (await getRepositoryOrShowPicker(this.view.container, 'Compare'))?.path;
 		if (repoPath == null) return;
 
 		this.removeComparePicker(true);
