@@ -30,7 +30,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
-import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
+import { getDefaultBranchName, isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
 import {
@@ -636,22 +636,22 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const svc = this.container.git.getRepositoryService(repoPath);
 
 			// Get stored merge target configurations
-			const [storedTargetResult, storedMergeBaseResult] = await Promise.allSettled([
+			const [targetBranchResult, mergeBaseResult, defaultBranchResult] = await Promise.allSettled([
 				svc.branches.getStoredMergeTargetBranchName?.(branch.name),
 				svc.branches.getBaseBranchName?.(branch.name),
+				getDefaultBranchName(this.container, branch.repoPath, branch.name),
 			]);
-			const storedTarget = getSettledValue(storedTargetResult);
-			const validStoredTarget = storedTarget && storedTarget !== upstreamName ? storedTarget : undefined;
-			const storedMergeBase = getSettledValue(storedMergeBaseResult);
-			const validStoredMergeBase =
-				storedMergeBase && storedMergeBase !== upstreamName ? storedMergeBase : undefined;
+			const targetBranch = getSettledValue(targetBranchResult);
+			const validTargetBranch = targetBranch && targetBranch !== upstreamName ? targetBranch : undefined;
+			const mergeBase = getSettledValue(mergeBaseResult) || getSettledValue(defaultBranchResult);
+			const validMergeBase = mergeBase && mergeBase !== upstreamName ? mergeBase : undefined;
 
 			// Select target with most recent common commit (closest to branch tip)
-			const validTargets = [validStoredTarget, validStoredMergeBase];
-			const mergeBase = await this.selectMostRecentMergeBase(branch.name, validTargets, svc);
+			const validTargets = [validTargetBranch, validMergeBase];
+			const recentMergeBase = await this.selectMostRecentMergeBase(branch.name, validTargets, svc);
 
-			const isRecomposable = Boolean(mergeBase && mergeBase.commit !== branch.sha);
-			return isRecomposable ? mergeBase : undefined;
+			const isRecomposable = Boolean(recentMergeBase && recentMergeBase.commit !== branch.sha);
+			return isRecomposable ? recentMergeBase : undefined;
 		} catch {
 			// If we can't determine, assume not recomposable
 			return undefined;
