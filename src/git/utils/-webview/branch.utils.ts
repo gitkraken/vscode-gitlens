@@ -88,7 +88,8 @@ export async function getBranchMergeTargetName(
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
 	async function getMergeTargetFallback() {
-		const [baseResult, defaultResult] = await Promise.allSettled([
+		const [storedBase, baseResult, defaultResult] = await Promise.allSettled([
+			container.git.getRepositoryService(branch.repoPath).branches.getStoredMergeTargetBranchName?.(branch.name),
 			container.git
 				.getRepositoryService(branch.repoPath)
 				.branches.getBaseBranchName?.(branch.name, options?.cancellation),
@@ -96,7 +97,7 @@ export async function getBranchMergeTargetName(
 				cancellation: options?.cancellation,
 			}),
 		]);
-		return getSettledValue(baseResult) ?? getSettledValue(defaultResult);
+		return getSettledValue(storedBase) ?? getSettledValue(baseResult) ?? getSettledValue(defaultResult);
 	}
 
 	const result = await getBranchMergeTargetNameWithoutFallback(container, branch, options);
