@@ -2,6 +2,7 @@ import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
 import {
 	DidChangeAiEnabledNotification,
+	DidChangeAiModelNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
@@ -116,6 +117,20 @@ export class ComposerStateProvider implements StateProvider<State> {
 							...this._state.aiEnabled,
 							...(msg.params.org !== undefined && { org: msg.params.org }),
 							...(msg.params.config !== undefined && { config: msg.params.config }),
+						},
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidChangeAiModelNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						ai: {
+							...this._state.ai,
+							model: msg.params.model,
 						},
 						timestamp: Date.now(),
 					};

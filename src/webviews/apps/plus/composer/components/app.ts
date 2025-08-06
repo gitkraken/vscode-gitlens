@@ -8,6 +8,7 @@ import {
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
+	OnSelectAIModelCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
 import { ipcContext } from '../../../shared/contexts/ipc';
@@ -1120,6 +1121,10 @@ export class ComposerApp extends LitElement {
 		this.closeComposer();
 	}
 
+	private handleSelectAIModel() {
+		this._ipc.sendCommand(OnSelectAIModelCommand, undefined);
+	}
+
 	private handleCustomInstructionsChange(e: CustomEvent) {
 		this.customInstructions = e.detail?.customInstructions ?? '';
 	}
@@ -1287,6 +1292,7 @@ export class ComposerApp extends LitElement {
 					.baseCommit=${this.state.baseCommit}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.hasUsedAutoCompose}
+					.aiModel=${this.state.ai?.model}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
@@ -1302,6 +1308,7 @@ export class ComposerApp extends LitElement {
 					@add-hunks-to-commit=${this.handleAddHunksToCommit}
 					@generate-commit-message=${(e: CustomEvent) => this.generateCommitMessage(e.detail.commitId)}
 					@cancel-composer=${this.handleCloseComposer}
+					@select-ai-model=${this.handleSelectAIModel}
 				></gl-commits-panel>
 
 				<gl-details-panel
