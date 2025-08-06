@@ -267,12 +267,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const fireRepositoryClosed = debounce(() => {
 				if (this.container.deactivating) return;
 
-				for (const uri of closing) {
+				const closed = [...closing];
+				closing.clear();
+				for (const uri of closed) {
 					this._onDidCloseRepository.fire({ uri: uri });
 				}
-				closing.clear();
 			}, 1000);
 
+			const opening = new Set<Uri>();
+			const fireRepositoryOpened = debounce(() => {
+				if (this.container.deactivating) return;
+
+				const opened = [...opening];
+				opening.clear();
+
+				for (const uri of opened) {
+					this._onDidOpenRepository.fire({ uri: uri });
+				}
+			}, 1000);
 			this._disposables.push(
 				// Since we will get "close" events for repos when vscode is shutting down, debounce the event so ensure we aren't shutting down
 				scmGit.onDidCloseRepository(e => {
@@ -281,7 +293,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					closing.add(e.rootUri);
 					fireRepositoryClosed();
 				}),
-				scmGit.onDidOpenRepository(e => this._onDidOpenRepository.fire({ uri: e.rootUri })),
+				scmGit.onDidOpenRepository(e => {
+					if (this.container.deactivating) return;
+
+					opening.add(e.rootUri);
+					fireRepositoryOpened();
+				}),
 			);
 
 			for (const scmRepository of scmGit.repositories) {

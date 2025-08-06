@@ -27,8 +27,10 @@ export function formatLastFetched(lastFetched: number, short: boolean = true): s
 	}
 	return formatDate(date, format);
 }
-export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Map<string, Repository>>> {
-	const repos = new Map<string, Repository>(repositories.map(r => [r.id, r]));
+export async function groupRepositories(
+	repositories: Iterable<Repository>,
+): Promise<Map<Repository, Map<string, Repository>>> {
+	const repos = new Map<string, Repository>(map(repositories, r => [r.id, r]));
 
 	// Group worktree repos under the common repo when the common repo is also in the list
 	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();

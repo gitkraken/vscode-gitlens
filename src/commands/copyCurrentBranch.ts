@@ -20,7 +20,12 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Copy Current Branch Name');
+		const repository = await getBestRepositoryOrShowPicker(
+			this.container,
+			gitUri,
+			editor,
+			'Copy Current Branch Name',
+		);
 		if (repository == null) return;
 
 		try {

@@ -42,6 +42,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 
 		const repoPath = (
 			await getBestRepositoryOrShowPicker(
+				this.container,
 				gitUri,
 				editor,
 				args?.clipboard

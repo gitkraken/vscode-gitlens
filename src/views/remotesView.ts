@@ -9,7 +9,6 @@ import type { GitBranchReference, GitRevisionReference } from '../git/models/ref
 import type { GitRemote } from '../git/models/remote';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
@@ -58,15 +57,10 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No remotes could be found.';
 				return [];
-			}
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			this.children = repositories.map(
@@ -178,8 +172,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'integrations.enabled') &&
 			!configuration.changed(e, 'sortBranchesBy') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

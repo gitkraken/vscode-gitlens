@@ -6,7 +6,6 @@ import { GitUri } from '../git/gitUri';
 import type { GitStashReference } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
@@ -41,15 +40,10 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No stashes could be found.';
 				return [];
-			}
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			this.children = repositories.map(
@@ -145,8 +139,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

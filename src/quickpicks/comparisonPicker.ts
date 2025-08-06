@@ -42,7 +42,7 @@ export async function showComparisonPicker(
 			...options?.getTitleAndPlaceholder?.(1),
 		};
 
-		repoPath ??= (await getRepositoryOrShowPicker(title))?.path;
+		repoPath ??= (await getRepositoryOrShowPicker(container, title))?.path;
 		if (repoPath == null) return undefined;
 
 		if (head == null || force) {

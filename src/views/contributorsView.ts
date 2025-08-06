@@ -7,7 +7,6 @@ import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
@@ -60,18 +59,10 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No contributors could be found.';
 				return [];
-			}
-
-			if (
-				configuration.get('views.collapseWorktreesWhenPossible') &&
-				configuration.get('views.contributors.showAllBranches')
-			) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			this.children = repositories.map(
@@ -230,8 +221,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortContributorsBy') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

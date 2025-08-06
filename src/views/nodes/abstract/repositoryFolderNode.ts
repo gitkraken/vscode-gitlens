@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants';
 import type { GitUri } from '../../../git/gitUri';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
@@ -68,6 +68,8 @@ export abstract class RepositoryFolderNode<
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
+		const isWorktree = await this.repo.isWorktree();
+
 		let label = this.repo.name ?? this.uri.repoPath ?? '';
 		if (this.options?.showBranchAndLastFetched && branch != null) {
 			const remove = `: ${basename(branch.name)}`;
@@ -93,6 +95,10 @@ export abstract class RepositoryFolderNode<
 		if (this.view.type === 'commits' && this.view.state.filterCommits.get(this.repo.id)?.length) {
 			item.contextValue += '+filtered';
 		}
+
+		item.iconPath = new ThemeIcon(
+			isWorktree ? 'gitlens-worktree' : this.repo.virtual ? 'gitlens-repository-cloud' : 'gitlens-repository',
+		);
 
 		if (branch != null && this.options?.showBranchAndLastFetched) {
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
@@ -126,7 +132,7 @@ export abstract class RepositoryFolderNode<
 					lastFetched
 						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
 						: ''
-				}${this.repo.name ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
+				}${this.repo.name ? `\\\n$(folder) ${isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
 					branch.upstream != null
 						? ` is ${branch.getTrackingStatus({
 								empty: branch.upstream.missing
