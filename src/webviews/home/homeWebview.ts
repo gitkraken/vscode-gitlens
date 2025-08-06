@@ -1022,10 +1022,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (repoPath != null) {
 			repo = this.container.git.getRepository(repoPath)!;
 		} else {
-			repo = this.container.git.highlander;
-			if (repo == null) {
-				repo = this.container.git.getBestRepositoryOrFirst();
-			}
+			repo = this.container.git.getBestRepositoryOrFirst();
 		}
 
 		this._repositorySubscription?.dispose();
