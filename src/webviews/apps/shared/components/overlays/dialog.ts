@@ -66,7 +66,7 @@ export class GlDialog extends LitElement {
 				this.dialog.show();
 			}
 		} else if (this.dialog.open) {
-			this.close();
+			this.dialog.close();
 		}
 	}
 
