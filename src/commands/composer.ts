@@ -56,7 +56,7 @@ export class ComposeCommand extends GlCommandBase {
 			if (args?.repoPath != null) {
 				repo = this.container.git.getRepository(args.repoPath);
 			}
-			repo ??= await getRepositoryOrShowPicker('Compose Commits');
+			repo ??= await getRepositoryOrShowPicker(this.container, 'Compose Commits');
 			if (repo == null) return;
 
 			await this.composeCommits(repo, args?.mode, args?.source ?? 'commandPalette');
