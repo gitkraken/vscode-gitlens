@@ -1624,6 +1624,10 @@
 			"label": "Git Rename Branch...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.gitCommands.branch.upstream": {
+			"label": "Git Change Branch Upstream...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.gitCommands.checkout": {
 			"label": "Git Checkout...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"

@@ -714,6 +714,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.gitCommands.branch.delete'
 	| 'gitlens.gitCommands.branch.prune'
 	| 'gitlens.gitCommands.branch.rename'
+	| 'gitlens.gitCommands.branch.upstream'
 	| 'gitlens.gitCommands.checkout'
 	| 'gitlens.gitCommands.cherryPick'
 	| 'gitlens.gitCommands.history'

@@ -812,7 +812,7 @@ export class BranchGitCommand extends QuickCommand {
 						state.reference.upstream != null
 							? {
 									label: 'Unset Upstream',
-									description: 'Remove any upstream tracking',
+									description: 'Removes any upstream tracking',
 									button: { icon: new ThemeIcon('discard'), tooltip: 'Unset Upstream' },
 								}
 							: undefined,

@@ -6702,6 +6702,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.branch.upstream",
+				"title": "Git Change Branch Upstream...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.checkout",
 				"title": "Git Checkout...",
 				"category": "GitLens"
@@ -11205,6 +11210,10 @@
 				},
 				{
 					"command": "gitlens.gitCommands.branch.rename",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.branch.upstream",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
