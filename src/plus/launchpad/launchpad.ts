@@ -509,6 +509,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				alwaysShow: alwaysShow,
 				buttons: buttons,
 				iconPath:
+					i.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
 					i.provider.id === GitCloudHostIntegrationId.AzureDevOps
 						? new ThemeIcon('account')
 						: i.author?.avatarUrl != null
@@ -940,6 +941,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							createdDateRelative: fromNow(state.item.createdDate),
 						}),
 						iconPath:
+							state.item.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
 							state.item.provider.id === GitCloudHostIntegrationId.AzureDevOps
 								? new ThemeIcon('account')
 								: state.item.author?.avatarUrl != null
@@ -1494,6 +1496,7 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 		const isCurrentUser = review.reviewer.username === item.currentViewer.username;
 		let reviewLabel: string | undefined;
 		const iconPath =
+			item.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
 			item.provider.id === GitCloudHostIntegrationId.AzureDevOps
 				? new ThemeIcon('account')
 				: review.reviewer.avatarUrl != null
