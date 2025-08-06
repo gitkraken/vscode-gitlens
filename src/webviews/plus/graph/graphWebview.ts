@@ -713,10 +713,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
 			this.host.registerWebviewCommand('gitlens.ai.generateCommits:graph', this.generateCommits),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.ai.composeCommitsPreview:graph', item =>
-				this.composeCommits(item, 'ai-preview'),
+				this.composeCommits(item, 'preview'),
 			),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.ai.composeCommits:graph', item =>
-				this.composeCommits(item, 'interactive'),
+				this.composeCommits(item, 'experimental'),
 			),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
@@ -4088,12 +4088,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async composeCommits(item?: GraphItemContext, mode?: 'interactive' | 'ai-preview') {
+	private async composeCommits(item?: GraphItemContext, mode?: 'experimental' | 'preview') {
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 
 			await executeCommand<ComposeCommandArgs>(
-				mode === 'interactive' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
+				mode === 'experimental' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
 				{
 					repoPath: ref.repoPath,
 					source: 'graph',
