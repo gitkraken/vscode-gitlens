@@ -28,8 +28,16 @@ import type { GitWorktree } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
 import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
-import { sortBranches, sortContributors, sortTags, sortWorktrees } from '../git/utils/-webview/sorting';
+import {
+	sortBranches,
+	sortContributors,
+	sortRepositories,
+	sortRepositoriesGrouped,
+	sortTags,
+	sortWorktrees,
+} from '../git/utils/-webview/sorting';
 import type { WorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
 import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
 import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils';
@@ -1577,43 +1585,49 @@ export function* pickRemotesStep<
 export async function* pickRepositoryStep<
 	State extends PartialStepState & { repo?: string | Repository },
 	Context extends { repos: Repository[]; title: string; associatedView: ViewsWithRepositoryFolders },
->(state: State, context: Context, placeholder: string = 'Choose a repository'): AsyncStepResultGenerator<Repository> {
+>(
+	state: State,
+	context: Context,
+	options?: { excludeWorktrees?: boolean; placeholder?: string },
+): AsyncStepResultGenerator<Repository> {
 	if (typeof state.repo === 'string') {
 		state.repo = Container.instance.git.getRepository(state.repo);
 		if (state.repo != null) return state.repo;
 	}
-	let active;
-	try {
-		active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
-	} catch (ex) {
-		Logger.log(
-			'pickRepositoryStep: failed to get active repository. Normally it happens when the currently open file does not belong to a repository',
-			ex,
-		);
-		active = undefined;
+
+	const active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
+
+	let repos = context.repos;
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
 	}
+
+	const placeholder = options?.placeholder ?? 'Choose a repository';
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
-		placeholder: context.repos.length === 0 ? `${placeholder} — no opened repositories found` : placeholder,
-		items:
-			context.repos.length === 0
-				? [
-						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'Cancel',
-							detail: 'No opened repositories found',
+		placeholder: !repos.length ? `${placeholder} — no opened repositories found` : placeholder,
+		items: !repos.length
+			? [
+					createDirectiveQuickPickItem(Directive.Cancel, true, {
+						label: 'Cancel',
+						detail: 'No opened repositories found',
+					}),
+				]
+			: Promise.all(
+					repos.map(r =>
+						createRepositoryQuickPickItem(r, r.id === active?.id, {
+							branch: true,
+							buttons: [RevealInSideBarQuickInputButton],
+							fetched: true,
+							indent: !grouped.has(r),
+							status: true,
 						}),
-					]
-				: Promise.all(
-						context.repos.map(r =>
-							createRepositoryQuickPickItem(r, r.id === active?.id, {
-								branch: true,
-								buttons: [RevealInSideBarQuickInputButton],
-								fetched: true,
-								status: true,
-							}),
-						),
 					),
+				),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void revealRepository(item.path, context.associatedView, { select: true, focus: false, expand: true });
@@ -1635,15 +1649,13 @@ export async function* pickRepositoriesStep<
 >(
 	state: State,
 	context: Context,
-	options?: { placeholder?: string; skipIfPossible?: boolean },
+	options?: { excludeWorktrees?: boolean; placeholder?: string; skipIfPossible?: boolean },
 ): AsyncStepResultGenerator<Repository[]> {
-	options = { placeholder: 'Choose repositories', skipIfPossible: false, ...options };
-
 	let actives: Repository[];
 	if (state.repos != null) {
 		if (isStringArray(state.repos)) {
 			actives = filterMap(state.repos, path => context.repos.find(r => r.path === path));
-			if (options.skipIfPossible && actives.length !== 0 && state.repos.length === actives.length) {
+			if (options?.skipIfPossible && actives.length && state.repos.length === actives.length) {
 				return actives;
 			}
 		} else {
@@ -1654,33 +1666,42 @@ export async function* pickRepositoriesStep<
 		actives = active != null ? [active] : [];
 	}
 
+	let repos = context.repos;
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
+	}
+
+	const placeholder = options?.placeholder ?? 'Choose a repository';
+
 	const step = createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
-		placeholder:
-			context.repos.length === 0 ? `${options.placeholder} — no opened repositories found` : options.placeholder,
-		items:
-			context.repos.length === 0
-				? [
-						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'Cancel',
-							detail: 'No opened repositories found',
-						}),
-					]
-				: Promise.all(
-						context.repos.map(repo =>
-							createRepositoryQuickPickItem(
-								repo,
-								actives.some(r => r.id === repo.id),
-								{
-									branch: true,
-									buttons: [RevealInSideBarQuickInputButton],
-									fetched: true,
-									status: true,
-								},
-							),
+		placeholder: !repos.length ? `${placeholder} — no opened repositories found` : placeholder,
+		items: !repos.length
+			? [
+					createDirectiveQuickPickItem(Directive.Cancel, true, {
+						label: 'Cancel',
+						detail: 'No opened repositories found',
+					}),
+				]
+			: Promise.all(
+					repos.map(repo =>
+						createRepositoryQuickPickItem(
+							repo,
+							actives.some(r => r.id === repo.id),
+							{
+								branch: true,
+								buttons: [RevealInSideBarQuickInputButton],
+								fetched: true,
+								indent: !grouped.has(repo),
+								status: true,
+							},
 						),
 					),
+				),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
 				void revealRepository(item.path, context.associatedView, { select: true, focus: false, expand: true });
