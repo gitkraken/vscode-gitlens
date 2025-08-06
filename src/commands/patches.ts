@@ -225,7 +225,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 
 	async execute(): Promise<void> {
 		const patch = await env.clipboard.readText();
-		let repo = this.container.git.highlander;
+		let repo = this.container.git.getBestRepositoryOrFirst();
 
 		// Make sure it looks like a valid patch
 		const valid = patch.length ? await repo?.git.patch?.validatePatch(patch) : false;
