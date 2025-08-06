@@ -294,7 +294,7 @@ export class CommitsPanel extends LitElement {
 				border-radius: 6px;
 				padding: 1.2rem;
 				margin-bottom: 1.2rem;
-				background: var(--vscode-editorGroupHeader-tabsBackground);
+				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 			}
 
 			.auto-compose-header {
@@ -753,22 +753,23 @@ export class CommitsPanel extends LitElement {
 		const unassignedHunks = getUnassignedHunks(this.hunks);
 		const sections = [];
 
-		if (unassignedHunks.staged.length > 0) {
-			const fileCount = getUniqueFileNames(unassignedHunks.staged).length;
-			const changes = getFileChanges(unassignedHunks.staged);
-			sections.push({
-				key: 'staged',
-				title: 'Staged Changes',
-				fileCount: fileCount,
-				changes: changes,
-			});
-		}
+		// Order: Unstaged first, then Staged, then Changes from Commits
 		if (unassignedHunks.unstaged.length > 0) {
 			const fileCount = getUniqueFileNames(unassignedHunks.unstaged).length;
 			const changes = getFileChanges(unassignedHunks.unstaged);
 			sections.push({
 				key: 'unstaged',
-				title: 'Unstaged Changes',
+				title: 'Working Changes (Unstaged)',
+				fileCount: fileCount,
+				changes: changes,
+			});
+		}
+		if (unassignedHunks.staged.length > 0) {
+			const fileCount = getUniqueFileNames(unassignedHunks.staged).length;
+			const changes = getFileChanges(unassignedHunks.staged);
+			sections.push({
+				key: 'staged',
+				title: 'Working Changes (Staged)',
 				fileCount: fileCount,
 				changes: changes,
 			});
@@ -778,7 +779,7 @@ export class CommitsPanel extends LitElement {
 			const changes = getFileChanges(unassignedHunks.unassigned);
 			sections.push({
 				key: 'unassigned',
-				title: 'Unassigned Changes',
+				title: 'Changes from Commits',
 				fileCount: fileCount,
 				changes: changes,
 			});
@@ -791,7 +792,7 @@ export class CommitsPanel extends LitElement {
 					@click=${() => this.dispatchUnassignedSelect(section.key)}
 				>
 					<div class="unassigned-header">
-						<code-icon icon="diff"></code-icon>
+						<code-icon icon="diff-single"></code-icon>
 						${section.title}
 					</div>
 					<div class="unassigned-summary">
