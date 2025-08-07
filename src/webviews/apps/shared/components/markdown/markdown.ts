@@ -44,15 +44,15 @@ export class GlMarkdown extends LitElement {
 				margin-inline: 0;
 			}
 
-			:host([density='compact']) p,
-			:host([density='compact']) .code,
-			:host([density='compact']) ul,
-			:host([density='compact']) h1,
-			:host([density='compact']) h2,
-			:host([density='compact']) h3,
-			:host([density='compact']) h4,
-			:host([density='compact']) h5,
-			:host([density='compact']) h6 {
+			:where(:host([density='compact'])) p,
+			:where(:host([density='compact'])) .code,
+			:where(:host([density='compact'])) ul,
+			:where(:host([density='compact'])) h1,
+			:where(:host([density='compact'])) h2,
+			:where(:host([density='compact'])) h3,
+			:where(:host([density='compact'])) h4,
+			:where(:host([density='compact'])) h5,
+			:where(:host([density='compact'])) h6 {
 				margin-block: var(--markdown-compact-block-spacing);
 			}
 
