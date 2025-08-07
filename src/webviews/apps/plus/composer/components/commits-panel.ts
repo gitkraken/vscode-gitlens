@@ -133,10 +133,14 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.composition-summary-header {
-				font-size: 1.1rem;
-				font-weight: 600;
-				color: var(--vscode-foreground);
-				margin-bottom: 0.6rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.4rem;
+				margin: 1.2rem 0 0.8rem 0;
+			}
+
+			.composition-summary-header h3 {
+				margin: 0;
 			}
 
 			.composition-summary-card {
@@ -177,6 +181,12 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.finish-commit-header h3 {
+				margin: 0;
+			}
+
+			.finish-commit-subtext {
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
 				margin: 0;
 			}
 
@@ -1024,7 +1034,9 @@ export class CommitsPanel extends LitElement {
 	private renderCompositionSummarySection() {
 		return html`
 			<div class="composition-summary-section">
-				<div class="composition-summary-header">Composition Summary</div>
+				<div class="composition-summary-header">
+					<h3>Composition Summary</h3>
+				</div>
 				<div
 					class="composition-summary-card ${this.compositionSummarySelected ? 'selected' : ''}"
 					@click=${this.handleCompositionSummaryClick}
@@ -1174,6 +1186,10 @@ export class CommitsPanel extends LitElement {
 					() => html`
 						<div class="finish-commit-header">
 							<h3>Finish & Commit</h3>
+							<p class="finish-commit-subtext">
+								New commits will be added to your current branch and a stash will be created with your
+								original changes.
+							</p>
 						</div>
 						<button-container layout="editor">
 							<gl-button
@@ -1194,6 +1210,11 @@ export class CommitsPanel extends LitElement {
 					() => html`
 						<div class="finish-commit-header">
 							<h3>Finish & Commit</h3>
+							<p class="finish-commit-subtext">
+								${this.shouldShowAddCommitMessage
+									? 'Add a message to commit this draft.'
+									: 'New commits will be added to your current branch and a stash will be created with your original changes.'}
+							</p>
 						</div>
 
 						<!-- Commit message row with AI button -->
