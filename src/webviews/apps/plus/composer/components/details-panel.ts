@@ -85,6 +85,8 @@ export class DetailsPanel extends LitElement {
 				word-wrap: break-word;
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 0.4rem;
+				background: var(--color-background);
+				color: var(--vscode-input-foreground);
 			}
 
 			.commit-message__input {
@@ -93,15 +95,18 @@ export class DetailsPanel extends LitElement {
 				font-family: inherit;
 				font-size: 1.3rem;
 				line-height: 1.4;
-				border: 1px solid var(--vscode-input-border);
-				border-radius: 0.2rem;
-				background: var(--vscode-input-background);
+				/* border: 1px solid var(--vscode-input-border); */
+				/* border-radius: 0.2rem; */
+				/* background: var(--vscode-input-background); */
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 0.4rem;
+				background: var(--color-background);
 				color: var(--vscode-input-foreground);
 			}
 
 			textarea.commit-message__input {
 				box-sizing: content-box;
-				width: calc(100% - 1rem);
+				width: calc(100% - 1.2rem);
 				resize: vertical;
 				field-sizing: content;
 				min-height: 2lh;
@@ -767,7 +772,7 @@ export class DetailsPanel extends LitElement {
 
 		return html`
 			<article class="commit-details">
-				<gl-markdown .markdown=${summaryMarkdown}></gl-markdown>
+				<gl-markdown density="document" .markdown=${summaryMarkdown}></gl-markdown>
 			</article>
 		`;
 	}
