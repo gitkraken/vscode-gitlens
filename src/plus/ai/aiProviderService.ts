@@ -2129,25 +2129,6 @@ export class AIProviderService implements Disposable {
 			customInstructions?: string;
 		},
 	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
-		const confirmed = this.container.storage.get('confirm:ai:generateCommits', false);
-		if (!confirmed) {
-			const accept: MessageItem = { title: 'Continue' };
-			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-
-			const confirmResult = await window.showInformationMessage(
-				'This will organize your changes into logical commits using AI.',
-				{ modal: true },
-				accept,
-				cancel,
-			);
-
-			if (confirmResult === cancel) {
-				return undefined;
-			} else if (confirmResult === accept) {
-				await this.container.storage.store('confirm:ai:generateCommits', true);
-			}
-		}
-
 		// Use retry logic similar to generateRebase
 		const result = await this.sendCommitsRequestWithRetry(hunks, existingCommits, hunkMap, source, options);
 		if (result === 'cancelled' || result == null) return result;

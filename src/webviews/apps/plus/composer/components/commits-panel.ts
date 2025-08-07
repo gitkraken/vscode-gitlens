@@ -168,6 +168,47 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-foreground);
 			}
 
+			.composition-feedback-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin: 0.8rem 0;
+				font-size: 0.9em;
+			}
+
+			.composition-feedback-text {
+				color: var(--vscode-foreground);
+			}
+
+			.composition-feedback-icons {
+				display: flex;
+				gap: 0.5rem;
+			}
+
+			.composition-feedback-icon {
+				cursor: pointer;
+				padding: 0.2rem;
+				border-radius: 3px;
+				transition: background-color 0.2s ease;
+				color: var(--vscode-foreground);
+			}
+
+			.composition-feedback-icon:hover {
+				background: var(--vscode-toolbar-hoverBackground);
+			}
+
+			.composition-feedback-icon.selected {
+				color: var(--vscode-button-foreground);
+				background: var(--vscode-button-background);
+			}
+
+			.composition-instructions {
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
+				margin-top: 0.8rem;
+				line-height: 1.4;
+			}
+
 			/* Finish & Commit section styles */
 			.finish-commit-section {
 				margin-top: 0.3rem;
@@ -513,6 +554,12 @@ export class CommitsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	compositionSummarySelected: boolean = false;
+
+	@property({ type: String })
+	compositionFeedback: 'helpful' | 'unhelpful' | null = null;
+
+	@property({ type: String })
+	compositionSessionId: string | null = null;
 
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
@@ -931,6 +978,32 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
+	private handleCompositionFeedbackHelpful() {
+		// Prevent duplicate feedback for the same session
+		if (this.compositionFeedback === 'helpful') return;
+
+		this.compositionFeedback = 'helpful';
+		this.dispatchEvent(
+			new CustomEvent('composition-feedback-helpful', {
+				detail: { sessionId: this.compositionSessionId },
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleCompositionFeedbackUnhelpful() {
+		// Prevent duplicate feedback for the same session
+		if (this.compositionFeedback === 'unhelpful') return;
+
+		this.compositionFeedback = 'unhelpful';
+		this.dispatchEvent(
+			new CustomEvent('composition-feedback-unhelpful', {
+				detail: { sessionId: this.compositionSessionId },
+				bubbles: true,
+			}),
+		);
+	}
+
 	private handleCancel() {
 		// Dispatch event to close the composer webview
 		this.dispatchEvent(
@@ -1043,6 +1116,32 @@ export class CommitsPanel extends LitElement {
 				>
 					<code-icon icon="note"></code-icon>
 					<span class="composition-summary-label">Auto-composition Summary</span>
+				</div>
+
+				<!-- Feedback row -->
+				<div class="composition-feedback-row">
+					<span class="composition-feedback-text">Was this composition helpful?</span>
+					<div class="composition-feedback-icons">
+						<code-icon
+							icon=${this.compositionFeedback === 'helpful' ? 'thumbsup-filled' : 'thumbsup'}
+							class="composition-feedback-icon ${this.compositionFeedback === 'helpful'
+								? 'selected'
+								: ''}"
+							@click=${this.handleCompositionFeedbackHelpful}
+						></code-icon>
+						<code-icon
+							icon=${this.compositionFeedback === 'unhelpful' ? 'thumbsdown-filled' : 'thumbsdown'}
+							class="composition-feedback-icon ${this.compositionFeedback === 'unhelpful'
+								? 'selected'
+								: ''}"
+							@click=${this.handleCompositionFeedbackUnhelpful}
+						></code-icon>
+					</div>
+				</div>
+
+				<!-- Instructions -->
+				<div class="composition-instructions">
+					Review the auto-generated draft commits below to inspect diffs and modify commit messages.
 				</div>
 			</div>
 		`;

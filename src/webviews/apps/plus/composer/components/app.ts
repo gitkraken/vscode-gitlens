@@ -4,6 +4,8 @@ import { customElement, query, state } from 'lit/decorators.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
+	AIFeedbackHelpfulCommand,
+	AIFeedbackUnhelpfulCommand,
 	CloseComposerCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
@@ -250,6 +252,12 @@ export class ComposerApp extends LitElement {
 
 	@state()
 	private compositionSummarySelected: boolean = false;
+
+	@state()
+	private compositionFeedback: 'helpful' | 'unhelpful' | null = null;
+
+	@state()
+	private compositionSessionId: string | null = null;
 
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
@@ -1073,6 +1081,11 @@ export class ComposerApp extends LitElement {
 	private handleGenerateCommitsWithAI(e: CustomEvent) {
 		this.customInstructions = e.detail?.customInstructions ?? '';
 		this.hasUsedAutoCompose = true;
+
+		// Reset feedback state and create new session ID for new composition
+		this.compositionFeedback = null;
+		this.compositionSessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
 		this.generateCommitsWithAI(e.detail?.customInstructions);
 	}
 
@@ -1120,6 +1133,18 @@ export class ComposerApp extends LitElement {
 		this.selectedCommitIds = new Set();
 		this.selectedUnassignedSection = null;
 		this.compositionSummarySelected = true;
+	}
+
+	private handleCompositionFeedbackHelpful(e: CustomEvent) {
+		const sessionId = e.detail?.sessionId;
+		this.compositionFeedback = 'helpful';
+		this._ipc.sendCommand(AIFeedbackHelpfulCommand, { sessionId });
+	}
+
+	private handleCompositionFeedbackUnhelpful(e: CustomEvent) {
+		const sessionId = e.detail?.sessionId;
+		this.compositionFeedback = 'unhelpful';
+		this._ipc.sendCommand(AIFeedbackUnhelpfulCommand, { sessionId });
 	}
 
 	private handleCustomInstructionsChange(e: CustomEvent) {
@@ -1291,6 +1316,8 @@ export class ComposerApp extends LitElement {
 					.hasUsedAutoCompose=${this.hasUsedAutoCompose}
 					.aiModel=${this.state.ai?.model}
 					.compositionSummarySelected=${this.compositionSummarySelected}
+					.compositionFeedback=${this.compositionFeedback}
+					.compositionSessionId=${this.compositionSessionId}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
@@ -1308,6 +1335,8 @@ export class ComposerApp extends LitElement {
 					@cancel-composer=${this.handleCloseComposer}
 					@select-ai-model=${this.handleSelectAIModel}
 					@select-composition-summary=${this.handleSelectCompositionSummary}
+					@composition-feedback-helpful=${this.handleCompositionFeedbackHelpful}
+					@composition-feedback-unhelpful=${this.handleCompositionFeedbackUnhelpful}
 				></gl-commits-panel>
 
 				<gl-details-panel

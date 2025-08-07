@@ -100,6 +100,12 @@ export const GenerateCommitMessageCommand = new IpcCommand<GenerateCommitMessage
 export const FinishAndCommitCommand = new IpcCommand<FinishAndCommitParams>(ipcScope, 'finishAndCommit');
 export const CloseComposerCommand = new IpcCommand<void>(ipcScope, 'close');
 export const OnSelectAIModelCommand = new IpcCommand<void>(ipcScope, 'selectAIModel');
+export interface AIFeedbackParams {
+	sessionId: string | null;
+}
+
+export const AIFeedbackHelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackHelpful');
+export const AIFeedbackUnhelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackUnhelpful');
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
