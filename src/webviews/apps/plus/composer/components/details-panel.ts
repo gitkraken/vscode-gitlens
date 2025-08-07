@@ -5,7 +5,7 @@ import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
 import {
-	getFileChanges,
+	generateComposerMarkdown,
 	getFileCountForCommit,
 	getHunksForCommit,
 	getUnassignedHunks,
@@ -14,6 +14,7 @@ import {
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
+import '../../../shared/components/markdown/markdown';
 import './hunk-item';
 import './explaination';
 // import './diff/diff';
@@ -235,6 +236,9 @@ export class DetailsPanel extends LitElement {
 	];
 
 	@property({ type: Array })
+	commits: ComposerCommit[] = [];
+
+	@property({ type: Array })
 	selectedCommits: ComposerCommit[] = [];
 
 	@property({ type: Array })
@@ -265,7 +269,7 @@ export class DetailsPanel extends LitElement {
 	aiEnabled: boolean = false;
 
 	@property({ type: Boolean })
-	isAIPreviewMode: boolean = false;
+	isPreviewMode: boolean = false;
 
 	@property({ type: Boolean })
 	showHistoryButtons: boolean = false;
@@ -275,6 +279,9 @@ export class DetailsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	canRedo: boolean = false;
+
+	@property({ type: Boolean })
+	compositionSummarySelected: boolean = false;
 
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
@@ -292,7 +299,7 @@ export class DetailsPanel extends LitElement {
 		if (
 			changedProperties.has('selectedCommits') ||
 			changedProperties.has('hunks') ||
-			changedProperties.has('isAIPreviewMode')
+			changedProperties.has('isPreviewMode')
 		) {
 			this.initializeHunksSortable();
 			this.setupAutoScroll();
@@ -318,7 +325,7 @@ export class DetailsPanel extends LitElement {
 		this.destroyHunksSortables();
 
 		// Don't initialize sortable in AI preview mode
-		if (this.isAIPreviewMode) {
+		if (this.isPreviewMode) {
 			return;
 		}
 
@@ -752,6 +759,19 @@ export class DetailsPanel extends LitElement {
 		}
 	}
 
+	private renderCompositionSummary() {
+		if (!this.compositionSummarySelected) return nothing;
+
+		// Generate the composition summary markdown
+		const summaryMarkdown = generateComposerMarkdown(this.commits, this.hunks);
+
+		return html`
+			<article class="commit-details">
+				<gl-markdown .markdown=${summaryMarkdown}></gl-markdown>
+			</article>
+		`;
+	}
+
 	override render() {
 		const isMultiSelect = this.selectedCommits.length > 1;
 
@@ -786,22 +806,28 @@ export class DetailsPanel extends LitElement {
 				)}
 				<div class="changes-list scrollable">
 					${when(
-						this.selectedUnassignedSection,
-						() => this.renderUnassignedSectionDetails(),
+						this.compositionSummarySelected,
+						() => this.renderCompositionSummary(),
 						() =>
 							when(
-								this.selectedCommits.length > 0,
+								this.selectedUnassignedSection,
+								() => this.renderUnassignedSectionDetails(),
 								() =>
-									repeat(
-										this.selectedCommits,
-										commit => commit.id,
-										commit => this.renderCommitDetails(commit),
+									when(
+										this.selectedCommits.length > 0,
+										() =>
+											repeat(
+												this.selectedCommits,
+												commit => commit.id,
+												commit => this.renderCommitDetails(commit),
+											),
+										() =>
+											html`<p class="empty-state">
+												<code-icon class="empty-state__icon" icon="list-unordered"></code-icon
+												><br />
+												Select a commit or unassigned changes to view details
+											</p>`,
 									),
-								() =>
-									html`<p class="empty-state">
-										<code-icon class="empty-state__icon" icon="list-unordered"></code-icon><br />
-										Select a commit or unassigned changes to view details
-									</p>`,
 							),
 					)}
 				</div>

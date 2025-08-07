@@ -128,6 +128,42 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-foreground);
 			}
 
+			.composition-summary-section {
+				margin-bottom: 1.2rem;
+			}
+
+			.composition-summary-header {
+				font-size: 1.1rem;
+				font-weight: 600;
+				color: var(--vscode-foreground);
+				margin-bottom: 0.6rem;
+			}
+
+			.composition-summary-card {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				padding: 0.8rem;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+				border: 1px solid var(--d2h-file-header-border-color);
+				border-radius: 4px;
+				cursor: pointer;
+				transition: background-color 0.2s ease;
+			}
+
+			.composition-summary-card:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
+
+			.composition-summary-card.selected {
+				background: var(--vscode-list-activeSelectionBackground);
+			}
+
+			.composition-summary-label {
+				font-weight: 500;
+				color: var(--vscode-foreground);
+			}
+
 			/* Finish & Commit section styles */
 			.finish-commit-section {
 				margin-top: 0.3rem;
@@ -451,7 +487,7 @@ export class CommitsPanel extends LitElement {
 	aiEnabled: boolean = false;
 
 	@property({ type: Boolean })
-	isAIPreviewMode: boolean = false;
+	isPreviewMode: boolean = false;
 
 	@property({ type: Object })
 	baseCommit: ComposerBaseCommit | null = null;
@@ -464,6 +500,9 @@ export class CommitsPanel extends LitElement {
 
 	@property({ type: Object })
 	aiModel: any = undefined;
+
+	@property({ type: Boolean })
+	compositionSummarySelected: boolean = false;
 
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
@@ -480,7 +519,7 @@ export class CommitsPanel extends LitElement {
 		super.updated(changedProperties);
 
 		// Reinitialize sortables when commits change or AI preview mode changes
-		if (changedProperties.has('commits') || changedProperties.has('isAIPreviewMode')) {
+		if (changedProperties.has('commits') || changedProperties.has('isPreviewMode')) {
 			// Destroy existing sortable first
 			this.commitsSortable?.destroy();
 
@@ -497,7 +536,7 @@ export class CommitsPanel extends LitElement {
 
 	private initializeSortable() {
 		// Don't initialize sortable in AI preview mode
-		if (this.isAIPreviewMode) {
+		if (this.isPreviewMode) {
 			return;
 		}
 
@@ -524,7 +563,7 @@ export class CommitsPanel extends LitElement {
 
 	private initializeDropZones() {
 		// Don't initialize drop zones in AI preview mode
-		if (this.isAIPreviewMode) {
+		if (this.isPreviewMode) {
 			return;
 		}
 
@@ -546,7 +585,7 @@ export class CommitsPanel extends LitElement {
 
 	private initializeCommitDropZones() {
 		// Don't initialize commit drop zones in AI preview mode
-		if (this.isAIPreviewMode) {
+		if (this.isPreviewMode) {
 			return;
 		}
 
@@ -873,6 +912,15 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
+	private handleCompositionSummaryClick() {
+		// Dispatch event to show composition summary
+		this.dispatchEvent(
+			new CustomEvent('select-composition-summary', {
+				bubbles: true,
+			}),
+		);
+	}
+
 	private handleCancel() {
 		// Dispatch event to close the composer webview
 		this.dispatchEvent(
@@ -973,10 +1021,25 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
+	private renderCompositionSummarySection() {
+		return html`
+			<div class="composition-summary-section">
+				<div class="composition-summary-header">Composition Summary</div>
+				<div
+					class="composition-summary-card ${this.compositionSummarySelected ? 'selected' : ''}"
+					@click=${this.handleCompositionSummaryClick}
+				>
+					<code-icon icon="note"></code-icon>
+					<span class="composition-summary-label">Auto-composition Summary</span>
+				</div>
+			</div>
+		`;
+	}
+
 	override render() {
 		return html`
 			<div class="commits-list scrollable">
-				${this.renderUnassignedSection()}
+				${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
 
 				<div class="commits-header">
 					<h3>Draft Commits</h3>
@@ -984,7 +1047,7 @@ export class CommitsPanel extends LitElement {
 
 				<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
 				${when(
-					!this.isAIPreviewMode && this.shouldShowNewCommitZone,
+					!this.isPreviewMode && this.shouldShowNewCommitZone,
 					() => html`
 						<div class="new-commit-drop-zone">
 							<div class="drop-zone-content">
@@ -1010,7 +1073,7 @@ export class CommitsPanel extends LitElement {
 									.deletions=${changes.deletions}
 									.selected=${this.selectedCommitId === commit.id}
 									.multiSelected=${this.selectedCommitIds.has(commit.id)}
-									.isAIPreviewMode=${this.isAIPreviewMode}
+									.isPreviewMode=${this.isPreviewMode}
 									@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e.shiftKey)}
 								></gl-commit-item>
 							`;
@@ -1033,7 +1096,7 @@ export class CommitsPanel extends LitElement {
 
 				<!-- Drop zone for unassigning hunks (hidden when not dragging or in AI preview mode) -->
 				${when(
-					!this.isAIPreviewMode && this.shouldShowUnassignZone,
+					!this.isPreviewMode && this.shouldShowUnassignZone,
 					() => html`
 						<div class="unassign-drop-zone">
 							<div class="drop-zone-content">
@@ -1107,7 +1170,7 @@ export class CommitsPanel extends LitElement {
 			<!-- Finish & Commit section -->
 			<div class="finish-commit-section">
 				${when(
-					this.selectedCommitIds.size > 1 && !this.isAIPreviewMode,
+					this.selectedCommitIds.size > 1 && !this.isPreviewMode,
 					() => html`
 						<div class="finish-commit-header">
 							<h3>Finish & Commit</h3>

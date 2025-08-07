@@ -8,7 +8,6 @@ import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { executeCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
-import { showMarkdownPreview } from '../../../system/-webview/markdown';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
@@ -29,7 +28,7 @@ import {
 	OnSelectAIModelCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
-import { convertToComposerDiffInfo, generateComposerMarkdown } from './utils';
+import { convertToComposerDiffInfo } from './utils';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -341,23 +340,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Capture the new HEAD after reset
 			const generatedHeadRef = createReference(shas[shas.length - 1], svc.path, { refType: 'revision' });
 
-			// Generate and show markdown document
-			const markdownContent = generateComposerMarkdown(params.commits, params.hunks, 'Generated Commits');
-
-			const documentUri = this.container.markdown.openDocument(
-				markdownContent,
-				`/generate/commits/uncommitted/composer`,
-				'Generated Commits',
-			);
-
 			// Clear the committing state and close the composer webview first
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
-
-			// Delay opening the markdown preview until after the composer is closed
-			queueMicrotask(() => {
-				showMarkdownPreview(documentUri);
-			});
 
 			// Show success notification with Undo button
 			const undoButton = { title: 'Undo' };
