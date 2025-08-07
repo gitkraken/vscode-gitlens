@@ -147,7 +147,7 @@ export function convertToComposerDiffInfo(
 
 export function generateComposerMarkdown(
 	commits: ComposerCommit[],
-	hunks: ComposerHunk[],
+	_hunks: ComposerHunk[],
 	title = 'Generated Commits',
 ): string {
 	if (!commits.length) {
@@ -155,9 +155,8 @@ export function generateComposerMarkdown(
 	}
 
 	let markdown = `# ${title}\n\n`;
-	markdown += "Here's the breakdown of the commits created from the provided changes:\n\n";
-
-	markdown += '## Commit Explanations\n\n';
+	markdown +=
+		"Here's the breakdown of the commits created from the provided changes, along with explanations for each:\n\n";
 	for (let i = 0; i < commits.length; i++) {
 		const commit = commits[i];
 		const commitTitle = `### Commit ${i + 1}: ${commit.message}`;
@@ -166,53 +165,6 @@ export function generateComposerMarkdown(
 			markdown += `${commitTitle}\n\n${commit.aiExplanation}\n\n`;
 		} else {
 			markdown += `${commitTitle}\n\nNo explanation provided.\n\n`;
-		}
-	}
-
-	markdown += '## Changes\n\n';
-	for (let i = 0; i < commits.length; i++) {
-		const commit = commits[i];
-		const commitTitle = `### Commit ${i + 1}: ${commit.message}`;
-		markdown += `${commitTitle}\n\n`;
-
-		const commitHunks = commit.hunkIndices
-			.map(index => hunks.find(hunk => hunk.index === index))
-			.filter((hunk): hunk is ComposerHunk => hunk !== undefined);
-
-		if (commitHunks.length === 0) {
-			markdown += 'No changes in this commit.\n\n';
-			continue;
-		}
-
-		const fileGroups = new Map<string, ComposerHunk[]>();
-		commitHunks.forEach(hunk => {
-			const fileName = hunk.fileName;
-			if (!fileGroups.has(fileName)) {
-				fileGroups.set(fileName, []);
-			}
-			fileGroups.get(fileName)!.push(hunk);
-		});
-
-		for (const [, fileHunks] of fileGroups.entries()) {
-			markdown += '```diff\n';
-
-			// Use the first hunk's diff header for the file
-			const firstHunk = fileHunks[0];
-			if (firstHunk.isRename) {
-				// For renames, show the rename information
-				markdown += `${firstHunk.diffHeader}\n`;
-			} else {
-				// For regular files, show the diff header
-				markdown += `${firstHunk.diffHeader}\n`;
-
-				// Add each hunk's content
-				for (const hunk of fileHunks) {
-					markdown += `${hunk.hunkHeader}\n`;
-					markdown += `${hunk.content}\n`;
-				}
-			}
-
-			markdown += '```\n\n';
 		}
 	}
 

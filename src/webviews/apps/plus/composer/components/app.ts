@@ -248,6 +248,9 @@ export class ComposerApp extends LitElement {
 	@state()
 	private hasUsedAutoCompose: boolean = false;
 
+	@state()
+	private compositionSummarySelected: boolean = false;
+
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
 
@@ -815,8 +818,9 @@ export class ComposerApp extends LitElement {
 			this.selectedCommitId = commitId;
 		}
 
-		// Clear unassigned changes selection
+		// Clear unassigned changes selection and composition summary
 		this.selectedUnassignedSection = null;
+		this.compositionSummarySelected = false;
 
 		// Reinitialize sortables after the DOM updates
 		void this.updateComplete.then(() => {
@@ -835,9 +839,10 @@ export class ComposerApp extends LitElement {
 		// Select unassigned section
 		this.selectedUnassignedSection = section;
 
-		// Clear hunk selection
+		// Clear hunk selection and composition summary
 		this.selectedHunkId = null;
 		this.selectedHunkIds = new Set();
+		this.compositionSummarySelected = false;
 
 		// Reinitialize sortables after the DOM updates to include unassigned hunks
 		void this.updateComplete.then(() => {
@@ -999,16 +1004,16 @@ export class ComposerApp extends LitElement {
 		return this.state.commits.length > 0;
 	}
 
-	private get isAIPreviewMode(): boolean {
+	private get isPreviewMode(): boolean {
 		return this.state?.mode === 'preview';
 	}
 
 	private get canReorderCommits(): boolean {
-		return !this.isAIPreviewMode;
+		return !this.isPreviewMode;
 	}
 
 	private get canCombineCommits(): boolean {
-		return !this.isAIPreviewMode;
+		return !this.isPreviewMode;
 	}
 
 	private get showHistoryButtons(): boolean {
@@ -1016,21 +1021,21 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canMoveHunks(): boolean {
-		return !this.isAIPreviewMode;
+		return !this.isPreviewMode;
 	}
 
 	private get canGenerateCommitsWithAI(): boolean {
 		if (!this.aiEnabled) return false;
 
 		// Check if there are any eligible hunks for AI generation
-		const eligibleHunks = this.getEligibleHunksForAI(false);
+		const eligibleHunks = this.getEligibleHunksForAI();
 		return eligibleHunks.length > 0;
 	}
 
-	private getEligibleHunksForAI(includeUnstagedChanges: boolean): typeof this.hunksWithAssignments {
+	private getEligibleHunksForAI(): typeof this.hunksWithAssignments {
 		let availableHunks: typeof this.hunksWithAssignments;
 
-		if (this.isAIPreviewMode) {
+		if (this.isPreviewMode) {
 			// In AI preview mode, treat all hunks as available (ignore existing commits)
 			availableHunks = this.hunksWithAssignments;
 		} else {
@@ -1042,22 +1047,6 @@ export class ComposerApp extends LitElement {
 			availableHunks = this.hunksWithAssignments.filter(hunk => !assignedHunkIndices.has(hunk.index));
 		}
 
-		// Apply filtering logic based on includeUnstagedChanges
-		if (!includeUnstagedChanges) {
-			const hasStagedChanges = availableHunks.some(hunk => hunk.source === 'staged');
-			const hasNonUnstagedChanges = availableHunks.some(hunk => hunk.source !== 'unstaged');
-
-			if (hasStagedChanges) {
-				// If staged changes exist, only use staged changes
-				return availableHunks.filter(hunk => hunk.source === 'staged');
-			} else if (hasNonUnstagedChanges) {
-				// If changes NOT from unstaged exist, only use those
-				return availableHunks.filter(hunk => hunk.source !== 'unstaged');
-			}
-			// Otherwise, use all available hunks
-			return availableHunks;
-		}
-		// Include all available hunks when checkbox is checked
 		return availableHunks;
 	}
 
@@ -1084,7 +1073,7 @@ export class ComposerApp extends LitElement {
 	private handleGenerateCommitsWithAI(e: CustomEvent) {
 		this.customInstructions = e.detail?.customInstructions ?? '';
 		this.hasUsedAutoCompose = true;
-		this.generateCommitsWithAI(false, e.detail?.customInstructions);
+		this.generateCommitsWithAI(e.detail?.customInstructions);
 	}
 
 	private handleAddHunksToCommit(e: CustomEvent) {
@@ -1125,6 +1114,14 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(OnSelectAIModelCommand, undefined);
 	}
 
+	private handleSelectCompositionSummary() {
+		// Clear other selections and select composition summary
+		this.selectedCommitId = null;
+		this.selectedCommitIds = new Set();
+		this.selectedUnassignedSection = null;
+		this.compositionSummarySelected = true;
+	}
+
 	private handleCustomInstructionsChange(e: CustomEvent) {
 		this.customInstructions = e.detail?.customInstructions ?? '';
 	}
@@ -1151,11 +1148,11 @@ export class ComposerApp extends LitElement {
 		}, 100);
 	}
 
-	private generateCommitsWithAI(includeUnstagedChanges: boolean = false, customInstructions: string = '') {
+	private generateCommitsWithAI(customInstructions: string = '') {
 		if (!this.aiEnabled) return;
 
 		// Get eligible hunks using the shared logic
-		const hunksToGenerate = this.getEligibleHunksForAI(includeUnstagedChanges);
+		const hunksToGenerate = this.getEligibleHunksForAI();
 
 		// Early return if no eligible hunks (this should be prevented by UI, but safety check)
 		if (hunksToGenerate.length === 0) {
@@ -1166,9 +1163,9 @@ export class ComposerApp extends LitElement {
 
 		this._ipc.sendCommand(GenerateCommitsCommand, {
 			hunks: hunksToGenerate,
-			// In AI preview mode, send empty commits array to overwrite existing commits
+			// In preview mode, send empty commits array to overwrite existing commits
 			// In interactive mode, send existing commits to preserve them
-			commits: this.isAIPreviewMode ? [] : this.state.commits,
+			commits: this.isPreviewMode ? [] : this.state.commits,
 			hunkMap: this.state.hunkMap,
 			baseCommit: this.state.baseCommit,
 			customInstructions: customInstructions || undefined,
@@ -1288,11 +1285,12 @@ export class ComposerApp extends LitElement {
 					.canCombineCommits=${this.canCombineCommits}
 					.canMoveHunks=${this.canMoveHunks}
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
-					.isAIPreviewMode=${this.isAIPreviewMode}
+					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.hasUsedAutoCompose}
 					.aiModel=${this.state.ai?.model}
+					.compositionSummarySelected=${this.compositionSummarySelected}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
@@ -1309,9 +1307,11 @@ export class ComposerApp extends LitElement {
 					@generate-commit-message=${(e: CustomEvent) => this.generateCommitMessage(e.detail.commitId)}
 					@cancel-composer=${this.handleCloseComposer}
 					@select-ai-model=${this.handleSelectAIModel}
+					@select-composition-summary=${this.handleSelectCompositionSummary}
 				></gl-commits-panel>
 
 				<gl-details-panel
+					.commits=${this.state.commits}
 					.selectedCommits=${selectedCommits}
 					.hunks=${hunks}
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
@@ -1325,10 +1325,11 @@ export class ComposerApp extends LitElement {
 					.canGenerateCommitMessages=${this.canGenerateCommitMessages}
 					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
-					.isAIPreviewMode=${this.isAIPreviewMode}
+					.isPreviewMode=${this.isPreviewMode}
 					.showHistoryButtons=${this.showHistoryButtons}
 					.canUndo=${this.canUndo()}
 					.canRedo=${this.canRedo()}
+					.compositionSummarySelected=${this.compositionSummarySelected}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}

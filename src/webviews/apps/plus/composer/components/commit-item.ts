@@ -201,7 +201,7 @@ export class CommitItem extends LitElement {
 	multiSelected = false;
 
 	@property({ type: Boolean })
-	isAIPreviewMode = false;
+	isPreviewMode = false;
 
 	override connectedCallback() {
 		super.connectedCallback?.();
@@ -238,7 +238,7 @@ export class CommitItem extends LitElement {
 				@click=${this.handleClick}
 			>
 				${when(
-					!this.isAIPreviewMode,
+					!this.isPreviewMode,
 					() => html`
 						<div class="drag-handle">
 							<code-icon icon="gripper"></code-icon>
