@@ -6240,6 +6240,11 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.ai.explainUnpushed:views",
+				"title": "Explain Unpushed Changes (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.ai.explainWip",
 				"title": "Explain Working Changes (Preview)...",
 				"category": "GitLens"
@@ -11047,6 +11052,10 @@
 				},
 				{
 					"command": "gitlens.ai.explainUnpushed:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.explainUnpushed:views",
 					"when": "false"
 				},
 				{
@@ -17480,6 +17489,11 @@
 					"command": "gitlens.ai.explainBranch:views",
 					"when": "viewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
+				},
+				{
+					"command": "gitlens.ai.explainUnpushed:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_ai@20"
 				},
 				{
 					"command": "gitlens.views.openBranchOnRemote",
