@@ -30,7 +30,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
-import { getDefaultBranchName, isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
+import { getBranchMergeBaseAndCommonCommit, isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
 import {
@@ -349,7 +349,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							branchId = branch?.id ?? getBranchId(repoPath, false, tip);
 
 							// Check if branch has commits that can be recomposed and get merge base
-							const mergeBase = await this.getMergeBase(branch, repoPath);
+							const mergeBaseResult =
+								branch && (await getBranchMergeBaseAndCommonCommit(this.container, branch));
+							const isRecomposable = Boolean(mergeBaseResult && mergeBaseResult.commit !== branch?.sha);
+							const mergeBase = isRecomposable ? mergeBaseResult : undefined;
 
 							context = {
 								webviewItem: `gitlens:branch${head ? '+current' : ''}${
@@ -623,74 +626,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		}
 
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
-	}
-
-	private async getMergeBase(
-		branch: GitBranch | undefined,
-		repoPath: string,
-	): Promise<{ commit: string; branch: string; remote: boolean } | undefined> {
-		if (!branch || branch.remote) return undefined;
-
-		try {
-			const upstreamName = branch.upstream?.name;
-			const svc = this.container.git.getRepositoryService(repoPath);
-
-			// Get stored merge target configurations
-			const [targetBranchResult, mergeBaseResult, defaultBranchResult] = await Promise.allSettled([
-				svc.branches.getStoredMergeTargetBranchName?.(branch.name),
-				svc.branches.getBaseBranchName?.(branch.name),
-				getDefaultBranchName(this.container, branch.repoPath, branch.name),
-			]);
-			const targetBranch = getSettledValue(targetBranchResult);
-			const validTargetBranch = targetBranch && targetBranch !== upstreamName ? targetBranch : undefined;
-			const mergeBase = getSettledValue(mergeBaseResult) || getSettledValue(defaultBranchResult);
-			const validMergeBase = mergeBase && mergeBase !== upstreamName ? mergeBase : undefined;
-
-			// Select target with most recent common commit (closest to branch tip)
-			const validTargets = [validTargetBranch, validMergeBase];
-			const recentMergeBase = await this.selectMostRecentMergeBase(branch.name, validTargets, svc);
-
-			const isRecomposable = Boolean(recentMergeBase && recentMergeBase.commit !== branch.sha);
-			return isRecomposable ? recentMergeBase : undefined;
-		} catch {
-			// If we can't determine, assume not recomposable
-			return undefined;
-		}
-	}
-
-	private async selectMostRecentMergeBase(
-		branchName: string,
-		targets: (string | undefined)[],
-		svc: ReturnType<typeof this.container.git.getRepositoryService>,
-	): Promise<{ commit: string; branch: string; remote: boolean } | undefined> {
-		const isString = (t: string | undefined): t is string => Boolean(t);
-		const mergeBaseResults = await Promise.allSettled(
-			targets.filter(isString).map(async target => {
-				const commit = await svc.refs.getMergeBase(branchName, target);
-				return {
-					commit: commit,
-					branch: target,
-				};
-			}),
-		);
-		const mergeBases = mergeBaseResults
-			.map(result => getSettledValue(result))
-			.filter((r): r is { commit: string; branch: string; remote: boolean } => isString(r?.commit));
-
-		if (mergeBases.length === 0) return undefined;
-
-		let mostRecentMergeBase = mergeBases[0];
-		for (let i = 1; i < mergeBases.length; i++) {
-			const isCurrentMoreRecent = await svc.commits.isAncestorOf(
-				mostRecentMergeBase?.commit,
-				mergeBases[i].commit,
-			);
-			if (isCurrentMoreRecent) {
-				mostRecentMergeBase = mergeBases[i];
-			}
-		}
-
-		return mostRecentMergeBase;
 	}
 
 	@log<GraphGitSubProvider['searchGraph']>({
