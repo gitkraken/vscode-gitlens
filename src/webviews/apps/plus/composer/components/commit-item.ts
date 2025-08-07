@@ -15,7 +15,7 @@ export class CommitItem extends LitElement {
 			display: flex;
 			align-items: stretch;
 			border-radius: 12px;
-			background: var(--vscode-editor-background);
+			background: var(--vscode-editorGroupHeader-tabsBackground);
 			cursor: pointer;
 			transition: all 0.2s ease;
 			position: relative;
