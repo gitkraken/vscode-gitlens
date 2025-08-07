@@ -166,7 +166,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 					state.repo = context.repos[0];
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
+					const result = yield* pickRepositoryStep(state, context, { excludeWorktrees: true });
 					// Always break on the first step (so we will go back)
 					if (result === StepResultBreak) break;
 
