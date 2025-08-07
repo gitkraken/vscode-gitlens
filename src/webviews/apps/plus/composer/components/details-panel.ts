@@ -1,7 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
 import {
@@ -47,13 +46,6 @@ export class DetailsPanel extends LitElement {
 				flex-direction: column;
 				overflow-y: auto;
 				scroll-behavior: smooth;
-			}
-
-			.history-actions {
-				flex: none;
-				display: flex;
-				gap: 0.8rem;
-				justify-content: flex-end;
 			}
 
 			.changes-list {
@@ -275,15 +267,6 @@ export class DetailsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	isPreviewMode: boolean = false;
-
-	@property({ type: Boolean })
-	showHistoryButtons: boolean = false;
-
-	@property({ type: Boolean })
-	canUndo: boolean = false;
-
-	@property({ type: Boolean })
-	canRedo: boolean = false;
 
 	@property({ type: Boolean })
 	compositionSummarySelected: boolean = false;
@@ -634,30 +617,6 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
-	private dispatchHistoryUndo() {
-		this.dispatchEvent(
-			new CustomEvent('history-undo', {
-				bubbles: true,
-			}),
-		);
-	}
-
-	private dispatchHistoryRedo() {
-		this.dispatchEvent(
-			new CustomEvent('history-redo', {
-				bubbles: true,
-			}),
-		);
-	}
-
-	private dispatchHistoryReset() {
-		this.dispatchEvent(
-			new CustomEvent('history-reset', {
-				bubbles: true,
-			}),
-		);
-	}
-
 	public focusCommitMessageInput(commitId: string) {
 		// Find the commit message textarea for the specified commit
 		const commitElement = this.shadowRoot?.querySelector(`[data-commit-id="${commitId}"]`);
@@ -782,63 +741,31 @@ export class DetailsPanel extends LitElement {
 
 		return html`
 			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
-				${when(
-					this.showHistoryButtons,
-					() => html`
-						<nav class="history-actions" aria-label="History actions">
-							<gl-button
-								?disabled=${!this.canUndo}
-								@click=${this.dispatchHistoryUndo}
-								tooltip="Undo last action"
-								appearance="secondary"
-								><code-icon icon="discard" slot="prefix"></code-icon>Undo</gl-button
-							>
-							<gl-button
-								?disabled=${!this.canRedo}
-								@click=${this.dispatchHistoryRedo}
-								tooltip="Redo last undone action"
-								appearance="secondary"
-								><code-icon icon="discard" flip="inline" slot="prefix"></code-icon>Redo</gl-button
-							>
-							<gl-button
-								@click=${this.dispatchHistoryReset}
-								tooltip="Reset to initial state"
-								appearance="secondary"
-								><code-icon icon="trash" slot="prefix"></code-icon>Reset</gl-button
-							>
-						</nav>
-					`,
-				)}
-				<div class="changes-list scrollable">
-					${when(
-						this.compositionSummarySelected,
-						() => this.renderCompositionSummary(),
-						() =>
-							when(
-								this.selectedUnassignedSection,
-								() => this.renderUnassignedSectionDetails(),
-								() =>
-									when(
-										this.selectedCommits.length > 0,
-										() =>
-											repeat(
-												this.selectedCommits,
-												commit => commit.id,
-												commit => this.renderCommitDetails(commit),
-											),
-										() =>
-											html`<p class="empty-state">
-												<code-icon class="empty-state__icon" icon="list-unordered"></code-icon
-												><br />
-												Select a commit or unassigned changes to view details
-											</p>`,
-									),
-							),
-					)}
-				</div>
+				<div class="changes-list scrollable">${this.renderDetails()}</div>
 			</div>
 		`;
 	}
 
-	// private renderDetails(commit: ComposerCommit) {
+	private renderDetails() {
+		if (this.compositionSummarySelected) {
+			return this.renderCompositionSummary();
+		}
+
+		if (this.selectedUnassignedSection) {
+			return this.renderUnassignedSectionDetails();
+		}
+
+		if (this.selectedCommits.length === 0) {
+			return html`<p class="empty-state">
+				<code-icon class="empty-state__icon" icon="list-unordered"></code-icon><br />
+				Select a commit or unassigned changes to view details
+			</p>`;
+		}
+
+		return repeat(
+			this.selectedCommits,
+			commit => commit.id,
+			commit => this.renderCommitDetails(commit),
+		);
+	}
 }

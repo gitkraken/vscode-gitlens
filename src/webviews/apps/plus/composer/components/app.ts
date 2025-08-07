@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
@@ -83,6 +84,13 @@ export class ComposerApp extends LitElement {
 			margin: 0;
 			font-size: 2.4rem;
 			font-weight: 600;
+		}
+
+		.header-actions {
+			flex: none;
+			display: flex;
+			gap: 0.8rem;
+			justify-content: flex-end;
 		}
 
 		.main-content {
@@ -1293,6 +1301,7 @@ export class ComposerApp extends LitElement {
 		return html`
 			<header class="header">
 				<h1>GitLens Composer ${this.state?.mode === 'experimental' ? '(Experimental)' : '(Preview)'}</h1>
+				${this.renderActions()}
 			</header>
 
 			<main class="main-content">
@@ -1371,9 +1380,6 @@ export class ComposerApp extends LitElement {
 					@hunk-move=${(e: CustomEvent) => this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
-					@history-undo=${this.undo}
-					@history-redo=${this.redo}
-					@history-reset=${this.reset}
 				></gl-details-panel>
 
 				<!-- Loading overlay for AI operations -->
@@ -1389,6 +1395,39 @@ export class ComposerApp extends LitElement {
 				<p>${this.state.commits.length} commits have been generated successfully!</p>
 				<gl-button @click=${this.closeModal}>Exit Composer</gl-button>
 			</gl-dialog>
+		`;
+	}
+
+	private renderActions() {
+		if (!this.showHistoryButtons) return nothing;
+
+		const showRedo = false; // Hide redo button for now, as it's not implemented
+
+		return html`
+			<nav class="header-actions" aria-label="Composer actions">
+				<gl-button
+					?disabled=${!this.canUndo}
+					@click=${() => this.undo()}
+					tooltip="Undo last action"
+					appearance="secondary"
+					><code-icon icon="discard" slot="prefix"></code-icon>Undo</gl-button
+				>
+				${when(
+					showRedo,
+					() =>
+						html` <gl-button
+							hidden
+							?disabled=${!this.canRedo}
+							@click=${() => this.redo()}
+							tooltip="Redo last undone action"
+							appearance="secondary"
+							><code-icon icon="discard" flip="inline" slot="prefix"></code-icon>Redo</gl-button
+						>`,
+				)}
+				<gl-button @click=${() => this.reset()} tooltip="Reset to initial state" appearance="secondary"
+					><code-icon icon="trash" slot="prefix"></code-icon>Reset</gl-button
+				>
+			</nav>
 		`;
 	}
 }
