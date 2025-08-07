@@ -5,6 +5,7 @@ import type { CreatePullRequestActionContext, OpenPullRequestActionContext } fro
 import type { DiffWithCommandArgs } from '../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
+import type { ExplainBranchCommandArgs } from '../commands/explainBranch';
 import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog';
 import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog';
 import type { GenerateRebaseCommandArgs } from '../commands/generateRebase';
@@ -924,6 +925,21 @@ export class ViewCommands implements Disposable {
 			base: node.ref,
 			head: createReference('HEAD', node.repoPath, { refType: 'revision', name: 'HEAD' }),
 			source: { source: 'view', detail: node.is('branch') ? 'branch' : 'tag' },
+		});
+	}
+
+	@command('gitlens.ai.explainUnpushed:views')
+	@log()
+	private async explainUnpushed(node: BranchNode) {
+		if (!node.is('branch') || !node.branch.upstream) {
+			return Promise.resolve();
+		}
+
+		await executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
+			repoPath: node.repoPath,
+			ref: node.branch.ref,
+			baseBranch: node.branch.upstream.name,
+			source: { source: 'view', context: { type: 'branch' } },
 		});
 	}
 
