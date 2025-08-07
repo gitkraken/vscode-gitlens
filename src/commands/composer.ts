@@ -86,8 +86,8 @@ export class ComposeCommand extends GlCommandBase {
 		const currentBranch = await repo.git.branches.getBranch();
 
 		// Create initial commit with appropriate message based on changes
-		const hasStagedChanges = stagedDiff?.contents != null;
-		const hasUnstagedChanges = unstagedDiff?.contents != null;
+		const hasStagedChanges = Boolean(stagedDiff?.contents);
+		const hasUnstagedChanges = Boolean(unstagedDiff?.contents);
 
 		let initialCommitMessage: string;
 		let initialHunkIndices: number[];

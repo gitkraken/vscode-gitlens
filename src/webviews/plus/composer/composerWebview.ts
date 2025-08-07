@@ -4,6 +4,7 @@ import type { ContextKeys } from '../../../constants.context';
 import type { WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { createReference } from '../../../git/utils/reference.utils';
+import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { executeCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
@@ -11,8 +12,16 @@ import { getContext, onDidChangeContext } from '../../../system/-webview/context
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
-import type { FinishAndCommitParams, GenerateCommitMessageParams, GenerateCommitsParams, State } from './protocol';
+import type {
+	AIFeedbackParams,
+	FinishAndCommitParams,
+	GenerateCommitMessageParams,
+	GenerateCommitsParams,
+	State,
+} from './protocol';
 import {
+	AIFeedbackHelpfulCommand,
+	AIFeedbackUnhelpfulCommand,
 	CloseComposerCommand,
 	DidChangeAiEnabledNotification,
 	DidChangeAiModelNotification,
@@ -65,6 +74,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case OnSelectAIModelCommand.is(e):
 				void this.onSelectAIModel();
+				break;
+			case AIFeedbackHelpfulCommand.is(e):
+				void this.onAIFeedbackHelpful(e.params);
+				break;
+			case AIFeedbackUnhelpfulCommand.is(e):
+				void this.onAIFeedbackUnhelpful(e.params);
 				break;
 		}
 	}
@@ -174,6 +189,56 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			source: 'ai',
 			detail: 'model-picker',
 		});
+	}
+
+	private async onAIFeedbackHelpful(params: AIFeedbackParams): Promise<void> {
+		// Send AI feedback for composer auto-composition
+		await this.sendComposerAIFeedback('helpful', params.sessionId);
+	}
+
+	private async onAIFeedbackUnhelpful(params: AIFeedbackParams): Promise<void> {
+		// Send AI feedback for composer auto-composition
+		await this.sendComposerAIFeedback('unhelpful', params.sessionId);
+	}
+
+	private async sendComposerAIFeedback(sentiment: 'helpful' | 'unhelpful', sessionId: string | null): Promise<void> {
+		try {
+			// Get the current AI model
+			const model = await this.container.ai.getModel({ silent: true }, { source: 'ai' });
+			if (!model) return;
+
+			// Create a synthetic context for composer AI feedback
+			const context = {
+				id: sessionId || 'composer-session',
+				type: 'generate-commits' as const,
+				feature: 'composer',
+				model: {
+					id: model.id,
+					name: model.name,
+					maxTokens: model.maxTokens,
+					provider: {
+						id: model.provider.id,
+						name: model.provider.name,
+					},
+					default: model.default,
+					hidden: model.hidden,
+					temperature: model.temperature,
+				},
+				usage: undefined,
+			};
+
+			let unhelpful;
+			if (sentiment === 'unhelpful') {
+				unhelpful = await showUnhelpfulFeedbackPicker();
+				if (unhelpful === undefined) return; // User cancelled
+			}
+
+			// Use the shared feedback event sender
+			sendFeedbackEvent(this.container, { source: 'ai' }, context, sentiment, unhelpful);
+		} catch (error) {
+			// Log error but don't throw to avoid breaking the UI
+			console.error('Failed to send composer AI feedback:', error);
+		}
 	}
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
