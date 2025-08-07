@@ -100,7 +100,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 							outputTokens: model.maxTokens.output
 								? Math.min(options.modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
 								: options.modelOptions?.outputTokens,
-							temperature: getValidatedTemperature(model.temperature),
+							temperature: getValidatedTemperature(model, model.temperature),
 						},
 					},
 					options.cancellation,

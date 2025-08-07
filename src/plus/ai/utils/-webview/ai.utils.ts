@@ -137,10 +137,13 @@ export async function getOrPromptApiKey(
 	return apiKey;
 }
 
-export function getValidatedTemperature(modelTemperature?: number | null): number | undefined {
+export function getValidatedTemperature(model: AIModel, modelTemperature?: number | null): number | undefined {
 	if (modelTemperature === null) return undefined;
-	if (modelTemperature != null) return modelTemperature;
-	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+	// GPT5 doesn't support anything but the default temperature
+	if (model.id.startsWith('gpt-5')) return undefined;
+
+	modelTemperature ??= Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+	return modelTemperature;
 }
 
 export async function showLargePromptWarning(estimatedTokens: number, threshold: number): Promise<boolean> {
