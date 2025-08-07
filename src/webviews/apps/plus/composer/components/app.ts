@@ -1364,9 +1364,6 @@ export class ComposerApp extends LitElement {
 					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
 					.isPreviewMode=${this.isPreviewMode}
-					.showHistoryButtons=${this.showHistoryButtons}
-					.canUndo=${this.canUndo()}
-					.canRedo=${this.canRedo()}
 					.compositionSummarySelected=${this.compositionSummarySelected}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
@@ -1406,7 +1403,7 @@ export class ComposerApp extends LitElement {
 		return html`
 			<nav class="header-actions" aria-label="Composer actions">
 				<gl-button
-					?disabled=${!this.canUndo}
+					?disabled=${!this.canUndo()}
 					@click=${() => this.undo()}
 					tooltip="Undo last action"
 					appearance="secondary"
@@ -1417,7 +1414,7 @@ export class ComposerApp extends LitElement {
 					() =>
 						html` <gl-button
 							hidden
-							?disabled=${!this.canRedo}
+							?disabled=${!this.canRedo()}
 							@click=${() => this.redo()}
 							tooltip="Redo last undone action"
 							appearance="secondary"
