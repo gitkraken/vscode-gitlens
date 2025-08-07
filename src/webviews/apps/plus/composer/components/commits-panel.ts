@@ -72,8 +72,8 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.unassigned-section {
-				background: var(--vscode-editor-background);
-				border: 2px dotted var(--vscode-panel-border);
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+				border: 2px dashed var(--vscode-panel-border);
 				border-radius: 12px;
 				padding: 0.75rem;
 				cursor: pointer;
@@ -297,7 +297,7 @@ export class CommitsPanel extends LitElement {
 
 			/* Base commit styles */
 			.base-commit {
-				background: var(--vscode-editorGroupHeader-tabsBackground);
+				background: var(--vscode-editor-background);
 				border-radius: 12px;
 				opacity: 0.7;
 				pointer-events: none;
