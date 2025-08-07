@@ -12,12 +12,14 @@ import {
 } from '../../../../plus/composer/utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
+import type { CommitMessage } from './commit-message';
 import '../../../shared/components/button';
 import '../../../shared/components/markdown/markdown';
 import './hunk-item';
 import './explaination';
 // import './diff/diff';
 import './diff/diff-file';
+import './commit-message';
 
 @customElement('gl-details-panel')
 export class DetailsPanel extends LitElement {
@@ -60,81 +62,6 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.8rem;
-			}
-
-			.commit-message {
-				position: relative;
-			}
-
-			.commit-message__text {
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
-				padding: 0.5rem 0.8rem;
-				font-size: 1.3rem;
-				line-height: 1.4;
-				overflow-wrap: break-word;
-				word-wrap: break-word;
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
-				background: var(--color-background);
-				color: var(--vscode-input-foreground);
-			}
-
-			.commit-message__input {
-				width: 100%;
-				padding: 0.5rem;
-				font-family: inherit;
-				font-size: 1.3rem;
-				line-height: 1.4;
-				/* border: 1px solid var(--vscode-input-border); */
-				/* border-radius: 0.2rem; */
-				/* background: var(--vscode-input-background); */
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
-				background: var(--color-background);
-				color: var(--vscode-input-foreground);
-			}
-
-			textarea.commit-message__input {
-				box-sizing: content-box;
-				width: calc(100% - 1.2rem);
-				resize: vertical;
-				field-sizing: content;
-				min-height: 2lh;
-				max-height: 4lh;
-			}
-
-			.commit-message__input::placeholder {
-				color: var(--vscode-input-placeholderForeground);
-			}
-
-			.commit-message__input:invalid {
-				border-color: var(--vscode-inputValidation-errorBorder);
-				background-color: var(--vscode-inputValidation-errorBackground);
-			}
-
-			.commit-message__input:disabled {
-				opacity: 0.4;
-				cursor: not-allowed;
-				pointer-events: none;
-			}
-
-			.commit-message__action {
-				position: absolute;
-				top: 0.5rem;
-				right: 0.5rem;
-			}
-
-			.ai-explanation {
-				margin-block: 0;
-				line-height: 1.5;
-				color: var(--vscode-editor-foreground);
-			}
-
-			.ai-explanation.placeholder {
-				color: var(--vscode-descriptionForeground);
-				font-style: italic;
 			}
 
 			.files-headline {
@@ -241,8 +168,8 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Array })
 	hunks: ComposerHunk[] = [];
 
-	@property({ type: Object })
-	selectedUnassignedSection: string | null = null;
+	@property()
+	selectedUnassignedSection: 'staged' | 'unstaged' | 'unassigned' | null = null;
 
 	@property({ type: Boolean })
 	commitMessageExpanded = true;
@@ -619,14 +546,13 @@ export class DetailsPanel extends LitElement {
 
 	public focusCommitMessageInput(commitId: string) {
 		// Find the commit message textarea for the specified commit
-		const commitElement = this.shadowRoot?.querySelector(`[data-commit-id="${commitId}"]`);
+		const commitElement = this.shadowRoot?.querySelector(
+			`[data-commit-id="${commitId}"] gl-commit-message`,
+		) as CommitMessage;
 		if (commitElement) {
-			const textarea = commitElement.querySelector('textarea') as HTMLTextAreaElement;
-			if (textarea) {
-				textarea.focus();
-				// Select all text so user can start typing immediately
-				textarea.select();
-			}
+			commitElement.focus();
+			// Select all text so user can start typing immediately
+			commitElement.select();
 		}
 	}
 
@@ -637,9 +563,7 @@ export class DetailsPanel extends LitElement {
 
 		return html`
 			<article class="commit-details">
-				<header class="commit-message">
-					<div class="commit-message__text">${this.getSectionTitle(this.selectedUnassignedSection)}</div>
-				</header>
+				<gl-commit-message .message=${this.getSectionTitle(this.selectedUnassignedSection)}></gl-commit-message>
 
 				<section>
 					<h3 class="files-headline">Files Changed (${hunks.length})</h3>
@@ -655,37 +579,16 @@ export class DetailsPanel extends LitElement {
 		const commitHunks = getHunksForCommit(commit, this.hunks);
 		return html`
 			<article class="commit-details" data-commit-id=${commit.id}>
-				<header class="commit-message">
-					<textarea
-						class="commit-message__input"
-						.value=${commit.message}
-						placeholder="Enter commit message..."
-						rows="3"
-						@input=${(e: InputEvent) =>
-							this.handleCommitMessageChange(commit.id, (e.target as HTMLTextAreaElement).value)}
-					></textarea>
-					${this.aiEnabled
-						? html`
-								<gl-button
-									class="commit-message__action"
-									appearance="toolbar"
-									?disabled=${this.generatingCommitMessage === commit.id || this.committing}
-									@click=${() => this.handleGenerateCommitMessage(commit.id)}
-									title=${this.generatingCommitMessage === commit.id
-										? 'Generating...'
-										: 'Generate Commit Message'}
-								>
-									<code-icon
-										icon=${this.generatingCommitMessage === commit.id ? 'loading~spin' : 'sparkle'}
-									></code-icon>
-								</gl-button>
-							`
-						: nothing}
-				</header>
-
-				<gl-explaination>
-					${commit.aiExplanation || 'No AI explanation available for this commit.'}
-				</gl-explaination>
+				<gl-commit-message
+					.message=${commit.message}
+					.commitId=${commit.id}
+					.explanation=${commit.aiExplanation}
+					?generating=${this.generatingCommitMessage === commit.id}
+					?ai-enabled=${this.aiEnabled}
+					editable
+					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
+					@generate-commit-message=${() => this.handleGenerateCommitMessage(commit.id)}
+				></gl-commit-message>
 
 				<section>
 					<h3 class="files-headline">Files Changed (${getFileCountForCommit(commit, this.hunks)})</h3>
@@ -695,7 +598,7 @@ export class DetailsPanel extends LitElement {
 		`;
 	}
 
-	private getHunksForSection(section: string): ComposerHunk[] {
+	private getHunksForSection(section: 'staged' | 'unstaged' | 'unassigned'): ComposerHunk[] {
 		const unassignedHunks = getUnassignedHunks(this.hunks);
 
 		switch (section) {
@@ -710,7 +613,7 @@ export class DetailsPanel extends LitElement {
 		}
 	}
 
-	private getSectionTitle(section: string): string {
+	private getSectionTitle(section: 'staged' | 'unstaged' | 'unassigned'): string {
 		switch (section) {
 			case 'staged':
 				return 'Staged Changes';
