@@ -57,7 +57,8 @@ export class ScmGroupedView implements Disposable {
 	}
 
 	private onReady() {
-		this._view = this.setView(this.views.lastSelectedScmGroupedView!);
+		// Since we don't want the view to open on every load, prevent revealing it
+		this._view = this.setView(this.views.lastSelectedScmGroupedView!, { focus: false, preventReveal: true });
 	}
 
 	get view(): TreeViewByType[GroupableTreeViewTypes] | undefined {
@@ -126,13 +127,18 @@ export class ScmGroupedView implements Disposable {
 		}
 	}
 
-	setView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean): TreeViewByType[T] {
+	setView<T extends GroupableTreeViewTypes>(
+		type: T,
+		options?: { focus?: boolean; preventReveal?: boolean },
+	): TreeViewByType[T] {
 		if (!this.views.scmGroupedViews?.has(type)) {
 			type = this.views.scmGroupedViews?.size ? (first(this.views.scmGroupedViews) as T) : undefined!;
 		}
 
 		void setContext('gitlens:views:scm:grouped:loading', true);
 		clearTimeout(this._clearLoadingTimer);
+
+		const wasVisible = this._tree?.visible ?? false;
 		this.resetTree();
 
 		this._loaded?.cancel();
@@ -143,8 +149,8 @@ export class ScmGroupedView implements Disposable {
 
 				const view = this._view;
 				if (view != null) {
-					if (!view.visible) {
-						await view.show({ preserveFocus: !focus });
+					if (!options?.preventReveal && !view.visible) {
+						await view.show({ preserveFocus: !options?.focus });
 					}
 
 					let selection = this._lastSelectedByView.get(type);
@@ -154,7 +160,7 @@ export class ScmGroupedView implements Disposable {
 							selection = { node: view.selection[0], parents: undefined, expanded: false };
 						}
 						if (selection == null) {
-							if (focus) {
+							if (options?.focus) {
 								await view.show({ preserveFocus: false });
 							}
 							return;
@@ -162,11 +168,15 @@ export class ScmGroupedView implements Disposable {
 
 						const { node, parents, expanded } = selection;
 						if (parents == null) {
-							await view.revealDeep(node, { expand: expanded, focus: focus ?? false, select: true });
+							await view.revealDeep(node, {
+								expand: expanded,
+								focus: options?.focus ?? false,
+								select: true,
+							});
 						} else {
 							await view.revealDeep(node, parents, {
 								expand: expanded,
-								focus: focus ?? false,
+								focus: options?.focus ?? false,
 								select: true,
 							});
 						}
@@ -191,6 +201,10 @@ export class ScmGroupedView implements Disposable {
 		}
 
 		this.views.lastSelectedScmGroupedView = type;
+
+		if (!options?.preventReveal && !wasVisible) {
+			void this._view.show({ preserveFocus: !options?.focus });
+		}
 
 		return this._view as TreeViewByType[T];
 	}
