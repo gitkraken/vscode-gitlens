@@ -1604,6 +1604,8 @@ export async function* pickRepositoryStep<
 		repos = sortRepositoriesGrouped(grouped);
 	}
 
+	if (repos.length === 1) return repos[0];
+
 	const placeholder = options?.placeholder ?? 'Choose a repository';
 
 	const step = createPickStep<RepositoryQuickPickItem>({
