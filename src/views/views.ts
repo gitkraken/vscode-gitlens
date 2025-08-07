@@ -501,7 +501,7 @@ export class Views implements Disposable {
 	private async setScmGroupedView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean) {
 		if (this._scmGroupedView != null) {
 			await this._scmGroupedView.clearView(type);
-			return this._scmGroupedView.setView(type, focus);
+			return this._scmGroupedView.setView(type, { focus: focus });
 		}
 
 		if (!this.scmGroupedViews?.has(type)) {

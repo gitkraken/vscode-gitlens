@@ -1008,7 +1008,7 @@ export abstract class ViewBase<
 		try {
 			const command = getViewFocusCommand(this.grouped ? 'gitlens.views.scm.grouped' : this.id);
 			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
-			if (this.initialized.pending) {
+			if (!options?.preserveFocus && this.initialized.pending) {
 				void executeCoreCommand(command, options);
 				await this.initialized.promise;
 			}
