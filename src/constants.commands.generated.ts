@@ -4,12 +4,18 @@
 export type ContributedCommands =
 	| ContributedKeybindingCommands
 	| ContributedPaletteCommands
+	| 'gitlens.ai.aiRebaseBranch:graph'
+	| 'gitlens.ai.aiRebaseBranch:views'
+	| 'gitlens.ai.aiRebaseUnpushed:graph'
+	| 'gitlens.ai.aiRebaseUnpushed:views'
 	| 'gitlens.ai.explainBranch:graph'
 	| 'gitlens.ai.explainBranch:views'
 	| 'gitlens.ai.explainCommit:graph'
 	| 'gitlens.ai.explainCommit:views'
 	| 'gitlens.ai.explainStash:graph'
 	| 'gitlens.ai.explainStash:views'
+	| 'gitlens.ai.explainUnpushed:graph'
+	| 'gitlens.ai.explainUnpushed:views'
 	| 'gitlens.ai.explainWip:graph'
 	| 'gitlens.ai.explainWip:views'
 	| 'gitlens.ai.feedback.helpful'

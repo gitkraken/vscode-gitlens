@@ -525,6 +525,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote),
 			this.host.registerWebviewCommand('gitlens.graph.renameBranch', this.renameBranch),
 			this.host.registerWebviewCommand('gitlens.graph.associateIssueWithBranch', this.associateIssueWithBranch),
+			this.host.registerWebviewCommand('gitlens.ai.aiRebaseBranch:graph', this.aiRebaseBranch),
+			this.host.registerWebviewCommand('gitlens.ai.aiRebaseUnpushed:graph', this.aiRebaseUnpushed),
 
 			this.host.registerWebviewCommand('gitlens.graph.switchToBranch', this.switchTo),
 
@@ -698,6 +700,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.copyWorkingChangesToWorktree,
 			),
 			this.host.registerWebviewCommand('gitlens.ai.generateCommitMessage:graph', this.generateCommitMessage),
+			this.host.registerWebviewCommand('gitlens.ai.explainUnpushed:graph', this.aiExplainUnpushed),
 			this.host.registerWebviewCommand('gitlens.ai.explainBranch:graph', this.explainBranch),
 			this.host.registerWebviewCommand('gitlens.ai.explainCommit:graph', this.explainCommit),
 			this.host.registerWebviewCommand('gitlens.ai.explainStash:graph', this.explainStash),
@@ -3243,6 +3246,54 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private aiRebaseBranch(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref, mergeBase } = item.webviewItemValue;
+
+			if (!mergeBase) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
+				repoPath: ref.repoPath,
+				head: ref,
+				base: createReference(mergeBase.branch, ref.repoPath, {
+					refType: 'branch',
+					name: mergeBase.branch,
+					remote: mergeBase.remote,
+				}),
+				source: { source: 'graph' },
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
+	private aiRebaseUnpushed(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+
+			if (!ref.upstream) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
+				repoPath: ref.repoPath,
+				head: ref,
+				base: createReference(ref.upstream.name, ref.repoPath, {
+					refType: 'branch',
+					name: ref.upstream.name,
+					remote: true,
+				}),
+				source: { source: 'graph' },
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
 	private cherryPick(item?: GraphItemContext) {
 		const { selection } = this.getGraphItemRefs(item, 'revision');
 		if (selection == null) return Promise.resolve();
@@ -3843,6 +3894,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	@log()
+	private aiExplainUnpushed(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+
+			if (!ref.upstream) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
+				repoPath: ref.repoPath,
+				ref: ref.ref,
+				baseBranch: ref.upstream.name,
+				source: { source: 'graph', type: 'branch' },
+			});
+		}
+
+		return Promise.resolve();
+	}
 	@log()
 	private explainBranch(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'branch');
