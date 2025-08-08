@@ -1053,7 +1053,7 @@ export class ComposerApp extends LitElement {
 
 		if (this.isPreviewMode) {
 			// In AI preview mode, treat all hunks as available (ignore existing commits)
-			availableHunks = this.hunksWithAssignments;
+			availableHunks = this.hunksWithAssignments.filter(hunk => hunk.assigned);
 		} else {
 			// In interactive mode, only consider unassigned hunks
 			const assignedHunkIndices = new Set<number>();
@@ -1146,13 +1146,13 @@ export class ComposerApp extends LitElement {
 	private handleCompositionFeedbackHelpful(e: CustomEvent) {
 		const sessionId = e.detail?.sessionId;
 		this.compositionFeedback = 'helpful';
-		this._ipc.sendCommand(AIFeedbackHelpfulCommand, { sessionId });
+		this._ipc.sendCommand(AIFeedbackHelpfulCommand, { sessionId: sessionId });
 	}
 
 	private handleCompositionFeedbackUnhelpful(e: CustomEvent) {
 		const sessionId = e.detail?.sessionId;
 		this.compositionFeedback = 'unhelpful';
-		this._ipc.sendCommand(AIFeedbackUnhelpfulCommand, { sessionId });
+		this._ipc.sendCommand(AIFeedbackUnhelpfulCommand, { sessionId: sessionId });
 	}
 
 	private handleCustomInstructionsChange(e: CustomEvent) {

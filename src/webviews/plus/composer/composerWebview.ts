@@ -1,12 +1,10 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { commands, Disposable, ProgressLocation, window } from 'vscode';
+import { commands, Disposable, ProgressLocation } from 'vscode';
 import type { ContextKeys } from '../../../constants.context';
 import type { WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
-import { createReference } from '../../../git/utils/reference.utils';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
-import { executeCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import type { IpcMessage } from '../../protocol';
@@ -360,16 +358,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error('Failed to create commits from patches');
 			}
 
-			// Capture the current HEAD before making changes
-			const log = await svc.commits.getLog(undefined, { limit: 1 });
-			let previousHeadRef;
-			if (log?.commits.size) {
-				const currentCommit = log.commits.values().next().value;
-				if (currentCommit) {
-					previousHeadRef = createReference(currentCommit.sha, svc.path, { refType: 'revision' });
-				}
-			}
-
 			// Capture previous stash state
 			let previousStashCommit;
 			let stash = await svc.stash?.getStash();
@@ -381,52 +369,35 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Stash the working changes
-			await svc.stash?.saveStash(undefined, undefined, { includeUntracked: true });
+			const stashMessage = `Commit composer: ${new Date().toLocaleString()}`;
+			await svc.stash?.saveStash(stashMessage, undefined, { includeUntracked: true });
 
 			// Get the new stash reference
-			let generatedStashRef;
 			stash = await svc.stash?.getStash();
+			let stashCommit;
+			let stashedSuccessfully = false;
 			if (stash?.stashes.size) {
-				const stashCommit = stash.stashes.values().next().value;
-				if (stashCommit && stashCommit.ref !== previousStashCommit?.ref) {
-					generatedStashRef = createReference(stashCommit.ref, svc.path, {
-						refType: 'stash',
-						name: stashCommit.stashName,
-						number: stashCommit.stashNumber,
-						message: stashCommit.message,
-						stashOnRef: stashCommit.stashOnRef,
-					});
+				stashCommit = stash.stashes.values().next().value;
+				if (
+					stashCommit &&
+					stashCommit.ref !== previousStashCommit?.ref &&
+					stashCommit.message === stashMessage
+				) {
+					stashedSuccessfully = true;
 				}
 			}
 
 			// Reset the current branch to the new shas
 			await svc.reset(shas[shas.length - 1], { hard: true });
 
-			// Capture the new HEAD after reset
-			const generatedHeadRef = createReference(shas[shas.length - 1], svc.path, { refType: 'revision' });
+			// Pop the stash we created to restore what is left in the working tree
+			if (stashCommit && stashedSuccessfully) {
+				await svc.stash?.applyStash(stashCommit.stashName, { deleteAfter: true });
+			}
 
 			// Clear the committing state and close the composer webview first
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
-
-			// Show success notification with Undo button
-			const undoButton = { title: 'Undo' };
-			const resultNotification = await window.showInformationMessage(
-				'Successfully generated commits from your working changes.',
-				undoButton,
-			);
-
-			if (resultNotification === undoButton) {
-				// Undo the commits
-				void executeCommand('gitlens.ai.undoGenerateRebase', {
-					undoCommand: 'gitlens.ai.generateCommits',
-					repoPath: svc.path,
-					generatedHeadRef: generatedHeadRef,
-					previousHeadRef: previousHeadRef,
-					generatedStashRef: generatedStashRef,
-					source: 'composer',
-				});
-			}
 		} catch (error) {
 			// Clear loading state on error
 			await this.host.notify(DidFinishCommittingNotification, undefined);
