@@ -1320,8 +1320,8 @@ export class CommitsPanel extends LitElement {
 							<h3>Finish & Commit</h3>
 							<p class="finish-commit-subtext">
 								${this.isReadyToCommit
-									? 'New commits will be added to your current branch and a stash will be created with your original changes.'
-									: 'Add a message to commit this draft.'}
+									? 'New commits will be added to your current branch.'
+									: 'Commit the changes in this draft.'}
 							</p>
 						</div>
 
