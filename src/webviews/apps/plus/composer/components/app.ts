@@ -284,6 +284,9 @@ export class ComposerApp extends LitElement {
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
+		if (this.state.commits.length > 0) {
+			this.selectCommit(this.state.commits[0].id);
+		}
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
