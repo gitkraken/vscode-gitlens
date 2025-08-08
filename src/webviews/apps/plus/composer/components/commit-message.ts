@@ -1,5 +1,6 @@
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { debounce } from '../../../../../system/function/debounce';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
@@ -17,14 +18,15 @@ export class CommitMessage extends LitElement {
 		focusableBaseStyles,
 		css`
 			.commit-message {
+				max-width: 80rem;
 			}
 
 			.commit-message__text {
 				display: -webkit-box;
 				-webkit-line-clamp: 2;
 				-webkit-box-orient: vertical;
-				padding: 0.5rem 0.8rem;
-				font-size: 1.3rem;
+				padding: 1.2rem 1.6rem;
+				font-size: 1.6rem;
 				line-height: 1.4;
 				overflow-wrap: break-word;
 				word-wrap: break-word;
@@ -32,6 +34,7 @@ export class CommitMessage extends LitElement {
 				border-radius: 0.4rem;
 				background: var(--color-background);
 				color: var(--vscode-input-foreground);
+				margin-block: 0;
 			}
 
 			.commit-message__text.placeholder {
@@ -45,9 +48,9 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input {
 				width: 100%;
-				padding: 0.5rem;
+				padding: 1.2rem 1.6rem;
 				font-family: inherit;
-				font-size: 1.3rem;
+				font-size: 1.6rem;
 				line-height: 1.4;
 				/* border: 1px solid var(--vscode-input-border); */
 				/* border-radius: 0.2rem; */
@@ -61,7 +64,7 @@ export class CommitMessage extends LitElement {
 
 			textarea.commit-message__input {
 				box-sizing: content-box;
-				width: calc(100% - 1.2rem);
+				width: calc(100% - 3.4rem);
 				resize: vertical;
 				field-sizing: content;
 				min-height: 2lh;
@@ -77,9 +80,8 @@ export class CommitMessage extends LitElement {
 				color: var(--vscode-input-placeholderForeground);
 			}
 
-			.commit-message__input:invalid {
+			.commit-message__input[aria-valid='false'] {
 				border-color: var(--vscode-inputValidation-errorBorder);
-				background-color: var(--vscode-inputValidation-errorBackground);
 			}
 
 			.commit-message__input:disabled {
@@ -95,7 +97,7 @@ export class CommitMessage extends LitElement {
 			}
 
 			.commit-message__explanation {
-				padding: 0.5rem 0.8rem;
+				padding: 0.8rem 1.6rem;
 				font-size: 1.2rem;
 				line-height: 1.4;
 				border: 1px solid var(--vscode-panel-border);
@@ -104,6 +106,50 @@ export class CommitMessage extends LitElement {
 				background: var(--vscode-multiDiffEditor-headerBackground);
 				color: var(--vscode-input-foreground);
 				margin-block: 0;
+			}
+
+			.commit-message__explanation-block {
+				margin-block: 0;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.commit-message__explanation:focus-visible,
+			.commit-message__explanation:hover {
+				.commit-message__explanation-block {
+					text-overflow: unset;
+					overflow: visible;
+					white-space: normal;
+				}
+			}
+
+			.commit-message__explanation-text {
+				color: var(--color-foreground--75);
+			}
+
+			.message {
+				/* position: absolute;
+				top: 100%;
+				left: 0;
+				width: 100%; */
+				padding: 0.4rem;
+				transform: translateY(-0.1rem);
+				z-index: 1000;
+				background-color: var(--vscode-inputValidation-infoBackground);
+				border: 1px solid var(--vscode-inputValidation-infoBorder);
+				color: var(--gl-search-input-foreground);
+				font-size: 1.2rem;
+				line-height: 1.4;
+			}
+
+			.message:empty {
+				display: none;
+			}
+
+			.commit-message__input[aria-valid='false'] + .message {
+				background-color: var(--vscode-inputValidation-errorBackground);
+				border-color: var(--vscode-inputValidation-errorBorder);
 			}
 		`,
 	];
@@ -116,6 +162,9 @@ export class CommitMessage extends LitElement {
 
 	@property({ type: String })
 	explanation?: string;
+
+	@property({ type: String, attribute: 'explanation-label' })
+	explanationLabel?: string = 'Auto-composition Summary:';
 
 	@property({ type: String })
 	placeholder: string = 'Enter commit message...';
@@ -131,6 +180,15 @@ export class CommitMessage extends LitElement {
 
 	@query('#focusable')
 	focusableElement!: HTMLTextAreaElement | HTMLParagraphElement;
+
+	@state()
+	validityMessage?: string;
+
+	protected override updated(changedProperties: PropertyValues): void {
+		if (changedProperties.has('message')) {
+			this.checkValidity();
+		}
+	}
 
 	override render() {
 		return html`<div class="commit-message">
@@ -152,8 +210,11 @@ export class CommitMessage extends LitElement {
 					.value=${this.message ?? ''}
 					.placeholder=${this.placeholder}
 					rows="3"
+					aria-valid=${this.validityMessage ? 'false' : 'true'}
+					?invalid=${this.validityMessage ? 'true' : 'false'}
 					@input=${this.onMessageInput}
 				></textarea>
+				${this.renderHelpText()}
 				${when(
 					this.aiEnabled,
 					() =>
@@ -174,6 +235,10 @@ export class CommitMessage extends LitElement {
 		`;
 	}
 
+	private renderHelpText() {
+		return html`<div class="message" id="help-text" aria-live="polite">${this.validityMessage}</div>`;
+	}
+
 	private renderReadOnly() {
 		const displayMessage =
 			this.message && this.message.trim().length > 0 ? this.message : 'Draft commit (add a commit message)';
@@ -187,7 +252,11 @@ export class CommitMessage extends LitElement {
 	private renderExplanation() {
 		if (!this.explanation) return nothing;
 
-		return html`<p class="commit-message__explanation">${this.explanation}</p>`;
+		return html`<div tabindex="0" class="commit-message__explanation">
+			<p class="commit-message__explanation-block">
+				${this.explanationLabel} <span class="commit-message__explanation-text">${this.explanation}</span>
+			</p>
+		</div>`;
 	}
 
 	private onGenerateCommitMessageClick() {
@@ -227,8 +296,25 @@ export class CommitMessage extends LitElement {
 		this.focusableElement?.focus(options);
 	}
 
-	select() {
+	checkValidity(reportErrors = false) {
+		if (!this.editable) {
+			this.validityMessage = undefined;
+			return;
+		}
+
+		const valid = this.message ? this.message.length > 0 : false;
+		if (!valid && reportErrors) {
+			this.validityMessage = 'Error: Commit message is required.';
+		} else {
+			this.validityMessage = undefined;
+		}
+	}
+
+	select(checkValidity = false) {
 		if (this.editable) {
+			if (checkValidity) {
+				this.checkValidity(true);
+			}
 			(this.focusableElement as HTMLTextAreaElement)?.select();
 		}
 	}
