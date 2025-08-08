@@ -3,10 +3,12 @@
 @use '../../shared/styles/scrollbars';
 @use '../../shared/styles/utils';
 
-// @include utils.dark-theme {
-// }
-// @include utils.light-theme {
-// }
+@include utils.dark-theme {
+	--composer-background-05: var(--color-background--lighten-05);
+}
+@include utils.light-theme {
+	--composer-background-05: var(--color-background--darken-05);
+}
 
 :root {
 	// --vscode-diffEditor-insertedTextBackground: rgba(156, 204, 44, 0.2);

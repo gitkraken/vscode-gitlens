@@ -14,6 +14,8 @@ import {
 	OnSelectAIModelCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
 import { stateContext } from '../context';
@@ -64,178 +66,189 @@ export class ComposerApp extends LitElement {
 	private commitMessageDebounceTimer?: number;
 	private commitMessageBeingEdited: string | null = null; // Track which commit is being edited
 
-	static override styles = css`
-		:host {
-			display: flex;
-			flex-direction: column;
-			height: 100vh;
-			padding: 1.6rem;
-			gap: 1.6rem;
-			box-sizing: border-box;
-		}
+	static override styles = [
+		boxSizingBase,
+		focusableBaseStyles,
+		css`
+			:host {
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+				padding: 1.6rem;
+				gap: 1.6rem;
+				box-sizing: border-box;
+			}
 
-		.header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-		}
+			.header {
+				flex: none;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
 
-		.header h1 {
-			margin: 0;
-			font-size: 2.4rem;
-			font-weight: 600;
-		}
+			.header h1 {
+				margin-block: 0;
+				font-size: 1.6rem;
+			}
 
-		.header-actions {
-			flex: none;
-			display: flex;
-			gap: 0.8rem;
-			justify-content: flex-end;
-		}
+			.header small {
+				font-size: 1.2rem;
+				color: var(--color-foreground--65);
+				text-transform: uppercase;
+				margin-inline-start: 0.4rem;
+			}
 
-		.main-content {
-			display: flex;
-			flex: 1;
-			gap: 1.6rem;
-			min-height: 0;
-		}
+			.header-actions {
+				flex: none;
+				display: flex;
+				gap: 0.8rem;
+				justify-content: flex-end;
+			}
 
-		gl-commits-panel {
-			flex: none;
-			width: clamp(30rem, 28vw, 44rem);
-		}
+			.main-content {
+				display: flex;
+				flex: 1;
+				gap: 2.4rem;
+				min-height: 0;
+			}
 
-		gl-details-panel {
-			flex: 1;
-			min-width: 0;
-		}
+			gl-commits-panel {
+				flex: none;
+				width: clamp(30rem, 28vw, 44rem);
+			}
 
-		.modal::part(base) {
-			min-width: 300px;
-			text-align: center;
-		}
+			gl-details-panel {
+				flex: 1;
+				min-width: 0;
+			}
 
-		.modal h2 {
-			margin: 0 0 1.6rem 0;
-			color: var(--vscode-foreground);
-		}
+			.modal::part(base) {
+				min-width: 300px;
+				text-align: center;
+			}
 
-		.modal p {
-			margin: 0 0 2.4rem 0;
-			color: var(--vscode-descriptionForeground);
-		}
+			.modal h2 {
+				margin: 0 0 1.6rem 0;
+				color: var(--vscode-foreground);
+			}
 
-		.section-header {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 1.2rem;
-			background: var(--vscode-editorGroupHeader-tabsBackground);
-			border-bottom: 1px solid var(--vscode-panel-border);
-			cursor: pointer;
-			user-select: none;
-		}
+			.modal p {
+				margin: 0 0 2.4rem 0;
+				color: var(--vscode-descriptionForeground);
+			}
 
-		.section-header:hover {
-			background: var(--vscode-list-hoverBackground);
-		}
+			.section-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 1.2rem;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+				border-bottom: 1px solid var(--vscode-panel-border);
+				cursor: pointer;
+				user-select: none;
+			}
 
-		.section-header h4 {
-			margin: 0;
-			font-size: 1.1em;
-			font-weight: 600;
-		}
+			.section-header:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
 
-		.section-toggle {
-			color: var(--vscode-descriptionForeground);
-			transition: transform 0.2s ease;
-		}
+			.section-header h4 {
+				margin: 0;
+				font-size: 1.1em;
+				font-weight: 600;
+			}
 
-		.section-toggle.expanded {
-			transform: rotate(90deg);
-		}
+			.section-toggle {
+				color: var(--vscode-descriptionForeground);
+				transition: transform 0.2s ease;
+			}
 
-		.section-content {
-			padding: 0.8rem;
-			overflow: hidden;
-			box-sizing: border-box;
-			display: flex;
-			flex-direction: column;
-		}
+			.section-toggle.expanded {
+				transform: rotate(90deg);
+			}
 
-		/* Files changed section should expand to fill space */
-		.section-content.files-changed {
-			flex: 1;
-			min-height: 0;
-		}
+			.section-content {
+				padding: 0.8rem;
+				overflow: hidden;
+				box-sizing: border-box;
+				display: flex;
+				flex-direction: column;
+			}
 
-		/* Commit message and AI explanation should have limited height */
-		.section-content.commit-message,
-		.section-content.ai-explanation {
-			flex: 0 0 auto;
-			max-height: 200px;
-		}
+			/* Files changed section should expand to fill space */
+			.section-content.files-changed {
+				flex: 1;
+				min-height: 0;
+			}
 
-		.section-content.collapsed {
-			display: none;
-		}
+			/* Commit message and AI explanation should have limited height */
+			.section-content.commit-message,
+			.section-content.ai-explanation {
+				flex: 0 0 auto;
+				max-height: 200px;
+			}
 
-		.ai-explanation {
-			color: var(--vscode-foreground);
-			line-height: 1.5;
-			margin: 0;
-		}
+			.section-content.collapsed {
+				display: none;
+			}
 
-		.ai-explanation.placeholder {
-			color: var(--vscode-descriptionForeground);
-			font-style: italic;
-		}
+			.ai-explanation {
+				color: var(--vscode-foreground);
+				line-height: 1.5;
+				margin: 0;
+			}
 
-		.unassigned-changes-item {
-			padding: 1.2rem;
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			background: var(--vscode-list-inactiveSelectionBackground);
-			cursor: pointer;
-			transition: all 0.2s ease;
-			margin-bottom: 1.2rem;
-			display: flex;
-			align-items: center;
-			gap: 0.8rem;
-			user-select: none;
-		}
+			.ai-explanation.placeholder {
+				color: var(--vscode-descriptionForeground);
+				font-style: italic;
+			}
 
-		.unassigned-changes-item:hover {
-			background: var(--vscode-list-hoverBackground);
-		}
+			.unassigned-changes-item {
+				padding: 1.2rem;
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 4px;
+				background: var(--vscode-list-inactiveSelectionBackground);
+				cursor: pointer;
+				transition: all 0.2s ease;
+				margin-bottom: 1.2rem;
+				display: flex;
+				align-items: center;
+				gap: 0.8rem;
+				user-select: none;
+			}
 
-		.unassigned-changes-item.selected {
-			background: var(--vscode-list-activeSelectionBackground);
-			border-color: var(--vscode-focusBorder);
-		}
+			.unassigned-changes-item:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
 
-		.unassigned-changes-item code-icon {
-			color: var(--vscode-descriptionForeground);
-		}
+			.unassigned-changes-item.selected {
+				background: var(--vscode-list-activeSelectionBackground);
+				border-color: var(--vscode-focusBorder);
+			}
 
-		.unassigned-changes-item .title {
-			font-weight: 500;
-			color: var(--vscode-foreground);
-		}
+			.unassigned-changes-item code-icon {
+				color: var(--vscode-descriptionForeground);
+			}
 
-		.unassigned-changes-item .count {
-			color: var(--vscode-descriptionForeground);
-			font-size: 0.9em;
-		}
+			.unassigned-changes-item .title {
+				font-weight: 500;
+				color: var(--vscode-foreground);
+			}
 
-		.unassigned-changes-section {
-			margin-bottom: 1.5rem;
-		}
+			.unassigned-changes-item .count {
+				color: var(--vscode-descriptionForeground);
+				font-size: 0.9em;
+			}
 
-		.unassigned-changes-section:last-child {
-			margin-bottom: 0;
-		}
-	`;
+			.unassigned-changes-section {
+				margin-bottom: 1.5rem;
+			}
+
+			.unassigned-changes-section:last-child {
+				margin-bottom: 0;
+			}
+		`,
+	];
 
 	@state()
 	private selectedCommitId: string | null = null;
@@ -1313,7 +1326,9 @@ export class ComposerApp extends LitElement {
 
 		return html`
 			<header class="header">
-				<h1>GitLens Composer ${this.state?.mode === 'experimental' ? '(Experimental)' : '(Preview)'}</h1>
+				<h1>
+					GitLens Composer <small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
+				</h1>
 				${this.renderActions()}
 			</header>
 
