@@ -15,7 +15,7 @@ export class CommitItem extends LitElement {
 			display: flex;
 			align-items: stretch;
 			border-radius: 12px;
-			background: var(--vscode-editorGroupHeader-tabsBackground);
+			background: var(--composer-background-05);
 			cursor: pointer;
 			transition: all 0.2s ease;
 			position: relative;
@@ -88,6 +88,10 @@ export class CommitItem extends LitElement {
 			transform: translateX(-50%);
 		}
 
+		.selected .commit-icon::before {
+			border-left-color: var(--vscode-list-activeSelectionForeground);
+		}
+
 		.commit-icon::after {
 			content: '';
 			position: absolute;
@@ -95,11 +99,16 @@ export class CommitItem extends LitElement {
 			top: 50%;
 			width: 20px;
 			height: 20px;
-			background: var(--vscode-editor-background);
+			background: var(--composer-background-05);
 			border: 2px dashed var(--vscode-foreground);
 			border-radius: 50%;
 			transform: translate(-50%, -50%);
 			z-index: 1;
+		}
+
+		.selected .commit-icon::after {
+			background: var(--vscode-list-activeSelectionBackground);
+			border-color: var(--vscode-list-activeSelectionForeground);
 		}
 
 		/* Hide the top portion of the vertical line for the first commit */
@@ -120,13 +129,17 @@ export class CommitItem extends LitElement {
 
 		.commit-message {
 			font-weight: 500;
-			color: var(--vscode-foreground);
+			color: var(--vscode-list-inactiveSelectionForeground);
 			overflow: hidden;
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			line-height: 1.4;
 			min-width: 0;
 			flex: 1;
+		}
+
+		.selected .commit-message {
+			color: var(--vscode-list-activeSelectionForeground);
 		}
 
 		.commit-message.placeholder {

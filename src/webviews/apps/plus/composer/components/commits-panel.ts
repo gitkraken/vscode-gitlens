@@ -11,6 +11,7 @@ import {
 	getUnassignedHunks,
 	getUniqueFileNames,
 } from '../../../../plus/composer/utils';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
@@ -20,6 +21,7 @@ import './commit-item';
 export class CommitsPanel extends LitElement {
 	static override styles = [
 		boxSizingBase,
+		focusableBaseStyles,
 		scrollableBase,
 		css`
 			:host {
@@ -31,14 +33,8 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.commits-header {
-				display: flex;
-				flex-direction: column;
-				gap: 0.4rem;
-				margin: 1.2rem 0 0.8rem 0;
-			}
-
-			.commits-header h3 {
-				margin: 0;
+				font-size: 1.4rem;
+				margin-block: 1.7rem 0.4rem;
 			}
 
 			.commits-actions {
@@ -62,7 +58,7 @@ export class CommitsPanel extends LitElement {
 				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: 0.4rem;
 			}
 
 			.commits-only {
@@ -72,13 +68,13 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.unassigned-section {
-				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border: 2px dashed var(--vscode-panel-border);
+				background: var(--composer-background-05);
+				border: 1px dashed var(--vscode-panel-border);
 				border-radius: 12px;
 				padding: 0.75rem;
 				cursor: pointer;
 				transition: background-color 0.2s ease;
-				margin-bottom: 0.5rem;
+				/* margin-bottom: 0.5rem; */
 			}
 
 			.unassigned-section:hover {
@@ -101,9 +97,10 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.ai-model-picker {
-				display: flex;
+				display: inline-flex;
+				flex-direction: row;
 				align-items: center;
-				justify-content: space-between;
+				gap: 0.4rem;
 				padding: 0.3rem 0.8rem;
 				margin-bottom: 0.8rem;
 				background: rgba(255, 255, 255, 0.15);
@@ -111,21 +108,22 @@ export class CommitsPanel extends LitElement {
 				border-radius: 50px;
 				cursor: pointer;
 				transition: background-color 0.2s ease;
-				width: 50%;
+				max-width: 100%;
+				text-decoration: none;
+				color: var(--vscode-foreground);
+				font-size: 1.2rem;
 			}
 
 			.ai-model-picker:hover {
+				text-decoration: none;
 				background: rgba(255, 255, 255, 0.2);
 			}
 
 			.ai-model-picker-text {
-				font-size: 1.1rem;
-				font-weight: 600;
-				color: var(--vscode-foreground);
 			}
 
 			.ai-model-picker-icon {
-				color: var(--vscode-foreground);
+				transform: translateY(-1px);
 			}
 
 			.composition-summary-section {
@@ -211,24 +209,21 @@ export class CommitsPanel extends LitElement {
 
 			/* Finish & Commit section styles */
 			.finish-commit-section {
-				margin-top: 0.3rem;
 			}
 
 			.finish-commit-header {
-				display: flex;
-				flex-direction: column;
-				gap: 0.4rem;
-				margin: 1.2rem 0 0.8rem 0;
+				margin-block-end: 1.2rem;
 			}
 
 			.finish-commit-header h3 {
-				margin: 0;
+				font-size: 1.4rem;
+				margin-block: 0 0.4rem;
 			}
 
 			.finish-commit-subtext {
-				font-size: 0.85em;
+				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
-				margin: 0;
+				margin-block: 0;
 			}
 
 			.commit-message-row {
@@ -241,27 +236,8 @@ export class CommitsPanel extends LitElement {
 				flex: 1;
 			}
 
-			.ai-sparkle-button {
-				width: 2.4rem;
-				height: 2.4rem;
-				padding: 0;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				background: var(--vscode-button-secondaryBackground);
-				color: var(--vscode-button-secondaryForeground);
-				border: 1px solid var(--vscode-button-border);
-				border-radius: 4px;
-				cursor: pointer;
-				transition: background-color 0.2s ease;
-			}
-
-			.ai-sparkle-button:hover {
-				background: var(--vscode-button-secondaryHoverBackground);
-			}
-
 			.cancel-button-container {
-				margin-top: 0.8rem;
+				margin-top: 1.2rem;
 			}
 
 			.unassigned-header {
@@ -464,22 +440,20 @@ export class CommitsPanel extends LitElement {
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 6px;
 				padding: 1.2rem;
-				margin: 1.2rem 0 0.3rem 0;
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 			}
 
 			.auto-compose-header {
-				font-size: 1.1rem;
-				font-weight: 600;
+				font-size: 1.2rem;
 				color: var(--vscode-foreground);
-				margin-bottom: 0.6rem;
+				margin-block: 0 0.4rem;
 			}
 
 			.auto-compose-description {
-				font-size: 1rem;
+				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
 				line-height: 1.4;
-				margin-bottom: 1rem;
+				margin-block: 0 1.6rem;
 			}
 
 			.custom-instructions-container {
@@ -1161,9 +1135,7 @@ export class CommitsPanel extends LitElement {
 			<div class="commits-list scrollable">
 				${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
 
-				<div class="commits-header">
-					<h3>Draft Commits</h3>
-				</div>
+				<h3 class="commits-header">Draft Commits</h3>
 
 				<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
 				${when(
@@ -1233,22 +1205,22 @@ export class CommitsPanel extends LitElement {
 				this.aiEnabled,
 				() => html`
 					<div class="auto-compose-container">
-						<div class="auto-compose-header">Auto-Compose Commits with AI (Preview)</div>
+						<h4 class="auto-compose-header">Auto-Compose Commits with AI (Preview)</h4>
 						${when(
 							!this.hasUsedAutoCompose,
 							() => html`
-								<div class="auto-compose-description">
+								<p class="auto-compose-description">
 									Let AI organize your working changes into well-formed commits with clear messages
 									and descriptions that help reviewers.
-								</div>
+								</p>
 							`,
 						)}
 
 						<!-- AI Model Picker -->
-						<div class="ai-model-picker" @click=${this.handleAIModelPickerClick}>
+						<a href="#" class="ai-model-picker" @click=${this.handleAIModelPickerClick}>
 							<span class="ai-model-picker-text">${this.aiModelDisplayName}</span>
 							<code-icon icon="chevron-down" class="ai-model-picker-icon"></code-icon>
-						</div>
+						</a>
 
 						<!-- Custom instructions input -->
 						<div class="custom-instructions-container">
@@ -1329,7 +1301,7 @@ export class CommitsPanel extends LitElement {
 						<button-container layout="editor">
 							<gl-button
 								full
-								appearance=${this.isReadyToCommit ? 'primary' : 'secondary'}
+								.appearance=${!this.isReadyToCommit ? 'secondary' : undefined}
 								?disabled=${this.commits.length === 0 || this.generating || this.committing}
 								@click=${this.handleCreateCommitsClick}
 							>
