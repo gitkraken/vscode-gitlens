@@ -864,7 +864,7 @@ export class CommitsPanel extends LitElement {
 		if (targetCommitId) {
 			this.dispatchEvent(
 				new CustomEvent('focus-commit-message', {
-					detail: { commitId: targetCommitId },
+					detail: { commitId: targetCommitId, checkValidity: true },
 					bubbles: true,
 				}),
 			);
