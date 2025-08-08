@@ -561,6 +561,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: String })
 	compositionSessionId: string | null = null;
 
+	@property({ type: Boolean })
+	isReadyToCommit: boolean = false;
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -823,17 +826,9 @@ export class CommitsPanel extends LitElement {
 		return this.isDraggingHunks && this.draggedHunkIds.length > 0;
 	}
 
-	private get shouldShowAddCommitMessage(): boolean {
-		// Show "Add Commit Message" if:
-		// 1. There's exactly one commit
-		// 2. It's a draft commit with placeholder message
-		// 3. Message hasn't been changed from placeholder
-		if (this.commits.length !== 1) return false;
-
-		const commit = this.commits[0];
-		const isDraftCommit = commit.message.startsWith('Draft commit from');
-
-		return isDraftCommit;
+	private get firstCommitWithoutMessage(): ComposerCommit | null {
+		// Find the first commit that doesn't have a message
+		return this.commits.find(commit => !commit.message || commit.message.trim().length === 0) || null;
 	}
 
 	private get shouldShowAddToDraftButton(): boolean {
@@ -889,12 +884,13 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
-	private dispatchFocusCommitMessage() {
-		// Focus the commit message input for the first (and only) commit
-		if (this.commits.length === 1) {
+	private dispatchFocusCommitMessage(commitId?: string) {
+		// Focus the commit message input for the specified commit or first commit
+		const targetCommitId = commitId || (this.commits.length > 0 ? this.commits[0].id : null);
+		if (targetCommitId) {
 			this.dispatchEvent(
 				new CustomEvent('focus-commit-message', {
-					detail: { commitId: this.commits[0].id },
+					detail: { commitId: targetCommitId },
 					bubbles: true,
 				}),
 			);
@@ -1002,6 +998,19 @@ export class CommitsPanel extends LitElement {
 				bubbles: true,
 			}),
 		);
+	}
+
+	private handleCreateCommitsClick() {
+		if (this.isReadyToCommit) {
+			// All commits have messages, proceed with committing
+			this.dispatchFinishAndCommit();
+		} else {
+			// Find first commit without message and focus it
+			const firstCommitWithoutMessage = this.firstCommitWithoutMessage;
+			if (firstCommitWithoutMessage) {
+				this.dispatchFocusCommitMessage(firstCommitWithoutMessage.id);
+			}
+		}
 	}
 
 	private handleCancel() {
@@ -1310,55 +1319,26 @@ export class CommitsPanel extends LitElement {
 						<div class="finish-commit-header">
 							<h3>Finish & Commit</h3>
 							<p class="finish-commit-subtext">
-								${this.shouldShowAddCommitMessage
-									? 'Add a message to commit this draft.'
-									: 'New commits will be added to your current branch and a stash will be created with your original changes.'}
+								${this.isReadyToCommit
+									? 'New commits will be added to your current branch and a stash will be created with your original changes.'
+									: 'Add a message to commit this draft.'}
 							</p>
 						</div>
 
-						<!-- Commit message row with AI button -->
-						${when(
-							this.shouldShowAddCommitMessage,
-							() => html`
-								<div class="commit-message-row">
-									<button-container layout="editor" class="commit-message-button">
-										<gl-button
-											full
-											appearance="secondary"
-											?disabled=${this.generating || this.committing}
-											@click=${this.dispatchFocusCommitMessage}
-										>
-											Add a Commit Message
-										</gl-button>
-									</button-container>
-									<button
-										class="ai-sparkle-button"
-										?disabled=${this.generating || this.committing}
-										@click=${this.handleGenerateCommitMessageWithAI}
-										title="Generate commit message with AI"
-									>
-										<code-icon icon="sparkle"></code-icon>
-									</button>
-								</div>
-							`,
-							() => html`
-								<button-container layout="editor">
-									<gl-button
-										full
-										?disabled=${!this.canFinishAndCommit || this.generating || this.committing}
-										@click=${this.dispatchFinishAndCommit}
-									>
-										<code-icon
-											icon=${this.committing ? 'loading~spin' : ''}
-											slot="prefix"
-										></code-icon>
-										${this.committing
-											? 'Committing...'
-											: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
-									</gl-button>
-								</button-container>
-							`,
-						)}
+						<!-- Single Create Commits button -->
+						<button-container layout="editor">
+							<gl-button
+								full
+								appearance=${this.isReadyToCommit ? 'primary' : 'secondary'}
+								?disabled=${this.commits.length === 0 || this.generating || this.committing}
+								@click=${this.handleCreateCommitsClick}
+							>
+								<code-icon icon=${this.committing ? 'loading~spin' : ''} slot="prefix"></code-icon>
+								${this.committing
+									? 'Committing...'
+									: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
+							</gl-button>
+						</button-container>
 
 						<!-- Cancel button (always shown) -->
 						<button-container layout="editor" class="cancel-button-container">

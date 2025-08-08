@@ -85,26 +85,23 @@ export class ComposeCommand extends GlCommandBase {
 		const baseCommit = await repo.git.commits.getCommit('HEAD');
 		const currentBranch = await repo.git.branches.getBranch();
 
-		// Create initial commit with appropriate message based on changes
+		// Create initial commit with empty message (user will add message later)
 		const hasStagedChanges = Boolean(stagedDiff?.contents);
 		const hasUnstagedChanges = Boolean(unstagedDiff?.contents);
 
-		let initialCommitMessage: string;
 		let initialHunkIndices: number[];
 
 		if (hasStagedChanges && hasUnstagedChanges) {
 			// Both staged and unstaged - assign only staged to initial commit
-			initialCommitMessage = 'Draft commit from staged changes';
 			initialHunkIndices = hunks.filter(h => h.source === 'staged').map(h => h.index);
 		} else {
 			// Only staged or only unstaged - assign all to initial commit
-			initialCommitMessage = 'Draft commit from changes';
 			initialHunkIndices = hunks.map(h => h.index);
 		}
 
 		const initialCommit = {
 			id: 'draft-commit-1',
-			message: initialCommitMessage,
+			message: '', // Empty message - user will add their own
 			aiExplanation: '',
 			hunkIndices: initialHunkIndices,
 		};

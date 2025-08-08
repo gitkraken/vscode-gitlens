@@ -129,6 +129,11 @@ export class CommitItem extends LitElement {
 			flex: 1;
 		}
 
+		.commit-message.placeholder {
+			color: var(--vscode-input-placeholderForeground);
+			font-style: italic;
+		}
+
 		.commit-stats {
 			display: flex;
 			align-items: center;
@@ -247,7 +252,13 @@ export class CommitItem extends LitElement {
 				)}
 				<div class="commit-icon"></div>
 				<div class="commit-content">
-					<div class="commit-message">${this.message}</div>
+					<div
+						class="commit-message ${!this.message || this.message.trim().length === 0 ? 'placeholder' : ''}"
+					>
+						${!this.message || this.message.trim().length === 0
+							? 'Draft commit (add a commit message)'
+							: this.message}
+					</div>
 					<div class="commit-stats">
 						<div class="file-count">${this.fileCount} ${this.fileCount === 1 ? 'file' : 'files'}</div>
 						<div class="diff-stats">

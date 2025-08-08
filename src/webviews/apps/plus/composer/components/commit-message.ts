@@ -34,6 +34,11 @@ export class CommitMessage extends LitElement {
 				color: var(--vscode-input-foreground);
 			}
 
+			.commit-message__text.placeholder {
+				color: var(--vscode-input-placeholderForeground);
+				font-style: italic;
+			}
+
 			.commit-message__field {
 				position: relative;
 			}
@@ -170,7 +175,13 @@ export class CommitMessage extends LitElement {
 	}
 
 	private renderReadOnly() {
-		return html`<p id="focusable" class="commit-message__text">${this.message}</p>`;
+		const displayMessage =
+			this.message && this.message.trim().length > 0 ? this.message : 'Draft commit (add a commit message)';
+		const isPlaceholder = !this.message || this.message.trim().length === 0;
+
+		return html`<p id="focusable" class="commit-message__text ${isPlaceholder ? 'placeholder' : ''}">
+			${displayMessage}
+		</p>`;
 	}
 
 	private renderExplanation() {
