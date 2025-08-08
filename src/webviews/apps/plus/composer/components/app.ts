@@ -674,7 +674,7 @@ export class ComposerApp extends LitElement {
 		// Create new commit
 		const newCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: `New Commit`,
+			message: '', // Empty message - user will add their own
 			hunkIndices: hunkIndices,
 		};
 
@@ -1040,6 +1040,10 @@ export class ComposerApp extends LitElement {
 		return !this.isPreviewMode;
 	}
 
+	private get isReadyToFinishAndCommit(): boolean {
+		return this.state.commits.length > 0 && this.state.commits.every(commit => commit.message.trim().length > 0);
+	}
+
 	private get canGenerateCommitsWithAI(): boolean {
 		if (!this.aiEnabled) return false;
 
@@ -1327,6 +1331,7 @@ export class ComposerApp extends LitElement {
 					.compositionSummarySelected=${this.compositionSummarySelected}
 					.compositionFeedback=${this.compositionFeedback}
 					.compositionSessionId=${this.compositionSessionId}
+					.isReadyToCommit=${this.isReadyToFinishAndCommit}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
