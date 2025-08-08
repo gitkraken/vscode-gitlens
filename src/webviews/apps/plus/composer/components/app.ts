@@ -1101,6 +1101,12 @@ export class ComposerApp extends LitElement {
 		this.compositionFeedback = null;
 		this.compositionSessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
+		// Automatically select the composition summary
+		this.selectedCommitId = null;
+		this.selectedCommitIds = new Set();
+		this.selectedUnassignedSection = null;
+		this.compositionSummarySelected = true;
+
 		this.generateCommitsWithAI(e.detail?.customInstructions);
 	}
 
