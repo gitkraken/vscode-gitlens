@@ -16,7 +16,6 @@ import type { CommitMessage } from './commit-message';
 import '../../../shared/components/button';
 import '../../../shared/components/markdown/markdown';
 import './hunk-item';
-import './explaination';
 // import './diff/diff';
 import './diff/diff-file';
 import './commit-message';
@@ -58,10 +57,10 @@ export class DetailsPanel extends LitElement {
 				gap: 3.2rem;
 			}
 
-			.commit-details {
+			.change-details {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: 1.2rem;
 			}
 
 			.files-headline {
@@ -562,7 +561,7 @@ export class DetailsPanel extends LitElement {
 		const hunks = this.getHunksForSection(this.selectedUnassignedSection);
 
 		return html`
-			<article class="commit-details">
+			<article class="change-details">
 				<gl-commit-message .message=${this.getSectionTitle(this.selectedUnassignedSection)}></gl-commit-message>
 
 				<section>
@@ -578,7 +577,7 @@ export class DetailsPanel extends LitElement {
 	private renderCommitDetails(commit: ComposerCommit) {
 		const commitHunks = getHunksForCommit(commit, this.hunks);
 		return html`
-			<article class="commit-details" data-commit-id=${commit.id}>
+			<article class="change-details" data-commit-id=${commit.id}>
 				<gl-commit-message
 					.message=${commit.message}
 					.commitId=${commit.id}
@@ -633,7 +632,7 @@ export class DetailsPanel extends LitElement {
 		const summaryMarkdown = generateComposerMarkdown(this.commits, this.hunks);
 
 		return html`
-			<article class="commit-details">
+			<article class="change-details">
 				<gl-markdown density="document" .markdown=${summaryMarkdown}></gl-markdown>
 			</article>
 		`;
