@@ -543,7 +543,7 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
-	public focusCommitMessageInput(commitId: string) {
+	public focusCommitMessageInput(commitId: string, checkValidity = false) {
 		// Find the commit message textarea for the specified commit
 		const commitElement = this.shadowRoot?.querySelector(
 			`[data-commit-id="${commitId}"] gl-commit-message`,
@@ -551,7 +551,7 @@ export class DetailsPanel extends LitElement {
 		if (commitElement) {
 			commitElement.focus();
 			// Select all text so user can start typing immediately
-			commitElement.select();
+			commitElement.select(checkValidity);
 		}
 	}
 
