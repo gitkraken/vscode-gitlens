@@ -6,6 +6,9 @@ import {
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
+	DidLoadingErrorNotification,
+	DidReloadComposerNotification,
+	DidSafetyErrorNotification,
 	DidStartCommittingNotification,
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
@@ -103,6 +106,55 @@ export class ComposerStateProvider implements StateProvider<State> {
 					const updatedState = {
 						...this._state,
 						committing: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidSafetyErrorNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						safetyError: msg.params.error,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidReloadComposerNotification.is(msg): {
+					// Completely replace the state with fresh data from reload
+					const updatedState = {
+						...this._state,
+						hunks: msg.params.hunks,
+						commits: msg.params.commits,
+						hunkMap: msg.params.hunkMap,
+						baseCommit: msg.params.baseCommit,
+						safetyState: msg.params.safetyState,
+						loadingError: msg.params.loadingError,
+						safetyError: null, // Clear any existing safety errors
+						// Reset UI state to defaults
+						selectedCommitId: null,
+						selectedCommitIds: new Set<string>(),
+						selectedUnassignedSection: null,
+						selectedHunkIds: new Set<string>(),
+						// Clear any ongoing operations
+						generatingCommits: false,
+						generatingCommitMessage: null,
+						committing: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidLoadingErrorNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						loadingError: msg.params.error,
 						timestamp: Date.now(),
 					};
 

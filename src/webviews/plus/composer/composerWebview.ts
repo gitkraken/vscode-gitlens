@@ -1,20 +1,23 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { commands, Disposable, ProgressLocation } from 'vscode';
 import type { ContextKeys } from '../../../constants.context';
-import type { WebviewTelemetryContext } from '../../../constants.telemetry';
+import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
+import type { Repository } from '../../../git/models/repository';
+import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import { PromiseCache } from '../../../system/promiseCache';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
-import { mockBaseCommit, mockCommits, mockHunkMap, mockHunks } from './mockData';
 import type {
 	AIFeedbackParams,
 	FinishAndCommitParams,
 	GenerateCommitMessageParams,
 	GenerateCommitsParams,
+	ReloadComposerParams,
 	State,
 } from './protocol';
 import {
@@ -26,20 +29,26 @@ import {
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
+	DidLoadingErrorNotification,
+	DidReloadComposerNotification,
+	DidSafetyErrorNotification,
 	DidStartCommittingNotification,
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
+	initialState,
 	OnSelectAIModelCommand,
+	ReloadComposerCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
-import { convertToComposerDiffInfo } from './utils';
+import { convertToComposerDiffInfo, createHunksFromDiffs, createSafetyState, validateSafetyState } from './utils';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
 	private _args?: ComposerWebviewShowingArgs[0];
+	private _cache = new PromiseCache<'bootstrap', State>({ accessTTL: 1000 * 60 * 5 });
 
 	constructor(
 		protected readonly container: Container,
@@ -53,6 +62,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	dispose(): void {
+		this._cache.clear();
 		this._disposable.dispose();
 	}
 
@@ -69,6 +79,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case CloseComposerCommand.is(e):
 				void this.close();
+				break;
+			case ReloadComposerCommand.is(e):
+				void this.onReloadComposer(e.params);
 				break;
 			case OnSelectAIModelCommand.is(e):
 				void this.onSelectAIModel();
@@ -88,62 +101,157 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
-	includeBootstrap(): State {
-		// Use real data if provided, otherwise fall back to mock data
-		const args = this._args;
-		const hunks = args?.hunks ?? mockHunks;
-		const commits = args?.commits ?? mockCommits;
-		const hunkMap = args?.hunkMap ?? mockHunkMap;
+	includeBootstrap(): Promise<State> {
+		return this._cache.get('bootstrap', () => this.getBootstrapState());
+	}
 
-		// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
-		let baseCommit = args?.baseCommit ?? mockBaseCommit;
-		if (typeof baseCommit === 'string') {
-			// Convert old string format to new ComposerBaseCommit format
-			baseCommit = {
-				sha: baseCommit,
-				message: 'HEAD',
-				repoName: 'Repository',
-				branchName: 'main',
+	private async getBootstrapState(): Promise<State> {
+		// Use real data if provided, otherwise initialize from best repository
+		const args = this._args;
+
+		// Get the repository from args or show picker
+		let repo;
+		if (args?.repoPath != null) {
+			repo = this.container.git.getRepository(args.repoPath);
+		} else {
+			repo = this.container.git.getBestRepository();
+		}
+
+		if (repo == null) {
+			// return a base state with an error
+			return {
+				...this.initialState,
+				loadingError: 'No repository found. Please open a Git repository to use the Commit Composer.',
 			};
 		}
 
-		const state = {
+		return this.createInitialStateFromRepo(repo, args?.mode, args?.source);
+	}
+
+	private get initialState(): State {
+		return {
 			...this.host.baseWebviewState,
-			hunks: hunks,
-			commits: commits,
-			hunkMap: hunkMap,
-			baseCommit: baseCommit,
+			...initialState,
+		};
+	}
 
-			// UI state
-			selectedCommitId: null,
-			selectedCommitIds: new Set<string>(),
-			selectedUnassignedSection: null,
-			selectedHunkIds: new Set<string>(),
+	private async createInitialStateFromRepo(
+		repo: Repository,
+		mode: 'experimental' | 'preview' = 'preview',
+		_source?: Sources,
+	): Promise<State> {
+		// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
+		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
 
-			// Section expansion state
-			detailsSectionExpanded: {
-				commitMessage: true,
-				aiExplanation: true,
-				filesChanged: true,
-			},
-			generatingCommits: false,
-			generatingCommitMessage: null,
-			committing: false,
+		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
 
-			// Mode controls
-			mode: args?.mode ?? 'preview',
+		if (!stagedDiff?.contents && !unstagedDiff?.contents) {
+			return {
+				...this.initialState,
+				loadingError: 'No changes found to compose commits from.',
+			};
+		}
 
-			// AI settings
-			aiEnabled: this.getAiEnabled(),
-			ai: {
-				model: undefined, // Will be set asynchronously
-			},
+		const { hunkMap, hunks } = createHunksFromDiffs(stagedDiff?.contents, unstagedDiff?.contents);
+
+		const baseCommit = await repo.git.commits.getCommit('HEAD');
+		if (baseCommit == null) {
+			return {
+				...this.initialState,
+				loadingError: 'No base commit found to compose from.',
+			};
+		}
+
+		const currentBranch = await repo.git.branches.getBranch();
+		if (currentBranch == null) {
+			return {
+				...this.initialState,
+				loadingError: 'No current branch found to compose from.',
+			};
+		}
+
+		// Create initial commit with empty message (user will add message later)
+		const hasStagedChanges = Boolean(stagedDiff?.contents);
+		const hasUnstagedChanges = Boolean(unstagedDiff?.contents);
+
+		let initialHunkIndices: number[];
+
+		if (hasStagedChanges && hasUnstagedChanges) {
+			// Both staged and unstaged - assign only staged to initial commit
+			initialHunkIndices = hunks.filter(h => h.source === 'staged').map(h => h.index);
+		} else {
+			// Only staged or only unstaged - assign all to initial commit
+			initialHunkIndices = hunks.map(h => h.index);
+		}
+
+		const initialCommit = {
+			id: 'draft-commit-1',
+			message: '', // Empty message - user will add their own
+			aiExplanation: '',
+			hunkIndices: initialHunkIndices,
 		};
 
-		// Set AI model asynchronously
-		void this.updateAiModel();
+		// Create safety state snapshot for validation
+		const safetyState = await createSafetyState(repo);
 
-		return state;
+		return {
+			...this.initialState,
+			hunks: hunks,
+			hunkMap: hunkMap,
+			baseCommit: {
+				sha: baseCommit.sha,
+				message: baseCommit.message ?? '',
+				repoName: repo.name,
+				branchName: currentBranch.name,
+			},
+			commits: [initialCommit],
+			safetyState: safetyState,
+			mode: mode,
+		};
+	}
+
+	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
+		try {
+			// Clear cache to force fresh data on reload
+			this._cache.clear();
+
+			// Get the best repository
+			const repo = this.container.git.getRepository(params.repoPath);
+			if (!repo) {
+				// Show error in the safety error overlay
+				await this.host.notify(DidSafetyErrorNotification, {
+					error: 'Repository is no longer available',
+				});
+				return;
+			}
+
+			// Initialize composer data from the repository
+			const composerData = await this.createInitialStateFromRepo(repo, params.mode, params.source);
+
+			// Check if there was a loading error
+			if (composerData.loadingError) {
+				// Send loading error notification instead of reload notification
+				await this.host.notify(DidLoadingErrorNotification, {
+					error: composerData.loadingError,
+				});
+				return;
+			}
+
+			// Notify the state provider with fresh data to completely reload the state
+			await this.host.notify(DidReloadComposerNotification, {
+				hunks: composerData.hunks,
+				commits: composerData.commits,
+				hunkMap: composerData.hunkMap,
+				baseCommit: composerData.baseCommit,
+				safetyState: composerData.safetyState,
+				loadingError: composerData.loadingError,
+			});
+		} catch (error) {
+			// Show error in the safety error overlay
+			await this.host.notify(DidLoadingErrorNotification, {
+				error: error instanceof Error ? error.message : 'Failed to reload composer',
+			});
+		}
 	}
 
 	onShowing(
@@ -153,6 +261,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	): [boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined] {
 		// Store the args for use in includeBootstrap
 		if (args?.[0]) {
+			// Clear cache when new args are provided (new composer session)
+			this._cache.clear();
 			this._args = args[0];
 			this.updateTitle(args[0].mode);
 		}
@@ -338,14 +448,35 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Notify webview that committing is starting
 			await this.host.notify(DidStartCommittingNotification, undefined);
 
+			// Get the specific repository from the safety state
+			const repo = this.container.git.getRepository(params.safetyState.repoPath);
+			if (!repo) {
+				// Clear loading state and show safety error
+				await this.host.notify(DidFinishCommittingNotification, undefined);
+				await this.host.notify(DidSafetyErrorNotification, {
+					error: 'Repository is no longer available',
+				});
+				return;
+			}
+
+			// Extract hunk sources for smart validation
+			const hunksBeingCommitted = params.hunks
+				.filter(hunk => params.commits.some(c => c.hunkIndices.includes(hunk.index)))
+				.map(hunk => ({ source: hunk.source as 'staged' | 'unstaged' }));
+
+			// Validate repository safety state before proceeding
+			const validation = await validateSafetyState(repo, params.safetyState, hunksBeingCommitted);
+			if (!validation.isValid) {
+				// Clear loading state and show safety error
+				await this.host.notify(DidFinishCommittingNotification, undefined);
+				await this.host.notify(DidSafetyErrorNotification, {
+					error: validation.errors.join('\n'),
+				});
+				return;
+			}
+
 			// Convert composer data to ComposerDiffInfo format
 			const diffInfo = convertToComposerDiffInfo(params.commits, params.hunks);
-
-			// Get the repository service
-			const repo = this.container.git.getBestRepository();
-			if (!repo) {
-				throw new Error('No repository found');
-			}
 			const svc = this.container.git.getRepositoryService(repo.path);
 			if (!svc) {
 				throw new Error('No repository service found');
