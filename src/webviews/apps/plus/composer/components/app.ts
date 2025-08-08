@@ -12,6 +12,7 @@ import {
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
 	OnSelectAIModelCommand,
+	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
@@ -1099,11 +1100,27 @@ export class ComposerApp extends LitElement {
 			commits: this.state.commits,
 			hunks: this.hunksWithAssignments,
 			baseCommit: this.state.baseCommit,
+			safetyState: this.state.safetyState,
 		});
 	}
 
 	private closeComposer() {
 		this._ipc.sendCommand(CloseComposerCommand, undefined);
+	}
+
+	private handleCloseSafetyError() {
+		this.closeComposer();
+	}
+
+	private handleReloadComposer() {
+		this._ipc.sendCommand(ReloadComposerCommand, {
+			repoPath: this.state.safetyState.repoPath,
+			mode: this.state.mode,
+		});
+	}
+
+	private handleCloseLoadingError() {
+		this.closeComposer();
 	}
 
 	private handleGenerateCommitsWithAI(e: CustomEvent) {
@@ -1413,6 +1430,69 @@ export class ComposerApp extends LitElement {
 					${this.state.generatingCommits
 						? 'Generating commits with AI...'
 						: 'Generating commit message with AI...'}
+				</gl-dialog>
+
+				<!-- Safety error overlay -->
+				<gl-dialog ?open=${this.state.safetyError != null} modal>
+					<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
+						<h2
+							style="margin: 0; color: var(--vscode-foreground); display: flex; align-items: center; gap: 8px;"
+						>
+							<code-icon icon="warning"></code-icon>
+							Repository State Changed
+						</h2>
+						<div
+							style="
+							background: var(--vscode-diffEditor-removedTextBackground);
+							border: 1px solid var(--vscode-diffEditor-removedLineBackground);
+							border-radius: 4px;
+							padding: 12px;
+							font-family: var(--vscode-editor-font-family);
+							font-size: 0.9em;
+							white-space: pre-line;
+							color: var(--vscode-foreground);
+						"
+						>
+							${this.state.safetyError}
+						</div>
+						<p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
+							The repository state has changed since Commit Composer was opened. Please reload to update
+							with new changes.
+						</p>
+						<div style="display: flex; gap: 8px; justify-content: flex-end;">
+							<gl-button appearance="secondary" @click=${this.handleCloseSafetyError}>Close</gl-button>
+							<gl-button appearance="primary" @click=${this.handleReloadComposer}>Reload</gl-button>
+						</div>
+					</div>
+				</gl-dialog>
+
+				<!-- Loading error overlay -->
+				<gl-dialog ?open=${this.state.loadingError != null} modal>
+					<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
+						<h2
+							style="margin: 0; color: var(--vscode-foreground); display: flex; align-items: center; gap: 8px;"
+						>
+							<code-icon icon="warning"></code-icon>
+							Loading Error
+						</h2>
+						<div
+							style="
+							background: var(--vscode-diffEditor-removedTextBackground);
+							border: 1px solid var(--vscode-diffEditor-removedLineBackground);
+							border-radius: 4px;
+							padding: 12px;
+							font-family: var(--vscode-editor-font-family);
+							font-size: 0.9em;
+							white-space: pre-line;
+							color: var(--vscode-foreground);
+						"
+						>
+							${this.state.loadingError}
+						</div>
+						<div style="display: flex; gap: 8px; justify-content: flex-end;">
+							<gl-button appearance="secondary" @click=${this.handleCloseLoadingError}>Close</gl-button>
+						</div>
+					</div>
 				</gl-dialog>
 			</main>
 
