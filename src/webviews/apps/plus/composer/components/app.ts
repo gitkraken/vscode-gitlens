@@ -1205,8 +1205,8 @@ export class ComposerApp extends LitElement {
 	@query('gl-details-panel')
 	private detailsPanel!: DetailsPanel;
 
-	private handleFocusCommitMessage(e: CustomEvent) {
-		const commitId = e.detail?.commitId;
+	private handleFocusCommitMessage(e: CustomEvent<{ commitId: string; checkValidity: boolean }>) {
+		const { commitId, checkValidity } = e.detail;
 		if (!commitId) return;
 
 		// Select the commit first
@@ -1220,7 +1220,7 @@ export class ComposerApp extends LitElement {
 
 		// Use a small delay to ensure the details panel has rendered and focus the input
 		setTimeout(() => {
-			this.detailsPanel?.focusCommitMessageInput?.(commitId);
+			this.detailsPanel?.focusCommitMessageInput?.(commitId, checkValidity);
 		}, 100);
 	}
 
