@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Improves the experience when using multiple repositories or worktrees within a single workspace
+  - Adds a new header row to GitLens views to allow for repository/worktree filtering -- allows switching between showing all repos/worktrees in a tree (current behavior) or focusing on a single repository or worktree
+  - Adds new icons to more easily differentiate between repositories and worktrees quick picks and views
+  - Improves the repository quick pick by visually grouping repositories and worktrees
+  - Reduces the churn during worktree discovery when the new `git.detectWorktrees` VS Code setting is enabled
+    - Avoids flashing/blanking out of the _Commit Graph_ during the same worktree discovery
+
+### Fixed
+
+- Fixes a caching issue when certain Git commands fail causing no data to be displayed until cache expires or the window is reloaded
+- Fixes some edge case issues with navigating to the previous line change in the editor
+- Fixes an issue when using the _Paste Copied Changes (Patch)_ with multiple repositories or worktrees opened
+
 ## [17.3.3] - 2025-07-28
 
 ### Fixed
