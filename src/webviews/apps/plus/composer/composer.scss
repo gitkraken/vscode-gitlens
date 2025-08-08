@@ -27,7 +27,7 @@
 	--d2h-border-color: var(--vscode-multiDiffEditor-border);
 	--d2h-dim-color: rgba(0, 0, 0, 0.3);
 	--d2h-line-border-color: #eee;
-	--d2h-file-header-bg-color: var(--vscode-multiDiffEditor-headerBackground);
+	--d2h-file-header-bg-color: var(--vscode-multiDiffEditor-headerBackground, var(--vscode-editor-background));
 	--d2h-file-header-border-color: var(--vscode-multiDiffEditor-border);
 	--d2h-empty-placeholder-bg-color: #f1f1f1;
 	--d2h-empty-placeholder-border-color: #e1e1e1;
