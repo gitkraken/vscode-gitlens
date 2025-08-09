@@ -7,6 +7,9 @@ import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/compo
 import {
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
+	CancelFinishAndCommitCommand,
+	CancelGenerateCommitMessageCommand,
+	CancelGenerateCommitsCommand,
 	CloseComposerCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
@@ -268,9 +271,6 @@ export class ComposerApp extends LitElement {
 
 	@state()
 	private customInstructions: string = '';
-
-	@state()
-	private hasUsedAutoCompose: boolean = false;
 
 	@state()
 	private compositionSummarySelected: boolean = false;
@@ -1123,9 +1123,71 @@ export class ComposerApp extends LitElement {
 		this.closeComposer();
 	}
 
+	private handleCancelGenerateCommits() {
+		this._ipc.sendCommand(CancelGenerateCommitsCommand, undefined);
+	}
+
+	private handleCancelGenerateCommitMessage() {
+		this._ipc.sendCommand(CancelGenerateCommitMessageCommand, undefined);
+	}
+
+	private handleCancelFinishAndCommit() {
+		this._ipc.sendCommand(CancelFinishAndCommitCommand, undefined);
+	}
+
+	private renderLoadingDialogs() {
+		// Generate Commits loading dialog
+		if (this.state.generatingCommits) {
+			return this.renderLoadingDialog(
+				'Generating Commits',
+				'Commits are being generated.',
+				this.handleCancelGenerateCommits,
+			);
+		}
+
+		// Generate Commit Message loading dialog
+		if (this.state.generatingCommitMessage != null) {
+			return this.renderLoadingDialog(
+				'Generating Commit Message',
+				'A commit message is being generated.',
+				this.handleCancelGenerateCommitMessage,
+			);
+		}
+
+		// Create Commits loading dialog
+		if (this.state.committing) {
+			const commitCount = this.state.commits.filter(c => c.message.trim() !== '').length;
+			return this.renderLoadingDialog(
+				'Creating Commits',
+				`Committing ${commitCount} commit${commitCount === 1 ? '' : 's'}.`,
+				this.handleCancelFinishAndCommit,
+			);
+		}
+
+		return '';
+	}
+
+	private renderLoadingDialog(title: string, bodyText: string, onCancel: () => void) {
+		return html`
+			<gl-dialog open modal>
+				<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
+					<h2
+						style="margin: 0; color: var(--vscode-foreground); display: flex; align-items: center; gap: 8px;"
+					>
+						<code-icon icon="loading" modifier="spin"></code-icon>
+						${title}
+					</h2>
+					<p style="margin: 0; font-size: 0.9em; opacity: 0.8;">${bodyText}</p>
+					<div style="display: flex; gap: 8px; justify-content: flex-end;">
+						<gl-button appearance="secondary" @click=${onCancel}>Cancel</gl-button>
+					</div>
+				</div>
+			</gl-dialog>
+		`;
+	}
+
 	private handleGenerateCommitsWithAI(e: CustomEvent) {
 		this.customInstructions = e.detail?.customInstructions ?? '';
-		this.hasUsedAutoCompose = true;
 
 		// Reset feedback state and create new session ID for new composition
 		this.compositionFeedback = null;
@@ -1367,7 +1429,7 @@ export class ComposerApp extends LitElement {
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
 					.customInstructions=${this.customInstructions}
-					.hasUsedAutoCompose=${this.hasUsedAutoCompose}
+					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
 					.aiModel=${this.state.ai?.model}
 					.compositionSummarySelected=${this.compositionSummarySelected}
 					.compositionFeedback=${this.compositionFeedback}
@@ -1425,12 +1487,8 @@ export class ComposerApp extends LitElement {
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
 				></gl-details-panel>
 
-				<!-- Loading overlay for AI operations -->
-				<gl-dialog ?open=${this.state.generatingCommits || this.state.generatingCommitMessage != null} modal>
-					${this.state.generatingCommits
-						? 'Generating commits with AI...'
-						: 'Generating commit message with AI...'}
-				</gl-dialog>
+				<!-- Loading overlays -->
+				${this.renderLoadingDialogs()}
 
 				<!-- Safety error overlay -->
 				<gl-dialog ?open=${this.state.safetyError != null} modal>
