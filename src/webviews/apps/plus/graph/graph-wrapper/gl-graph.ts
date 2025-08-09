@@ -12,8 +12,8 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 } from '../../../../plus/graph/protocol';
-import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './graph-wrapper.react';
-import { GraphWrapperReact } from './graph-wrapper.react';
+import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './gl-graph.react';
+import { GlGraphReact } from './gl-graph.react';
 
 /**
  * A LitElement web component that encapsulates the GraphWrapperReact component.
@@ -112,7 +112,7 @@ export class GlGraph extends LitElement {
 			this.reactRoot.unmount();
 			this.reactRoot = null;
 		}
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	private changedProps: Map<string, unknown> = new Map();
@@ -146,7 +146,7 @@ export class GlGraph extends LitElement {
 
 		// Mount the React component
 		this.reactRoot.render(
-			createElement(GraphWrapperReact, {
+			createElement(GlGraphReact, {
 				setRef: this.setRef,
 				subscriber: this.setReactStateProvider,
 

@@ -121,12 +121,13 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				return;
 			}
 
-			this.openDocument(result, `/explain/branch/${branch.ref}/${result.model.id}`, {
-				header: {
-					title: 'Branch Summary',
-					subtitle: branch.name,
-					aiModel: result.model.name,
-				},
+			const {
+				aiPromise,
+				info: { model },
+			} = result;
+
+			this.openDocument(aiPromise, `/explain/branch/${branch.ref}/${model.id}`, model, 'explain-branch', {
+				header: { title: 'Branch Summary', subtitle: branch.name },
 				command: {
 					label: 'Explain Branch Changes',
 					name: 'gitlens.ai.explainBranch',

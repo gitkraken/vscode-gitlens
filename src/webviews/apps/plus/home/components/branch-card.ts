@@ -475,7 +475,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	get isWorktree(): boolean {
-		return this.branch.worktree != null;
+		return this.branch.worktree != null && !this.branch.worktree.isDefault;
 	}
 
 	get cardIndicator(): GlCard['indicator'] {
@@ -528,12 +528,12 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 		this.attachFocusListener();
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 		this.eventController?.abort();
 	}
 
@@ -544,15 +544,15 @@ export abstract class GlBranchCardBase extends GlElement {
 			if (this.eventController == null) {
 				this.eventController = new AbortController();
 			}
-			this.addEventListener('focusin', this.onFocus.bind(this), { signal: this.eventController.signal });
+			this.addEventListener('focusin', this.onFocus, { signal: this.eventController.signal });
 		}
 	}
 
-	private onFocus(e: FocusEvent) {
+	private readonly onFocus = (e: FocusEvent) => {
 		const actionElement = e.composedPath().some(el => (el as HTMLElement).matches?.('action-item') ?? false);
 		if (actionElement || this.expanded) return;
 		this.toggleExpanded(true);
-	}
+	};
 
 	protected renderIssues(): TemplateResult | NothingType {
 		const { autolinks, issues } = this;
@@ -807,9 +807,9 @@ export abstract class GlBranchCardBase extends GlElement {
 												source: { source: 'home', detail: 'create-pr' },
 											},
 										)}"
-								  >
+									>
 										<code-icon icon="sparkle"></code-icon>
-								  </gl-button>`
+									</gl-button>`
 								: nothing}
 						</button-container>
 					</div>
@@ -819,7 +819,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		}
 
 		const indicator: GlCard['indicator'] = this.branch.opened
-			? getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base'
+			? (getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base')
 			: undefined;
 
 		const actions = this.renderPrActions();
@@ -883,7 +883,7 @@ export abstract class GlBranchCardBase extends GlElement {
 						slot="summary"
 						><gl-tooltip placement="bottom" content="${groupLabel}"
 							><code-icon icon="${groupIconString}"></code-icon></gl-tooltip
-				  ></span>`
+					></span>`
 				: nothing}`;
 	}
 
@@ -951,7 +951,7 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getCollapsedActions(): TemplateResult[] {
 		const actions = [];
 
-		if (this.branch.worktree) {
+		if (this.isWorktree) {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
@@ -974,6 +974,22 @@ export class GlBranchCard extends GlBranchCardBase {
 			);
 		}
 
+		actions.push(
+			html`<action-item
+				label="Open in Commit Graph"
+				icon="gl-graph"
+				href=${createCommandLink('gitlens.home.openInGraph', {
+					...this.branchRef,
+					type: 'branch',
+				} satisfies OpenInGraphParams)}
+			></action-item>`,
+			html`<action-item
+				label=${this.isWorktree ? 'Open in Worktrees View' : 'Open in Branches View'}
+				icon="arrow-right"
+				href=${this.createCommandLink('gitlens.openInView.branch:home')}
+			></action-item>`,
+		);
+
 		return actions;
 	}
 
@@ -982,7 +998,7 @@ export class GlBranchCard extends GlBranchCardBase {
 
 		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
 
-		if (this.branch.worktree) {
+		if (this.isWorktree) {
 			actions.push(
 				html`<action-item
 					label="Open Worktree"
@@ -1002,7 +1018,7 @@ export class GlBranchCard extends GlBranchCardBase {
 						? this.wip.workingTreeState.added +
 								this.wip.workingTreeState.changed +
 								this.wip.workingTreeState.deleted >
-						  0
+							0
 						: false;
 				if (hasWip) {
 					actions.push(
@@ -1069,6 +1085,11 @@ export class GlBranchCard extends GlBranchCardBase {
 					...this.branchRef,
 					type: 'branch',
 				} satisfies OpenInGraphParams)}
+			></action-item>`,
+			html`<action-item
+				label=${this.isWorktree ? 'Open in Worktrees View' : 'Open in Branches View'}
+				icon="arrow-right"
+				href=${this.createCommandLink('gitlens.openInView.branch:home')}
 			></action-item>`,
 		);
 

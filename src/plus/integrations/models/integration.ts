@@ -50,6 +50,29 @@ export type IntegrationResult<T> =
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
 
+type SyncReqUsecase = Exclude<
+	| 'getAccountForCommit'
+	| 'getAccountForEmail'
+	| 'getAccountForResource'
+	| 'getCurrentAccount'
+	| 'getDefaultBranch'
+	| 'getIssue'
+	| 'getIssueOrPullRequest'
+	| 'getIssuesForProject'
+	| 'getProjectsForResources'
+	| 'getPullRequest'
+	| 'getPullRequestForBranch'
+	| 'getPullRequestForCommit'
+	| 'getRepositoryMetadata'
+	| 'getResourcesForUser'
+	| 'mergePullRequest'
+	| 'searchMyIssues'
+	| 'searchMyPullRequests'
+	| 'searchPullRequests',
+	// excluding to show explicitly that we don't want to add 'all' key occasionally
+	'all'
+>;
+
 export abstract class IntegrationBase<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
@@ -174,7 +197,7 @@ export abstract class IntegrationBase<
 			void authProvider.deleteSession(this.authProviderDescriptor);
 		}
 
-		this.resetRequestExceptionCount();
+		this.resetRequestExceptionCount('all');
 		this._session = null;
 
 		if (connected) {
@@ -207,9 +230,30 @@ export abstract class IntegrationBase<
 		void this.ensureSession({ createIfNeeded: false });
 	}
 
+	private _syncRequestsPerFailedUsecase = new Set<SyncReqUsecase>();
+	hasSessionSyncRequests(): boolean {
+		return this._syncRequestsPerFailedUsecase.size > 0;
+	}
+	requestSessionSyncForUsecase(syncReqUsecase: SyncReqUsecase): void {
+		this._syncRequestsPerFailedUsecase.add(syncReqUsecase);
+	}
+	private static readonly requestExceptionLimit = 5;
 	private requestExceptionCount = 0;
 
-	resetRequestExceptionCount(): void {
+	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all'): void {
+		this.requestExceptionCount = 0;
+		if (syncReqUsecase === 'all') {
+			this._syncRequestsPerFailedUsecase.clear();
+		} else {
+			this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
+		}
+	}
+
+	/**
+	 * Resets request exceptions without resetting the amount of syncs
+	 */
+	smoothifyRequestExceptionCount(): void {
+		// On resync we reset exception count only to avoid infinitive syncs on failure
 		this.requestExceptionCount = 0;
 	}
 
@@ -234,7 +278,8 @@ export abstract class IntegrationBase<
 		}
 
 		switch (state) {
-			case 'connected':
+			case 'connected': {
+				const oldSession = this._session;
 				if (forceSync) {
 					// Reset our stored session so that we get a new one from the cloud
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
@@ -257,23 +302,42 @@ export abstract class IntegrationBase<
 
 				// sync option, rather than createIfNeeded, makes sure we don't call connectCloudIntegrations and open a gkdev window
 				// if there was no session or some problem fetching/refreshing the existing session from the cloud api
-				await this.ensureSession({ sync: forceSync });
+				const newSession = await this.ensureSession({ sync: forceSync });
+
+				if (oldSession && newSession && newSession.accessToken !== oldSession.accessToken) {
+					this.resetRequestExceptionCount('all');
+				}
+
 				break;
+			}
 			case 'disconnected':
 				await this.disconnect({ silent: true });
 				break;
 		}
 	}
 
-	protected handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
-		if (ex instanceof CancellationError) return defaultValue;
+	protected handleProviderException(
+		syncReqUsecase: SyncReqUsecase,
+		ex: Error,
+		options?: { scope?: LogScope | undefined; silent?: boolean },
+	): void {
+		if (ex instanceof CancellationError) return;
 
-		Logger.error(ex, scope);
+		Logger.error(ex, options?.scope);
 
-		if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
-			this.trackRequestException();
+		if (ex instanceof AuthenticationError && this._session?.cloud) {
+			if (!this.hasSessionSyncRequests()) {
+				this.requestSessionSyncForUsecase(syncReqUsecase);
+				this._session = {
+					...this._session,
+					expiresAt: new Date(Date.now() - 1),
+				};
+			} else {
+				this.trackRequestException(options);
+			}
+		} else if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
+			this.trackRequestException(options);
 		}
-		return defaultValue;
 	}
 
 	private missingExpirityReported = false;
@@ -301,11 +365,13 @@ export abstract class IntegrationBase<
 	}
 
 	@debug()
-	trackRequestException(): void {
+	trackRequestException(options?: { silent?: boolean }): void {
 		this.requestExceptionCount++;
 
-		if (this.requestExceptionCount >= 5 && this._session !== null) {
-			void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
+		if (this.requestExceptionCount >= IntegrationBase.requestExceptionLimit && this._session !== null) {
+			if (!options?.silent) {
+				void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
+			}
 			void this.disconnect({ currentSessionOnly: true });
 		}
 	}
@@ -353,8 +419,12 @@ export abstract class IntegrationBase<
 							createIfNeeded: createIfNeeded,
 							forceNewSession: forceNewSession,
 							source: source,
-					  },
+						},
 			);
+
+			if (session?.expiresAt != null && session.expiresAt < new Date()) {
+				session = null;
+			}
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 
@@ -370,7 +440,7 @@ export abstract class IntegrationBase<
 		}
 
 		this._session = session ?? null;
-		this.resetRequestExceptionCount();
+		this.smoothifyRequestExceptionCount();
 
 		if (session != null) {
 			await this.container.storage.storeWorkspace(this.connectedKey, true);
@@ -414,10 +484,11 @@ export abstract class IntegrationBase<
 				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
 				cancellation,
 			);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('searchMyIssues');
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<IssueShape[] | undefined>(ex, scope, undefined);
+			this.handleProviderException('searchMyIssues', ex, { scope: scope });
+			return undefined;
 		}
 	}
 
@@ -454,10 +525,11 @@ export abstract class IntegrationBase<
 							id,
 							options?.type,
 						);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getIssueOrPullRequest');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
+						this.handleProviderException('getIssueOrPullRequest', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -494,10 +566,11 @@ export abstract class IntegrationBase<
 				value: (async () => {
 					try {
 						const result = await this.getProviderIssue(this._session!, resource, id);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getIssue');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<Issue | undefined>(ex, scope, undefined);
+						this.handleProviderException('getIssue', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -531,10 +604,11 @@ export abstract class IntegrationBase<
 				value: (async () => {
 					try {
 						const account = await this.getProviderCurrentAccount?.(this._session!, opts);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
-						return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+						this.handleProviderException('getCurrentAccount', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -561,10 +635,11 @@ export abstract class IntegrationBase<
 			value: (async () => {
 				try {
 					const result = await this.getProviderPullRequest?.(this._session!, resource, id);
-					this.resetRequestExceptionCount();
+					this.resetRequestExceptionCount('getPullRequest');
 					return result;
 				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+					this.handleProviderException('getPullRequest', ex, { scope: scope });
+					return undefined;
 				}
 			})(),
 		}));

@@ -25,12 +25,13 @@ export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, M
 }
 
 export type AIActionType =
+	| 'explain-changes'
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
 	| 'generate-rebase'
-	| 'explain-changes';
+	| 'generate-searchQuery';
 
 export interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 	new (container: Container, connection: ServerConnection): AIProvider<Provider>;
@@ -93,6 +94,45 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		id: 'gpt-4.1-nano-2025-04-14',
 		name: 'GPT-4.1 nano (2025-04-14)',
 		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-5',
+		name: 'GPT-5',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-5-2025-08-07',
+		name: 'GPT-5',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-5-mini',
+		name: 'GPT-5 mini',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-5-mini-2025-08-07',
+		name: 'GPT-5 mini',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-5-nano',
+		name: 'GPT-5 nano',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-5-nano-2025-08-07',
+		name: 'GPT-5 nano',
+		maxTokens: { input: 400000, output: 128000 },
 		provider: provider,
 		hidden: true,
 	},

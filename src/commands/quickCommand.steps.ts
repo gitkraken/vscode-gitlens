@@ -3,14 +3,14 @@ import { ThemeIcon } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features';
-import * as BranchActions from '../git/actions/branch';
-import * as CommitActions from '../git/actions/commit';
-import * as ContributorActions from '../git/actions/contributor';
-import * as RemoteActions from '../git/actions/remote';
-import * as RepositoryActions from '../git/actions/repository';
-import * as StashActions from '../git/actions/stash';
-import * as TagActions from '../git/actions/tag';
-import * as WorktreeActions from '../git/actions/worktree';
+import { revealBranch } from '../git/actions/branch';
+import { openChanges, revealCommit, showCommitInDetailsView } from '../git/actions/commit';
+import { revealContributor } from '../git/actions/contributor';
+import { revealRemote } from '../git/actions/remote';
+import { revealRepository } from '../git/actions/repository';
+import { revealStash, showStashInDetailsView } from '../git/actions/stash';
+import { revealTag } from '../git/actions/tag';
+import { revealWorktree } from '../git/actions/worktree';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
@@ -28,8 +28,16 @@ import type { GitWorktree } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
 import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
-import { sortBranches, sortContributors, sortTags, sortWorktrees } from '../git/utils/-webview/sorting';
+import {
+	sortBranches,
+	sortContributors,
+	sortRepositories,
+	sortRepositoriesGrouped,
+	sortTags,
+	sortWorktrees,
+} from '../git/utils/-webview/sorting';
 import type { WorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
 import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
 import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils';
@@ -319,7 +327,7 @@ export async function getBranchesAndOrTags(
 				? repo.git.branches.getBranches({
 						filter: filter?.branches,
 						sort: typeof sort === 'boolean' ? sort : sort?.branches,
-				  })
+					})
 				: undefined,
 			include.includes('tags') ? repo.git.tags.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
@@ -339,7 +347,7 @@ export async function getBranchesAndOrTags(
 								sort: typeof sort === 'boolean' ? sort : sort?.branches,
 							}),
 						),
-				  )
+					)
 				: undefined,
 			include.includes('tags')
 				? Promise.allSettled(
@@ -349,7 +357,7 @@ export async function getBranchesAndOrTags(
 								sort: typeof sort === 'boolean' ? sort : sort?.tags,
 							}),
 						),
-				  )
+					)
 				: undefined,
 		]);
 
@@ -756,7 +764,7 @@ export function* pickBranchStep<
 		filter: filter,
 		picked: picked,
 	}).then(branches =>
-		branches.length === 0
+		!branches.length
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: branches,
 	);
@@ -768,16 +776,12 @@ export function* pickBranchStep<
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealBranch(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await BranchActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealBranch(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -801,13 +805,16 @@ export function* pickOrResetBranchStep<
 		filter?: (b: GitBranch) => boolean;
 		picked?: string | string[];
 		placeholder: string;
-		title?: string;
-		reset: {
-			allowed: boolean;
-			label?: string;
+		reset?: {
+			label: string;
 			description?: string;
 			detail?: string;
+			button?: {
+				icon: ThemeIcon;
+				tooltip: string;
+			};
 		};
+		title?: string;
 	},
 ): StepResultGenerator<GitBranchReference | undefined> {
 	const items = getBranches(state.repo, {
@@ -815,34 +822,33 @@ export function* pickOrResetBranchStep<
 		filter: filter,
 		picked: picked,
 	}).then(branches =>
-		branches.length === 0
+		!branches.length
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: [
-					...(reset.allowed
+					...(reset
 						? [
 								createDirectiveQuickPickItem(Directive.Reset, false, {
 									label: reset.label,
 									description: reset.description,
 									detail: reset.detail,
 								}),
-						  ]
+							]
 						: []),
 					...branches,
-			  ],
+				],
 	);
 
-	const resetButton: QuickInputButton = {
-		iconPath: new ThemeIcon('discard'),
-		tooltip: reset.label,
-	};
-
+	const resetButton: QuickInputButton | undefined = reset?.button
+		? { iconPath: reset.button.icon, tooltip: reset.button?.tooltip }
+		: undefined;
 	let resetButtonClicked = false;
+
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
 		placeholder: count => (!count ? `No branches found in ${state.repo.name}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		additionalButtons: reset.allowed ? [resetButton] : [],
+		additionalButtons: resetButton ? [resetButton] : [],
 		onDidClickButton: (_quickpick, button) => {
 			if (button === resetButton) {
 				resetButtonClicked = true;
@@ -852,23 +858,18 @@ export function* pickOrResetBranchStep<
 		},
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealBranch(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await BranchActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealBranch(item, { select: true, focus: false, expand: true });
 		},
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	if (resetButtonClicked) {
-		return undefined;
-	}
+	if (resetButtonClicked) return undefined;
+
 	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
@@ -908,21 +909,17 @@ export function* pickBranchesStep<
 	const step = createPickStep<BranchQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(title ?? context.title, state, context),
-		placeholder: count => (!count ? emptyPlaceholder ?? `No branches found in ${state.repo.name}` : placeholder),
+		placeholder: count => (!count ? (emptyPlaceholder ?? `No branches found in ${state.repo.name}`) : placeholder),
 		matchOnDetail: true,
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealBranch(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await BranchActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealBranch(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -982,7 +979,7 @@ export function* pickBranchOrTagStep<
 				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.name}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
-				  } (or enter a revision using #)`,
+					} (or enter a revision using #)`,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value,
@@ -997,11 +994,11 @@ export function* pickBranchOrTagStep<
 
 			if (button === RevealInSideBarQuickInputButton) {
 				if (isBranchReference(item)) {
-					void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+					void revealBranch(item, { select: true, focus: false, expand: true });
 				} else if (isTagReference(item)) {
-					void TagActions.reveal(item, { select: true, focus: false, expand: true });
+					void revealTag(item, { select: true, focus: false, expand: true });
 				} else if (isRevisionReference(item)) {
-					void CommitActions.showDetailsView(item, { pin: false, preserveFocus: true });
+					void showCommitInDetailsView(item, { pin: false, preserveFocus: true });
 				}
 			}
 			return false;
@@ -1020,7 +1017,7 @@ export function* pickBranchOrTagStep<
 							? `${state.repo.name} has no branches${context.showTags ? ' or tags' : ''}`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
-							  } (or enter a revision using #)`;
+								} (or enter a revision using #)`;
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
@@ -1030,11 +1027,11 @@ export function* pickBranchOrTagStep<
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
 			if (isBranchReference(item)) {
-				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealBranch(item, { select: true, focus: false, expand: true });
 			} else if (isTagReference(item)) {
-				void TagActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealTag(item, { select: true, focus: false, expand: true });
 			} else if (isRevisionReference(item)) {
-				void CommitActions.showDetailsView(item, { pin: false, preserveFocus: true });
+				void showCommitInDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo, { ranges: ranges }),
@@ -1099,8 +1096,8 @@ export function* pickBranchOrTagStepMultiRepo<
 		branchesAndOrTags.length === 0
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: allowCreate
-			  ? [createNewBranchItem, choosePullRequestItem, ...branchesAndOrTags]
-			  : [choosePullRequestItem, ...branchesAndOrTags],
+				? [createNewBranchItem, choosePullRequestItem, ...branchesAndOrTags]
+				: [choosePullRequestItem, ...branchesAndOrTags],
 	);
 
 	const step = createPickStep<ReferencesQuickPickItem | typeof createNewBranchItem | typeof choosePullRequestItem>({
@@ -1109,10 +1106,10 @@ export function* pickBranchOrTagStepMultiRepo<
 			!count
 				? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 						context.showTags ? ' or tags' : ''
-				  } found in ${state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`}`
+					} found in ${state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`}`
 				: `${
 						typeof placeholder === 'string' ? placeholder : placeholder(context)
-				  } (or enter a revision using #)`,
+					} (or enter a revision using #)`,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value ?? (isRevisionReference(state.reference) ? state.reference.ref : undefined),
@@ -1128,11 +1125,11 @@ export function* pickBranchOrTagStepMultiRepo<
 
 			if (button === RevealInSideBarQuickInputButton) {
 				if (isBranchReference(item)) {
-					void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+					void revealBranch(item, { select: true, focus: false, expand: true });
 				} else if (isTagReference(item)) {
-					void TagActions.reveal(item, { select: true, focus: false, expand: true });
+					void revealTag(item, { select: true, focus: false, expand: true });
 				} else if (isRevisionReference(item)) {
-					void CommitActions.showDetailsView(item, { pin: false, preserveFocus: true });
+					void showCommitInDetailsView(item, { pin: false, preserveFocus: true });
 				}
 			}
 		},
@@ -1149,12 +1146,12 @@ export function* pickBranchOrTagStepMultiRepo<
 						branchesAndOrTags.length === 0
 							? `No ${state.repos.length === 1 ? '' : 'common '}branches${
 									context.showTags ? ' or tags' : ''
-							  } found in ${
+								} found in ${
 									state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`
-							  }`
+								}`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
-							  } (or enter a revision using #)`;
+								} (or enter a revision using #)`;
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
@@ -1166,11 +1163,11 @@ export function* pickBranchOrTagStepMultiRepo<
 			if (typeof item === 'string' || isCrossCommandReference(item)) return;
 
 			if (isBranchReference(item)) {
-				void BranchActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealBranch(item, { select: true, focus: false, expand: true });
 			} else if (isTagReference(item)) {
-				void TagActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealTag(item, { select: true, focus: false, expand: true });
 			} else if (isRevisionReference(item)) {
-				void CommitActions.showDetailsView(item, { pin: false, preserveFocus: true });
+				void showCommitInDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repos),
@@ -1277,20 +1274,16 @@ export async function* pickCommitStep<
 
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
-					void CommitActions.showDetailsView(item.item, { pin: false, preserveFocus: true });
+					void showCommitInDetailsView(item.item, { pin: false, preserveFocus: true });
 					break;
 
 				case RevealInSideBarQuickInputButton:
-					void CommitActions.reveal(item.item, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
+					void revealCommit(item.item, { select: true, focus: false, expand: true });
 					break;
 				case OpenChangesViewQuickInputButton: {
 					const path = item.item.file?.path;
 					if (path != null) {
-						void CommitActions.openChanges(path, item.item);
+						void openChanges(path, item.item);
 					}
 					break;
 				}
@@ -1314,13 +1307,9 @@ export async function* pickCommitStep<
 			);
 
 			if (key === 'ctrl+right') {
-				void CommitActions.showDetailsView(items[0].item, { pin: false, preserveFocus: true });
+				void showCommitInDetailsView(items[0].item, { pin: false, preserveFocus: true });
 			} else {
-				await CommitActions.reveal(items[0].item, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
+				await revealCommit(items[0].item, { select: true, focus: false, expand: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo, {
@@ -1412,31 +1401,20 @@ export function* pickCommitsStep<
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
-					void CommitActions.showDetailsView(item, { pin: false, preserveFocus: true });
+					void showCommitInDetailsView(item, { pin: false, preserveFocus: true });
 					break;
 
 				case RevealInSideBarQuickInputButton:
-					void CommitActions.reveal(item, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
+					void revealCommit(item, { select: true, focus: false, expand: true });
 					break;
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, key, { item }) => {
 			if (key === 'ctrl+right') {
-				void CommitActions.showDetailsView(item, {
-					pin: false,
-					preserveFocus: true,
-				});
+				void showCommitInDetailsView(item, { pin: false, preserveFocus: true });
 			} else {
-				await CommitActions.reveal(item, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
+				await revealCommit(item, { select: true, focus: false, expand: true });
 			}
 		},
 	});
@@ -1474,7 +1452,7 @@ export function* pickContributorsStep<
 		items: getItems(),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void ContributorActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealContributor(item, { select: true, focus: false, expand: true });
 			}
 		},
 		onDidChangeSelection: debounce((quickpick, e) => {
@@ -1498,11 +1476,7 @@ export function* pickContributorsStep<
 		}, 10),
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
-			void ContributorActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			void revealContributor(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -1545,16 +1519,12 @@ export function* pickRemoteStep<
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void RemoteActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealRemote(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await RemoteActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealRemote(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -1599,16 +1569,12 @@ export function* pickRemotesStep<
 
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void RemoteActions.reveal(item, { select: true, focus: false, expand: true });
+				void revealRemote(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await RemoteActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealRemote(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -1619,59 +1585,59 @@ export function* pickRemotesStep<
 export async function* pickRepositoryStep<
 	State extends PartialStepState & { repo?: string | Repository },
 	Context extends { repos: Repository[]; title: string; associatedView: ViewsWithRepositoryFolders },
->(state: State, context: Context, placeholder: string = 'Choose a repository'): AsyncStepResultGenerator<Repository> {
+>(
+	state: State,
+	context: Context,
+	options?: { excludeWorktrees?: boolean; placeholder?: string },
+): AsyncStepResultGenerator<Repository> {
 	if (typeof state.repo === 'string') {
 		state.repo = Container.instance.git.getRepository(state.repo);
 		if (state.repo != null) return state.repo;
 	}
-	let active;
-	try {
-		active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
-	} catch (ex) {
-		Logger.log(
-			'pickRepositoryStep: failed to get active repository. Normally it happens when the currently open file does not belong to a repository',
-			ex,
-		);
-		active = undefined;
+
+	const active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
+
+	let repos = context.repos;
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
 	}
+
+	if (repos.length === 1) return repos[0];
+
+	const placeholder = options?.placeholder ?? 'Choose a repository';
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
-		placeholder: context.repos.length === 0 ? `${placeholder} — no opened repositories found` : placeholder,
-		items:
-			context.repos.length === 0
-				? [
-						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'Cancel',
-							detail: 'No opened repositories found',
+		placeholder: !repos.length ? `${placeholder} — no opened repositories found` : placeholder,
+		items: !repos.length
+			? [
+					createDirectiveQuickPickItem(Directive.Cancel, true, {
+						label: 'Cancel',
+						detail: 'No opened repositories found',
+					}),
+				]
+			: Promise.all(
+					repos.map(r =>
+						createRepositoryQuickPickItem(r, r.id === active?.id, {
+							branch: true,
+							buttons: [RevealInSideBarQuickInputButton],
+							fetched: true,
+							indent: !grouped.has(r),
+							status: true,
 						}),
-				  ]
-				: Promise.all(
-						context.repos.map(r =>
-							createRepositoryQuickPickItem(r, r.id === active?.id, {
-								branch: true,
-								buttons: [RevealInSideBarQuickInputButton],
-								fetched: true,
-								status: true,
-							}),
-						),
-				  ),
+					),
+				),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void RepositoryActions.reveal(item.path, context.associatedView, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
+				void revealRepository(item.path, context.associatedView, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
-			void RepositoryActions.reveal(item.path, context.associatedView, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			void revealRepository(item.path, context.associatedView, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -1685,15 +1651,13 @@ export async function* pickRepositoriesStep<
 >(
 	state: State,
 	context: Context,
-	options?: { placeholder?: string; skipIfPossible?: boolean },
+	options?: { excludeWorktrees?: boolean; placeholder?: string; skipIfPossible?: boolean },
 ): AsyncStepResultGenerator<Repository[]> {
-	options = { placeholder: 'Choose repositories', skipIfPossible: false, ...options };
-
 	let actives: Repository[];
 	if (state.repos != null) {
 		if (isStringArray(state.repos)) {
 			actives = filterMap(state.repos, path => context.repos.find(r => r.path === path));
-			if (options.skipIfPossible && actives.length !== 0 && state.repos.length === actives.length) {
+			if (options?.skipIfPossible && actives.length && state.repos.length === actives.length) {
 				return actives;
 			}
 		} else {
@@ -1704,49 +1668,50 @@ export async function* pickRepositoriesStep<
 		actives = active != null ? [active] : [];
 	}
 
+	let repos = context.repos;
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
+	}
+
+	const placeholder = options?.placeholder ?? 'Choose a repository';
+
 	const step = createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
-		placeholder:
-			context.repos.length === 0 ? `${options.placeholder} — no opened repositories found` : options.placeholder,
-		items:
-			context.repos.length === 0
-				? [
-						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'Cancel',
-							detail: 'No opened repositories found',
-						}),
-				  ]
-				: Promise.all(
-						context.repos.map(repo =>
-							createRepositoryQuickPickItem(
-								repo,
-								actives.some(r => r.id === repo.id),
-								{
-									branch: true,
-									buttons: [RevealInSideBarQuickInputButton],
-									fetched: true,
-									status: true,
-								},
-							),
+		placeholder: !repos.length ? `${placeholder} — no opened repositories found` : placeholder,
+		items: !repos.length
+			? [
+					createDirectiveQuickPickItem(Directive.Cancel, true, {
+						label: 'Cancel',
+						detail: 'No opened repositories found',
+					}),
+				]
+			: Promise.all(
+					repos.map(repo =>
+						createRepositoryQuickPickItem(
+							repo,
+							actives.some(r => r.id === repo.id),
+							{
+								branch: true,
+								buttons: [RevealInSideBarQuickInputButton],
+								fetched: true,
+								indent: !grouped.has(repo),
+								status: true,
+							},
 						),
-				  ),
+					),
+				),
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void RepositoryActions.reveal(item.path, context.associatedView, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
+				void revealRepository(item.path, context.associatedView, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: (_quickpick, _key, { item }) => {
-			void RepositoryActions.reveal(item.path, context.associatedView, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			void revealRepository(item.path, context.associatedView, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -1795,15 +1760,15 @@ export function* pickStashStep<
 							},
 						),
 					),
-			  ],
+				],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === ShowDetailsViewQuickInputButton) {
-				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
+				void showStashInDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
+			await showStashInDetailsView(item, { pin: false, preserveFocus: true });
 		},
 	});
 
@@ -1853,15 +1818,15 @@ export function* pickStashesStep<
 							},
 						),
 					),
-			  ],
+				],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === ShowDetailsViewQuickInputButton) {
-				void StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
+				void showStashInDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await StashActions.showDetailsView(item, { pin: false, preserveFocus: true });
+			await showStashInDetailsView(item, { pin: false, preserveFocus: true });
 		},
 	});
 
@@ -1905,20 +1870,12 @@ export function* pickTagsStep<
 		items: items,
 		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
-				void TagActions.reveal(item, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
+				void revealTag(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await TagActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealTag(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -1971,17 +1928,13 @@ export function* pickWorktreeStep<
 					openWorkspace(item.uri, { location: 'newWindow' });
 					break;
 				case RevealInSideBarQuickInputButton:
-					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
+					void revealWorktree(item, { select: true, focus: false, expand: true });
 					break;
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await WorktreeActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealWorktree(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -2035,17 +1988,13 @@ export function* pickWorktreesStep<
 					openWorkspace(item.uri, { location: 'newWindow' });
 					break;
 				case RevealInSideBarQuickInputButton:
-					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
+					void revealWorktree(item, { select: true, focus: false, expand: true });
 					break;
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (_quickpick, _key, { item }) => {
-			await WorktreeActions.reveal(item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await revealWorktree(item, { select: true, focus: false, expand: true });
 		},
 	});
 
@@ -2078,27 +2027,16 @@ export function* showCommitOrStashStep<
 				switch (button) {
 					case ShowDetailsViewQuickInputButton:
 						if (isStashReference(state.reference)) {
-							void StashActions.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+							void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 						} else {
-							void CommitActions.showDetailsView(state.reference, {
-								pin: false,
-								preserveFocus: true,
-							});
+							void showCommitInDetailsView(state.reference, { pin: false, preserveFocus: true });
 						}
 						break;
 					case RevealInSideBarQuickInputButton:
 						if (isStashReference(state.reference)) {
-							void StashActions.reveal(state.reference, {
-								select: true,
-								focus: false,
-								expand: true,
-							});
+							void revealStash(state.reference, { select: true, focus: false, expand: true });
 						} else {
-							void CommitActions.reveal(state.reference, {
-								select: true,
-								focus: false,
-								expand: true,
-							});
+							void revealCommit(state.reference, { select: true, focus: false, expand: true });
 						}
 						break;
 				}
@@ -2179,7 +2117,7 @@ async function getShowCommitOrStashStepItems<
 			branch != null
 				? state.repo.git.branches.getBranchesWithCommits([state.reference.ref], branch.name, {
 						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
-				  })
+					})
 				: undefined,
 			!branch?.remote && branch?.upstream != null ? state.reference.isPushed() : undefined,
 		]);
@@ -2368,27 +2306,16 @@ export function* showCommitOrStashFilesStep<
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
 					if (isStashReference(state.reference)) {
-						void StashActions.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else {
-						void CommitActions.showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showCommitInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					}
 					break;
 				case RevealInSideBarQuickInputButton:
 					if (isStashReference(state.reference)) {
-						void StashActions.reveal(state.reference, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, focus: false, expand: true });
 					} else {
-						void CommitActions.reveal(state.reference, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
+						void revealCommit(state.reference, { select: true, focus: false, expand: true });
 					}
 					break;
 			}
@@ -2434,27 +2361,16 @@ export function* showCommitOrStashFileStep<
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
 					if (isStashReference(state.reference)) {
-						void StashActions.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else {
-						void CommitActions.showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showCommitInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					}
 					break;
 				case RevealInSideBarQuickInputButton:
 					if (isStashReference(state.reference)) {
-						void StashActions.reveal(state.reference, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, focus: false, expand: true });
 					} else {
-						void CommitActions.reveal(state.reference, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
+						void revealCommit(state.reference, { select: true, focus: false, expand: true });
 					}
 					break;
 			}
@@ -2611,7 +2527,7 @@ function getShowRepositoryStatusStepItems<
 			computed.unstaged
 				? `${computed.staged ? ', ' : ''}${pluralize('unstaged file', computed.unstaged)} (${
 						computed.unstagedStatus
-				  })`
+					})`
 				: ''
 		}`;
 	}

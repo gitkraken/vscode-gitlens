@@ -67,7 +67,20 @@ export interface OrgAIConfig {
 	readonly aiProviders: OrgAIProviders;
 }
 
-export type GkDevAIProviderType = 'anthropic' | 'azure' | 'gitkraken_ai' | 'openai' | 'openai_compatible';
+export type GkDevAIProviderType =
+	| 'anthropic'
+	| 'azure'
+	| 'deepseek'
+	| 'github_copilot'
+	| 'gitkraken_ai'
+	| 'google'
+	| 'huggingface'
+	| 'mistral'
+	| 'ollama'
+	| 'openai'
+	| 'openai_compatible'
+	| 'openrouter'
+	| 'xai';
 
 export function fromGkDevAIProviderType(type: GkDevAIProviderType): AIProviders;
 export function fromGkDevAIProviderType(type: Exclude<unknown, GkDevAIProviderType>): never;
@@ -77,14 +90,28 @@ export function fromGkDevAIProviderType(type: unknown): AIProviders | never {
 			return 'anthropic';
 		case 'azure':
 			return 'azure';
+		case 'deepseek':
+			return 'deepseek';
+		case 'github_copilot':
+			return 'vscode';
 		case 'gitkraken_ai':
 			return 'gitkraken';
+		case 'google':
+			return 'gemini';
+		case 'huggingface':
+			return 'huggingface';
+		case 'mistral':
+			return 'mistral';
+		case 'ollama':
+			return 'ollama';
 		case 'openai':
 			return 'openai';
 		case 'openai_compatible':
 			return 'openaicompatible';
-		case 'ollama':
-			return 'ollama';
+		case 'openrouter':
+			return 'openrouter';
+		case 'xai':
+			return 'xai';
 		default:
 			throw new Error(`Unknown AI provider type: ${String(type)}`);
 	}

@@ -121,7 +121,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 
 		if (options?.branchName != null && currentBranch?.name !== options.branchName) {
-			const checkoutRef = shouldCreate ? currentBranch?.ref ?? 'HEAD' : options.branchName;
+			const checkoutRef = shouldCreate ? (currentBranch?.ref ?? 'HEAD') : options.branchName;
 			await this.provider.checkout(targetPath, checkoutRef, {
 				createBranch: shouldCreate ? options.branchName : undefined,
 			});

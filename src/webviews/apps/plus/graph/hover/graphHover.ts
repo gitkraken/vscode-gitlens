@@ -70,14 +70,14 @@ export class GlGraphHover extends GlElement {
 	private unhoverTimer: ReturnType<typeof setTimeout> | undefined;
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
 		window.addEventListener('keydown', this.onWindowKeydown);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this.parentElement?.removeEventListener('mouseleave', this.onParentMouseLeave);
 		window.removeEventListener('keydown', this.onWindowKeydown);

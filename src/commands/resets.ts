@@ -12,8 +12,10 @@ const resetTypes = [
 	'ai',
 	'ai:confirmations',
 	'avatars',
+	'homeSections',
 	'integrations',
 	'previews',
+	'promoOptIns',
 	'repositoryAccess',
 	'subscription',
 	'suppressedWarnings',
@@ -45,6 +47,11 @@ export class ResetCommand extends GlCommandBase {
 				label: 'Avatars...',
 				detail: 'Clears the stored avatar cache',
 				item: 'avatars',
+			},
+			{
+				label: 'Home Sections...',
+				detail: 'Clears dismissed home view banners and sections',
+				item: 'homeSections',
 			},
 			{
 				label: 'Integrations (Authentication)...',
@@ -93,6 +100,11 @@ export class ResetCommand extends GlCommandBase {
 					detail: 'Resets the stored state for feature previews',
 					item: 'previews',
 				},
+				{
+					label: 'Promo Opt-Ins...',
+					detail: 'Clears any locally stored promo opt-ins',
+					item: 'promoOptIns',
+				},
 			);
 		}
 
@@ -132,6 +144,10 @@ export class ResetCommand extends GlCommandBase {
 			case 'previews':
 				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
 				confirm.title = 'Reset Feature Previews';
+				break;
+			case 'promoOptIns':
+				confirmationMessage = 'Are you sure you want to reset all of the locally stored promo opt-ins?';
+				confirm.title = 'Reset Promo Opt-Ins';
 				break;
 			case 'repositoryAccess':
 				confirmationMessage = 'Are you sure you want to reset the repository access cache?';
@@ -190,8 +206,17 @@ export class ResetCommand extends GlCommandBase {
 				resetAvatarCache('all');
 				break;
 
+			case 'homeSections':
+				await this.container.storage.delete('home:sections:collapsed');
+				await this.container.storage.delete('home:walkthrough:dismissed');
+				break;
+
 			case 'integrations':
 				await this.container.integrations.reset();
+				break;
+
+			case 'promoOptIns':
+				await this.container.storage.deleteWithPrefix('gk:promo');
 				break;
 
 			case 'repositoryAccess':

@@ -1,38 +1,41 @@
-import type { Disposable, Event, TextDocumentContentProvider } from 'vscode';
-import { EventEmitter, Uri, workspace } from 'vscode';
+import type { Event, TabChangeEvent, TextDocumentContentProvider } from 'vscode';
+import { Disposable, EventEmitter, TabInputCustom, Uri, window, workspace } from 'vscode';
 import { Schemes } from '../constants';
 import type { GlCommands } from '../constants.commands';
+import type { Container } from '../container';
 import { decodeGitLensRevisionUriAuthority, encodeGitLensRevisionUriAuthority } from '../git/gitUri.authority';
+import type { AIResultContext } from '../plus/ai/aiProviderService';
 
-// gitlens-markdown:{explain}/{entity}/{entityID}/{model}[{/friendlyName}].md
+// gitlens-ai-markdown:{explain}/{entity}/{entityID}/{model}[{/friendlyName}].md
 
 export interface MarkdownContentMetadata {
-	header: {
-		title: string;
-		subtitle?: string;
-		aiModel?: string;
-	};
-	command?: {
-		label: string;
-		name: GlCommands;
-		args?: Record<string, unknown>;
-	};
+	context: AIResultContext;
+	header: { title: string; subtitle?: string };
+	command?: { label: string; name: GlCommands; args?: Record<string, unknown> };
 }
 
 export class MarkdownContentProvider implements TextDocumentContentProvider {
 	private contents = new Map<string, string>();
 	private registration: Disposable;
+	private visibilityTracker: Disposable;
 
 	private _onDidChange = new EventEmitter<Uri>();
 	get onDidChange(): Event<Uri> {
 		return this._onDidChange.event;
 	}
 
-	constructor() {
-		this.registration = workspace.registerTextDocumentContentProvider(Schemes.GitLensMarkdown, this);
+	constructor(private container: Container) {
+		this.registration = workspace.registerTextDocumentContentProvider(Schemes.GitLensAIMarkdown, this);
+
+		// Track tab changes to detect when content needs recovery
+		this.visibilityTracker = Disposable.from(
+			window.tabGroups.onDidChangeTabs((e: TabChangeEvent) => {
+				this.onTabsChanged(e);
+			}),
+		);
 
 		workspace.onDidCloseTextDocument(document => {
-			if (document.uri.scheme === Schemes.GitLensMarkdown) {
+			if (document.uri.scheme === Schemes.GitLensAIMarkdown) {
 				this.contents.delete(document.uri.toString());
 			}
 		});
@@ -42,7 +45,7 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 		let contents = this.contents.get(uri.toString());
 		if (contents != null) return contents;
 
-		contents = getContentFromMarkdownUri(uri);
+		contents = getContentFromMarkdownUri(uri, this.container.telemetry.enabled);
 		if (contents != null) return contents;
 
 		return `# ${uri.path}\n\nNo content available.`;
@@ -50,7 +53,7 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 
 	openDocument(content: string, path: string, label: string, metadata?: MarkdownContentMetadata): Uri {
 		const uri = Uri.from({
-			scheme: Schemes.GitLensMarkdown,
+			scheme: Schemes.GitLensAIMarkdown,
 			authority: metadata ? encodeGitLensRevisionUriAuthority(metadata) : undefined,
 			path: `${path}.md`,
 			query: JSON.stringify({ label: label }),
@@ -76,6 +79,30 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 		this._onDidChange.fire(uri);
 	}
 
+	/**
+	 * Forces content recovery for a document - useful when content gets corrupted
+	 */
+	forceContentRecovery(uri: Uri): void {
+		const uriString = uri.toString();
+		if (!this.contents.has(uriString)) return;
+
+		const storedContent = this.contents.get(uriString);
+		if (!storedContent) return;
+
+		// I'm deleting the content because if I just fire the change once to make VSCode
+		// reach our `provideTextDocumentContent` method
+		// and `provideTextDocumentContent` returns the unchanged conent,
+		// VSCode will not refresh the content, instead it keeps displaying the original conetnt
+		// that the view had when it was opened initially.
+		// That's why I need to blink the content.
+		if (storedContent.at(storedContent.length - 1) === '\n') {
+			this.contents.set(uriString, storedContent.substring(0, storedContent.length - 1));
+		} else {
+			this.contents.set(uriString, `${storedContent}\n`);
+		}
+		this._onDidChange.fire(uri);
+	}
+
 	closeDocument(uri: Uri): void {
 		this.contents.delete(uri.toString());
 	}
@@ -83,10 +110,20 @@ export class MarkdownContentProvider implements TextDocumentContentProvider {
 	dispose(): void {
 		this.contents.clear();
 		this.registration.dispose();
+		this.visibilityTracker.dispose();
+	}
+
+	private onTabsChanged(e: TabChangeEvent) {
+		for (const tab of e.changed) {
+			if (tab.input instanceof TabInputCustom && tab.input.uri.scheme === Schemes.GitLensAIMarkdown) {
+				const uri = tab.input.uri;
+				this.forceContentRecovery(uri);
+			}
+		}
 	}
 }
 
-function getContentFromMarkdownUri(uri: Uri): string | undefined {
+function getContentFromMarkdownUri(uri: Uri, telemetryEnabled: boolean): string | undefined {
 	if (!uri.path.startsWith('/explain')) return undefined;
 
 	const authority = uri.authority;
@@ -96,7 +133,7 @@ function getContentFromMarkdownUri(uri: Uri): string | undefined {
 
 	if (metadata.header == null) return undefined;
 
-	const headerContent = getMarkdownHeaderContent(metadata);
+	const headerContent = getMarkdownHeaderContent(metadata, telemetryEnabled);
 
 	if (metadata.command == null) return `${headerContent}\n\nNo content available.`;
 
@@ -105,12 +142,16 @@ function getContentFromMarkdownUri(uri: Uri): string | undefined {
 	return `${headerContent}\n\n${commandContent}`;
 }
 
-export function getMarkdownHeaderContent(metadata: MarkdownContentMetadata): string {
-	let headerContent = `# ${metadata.header.title}`;
-	if (metadata.header.aiModel != null) {
-		headerContent += `\n\n> Generated by ${metadata.header.aiModel}`;
+export function getMarkdownHeaderContent(metadata: MarkdownContentMetadata, telemetryEnabled: boolean): string {
+	let headerContent = `# ${metadata.header.title}\n\n> Generated by ${metadata.context.model.name}`;
+
+	// Add feedback note if context is provided and telemetry is enabled
+	if (telemetryEnabled) {
+		headerContent +=
+			'\n> \\\n> Use the 👍 and 👎 buttons in the editor toolbar above to provide feedback to help us improve our AI features';
 	}
-	if (metadata.header.subtitle != null) {
+
+	if (metadata.header.subtitle) {
 		headerContent += `\n\n## ${metadata.header.subtitle}`;
 	}
 

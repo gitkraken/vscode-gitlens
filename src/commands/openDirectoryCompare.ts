@@ -63,8 +63,9 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			const repoPath = (await getBestRepositoryOrShowPicker(uri, editor, 'Directory Compare Working Tree With'))
-				?.path;
+			const repoPath = (
+				await getBestRepositoryOrShowPicker(this.container, uri, editor, 'Directory Compare Working Tree With')
+			)?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {

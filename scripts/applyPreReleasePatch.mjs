@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 import fs from 'fs';
 import pkg from '../package.json' with { type: 'json' };
 

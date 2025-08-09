@@ -103,6 +103,7 @@ export const supportedStartWorkIntegrations = [
 	GitCloudHostIntegrationId.GitLab,
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	GitCloudHostIntegrationId.Bitbucket,
 	IssuesCloudHostIntegrationId.Jira,
 ];
@@ -378,10 +379,10 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
 				{
 					placeholder: hasConnectedIntegration
-						? this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
-						  'Connect additional integrations to Start Work'
-						: this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
-						  'Connect an integration to get started with Start Work',
+						? (this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
+							'Connect additional integrations to Start Work')
+						: (this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
+							'Connect an integration to get started with Start Work'),
 					buttons: [],
 					ignoreFocusOut: true,
 				},
@@ -736,6 +737,7 @@ function buildItemTelemetryData(item: StartWorkItem) {
 function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
 		case GitCloudHostIntegrationId.AzureDevOps:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			return OpenOnAzureDevOpsQuickInputButton;
 		case GitCloudHostIntegrationId.Bitbucket:
 			return OpenOnBitbucketQuickInputButton;

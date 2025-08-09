@@ -209,7 +209,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			query: this.query,
 			fragment: this.fragment,
 		});
-		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
+		// return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
 	equals(uri: Uri | undefined): boolean {
@@ -239,7 +239,7 @@ export class GitUri extends (Uri as any as UriEx) {
 					repoPath: repoPath,
 					// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
 					sha: typeof file !== 'string' && file.status === '?' ? `${ref}^3` : ref,
-			  });
+				});
 	}
 
 	static fromRepoPath(repoPath: string, ref?: string): GitUri {

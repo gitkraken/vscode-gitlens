@@ -1,6 +1,7 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../home/protocol';
 import {
+	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
 	DidChangePreviewEnabled,
@@ -80,6 +81,14 @@ export class HomeStateProvider implements StateProvider<State> {
 					this._state.previewEnabled = msg.params.previewEnabled;
 					this._state.previewCollapsed = msg.params.previewCollapsed;
 					this._state.aiEnabled = msg.params.aiEnabled;
+					this._state.timestamp = Date.now();
+
+					this.provider.setValue(this._state, true);
+					host.requestUpdate();
+					break;
+
+				case DidChangeAiAllAccessBanner.is(msg):
+					this._state.aiAllAccessBannerCollapsed = msg.params;
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);

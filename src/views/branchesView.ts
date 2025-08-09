@@ -8,7 +8,6 @@ import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
@@ -20,7 +19,7 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -59,15 +58,10 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No branches could be found.';
 				return [];
-			}
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			// Get all the worktree branches (and track if they are opened) to pass along downstream, e.g. in the BranchNode to display an indicator
@@ -281,14 +275,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	@gate(() => '')
-	async revealBranch(
-		branch: GitBranchReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -310,14 +297,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	@gate(() => '')
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -339,10 +319,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof BranchesViewNode || n instanceof RepositoryFolderNode,

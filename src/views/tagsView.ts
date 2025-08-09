@@ -6,7 +6,6 @@ import { GitUri } from '../git/gitUri';
 import type { GitTagReference } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
@@ -16,7 +15,7 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { TagsNode } from './nodes/tagsNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -45,15 +44,10 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No tags could be found.';
 				return [];
-			}
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			this.children = repositories.map(
@@ -154,8 +148,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortTagsBy') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
@@ -183,10 +176,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
@@ -200,14 +190,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	async revealTag(
-		tag: GitTagReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

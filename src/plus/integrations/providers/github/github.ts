@@ -288,16 +288,16 @@ export class GitHubApi implements Disposable {
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
 				avatarUrl:
 					!rsp.viewer.avatarUrl || isGitHubDotCom(options)
-						? rsp.viewer.avatarUrl ?? undefined
+						? (rsp.viewer.avatarUrl ?? undefined)
 						: rsp.viewer.email && options?.baseUrl != null
-						  ? await this.createEnterpriseAvatarUrl(
+							? await this.createEnterpriseAvatarUrl(
 									provider,
 									token,
 									options.baseUrl,
 									rsp.viewer.email,
 									options.avatarSize,
-						    )
-						  : undefined,
+								)
+							: undefined,
 				username: rsp.viewer.login ?? undefined,
 			};
 		} catch (ex) {
@@ -387,26 +387,26 @@ export class GitHubApi implements Disposable {
 					? {
 							id: author.user.login,
 							username: author.user.login,
-					  }
+						}
 					: {
 							id: undefined,
 							username: undefined,
-					  }),
+						}),
 				name: author.name ?? undefined,
 				email: author.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
 				avatarUrl:
 					!author.avatarUrl || isGitHubDotCom(options)
-						? author.avatarUrl ?? undefined
+						? (author.avatarUrl ?? undefined)
 						: author.email && options?.baseUrl != null
-						  ? await this.createEnterpriseAvatarUrl(
+							? await this.createEnterpriseAvatarUrl(
 									provider,
 									token,
 									options.baseUrl,
 									author.email,
 									options.avatarSize,
-						    )
-						  : undefined,
+								)
+							: undefined,
 			};
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
@@ -487,16 +487,16 @@ export class GitHubApi implements Disposable {
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
 				avatarUrl:
 					!author.avatarUrl || isGitHubDotCom(options)
-						? author.avatarUrl ?? undefined
+						? (author.avatarUrl ?? undefined)
 						: author.email && options?.baseUrl != null
-						  ? await this.createEnterpriseAvatarUrl(
+							? await this.createEnterpriseAvatarUrl(
 									provider,
 									token,
 									options.baseUrl,
 									author.email,
 									options.avatarSize,
-						    )
-						  : undefined,
+								)
+							: undefined,
 				username: author.login ?? undefined,
 			};
 		} catch (ex) {
@@ -1017,7 +1017,7 @@ export class GitHubApi implements Disposable {
 						? {
 								owner: r.parent.owner.login,
 								name: r.parent.name,
-						  }
+							}
 						: undefined,
 			};
 		} catch (ex) {
@@ -1626,7 +1626,7 @@ export class GitHubApi implements Disposable {
 						? {
 								cursor: history.pageInfo.endCursor ?? undefined,
 								more: history.pageInfo.hasNextPage,
-						  }
+							}
 						: undefined,
 				values: history.nodes,
 				viewer: rsp?.viewer.name,
@@ -2709,7 +2709,7 @@ export class GitHubApi implements Disposable {
 									}
 								}
 								return fetch(url, options);
-						  }
+							}
 						: fetch,
 					hook:
 						Logger.logLevel === 'debug' || Logger.isDebugging
@@ -2729,7 +2729,7 @@ export class GitHubApi implements Disposable {
 										} catch {}
 										sw?.stop({ message: message });
 									}
-							  }
+								}
 							: undefined,
 				},
 			});

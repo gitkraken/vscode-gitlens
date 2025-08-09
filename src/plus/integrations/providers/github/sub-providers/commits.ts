@@ -1,6 +1,7 @@
 import type { GitBlame } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../../constants.search';
+import type { Source } from '../../../../../constants.telemetry';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type {
@@ -10,6 +11,7 @@ import type {
 	GitLogShasOptions,
 	GitSearchCommitsOptions,
 	LeftRightCommitCountResult,
+	SearchCommitsResult,
 } from '../../../../../git/gitProvider';
 import { GitUri } from '../../../../../git/gitUri';
 import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit';
@@ -20,7 +22,7 @@ import type { GitLog } from '../../../../../git/models/log';
 import type { GitRevisionRange } from '../../../../../git/models/revision';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitUser } from '../../../../../git/models/user';
-import { parseSearchQuery } from '../../../../../git/search';
+import { parseSearchQuery, processNaturalLanguageToSearchQuery } from '../../../../../git/search';
 import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
 import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
@@ -228,7 +230,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								),
 								pathspec: file,
 							},
-					  }
+						}
 					: undefined,
 				{
 					files: commit.changedFiles ?? 0,
@@ -351,7 +353,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
-							  }
+								}
 							: undefined,
 						{
 							files: commit.changedFiles ?? 0,
@@ -702,7 +704,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 											additions: commit.additions ?? 0,
 											deletions: commit.deletions ?? 0,
 											changes: 0,
-									  }
+										}
 									: undefined,
 							),
 						);
@@ -889,7 +891,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log<CommitsGitSubProvider['searchCommits']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
 					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
 				}`,
 		},
@@ -897,32 +899,44 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async searchCommits(
 		repoPath: string,
 		search: SearchQuery,
+		source: Source,
 		options?: GitSearchCommitsOptions,
 		_cancellation?: CancellationToken,
-	): Promise<GitLog | undefined> {
-		if (repoPath == null) return undefined;
+	): Promise<SearchCommitsResult> {
+		if (repoPath == null) return { search: search, log: undefined };
 
 		const scope = getLogScope();
+
+		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
+		if (
+			search.naturalLanguage &&
+			(typeof search.naturalLanguage !== 'object' || !search.naturalLanguage.processedQuery)
+		) {
+			search = await processNaturalLanguageToSearchQuery(this.container, search, source);
+		}
 
 		const operations = parseSearchQuery(search);
 
 		const values = operations.get('commit:');
 		if (values?.size) {
 			const commit = await this.getCommit(repoPath, first(values)!);
-			if (commit == null) return undefined;
+			if (commit == null) return { search: search, log: undefined };
 
 			return {
-				repoPath: repoPath,
-				commits: new Map([[commit.sha, commit]]),
-				sha: commit.sha,
-				count: 1,
-				limit: 1,
-				hasMore: false,
+				search: search,
+				log: {
+					repoPath: repoPath,
+					commits: new Map([[commit.sha, commit]]),
+					sha: commit.sha,
+					count: 1,
+					limit: 1,
+					hasMore: false,
+				},
 			};
 		}
 
 		const queryArgs = await getQueryArgsFromSearchQuery(this.provider, search, operations, repoPath);
-		if (queryArgs.length === 0) return undefined;
+		if (!queryArgs.length) return { search: search, log: undefined };
 
 		const limit = this.provider.getPagingLimit(options?.limit);
 
@@ -938,10 +952,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					options?.ordering === 'date'
 						? 'committer-date'
 						: options?.ordering === 'author-date'
-						  ? 'author-date'
-						  : undefined,
+							? 'author-date'
+							: undefined,
 			});
-			if (result == null) return undefined;
+			if (result == null) return { search: search, log: undefined };
 
 			const commits = new Map<string, GitCommit>();
 
@@ -985,7 +999,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
-							  }
+								}
 							: undefined,
 						{
 							files: commit.changedFiles ?? 0,
@@ -1017,11 +1031,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					return async (limit: number | undefined) => {
 						limit = this.provider.getPagingLimit(limit);
 
-						const moreLog = await this.searchCommits(log.repoPath, search, {
-							...options,
-							limit: limit,
-							cursor: log.endingCursor,
-						});
+						const moreLog = (
+							await this.searchCommits(log.repoPath, search, source, {
+								...options,
+								limit: limit,
+								cursor: log.endingCursor,
+							})
+						).log;
 						// If we can't find any more, assume we have everything
 						if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
@@ -1048,11 +1064,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				log.more = searchCommitsCore.call(this, log);
 			}
 
-			return log;
+			return { search: search, log: log };
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
-			return undefined;
+			return { search: search, log: undefined };
 		}
 	}
 }

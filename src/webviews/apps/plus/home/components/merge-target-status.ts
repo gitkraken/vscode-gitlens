@@ -306,15 +306,15 @@ export class GlMergeTargetStatus extends LitElement {
 						branchId: this.mergedStatus.localBranchOnly.id!,
 						branchName: this.mergedStatus.localBranchOnly.name,
 						branchUpstreamName: this.mergedStatus.localBranchOnly.upstream?.name,
-				  }
+					}
 				: this.target
-				  ? {
+					? {
 							repoPath: this.target.repoPath,
 							branchId: this.target.id,
 							branchName: this.target.name,
 							branchUpstreamName: undefined,
-				    }
-				  : undefined;
+						}
+					: undefined;
 
 		if (this.mergedStatus?.merged) {
 			if (this.mergedStatus.localBranchOnly) {
@@ -389,7 +389,7 @@ export class GlMergeTargetStatus extends LitElement {
 								Your current branch ${renderBranchName(this.branch.name)} is
 								${pluralize('commit', this.status.behind)} behind its merge target
 								${this.renderInlineTargetEdit(this.target)}.
-						  </p>`
+							</p>`
 						: nothing}
 					<div class="button-container">
 						<gl-button

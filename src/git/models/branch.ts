@@ -7,6 +7,7 @@ import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
 import { getLoggableName } from '../../system/logger';
 import type { MaybePausedResult } from '../../system/promise';
+import { isBranchStarred } from '../utils/-webview/branch.utils';
 import {
 	formatDetachedHeadName,
 	getBranchId,
@@ -194,16 +195,45 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	get starred(): boolean {
-		const starred = this.container.storage.getWorkspace('starred:branches');
-		return starred !== undefined && starred[this.id] === true;
+		return isBranchStarred(this.container, this.id);
 	}
 
 	async star(): Promise<void> {
-		return this.container.git.getRepository(this.repoPath)?.star(this);
+		await this.container.git.getRepository(this.repoPath)?.star(this);
+		if (this.remote) {
+			const local = await this.container.git
+				.getRepositoryService(this.repoPath)
+				?.branches.getLocalBranchByUpstream?.(this.name);
+			if (local != null) {
+				await this.container.git.getRepository(this.repoPath)?.star(local);
+			}
+		} else if (this.upstream != null && !this.upstream.missing) {
+			const remote = await this.container.git
+				.getRepositoryService(this.repoPath)
+				?.branches.getBranch(this.upstream.name);
+			if (remote != null) {
+				await this.container.git.getRepository(this.repoPath)?.star(remote);
+			}
+		}
 	}
 
 	async unstar(): Promise<void> {
-		return this.container.git.getRepository(this.repoPath)?.unstar(this);
+		await this.container.git.getRepository(this.repoPath)?.unstar(this);
+		if (this.remote) {
+			const local = await this.container.git
+				.getRepositoryService(this.repoPath)
+				?.branches.getLocalBranchByUpstream?.(this.name);
+			if (local != null) {
+				await this.container.git.getRepository(this.repoPath)?.unstar(local);
+			}
+		} else if (this.upstream != null && !this.upstream.missing) {
+			const remote = await this.container.git
+				.getRepositoryService(this.repoPath)
+				?.branches.getBranch(this.upstream.name);
+			if (remote != null) {
+				await this.container.git.getRepository(this.repoPath)?.star(remote);
+			}
+		}
 	}
 }
 

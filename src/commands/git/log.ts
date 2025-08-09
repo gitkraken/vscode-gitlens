@@ -1,6 +1,6 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import type { Container } from '../../container';
-import { showDetailsView } from '../../git/actions/commit';
+import { showCommitInDetailsView } from '../../git/actions/commit';
 import { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
@@ -177,7 +177,7 @@ export class LogGitCommand extends QuickCommand<State> {
 						log == null
 							? `No commits found in ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
-							  })}`
+								})}`
 							: 'Choose a commit',
 					picked: state.reference?.ref,
 				});
@@ -192,10 +192,7 @@ export class LogGitCommand extends QuickCommand<State> {
 
 			let result: StepResult<ReturnType<typeof getSteps>>;
 			if (state.openPickInView) {
-				void showDetailsView(state.reference as GitCommit, {
-					pin: false,
-					preserveFocus: false,
-				});
+				void showCommitInDetailsView(state.reference as GitCommit, { pin: false, preserveFocus: false });
 				result = StepResultBreak;
 			} else {
 				result = yield* getSteps(

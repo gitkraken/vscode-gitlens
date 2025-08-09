@@ -1,16 +1,19 @@
 import { Avatar, defineGkElement } from '@gitkraken/shared-web-components';
-import type { PropertyValueMap } from 'lit';
+import type { PropertyValueMap, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { GenerateCommitsCommandArgs } from '../../../../commands/generateRebase';
+import { createCommandLink } from '../../../../system/commands';
 import { equalsIgnoreCase } from '../../../../system/string';
-import type { DraftState, State, Wip } from '../../../commitDetails/protocol';
+import type { DraftState, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
 import type { GenerateState } from './gl-inspect-patch';
 import '../../shared/components/button';
+import '../../shared/components/button-container';
 import '../../shared/components/code-icon';
 import '../../shared/components/panes/pane-group';
 import '../../shared/components/pills/tracking';
@@ -29,9 +32,6 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	wip?: Wip;
-
-	@property({ type: Object })
-	orgSettings?: State['orgSettings'];
 
 	@property({ type: Object })
 	draftState?: DraftState;
@@ -123,7 +123,38 @@ export class GlWipDetails extends GlDetailsBase {
 		return 'Working Changes';
 	}
 
-	private renderSecondaryAction() {
+	protected override renderChangedFilesActions(): TemplateResult<1> | undefined {
+		if (!this.files?.length) return undefined;
+
+		if (this.preferences?.aiEnabled && this.orgSettings?.ai) {
+			return html`<div class="section section--actions">
+				<button-container>
+					<gl-button
+						full
+						.href=${createCommandLink('gitlens.ai.generateCommits', {
+							repoPath: this.wip?.repo.path,
+							source: { source: 'inspect' },
+						} as GenerateCommitsCommandArgs)}
+						tooltip="Generate Commits with AI (Preview) — organize working changes into meaningful commits"
+						.tooltipPlacement=${'top'}
+						>Commit with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
+					></gl-button>
+					<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
+						><code-icon rotate="45" icon="arrow-up"></code-icon
+					></gl-button>
+				</button-container>
+			</div>`;
+		}
+		return html`<div class="section section--actions">
+			<button-container>
+				<gl-button full href="command:workbench.view.scm"
+					>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
+				></gl-button>
+			</button-container>
+		</div>`;
+	}
+
+	private renderSecondaryAction(hasPrimary = true) {
 		if (!this.draftsEnabled || this.inReview) return undefined;
 
 		let label = 'Share as Cloud Patch';
@@ -147,57 +178,68 @@ export class GlWipDetails extends GlDetailsBase {
 				action = 'end-patch-review';
 			}
 
-			return html`<p class="button-container">
-				<span class="button-group button-group--single">
+			if ((this.wip?.changes?.files.length ?? 0) === 0) {
+				return html`
 					<gl-button
+						?full=${!hasPrimary}
 						appearance="secondary"
-						full
 						data-action="${action}"
 						@click=${() => this.onToggleReviewMode(!this.inReview)}
+						.tooltip=${hasPrimary ? label : undefined}
 					>
-						<code-icon icon="gl-code-suggestion" slot="prefix"></code-icon>${label}
+						<code-icon icon="gl-code-suggestion" .slot=${!hasPrimary ? 'prefix' : nothing}></code-icon
+						>${!hasPrimary ? label : nothing}
 					</gl-button>
-					<gl-button
-						appearance="secondary"
-						density="compact"
-						data-action="create-patch"
-						tooltip="Share as Cloud Patch"
-						@click=${() => this.onDataActionClick('create-patch')}
-					>
-						<code-icon icon="gl-cloud-patch-share"></code-icon>
-					</gl-button>
-				</span>
-			</p>`;
-		}
+				`;
+			}
 
-		return html`<p class="button-container">
-			<span class="button-group button-group--single">
+			return html`
+				<gl-button
+					?full=${!hasPrimary}
+					appearance="secondary"
+					data-action="${action}"
+					.tooltip=${hasPrimary ? label : undefined}
+					@click=${() => this.onToggleReviewMode(!this.inReview)}
+				>
+					<code-icon icon="gl-code-suggestion" .slot=${!hasPrimary ? 'prefix' : nothing}></code-icon
+					>${!hasPrimary ? label : nothing}
+				</gl-button>
 				<gl-button
 					appearance="secondary"
-					full
-					data-action="${action}"
-					@click=${() => this.onDataActionClick(action)}
+					density="compact"
+					data-action="create-patch"
+					tooltip="Share as Cloud Patch"
+					@click=${() => this.onDataActionClick('create-patch')}
 				>
-					<code-icon icon="gl-cloud-patch-share" slot="prefix"></code-icon>${label}
+					<code-icon icon="gl-cloud-patch-share"></code-icon>
 				</gl-button>
-			</span>
-		</p>`;
+			`;
+		}
+
+		if ((this.wip?.changes?.files.length ?? 0) === 0) return undefined;
+
+		return html`
+			<gl-button
+				?full=${!hasPrimary}
+				appearance="secondary"
+				data-action="${action}"
+				.tooltip=${hasPrimary ? label : undefined}
+				@click=${() => this.onDataActionClick(action)}
+			>
+				<code-icon icon="gl-cloud-patch-share" .slot=${!hasPrimary ? 'prefix' : nothing}></code-icon
+				>${!hasPrimary ? label : nothing}
+			</gl-button>
+		`;
 	}
 
 	private renderPrimaryAction() {
 		const canShare = this.draftsEnabled;
 		if (this.isUnpublished && canShare) {
-			return html`<p class="button-container">
-				<span class="button-group button-group--single">
-					<gl-button
-						full
-						data-action="publish-branch"
-						@click=${() => this.onDataActionClick('publish-branch')}
-					>
-						<code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch
-					</gl-button>
-				</span>
-			</p>`;
+			return html`
+				<gl-button full data-action="publish-branch" @click=${() => this.onDataActionClick('publish-branch')}>
+					<code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch
+				</gl-button>
+			`;
 		}
 
 		if ((!this.isUnpublished && !canShare) || this.branchState == null) return undefined;
@@ -208,26 +250,26 @@ export class GlWipDetails extends GlDetailsBase {
 		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
 		const fetchIcon = behind > 0 ? 'repo-pull' : ahead > 0 ? 'repo-push' : 'repo-fetch';
 
-		return html`<p class="button-container">
-			<span class="button-group button-group--single">
-				<gl-button
-					full
-					data-action="${fetchLabel.toLowerCase()}"
-					@click=${() => this.onDataActionClick(fetchLabel.toLowerCase())}
-				>
-					<code-icon icon="${fetchIcon}" slot="prefix"></code-icon> ${fetchLabel}
-					<gl-tracking-pill .ahead=${ahead} .behind=${behind} slot="suffix"></gl-tracking-pill>
-				</gl-button>
-			</span>
-		</p>`;
+		return html`
+			<gl-button
+				full
+				data-action="${fetchLabel.toLowerCase()}"
+				@click=${() => this.onDataActionClick(fetchLabel.toLowerCase())}
+			>
+				<code-icon icon="${fetchIcon}" slot="prefix"></code-icon> ${fetchLabel}
+				<gl-tracking-pill .ahead=${ahead} .behind=${behind} slot="suffix"></gl-tracking-pill>
+			</gl-button>
+		`;
 	}
 
 	private renderActions() {
 		const primaryAction = this.renderPrimaryAction();
-		const secondaryAction = this.renderSecondaryAction();
+		const secondaryAction = this.renderSecondaryAction(primaryAction != null);
 		if (primaryAction == null && secondaryAction == null) return nothing;
 
-		return html`<div class="section section--actions">${primaryAction}${secondaryAction}</div>`;
+		return html`<div class="section section--actions">
+			<button-container>${primaryAction}${secondaryAction}</button-container>
+		</div>`;
 	}
 
 	private renderSuggestedChanges() {

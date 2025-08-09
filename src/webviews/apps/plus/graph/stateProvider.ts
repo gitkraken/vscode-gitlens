@@ -1,7 +1,7 @@
-import type { CssVariables } from '@gitkraken/gitkraken-components';
 import { ContextProvider, createContext } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import type { SearchQuery } from '../../../../constants.search';
+import { debounce } from '../../../../system/function/debounce';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import type {
 	GraphSearchResults,
@@ -15,6 +15,7 @@ import {
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
+	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -34,18 +35,13 @@ import { signalObjectState, signalState } from '../../shared/components/signal-u
 import type { LoggerContext } from '../../shared/contexts/logger';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from './context';
 
 type ReactiveElementHost = Partial<ReactiveControllerHost> & HTMLElement;
 
 interface AppState {
 	activeDay?: number;
 	activeRow?: string;
-	visibleDays?: {
-		top: number;
-		bottom: number;
-	};
-	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
+	visibleDays?: { top: number; bottom: number };
 }
 
 function getSearchResultModel(searchResults: State['searchResults']): {
@@ -64,7 +60,30 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	return { results: results, resultsError: resultsError };
 }
 
-export class GraphAppState implements AppState {
+export const graphStateContext = createContext<GraphStateProvider>('graph-state-context');
+
+export class GraphStateProvider implements StateProvider<State>, State, AppState {
+	private readonly disposable: Disposable;
+	private readonly provider: ContextProvider<{ __context__: GraphStateProvider }, ReactiveElementHost>;
+
+	private readonly _state: State;
+	get state() {
+		return this._state;
+	}
+
+	get webviewId() {
+		return this._state.webviewId;
+	}
+
+	get webviewInstanceId() {
+		return this._state.webviewInstanceId;
+	}
+
+	get timestamp() {
+		return this._state.timestamp;
+	}
+
+	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: number | undefined;
 
@@ -80,9 +99,6 @@ export class GraphAppState implements AppState {
 	@signalObjectState()
 	accessor visibleDays: AppState['visibleDays'];
 
-	@signalObjectState()
-	accessor theming: AppState['theming'];
-
 	@signalObjectState(
 		{ query: '' },
 		{
@@ -96,40 +112,149 @@ export class GraphAppState implements AppState {
 	@signalState(false)
 	accessor searchResultsHidden = false;
 
+	@signalState<GraphSearchResults | GraphSearchResultsError | undefined>(undefined, {
+		afterChange: (target, value) => {
+			const { results, resultsError } = getSearchResultModel(value);
+			target.searchResults = results;
+			target.searchResultsError = resultsError;
+		},
+	})
+	accessor searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
+
 	@signalState()
-	accessor searchResultsResponse: undefined | GraphSearchResults | GraphSearchResultsError;
+	accessor searchResults: GraphSearchResults | undefined;
 
-	get searchResults() {
-		return getSearchResultModel(this.searchResultsResponse).results;
-	}
-
-	get searchResultsError() {
-		return getSearchResultModel(this.searchResultsResponse).resultsError;
-	}
+	@signalState()
+	accessor searchResultsError: GraphSearchResultsError | undefined;
 
 	@signalState()
 	accessor selectedRows: undefined | GraphSelectedRows;
-}
 
-export const graphStateContext = createContext<GraphAppState>('graphState');
+	// State accessors for all top-level State properties
+	@signalState()
+	accessor windowFocused: boolean | undefined;
 
-export class GraphStateProvider implements StateProvider<State> {
-	private readonly disposable: Disposable;
-	private readonly provider: ContextProvider<{ __context__: State }, ReactiveElementHost>;
+	@signalState()
+	accessor webroot: string | undefined;
 
-	private readonly _state: State;
-	get state() {
-		return this._state;
+	@signalState()
+	accessor repositories: State['repositories'];
+
+	@signalState()
+	accessor selectedRepository: string | undefined;
+
+	@signalState()
+	accessor selectedRepositoryVisibility: State['selectedRepositoryVisibility'];
+
+	@signalState()
+	accessor branchesVisibility: State['branchesVisibility'];
+
+	@signalState()
+	accessor branch: State['branch'];
+
+	@signalState()
+	accessor branchState: State['branchState'];
+
+	@signalState()
+	accessor lastFetched: Date | undefined;
+
+	@signalState()
+	accessor subscription: State['subscription'];
+
+	@signalState()
+	accessor allowed: boolean = false;
+
+	@signalState()
+	accessor avatars: State['avatars'];
+
+	@signalState()
+	accessor refsMetadata: State['refsMetadata'];
+
+	@signalState()
+	accessor rows: State['rows'];
+
+	@signalState()
+	accessor rowsStats: State['rowsStats'];
+
+	@signalState()
+	accessor rowsStatsLoading: boolean | undefined;
+
+	@signalState()
+	accessor downstreams: State['downstreams'];
+
+	@signalState()
+	accessor paging: State['paging'];
+
+	@signalState()
+	accessor columns: State['columns'];
+
+	@signalState()
+	accessor config: State['config'];
+
+	@signalState()
+	accessor context: State['context'];
+
+	@signalState()
+	accessor nonce: string | undefined;
+
+	@signalState()
+	accessor workingTreeStats: State['workingTreeStats'];
+
+	@signalState()
+	accessor defaultSearchMode: State['defaultSearchMode'];
+
+	@signalState()
+	accessor useNaturalLanguageSearch: boolean | undefined;
+
+	@signalState()
+	accessor excludeRefs: State['excludeRefs'];
+
+	@signalState()
+	accessor excludeTypes: State['excludeTypes'];
+
+	@signalState()
+	accessor includeOnlyRefs: State['includeOnlyRefs'];
+
+	@signalState()
+	accessor featurePreview: State['featurePreview'];
+
+	@signalState()
+	accessor orgSettings: State['orgSettings'];
+
+	get isBusy() {
+		return this.loading || this.searching || this.rowsStatsLoading || false;
 	}
 
-	private updateState(partial: Partial<State>) {
+	private updateState(partial: Partial<State>, silent?: boolean) {
 		for (const key in partial) {
-			// @ts-expect-error dynamic object key ejection doesn't work in typescript
-			this._state[key] = partial[key];
+			const value = partial[key as keyof State];
+			// @ts-expect-error key is a key of State
+			this._state[key] = value;
+
+			if (['timestamp', 'webviewId', 'webviewInstanceId'].includes(key)) continue;
+
+			// Update corresponding accessors
+			switch (key) {
+				case 'allowed':
+					this.allowed = partial.allowed ?? false;
+					break;
+				case 'loading':
+					this.loading = partial.loading ?? false;
+					break;
+				default:
+					// @ts-expect-error key is a key of State
+					this[key as keyof Omit<State, 'timestamp' | 'webviewId' | 'webviewInstanceId'>] = value;
+					break;
+			}
 		}
+
+		if (silent) return;
+
 		this.options.onStateUpdate?.(partial);
-		this.provider.setValue(this._state, true);
+		this.fireProviderUpdate();
 	}
+
+	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
 	constructor(
 		host: ReactiveElementHost,
@@ -139,7 +264,8 @@ export class GraphStateProvider implements StateProvider<State> {
 		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
 	) {
 		this._state = state;
-		this.provider = new ContextProvider(host, { context: stateContext, initialValue: state });
+		this.provider = new ContextProvider(host, { context: graphStateContext, initialValue: this });
+		this.updateState(state, true);
 
 		this.disposable = this._ipc.onReceiveMessage(msg => {
 			const scope = getLogScope();
@@ -325,6 +451,10 @@ export class GraphStateProvider implements StateProvider<State> {
 						subscription: msg.params.subscription,
 						allowed: msg.params.allowed,
 					});
+					break;
+
+				case DidChangeOrgSettings.is(msg):
+					this.updateState({ orgSettings: msg.params.orgSettings });
 					break;
 
 				case DidChangeWorkingTreeNotification.is(msg):

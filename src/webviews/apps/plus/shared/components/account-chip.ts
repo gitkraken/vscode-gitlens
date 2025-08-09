@@ -453,11 +453,11 @@ export class GlAccountChip extends LitElement {
 										)}
 										<span slot="tooltip"
 											>Upgrade to the Advanced plan for access to self-hosted integrations,
-											advanced AI features @ 500K tokens/week, and more
+											advanced AI features @ 1M tokens/week, and more
 											${this.renderPromo('advanced', 'info')}
 										</span>
 									</gl-button>
-							  </div>`
+								</div>`
 							: nothing}
 					</span>`,
 			)}
@@ -502,7 +502,7 @@ export class GlAccountChip extends LitElement {
 								See
 								<a href="${urls.releaseNotes}">what's new</a>
 								in GitLens.
-						  </p>`
+							</p>`
 						: nothing}
 					<p>
 						You have
@@ -681,7 +681,7 @@ export class GlAccountChip extends LitElement {
 
 					<ul>
 						<li>Self-hosted integrations</li>
-						<li>Advanced AI features &mdash; 500K tokens/week</li>
+						<li>Advanced AI features &mdash; 1M tokens/week</li>
 					</ul>
 				</div>
 			</div>

@@ -121,7 +121,7 @@ export class GlFeatureGate extends LitElement {
 		if (this.hidden || isSubscriptionTrialOrPaidFromState(this.state)) return undefined;
 
 		const appearance =
-			this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor'
+			(this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor')
 				? 'alert'
 				: 'welcome';
 

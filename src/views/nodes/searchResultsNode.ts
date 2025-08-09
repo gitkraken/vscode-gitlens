@@ -123,11 +123,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 			await executeGitCommand({
 				command: 'search',
 				prefillOnly: true,
-				state: {
-					repo: this.repoPath,
-					...this.search,
-					showResultsInSideBar: this,
-				},
+				state: { repo: this.repoPath, ...this.search, showResultsInSideBar: this },
 			});
 
 			return;
@@ -138,11 +134,13 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 
 		this._search = search.pattern;
 		this._labels = search.labels;
+		this._results.query = createSearchQuery(this.view, this.repoPath, this._search, this._labels);
+		this._results.deferred = true;
 
 		// Remove the existing stored item and save a new one
 		await this.replace(currentId, true);
 
-		void this.triggerChange(false);
+		void this.triggerChange(true);
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
@@ -189,15 +187,16 @@ function createSearchQuery(
 		| GitLog
 		| undefined,
 ): (limit: number | undefined) => Promise<CommitsQueryResults> {
-	if (typeof searchQueryOrLog === 'function') {
-		return searchQueryOrLog;
-	}
+	if (typeof searchQueryOrLog === 'function') return searchQueryOrLog;
 
 	// Create a search query function
 	return async (limit: number | undefined) => {
 		let log = searchQueryOrLog;
 		if (log == null) {
-			log = await view.container.git.getRepositoryService(repoPath).commits.searchCommits(search);
+			log = await view.container.git
+				.getRepositoryService(repoPath)
+				.commits.searchCommits(search, { source: 'view', detail: 'search&compare' })
+				.then(r => r.log);
 		} else if (log instanceof Promise) {
 			log = await log;
 		}
@@ -211,7 +210,7 @@ function createSearchQuery(
 		const resultsType =
 			typeof queryLabel === 'string'
 				? { singular: 'search result', plural: 'search results' }
-				: queryLabel.resultsType ?? { singular: 'search result', plural: 'search results' };
+				: (queryLabel.resultsType ?? { singular: 'search result', plural: 'search results' });
 
 		const label = `${pluralize(resultsType.singular, count, {
 			format: c => (log?.hasMore ? `${c}+` : String(c)),

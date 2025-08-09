@@ -266,7 +266,7 @@ function getExtensionConfig(target, mode, env) {
 								default: false,
 								vendors: false,
 							},
-					  },
+						},
 		},
 		externals: {
 			vscode: 'commonjs vscode',
@@ -286,7 +286,7 @@ function getExtensionConfig(target, mode, env) {
 									target: ['es2023', 'chrome124', 'node20.14.0'],
 									tsconfig: tsConfigPath,
 								},
-						  }
+							}
 						: {
 								loader: 'ts-loader',
 								options: {
@@ -294,7 +294,7 @@ function getExtensionConfig(target, mode, env) {
 									experimentalWatchApi: true,
 									transpileOnly: true,
 								},
-						  },
+							},
 				},
 			],
 		},
@@ -365,7 +365,7 @@ function getWebviewsCommonConfig(mode, env) {
 						],
 						dangerouslyAllowCleanPatternsOutsideProject: true,
 						dry: false,
-				  }
+					}
 				: undefined,
 		),
 		new CopyPlugin({
@@ -432,7 +432,7 @@ function getWebviewsCommonConfig(mode, env) {
 								deleteOriginalAssets: true,
 								generator: [imageGeneratorConfig],
 							}),
-					  ]
+						]
 					: [],
 		},
 		plugins: plugins,
@@ -572,7 +572,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 									],
 								},
 							}),
-					  ]
+						]
 					: [],
 			splitChunks: {
 				// Disable all non-async code splitting
@@ -602,7 +602,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 									target: ['es2023', 'chrome124'],
 									tsconfig: tsConfigPath,
 								},
-						  }
+							}
 						: {
 								loader: 'ts-loader',
 								options: {
@@ -610,7 +610,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 									experimentalWatchApi: true,
 									transpileOnly: true,
 								},
-						  },
+							},
 				},
 				{
 					test: /\.scss$/,
@@ -648,6 +648,13 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
 		},
+		ignoreWarnings: [
+			// Ignore warnings about findDOMNode being removed from React 19
+			{
+				module: /@gitkraken\/gitkraken-components/,
+				message: /export 'findDOMNode'/,
+			},
+		],
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
@@ -735,7 +742,7 @@ function getHtmlPlugin(name, plus, mode, env) {
 						removeStyleLinkTypeAttributes: true,
 						keepClosingSlash: true,
 						minifyCSS: true,
-				  }
+					}
 				: false,
 	});
 }

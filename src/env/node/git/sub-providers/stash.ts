@@ -5,7 +5,7 @@ import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import { StashApplyError, StashApplyErrorReason } from '../../../../git/errors';
 import type { GitStashSubProvider } from '../../../../git/gitProvider';
-import type { GitStashCommit } from '../../../../git/models/commit';
+import type { GitStashCommit, GitStashParentInfo } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import { GitFileChange } from '../../../../git/models/fileChange';
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
@@ -13,7 +13,11 @@ import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus';
 import { RepositoryChange } from '../../../../git/models/repository';
 import type { GitStash } from '../../../../git/models/stash';
 import type { ParsedStash } from '../../../../git/parsers/logParser';
-import { getStashFilesOnlyLogParser, getStashLogParser } from '../../../../git/parsers/logParser';
+import {
+	getShaAndDatesLogParser,
+	getStashFilesOnlyLogParser,
+	getStashLogParser,
+} from '../../../../git/parsers/logParser';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
 import { countStringLength } from '../../../../system/array';
@@ -73,8 +77,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		let stash = this.cache.stashes?.get(repoPath);
-		if (stash == null) {
+		const stashPromise = this.cache.stashes?.getOrCreate(repoPath, async _cancellable => {
 			const parser = getStashLogParser();
 			const args = [...parser.arguments];
 
@@ -84,69 +87,123 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
 
 			const stashes = new Map<string, GitStashCommit>();
+			const parentShas = new Set<string>();
 
+			// First pass: create stashes and collect parent SHAs
 			for (const s of parser.parse(result.stdout)) {
 				stashes.set(s.sha, createStash(this.container, s, repoPath));
-			}
-
-			stash = { repoPath: repoPath, stashes: stashes };
-
-			this.cache.stashes?.set(repoPath, stash);
-		}
-
-		// Return only reachable stashes from the given ref
-		if (options?.reachableFrom && stash?.stashes.size) {
-			// Create a copy because we are going to modify it and we don't want to mutate the cache
-			stash = { ...stash, stashes: new Map(stash.stashes) };
-
-			const oldestStashDate = new Date(min(stash.stashes.values(), c => c.date.getTime())).toISOString();
-
-			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
-				'rev-list',
-				`--since="${oldestStashDate}"`,
-				'--date-order',
-				options.reachableFrom,
-				'--',
-			);
-
-			const ancestors = result.stdout.trim().split('\n');
-			const reachableCommits =
-				ancestors?.length && (ancestors.length !== 1 || ancestors[0]) ? new Set(ancestors) : undefined;
-			if (reachableCommits?.size) {
-				const reachableStashes = new Set<string>();
-
-				// First pass: mark directly reachable stashes
-				for (const [sha, s] of stash.stashes) {
-					if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
-						reachableStashes.add(sha);
-					}
-				}
-
-				// Second pass: mark stashes that build upon reachable stashes
-				let changed;
-				do {
-					changed = false;
-					for (const [sha, s] of stash.stashes) {
-						if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
-							reachableStashes.add(sha);
-							changed = true;
+				// Collect all parent SHAs for timestamp lookup
+				if (s.parents) {
+					for (const parentSha of s.parents.split(' ')) {
+						if (parentSha.trim()) {
+							parentShas.add(parentSha.trim());
 						}
 					}
-				} while (changed);
+				}
+			}
 
-				// Remove unreachable stashes
-				for (const [sha] of stash.stashes) {
-					if (!reachableStashes.has(sha)) {
-						stash.stashes.delete(sha);
+			// Second pass: fetch parent timestamps if we have any parents
+			const parentTimestamps = new Map<string, { authorDate: number; committerDate: number }>();
+			if (parentShas.size > 0) {
+				try {
+					const datesParser = getShaAndDatesLogParser();
+					const parentResult = await this.git.exec(
+						{
+							cwd: repoPath,
+							cancellation: cancellation,
+							stdin: Array.from(parentShas).join('\n'),
+						},
+						'log',
+						...datesParser.arguments,
+						'--no-walk',
+						'--stdin',
+					);
+
+					for (const entry of datesParser.parse(parentResult.stdout)) {
+						parentTimestamps.set(entry.sha, {
+							authorDate: Number(entry.authorDate),
+							committerDate: Number(entry.committerDate),
+						});
+					}
+				} catch (_ex) {
+					// If we can't get parent timestamps, continue without them
+					// This could happen if some parent commits are not available
+				}
+			}
+
+			// Third pass: update stashes with parent timestamp information
+			for (const sha of stashes.keys()) {
+				const stash = stashes.get(sha);
+				if (stash?.parents.length) {
+					const parentsWithTimestamps: GitStashParentInfo[] = stash.parents.map(parentSha => ({
+						sha: parentSha,
+						authorDate: parentTimestamps.get(parentSha)?.authorDate,
+						committerDate: parentTimestamps.get(parentSha)?.committerDate,
+					}));
+					// Store the parent timestamp information on the stash
+					stashes.set(sha, stash.with({ parentTimestamps: parentsWithTimestamps }));
+				}
+			}
+
+			return { repoPath: repoPath, stashes: stashes };
+		});
+
+		if (stashPromise == null) return undefined;
+
+		const stash = await stashPromise;
+		if (!options?.reachableFrom || !stash?.stashes.size) return stash;
+
+		// Return only reachable stashes from the given ref
+		// Create a copy because we are going to modify it and we don't want to mutate the cache
+		const stashes = new Map(stash.stashes);
+
+		const oldestStashDate = new Date(findOldestStashTimestamp(stash.stashes.values())).toISOString();
+
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			'rev-list',
+			`--since="${oldestStashDate}"`,
+			'--date-order',
+			options.reachableFrom,
+			'--',
+		);
+
+		const ancestors = result.stdout.trim().split('\n');
+		const reachableCommits =
+			ancestors?.length && (ancestors.length !== 1 || ancestors[0]) ? new Set(ancestors) : undefined;
+		if (reachableCommits?.size) {
+			const reachableStashes = new Set<string>();
+
+			// First pass: mark directly reachable stashes
+			for (const [sha, s] of stash.stashes) {
+				if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+					reachableStashes.add(sha);
+				}
+			}
+
+			// Second pass: mark stashes that build upon reachable stashes
+			let changed;
+			do {
+				changed = false;
+				for (const [sha, s] of stash.stashes) {
+					if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
+						reachableStashes.add(sha);
+						changed = true;
 					}
 				}
-			} else {
-				stash.stashes.clear();
+			} while (changed);
+
+			// Remove unreachable stashes
+			for (const [sha] of stash.stashes) {
+				if (!reachableStashes.has(sha)) {
+					stashes.delete(sha);
+				}
 			}
+		} else {
+			stashes.clear();
 		}
 
-		return stash;
+		return { ...stash, stashes: stashes };
 	}
 
 	@log()
@@ -219,7 +276,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 										additions: f.additions ?? 0,
 										deletions: f.deletions ?? 0,
 										changes: 0,
-								  }
+									}
 								: undefined,
 						),
 				) ?? []
@@ -342,7 +399,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	}
 }
 
-export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, GitStashCommit> | undefined): {
+export function convertStashesToStdin(stashOrStashes: GitStash | ReadonlyMap<string, GitStashCommit> | undefined): {
 	readonly stdin: string | undefined;
 	readonly stashes: Map<string, GitStashCommit>;
 	readonly remappedIds: Map<string, string>;
@@ -351,40 +408,23 @@ export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, Git
 	if (stashOrStashes == null) return { stdin: undefined, stashes: new Map(), remappedIds: remappedIds };
 
 	let stdin: string | undefined;
-	let stashes: Map<string, GitStashCommit>;
+	const original = 'stashes' in stashOrStashes ? stashOrStashes.stashes : stashOrStashes;
+	const stashes = new Map<string, GitStashCommit>(original);
 
-	if ('stashes' in stashOrStashes) {
-		stashes = new Map(stashOrStashes.stashes);
-		if (stashOrStashes.stashes.size) {
-			stdin = '';
-			for (const stash of stashOrStashes.stashes.values()) {
-				stdin += `${stash.sha.substring(0, 9)}\n`;
-				// Include the stash's 2nd (index files) and 3rd (untracked files) parents
-				for (const p of skip(stash.parents, 1)) {
-					remappedIds.set(p, stash.sha);
+	if (original.size) {
+		stdin = '';
+		for (const stash of original.values()) {
+			stdin += `${stash.sha.substring(0, 9)}\n`;
+			// Include the stash's 2nd (index files) and 3rd (untracked files) parents (if they aren't already in the map)
+			for (const p of skip(stash.parents, 1)) {
+				remappedIds.set(p, stash.sha);
 
+				if (!stashes.has(p)) {
 					stashes.set(p, stash);
 					stdin += `${p.substring(0, 9)}\n`;
 				}
 			}
 		}
-	} else {
-		if (stashOrStashes.size) {
-			stdin = '';
-			for (const stash of stashOrStashes.values()) {
-				stdin += `${stash.sha.substring(0, 9)}\n`;
-				// Include the stash's 2nd (index files) and 3rd (untracked files) parents (if they aren't already in the map)
-				for (const p of skip(stash.parents, 1)) {
-					remappedIds.set(p, stash.sha);
-
-					if (!stashOrStashes.has(p)) {
-						stashOrStashes.set(p, stash);
-						stdin += `${p.substring(0, 9)}\n`;
-					}
-				}
-			}
-		}
-		stashes = stashOrStashes;
 	}
 
 	return { stdin: stdin || undefined, stashes: stashes, remappedIds: remappedIds };
@@ -431,4 +471,23 @@ function createStash(container: Container, s: ParsedStash, repoPath: string): Gi
 		s.stashName,
 		onRef,
 	) as GitStashCommit;
+}
+
+/**
+ * Finds the oldest timestamp among stash commits and their parent commits.
+ * This includes both the stash commit dates and all parent commit timestamps (author and committer dates).
+ *
+ * @param stashes - Collection of stash commits to analyze
+ * @returns The oldest timestamp in milliseconds, or Infinity if no stashes provided
+ */
+export function findOldestStashTimestamp(stashes: Iterable<GitStashCommit>): number {
+	return min(stashes, c => {
+		return Math.min(
+			c.date.getTime(),
+			...(c.parentTimestamps
+				?.flatMap(p => [p.authorDate, p.committerDate])
+				.filter((x): x is number => x != null)
+				.map(x => x * 1000) ?? []),
+		);
+	});
 }

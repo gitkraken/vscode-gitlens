@@ -176,11 +176,11 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 				started
 					? `\n\nPaused at step ${this.pausedOpStatus.steps.current.number} of ${
 							this.pausedOpStatus.steps.total
-					  }${
+						}${
 							hasConflicts
 								? `\\\nResolve ${pluralize('conflict', status.conflicts.length)} before continuing`
 								: ''
-					  }`
+						}`
 					: ''
 			}`;
 		}

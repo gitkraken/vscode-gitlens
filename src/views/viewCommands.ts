@@ -391,8 +391,8 @@ export class ViewCommands implements Disposable {
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node?.is('tracking-status')
-				  ? node.branch
-				  : undefined;
+					? node.branch
+					: undefined;
 		if (from == null) {
 			const repo = node?.repoPath
 				? this.container.git.getRepository(node.repoPath)
@@ -424,10 +424,10 @@ export class ViewCommands implements Disposable {
 											id: remote.provider.id,
 											name: remote.provider.name,
 											domain: remote.provider.domain,
-									  }
+										}
 									: undefined,
 							url: remote.url,
-					  }
+						}
 					: undefined,
 			branch: {
 				name: node.branch.name,
@@ -445,8 +445,8 @@ export class ViewCommands implements Disposable {
 			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node?.is('tracking-status')
-				  ? node.branch
-				  : undefined;
+					? node.branch
+					: undefined;
 		if (from == null) {
 			const repo = node?.repoPath
 				? this.container.git.getRepository(node.repoPath)
@@ -950,6 +950,15 @@ export class ViewCommands implements Disposable {
 		return BranchActions.rename(node.repoPath, node.branch);
 	}
 
+	@command('gitlens.changeUpstream:views')
+	@command('gitlens.setUpstream:views')
+	@log()
+	private changeUpstreamBranch(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		return BranchActions.changeUpstream(node.repoPath, node.branch);
+	}
+
 	@command('gitlens.views.resetCommit')
 	@log()
 	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
@@ -1072,11 +1081,13 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
-	@command('gitlens.views.star')
-	@command('gitlens.views.star.multi', { multiselect: 'sequential' })
+	@command('gitlens.star.branch:views')
+	@command('gitlens.star.branch.multi:views', { multiselect: 'sequential' })
+	@command('gitlens.star.repository:views')
+	@command('gitlens.star.repository.multi:views', { multiselect: 'sequential' })
 	@log()
-	private async star(node: BranchNode | RepositoryNode | RepositoryFolderNode): Promise<void> {
-		if (!node.isAny('branch', 'repository', 'repo-folder')) {
+	private async star(node: BranchNode | RepositoryNode | RepositoryFolderNode | WorktreeNode): Promise<void> {
+		if (!node.isAny('branch', 'repository', 'repo-folder', 'worktree')) {
 			return Promise.resolve();
 		}
 
@@ -1135,11 +1146,13 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
-	@command('gitlens.views.unstar')
-	@command('gitlens.views.unstar.multi', { multiselect: 'sequential' })
+	@command('gitlens.unstar.branch:views')
+	@command('gitlens.unstar.branch.multi:views', { multiselect: 'sequential' })
+	@command('gitlens.unstar.repository:views')
+	@command('gitlens.unstar.repository.multi:views', { multiselect: 'sequential' })
 	@log()
-	private async unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode): Promise<void> {
-		if (!node.isAny('branch', 'repository', 'repo-folder')) return Promise.resolve();
+	private async unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode | WorktreeNode): Promise<void> {
+		if (!node.isAny('branch', 'repository', 'repo-folder', 'worktree')) return Promise.resolve();
 
 		return node.unstar();
 	}

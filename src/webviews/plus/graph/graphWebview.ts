@@ -24,6 +24,7 @@ import type {
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
+import type { ContextKeys } from '../../../constants.context';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -41,7 +42,7 @@ import {
 	openFiles,
 	openFilesAtRevision,
 	openOnlyChangedFiles,
-	showGraphDetailsView,
+	showCommitInGraphDetailsView,
 	undoCommit,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -79,9 +80,13 @@ import type {
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
 import type { GitGraphSearch } from '../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
+import {
+	getSearchQueryComparisonKey,
+	parseSearchQuery,
+	processNaturalLanguageToSearchQuery,
+} from '../../../git/search';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
-import { getBranchMergeTargetInfo } from '../../../git/utils/-webview/branch.utils';
+import { getBranchMergeTargetInfo, getStarredBranchIds } from '../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils';
@@ -197,6 +202,7 @@ import {
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
+	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -324,6 +330,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
 				if (this._etag !== this.container.git.etag) {
@@ -332,7 +339,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (this._etag === this.container.git.etag) return;
 					}
 
-					void this.host.refresh(true);
+					this.updateState();
 				}
 			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
@@ -507,6 +514,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			this.host.registerWebviewCommand('gitlens.graph.createBranch', this.createBranch),
 			this.host.registerWebviewCommand('gitlens.graph.deleteBranch', this.deleteBranch),
+			this.host.registerWebviewCommand('gitlens.star.branch:graph', this.star),
+			this.host.registerWebviewCommand('gitlens.unstar.branch:graph', this.unstar),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.copyRemoteBranchUrl', item =>
 				this.openBranchOnRemote(item, true),
 			),
@@ -874,6 +883,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
+		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -918,9 +928,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		if (
+			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
+			configuration.changed(e, 'ai.enabled') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateStyle') ||
-			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
 			configuration.changed(e, 'graph')
 		) {
 			void this.notifyDidChangeConfiguration();
@@ -936,6 +947,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.updateState();
 			}
 		}
+	}
+
+	@debug({ args: false })
+	private onContextChanged(key: keyof ContextKeys) {
+		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
+			this.notifyDidChangeOrgSettings();
+		}
+	}
+
+	private getOrgSettings(): State['orgSettings'] {
+		return {
+			ai: getContext('gitlens:gk:organization:ai:enabled', true),
+			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
+		};
 	}
 
 	@debug({ args: false })
@@ -959,6 +984,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// RepositoryChange.Index,
 				RepositoryChange.Remotes,
 				// RepositoryChange.RemoteProviders,
+				RepositoryChange.Starred,
 				RepositoryChange.Stash,
 				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Tags,
@@ -1517,6 +1543,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
+		if (msg.params.search?.naturalLanguage) {
+			msg.params.search = await processNaturalLanguageToSearchQuery(this.container, msg.params.search, {
+				source: 'graph',
+			});
+		}
+
 		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
 		const types = query != null ? join(query?.keys(), ',') : '';
 
@@ -1529,6 +1561,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} catch (ex) {
 			exception = ex;
 			void this.host.respond(requestType, msg, {
+				search: msg.params.search,
 				results: isCancellationError(ex)
 					? undefined
 					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
@@ -1553,7 +1586,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getSearchResults(e: SearchParams): Promise<DidSearchParams> {
 		if (e.search == null) {
 			this.resetSearchState();
-			return { results: undefined };
+			return { search: e.search, results: undefined };
 		}
 
 		let search: GitGraphSearch | undefined = this._search;
@@ -1567,21 +1600,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void (await this.ensureSearchStartsInRange(graph, search));
 
 				return {
+					search: e.search,
 					results: search.results.size
 						? {
 								ids: Object.fromEntries(search.results),
 								count: search.results.size,
 								paging: { hasMore: search.paging?.hasMore ?? false },
-						  }
+							}
 						: undefined,
 				};
 			}
 
-			return { results: undefined };
+			return { search: e.search, results: undefined };
 		}
 
 		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
-			if (this.repository == null) return { results: { error: 'No repository' } };
+			if (this.repository == null) return { search: e.search, results: { error: 'No repository' } };
 
 			if (this.repository.etag !== this._etagRepository) {
 				this.updateState(true);
@@ -1618,13 +1652,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.setSelectedRows(firstResult);
 		}
 
+		// Check if all search results are visible and we have more available
+		// If so, proactively load more search results to ensure pagination works
+		while (
+			search.paging?.hasMore &&
+			search.more != null &&
+			search.results.size &&
+			graph.ids.has(last(search.results.keys())!)
+		) {
+			// Automatically load more search results since all current ones are visible
+			const searchMore = await search.more(configuration.get('graph.searchItemLimit') ?? 100);
+			if (searchMore != null) {
+				this._search = search = searchMore;
+				// Ensure the new results are visible if needed
+				void (await this.ensureSearchStartsInRange(graph, search));
+			}
+		}
+
 		return {
+			search: e.search,
 			results: search.results.size
 				? {
 						ids: Object.fromEntries(search.results),
 						count: search.results.size,
 						paging: { hasMore: search.paging?.hasMore ?? false },
-				  }
+					}
 				: { count: 0 },
 			selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 		};
@@ -1644,18 +1696,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async onChooseRepository() {
-		// Ensure that the current repository is always last
-		const repositories = this.container.git.openRepositories.sort(
-			(a, b) =>
-				(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
-				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-				a.index - b.index,
-		);
+		// // Ensure that the current repository is always last
+		// const repositories = this.container.git.openRepositories.sort(
+		// 	(a, b) =>
+		// 		(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
+		// 		(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+		// 		a.index - b.index,
+		// );
 
 		const pick = await showRepositoryPicker(
+			this.container,
 			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
 			'Choose a repository to switch to',
-			repositories,
+			this.container.git.openRepositories,
+			{ picked: this.repository },
 		);
 		if (pick == null) return;
 
@@ -1773,10 +1827,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		if (this._notifyDidChangeStateDebounced == null) {
-			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 250);
-		}
-
+		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 250);
 		void this._notifyDidChangeStateDebounced();
 	}
 
@@ -2018,6 +2069,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private notifyDidChangeOrgSettings() {
+		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
+	}
+
+	@debug()
 	private async notifyDidChangeState() {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeNotification, this._ipcNotificationMap, this);
@@ -2195,14 +2251,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const branchesVisibility = this.getBranchesVisibility(filters);
 
-		let refs: Map<string, GraphIncludeOnlyRef>;
+		let refs: Map<string, GraphIncludeOnlyRef> | undefined;
 		let continuation: Promise<GraphIncludeOnlyRefs | undefined> | undefined;
 
 		switch (branchesVisibility) {
 			case 'smart': {
 				// Add the default branch and if the current branch has a PR associated with it then add the base of the PR
 				const current = find(graph.branches.values(), b => b.current);
-				if (current == null) return { refs: {} };
+				if (current == null) return { refs: {}, continuation: continuation };
 
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
@@ -2211,7 +2267,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					timeout: options?.timeout,
 				});
 
-				if (cancellation.token.isCancellationRequested) return { refs: {} };
+				if (cancellation.token.isCancellationRequested) return { refs: {}, continuation: continuation };
 
 				let targetBranchName: string | undefined;
 				if (result.mergeTargetBranch?.paused) {
@@ -2237,17 +2293,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 			case 'current': {
 				const current = find(graph.branches.values(), b => b.current);
-				if (current == null) return { refs: {} };
+				if (current == null) return { refs: {}, continuation: continuation };
 
 				refs = await this.getVisibleRefs(graph, current);
 				break;
 			}
-			default:
+			case 'favorited': {
+				const starredBranchIds = getStarredBranchIds(this.container);
+				if (!starredBranchIds.size) return { refs: {}, continuation: continuation };
+
 				refs = new Map();
+				for (const branch of graph.branches.values()) {
+					if (branch.current || starredBranchIds.has(branch.id)) {
+						refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
+					}
+				}
+				break;
+			}
+			default:
 				break;
 		}
 
-		return { refs: Object.fromEntries(refs), continuation: continuation };
+		return { refs: refs == null ? {} : Object.fromEntries(refs), continuation: continuation };
 	}
 
 	private getFiltersByRepo(repoPath: string | undefined): StoredGraphFilters | undefined {
@@ -2335,7 +2402,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private getBranchesVisibility(filters: StoredGraphFilters | undefined): GraphBranchesVisibility {
-		// We can't currently support all or smart branches on virtual repos
+		// We can't currently support all, smart, or favorited branches on virtual repos
 		if (this.repository?.virtual) return 'current';
 		if (filters == null) return configuration.get('graph.branchesVisibility');
 
@@ -2365,18 +2432,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
+			aiEnabled: configuration.get('ai.enabled'),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
-			enableMultiSelection: configuration.get('graph.multiselect'),
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),
 			minimapMarkerTypes: this.getMinimapMarkerTypes(),
+			multiSelectionMode: configuration.get('graph.multiselect'),
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
@@ -2638,8 +2706,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 
-		const defaultSearchMode = this.container.storage.get('graph:searchMode') ?? 'normal';
-
+		const defaultSearchMode = this.container.storage.get('graph:searchMode', 'normal');
+		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
 		return {
@@ -2676,7 +2744,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					? {
 							startingCursor: data.paging?.startingCursor,
 							hasMore: data.paging?.hasMore ?? false,
-					  }
+						}
 					: undefined,
 			columns: columnSettings,
 			config: this.getComponentConfig(),
@@ -2690,7 +2758,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			defaultSearchMode: defaultSearchMode,
+			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
+			orgSettings: this.getOrgSettings(),
 		};
 	}
 
@@ -2731,83 +2801,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
-	private async getSmartRefs(
-		graph: GitGraph,
-		{
-			refs,
-			currentBranch,
-			defaultBranchName,
-			associatedPullRequest,
-		}: {
-			refs: GraphIncludeOnlyRef[];
-			currentBranch: GitBranch | undefined;
-			defaultBranchName: string | undefined;
-			associatedPullRequest: PullRequest | undefined;
-		},
-	): Promise<GraphIncludeOnlyRef[]> {
-		let includeDefault = true;
-
-		const pr = associatedPullRequest;
-		if (pr?.refs != null) {
-			let prBranch;
-
-			const remote = find(graph.remotes.values(), r => r.matches(pr.refs!.base.url));
-			if (remote != null) {
-				prBranch = graph.branches.get(`${remote.name}/${pr.refs.base.branch}`);
-			}
-
-			if (prBranch != null) {
-				refs.push({
-					id: prBranch.id,
-					name: prBranch.name,
-					type: 'remote',
-				});
-
-				includeDefault = false;
-			}
-		}
-
-		if (includeDefault) {
-			if (defaultBranchName != null && defaultBranchName !== currentBranch?.name) {
-				const defaultBranch = graph.branches.get(defaultBranchName);
-				if (defaultBranch != null) {
-					if (defaultBranch.remote) {
-						refs.push({
-							id: defaultBranch.id,
-							name: defaultBranch.name,
-							type: 'remote',
-						});
-
-						const localDefault = await getLocalBranchByUpstream(defaultBranchName, graph.branches);
-						if (localDefault != null) {
-							refs.push({
-								id: localDefault.id,
-								name: localDefault.name,
-								type: 'head',
-							});
-						}
-					} else {
-						refs.push({
-							id: defaultBranch.id,
-							name: defaultBranch.name,
-							type: 'head',
-						});
-
-						if (defaultBranch.upstream != null && !defaultBranch.upstream.missing) {
-							refs.push({
-								id: getBranchId(graph.repoPath, true, defaultBranch.upstream.name),
-								name: defaultBranch.upstream.name,
-								type: 'remote',
-							});
-						}
-					}
-				}
-			}
-		}
-
-		return refs;
-	}
-
 	private async getVisibleRefs(
 		graph: GitGraph,
 		currentBranch: GitBranch,
@@ -2818,36 +2811,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		},
 	): Promise<Map<string, GraphIncludeOnlyRef>> {
 		const refs = new Map<string, GraphIncludeOnlyRef>([
-			currentBranch.remote
-				? [
-						currentBranch.id,
-						{
-							id: currentBranch.id,
-							type: 'remote',
-							name: currentBranch.getNameWithoutRemote(),
-							owner: currentBranch.getRemoteName(),
-						},
-				  ]
-				: [
-						currentBranch.id,
-						{
-							id: currentBranch.id,
-							type: 'head',
-							name: currentBranch.name,
-						},
-				  ],
+			[currentBranch.id, convertBranchToIncludeOnlyRef(currentBranch)],
 		]);
 
-		if (currentBranch.upstream != null && !currentBranch.upstream.missing) {
-			const id = getBranchId(graph.repoPath, true, currentBranch.upstream.name);
-			if (!refs.has(id)) {
-				refs.set(id, {
-					id: id,
-					type: 'remote',
-					name: getBranchNameWithoutRemote(currentBranch.upstream.name),
-					owner: currentBranch.getRemoteName(),
-				});
-			}
+		const upstreamRef = convertBranchUpstreamToIncludeOnlyRef(currentBranch);
+		if (upstreamRef != null && !refs.has(upstreamRef.id)) {
+			refs.set(upstreamRef.id, upstreamRef);
 		}
 
 		let includeDefault = true;
@@ -2860,22 +2829,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				if (baseBranch.remote) {
 					if (!refs.has(baseBranch.id)) {
-						refs.set(baseBranch.id, {
-							id: baseBranch.id,
-							type: 'remote',
-							name: baseBranch.getNameWithoutRemote(),
-							owner: baseBranch.getRemoteName(),
-						});
+						refs.set(baseBranch.id, convertBranchToIncludeOnlyRef(baseBranch, true));
 					}
-				} else if (baseBranch.upstream != null && !baseBranch.upstream.missing) {
-					const id = getBranchId(graph.repoPath, true, baseBranch.upstream.name);
-					if (!refs.has(baseBranch.id)) {
-						refs.set(id, {
-							id: id,
-							type: 'remote',
-							name: getBranchNameWithoutRemote(baseBranch.upstream.name),
-							owner: baseBranch.getRemoteName(),
-						});
+				} else {
+					const upstreamRef = convertBranchUpstreamToIncludeOnlyRef(baseBranch);
+					if (upstreamRef != null && !refs.has(upstreamRef.id)) {
+						refs.set(upstreamRef.id, upstreamRef);
 					}
 				}
 			}
@@ -2894,12 +2853,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				includeDefault = false;
 
 				if (!refs.has(prBranch.id)) {
-					refs.set(prBranch.id, {
-						id: prBranch.id,
-						type: 'remote',
-						name: prBranch.getNameWithoutRemote(),
-						owner: prBranch.getRemoteName(),
-					});
+					refs.set(prBranch.id, convertBranchToIncludeOnlyRef(prBranch, true));
 				}
 			}
 		}
@@ -2911,43 +2865,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (defaultBranch != null) {
 					if (defaultBranch.remote) {
 						if (!refs.has(defaultBranch.id)) {
-							refs.set(defaultBranch.id, {
-								id: defaultBranch.id,
-								type: 'remote',
-								name: defaultBranch.getNameWithoutRemote(),
-								owner: defaultBranch.getRemoteName(),
-							});
+							refs.set(defaultBranch.id, convertBranchToIncludeOnlyRef(defaultBranch, true));
 						}
 
 						const localDefault = await getLocalBranchByUpstream(defaultBranchName, graph.branches);
 						if (localDefault != null) {
 							if (!refs.has(localDefault.id)) {
-								refs.set(localDefault.id, {
-									id: localDefault.id,
-									type: 'head',
-									name: localDefault.name,
-								});
+								refs.set(localDefault.id, convertBranchToIncludeOnlyRef(localDefault, false));
 							}
 						}
 					} else {
 						if (!refs.has(defaultBranch.id)) {
-							refs.set(defaultBranch.id, {
-								id: defaultBranch.id,
-								type: 'head',
-								name: defaultBranch.name,
-							});
+							refs.set(defaultBranch.id, convertBranchToIncludeOnlyRef(defaultBranch, false));
 						}
 
-						if (defaultBranch.upstream != null && !defaultBranch.upstream.missing) {
-							const id = getBranchId(graph.repoPath, true, defaultBranch.upstream.name);
-							if (!refs.has(defaultBranch.id)) {
-								refs.set(id, {
-									id: id,
-									type: 'remote',
-									name: getBranchNameWithoutRemote(defaultBranch.upstream.name),
-									owner: defaultBranch.getRemoteName(),
-								});
-							}
+						const upstreamRef = convertBranchUpstreamToIncludeOnlyRef(defaultBranch);
+						if (upstreamRef != null && !refs.has(upstreamRef.id)) {
+							refs.set(upstreamRef.id, upstreamRef);
 						}
 					}
 				}
@@ -3136,6 +3070,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (ex instanceof CancellationError) return;
 
 						void this.host.notify(DidSearchNotification, {
+							search: search.query,
 							results: {
 								error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
 							},
@@ -3184,6 +3119,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return BranchActions.remove(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
+	private async star(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			const branch = await this.container.git.getRepositoryService(ref.repoPath).branches.getBranch(ref.name);
+			if (branch != null) return branch.star();
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
+	private async unstar(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			const branch = await this.container.git.getRepositoryService(ref.repoPath).branches.getBranch(ref.name);
+			if (branch != null) return branch.unstar();
 		}
 
 		return Promise.resolve();
@@ -3348,7 +3305,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		if (this.host.is('view')) {
-			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
+			return void showCommitInGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 		}
 
 		return executeCommand<InspectCommandArgs>('gitlens.showInDetailsView', { ref: ref });
@@ -3673,10 +3630,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 												id: remote.provider.id,
 												name: remote.provider.name,
 												domain: remote.provider.domain,
-										  }
+											}
 										: undefined,
 								url: remote.url,
-						  }
+							}
 						: undefined,
 				branch: {
 					name: ref.name,
@@ -4260,3 +4217,21 @@ type GraphItemRefs<T> = {
 	active: T | undefined;
 	selection: T[];
 };
+
+function convertBranchToIncludeOnlyRef(branch: GitBranch, remote?: boolean): GraphIncludeOnlyRef {
+	return (remote ?? branch.remote)
+		? { id: branch.id, type: 'remote', name: branch.getNameWithoutRemote(), owner: branch.getRemoteName() }
+		: { id: branch.id, type: 'head', name: branch.name };
+}
+
+function convertBranchUpstreamToIncludeOnlyRef(branch: GitBranch): GraphIncludeOnlyRef | undefined {
+	if (branch.upstream == null || branch.upstream.missing) return undefined;
+
+	const id = getBranchId(branch.repoPath, true, branch.upstream.name);
+	return {
+		id: id,
+		type: 'remote',
+		name: getBranchNameWithoutRemote(branch.upstream.name),
+		owner: branch.getRemoteName(),
+	};
+}

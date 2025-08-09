@@ -229,14 +229,14 @@ export class GlDraftDetails extends GlTreeBase {
 									class="ai-content__summary scrollable"
 									markdown="${markdown}"
 								></gl-markdown>
-						  </div>`
+							</div>`
 						: this.explain?.error
-						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
+							? html`<div class="ai-content has-error" data-region="commit-explanation">
 									<p class="ai-content__summary scrollable">
 										${this.explain.error.message ?? 'Error retrieving content'}
 									</p>
-						    </div>`
-						  : undefined}
+								</div>`
+							: undefined}
 				</div>
 			</webview-pane>
 		`;
@@ -357,7 +357,7 @@ export class GlDraftDetails extends GlTreeBase {
 															userSelection,
 															value as PatchDetailsUpdateSelectionEventDetail['role'],
 														)}
-											  >
+												>
 													<code-icon
 														icon="check"
 														class="user-selection__check ${selectionRole === value
@@ -365,7 +365,7 @@ export class GlDraftDetails extends GlTreeBase {
 															: ''}"
 													></code-icon>
 													${label}
-											  </gk-menu-item>`,
+												</gk-menu-item>`,
 									)}
 								</gk-menu>
 							</gk-popover>

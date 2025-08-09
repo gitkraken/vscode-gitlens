@@ -598,7 +598,7 @@ export function pluralize(
 		return `${numericFormat(count)} ${s}${count === 1 ? '' : 's'}`;
 	}
 
-	const suffix = count === 1 ? s : options.plural ?? `${s}s`;
+	const suffix = count === 1 ? s : (options.plural ?? `${s}s`);
 	if (options.only) return suffix;
 
 	let result;

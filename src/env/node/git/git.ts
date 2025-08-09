@@ -1532,7 +1532,6 @@ export class Git implements Disposable {
 			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
 			if (result.stdout.includes('No local changes to save')) {
 				throw new StashPushError(StashPushErrorReason.NothingToSave);
-				return;
 			}
 		} catch (ex) {
 			if (
@@ -1612,7 +1611,7 @@ export class Git implements Disposable {
 		try {
 			const bytes = await workspace.fs.readFile(Uri.joinPath(gitDir.uri, ...pathParts));
 			let contents = textDecoder.decode(bytes);
-			contents = options?.trim ?? true ? contents.trim() : contents;
+			contents = (options?.trim ?? true) ? contents.trim() : contents;
 
 			if (options?.numeric) {
 				const number = Number.parseInt(contents, 10);

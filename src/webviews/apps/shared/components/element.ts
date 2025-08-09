@@ -6,8 +6,8 @@ export type CustomEventType<T extends keyof GlobalEventHandlersEventMap> =
 		? [D] extends [never]
 			? CustomEvent<never>
 			: [unknown] extends [D]
-			  ? CustomEvent<unknown>
-			  : CustomEvent<D>
+				? CustomEvent<unknown>
+				: CustomEvent<D>
 		: never;
 type CustomEventDetailType<T extends keyof GlobalEventHandlersEventMap> = CustomEventType<T>['detail'];
 

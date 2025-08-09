@@ -1,5 +1,4 @@
 import type {
-	CssVariables,
 	ExcludeByType,
 	ExcludeRefsById,
 	GraphColumnSetting,
@@ -23,7 +22,7 @@ import type {
 	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
-import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
+import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config';
 import type { SearchQuery } from '../../../constants.search';
 import type { FeaturePreview } from '../../../features';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
@@ -120,10 +119,12 @@ export interface State extends WebviewState {
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
 	defaultSearchMode?: GraphSearchMode;
+	useNaturalLanguageSearch?: boolean;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 	featurePreview?: FeaturePreview;
+	orgSettings?: { ai: boolean; drafts: boolean };
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -132,7 +133,6 @@ export interface State extends WebviewState {
 		top: number;
 		bottom: number;
 	};
-	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
 }
 
 export interface BranchState extends GitTrackingState {
@@ -178,17 +178,18 @@ export type GraphTag = Tag;
 export type GraphBranch = Head;
 
 export interface GraphComponentConfig {
+	aiEnabled?: boolean;
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
-	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
+	multiSelectionMode?: GraphMultiSelectionMode;
 	onlyFollowFirstParent?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
@@ -217,11 +218,7 @@ export type GraphRowStats = RowStats;
 
 export type InternalNotificationType = 'didChangeTheme';
 
-export type UpdateStateCallback = (
-	state: State,
-	type?: IpcNotification<any> | InternalNotificationType,
-	themingChanged?: boolean,
-) => void;
+export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | InternalNotificationType) => void;
 
 // COMMANDS
 
@@ -297,6 +294,7 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 
 export interface UpdateGraphSearchModeParams {
 	searchMode: GraphSearchMode;
+	useNaturalLanguage: boolean;
 }
 export const UpdateGraphSearchModeCommand = new IpcCommand<UpdateGraphSearchModeParams>(scope, 'search/update/mode');
 
@@ -365,6 +363,7 @@ export interface GraphSearchResultsError {
 	error: string;
 }
 export interface DidSearchParams {
+	search: SearchQuery | undefined;
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
 	selectedRows?: GraphSelectedRows;
 }
@@ -401,6 +400,11 @@ export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSu
 	scope,
 	'subscription/didChange',
 );
+
+export interface DidChangeOrgSettingsParams {
+	orgSettings: State['orgSettings'];
+}
+export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
 
 export interface DidChangeAvatarsParams {
 	avatars: GraphAvatars;

@@ -86,7 +86,11 @@ export type ProAIFeatures =
 	| 'generate-stashMessage';
 
 export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures = 'generate-changelog' | 'generate-create-pullRequest' | 'generate-rebase';
+export type AdvancedAIFeatures =
+	| 'generate-changelog'
+	| 'generate-create-pullRequest'
+	| 'generate-rebase'
+	| 'generate-searchQuery';
 
 export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
 
@@ -109,6 +113,7 @@ export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFea
 		case 'generate-create-codeSuggestion':
 		case 'generate-create-pullRequest':
 		case 'generate-rebase':
+			// case 'generate-searchQuery':
 			return true;
 		default:
 			return false;

@@ -8,6 +8,12 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-opus-4-1-20250805',
+		name: 'Claude 4.1 Opus',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+	},
+	{
 		id: 'claude-opus-4-0',
 		name: 'Claude 4 Opus',
 		maxTokens: { input: 204800, output: 32000 },

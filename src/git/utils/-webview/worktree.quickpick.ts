@@ -106,7 +106,7 @@ export function createWorktreeQuickPickItem(
 		detail: options?.path
 			? `${detail ? `${detail}  ` : ''}${missing ? `${GlyphChars.Warning} (missing)` : '$(folder)'} ${
 					worktree.friendlyPath
-			  }`
+				}`
 			: detail,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,

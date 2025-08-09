@@ -538,13 +538,13 @@ export class GlGraphMinimap extends GlElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.handleDataChanged(false);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 
 		this._chart?.destroy();
 		this._chart = undefined!;
@@ -658,7 +658,7 @@ export class GlGraphMinimap extends GlElement {
 										end: day,
 										class: 'marker-head-arrow-right',
 									} satisfies RegionOptions,
-							  ]
+								]
 							: [
 									{
 										axis: 'x',
@@ -667,7 +667,7 @@ export class GlGraphMinimap extends GlElement {
 										class:
 											m.current && m.type === 'remote' ? 'marker-upstream' : `marker-${m.type}`,
 									} satisfies RegionOptions,
-							  ],
+								],
 					),
 				);
 				this._markerRegions = regions;
@@ -991,7 +991,7 @@ export class GlGraphMinimap extends GlElement {
 							stashesCount
 								? /*html*/ `<span class="stash">${pluralize('stash', stashesCount, {
 										plural: 'stashes',
-								  })}</span>`
+									})}</span>`
 								: ''
 						}${
 							groups
@@ -1006,7 +1006,7 @@ export class GlGraphMinimap extends GlElement {
 							pullRequestsCount
 								? /*html*/ `<span class="pull-request">${pluralize('pull request', pullRequestsCount, {
 										plural: 'pull requests',
-								  })}</span>`
+									})}</span>`
 								: ''
 						}${
 							groups

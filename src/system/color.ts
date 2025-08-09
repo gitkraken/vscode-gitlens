@@ -698,6 +698,7 @@ export function parseColor(value: string): Color | null {
 			return new Color(new HSLA(colors[0], colors[1], colors[2], colors[3]));
 	}
 
+	// @ts-expect-error - Allow this fallback just in case
 	return Color.red;
 }
 
@@ -803,4 +804,12 @@ function _parseHexDigit(charCode: CharCode): number {
 			return 15;
 	}
 	return 0;
+}
+
+export function getCssMixedColorValue(color1: string, color2: string, percent: number): string {
+	return `color-mix(in srgb, ${color1} ${percent}%, ${color2})`;
+}
+
+export function getCssOpacityColorValue(color: string, percent: number): string {
+	return getCssMixedColorValue(color, 'transparent', percent);
 }

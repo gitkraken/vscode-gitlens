@@ -9,7 +9,6 @@ import type { GitBranchReference, GitRevisionReference } from '../git/models/ref
 import type { GitRemote } from '../git/models/remote';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
@@ -23,7 +22,7 @@ import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { RemoteNode } from './nodes/remoteNode';
 import { RemotesNode } from './nodes/remotesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -58,15 +57,10 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No remotes could be found.';
 				return [];
-			}
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			this.children = repositories.map(
@@ -178,8 +172,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'integrations.enabled') &&
 			!configuration.changed(e, 'sortBranchesBy') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
@@ -278,14 +271,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	@gate(() => '')
-	async revealBranch(
-		branch: GitBranchReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealBranch(branch: GitBranchReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -307,14 +293,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	@gate(() => '')
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -336,14 +315,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	@gate(() => '')
-	async revealRemote(
-		remote: GitRemote,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealRemote(remote: GitRemote, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -362,10 +334,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof RemotesViewNode || n instanceof RepositoryFolderNode,

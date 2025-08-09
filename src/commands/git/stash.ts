@@ -2,7 +2,7 @@ import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { reveal, showDetailsView } from '../../git/actions/stash';
+import { revealStash, showStashInDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
@@ -386,7 +386,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						state.subcommand === 'pop'
 							? `Will delete ${getReferenceLabel(
 									state.reference,
-							  )} and apply the changes to the working tree`
+								)} and apply the changes to the working tree`
 							: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
 					item: state.subcommand,
 				},
@@ -398,7 +398,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							? `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`
 							: `Will delete ${getReferenceLabel(
 									state.reference,
-							  )} and apply the changes to the working tree`,
+								)} and apply the changes to the working tree`,
 					item: state.subcommand === 'pop' ? 'apply' : 'pop',
 				},
 			],
@@ -408,15 +408,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, expand: true });
 					}
 				},
 			},
@@ -631,7 +625,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							state.uris.length === 1
 								? formatPath(state.uris[0], { fileOnly: true })
 								: `${state.uris.length} files`
-					  }`
+						}`
 					: undefined,
 			),
 			placeholder: 'Please provide a stash message',
@@ -648,11 +642,21 @@ export class StashGitCommand extends QuickCommand<State> {
 					using resume = step.freeze?.();
 
 					try {
-						const diff = await state.repo.git.diff.getDiff?.(
+						let diff = await state.repo.git.diff.getDiff?.(
 							state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
 							undefined,
 							state.uris?.length ? { uris: state.uris } : undefined,
 						);
+
+						// If we didn't find a diff, check if everything is staged (e.g. diff to uncommittedStaged)
+						if (!diff?.contents && !state.flags.includes('--staged')) {
+							diff = await state.repo.git.diff.getDiff?.(
+								uncommittedStaged,
+								undefined,
+								state.uris?.length ? { uris: state.uris } : undefined,
+							);
+						}
+
 						if (!diff?.contents) {
 							void window.showInformationMessage('No changes to generate a stash message from.');
 							return;
@@ -860,15 +864,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(state.reference, {
-							pin: false,
-							preserveFocus: true,
-						});
+						void showStashInDetailsView(state.reference, { pin: false, preserveFocus: true });
 					} else if (button === RevealInSideBarQuickInputButton) {
-						void reveal(state.reference, {
-							select: true,
-							expand: true,
-						});
+						void revealStash(state.reference, { select: true, expand: true });
 					}
 				},
 			},

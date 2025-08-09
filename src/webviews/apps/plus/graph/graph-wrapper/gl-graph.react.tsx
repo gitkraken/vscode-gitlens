@@ -1,5 +1,6 @@
 import type {
 	CommitType,
+	CssVariables,
 	ExcludeRefsById,
 	ExternalIconKeys,
 	GetExternalIcon,
@@ -36,7 +37,7 @@ import type {
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react';
-import type { GraphAppState } from '../stateProvider';
+import type { GraphStateProvider } from '../stateProvider';
 
 export type GraphWrapperProps = Pick<
 	State,
@@ -59,7 +60,7 @@ export type GraphWrapperProps = Pick<
 	| 'rowsStatsLoading'
 	| 'workingTreeStats'
 > &
-	Pick<GraphAppState, 'activeRow' | 'theming' | 'searchResults' | 'filter'>;
+	Pick<GraphStateProvider, 'activeRow' | 'searchResults' | 'filter'> & { theming?: GraphWrapperTheming };
 
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;
@@ -197,6 +198,8 @@ interface GraphWrapperAPI {
 	setRef: (refObject: GraphContainer) => void;
 }
 
+export type GraphWrapperTheming = { cssVariables: CssVariables; themeOpacityFactor: number };
+
 export type GraphWrapperSubscriberProps = GraphWrapperProps & GraphWrapperAPI;
 export type GraphWrapperInitProps = GraphWrapperProps &
 	GraphWrapperEvents &
@@ -206,7 +209,7 @@ export type GraphWrapperInitProps = GraphWrapperProps &
 
 const emptyRows: GraphRow[] = [];
 
-export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
+export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const [graph, _graphRef] = useState<GraphContainer | null>(null);
 	const [context, setContext] = useState(initProps.context);
 	const [props, setProps] = useState(initProps);
@@ -524,7 +527,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 			enabledRefMetadataTypes={config.enabledRefMetadataTypes}
 			enabledScrollMarkerTypes={config.scrollMarkerTypes}
 			enableShowHideRefsOptions
-			enableMultiSelection={config.enableMultiSelection}
+			enableMultiSelection={config.multiSelectionMode !== false}
 			excludeRefsById={props.excludeRefs}
 			excludeByType={props.excludeTypes}
 			formatCommitDateTime={getGraphDateFormatter(config)}
@@ -576,7 +579,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 			rowsStatsLoading={props.rowsStatsLoading}
 			searchMode={props.filter?.filter ? 'filter' : 'normal'}
 			shaLength={config.idLength}
-			shiftSelectMode="simple"
+			shiftSelectMode={config.multiSelectionMode === 'topological' ? 'topological' : 'simple'}
 			suppressNonRefRowTooltips
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}

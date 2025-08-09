@@ -72,6 +72,11 @@ export class GlButton extends LitElement {
 				cursor: pointer;
 			}
 
+			/* When truncate is enabled, allow the control to shrink */
+			:host([truncate]) .control {
+				min-width: 0;
+			}
+
 			button.control {
 				appearance: none;
 				background: transparent;
@@ -86,6 +91,14 @@ export class GlButton extends LitElement {
 				display: inline-flex;
 				align-items: center;
 				max-width: 100%;
+			}
+
+			/* Text truncation option - enabled via truncate attribute */
+			:host([truncate]) .label {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				display: block; /* Change from flex to block for ellipsis to work */
 			}
 
 			:host(:hover) {
@@ -220,8 +233,11 @@ export class GlButton extends LitElement {
 	@property()
 	tooltipPlacement?: GlTooltip['placement'] = 'bottom';
 
+	@property({ type: Boolean, reflect: true })
+	truncate = false;
+
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this.setAttribute('role', this.href ? 'link' : 'button');
 		if (this.disabled) {

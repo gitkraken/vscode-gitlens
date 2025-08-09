@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { Container } from '../container';
-import { reveal, showDetailsView } from '../git/actions/stash';
+import { revealStash, showStashInDetailsView } from '../git/actions/stash';
 import type { GitStashCommit } from '../git/models/commit';
 import type { GitStash } from '../git/models/stash';
 import type { KeyboardScope } from '../system/-webview/keyboard';
@@ -66,7 +66,7 @@ export async function showStashPicker(
 	if (!stash?.stashes.size || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
 		quickpick.placeholder = !stash?.stashes.size
 			? 'No stashes found'
-			: options?.empty ?? `No matching stashes found`;
+			: (options?.empty ?? `No matching stashes found`);
 		quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 	}
 
@@ -138,9 +138,9 @@ export async function showStashPicker(
 					}
 
 					if (e.button === ShowDetailsViewQuickInputButton) {
-						void showDetailsView(e.item.item, { pin: false, preserveFocus: true });
+						void showStashInDetailsView(e.item.item, { pin: false, preserveFocus: true });
 					} else if (e.button === RevealInSideBarQuickInputButton) {
-						void reveal(e.item.item, { select: true, focus: false, expand: true });
+						void revealStash(e.item.item, { select: true, focus: false, expand: true });
 					}
 				}),
 			);

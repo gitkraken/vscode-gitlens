@@ -1,4 +1,5 @@
 import type { CancellationToken } from 'vscode';
+import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import type { Role } from '../../@types/vsls';
@@ -129,7 +130,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				max_completion_tokens: model.maxTokens.output
 					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
 					: modelOptions?.outputTokens,
-				temperature: getValidatedTemperature(modelOptions?.temperature ?? model.temperature),
+				temperature: getValidatedTemperature(model, modelOptions?.temperature ?? model.temperature),
 			};
 
 			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);
@@ -144,7 +145,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 
 			const data: ChatCompletionResponse = await rsp.json();
 			const result: AIRequestResult = {
-				id: data.id,
+				id: data.id ?? uuid(),
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
 				model: model,
 				usage: {
@@ -157,7 +158,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 									used: data.usage.gk.used,
 									limit: data.usage.gk.limit,
 									resetsOn: new Date(data.usage.gk.resets_on),
-							  }
+								}
 							: undefined,
 				},
 			};

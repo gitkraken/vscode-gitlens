@@ -94,7 +94,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 				for await (const c of parser.parseAsync(stream)) {
 					if (signal?.aborted || cancellation?.isCancellationRequested) {
-						cancellable?.cancel();
+						cancellable?.cancelled();
 						break;
 					}
 
@@ -171,11 +171,11 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					cancelled: signal?.aborted
 						? { reason: 'timedout' }
 						: cancellation?.isCancellationRequested
-						  ? { reason: 'cancelled' }
-						  : undefined,
+							? { reason: 'cancelled' }
+							: undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancel();
+				cancellable?.cancelled();
 				Logger.error(ex, scope);
 				debugger;
 
@@ -274,7 +274,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				const shortlog = parseShortlog(result.stdout, repoPath, await currentUserPromise);
 				return shortlog.contributors;
 			} catch (ex) {
-				cancellable?.cancel();
+				cancellable?.cancelled();
 				Logger.error(ex, scope);
 				debugger;
 

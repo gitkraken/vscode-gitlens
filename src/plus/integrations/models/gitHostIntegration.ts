@@ -54,10 +54,11 @@ export abstract class GitHostIntegration<
 
 		try {
 			const author = await this.getProviderAccountForEmail(this._session!, repo, email, options);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('getAccountForEmail');
 			return author;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+			this.handleProviderException('getAccountForEmail', ex, { scope: scope });
+			return undefined;
 		}
 	}
 
@@ -84,10 +85,11 @@ export abstract class GitHostIntegration<
 
 		try {
 			const author = await this.getProviderAccountForCommit(this._session!, repo, rev, options);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('getAccountForCommit');
 			return author;
 		} catch (ex) {
-			return this.handleProviderException<Account | undefined>(ex, scope, undefined);
+			this.handleProviderException('getAccountForCommit', ex, { scope: scope });
+			return undefined;
 		}
 	}
 
@@ -117,10 +119,11 @@ export abstract class GitHostIntegration<
 				value: (async () => {
 					try {
 						const result = await this.getProviderDefaultBranch(this._session!, repo, options?.cancellation);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getDefaultBranch');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
+						this.handleProviderException('getDefaultBranch', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -160,10 +163,11 @@ export abstract class GitHostIntegration<
 							repo,
 							options?.cancellation,
 						);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getRepositoryMetadata');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
+						this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -188,10 +192,11 @@ export abstract class GitHostIntegration<
 
 		try {
 			const result = await this.mergeProviderPullRequest(this._session!, pr, options);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('mergePullRequest');
 			return result;
 		} catch (ex) {
-			return this.handleProviderException<boolean>(ex, scope, false);
+			this.handleProviderException('mergePullRequest', ex, { scope: scope });
+			return false;
 		}
 	}
 
@@ -224,10 +229,11 @@ export abstract class GitHostIntegration<
 				value: (async () => {
 					try {
 						const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, opts);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getPullRequestForBranch');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+						this.handleProviderException('getPullRequestForBranch', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -264,10 +270,11 @@ export abstract class GitHostIntegration<
 				value: (async () => {
 					try {
 						const result = await this.getProviderPullRequestForCommit(this._session!, repo, rev);
-						this.resetRequestExceptionCount();
+						this.resetRequestExceptionCount('getPullRequestForCommit');
 						return result;
 					} catch (ex) {
-						return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+						this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						return undefined;
 					}
 				})(),
 			}),
@@ -374,6 +381,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
+							providerId,
 							projectInput.namespace,
 							projectInput.project,
 							{
@@ -663,10 +671,17 @@ export abstract class GitHostIntegration<
 				cancellation,
 				silent,
 			);
+			this.resetRequestExceptionCount('searchMyPullRequests');
 			return { value: pullRequests, duration: Date.now() - start };
 		} catch (ex) {
-			Logger.error(ex, scope);
-			return { error: ex, duration: Date.now() - start };
+			this.handleProviderException('searchMyPullRequests', ex, {
+				scope: scope,
+				silent: true,
+			});
+			return {
+				error: ex,
+				duration: Date.now() - start,
+			};
 		}
 	}
 
@@ -706,10 +721,11 @@ export abstract class GitHostIntegration<
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
 			);
-			this.resetRequestExceptionCount();
+			this.resetRequestExceptionCount('searchPullRequests');
 			return prs;
 		} catch (ex) {
-			return this.handleProviderException<PullRequest[] | undefined>(ex, scope, undefined);
+			this.handleProviderException('searchPullRequests', ex, { scope: scope });
+			return undefined;
 		}
 	}
 

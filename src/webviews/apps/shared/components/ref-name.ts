@@ -55,7 +55,7 @@ export class GlRefName extends LitElement {
 		switch (this.ref.refType) {
 			case 'branch':
 				className = this.worktree ? 'worktree' : 'branch';
-				icon = this.worktree ? 'gl-worktrees-view' : 'git-branch';
+				icon = this.worktree ? 'gl-worktree' : 'git-branch';
 				break;
 			case 'tag':
 				className = 'tag';
@@ -72,7 +72,7 @@ export class GlRefName extends LitElement {
 						class="icon${className ? ` ${className}` : ''}"
 						icon="${icon}"
 						size="${this.size}"
-				  ></code-icon>`
+					></code-icon>`
 				: nothing}<span class="label">${this.ref.name}</span>`;
 	}
 }

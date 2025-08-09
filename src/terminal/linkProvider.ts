@@ -169,11 +169,11 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					command: showDetailsView
 						? createTerminalLinkCommand<InspectCommandArgs>('gitlens.showInDetailsView', {
 								ref: createReference(ref, repoPath, { refType: 'revision' }),
-						  })
+							})
 						: createTerminalLinkCommand<ShowQuickCommitCommandArgs>('gitlens.showQuickCommitDetails', {
 								repoPath: repoPath,
 								sha: ref,
-						  }),
+							}),
 				};
 				links.push(link);
 			}

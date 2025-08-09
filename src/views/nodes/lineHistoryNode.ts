@@ -136,7 +136,7 @@ export class LineHistoryNode
 									getBranchAndTagTips: getBranchAndTagTips,
 									selection: selection,
 									unpublished: unpublishedCommits?.has(c.ref),
-							  })
+								})
 							: undefined,
 					),
 					this,

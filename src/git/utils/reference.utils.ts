@@ -156,7 +156,7 @@ export function getReferenceLabel(
 					result = `${options.label ? 'stash ' : ''}${
 						options.icon
 							? `$(archive)${GlyphChars.Space}${message ?? ref.name}`
-							: message ?? (ref.stashNumber ? `#${ref.stashNumber}` : ref.name)
+							: (message ?? (ref.stashNumber ? `#${ref.stashNumber}` : ref.name))
 					}`;
 				} else if (isRevisionRange(ref.ref)) {
 					result = refName;

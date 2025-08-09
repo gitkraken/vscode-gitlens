@@ -217,16 +217,16 @@ export function getWorktreeBranchIconPath(
 		case 'ahead':
 		case 'behind':
 		case 'diverged':
-			return getIconPathUris(container, `icon-repo-${branch.status}.svg`);
+			return getIconPathUris(container, `icon-worktree-${branch.status}.svg`);
 		case 'upToDate':
 			if (status?.hasWorkingTreeChanges) {
-				return getIconPathUris(container, `icon-repo-changes.svg`);
+				return getIconPathUris(container, `icon-worktree-changes.svg`);
 			}
-			return getIconPathUris(container, `icon-repo-synced.svg`);
+			return getIconPathUris(container, `icon-worktree-synced.svg`);
 		default:
 			if (status?.hasWorkingTreeChanges) {
-				return getIconPathUris(container, `icon-repo-changes.svg`);
+				return getIconPathUris(container, `icon-worktree-changes.svg`);
 			}
-			return getIconPathUris(container, `icon-repo.svg`);
+			return getIconPathUris(container, `icon-worktree.svg`);
 	}
 }

@@ -1,6 +1,6 @@
 import { Container } from '../../container';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { RevealOptions, ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -86,14 +86,10 @@ export function switchTo(
 	});
 }
 
-export function reveal(
+export function revealRepository(
 	repoPath: string,
 	view?: ViewsWithRepositoryFolders,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
+	options?: RevealOptions,
 ): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealRepository(repoPath, view, options);
 }

@@ -89,13 +89,13 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 			this.tag.date != null
 				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
 						this.view.container.TagDateFormatting.dateFormat,
-				  )})`
+					)})`
 				: ''
 		}\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
 				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
 						this.view.container.TagDateFormatting.dateFormat,
-				  )})`
+					)})`
 				: ''
 		}`;
 

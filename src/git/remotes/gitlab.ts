@@ -143,7 +143,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 									}
 
 									return token;
-							  });
+								});
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let ownerAndRepo: string;
@@ -245,7 +245,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 										}
 										return token;
 									},
-							  );
+								);
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let ownerAndRepo: string;

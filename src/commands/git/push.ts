@@ -239,8 +239,8 @@ export class PushGitCommand extends QuickCommand<State> {
 										useForceIfIncludes
 											? ' (with lease and if includes)'
 											: useForceWithLease
-											  ? ' (with lease)'
-											  : ''
+												? ' (with lease)'
+												: ''
 									}`,
 									description: `--force${
 										useForceWithLease
@@ -251,8 +251,8 @@ export class PushGitCommand extends QuickCommand<State> {
 										useForceIfIncludes
 											? ' (with lease and if includes)'
 											: useForceWithLease
-											  ? ' (with lease)'
-											  : ''
+												? ' (with lease)'
+												: ''
 									} ${
 										branch?.upstream.state.ahead
 											? ` ${pluralize('commit', branch.upstream.state.ahead)}`
@@ -261,7 +261,7 @@ export class PushGitCommand extends QuickCommand<State> {
 										branch != null && branch.upstream.state.behind > 0
 											? `, overwriting ${pluralize('commit', branch.upstream.state.behind)}${
 													branch?.getRemoteName() ? ` on ${branch.getRemoteName()}` : ''
-											  }`
+												}`
 											: ''
 									}`,
 								}),
@@ -384,7 +384,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							status?.upstream?.state.ahead
 								? ` commits up to and including ${getReferenceLabel(state.reference, {
 										label: false,
-								  })}`
+									})}`
 								: ''
 						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''}`;
 					} else {
@@ -403,14 +403,14 @@ export class PushGitCommand extends QuickCommand<State> {
 											label: this.title,
 											detail: `Will push${pushDetails}`,
 										}),
-								  ]),
+									]),
 							createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
 								label: `Force ${this.title}${
 									useForceIfIncludes
 										? ' (with lease and if includes)'
 										: useForceWithLease
-										  ? ' (with lease)'
-										  : ''
+											? ' (with lease)'
+											: ''
 								}`,
 								description: `--force${
 									useForceWithLease
@@ -421,15 +421,15 @@ export class PushGitCommand extends QuickCommand<State> {
 									useForceIfIncludes
 										? ' (with lease and if includes)'
 										: useForceWithLease
-										  ? ' (with lease)'
-										  : ''
+											? ' (with lease)'
+											: ''
 								} ${pushDetails}${
 									status?.upstream?.state.behind
 										? `, overwriting ${pluralize('commit', status.upstream.state.behind)}${
 												status?.upstream
 													? ` on ${getRemoteNameFromBranchName(status.upstream?.name)}`
 													: ''
-										  }`
+											}`
 										: ''
 								}`,
 							}),
@@ -440,7 +440,7 @@ export class PushGitCommand extends QuickCommand<State> {
 									detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
 										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''
 									} by ${pluralize('commit', status.upstream.state.behind)}`,
-							  })
+								})
 							: undefined,
 					);
 

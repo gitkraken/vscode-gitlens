@@ -60,7 +60,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		setAbbreviatedShaLength(this.state.config.abbreviatedShaLength);
 	}
@@ -154,16 +154,16 @@ export class GlTimelineApp extends GlAppHost<State> {
 									href="command:gitlens.views.timeline.openInTab"
 									tooltip="Open in Editor"
 									aria-label="Open in Editor"
-							  >
+								>
 									<code-icon icon="link-external"></code-icon>
-							  </gl-button>`
+								</gl-button>`
 							: nothing}
 						${this.subscription == null || !isSubscriptionPaid(this.subscription)
 							? html`<gl-feature-badge
 									placement="bottom"
 									.source=${{ source: 'timeline' as const, detail: 'badge' }}
 									.subscription=${this.subscription}
-							  ></gl-feature-badge>`
+								></gl-feature-badge>`
 							: nothing}
 					</span>
 				</header>
@@ -184,7 +184,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 						tooltip="Choose File or Folder to Visualize..."
 						aria-label="Choose File or Folder to Visualize..."
 						><code-icon slot="prefix" icon="folder-opened"></code-icon>Choose File / Folder...</gl-button
-				  >`
+					>`
 				: nothing}
 		</gl-breadcrumbs>`;
 	}
@@ -195,7 +195,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 
 		return html`<gl-breadcrumb-item
 			collapsibleState="${this.state.scope?.relativePath ? 'collapsed' : 'expanded'}"
-			icon="repo"
+			icon="gl-repository"
 			shrink="10000000"
 			type="repo"
 		>
@@ -294,7 +294,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 										>
 									</gl-breadcrumb-item-child>`;
 								})}
-						  </span>`
+							</span>`
 						: nothing}
 				</gl-breadcrumb-item>
 			`;

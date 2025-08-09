@@ -5,7 +5,7 @@ import { proBadge, proBadgeSuperscript } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { executeGitCommand } from '../../git/actions';
-import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
+import { convertLocationToOpenFlags, convertOpenFlagsToLocation, revealWorktree } from '../../git/actions/worktree';
 import {
 	ApplyPatchCommitError,
 	ApplyPatchCommitErrorReason,
@@ -298,7 +298,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					state.repo = context.repos[0];
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
+					const result = yield* pickRepositoryStep(state, context, { excludeWorktrees: true });
 					if (result === StepResultBreak) continue;
 
 					state.repo = result;
@@ -519,7 +519,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				: Uri.joinPath(
 						state.uri,
 						...(state.createBranch ?? state.reference.name).replace(/\\/g, '/').split('/'),
-				  );
+					);
 
 			let worktree: GitWorktree | undefined;
 			try {
@@ -597,7 +597,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.reveal !== false) {
 				setTimeout(() => {
 					if (this.container.views.worktrees.visible) {
-						void reveal(worktree, { select: true, focus: false });
+						void revealWorktree(worktree, { select: true, focus: false });
 					}
 				}, 100);
 			}
@@ -729,8 +729,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				label: isRemoteBranch
 					? 'Create Worktree from New Local Branch'
 					: isBranch
-					  ? 'Create Worktree from Branch'
-					  : context.title,
+						? 'Create Worktree from Branch'
+						: context.title,
 				description: '',
 				detail: `Will create worktree in $(folder) ${
 					state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
@@ -756,8 +756,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							label: isRemoteBranch
 								? 'Create Worktree from Local Branch'
 								: isBranch
-								  ? 'Create Worktree from Branch'
-								  : context.title,
+									? 'Create Worktree from Branch'
+									: context.title,
 							description: '',
 							detail: `Will create worktree directly in $(folder) ${truncateLeft(
 								pickedFriendlyPath,
@@ -1028,7 +1028,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								description: 'includes ANY UNCOMMITTED changes',
 								detail: `Will forcibly ${descriptionWithBranchDelete}`,
 							}),
-					  ]),
+						]),
 			],
 			context,
 		);

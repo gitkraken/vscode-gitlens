@@ -186,7 +186,7 @@ export class PullGitCommand extends QuickCommand<State> {
 								branch.upstream.state.behind
 									? ` ${pluralize('commit', branch.upstream.state.behind)} into ${getReferenceLabel(
 											branch,
-									  )}`
+										)}`
 									: ` into ${getReferenceLabel(branch)}`
 							}`,
 						}),

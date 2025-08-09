@@ -64,7 +64,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 									c.author.name === 'You' || isUserMatch(currentUser, c.author.name, c.author.email);
 								contributor = new GitContributor(
 									repoPath,
-									isCurrentUser ? currentUser?.name ?? c.author.name : c.author.name,
+									isCurrentUser ? (currentUser?.name ?? c.author.name) : c.author.name,
 									c.author.email,
 									isCurrentUser,
 									1,
@@ -85,7 +85,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 												...c.stats,
 												files: getChangedFilesCount(c.stats?.files),
 												contributionScore: calculateContributionScore(c.stats, timestamp),
-										  }
+											}
 										: undefined,
 								);
 								contributors.set(key, contributor);
@@ -196,7 +196,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					cancelled: cancellation?.isCancellationRequested ? { reason: 'cancelled' } : undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancel();
+				cancellable?.cancelled();
 				Logger.error(ex, scope);
 				debugger;
 

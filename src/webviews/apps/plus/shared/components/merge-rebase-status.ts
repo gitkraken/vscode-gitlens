@@ -146,7 +146,7 @@ export class GlMergeConflictWarning extends LitElement {
 			>${started
 				? html`<span class="steps"
 						>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
-				  >`
+					>`
 				: nothing}`;
 	}
 

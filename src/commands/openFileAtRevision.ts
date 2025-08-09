@@ -190,7 +190,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 											title: newTitle,
 										};
 									},
-							  }
+								}
 							: undefined,
 						picked: gitUri.sha,
 						keyboard: {

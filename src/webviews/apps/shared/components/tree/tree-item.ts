@@ -66,23 +66,22 @@ export class GlTreeItem extends GlElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
-		this.addEventListener('click', this.onComponentClickBound);
+		super.connectedCallback?.();
+		this.addEventListener('click', this.onComponentClick);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-		this.removeEventListener('click', this.onComponentClickBound);
+		super.disconnectedCallback?.();
+		this.removeEventListener('click', this.onComponentClick);
 	}
 
-	private onComponentClick(e: MouseEvent) {
+	private readonly onComponentClick = (e: MouseEvent) => {
 		this.selectCore({
 			dblClick: false,
 			altKey: e.altKey,
 		});
 		this.buttonEl.focus();
-	}
-	private onComponentClickBound = this.onComponentClick.bind(this);
+	};
 
 	private updateAttrs(changedProperties: Map<string, any>, force = false) {
 		if (changedProperties.has('expanded') || force) {

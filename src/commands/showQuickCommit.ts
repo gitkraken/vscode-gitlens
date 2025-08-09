@@ -1,7 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import { reveal } from '../git/actions/commit';
+import { revealCommit } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
@@ -141,11 +141,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.revealInView) {
-				void (await reveal(args.commit, {
-					select: true,
-					focus: true,
-					expand: true,
-				}));
+				void (await revealCommit(args.commit, { select: true, focus: true, expand: true }));
 
 				return;
 			}

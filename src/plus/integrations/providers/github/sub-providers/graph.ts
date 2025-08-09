@@ -22,6 +22,7 @@ import type { GitUser } from '../../../../../git/models/user';
 import type { GitWorktree } from '../../../../../git/models/worktree';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../../git/search';
+import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons';
 import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
@@ -231,7 +232,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				context = {
 					webviewItem: `gitlens:branch${head ? '+current' : ''}${
 						headBranch?.upstream != null ? '+tracking' : ''
-					}`,
+					}${headBranch?.starred ? '+starred' : ''}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(headBranch.name, repoPath, {
@@ -255,7 +256,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								? {
 										name: headBranch.upstream.name,
 										id: getBranchId(repoPath, true, headBranch.upstream.name),
-								  }
+									}
 								: undefined,
 					},
 				];
@@ -267,7 +268,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						getRemoteIconUri(this.container, remote, asWebviewUri)
 					)?.toString(true);
 					context = {
-						webviewItem: 'gitlens:branch+remote',
+						webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(headBranch.name, repoPath, {
@@ -321,7 +322,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							getRemoteIconUri(this.container, remote, asWebviewUri)
 						)?.toString(true);
 						context = {
-							webviewItem: 'gitlens:branch+remote',
+							webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
 							webviewItemValue: {
 								type: 'branch',
 								ref: createReference(b, repoPath, {
@@ -487,7 +488,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	@log<GraphGitSubProvider['searchGraph']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
 					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
 				}`,
 			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
@@ -503,7 +504,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitGraphSearch> {
 		// const scope = getLogScope();
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 
@@ -567,8 +568,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						options?.ordering === 'date'
 							? 'committer-date'
 							: options?.ordering === 'author-date'
-							  ? 'author-date'
-							  : undefined,
+								? 'author-date'
+								: undefined,
 				});
 
 				if (result == null || cancellation?.isCancellationRequested) {
@@ -593,7 +594,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						? {
 								limit: limit,
 								hasMore: true,
-						  }
+							}
 						: undefined,
 					more: async (limit: number): Promise<GitGraphSearch> => searchGraphCore.call(this, limit, cursor),
 				};

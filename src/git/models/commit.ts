@@ -66,6 +66,7 @@ export class GitCommit implements GitRevisionReference {
 	readonly stashNumber: string | undefined;
 	readonly stashOnRef: string | undefined;
 	readonly tips: string[] | undefined;
+	readonly parentTimestamps?: GitStashParentInfo[] | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -82,10 +83,12 @@ export class GitCommit implements GitRevisionReference {
 		tips?: string[],
 		stashName?: string | undefined,
 		stashOnRef?: string | undefined,
+		parentTimestamps?: GitStashParentInfo[] | undefined,
 	) {
 		this.ref = sha;
 		this.shortSha = sha.substring(0, this.container.CommitShaFormatting.length);
 		this.tips = tips;
+		this.parentTimestamps = parentTimestamps;
 
 		if (stashName) {
 			this.refType = 'stash';
@@ -302,8 +305,6 @@ export class GitCommit implements GitRevisionReference {
 					let files = status.files.flatMap(f => f.getPseudoFileChanges());
 					if (isUncommittedStaged(this.sha)) {
 						files = files.filter(f => f.staged);
-					} else {
-						files = files.filter(f => !f.staged);
 					}
 
 					const pathspec = this.fileset?.filtered?.pathspec;
@@ -457,9 +458,9 @@ export class GitCommit implements GitRevisionReference {
 						type === 'added'
 							? 'var(--vscode-gitDecoration-addedResourceForeground)'
 							: type === 'deleted'
-							  ? 'var(--vscode-gitDecoration-deletedResourceForeground)'
-							  : 'var(--vscode-gitDecoration-modifiedResourceForeground)'
-				  };">${label}</span>`
+								? 'var(--vscode-gitDecoration-deletedResourceForeground)'
+								: 'var(--vscode-gitDecoration-modifiedResourceForeground)'
+					};">${label}</span>`
 				: label;
 		}
 
@@ -599,8 +600,8 @@ export class GitCommit implements GitRevisionReference {
 		// If we are "allowing" filtered files, prioritize them (allowing here really means "use" filtered files if they exist)
 		const commits = (
 			options?.allowFilteredFiles
-				? this.fileset?.filtered?.files ?? this.fileset?.files
-				: this.fileset?.files ?? this.fileset?.filtered?.files
+				? (this.fileset?.filtered?.files ?? this.fileset?.files)
+				: (this.fileset?.files ?? this.fileset?.filtered?.files)
 		)?.map(f => this.with({ fileset: { ...this.fileset!, filtered: { files: [f], pathspec: f.path } } }));
 		return commits ?? [];
 	}
@@ -689,6 +690,7 @@ export class GitCommit implements GitRevisionReference {
 		fileset?: GitCommitFileset | null;
 		lines?: GitCommitLine[] | null;
 		stats?: GitCommitStats | null;
+		parentTimestamps?: GitStashParentInfo[] | null;
 	}): T {
 		return new GitCommit(
 			this.container,
@@ -705,6 +707,7 @@ export class GitCommit implements GitRevisionReference {
 			this.tips,
 			this.stashName,
 			this.stashOnRef,
+			this.getChangedValue(changes.parentTimestamps, this.parentTimestamps),
 		) as T;
 	}
 
@@ -763,10 +766,17 @@ export interface GitCommitStats<Files extends number | GitDiffFileStats = number
 	readonly deletions: number;
 }
 
+export interface GitStashParentInfo {
+	readonly sha: string;
+	readonly authorDate?: number;
+	readonly committerDate?: number;
+}
+
 export interface GitStashCommit extends GitCommit {
 	readonly refType: GitStashReference['refType'];
 	readonly stashName: string;
 	readonly stashNumber: string;
+	readonly parentTimestamps?: GitStashParentInfo[];
 }
 
 export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;

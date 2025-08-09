@@ -23,7 +23,7 @@ export class CloudIntegrationService {
 		if (!providersRsp.ok) {
 			const error = (await providersRsp.json())?.error;
 			const errorMessage =
-				typeof error === 'string' ? error : (error?.message as string) ?? providersRsp.statusText;
+				typeof error === 'string' ? error : ((error?.message as string) ?? providersRsp.statusText);
 			if (error != null) {
 				Logger.error(undefined, scope, `Failed to get connected providers from cloud: ${errorMessage}`);
 			}
@@ -56,7 +56,7 @@ export class CloudIntegrationService {
 					body: JSON.stringify({
 						access_token: refreshToken,
 					}),
-			  }
+				}
 			: { method: 'GET' };
 
 		const tokenRsp = await this.connection.fetchGkApi(
@@ -66,7 +66,8 @@ export class CloudIntegrationService {
 		);
 		if (!tokenRsp.ok) {
 			const error = (await tokenRsp.json())?.error;
-			const errorMessage = typeof error === 'string' ? error : (error?.message as string) ?? tokenRsp.statusText;
+			const errorMessage =
+				typeof error === 'string' ? error : ((error?.message as string) ?? tokenRsp.statusText);
 			if (error != null) {
 				Logger.error(
 					undefined,
@@ -122,7 +123,8 @@ export class CloudIntegrationService {
 		);
 		if (!tokenRsp.ok) {
 			const error = (await tokenRsp.json())?.error;
-			const errorMessage = typeof error === 'string' ? error : (error?.message as string) ?? tokenRsp.statusText;
+			const errorMessage =
+				typeof error === 'string' ? error : ((error?.message as string) ?? tokenRsp.statusText);
 			if (error != null) {
 				Logger.error(undefined, scope, `Failed to disconnect ${id} token from cloud: ${errorMessage}`);
 			}

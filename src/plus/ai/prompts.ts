@@ -339,6 +339,37 @@ Example output structure:
 Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`,
 };
 
+export const generateSearchQuery: PromptTemplate<'generate-searchQuery'> = {
+	id: 'generate-searchQuery_v2',
+	variables: ['query', 'date', 'context', 'instructions'],
+	template: `You are an advanced AI assistant that converts natural language queries into structured Git search operators. Your task is to analyze a user's natural language query about their Git repository history and convert it into the appropriate search operators.
+
+Available search operators:
+- 'message:' - Search in commit messages (e.g. 'message:fix bug'); maps to \`git log --extended-regexp --grep=<value>\`
+- 'author:' - Search by a specific author (e.g. 'author:eamodio' or use '@me' for current user); maps to \`git log --author=<value>\`
+- 'commit:' - Search by a specific commit SHA (e.g. 'commit:4ce3a')
+- 'file:' - Search by file path (e.g. 'file:"package.json"', 'file:"*.ts"'); maps to \`git log -- <value>\`
+- 'change:' - Search by specific code changes using regular expressions (e.g. 'change:"function.*auth"', 'change:"import.*react"'); maps to \`git log -G<value>\`
+- 'type:' - Search by type -- only stash is currently supported (e.g. 'type:stash')
+- 'after:' - Search for commits after a certain date or range (e.g. 'after:2023-01-01', 'after:"6 months ago"', 'after:"last Tuesday"', 'after:"noon"', 'after:"1 month 2 days ago"'); maps to \`git log --since=<value>\`
+- 'before:' - Search for commits before a certain date or range (e.g. 'before:2023-01-01', 'before:"6 months ago"', 'before:"yesterday"', 'before:"3PM GMT"'); maps to \`git log --until=<value>\`
+
+File and change values should be double-quoted. You can use multiple message, author, file, and change operators at the same time if needed.
+
+Temporal queries should be converted to appropriate after and/or before operators, leveraging Git's powerful 'approxidate' parser, which understands a wide array of human-centric relative date expressions, including simple terms ("yesterday", "5 minutes ago"), combinations of time units ("1 month 2 days ago"), days of the week ("last Tuesday"), named times ("noon"), and explicit timezones ("3PM GMT").
+For specific temporal ranges, e.g. commits made last week, or commits in the last month, use the 'after:' and 'before:' operators with appropriate relative values or calculate absolute dates, using the current date provided below.
+For ambiguous time periods like "this week" or "this month", prefer simple relative expressions like "1 week ago" or absolute dates using the current date provided below.
+
+The current date is \${date}
+\${context}
+
+User Query: \${query}
+
+\${instructions}
+
+Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
+};
+
 export const generateRebase: PromptTemplate<'generate-rebase'> = {
 	id: 'generate-rebase',
 	variables: ['diff', 'commits', 'data', 'context', 'instructions'],
@@ -360,10 +391,11 @@ Your task is to group the hunks in unified_diff into a set of commits, ordered i
 
 1. Only organize the hunks themselves, not individual lines within hunks.
 2. Group hunks into logical units that make sense together and can be applied atomically.
-3. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
-4. Write meaningful commit messages that accurately describe the changes in each commit.
-5. Provide a detailed explanation of the changes in each commit.
-6. Make sure the new commit history is easy to review and understand.
+3. Use each hunk only once. Use all hunks.
+4. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+5. Write meaningful commit messages that accurately describe the changes in each commit.
+6. Provide a detailed explanation of the changes in each commit.
+7. Make sure the new commit history is easy to review and understand.
 
 Output your new commit history as a JSON array. Each commit in the array should be an object representing a grouping of hunks forming that commit, with the following properties:
 - "message": A string containing the commit message.
@@ -394,5 +426,7 @@ Remember to base your organization of commits solely on the provided unified_dif
 
 \${instructions}
 
-Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.`,
+Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the commits, and nothing else.
+Do not include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
+`,
 };

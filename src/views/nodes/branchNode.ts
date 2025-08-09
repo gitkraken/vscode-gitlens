@@ -214,7 +214,7 @@ export class BranchNode
 
 						// Refresh this node to add the pull request node or remove the spinner
 						if (spinner || pr != null) {
-							this.view.triggerNodeChange(this.root ? this.parent ?? this : this);
+							this.view.triggerNodeChange(this.root ? (this.parent ?? this) : this);
 						}
 					});
 				}
@@ -237,14 +237,14 @@ export class BranchNode
 							range
 								? svc.commits.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
 								: undefined,
-					  )
+						)
 					: undefined,
 				loadComparisonDefaultCompareWith ? svc.branches.getBaseBranchName?.(this.branch.name) : undefined,
 				loadComparisonDefaultCompareWith
 					? getBranchMergeTargetName(this.view.container, this.branch, {
 							associatedPullRequest: prPromise,
 							timeout: 100,
-					  })
+						})
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
@@ -359,7 +359,7 @@ export class BranchNode
 									unpublishedCommits?.has(c.ref),
 									branch,
 									getBranchAndTagTips,
-							  ),
+								),
 					),
 					this,
 				),
@@ -618,12 +618,12 @@ export async function getBranchNodeParts(
 			description = options?.showAsCommits
 				? `${branch.getTrackingStatus({
 						suffix: pad(GlyphChars.Dot, 1, 1),
-				  })}${branch.getNameWithoutRemote()}${branch.rebasing ? ' (Rebasing)' : ''}${pad(arrows, 2, 2)}${
+					})}${branch.getNameWithoutRemote()}${branch.rebasing ? ' (Rebasing)' : ''}${pad(arrows, 2, 2)}${
 						branch.upstream.name
-				  }`
+					}`
 				: `${branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${GlyphChars.Space} ${
 						branch.upstream.name
-				  }`;
+					}`;
 
 			tooltip += `\n\nBranch is ${branch.getTrackingStatus({
 				empty: `${branch.upstream.missing ? 'missing upstream' : 'up to date with'} \\\n $(git-branch) \`${

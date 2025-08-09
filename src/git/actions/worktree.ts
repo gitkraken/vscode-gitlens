@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
 import { defer } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -80,10 +81,7 @@ export function remove(repo?: string | Repository, uris?: Uri[]): Promise<void> 
 	});
 }
 
-export function reveal(
-	worktree: GitWorktree,
-	options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-): Promise<ViewNode | undefined> {
+export function revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealWorktree(worktree, options);
 }
 

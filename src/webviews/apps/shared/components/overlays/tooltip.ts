@@ -104,7 +104,7 @@ export class GlTooltip extends LitElement {
 
 	override disconnectedCallback(): void {
 		this.observer?.disconnect();
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	override render(): unknown {

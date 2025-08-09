@@ -441,7 +441,7 @@ export class CommitDetailsWebviewProvider
 								this._context.wip?.changes != null
 									? createReference(uncommitted, this._context.wip.changes.repository.path, {
 											refType: 'revision',
-									  })
+										})
 									: undefined;
 						} else {
 							ref =
@@ -1451,7 +1451,7 @@ export class CommitDetailsWebviewProvider
 						configuration.get('views.commitDetails.pullRequests.enabled')
 							? commit.getAssociatedPullRequest(remote)
 							: undefined,
-				  ])
+					])
 				: [];
 
 		if (cancellation.isCancellationRequested) return;

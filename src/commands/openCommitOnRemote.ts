@@ -71,6 +71,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 		const repoPath = (
 			await getBestRepositoryOrShowPicker(
+				this.container,
 				gitUri,
 				editor,
 				args?.clipboard ? 'Copy Remote Commit URL' : 'Open Commit On Remote',
@@ -102,7 +103,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, use previous commit
 				args.sha = blame.commit.isUncommitted
-					? (await blame.commit.getPreviousSha()) ?? deletedOrMissing
+					? ((await blame.commit.getPreviousSha()) ?? deletedOrMissing)
 					: blame.commit.sha;
 			}
 

@@ -99,15 +99,15 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 				provider.avatarUri != null && this.view.config.avatars
 					? provider.avatarUri
 					: provider.icon === 'remote'
-					  ? new ThemeIcon('cloud')
-					  : {
+						? new ThemeIcon('cloud')
+						: {
 								dark: this.view.container.context.asAbsolutePath(
 									`images/dark/icon-${provider.icon}.svg`,
 								),
 								light: this.view.container.context.asAbsolutePath(
 									`images/light/icon-${provider.icon}.svg`,
 								),
-					    };
+							};
 
 			if (this.remote.supportsIntegration()) {
 				const integration = await this.remote.getIntegration();

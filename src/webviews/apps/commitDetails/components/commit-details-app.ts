@@ -116,12 +116,12 @@ export class GlCommitDetailsApp extends LitElement {
 			behind > 0 && ahead > 0
 				? 'both'
 				: behind > 0
-				  ? 'behind'
-				  : ahead > 0
-				    ? 'ahead'
-				    : working > 0
-				      ? 'working'
-				      : undefined;
+					? 'behind'
+					: ahead > 0
+						? 'ahead'
+						: working > 0
+							? 'working'
+							: undefined;
 
 		const branchName = wip.repositoryCount > 1 ? `${wip.repo.name}:${branch.name}` : branch.name;
 
@@ -191,7 +191,7 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 
 		this._hostIpc = new HostIpc('commit-details');
 
@@ -349,7 +349,7 @@ export class GlCommitDetailsApp extends LitElement {
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 	}
 
 	private renderTopInspect() {

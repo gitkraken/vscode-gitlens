@@ -57,7 +57,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-			repo = await getBestRepositoryOrShowPicker(gitUri, editor, 'Generate Commit Message');
+			repo = await getBestRepositoryOrShowPicker(this.container, gitUri, editor, 'Generate Commit Message');
 		}
 		if (repo == null) return;
 

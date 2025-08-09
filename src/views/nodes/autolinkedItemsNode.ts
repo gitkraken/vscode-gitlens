@@ -89,7 +89,7 @@ export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', View
 									this.repoPath,
 									autolink,
 									issueOrPullRequest?.value,
-							  ),
+								),
 					);
 				}
 			}

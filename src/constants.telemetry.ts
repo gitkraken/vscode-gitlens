@@ -7,6 +7,7 @@ import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { AIActionType } from './plus/ai/models/model';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
@@ -65,6 +66,18 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when switching ai models */
 	'ai/switchModel': AISwitchModelEvent;
+
+	/** Sent when a user provides feedback (rating and optional details) for an AI feature */
+	'ai/feedback': AIFeedbackEvent;
+
+	/** Sent when user dismisses the AI All Access banner */
+	'aiAllAccess/bannerDismissed': void;
+
+	/** Sent when user opens the AI All Access page */
+	'aiAllAccess/opened': void;
+
+	/** Sent when user opts in to AI All Access */
+	'aiAllAccess/optedIn': void;
 
 	/** Sent when connecting to one or more cloud-based integrations */
 	'cloudIntegrations/connecting': CloudIntegrationsConnectingEvent;
@@ -315,19 +328,25 @@ interface ActivateEvent extends ConfigEventData {
 }
 
 interface AIEventDataBase {
+	id: string | undefined;
+
 	'model.id': string;
 	'model.provider.id': AIProviders;
 	'model.provider.name': string;
-	'retry.count': number;
-	duration?: number;
-	'input.length'?: number;
-	'output.length'?: number;
+
 	'usage.promptTokens'?: number;
 	'usage.completionTokens'?: number;
 	'usage.totalTokens'?: number;
 	'usage.limits.used'?: number;
 	'usage.limits.limit'?: number;
 	'usage.limits.resetsOn'?: string;
+}
+
+interface AIEventDataSendBase extends AIEventDataBase {
+	'retry.count': number;
+	duration?: number;
+	'input.length'?: number;
+	'output.length'?: number;
 
 	'config.largePromptThreshold'?: number;
 	'config.usedCustomInstructions'?: boolean;
@@ -342,51 +361,71 @@ interface AIEventDataBase {
 	'failed.error.detail'?: string;
 }
 
-interface AIExplainEvent extends AIEventDataBase {
+interface AIExplainEvent extends AIEventDataSendBase {
 	type: 'change';
 	changeType: 'wip' | 'stash' | 'commit' | 'branch' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
 }
 
-export interface AIGenerateCommitEventData extends AIEventDataBase {
+export interface AIGenerateChangelogEventData extends AIEventDataSendBase {
+	type: 'changelog';
+}
+
+export interface AIGenerateCommitMessageEventData extends AIEventDataSendBase {
 	type: 'commitMessage';
 }
 
-export interface AIGenerateDraftEventData extends AIEventDataBase {
+export interface AIGenerateCreatePullRequestEventData extends AIEventDataSendBase {
+	type: 'createPullRequest';
+}
+
+export interface AIGenerateCreateDraftEventData extends AIEventDataSendBase {
 	type: 'draftMessage';
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 }
 
-export interface AIGenerateStashEventData extends AIEventDataBase {
-	type: 'stashMessage';
-}
-
-export interface AIGenerateChangelogEventData extends AIEventDataBase {
-	type: 'changelog';
-}
-
-export interface AIGenerateCreatePullRequestEventData extends AIEventDataBase {
-	type: 'createPullRequest';
-}
-
-export interface AIGenerateRebaseEventData extends AIEventDataBase {
+export interface AIGenerateRebaseEventData extends AIEventDataSendBase {
 	type: 'rebase';
 }
 
+export interface AIGenerateSearchQueryEventData extends AIEventDataSendBase {
+	type: 'searchQuery';
+}
+
+export interface AIGenerateStashMessageEventData extends AIEventDataSendBase {
+	type: 'stashMessage';
+}
+
 type AIGenerateEvent =
-	| AIGenerateCommitEventData
-	| AIGenerateDraftEventData
-	| AIGenerateStashEventData
-	| AIGenerateCreatePullRequestEventData
 	| AIGenerateChangelogEventData
-	| AIGenerateRebaseEventData;
+	| AIGenerateCommitMessageEventData
+	| AIGenerateCreateDraftEventData
+	| AIGenerateCreatePullRequestEventData
+	| AIGenerateRebaseEventData
+	| AIGenerateSearchQueryEventData
+	| AIGenerateStashMessageEventData;
 
 export type AISwitchModelEvent =
-	| {
-			'model.id': string;
-			'model.provider.id': AIProviders;
-			'model.provider.name': string;
-	  }
+	| { 'model.id': string; 'model.provider.id': AIProviders; 'model.provider.name': string }
 	| { failed: true };
+
+export type AIFeedbackUnhelpfulReasons =
+	| 'suggestionInaccurate'
+	| 'notRelevant'
+	| 'missedImportantContext'
+	| 'unclearOrPoorlyFormatted'
+	| 'genericOrRepetitive'
+	| 'other';
+
+export interface AIFeedbackEvent extends AIEventDataBase {
+	/** The AI feature that feedback was submitted for */
+	type: AIActionType;
+	feature: string;
+	sentiment: 'helpful' | 'unhelpful';
+	/** Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values */
+	'unhelpful.reasons'?: string;
+	/** Custom feedback provided (if any) */
+	'unhelpful.custom'?: string;
+}
 
 interface CloudIntegrationsConnectingEvent {
 	'integration.ids': string | undefined;
@@ -981,10 +1020,10 @@ export type TelemetryEventsFromWebviewApp = {
 		keyof (K extends `commitDetails/${string}` | `graphDetails/${string}`
 			? InspectTelemetryContext
 			: K extends `graph/${string}`
-			  ? GraphTelemetryContext
-			  : K extends `timeline/${string}`
-			    ? TimelineTelemetryContext
-			    : WebviewTelemetryContext)
+				? GraphTelemetryContext
+				: K extends `timeline/${string}`
+					? TimelineTelemetryContext
+					: WebviewTelemetryContext)
 	>;
 };
 
@@ -997,10 +1036,12 @@ export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'w
 export type Sources =
 	| 'account'
 	| 'ai'
+	| 'ai:markdown-preview'
+	| 'ai:markdown-editor'
 	| 'ai:picker'
 	| 'associateIssueWithBranch'
-	| 'code-suggest'
 	| 'cloud-patches'
+	| 'code-suggest'
 	| 'commandPalette'
 	| 'deeplink'
 	| 'editor:hover'
@@ -1019,13 +1060,14 @@ export type Sources =
 	| 'patchDetails'
 	| 'prompt'
 	| 'quick-wizard'
+	| 'rebaseEditor'
 	| 'remoteProvider'
+	| 'scm-input'
 	| 'settings'
 	| 'startWork'
+	| 'subscription'
 	| 'timeline'
 	| 'trial-indicator'
-	| 'scm-input'
-	| 'subscription'
 	| 'view'
 	| 'walkthrough'
 	| 'whatsnew'

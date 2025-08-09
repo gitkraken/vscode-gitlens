@@ -42,6 +42,10 @@ export class GlRepoButtonGroup extends GlElement {
 				min-width: 7rem;
 			}
 
+			:host([icons='1'][expandable]) {
+				min-width: 0;
+			}
+
 			:host([icons='2']:not([expandable])) {
 				min-width: 9.4rem;
 			}
@@ -60,6 +64,9 @@ export class GlRepoButtonGroup extends GlElement {
 				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 			} */
 
+			:host([expandable]:not(:hover, :focus-within)) .truncated-button .picker-icon::before {
+				visibility: hidden;
+			}
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button {
 				min-width: 0;
 				max-width: 0;
@@ -132,7 +139,7 @@ export class GlRepoButtonGroup extends GlElement {
 							class="picker-icon"
 							icon="chevron-down"
 							aria-hidden="true"
-					  ></code-icon>`
+						></code-icon>`
 					: nothing}
 				<slot name="tooltip" slot="tooltip">${this.displayName}</slot>
 			</gl-button>
@@ -146,7 +153,7 @@ export class GlRepoButtonGroup extends GlElement {
 		if (!repo?.provider) {
 			return html`
 				<gl-button part="provider-icon" appearance="toolbar" ?disabled=${true}>
-					<code-icon icon="repo" aria-hidden="true"></code-icon>
+					<code-icon icon="gl-repository" aria-hidden="true"></code-icon>
 				</gl-button>
 			`;
 		}

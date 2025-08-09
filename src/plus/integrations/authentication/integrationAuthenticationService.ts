@@ -44,6 +44,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	supports(providerId: string): boolean {
 		switch (providerId) {
 			case GitCloudHostIntegrationId.AzureDevOps:
+			case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			case GitCloudHostIntegrationId.Bitbucket:
 			case GitSelfManagedHostIntegrationId.GitHubEnterprise:
 			case GitCloudHostIntegrationId.GitLab:
@@ -67,6 +68,11 @@ export class IntegrationAuthenticationService implements Disposable {
 						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
 					).AzureDevOpsAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
+					).AzureDevOpsServerAuthenticationProvider(this.container, this, this.configuredIntegrationService);
+					break;
 				case GitCloudHostIntegrationId.Bitbucket:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './bitbucket')
@@ -81,13 +87,13 @@ export class IntegrationAuthenticationService implements Disposable {
 					provider = isSupportedCloudIntegrationId(GitCloudHostIntegrationId.GitHub)
 						? new (
 								await import(/* webpackChunkName: "integrations" */ './github')
-						  ).GitHubAuthenticationProvider(this.container, this, this.configuredIntegrationService)
+							).GitHubAuthenticationProvider(this.container, this, this.configuredIntegrationService)
 						: new BuiltInAuthenticationProvider(
 								this.container,
 								this,
 								this.configuredIntegrationService,
 								providerId,
-						  );
+							);
 
 					break;
 				case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
@@ -108,15 +114,15 @@ export class IntegrationAuthenticationService implements Disposable {
 					provider = isSupportedCloudIntegrationId(GitCloudHostIntegrationId.GitLab)
 						? new (
 								await import(/* webpackChunkName: "integrations" */ './gitlab')
-						  ).GitLabCloudAuthenticationProvider(this.container, this, this.configuredIntegrationService)
+							).GitLabCloudAuthenticationProvider(this.container, this, this.configuredIntegrationService)
 						: new (
 								await import(/* webpackChunkName: "integrations" */ './gitlab')
-						  ).GitLabLocalAuthenticationProvider(
+							).GitLabLocalAuthenticationProvider(
 								this.container,
 								this,
 								this.configuredIntegrationService,
 								GitCloudHostIntegrationId.GitLab,
-						  );
+							);
 					break;
 				case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 					provider = new (

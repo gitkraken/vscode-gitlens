@@ -327,6 +327,7 @@ function getWorkspaceDecoration(uri: Uri, _token: CancellationToken): FileDecora
 interface WorktreeViewDecoration {
 	hasChanges?: boolean;
 	missing?: boolean;
+	starred?: boolean;
 }
 
 function getWorktreeDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
@@ -345,6 +346,13 @@ function getWorktreeDecoration(uri: Uri, _token: CancellationToken): FileDecorat
 			badge: '●',
 			color: new ThemeColor('gitlens.decorations.worktreeHasUncommittedChangesForegroundColor' as Colors),
 			tooltip: 'Has Uncommitted Changes',
+		};
+	}
+
+	if (state?.starred) {
+		return {
+			badge: '★',
+			tooltip: 'Favorited',
 		};
 	}
 

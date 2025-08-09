@@ -84,7 +84,10 @@ export class GlPromo extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`${until(this.promoPromise?.then(promo => this.renderPromo(promo)), nothing)}`;
+		return html`${until(
+			this.promoPromise?.then(promo => this.renderPromo(promo)),
+			nothing,
+		)}`;
 	}
 
 	private renderPromo(promo: Promo | undefined) {

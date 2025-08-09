@@ -72,9 +72,9 @@ export class RepositoryIdentityService implements Disposable {
 									provider: identity.provider.id,
 									owner: identity.provider.repoDomain,
 									repoName: identity.provider.repoName,
-							  }
+								}
 							: undefined,
-				  )
+					)
 				: [];
 
 		let foundRepo: Repository | undefined;

@@ -54,7 +54,7 @@ export class GlRefButton extends LitElement {
 						.ref=${this.ref}
 						.size=${this.size}
 						?worktree=${this.worktree}
-				  ></gl-ref-name>`}<code-icon
+					></gl-ref-name>`}<code-icon
 				slot="suffix"
 				class="picker-icon"
 				icon="chevron-down"

@@ -310,8 +310,8 @@ function registerBuiltInActionRunners(container: Container): void {
 					compare: ctx.branch.isRemote
 						? getBranchNameWithoutRemote(ctx.branch.name)
 						: ctx.branch.upstream
-						  ? getBranchNameWithoutRemote(ctx.branch.upstream)
-						  : ctx.branch.name,
+							? getBranchNameWithoutRemote(ctx.branch.upstream)
+							: ctx.branch.name,
 					remote: ctx.remote?.name ?? '',
 					repoPath: ctx.repoPath,
 					describeWithAI: ctx.describeWithAI,

@@ -34,6 +34,7 @@ export class OrganizationService implements Disposable {
 				const orgId = await this.getActiveOrganizationId();
 				void this.updateOrganizationPermissions(orgId);
 			}),
+			container.subscription.onDidCheckIn(this.onUserCheckedIn, this),
 			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 	}
@@ -128,11 +129,19 @@ export class OrganizationService implements Disposable {
 		});
 	}
 
+	private async onUserCheckedIn(): Promise<void> {
+		const orgId = await this.getActiveOrganizationId();
+		if (orgId == null) return;
+
+		await this.updateOrganizationPermissions(orgId, { force: true });
+	}
+
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
 		if (e.current?.account?.id == null) {
 			this.updateOrganizations(undefined);
+			this._organizationSettings = undefined;
+			await this.clearAllStoredOrganizationsSettings();
 		}
-		await this.clearAllStoredOrganizationsSettings();
 		await this.updateOrganizationPermissions(e.current?.activeOrganization?.id);
 	}
 
@@ -141,8 +150,11 @@ export class OrganizationService implements Disposable {
 		void setContext('gitlens:gk:hasOrganizations', (organizations ?? []).length > 1);
 	}
 
-	private async updateOrganizationPermissions(orgId: string | undefined): Promise<void> {
-		const settings = orgId != null ? await this.getOrganizationSettings(orgId) : undefined;
+	private async updateOrganizationPermissions(
+		orgId: string | undefined,
+		options?: { force?: boolean },
+	): Promise<void> {
+		const settings = orgId != null ? await this.getOrganizationSettings(orgId, options) : undefined;
 		let aiProviders;
 		try {
 			aiProviders = fromGKDevAIProviders(settings?.aiProviders);
@@ -274,7 +286,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	private async clearAllStoredOrganizationsSettings(): Promise<void> {
-		return this.container.storage.deleteWithPrefix(`plus:organization:`);
+		return this.container.storage.deleteWithPrefix(`plus:organization`);
 	}
 
 	private async deleteStoredOrganizationSettings(id: string): Promise<void> {

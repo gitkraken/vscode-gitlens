@@ -288,8 +288,8 @@ export function runSpawn<T extends string | Buffer>(
 		function getStdio<T>(
 			encoding: BufferEncoding | 'buffer' | string,
 		): { stdout: T; stderr: T } | Promise<{ stdout: T; stderr: T }> {
-			const stdout = Buffer.concat(stdoutBuffers);
-			const stderr = Buffer.concat(stderrBuffers);
+			const stdout = Buffer.concat(stdoutBuffers as ReadonlyArray<Uint8Array>);
+			const stderr = Buffer.concat(stderrBuffers as ReadonlyArray<Uint8Array>);
 			if (encoding === 'utf8' || encoding === 'binary') {
 				return { stdout: stdout.toString(encoding) as T, stderr: stderr.toString(encoding) as T };
 			}

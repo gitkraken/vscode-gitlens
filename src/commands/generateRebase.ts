@@ -11,6 +11,7 @@ import { uncommitted } from '../git/models/revision';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import type { AIRebaseResult } from '../plus/ai/aiProviderService';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
@@ -87,7 +88,7 @@ export class GenerateCommitsCommand extends GlCommandBase {
 			if (args?.repoPath != null) {
 				svc = this.container.git.getRepositoryService(args.repoPath);
 			}
-			svc ??= (await getRepositoryOrShowPicker('Generate Commits from Working Changes'))?.git;
+			svc ??= (await getRepositoryOrShowPicker(this.container, 'Generate Commits from Working Changes'))?.git;
 			if (svc == null) return;
 
 			await generateRebase(
@@ -350,7 +351,7 @@ export async function generateRebase(
 		const diffInfo = extractRebaseDiffInfo(result.commits, result.diff, result.hunkMap);
 
 		// Generate the markdown content that shows each commit and its diffs
-		const { content, metadata } = generateRebaseMarkdown(result, title);
+		const { content, metadata } = generateRebaseMarkdown(result, title, container.telemetry.enabled);
 
 		let generateType: 'commits' | 'rebase' = 'rebase';
 		let headRefSlug = head.ref;
@@ -522,20 +523,21 @@ export function extractRebaseDiffInfo(
 function generateRebaseMarkdown(
 	result: AIRebaseResult,
 	title = 'Rebase Commits',
+	telemetryEnabled: boolean,
 ): { content: string; metadata: MarkdownContentMetadata } {
-	const metadata = {
-		header: {
-			title: title,
-			aiModel: result.model.name,
-			subtitle: 'Explanation',
-		},
+	const metadata: MarkdownContentMetadata = {
+		context: getAIResultContext(result),
+		header: { title: title, subtitle: 'Explanation' },
 	};
 
 	let markdown = '';
-	if (result.commits.length === 0) {
+	if (!result.commits.length) {
 		markdown = 'No Commits Generated';
 
-		return { content: `${getMarkdownHeaderContent(metadata)}\n\n${markdown}`, metadata: metadata };
+		return {
+			content: `${getMarkdownHeaderContent(metadata, telemetryEnabled)}\n\n${markdown}`,
+			metadata: metadata,
+		};
 	}
 	const { commits, diff: originalDiff, hunkMap } = result;
 
@@ -602,7 +604,7 @@ function generateRebaseMarkdown(
 	// markdown += `\n\n----\n\n## Raw commits\n\n\`\`\`${escapeMarkdownCodeBlocks(JSON.stringify(commits))}\`\`\``;
 	// markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${escapeMarkdownCodeBlocks(originalDiff)}\`\`\`\n`;
 
-	return { content: `${getMarkdownHeaderContent(metadata)}\n\n${markdown}`, metadata: metadata };
+	return { content: `${getMarkdownHeaderContent(metadata, telemetryEnabled)}\n\n${markdown}`, metadata: metadata };
 }
 
 /**
@@ -637,8 +639,8 @@ function extractHunkContent(originalDiff: string, diffHeader: string, hunkHeader
 		nextHunkIndex !== -1 && (nextHunkIndex < nextDiffIndex || nextDiffIndex === -1)
 			? nextHunkIndex
 			: nextDiffIndex > 0
-			  ? nextDiffIndex - 1
-			  : undefined;
+				? nextDiffIndex - 1
+				: undefined;
 
 	// Extract the content lines (excluding the hunk header)
 	const result = originalDiff.substring(hunkIndex, nextIndex);

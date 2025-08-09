@@ -119,13 +119,14 @@ export type StepGenerator =
 	| Generator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>>
 	| AsyncGenerator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>>;
 
-export type StepItemType<T> = T extends CustomStep<infer U>
-	? U
-	: T extends QuickPickStep<infer U>
-	  ? U[]
-	  : T extends QuickInputStep
-	    ? string
-	    : never;
+export type StepItemType<T> =
+	T extends CustomStep<infer U>
+		? U
+		: T extends QuickPickStep<infer U>
+			? U[]
+			: T extends QuickInputStep
+				? string
+				: never;
 export type StepNavigationKeys = Exclude<Keys, 'left' | 'alt+left' | 'ctrl+left'>;
 export const StepResultBreak = Symbol('BreakStep');
 export type StepResult<T> = typeof StepResultBreak | T;
@@ -135,13 +136,14 @@ export type AsyncStepResultGenerator<T> = AsyncGenerator<QuickPickStep | QuickIn
 // export type StepResultGenerator<T> =
 // 	| Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>
 // 	| AsyncGenerator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
-export type StepSelection<T> = T extends CustomStep<infer U>
-	? Exclude<U, DirectiveQuickPickItem> | Directive
-	: T extends QuickPickStep<infer U>
-	  ? Exclude<U, DirectiveQuickPickItem>[] | Directive
-	  : T extends QuickInputStep
-	    ? string | Directive
-	    : never;
+export type StepSelection<T> =
+	T extends CustomStep<infer U>
+		? Exclude<U, DirectiveQuickPickItem> | Directive
+		: T extends QuickPickStep<infer U>
+			? Exclude<U, DirectiveQuickPickItem>[] | Directive
+			: T extends QuickInputStep
+				? string | Directive
+				: never;
 export type PartialStepState<T = unknown> = Partial<T> & { counter: number; confirm?: boolean; startingStep?: number };
 export type StepState<T = Record<string, unknown>> = T & { counter: number; confirm?: boolean; startingStep?: number };
 
@@ -276,7 +278,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		const state: PartialStepState<State> = {
 			counter: 0,
 			...this.initialState,
-			startingStep: limitBackNavigation ? this.initialState?.counter ?? 0 : 0,
+			startingStep: limitBackNavigation ? (this.initialState?.counter ?? 0) : 0,
 		} as unknown as PartialStepState<State>;
 		return state;
 	}

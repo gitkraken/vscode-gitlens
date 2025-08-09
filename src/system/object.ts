@@ -21,31 +21,32 @@ type FlattenArray<T extends object, P extends string | undefined> = T extends (i
 		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
 		: { [Key in AddArrayIndex<P, number>]: string | number | boolean }
 	: T extends object
-	  ? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
-	  : { [Key in AddArrayIndex<P, number>]: string | number | boolean };
+		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
+		: { [Key in AddArrayIndex<P, number>]: string | number | boolean };
 
-type FlattenSpread<T extends object, P extends string | undefined> = T extends ReadonlyArray<any>
-	? FlattenArray<T, P>
-	: {
-			[K in keyof T]: T[K] extends ReadonlyArray<any>
-				? FlattenArray<T[K], AddPrefix<P, Extract<K, string>>>
-				: T[K] extends object
-				  ? FlattenSpread<T[K], AddPrefix<P, Extract<K, string>>>
-				  : {
-							[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean
-								? T[K]
-								: string;
-				    };
-	  }[keyof T];
+type FlattenSpread<T extends object, P extends string | undefined> =
+	T extends ReadonlyArray<any>
+		? FlattenArray<T, P>
+		: {
+				[K in keyof T]: T[K] extends ReadonlyArray<any>
+					? FlattenArray<T[K], AddPrefix<P, Extract<K, string>>>
+					: T[K] extends object
+						? FlattenSpread<T[K], AddPrefix<P, Extract<K, string>>>
+						: {
+								[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean
+									? T[K]
+									: string;
+							};
+			}[keyof T];
 
 type FlattenJoin<T extends object, P extends string | undefined> = {
 	[K in keyof T]: T[K] extends ReadonlyArray<any>
 		? { [Key in AddPrefix<P, Extract<K, string>>]: string }
 		: T[K] extends object
-		  ? FlattenJoin<T[K], AddPrefix<P, Extract<K, string>>>
-		  : {
+			? FlattenJoin<T[K], AddPrefix<P, Extract<K, string>>>
+			: {
 					[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean ? T[K] : string;
-		    };
+				};
 }[keyof T];
 
 export type Flatten<
@@ -82,8 +83,8 @@ export function flatten<T extends object | null | undefined, P extends string | 
 				typeof value === 'string'
 					? value
 					: typeof value === 'number' || typeof value === 'boolean'
-					  ? value
-					  : JSON.stringify(value);
+						? value
+						: JSON.stringify(value);
 		} else if (Array.isArray(value)) {
 			const len = value.length;
 			if (len === 0) return;

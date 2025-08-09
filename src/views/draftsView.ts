@@ -16,6 +16,7 @@ import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenVie
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
+import type { RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -175,14 +176,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	}
 
 	@gate(() => '')
-	async revealDraft(
-		draft: Draft,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealDraft(draft: Draft, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findDraft(draft);
 		if (node == null) return undefined;
 

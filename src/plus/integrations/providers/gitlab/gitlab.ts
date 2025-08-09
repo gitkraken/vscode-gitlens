@@ -705,7 +705,7 @@ export class GitLabApi implements Disposable {
 						? {
 								owner: proj.forked_from_project.namespace.full_path,
 								name: proj.forked_from_project.path,
-						  }
+							}
 						: undefined,
 			} satisfies RepositoryMetadata;
 		} catch (ex) {

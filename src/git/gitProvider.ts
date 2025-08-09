@@ -3,6 +3,7 @@ import type { Commit, InputBox } from '../@types/vscode.git';
 import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { GitConfigKeys } from '../constants';
 import type { SearchQuery } from '../constants.search';
+import type { Source } from '../constants.telemetry';
 import type { Features } from '../features';
 import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
@@ -103,6 +104,11 @@ export interface NextComparisonUrisResult {
 export interface PreviousComparisonUrisResult {
 	current: GitUri;
 	previous: GitUri | undefined;
+}
+
+export interface SearchCommitsResult {
+	readonly search: SearchQuery;
+	readonly log: GitLog | undefined;
 }
 
 export interface DiffRange {
@@ -243,7 +249,7 @@ export interface GitBranchesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<string | undefined>;
 
-	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
+	createBranch?(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void>;
 	deleteLocalBranch?(repoPath: string, name: string, options?: { force?: boolean }): Promise<void>;
 	deleteRemoteBranch?(repoPath: string, name: string, remote: string): Promise<void>;
 	/**
@@ -283,6 +289,7 @@ export interface GitBranchesSubProvider {
 	/** Gets the stored user merge target branch name */
 	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
+	setUpstreamBranch?(repoPath: string, name: string, upstream: string | undefined): Promise<void>;
 	storeBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
 	storeMergeTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
 	storeUserMergeTargetBranchName?(repoPath: string, ref: string, target: string | undefined): Promise<void>;
@@ -381,9 +388,10 @@ export interface GitCommitsSubProvider {
 	searchCommits(
 		repoPath: string,
 		search: SearchQuery,
+		source: Source,
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
-	): Promise<GitLog | undefined>;
+	): Promise<SearchCommitsResult>;
 }
 
 export interface GitConfigSubProvider {

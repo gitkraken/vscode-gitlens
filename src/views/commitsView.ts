@@ -28,7 +28,7 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { CommandMessageNode } from './nodes/common';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
@@ -49,7 +49,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			this.child = new BranchNode(
 				this.uri,
 				this.view,
-				this.splatted ? this.parent ?? this : this,
+				this.splatted ? (this.parent ?? this) : this,
 				this.repo,
 				branch,
 				true,
@@ -135,7 +135,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No commits could be found.';
 
@@ -396,14 +396,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	}
 
 	@gate(() => '')
-	async revealCommit(
-		commit: GitRevisionReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -425,10 +418,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof CommitsViewNode || n instanceof RepositoryFolderNode,
@@ -463,7 +453,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		}
 
 		if (filter) {
-			repo ??= await getRepositoryOrShowPicker('Filter Commits', 'Choose a repository');
+			repo ??= await getRepositoryOrShowPicker(this.container, 'Filter Commits', 'Choose a repository');
 			if (repo == null) return;
 
 			let authors = this.state.filterCommits.get(repo.id);

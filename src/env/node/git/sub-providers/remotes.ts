@@ -35,34 +35,29 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 
 		const scope = getLogScope();
 
-		let remotesPromise = this.cache.remotes?.get(repoPath);
-		if (remotesPromise == null) {
-			async function load(this: RemotesGitSubProvider): Promise<GitRemote[]> {
-				const providers = loadRemoteProviders(
-					configuration.get('remotes', this.container.git.getRepository(repoPath!)?.folder?.uri ?? null),
-					await this.container.integrations.getConfigured(),
+		const remotesPromise = this.cache.remotes?.getOrCreate(repoPath, async cancellable => {
+			const providers = loadRemoteProviders(
+				configuration.get('remotes', this.container.git.getRepository(repoPath)?.folder?.uri ?? null),
+				await this.container.integrations.getConfigured(),
+			);
+
+			try {
+				const result = await this.git.exec({ cwd: repoPath }, 'remote', '-v');
+				const remotes = parseGitRemotes(
+					this.container,
+					result.stdout,
+					repoPath,
+					await getRemoteProviderMatcher(this.container, providers),
 				);
-
-				try {
-					const result = await this.git.exec({ cwd: repoPath }, 'remote', '-v');
-					const remotes = parseGitRemotes(
-						this.container,
-						result.stdout,
-						repoPath!,
-						await getRemoteProviderMatcher(this.container, providers),
-					);
-					return remotes;
-				} catch (ex) {
-					this.cache.remotes?.delete(repoPath!);
-					Logger.error(ex, scope);
-					return [];
-				}
+				return remotes;
+			} catch (ex) {
+				cancellable.cancelled();
+				Logger.error(ex, scope);
+				return [];
 			}
+		});
 
-			remotesPromise = load.call(this);
-
-			this.cache.remotes?.set(repoPath, remotesPromise);
-		}
+		if (remotesPromise == null) return [];
 
 		let remotes = await remotesPromise;
 		if (options?.filter != null) {

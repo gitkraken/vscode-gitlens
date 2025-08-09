@@ -42,7 +42,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		private _label: string,
-		private readonly _results: {
+		protected readonly _results: {
 			query: (limit: number | undefined) => Promise<CommitsQueryResults>;
 			comparison?: { ref1: string; ref2: string; range: GitRevisionRange };
 			deferred?: boolean;
@@ -143,7 +143,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
 								allowFilteredFiles: allowFilteredFiles,
 								expand: this._options.expand && log.count === 1,
-						  }),
+							}),
 				),
 				this,
 				undefined,
@@ -178,8 +178,8 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 				state = !log?.commits.size
 					? TreeItemCollapsibleState.None
 					: this._options.expand //|| log.count === 1
-					  ? TreeItemCollapsibleState.Expanded
-					  : TreeItemCollapsibleState.Collapsed;
+						? TreeItemCollapsibleState.Expanded
+						: TreeItemCollapsibleState.Collapsed;
 			} else {
 				queueMicrotask(async () => {
 					try {
@@ -215,7 +215,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 	private _commitsQueryResultsPromise: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResultsPromise == null) {
-			this._commitsQueryResultsPromise ??= this._results.query(
+			this._commitsQueryResultsPromise = this._results.query(
 				this.limit ?? configuration.get('advanced.maxSearchItems'),
 			);
 			const results = await this._commitsQueryResultsPromise;

@@ -23,7 +23,7 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repo = await getRepositoryOrShowPicker('Close All Unchanged Files');
+				const repo = await getRepositoryOrShowPicker(this.container, 'Close All Unchanged Files');
 				if (repo == null) return;
 
 				const status = await repo.git.status.getStatus();

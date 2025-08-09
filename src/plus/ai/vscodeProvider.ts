@@ -1,5 +1,6 @@
 import type { CancellationToken, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
+import { uuid } from '@env/crypto';
 import { vscodeProviderDescriptor } from '../../constants.ai';
 import type { Container } from '../../container';
 import { AIError, AIErrorReason, CancellationError } from '../../errors';
@@ -99,7 +100,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 							outputTokens: model.maxTokens.output
 								? Math.min(options.modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
 								: options.modelOptions?.outputTokens,
-							temperature: getValidatedTemperature(model.temperature),
+							temperature: getValidatedTemperature(model, model.temperature),
 						},
 					},
 					options.cancellation,
@@ -110,7 +111,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					message += fragment;
 				}
 
-				return { content: message.trim(), model: model } satisfies AIRequestResult;
+				return { content: message.trim(), model: model, id: uuid() } satisfies AIRequestResult;
 			} catch (ex) {
 				if (ex instanceof CancellationError) {
 					Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);

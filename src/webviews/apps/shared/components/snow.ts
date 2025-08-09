@@ -60,13 +60,13 @@ export class GlSnow extends LitElement {
 	private _resizeObserver: ResizeObserver | undefined;
 
 	override connectedCallback(): void {
-		super.connectedCallback();
+		super.connectedCallback?.();
 		this._resizeObserver = new ResizeObserver(() => this.updateCanvasSize());
 		this._resizeObserver.observe(document.body);
 	}
 
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		super.disconnectedCallback?.();
 		this._resizeObserver?.disconnect();
 	}
 

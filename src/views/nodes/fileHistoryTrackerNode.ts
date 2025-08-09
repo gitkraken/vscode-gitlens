@@ -277,7 +277,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			[node] = children;
 		} else {
 			node = children.find(n =>
-				n.is('file-commit') || n.is('commit') ? n.commit?.sha?.startsWith(sha) ?? false : false,
+				n.is('file-commit') || n.is('commit') ? (n.commit?.sha?.startsWith(sha) ?? false) : false,
 			);
 			if (!node) {
 				node = children[children.length - 1];

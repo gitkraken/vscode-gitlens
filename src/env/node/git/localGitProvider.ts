@@ -74,7 +74,6 @@ import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/strin
 import { compare, fromString } from '../../../system/version';
 import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
-import { registerCommitMessageProvider } from './commitMessageProvider';
 import type { Git, PushForceOptions } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
@@ -245,8 +244,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const scmGit = await scmGitPromise;
 			if (scmGit == null) return;
 
-			registerCommitMessageProvider(this.container, scmGit);
-
 			// Find env to pass to Git
 			if ('env' in scmGit.git) {
 				Logger.debug(scope, 'Found built-in Git env');
@@ -270,12 +267,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const fireRepositoryClosed = debounce(() => {
 				if (this.container.deactivating) return;
 
-				for (const uri of closing) {
+				const closed = [...closing];
+				closing.clear();
+				for (const uri of closed) {
 					this._onDidCloseRepository.fire({ uri: uri });
 				}
-				closing.clear();
 			}, 1000);
 
+			const opening = new Set<Uri>();
+			const fireRepositoryOpened = debounce(() => {
+				if (this.container.deactivating) return;
+
+				const opened = [...opening];
+				opening.clear();
+
+				for (const uri of opened) {
+					this._onDidOpenRepository.fire({ uri: uri });
+				}
+			}, 1000);
 			this._disposables.push(
 				// Since we will get "close" events for repos when vscode is shutting down, debounce the event so ensure we aren't shutting down
 				scmGit.onDidCloseRepository(e => {
@@ -284,7 +293,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					closing.add(e.rootUri);
 					fireRepositoryClosed();
 				}),
-				scmGit.onDidOpenRepository(e => this._onDidOpenRepository.fire({ uri: e.rootUri })),
+				scmGit.onDidOpenRepository(e => {
+					if (this.container.deactivating) return;
+
+					opening.add(e.rootUri);
+					fireRepositoryOpened();
+				}),
 			);
 
 			for (const scmRepository of scmGit.repositories) {
@@ -1090,12 +1104,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				options?.reference != null
 					? `${options.reference.ref}:${
 							options?.publish != null ? 'refs/heads/' : ''
-					  }${branch.getNameWithoutRemote()}`
+						}${branch.getNameWithoutRemote()}`
 					: branch.name;
 			remoteName = branch.getRemoteName() ?? options?.publish?.remote;
 			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
 
-			// Git can't setup remote tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
+			// Git can't setup upstream tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
 			if (options?.publish?.remote != null && options?.reference != null) {
 				setUpstream = {
 					branch: branch.getNameWithoutRemote(),
@@ -1134,7 +1148,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				publish: options?.publish != null,
 			});
 
-			// Since Git can't setup remote tracking when publishing a new branch to a specific commit, do it now
+			// Since Git can't setup upstream tracking when publishing a new branch to a specific commit, do it now
 			if (setUpstream != null) {
 				await this.git.exec(
 					{ cwd: repoPath },
@@ -2221,7 +2235,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						? '\u2022 no existing repository found, opening repository...'
 						: `\u2022 existing, non-matching repository '${repo.rootUri.toString(
 								true,
-						  )}' found, opening repository...`,
+							)}' found, opening repository...`,
 				);
 				repo = await gitApi.openRepository?.(uri);
 			}

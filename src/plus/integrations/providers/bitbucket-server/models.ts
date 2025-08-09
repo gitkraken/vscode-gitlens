@@ -226,7 +226,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 					? {
 							cloneUrlHTTPS: baseHTTPSUrl,
 							cloneUrlSSH: baseSSHUrl,
-					  }
+						}
 					: null,
 		},
 		headRepository: {
@@ -240,7 +240,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 					? {
 							cloneUrlHTTPS: headHTTPSUrl,
 							cloneUrlSSH: headSSHUrl,
-					  }
+						}
 					: null,
 		},
 		headCommit: null,

@@ -76,7 +76,7 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 					? ` \\\nLast updated ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
 							this.draft.updatedAt,
 							dateFormat,
-					  )})_`
+						)})_`
 					: ''
 			}`,
 		);

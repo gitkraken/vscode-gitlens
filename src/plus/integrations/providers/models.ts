@@ -544,6 +544,20 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
+	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
+		domain: '',
+		id: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		name: 'Azure DevOps Server',
+		type: 'git',
+		iconKey: GitCloudHostIntegrationId.AzureDevOps,
+		issuesPagingMode: PagingMode.Project,
+		pullRequestsPagingMode: PagingMode.Repo,
+		// Use 'id' property on account for PR filters
+		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+		// Use 'name' property on account for issue filters
+		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
+	},
 	[IssuesCloudHostIntegrationId.Jira]: {
 		domain: 'atlassian.net',
 		id: IssuesCloudHostIntegrationId.Jira,
@@ -660,7 +674,7 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 				? {
 						owner: issue.repository.owner.login,
 						repo: issue.repository.name,
-				  }
+					}
 				: undefined,
 		labels: issue.labels.map(label => ({ color: label.color ?? undefined, name: label.name })),
 		commentsCount: issue.commentCount ?? undefined,
@@ -812,8 +826,8 @@ export function toProviderPullRequestState(state: PullRequestState): GitPullRequ
 	return state === 'opened'
 		? GitPullRequestState.Open
 		: state === 'closed'
-		  ? GitPullRequestState.Closed
-		  : GitPullRequestState.Merged;
+			? GitPullRequestState.Closed
+			: GitPullRequestState.Merged;
 }
 
 export function fromProviderPullRequestState(state: GitPullRequestState): PullRequestState {
@@ -848,14 +862,14 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 				: {
 						name: pr.refs.base.branch,
 						oid: pr.refs.base.sha,
-				  },
+					},
 		headRef:
 			pr.refs?.head == null
 				? null
 				: {
 						name: pr.refs.head.branch,
 						oid: pr.refs.head.sha,
-				  },
+					},
 		reviews: toProviderReviews(prReviews),
 		reviewDecision: toProviderReviewDecision(pr.reviewDecision, prReviews),
 		repository:
@@ -867,7 +881,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 							login: pr.repository.owner,
 						},
 						remoteInfo: null, // TODO: Add the urls to our model
-				  }
+					}
 				: {
 						id: '',
 						name: '',
@@ -875,7 +889,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 							login: '',
 						},
 						remoteInfo: null,
-				  },
+					},
 		headRepository:
 			pr.refs?.head != null
 				? {
@@ -885,7 +899,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 							login: pr.refs.head.owner,
 						},
 						remoteInfo: null,
-				  }
+					}
 				: null,
 		headCommit:
 			pr.statusCheckRollupState != null
@@ -901,7 +915,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 								url: '',
 							},
 						],
-				  }
+					}
 				: null,
 		permissions:
 			pr.viewerCanUpdate == null
@@ -915,7 +929,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 							pr.viewerCanUpdate === true &&
 							pr.repository.accessLevel != null &&
 							pr.repository.accessLevel >= RepositoryAccessLevel.Admin,
-				  },
+					},
 		mergeableState: pr.mergeableState
 			? toProviderPullRequestMergeableState[pr.mergeableState]
 			: GitPullRequestMergeableState.Unknown,
@@ -1017,15 +1031,15 @@ export function fromProviderIssue(
 					name: options.project.name,
 					resourceId: options.project.resourceId,
 					resourceName: options.project.resourceName,
-			  }
+				}
 			: issue.project?.id && issue.project?.resourceId && issue.project?.namespace
-			  ? {
+				? {
 						id: issue.project.id,
 						name: issue.project.name,
 						resourceId: issue.project.resourceId,
 						resourceName: issue.project.namespace,
-			    }
-			  : undefined,
+					}
+				: undefined,
 	);
 }
 

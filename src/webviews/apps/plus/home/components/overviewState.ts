@@ -7,6 +7,7 @@ import type {
 } from '../../../../home/protocol';
 import {
 	ChangeOverviewRepositoryCommand,
+	DidChangeIntegrationsConnections,
 	DidChangeOverviewFilter,
 	DidChangeOverviewRepository,
 	DidChangeRepositories,
@@ -39,6 +40,9 @@ export class ActiveOverviewState extends AsyncComputedState<ActiveOverview> {
 
 		this._disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
+				case DidChangeIntegrationsConnections.is(msg):
+					this.run(true);
+					break;
 				case DidChangeRepositories.is(msg):
 					this.run(true);
 					break;

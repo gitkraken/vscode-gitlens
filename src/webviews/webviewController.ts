@@ -9,6 +9,7 @@ import { isCancellationError } from '../errors';
 import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
+import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { sequentialize } from '../system/decorators/serialize';
@@ -51,14 +52,14 @@ const utf8TextEncoder = new TextEncoder();
 type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
 	? WebviewPanelDescriptor<T>
 	: T extends WebviewViewIds
-	  ? WebviewViewDescriptor<T>
-	  : never;
+		? WebviewViewDescriptor<T>
+		: never;
 
 type GetWebviewParent<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
 	? WebviewPanel
 	: T extends WebviewViewIds
-	  ? WebviewView
-	  : never;
+		? WebviewView
+		: never;
 
 type WebviewPanelController<
 	ID extends WebviewIds,
@@ -207,7 +208,7 @@ export class WebviewController<
 								this.viewColumn != null && this.viewColumn !== viewColumn,
 							);
 							this._viewColumn = viewColumn;
-					  })
+						})
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible, this.active)),
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
@@ -382,7 +383,7 @@ export class WebviewController<
 				);
 			}
 		} else if (this.is('view')) {
-			await executeCoreCommand(`${this.id}.focus`, options);
+			await executeCoreCommand(getViewFocusCommand(this.id), options);
 			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
 			}
@@ -867,7 +868,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 						bootstrap != null
 							? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
 									bootstrap,
-							  )};</script>`
+								)};</script>`
 							: ''
 					}${endOfBody ?? ''}`;
 				case 'webviewId':

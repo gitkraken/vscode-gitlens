@@ -1,7 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
 import type { HierarchicalItem } from '../../../../system/array';
@@ -43,6 +42,9 @@ export class GlDetailsBase extends LitElement {
 
 	@property({ type: Object })
 	preferences?: Preferences;
+
+	@property({ type: Object })
+	orgSettings?: State['orgSettings'];
 
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
@@ -103,22 +105,13 @@ export class GlDetailsBase extends LitElement {
 						icon="${icon}"
 					></action-item>
 				</action-nav>
-				${when(
-					fileCount > 0 && this.tab === 'wip',
-					() =>
-						html`<div class="section section--actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button full href="command:workbench.view.scm"
-										>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
-									></gl-button>
-								</span>
-							</p>
-						</div>`,
-				)}
-				${this.renderTreeFileModel(treeModel)}
+				${this.renderChangedFilesActions()}${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
+	}
+
+	protected renderChangedFilesActions(): TemplateResult<1> | undefined {
+		return undefined;
 	}
 
 	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean): void {
@@ -159,7 +152,7 @@ export class GlDetailsBase extends LitElement {
 			}
 		}
 
-		if (staged.length === 0 || unstaged.length === 0) {
+		if (staged.length === 0 && unstaged.length === 0) {
 			children.push(...this.createFileTreeModel(mode, files, isTree, compact));
 		} else {
 			if (staged.length) {

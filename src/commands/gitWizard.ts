@@ -54,6 +54,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 			'gitlens.gitCommands.branch.delete',
 			'gitlens.gitCommands.branch.prune',
 			'gitlens.gitCommands.branch.rename',
+			'gitlens.gitCommands.branch.upstream',
 			'gitlens.gitCommands.checkout',
 			'gitlens.gitCommands.cherryPick',
 			'gitlens.gitCommands.history',
@@ -101,6 +102,8 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 				return this.execute({ command: 'branch', state: { subcommand: 'prune' } });
 			case 'gitlens.gitCommands.branch.rename':
 				return this.execute({ command: 'branch', state: { subcommand: 'rename' } });
+			case 'gitlens.gitCommands.branch.upstream':
+				return this.execute({ command: 'branch', state: { subcommand: 'upstream' } });
 			case 'gitlens.gitCommands.cherryPick':
 				return this.execute({ command: 'cherry-pick' });
 			case 'gitlens.gitCommands.history':

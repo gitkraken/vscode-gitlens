@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "17.1.0",
+	"version": "17.3.1",
 	"engines": {
 		"node": ">= 22.12.0",
 		"pnpm": ">= 10.0.0",
@@ -22,6 +22,7 @@
 		"type": "git",
 		"url": "https://github.com/gitkraken/vscode-gitlens.git"
 	},
+	"customElements": "custom-elements.json",
 	"main": "./dist/gitlens.js",
 	"browser": "./dist/browser/gitlens.js",
 	"icon": "images/gitlens-icon.png",
@@ -955,9 +956,22 @@
 						"order": 2
 					},
 					"gitlens.graph.multiselect": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to allow selecting multiple commits in the _Commit Graph_",
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							true,
+							"topological"
+						],
+						"enumDescriptions": [
+							"Disallows selecting multiple commits",
+							"Allows selecting multiple commits without restriction",
+							"Allows selecting multiple commits topologically"
+						],
+						"default": "topological",
+						"markdownDescription": "Specifies whether to allow selecting multiple commits and whether to restrict the selection topologically in the _Commit Graph_",
 						"scope": "window",
 						"order": 10
 					},
@@ -1062,12 +1076,14 @@
 						"enum": [
 							"all",
 							"smart",
-							"current"
+							"current",
+							"favorited"
 						],
 						"enumDescriptions": [
 							"Shows all branches",
 							"Shows only relevant branches",
-							"Shows only the current branch"
+							"Shows only the current branch",
+							"Shows only favorited branches"
 						],
 						"default": "all",
 						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
@@ -6192,6 +6208,26 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.ai.feedback.helpful",
+				"title": "Helpful",
+				"icon": "$(thumbsup)"
+			},
+			{
+				"command": "gitlens.ai.feedback.helpful.chosen",
+				"title": "Helpful",
+				"icon": "$(thumbsup-filled)"
+			},
+			{
+				"command": "gitlens.ai.feedback.unhelpful",
+				"title": "Unhelpful",
+				"icon": "$(thumbsdown)"
+			},
+			{
+				"command": "gitlens.ai.feedback.unhelpful.chosen",
+				"title": "Unhelpful",
+				"icon": "$(thumbsdown-filled)"
+			},
+			{
 				"command": "gitlens.ai.generateChangelog",
 				"title": "Generate Changelog (Preview)...",
 				"category": "GitLens"
@@ -6321,6 +6357,18 @@
 				"command": "gitlens.changeBranchMergeTarget",
 				"title": "Change Branch Merge Target",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.changeUpstream:graph",
+				"title": "Change Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.changeUpstream:views",
+				"title": "Change Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.clearFileAnnotations",
@@ -6651,6 +6699,11 @@
 			{
 				"command": "gitlens.gitCommands.branch.rename",
 				"title": "Git Rename Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.branch.upstream",
+				"title": "Git Change Branch Upstream...",
 				"category": "GitLens"
 			},
 			{
@@ -7560,6 +7613,18 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.setUpstream:graph",
+				"title": "Set Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.setUpstream:views",
+				"title": "Set Upstream...",
+				"icon": "$(link)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.shareAsCloudPatch",
 				"title": "Share as Cloud Patch...",
 				"category": "GitLens"
@@ -7857,6 +7922,31 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.star.branch:graph",
+				"title": "Add to Favorites",
+				"icon": "$(star-empty)"
+			},
+			{
+				"command": "gitlens.star.branch:views",
+				"title": "Add to Favorites",
+				"icon": "$(star-empty)"
+			},
+			{
+				"command": "gitlens.star.branch.multi:views",
+				"title": "Add to Favorites",
+				"icon": "$(star-empty)"
+			},
+			{
+				"command": "gitlens.star.repository:views",
+				"title": "Add to Favorites",
+				"icon": "$(star-empty)"
+			},
+			{
+				"command": "gitlens.star.repository.multi:views",
+				"title": "Add to Favorites",
+				"icon": "$(star-empty)"
+			},
+			{
 				"command": "gitlens.startWork",
 				"title": "Start Work",
 				"category": "GitLens",
@@ -8049,6 +8139,31 @@
 				"command": "gitlens.toggleZenMode",
 				"title": "Toggle Zen Mode",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.unstar.branch:graph",
+				"title": "Remove from Favorites",
+				"icon": "$(star-full)"
+			},
+			{
+				"command": "gitlens.unstar.branch:views",
+				"title": "Remove from Favorites",
+				"icon": "$(star-full)"
+			},
+			{
+				"command": "gitlens.unstar.branch.multi:views",
+				"title": "Remove from Favorites",
+				"icon": "$(star-full)"
+			},
+			{
+				"command": "gitlens.unstar.repository:views",
+				"title": "Remove from Favorites",
+				"icon": "$(star-full)"
+			},
+			{
+				"command": "gitlens.unstar.repository.multi:views",
+				"title": "Remove from Favorites",
+				"icon": "$(star-full)"
 			},
 			{
 				"command": "gitlens.views.abortPausedOperation",
@@ -9844,16 +9959,6 @@
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.views.star",
-				"title": "Add to Favorites",
-				"icon": "$(star-empty)"
-			},
-			{
-				"command": "gitlens.views.star.multi",
-				"title": "Add to Favorites",
-				"icon": "$(star-empty)"
-			},
-			{
 				"command": "gitlens.views.stashes.attach",
 				"title": "Group into GitLens View",
 				"icon": "$(close)"
@@ -10015,16 +10120,6 @@
 				"title": "Unstage Changes",
 				"icon": "$(remove)",
 				"enablement": "!operationInProgress"
-			},
-			{
-				"command": "gitlens.views.unstar",
-				"title": "Remove from Favorites",
-				"icon": "$(star-full)"
-			},
-			{
-				"command": "gitlens.views.unstar.multi",
-				"title": "Remove from Favorites",
-				"icon": "$(star-full)"
 			},
 			{
 				"command": "gitlens.views.workspaces.addRepos",
@@ -10665,6 +10760,34 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f142"
 				}
+			},
+			"gitlens-repository": {
+				"description": "repository icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f143"
+				}
+			},
+			"gitlens-worktree": {
+				"description": "worktree icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f144"
+				}
+			},
+			"gitlens-worktree-filled": {
+				"description": "worktree-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f145"
+				}
+			},
+			"gitlens-repository-cloud": {
+				"description": "repository-cloud icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f146"
+				}
 			}
 		},
 		"menus": {
@@ -10719,6 +10842,22 @@
 				},
 				{
 					"command": "gitlens.ai.explainWip:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful.chosen",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful.chosen",
 					"when": "false"
 				},
 				{
@@ -10816,6 +10955,14 @@
 				{
 					"command": "gitlens.changeBranchMergeTarget",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.changeUpstream:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.changeUpstream:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.clearFileAnnotations",
@@ -11063,6 +11210,10 @@
 				},
 				{
 					"command": "gitlens.gitCommands.branch.rename",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.branch.upstream",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
@@ -11778,6 +11929,14 @@
 					"when": "resource in gitlens:tabs:blameable"
 				},
 				{
+					"command": "gitlens.setUpstream:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.setUpstream:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.shareAsCloudPatch",
 					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
@@ -11990,6 +12149,26 @@
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.star.branch:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.star.branch:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.star.branch.multi:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.star.repository:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.star.repository.multi:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.startWork",
 					"when": "gitlens:enabled"
 				},
@@ -12120,6 +12299,26 @@
 				{
 					"command": "gitlens.toggleZenMode",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.unstar.branch:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.unstar.branch:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.unstar.branch.multi:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.unstar.repository:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.unstar.repository.multi:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.views.abortPausedOperation",
@@ -13622,14 +13821,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.star",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.star.multi",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.stashes.attach",
 					"when": "false"
 				},
@@ -13747,14 +13938,6 @@
 				},
 				{
 					"command": "gitlens.views.unstageFile",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.unstar",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.unstar.multi",
 					"when": "false"
 				},
 				{
@@ -14029,11 +14212,6 @@
 					"group": "navigation@-99"
 				},
 				{
-					"submenu": "gitlens/graph/configuration",
-					"when": "activeWebviewPanelId === gitlens.graph",
-					"group": "navigation@-98"
-				},
-				{
 					"command": "gitlens.graph.split",
 					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
 					"group": "navigation@-97"
@@ -14108,14 +14286,59 @@
 					"group": "navigation@-98"
 				},
 				{
+					"submenu": "gitlens/graph/configuration",
+					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-98"
+				},
+				{
 					"command": "gitlens.openRevisionFile",
 					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffEditor",
 					"group": "navigation@-97"
 				},
 				{
+					"command": "gitlens.ai.feedback.helpful",
+					"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful.chosen",
+					"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful",
+					"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful.chosen",
+					"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+					"group": "navigation@2"
+				},
+				{
 					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
-					"group": "navigation@0"
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
+					"group": "navigation@3"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.helpful.chosen",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful.chosen",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.ai.feedback.unhelpful",
+					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.openPatch",
@@ -14140,7 +14363,7 @@
 				},
 				{
 					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-markdown && activeCustomEditorId == vscode.markdown.preview.editor",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
 					"group": "1_gitlens@0"
 				},
 				{
@@ -16798,6 +17021,16 @@
 					"group": "1_gitlens_actions_2@2"
 				},
 				{
+					"command": "gitlens.changeUpstream:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
+					"command": "gitlens.setUpstream:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
 					"command": "gitlens.views.deleteBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_2@3"
@@ -16908,22 +17141,22 @@
 					"group": "7_gitlens_cutcopypaste@10"
 				},
 				{
-					"command": "gitlens.views.star",
+					"command": "gitlens.star.branch:views",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+starred\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.star.multi",
+					"command": "gitlens.star.branch.multi:views",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+starred\\b)/ && listMultiSelection",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.unstar",
+					"command": "gitlens.unstar.branch:views",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.unstar.multi",
+					"command": "gitlens.unstar.branch.multi:views",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+starred\\b)/ && listMultiSelection",
 					"group": "8_gitlens_actions@1"
 				},
@@ -17848,12 +18081,12 @@
 					"group": "inline@98"
 				},
 				{
-					"command": "gitlens.views.star",
+					"command": "gitlens.star.repository:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+starred\\b)/",
 					"group": "inline@99"
 				},
 				{
-					"command": "gitlens.views.unstar",
+					"command": "gitlens.unstar.repository:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+starred\\b)/",
 					"group": "inline@99"
 				},
@@ -17923,22 +18156,22 @@
 					"group": "3_gitlens_explore@2"
 				},
 				{
-					"command": "gitlens.views.star",
+					"command": "gitlens.star.repository:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+starred\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
-					"command": "gitlens.views.star.multi",
+					"command": "gitlens.star.repository.multi:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+starred\\b)/ && listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
-					"command": "gitlens.views.unstar",
+					"command": "gitlens.unstar.repository:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
-					"command": "gitlens.views.unstar.multi",
+					"command": "gitlens.unstar.repository.multi:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+starred\\b)/ && listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
@@ -17994,12 +18227,12 @@
 					"group": "inline@98"
 				},
 				{
-					"command": "gitlens.views.star",
+					"command": "gitlens.star.repository:views",
 					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/",
 					"group": "inline@99"
 				},
 				{
-					"command": "gitlens.views.unstar",
+					"command": "gitlens.unstar.repository:views",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+starred\\b)/",
 					"group": "inline@99"
 				},
@@ -18095,22 +18328,22 @@
 					"group": "3_gitlens_explore@1"
 				},
 				{
-					"command": "gitlens.views.star",
+					"command": "gitlens.star.repository:views",
 					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
-					"command": "gitlens.views.star.multi",
+					"command": "gitlens.star.repository.multi:views",
 					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/ && listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
-					"command": "gitlens.views.unstar",
+					"command": "gitlens.unstar.repository:views",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
-					"command": "gitlens.views.unstar.multi",
+					"command": "gitlens.unstar.repository.multi:views",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+starred\\b)/ && listMultiSelection",
 					"group": "8_gitlens_actions_@1"
 				},
@@ -18837,6 +19070,16 @@
 					"group": "1_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setEditorFollowingOff",
+					"when": "viewItem == gitlens:views:fileHistory && gitlens:views:fileHistory:canPin && gitlens:views:fileHistory:editorFollowing",
+					"group": "1_gitlens@10"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
+					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:editorFollowing",
+					"group": "1_gitlens@10"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
 					"when": "viewItem == gitlens:views:fileHistory && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_@11"
@@ -18847,14 +19090,24 @@
 					"group": "1_gitlens_@11"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setModeCommits",
+					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens_1@12"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setModeContributors",
+					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens_1@12"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
 					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-					"group": "1_gitlens_1@1"
+					"group": "1_gitlens_2@1"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
 					"when": "viewItem == gitlens:views:fileHistory && !gitlens:views:fileHistory:cursorFollowing",
-					"group": "1_gitlens_1@2"
+					"group": "1_gitlens_2@2"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
@@ -20478,6 +20731,26 @@
 					"command": "gitlens.views.deleteWorktree.multi",
 					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+(active|default)\\b)/ && listMultiSelection && !gitlens:readonly",
 					"group": "6_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.star.branch:views",
+					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+starred\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.star.branch.multi:views",
+					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+starred\\b)/ && listMultiSelection",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.unstar.branch:views",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.unstar.branch.multi:views",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+starred\\b)/ && listMultiSelection",
+					"group": "8_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.createWorktree",
@@ -22590,8 +22863,18 @@
 					"group": "1_gitlens_actions_2@2"
 				},
 				{
+					"command": "gitlens.changeUpstream:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
 					"command": "gitlens.graph.deleteBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
+					"command": "gitlens.setUpstream:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_2@3"
 				},
 				{
@@ -22678,6 +22961,16 @@
 					"command": "gitlens.graph.copyMessage",
 					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
 					"group": "7_gitlens_cutcopypaste@3"
+				},
+				{
+					"command": "gitlens.star.branch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+starred\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.unstar.branch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.graph.hideRemote",
@@ -23576,7 +23869,7 @@
 				}
 			},
 			{
-				"scheme": "gitlens-markdown",
+				"scheme": "gitlens-ai-markdown",
 				"authority": "*",
 				"formatting": {
 					"label": "${query.label}"
@@ -24263,6 +24556,7 @@
 		"generate:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts",
 		"// Generates command types from contributions.json into src/constants.commands.generated.ts": "//",
 		"generate:commandTypes": "node --experimental-strip-types ./scripts/generateCommandTypes.mts",
+		"generate:customElements": "cem analyze",
 		"// Generates docs/telemetry-events.md": "//",
 		"generate:docs:telemetry": "node ./scripts/generateTelemetryDocs.mjs",
 		"generate:emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
@@ -24282,15 +24576,15 @@
 		"icons:apply": "node ./scripts/applyIconsContribution.mjs",
 		"icons:export": "node ./scripts/export-codicons.mjs",
 		"icons:svgo": "svgo -q -f ./images/icons/ --config svgo.config.js",
-		"lint": "pnpm run clean:lint && eslint .",
-		"lint:fix": "pnpm run clean:lint && eslint . --fix",
+		"lint": "pnpm run clean:lint && eslint",
+		"lint:fix": "pnpm run clean:lint && eslint --fix",
 		"lint:webviews": "pnpm run clean:lint && eslint \"src/webviews/apps/**/*.ts?(x)\"",
 		"package": "vsce package --no-dependencies",
 		"package-pre": "pnpm run patch-pre && pnpm run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.mjs",
 		"prep-release": "node ./scripts/prep-release.mjs",
-		"pretty": "prettier --config .prettierrc --write .",
-		"pretty:check": "prettier --config .prettierrc --check .",
+		"pretty": "prettier --write . --experimental-cli",
+		"pretty:check": "prettier --check . --experimental-cli",
 		"pub": "vsce publish --no-dependencies",
 		"pub-pre": "vsce publish --no-dependencies --pre-release",
 		"rebuild": "pnpm run reset && pnpm run build",
@@ -24310,30 +24604,30 @@
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.4",
-		"@gitkraken/provider-apis": "0.28.5",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.8",
+		"@gitkraken/provider-apis": "0.29.6",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
-		"@lit-labs/signals": "0.1.2",
-		"@lit/context": "1.1.5",
-		"@lit/react": "1.0.7",
-		"@lit/task": "1.0.2",
+		"@lit-labs/signals": "0.1.3",
+		"@lit/context": "1.1.6",
+		"@lit/react": "1.0.8",
+		"@lit/task": "1.0.3",
 		"@octokit/graphql": "9.0.1",
-		"@octokit/request": "10.0.2",
+		"@octokit/request": "10.0.3",
 		"@octokit/request-error": "7.0.0",
 		"@octokit/types": "14.1.0",
 		"@opentelemetry/api": "1.9.0",
-		"@opentelemetry/exporter-trace-otlp-http": "0.201.1",
+		"@opentelemetry/exporter-trace-otlp-http": "0.203.0",
 		"@opentelemetry/resources": "2.0.1",
 		"@opentelemetry/sdk-trace-base": "2.0.1",
-		"@opentelemetry/semantic-conventions": "1.34.0",
+		"@opentelemetry/semantic-conventions": "1.36.0",
 		"@shoelace-style/shoelace": "2.20.1",
-		"@vscode/codicons": "0.0.36",
-		"billboard.js": "3.15.1",
+		"@vscode/codicons": "0.0.39",
+		"billboard.js": "3.16.0",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
-		"lit": "3.3.0",
-		"marked": "15.0.12",
+		"lit": "3.3.1",
+		"marked": "16.1.1",
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
@@ -24344,10 +24638,13 @@
 		"sortablejs": "1.15.6"
 	},
 	"devDependencies": {
+		"@custom-elements-manifest/analyzer": "^0.10.4",
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
-		"@eslint/js": "9.28.0",
-		"@playwright/test": "1.52.0",
-		"@swc/core": "1.11.29",
+		"@eslint/compat": "1.3.1",
+		"@eslint/js": "9.32.0",
+		"@playwright/test": "1.54.2",
+		"@prettier/plugin-oxc": "0.0.4",
+		"@swc/core": "1.13.3",
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
 		"@types/node": "20.14.15",
@@ -24357,11 +24654,11 @@
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.92.0",
-		"@typescript-eslint/parser": "8.33.0",
+		"@typescript-eslint/parser": "8.39.0",
 		"@vscode/test-cli": "0.0.11",
 		"@vscode/test-electron": "2.5.2",
-		"@vscode/test-web": "0.0.69",
-		"@vscode/vsce": "3.4.2",
+		"@vscode/test-web": "0.0.71",
+		"@vscode/vsce": "3.6.0",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
@@ -24369,41 +24666,41 @@
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.2",
-		"cssnano-preset-advanced": "7.0.7",
-		"esbuild": "0.25.5",
+		"cssnano-preset-advanced": "7.0.8",
+		"esbuild": "0.25.8",
 		"esbuild-loader": "4.3.0",
 		"esbuild-node-externals": "1.18.0",
 		"esbuild-sass-plugin": "3.3.1",
-		"eslint": "9.28.0",
-		"eslint-import-resolver-typescript": "4.4.2",
+		"eslint": "9.32.0",
+		"eslint-import-resolver-typescript": "4.4.4",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
-		"eslint-plugin-import-x": "4.15.0",
+		"eslint-plugin-import-x": "4.16.1",
 		"eslint-plugin-lit": "2.1.1",
 		"eslint-plugin-wc": "3.0.1",
 		"fork-ts-checker-webpack-plugin": "9.1.0",
-		"glob": "11.0.2",
-		"globals": "16.2.0",
+		"glob": "11.0.3",
+		"globals": "16.3.0",
 		"html-loader": "5.1.0",
 		"html-webpack-plugin": "5.6.3",
 		"image-minimizer-webpack-plugin": "4.1.3",
 		"license-checker-rseidelsohn": "4.4.2",
 		"lz-string": "1.5.0",
-		"mini-css-extract-plugin": "2.9.2",
-		"ovsx": "0.10.2",
-		"playwright": "1.52.0",
-		"prettier": "3.1.0",
+		"mini-css-extract-plugin": "2.9.3",
+		"ovsx": "0.10.5",
+		"playwright": "1.54.2",
+		"prettier": "3.6.2",
 		"regex-to-strings": "2.1.0",
-		"sass": "1.89.1",
+		"sass": "1.89.2",
 		"sass-loader": "16.0.5",
 		"schema-utils": "4.3.2",
-		"sharp": "0.34.2",
-		"sinon": "20.0.0",
-		"svgo": "3.3.2",
+		"sharp": "0.34.3",
+		"sinon": "21.0.0",
+		"svgo": "4.0.0",
 		"terser-webpack-plugin": "5.3.14",
 		"ts-loader": "9.5.2",
-		"typescript": "5.8.3",
-		"typescript-eslint": "8.33.0",
-		"webpack": "5.99.9",
+		"typescript": "5.9.2",
+		"typescript-eslint": "8.39.0",
+		"webpack": "5.101.0",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "6.0.1",
 		"webpack-node-externals": "3.0.0",
@@ -24411,10 +24708,10 @@
 	},
 	"resolutions": {
 		"@types/vscode": "1.92.0",
-		"esbuild": "0.25.5",
+		"esbuild": "0.25.8",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0"
 	},
-	"packageManager": "pnpm@10.11.0"
+	"packageManager": "pnpm@10.13.1"
 }

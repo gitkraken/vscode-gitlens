@@ -51,7 +51,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 							current: true,
 							groupByType: defaultRemote == null,
 							openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
-					  }
+						}
 					: { current: false, groupByType: defaultRemote == null },
 			};
 

@@ -594,18 +594,19 @@ async function loadRichCommitData(
 	context.commits = [];
 	context.authors = new Map<string, Author>();
 
-	const log = await container.git.getRepositoryService(context.repoPath).commits.searchCommits(
+	const result = await container.git.getRepositoryService(context.repoPath).commits.searchCommits(
 		{
 			query: `${onto ? `#:${onto} ` : ''}${join(
 				map(entries, e => `#:${e.sha}`),
 				' ',
 			)}`,
 		},
+		{ source: 'rebaseEditor' },
 		{ limit: 0 },
 	);
 
-	if (log != null) {
-		for (const c of log.commits.values()) {
+	if (result.log != null) {
+		for (const c of result.log.commits.values()) {
 			context.commits.push(c);
 
 			if (!context.authors.has(c.author.name)) {
@@ -682,9 +683,9 @@ async function parseRebaseTodo(
 									date: ontoCommit.formatDate(defaultDateFormat),
 									dateFromNow: ontoCommit.formatDateFromNow(),
 									message: emojify(ontoCommit.message || 'root'),
-							  }
+								}
 							: undefined,
-			  }
+				}
 			: undefined,
 		entries: entries,
 		authors: context.authors != null ? Object.fromEntries(context.authors) : {},

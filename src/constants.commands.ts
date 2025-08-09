@@ -54,6 +54,7 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.switchToBranch'
 	| 'gitlens.home.fetch'
 	| 'gitlens.home.openInGraph'
+	| 'gitlens.openInView.branch:home'
 	| 'gitlens.home.createBranch'
 	| 'gitlens.home.mergeIntoCurrent'
 	| 'gitlens.home.rebaseCurrentOnto'
@@ -69,6 +70,7 @@ type InternalHomeWebviewCommands =
 
 type InternalHomeWebviewViewCommands =
 	| 'gitlens.views.home.account.resync'
+	| 'gitlens.views.home.ai.allAccess.dismiss'
 	| 'gitlens.views.home.publishBranch'
 	| 'gitlens.views.home.pull'
 	| 'gitlens.views.home.push';
@@ -76,6 +78,7 @@ type InternalHomeWebviewViewCommands =
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
 type InternalPlusCommands =
+	| 'gitlens.plus.aiAllAccess.optIn'
 	| 'gitlens.plus.continueFeaturePreview'
 	| 'gitlens.plus.resendVerification'
 	| 'gitlens.plus.showPlans'
@@ -124,6 +127,8 @@ type InternalGlCommands =
 	| 'gitlens.diffWith'
 	| 'gitlens.ai.explainCommit:editor'
 	| 'gitlens.ai.explainWip:editor'
+	| 'gitlens.ai.feedback.helpful'
+	| 'gitlens.ai.feedback.unhelpful'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.refreshHover'
@@ -184,7 +189,7 @@ export type CoreCommands =
 	| 'workbench.view.extension.gitlensInspect'
 	| 'workbench.view.scm'
 	| `${ViewContainerIds | CoreViewContainerIds}.resetViewContainerLocation`
-	| `${ViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
+	| `${ViewIds}.${'focus' | 'open' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
 export type CoreGitCommands =
 	| 'git.fetch'

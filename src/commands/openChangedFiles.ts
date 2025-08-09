@@ -24,7 +24,7 @@ export class OpenChangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repo = await getRepositoryOrShowPicker('Open All Changed Files');
+				const repo = await getRepositoryOrShowPicker(this.container, 'Open All Changed Files');
 				if (repo == null) return;
 
 				const status = await repo.git.status.getStatus();

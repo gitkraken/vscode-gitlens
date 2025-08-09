@@ -481,8 +481,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					files.push(...parseFilesAndStats(summary));
 				} else {
 					debugger;
@@ -545,8 +545,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					files.push(...parseFilesAndStats(summary));
 				} else {
 					debugger;
@@ -684,8 +684,8 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					files.push(...parseFileSummary(summary));
 				} else {
 					debugger;
@@ -850,8 +850,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 					const patch = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					const file = parsePatch(patch);
 					entry.files = file != null ? [file] : [];
 				} else {
@@ -894,8 +894,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 					const patch = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					const file = parsePatch(patch);
 					entry.files = file != null ? [file] : [];
 				} else {
@@ -1008,8 +1008,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					entry.stats = parseStats(summary);
 				} else {
 					debugger;
@@ -1051,8 +1051,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
 						: field.value.startsWith('\n')
-						  ? field.value.substring(1)
-						  : field.value;
+							? field.value.substring(1)
+							: field.value;
 					entry.stats = parseStats(summary);
 				} else {
 					debugger;

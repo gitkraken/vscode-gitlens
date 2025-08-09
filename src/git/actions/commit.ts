@@ -19,6 +19,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { getOrOpenTextEditor, openChangesEditor, openTextEditors } from '../../system/-webview/vscode/editors';
 import { getSettledValue } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
+import type { RevealOptions } from '../../views/viewBase';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
@@ -73,7 +74,7 @@ export async function applyChanges(
 				create = true;
 
 				// If restoring a deleted file (e.g. a newly added file), swap the refs to restore from the previous commit
-				[ref1, ref2] = [ref2 === '' ? 'HEAD' : ref2 ?? `${ref1}^`, ref1];
+				[ref1, ref2] = [ref2 === '' ? 'HEAD' : (ref2 ?? `${ref1}^`), ref1];
 			}
 		}
 	}
@@ -305,7 +306,7 @@ export async function openChanges(
 				rhs: commitOrRefs.sha,
 				// Don't need to worry about verifying the previous sha, as the DiffWith command will
 				lhs: commitOrRefs.unresolvedPreviousSha,
-		  }
+			}
 		: commitOrRefs;
 
 	const rhsUri = GitUri.fromFile(file, refs.repoPath);
@@ -533,7 +534,7 @@ export async function openFileAtRevision(
 		uri = Container.instance.git
 			.getRepositoryService(commit.repoPath)
 			.getRevisionUri(
-				file.status === 'D' ? (await commit.getPreviousSha()) ?? deletedOrMissing : commit.sha,
+				file.status === 'D' ? ((await commit.getPreviousSha()) ?? deletedOrMissing) : commit.sha,
 				file,
 			);
 	}
@@ -689,14 +690,7 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(ref, { path: path });
 }
 
-export function reveal(
-	commit: GitRevisionReference,
-	options?: {
-		select?: boolean;
-		focus?: boolean;
-		expand?: boolean | number;
-	},
-): Promise<ViewNode | undefined> {
+export function revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealCommit(commit, options);
 }
 
@@ -721,7 +715,7 @@ export async function showDetailsQuickPick(commit: GitCommit, fileOrUri?: string
 	}));
 }
 
-export function showDetailsView(
+export function showCommitInDetailsView(
 	commit: GitRevisionReference | GitCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
@@ -729,7 +723,7 @@ export function showDetailsView(
 	return Container.instance.views.commitDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
-export function showGraphDetailsView(
+export function showCommitInGraphDetailsView(
 	commit: GitRevisionReference | GitCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
@@ -737,7 +731,7 @@ export function showGraphDetailsView(
 	return Container.instance.views.graphDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
-export async function showInCommitGraph(
+export async function showCommitInGraph(
 	commit: GitRevisionReference | GitCommit,
 	options?: { preserveFocus?: boolean },
 ): Promise<void> {

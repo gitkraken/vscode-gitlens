@@ -384,7 +384,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 								url: r.requestedReviewer.url,
 							},
 							state: PullRequestReviewState.ReviewRequested,
-					  }
+						}
 					: undefined,
 			)
 			.filter(<T>(r?: T): r is T => Boolean(r)),
@@ -447,7 +447,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			: value.labels.nodes.map(label => ({
 					color: label.color,
 					name: label.name,
-			  })),
+				})),
 		value.comments?.totalCount,
 		value.reactions?.totalCount,
 		value.body,

@@ -6,7 +6,6 @@ import { GitUri } from '../git/gitUri';
 import type { GitStashReference } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
@@ -15,17 +14,14 @@ import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubs
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { StashesNode } from './nodes/stashesNode';
-import type { GroupedViewContext } from './viewBase';
+import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new StashesNode(this.uri, this.view, this, this.repo);
-		}
-
+		this.child ??= new StashesNode(this.uri, this.view, this, this.repo);
 		return this.child.getChildren();
 	}
 
@@ -44,15 +40,10 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			let repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No stashes could be found.';
 				return [];
-			}
-
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				const grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
 			}
 
 			this.children = repositories.map(
@@ -148,8 +139,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortRepositoriesBy') &&
-			!configuration.changed(e, 'views.collapseWorktreesWhenPossible')
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
@@ -176,10 +166,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	}
 
 	@gate(() => '')
-	async revealRepository(
-		repoPath: string,
-		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	): Promise<ViewNode | undefined> {
+	async revealRepository(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof StashesViewNode || n instanceof RepositoryFolderNode,
@@ -193,14 +180,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	}
 
 	@gate(() => '')
-	async revealStash(
-		stash: GitStashReference,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	): Promise<ViewNode | undefined> {
+	async revealStash(stash: GitStashReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

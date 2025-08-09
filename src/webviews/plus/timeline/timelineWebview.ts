@@ -344,7 +344,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					? {
 							type: picked.type,
 							relativePath: this.container.git.getRelativePath(picked.uri, repo.uri),
-					  }
+						}
 					: undefined,
 		});
 	}
@@ -644,7 +644,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const repo =
 			scope?.uri != null
-				? git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true }))
+				? (git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true })))
 				: undefined;
 		const access = await git.access('timeline', repo?.uri);
 
@@ -719,8 +719,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			repo.virtual
 				? undefined
 				: scope.type !== 'repo'
-				  ? repo.git.status.getStatusForPath?.(scope.uri, { renames: scope.type === 'file' })
-				  : repo.git.status.getStatus().then(s => s?.files),
+					? repo.git.status.getStatusForPath?.(scope.uri, { renames: scope.type === 'file' })
+					: repo.git.status.getStatus().then(s => s?.files),
 			repo.git.config.getCurrentUser(),
 		]);
 

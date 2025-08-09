@@ -1,6 +1,10 @@
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search';
 import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search';
 import type { StoredSearchQuery } from '../constants.storage';
+import type { Source } from '../constants.telemetry';
+import type { Container } from '../container';
+import type { NaturalLanguageSearchOptions } from '../plus/search/naturalLanguageSearchProcessor';
+import { NaturalLanguageSearchProcessor } from '../plus/search/naturalLanguageSearchProcessor';
 import type { GitRevisionReference } from './models/reference';
 import type { GitUser } from './models/user';
 import { isSha, shortenRevision } from './utils/revision.utils';
@@ -31,6 +35,13 @@ export function getSearchQuery(search: StoredSearchQuery): SearchQuery {
 		matchAll: search.matchAll,
 		matchCase: search.matchCase,
 		matchRegex: search.matchRegex,
+		matchWholeWord: search.matchWholeWord,
+		naturalLanguage:
+			typeof search.naturalLanguage === 'object'
+				? { ...search.naturalLanguage }
+				: typeof search.naturalLanguage === 'boolean'
+					? search.naturalLanguage
+					: undefined,
 	};
 }
 
@@ -40,13 +51,20 @@ export function getStoredSearchQuery(search: SearchQuery): StoredSearchQuery {
 		matchAll: search.matchAll,
 		matchCase: search.matchCase,
 		matchRegex: search.matchRegex,
+		matchWholeWord: search.matchWholeWord,
+		naturalLanguage:
+			typeof search.naturalLanguage === 'object'
+				? { query: search.naturalLanguage.query, processedQuery: search.naturalLanguage.processedQuery }
+				: typeof search.naturalLanguage === 'boolean'
+					? search.naturalLanguage
+					: undefined,
 	};
 }
 
 export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQuery): string {
 	return `${'query' in search ? search.query : search.pattern}|${search.matchAll ? 'A' : ''}${
 		search.matchCase ? 'C' : ''
-	}${search.matchRegex ? 'R' : ''}`;
+	}${search.matchRegex ? 'R' : ''}${search.matchWholeWord ? 'W' : ''}${search.naturalLanguage ? 'NL' : ''}`;
 }
 
 export function createSearchQueryForCommit(ref: string): string;
@@ -162,8 +180,6 @@ export function parseSearchQuery(search: SearchQuery): Map<SearchOperatorsLongFo
 	return operations;
 }
 
-const doubleQuoteRegex = /"/g;
-
 export interface SearchQueryFilters {
 	/** Specifies whether the search results will be filtered to specific files */
 	files: boolean;
@@ -196,8 +212,15 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 	let op;
 	let values = operations.get('commit:');
 	if (values != null) {
-		for (const value of values) {
-			searchArgs.add(value.replace(doubleQuoteRegex, ''));
+		for (let value of values) {
+			if (!value) continue;
+
+			if (value.startsWith('"') && value.endsWith('"')) {
+				value = value.slice(1, -1);
+				if (!value) continue;
+			}
+
+			searchArgs.add(value);
 		}
 		shas = searchArgs;
 	} else {
@@ -215,8 +238,15 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 					}
 					for (let value of values) {
 						if (!value) continue;
-						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
-						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+						}
+
+						if (search.matchWholeWord && search.matchRegex) {
+							value = `\\b${value}\\b`;
+						}
 
 						searchArgs.add(`--grep=${value}`);
 					}
@@ -226,21 +256,70 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 				case 'author:':
 					for (let value of values) {
 						if (!value) continue;
-						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
-						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+						}
 
 						if (value === '@me') {
-							if (currentUser?.name == null) continue;
+							if (!currentUser?.name) continue;
 
 							value = currentUser.name;
 						}
 
 						if (value.startsWith('@')) {
-							searchArgs.add(`--author=${value.slice(1)}`);
-							continue;
+							value = value.slice(1);
+						}
+
+						if (search.matchWholeWord && search.matchRegex) {
+							value = `\\b${value}\\b`;
 						}
 
 						searchArgs.add(`--author=${value}`);
+					}
+
+					break;
+
+				case 'type:':
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+						}
+
+						if (value === 'stash') {
+							filters.type = 'stash';
+							searchArgs.add('--no-walk');
+						}
+					}
+
+					break;
+
+				case 'file:':
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+
+							filters.files = true;
+							files.push(value);
+						} else {
+							filters.files = true;
+
+							const prefix = search.matchCase ? '' : ':(icase)';
+							if (value.includes('**')) {
+								files.push(`${prefix}:(glob)${value}`);
+							} else if (/[./\\*?|![\]{}]/.test(value)) {
+								files.push(`${prefix}${value}`);
+							} else {
+								files.push(`${prefix}*${value}*`);
+							}
+						}
 					}
 
 					break;
@@ -249,8 +328,8 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 					for (let value of values) {
 						if (!value) continue;
 
-						if (value.startsWith('"')) {
-							value = value.replace(doubleQuoteRegex, '');
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
 							if (!value) continue;
 						}
 
@@ -260,44 +339,22 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 
 					break;
 
-				case 'file:':
+				case 'after:':
+				case 'before:': {
+					const flag = op === 'after:' ? '--since' : '--until';
 					for (let value of values) {
 						if (!value) continue;
 
-						if (value.startsWith('"')) {
-							value = value.replace(doubleQuoteRegex, '');
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
 							if (!value) continue;
-
-							filters.files = true;
-							files.push(value);
-						} else {
-							filters.files = true;
-
-							const prefix = search.matchCase ? '' : ':(icase)';
-							if (/[/\\*?|![\]{}]/.test(value)) {
-								files.push(`${prefix}${value}`);
-							} else {
-								const index = value.indexOf('.');
-								if (index > 0) {
-									// maybe a file extension
-									files.push(`${prefix}**/${value}`);
-								} else {
-									files.push(`${prefix}*${value}*`);
-								}
-							}
 						}
+
+						searchArgs.add(`${flag}=${value}`);
 					}
 
 					break;
-				case 'type:':
-					for (const value of values) {
-						if (value === 'stash') {
-							filters.type = 'stash';
-							searchArgs.add('--no-walk');
-						}
-					}
-
-					break;
+				}
 			}
 		}
 	}
@@ -308,4 +365,14 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 		shas: shas,
 		filters: filters,
 	};
+}
+
+/** Converts natural language to a structured search query */
+export async function processNaturalLanguageToSearchQuery(
+	container: Container,
+	search: SearchQuery,
+	source: Source,
+	options?: NaturalLanguageSearchOptions,
+): Promise<SearchQuery> {
+	return new NaturalLanguageSearchProcessor(container).processNaturalLanguageToSearchQuery(search, source, options);
 }

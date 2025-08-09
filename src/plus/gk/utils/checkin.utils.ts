@@ -77,7 +77,9 @@ export function getSubscriptionFromCheckIn(
 	const bestPaidLicense = paidLicenses.length > 0 ? paidLicenses[0] : undefined;
 	const bestEffectiveLicense = effectiveLicenses.length > 0 ? effectiveLicenses[0] : undefined;
 	const chosenPaidLicense =
-		organizationId != null ? paidLicensesByOrganizationId.get(organizationId) ?? bestPaidLicense : bestPaidLicense;
+		organizationId != null
+			? (paidLicensesByOrganizationId.get(organizationId) ?? bestPaidLicense)
+			: bestPaidLicense;
 	if (chosenPaidLicense != null) {
 		const [licenseType, license] = chosenPaidLicense;
 		actual = getSubscriptionPlan(
@@ -99,8 +101,8 @@ export function getSubscriptionFromCheckIn(
 			data.user.firstGitLensCheckIn != null
 				? new Date(data.user.firstGitLensCheckIn)
 				: data.user.createdDate != null
-				  ? new Date(data.user.createdDate)
-				  : undefined,
+					? new Date(data.user.createdDate)
+					: undefined,
 			undefined,
 			undefined,
 			data.nextOptInDate,
@@ -110,7 +112,7 @@ export function getSubscriptionFromCheckIn(
 	let effective: Subscription['plan']['effective'] | undefined;
 	const chosenEffectiveLicense =
 		organizationId != null
-			? effectiveLicensesByOrganizationId.get(organizationId) ?? bestEffectiveLicense
+			? (effectiveLicensesByOrganizationId.get(organizationId) ?? bestEffectiveLicense)
 			: bestEffectiveLicense;
 	if (chosenEffectiveLicense != null) {
 		const [licenseType, license] = chosenEffectiveLicense;

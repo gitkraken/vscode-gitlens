@@ -11,7 +11,7 @@ suite('Test PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', (
 						ownerAndRepo: ownerAndRepo,
 						prNumber: prNumber,
 						provider: undefined,
-				  },
+					},
 			`${message} (${JSON.stringify(query)})`,
 		);
 	}

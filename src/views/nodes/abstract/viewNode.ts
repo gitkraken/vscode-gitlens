@@ -1,5 +1,5 @@
 import type { CancellationToken, Command, Disposable, Event, TreeItem } from 'vscode';
-import type { TreeViewNodeTypes } from '../../../constants.views';
+import type { TreeViewNodeTypes, TreeViewTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitBranch } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
@@ -131,6 +131,7 @@ export interface AmbientContext {
 	readonly searchId?: string;
 	readonly storedComparisonId?: string;
 	readonly tag?: GitTag;
+	readonly viewType?: TreeViewTypes;
 	readonly workspace?: CloudWorkspace | LocalWorkspace;
 	readonly wsRepositoryDescriptor?: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
 	readonly worktree?: GitWorktree;
@@ -213,7 +214,7 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/draft/${context.draft.id}`;
 	}
 
-	return `gitlens://viewnode/${type}${uniqueness}`;
+	return `gitlens://${context.viewType ?? 'view'}/${type}${uniqueness}`;
 }
 
 export type ClipboardType = 'text' | 'markdown';
@@ -247,6 +248,8 @@ export abstract class ViewNode<
 		public readonly view: TView,
 		protected parent?: ViewNode | undefined,
 	) {
+		this.updateContext({ viewType: view.type });
+
 		// NOTE: @eamodio uncomment to track node leaks
 		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;
@@ -279,7 +282,7 @@ export abstract class ViewNode<
 
 	private _context: AmbientContext | undefined;
 	protected get context(): AmbientContext {
-		return this._context ?? this.parent?.context ?? {};
+		return this._context ?? this.parent?.context ?? { viewType: this.view.type };
 	}
 
 	protected updateContext(context: AmbientContext, reset: boolean = false): void {

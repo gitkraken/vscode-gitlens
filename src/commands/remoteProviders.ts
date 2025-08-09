@@ -68,6 +68,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 				repoPath = repo.path;
 			} else {
 				const pick = await showRepositoryPicker(
+					this.container,
 					undefined,
 					'Choose which repository to connect to the remote provider',
 					[...repos.keys()],
@@ -164,6 +165,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 				repoPath = repo.path;
 			} else {
 				const pick = await showRepositoryPicker(
+					this.container,
 					undefined,
 					'Choose which repository to disconnect from the remote provider',
 					[...repos.keys()],

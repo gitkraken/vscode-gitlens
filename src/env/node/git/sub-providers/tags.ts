@@ -10,6 +10,7 @@ import type { TagSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortTags } from '../../../../git/utils/-webview/sorting';
 import { filterMap } from '../../../../system/array';
 import { log } from '../../../../system/decorators/log';
+import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
@@ -45,55 +46,49 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const scope = getLogScope();
 
-		let resultsPromise = this.cache.tags?.get(repoPath);
-		if (resultsPromise == null) {
-			async function load(this: TagsGitSubProvider): Promise<PagedResult<GitTag>> {
-				try {
-					const parser = getTagParser();
+		const resultsPromise = this.cache.tags?.getOrCreate(repoPath, async cancellable => {
+			try {
+				const parser = getTagParser();
 
-					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation },
-						'for-each-ref',
-						...parser.arguments,
-						'refs/tags/',
+				const result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation },
+					'for-each-ref',
+					...parser.arguments,
+					'refs/tags/',
+				);
+				if (!result.stdout) return emptyPagedResult;
+
+				using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+
+				const tags: GitTag[] = [];
+
+				for (const entry of parser.parse(result.stdout)) {
+					tags.push(
+						new GitTag(
+							this.container,
+							repoPath,
+							entry.name,
+							entry.sha || entry.tagSha,
+							entry.message,
+							entry.date ? new Date(entry.date) : undefined,
+							entry.commitDate ? new Date(entry.commitDate) : undefined,
+						),
 					);
-					if (!result.stdout) return emptyPagedResult;
-
-					using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
-
-					const tags: GitTag[] = [];
-
-					for (const entry of parser.parse(result.stdout)) {
-						tags.push(
-							new GitTag(
-								this.container,
-								repoPath,
-								entry.name,
-								entry.sha || entry.tagSha,
-								entry.message,
-								entry.date ? new Date(entry.date) : undefined,
-								entry.commitDate ? new Date(entry.commitDate) : undefined,
-							),
-						);
-					}
-
-					sw?.stop({ suffix: ` parsed ${tags.length} tags` });
-
-					return { values: tags };
-				} catch (ex) {
-					this.cache.tags?.delete(repoPath);
-					if (isCancellationError(ex)) throw ex;
-
-					return emptyPagedResult;
 				}
-			}
 
-			resultsPromise = load.call(this);
+				sw?.stop({ suffix: ` parsed ${tags.length} tags` });
 
-			if (options?.paging?.cursor == null) {
-				this.cache.tags?.set(repoPath, resultsPromise);
+				return { values: tags };
+			} catch (ex) {
+				cancellable.cancelled();
+				Logger.error(ex, scope);
+				if (isCancellationError(ex)) throw ex;
+
+				return emptyPagedResult;
 			}
-		}
+		});
+
+		if (resultsPromise == null) return emptyPagedResult;
 
 		let result = await resultsPromise;
 		if (options?.filter != null) {

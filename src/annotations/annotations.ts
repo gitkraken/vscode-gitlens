@@ -126,7 +126,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 							`data:image/svg+xml,${encodeURIComponent(
 								`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='8' y='0' width='3' height='18'/></svg>`,
 							)}`,
-					  )
+						)
 					: undefined,
 				gutterIconSize: gutter ? 'contain' : undefined,
 				overviewRulerLane: scrollbar ? OverviewRulerLane.Center : undefined,

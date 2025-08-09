@@ -77,7 +77,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 						? {
 								uri: r.resourceUri,
 								staged: (r as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
-						  }
+							}
 						: undefined,
 				);
 			}
@@ -85,7 +85,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 
 		if (context.command === 'gitlens.externalDiffAll') {
 			if (args.files == null) {
-				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
+				const repository = await getRepositoryOrShowPicker(this.container, 'Open All Changes (difftool)');
 				if (repository == null) return;
 
 				const status = await this.container.git.getRepositoryService(repository.uri).status.getStatus();

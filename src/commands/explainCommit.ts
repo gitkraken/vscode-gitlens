@@ -97,12 +97,13 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 				return;
 			}
 
-			this.openDocument(result, `/explain/commit/${commit.ref}/${result.model.id}`, {
-				header: {
-					title: 'Commit Summary',
-					aiModel: result.model.name,
-					subtitle: `${commit.summary} (${commit.shortSha})`,
-				},
+			const {
+				aiPromise,
+				info: { model },
+			} = result;
+
+			this.openDocument(aiPromise, `/explain/commit/${commit.ref}/${model.id}`, model, 'explain-commit', {
+				header: { title: 'Commit Summary', subtitle: `${commit.summary} (${commit.shortSha})` },
 				command: {
 					label: 'Explain Commit Summary',
 					name: 'gitlens.ai.explainCommit',

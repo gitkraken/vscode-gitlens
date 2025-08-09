@@ -33,7 +33,7 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);
 		}
-		repo ??= await getRepositoryOrShowPicker('Create Pull Request', undefined, undefined);
+		repo ??= await getRepositoryOrShowPicker(this.container, 'Create Pull Request', undefined, undefined);
 		if (repo == null) return;
 
 		if (args == null) {

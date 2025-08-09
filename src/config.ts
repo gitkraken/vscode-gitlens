@@ -107,7 +107,8 @@ export type DateSource = 'authored' | 'committed';
 export type DateStyle = 'absolute' | 'relative';
 export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
 export type GitCommandSorting = 'name' | 'usage';
-export type GraphBranchesVisibility = 'all' | 'smart' | 'current';
+export type GraphBranchesVisibility = 'all' | 'smart' | 'current' | 'favorited';
+export type GraphMultiSelectionMode = boolean | 'topological';
 export type GraphScrollMarkersAdditionalTypes =
 	| 'localBranches'
 	| 'remoteBranches'
@@ -240,6 +241,9 @@ interface AIConfig {
 	readonly generateCreatePullRequest: {
 		readonly customInstructions: string;
 	};
+	readonly generateSearchQuery: {
+		readonly customInstructions: string;
+	};
 	readonly gitkraken: {
 		readonly model: AIProviderAndModel | null;
 	};
@@ -367,6 +371,7 @@ interface GitCommandsConfig {
 		readonly matchAll: boolean;
 		readonly matchCase: boolean;
 		readonly matchRegex: boolean;
+		readonly matchWholeWord: boolean;
 		readonly showResultsInSideBar: boolean | null;
 	};
 	readonly skipConfirmations: string[];
@@ -408,7 +413,7 @@ export interface GraphConfig {
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 	};
-	readonly multiselect: boolean;
+	readonly multiselect: GraphMultiSelectionMode;
 	readonly onlyFollowFirstParent: boolean;
 	readonly pageItemLimit: number;
 	readonly pullRequests: {

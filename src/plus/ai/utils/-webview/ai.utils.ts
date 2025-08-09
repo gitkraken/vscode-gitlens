@@ -1,15 +1,20 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import { Schemes } from '../../../../constants';
 import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
+import type { MarkdownContentMetadata } from '../../../../documents/markdown';
+import { decodeGitLensRevisionUriAuthority } from '../../../../git/gitUri.authority';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getContext } from '../../../../system/-webview/context';
 import { openSettingsEditor } from '../../../../system/-webview/vscode/editors';
 import { formatNumeric } from '../../../../system/date';
+import { Logger } from '../../../../system/logger';
 import { getPossessiveForm, pluralize } from '../../../../system/string';
 import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils';
+import type { AIResult, AIResultContext } from '../../aiProviderService';
 import type { AIActionType, AIModel } from '../../models/model';
 
 export function ensureAccount(container: Container, silent: boolean): Promise<boolean> {
@@ -26,6 +31,8 @@ export function ensureAccount(container: Container, silent: boolean): Promise<bo
 
 export function getActionName(action: AIActionType): string {
 	switch (action) {
+		case 'explain-changes':
+			return 'Explain Changes';
 		case 'generate-commitMessage':
 			return 'Generate Commit Message';
 		case 'generate-stashMessage':
@@ -40,10 +47,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Pull Request Details (Preview)';
 		case 'generate-rebase':
 			return 'Generate Rebase (Preview)';
-		case 'explain-changes':
-			return 'Explain Changes';
-		default:
-			return 'Unknown Action';
+		case 'generate-searchQuery':
+			return 'Generate Search Query (Preview)';
 	}
 }
 
@@ -132,10 +137,13 @@ export async function getOrPromptApiKey(
 	return apiKey;
 }
 
-export function getValidatedTemperature(modelTemperature?: number | null): number | undefined {
+export function getValidatedTemperature(model: AIModel, modelTemperature?: number | null): number | undefined {
 	if (modelTemperature === null) return undefined;
-	if (modelTemperature != null) return modelTemperature;
-	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+	// GPT5 doesn't support anything but the default temperature
+	if (model.id.startsWith('gpt-5')) return undefined;
+
+	modelTemperature ??= Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+	return modelTemperature;
 }
 
 export async function showLargePromptWarning(estimatedTokens: number, threshold: number): Promise<boolean> {
@@ -250,4 +258,58 @@ export async function ensureAccess(options?: { showPicker?: boolean }): Promise<
 	}
 
 	return true;
+}
+
+export function getAIResultContext(result: AIResult): AIResultContext {
+	return {
+		id: result.id,
+		type: result.type,
+		feature: result.feature,
+		model: result.model,
+		usage:
+			result.usage != null
+				? {
+						promptTokens: result.usage.promptTokens,
+						completionTokens: result.usage.completionTokens,
+						totalTokens: result.usage.totalTokens,
+						limits:
+							result.usage.limits != null
+								? {
+										used: result.usage.limits.used,
+										limit: result.usage.limits.limit,
+										resetsOn: result.usage.limits.resetsOn.toISOString(),
+									}
+								: undefined,
+					}
+				: undefined,
+	};
+}
+
+export function extractAIResultContext(container: Container, uri: Uri | undefined): AIResultContext | undefined {
+	if (uri?.scheme === Schemes.GitLensAIMarkdown) {
+		const { authority } = uri;
+		if (!authority) return undefined;
+
+		try {
+			const context: AIResultContext | undefined = container.aiFeedback.getMarkdownDocument(uri.toString());
+			if (context) return context;
+
+			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
+			return metadata.context;
+		} catch (ex) {
+			Logger.error(ex, 'extractResultContext');
+			return undefined;
+		}
+	}
+
+	// Check for untitled documents with stored changelog feedback context
+	if (uri?.scheme === 'untitled') {
+		try {
+			return container.aiFeedback.getChangelogDocument(uri.toString());
+		} catch {
+			return undefined;
+		}
+	}
+
+	return undefined;
 }
