@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { commands, Disposable, ProgressLocation } from 'vscode';
+import { CancellationTokenSource, commands, Disposable, ProgressLocation } from 'vscode';
 import type { ContextKeys } from '../../../constants.context';
 import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -23,7 +23,13 @@ import type {
 import {
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
+	CancelFinishAndCommitCommand,
+	CancelGenerateCommitMessageCommand,
+	CancelGenerateCommitsCommand,
 	CloseComposerCommand,
+	DidCancelFinishCommittingNotification,
+	DidCancelGenerateCommitMessageNotification,
+	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
 	DidChangeAiModelNotification,
 	DidFinishCommittingNotification,
@@ -50,6 +56,11 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private _args?: ComposerWebviewShowingArgs[0];
 	private _cache = new PromiseCache<'bootstrap', State>({ accessTTL: 1000 * 60 * 5 });
 
+	// Cancellation tokens for ongoing operations
+	private _generateCommitsCancellation?: CancellationTokenSource;
+	private _generateCommitMessageCancellation?: CancellationTokenSource;
+	private _finishAndCommitCancellation?: CancellationTokenSource;
+
 	constructor(
 		protected readonly container: Container,
 		protected readonly host: WebviewHost<'gitlens.composer'>,
@@ -63,6 +74,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	dispose(): void {
 		this._cache.clear();
+		this._generateCommitsCancellation?.dispose();
+		this._generateCommitMessageCancellation?.dispose();
+		this._finishAndCommitCancellation?.dispose();
 		this._disposable.dispose();
 	}
 
@@ -91,6 +105,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case AIFeedbackUnhelpfulCommand.is(e):
 				void this.onAIFeedbackUnhelpful(e.params);
+				break;
+			case CancelGenerateCommitsCommand.is(e):
+				void this.onCancelGenerateCommits();
+				break;
+			case CancelGenerateCommitMessageCommand.is(e):
+				void this.onCancelGenerateCommitMessage();
+				break;
+			case CancelFinishAndCommitCommand.is(e):
+				void this.onCancelFinishAndCommit();
 				break;
 		}
 	}
@@ -194,6 +217,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		// Create safety state snapshot for validation
 		const safetyState = await createSafetyState(repo);
 
+		const aiEnabled = this.getAiEnabled();
+		const aiModel = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
+
 		return {
 			...this.initialState,
 			hunks: hunks,
@@ -206,6 +232,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			},
 			commits: [initialCommit],
 			safetyState: safetyState,
+			aiEnabled: aiEnabled,
+			ai: {
+				model: aiModel,
+			},
 			mode: mode,
 		};
 	}
@@ -254,6 +284,42 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	private async onCancelGenerateCommits(): Promise<void> {
+		if (this._generateCommitsCancellation) {
+			this._generateCommitsCancellation.cancel();
+
+			// Send cancellation notification to clear loading state properly
+			await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
+
+			// Note: Don't dispose the token immediately - let the finally block handle cleanup
+			// This ensures the async operation can still detect the cancellation
+		}
+	}
+
+	private async onCancelGenerateCommitMessage(): Promise<void> {
+		if (this._generateCommitMessageCancellation) {
+			this._generateCommitMessageCancellation.cancel();
+
+			// Send cancellation notification to clear loading state properly
+			await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
+
+			// Note: Don't dispose the token immediately - let the finally block handle cleanup
+			// This ensures the async operation can still detect the cancellation
+		}
+	}
+
+	private async onCancelFinishAndCommit(): Promise<void> {
+		if (this._finishAndCommitCancellation) {
+			this._finishAndCommitCancellation.cancel();
+
+			// Send cancellation notification to clear loading state properly
+			await this.host.notify(DidCancelFinishCommittingNotification, undefined);
+
+			// Note: Don't dispose the token immediately - let the finally block handle cleanup
+			// This ensures the async operation can still detect the cancellation
+		}
+	}
+
 	onShowing(
 		_loading: boolean,
 		_options: any,
@@ -284,7 +350,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async updateAiModel(): Promise<void> {
 		try {
-			const model = await this.container.ai.getModel({ silent: true }, { source: 'ai' });
+			const model = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
 			await this.host.notify(DidChangeAiModelNotification, { model: model });
 		} catch {
 			// Ignore errors when getting AI model
@@ -294,7 +360,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async onSelectAIModel(): Promise<void> {
 		// Trigger the AI provider/model switch command
 		await commands.executeCommand('gitlens.ai.switchProvider', {
-			source: 'ai',
+			source: 'composer',
 			detail: 'model-picker',
 		});
 	}
@@ -312,7 +378,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async sendComposerAIFeedback(sentiment: 'helpful' | 'unhelpful', sessionId: string | null): Promise<void> {
 		try {
 			// Get the current AI model
-			const model = await this.container.ai.getModel({ silent: true }, { source: 'ai' });
+			const model = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
 			if (!model) return;
 
 			// Create a synthetic context for composer AI feedback
@@ -342,7 +408,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Use the shared feedback event sender
-			sendFeedbackEvent(this.container, { source: 'ai' }, context, sentiment, unhelpful);
+			sendFeedbackEvent(this.container, { source: 'composer' }, context, sentiment, unhelpful);
 		} catch (error) {
 			// Log error but don't throw to avoid breaking the UI
 			console.error('Failed to send composer AI feedback:', error);
@@ -351,6 +417,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
 		try {
+			// Create cancellation token for this operation
+			this._generateCommitsCancellation = new CancellationTokenSource();
+
 			// Notify webview that generation is starting
 			await this.host.notify(DidStartGeneratingNotification, undefined);
 
@@ -376,10 +445,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				hunks,
 				existingCommits,
 				params.hunkMap,
+				{ source: 'composer' },
 				{
-					source: 'ai',
-				},
-				{
+					cancellation: this._generateCommitsCancellation.token,
 					progress: { location: ProgressLocation.Notification },
 					customInstructions: params.customInstructions,
 				},
@@ -396,25 +464,45 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 				// Notify the webview with the generated commits (this will also clear loading state)
 				await this.host.notify(DidGenerateCommitsNotification, { commits: newCommits });
+			} else if (result === 'cancelled') {
+				// Send cancellation notification instead of success notification
+				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 			} else {
-				// Clear loading state even if cancelled/failed
+				// Clear loading state on failure (not cancellation)
 				await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
 			}
 		} catch {
-			// Clear loading state on error
-			await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
+			// Check if this was a cancellation or a real error
+			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
+				// Send cancellation notification
+				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
+			} else {
+				// Clear loading state on error
+				await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
+			}
+		} finally {
+			// Clean up cancellation token
+			this._generateCommitsCancellation?.dispose();
+			this._generateCommitsCancellation = undefined;
 		}
 	}
 
 	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
 		try {
+			// Create cancellation token for this operation
+			this._generateCommitMessageCancellation = new CancellationTokenSource();
+
 			// Notify webview that commit message generation is starting
 			await this.host.notify(DidStartGeneratingCommitMessageNotification, { commitId: params.commitId });
 
 			// Call the AI service to generate commit message
-			const result = await this.container.ai.generateCommitMessage(params.diff, {
-				source: 'ai',
-			});
+			const result = await this.container.ai.generateCommitMessage(
+				params.diff,
+				{ source: 'composer' },
+				{
+					cancellation: this._generateCommitMessageCancellation.token,
+				},
+			);
 
 			if (result && result !== 'cancelled') {
 				// Combine summary and body into a single message
@@ -427,24 +515,40 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					commitId: params.commitId,
 					message: message,
 				});
+			} else if (result === 'cancelled') {
+				// Send cancellation notification instead of success notification
+				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 			} else {
-				// Clear loading state even if cancelled/failed
+				// Clear loading state on failure (not cancellation)
 				await this.host.notify(DidGenerateCommitMessageNotification, {
 					commitId: params.commitId,
 					message: '',
 				});
 			}
 		} catch {
-			// Clear loading state on error
-			await this.host.notify(DidGenerateCommitMessageNotification, {
-				commitId: params.commitId,
-				message: '',
-			});
+			// Check if this was a cancellation or a real error
+			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
+				// Send cancellation notification
+				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
+			} else {
+				// Clear loading state on error
+				await this.host.notify(DidGenerateCommitMessageNotification, {
+					commitId: params.commitId,
+					message: '',
+				});
+			}
+		} finally {
+			// Clean up cancellation token
+			this._generateCommitMessageCancellation?.dispose();
+			this._generateCommitMessageCancellation = undefined;
 		}
 	}
 
 	private async onFinishAndCommit(params: FinishAndCommitParams): Promise<void> {
 		try {
+			// Create cancellation token for this operation
+			this._finishAndCommitCancellation = new CancellationTokenSource();
+
 			// Notify webview that committing is starting
 			await this.host.notify(DidStartCommittingNotification, undefined);
 
@@ -482,8 +586,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error('No repository service found');
 			}
 
+			// Check for cancellation before patch creation
+			if (this._finishAndCommitCancellation?.token.isCancellationRequested) {
+				return; // Exit early if cancelled
+			}
+
 			// Create unreachable commits from patches
 			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit.sha, diffInfo);
+
+			// Check for cancellation after patch creation
+			if (this._finishAndCommitCancellation?.token.isCancellationRequested) {
+				await this.host.notify(DidCancelFinishCommittingNotification, undefined);
+				return; // Exit early if cancelled
+			}
 
 			if (!shas?.length) {
 				throw new Error('Failed to create commits from patches');
@@ -497,6 +612,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				if (latestStash) {
 					previousStashCommit = latestStash;
 				}
+			}
+
+			// Check for cancellation before stashing
+			if (this._finishAndCommitCancellation?.token.isCancellationRequested) {
+				await this.host.notify(DidCancelFinishCommittingNotification, undefined);
+				return; // Exit early if cancelled
 			}
 
 			// Stash the working changes
@@ -518,6 +639,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				}
 			}
 
+			// Check for cancellation before reset
+			if (this._finishAndCommitCancellation?.token.isCancellationRequested) {
+				await this.host.notify(DidCancelFinishCommittingNotification, undefined);
+				return; // Exit early if cancelled
+			}
+
 			// Reset the current branch to the new shas
 			await svc.reset(shas[shas.length - 1], { hard: true });
 
@@ -530,14 +657,24 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
 		} catch (error) {
-			// Clear loading state on error
-			await this.host.notify(DidFinishCommittingNotification, undefined);
+			// Check if this was a cancellation or a real error
+			if (this._finishAndCommitCancellation?.token.isCancellationRequested) {
+				// Send cancellation notification
+				await this.host.notify(DidCancelFinishCommittingNotification, undefined);
+			} else {
+				// Clear loading state on error
+				await this.host.notify(DidFinishCommittingNotification, undefined);
 
-			// Show error message
-			const { window } = await import('vscode');
-			void window.showErrorMessage(
-				`Failed to commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`,
-			);
+				// Show error message
+				const { window } = await import('vscode');
+				void window.showErrorMessage(
+					`Failed to commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				);
+			}
+		} finally {
+			// Clean up cancellation token
+			this._finishAndCommitCancellation?.dispose();
+			this._finishAndCommitCancellation = undefined;
 		}
 	}
 

@@ -1,6 +1,9 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
 import {
+	DidCancelFinishCommittingNotification,
+	DidCancelGenerateCommitMessageNotification,
+	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
 	DidChangeAiModelNotification,
 	DidFinishCommittingNotification,
@@ -68,6 +71,7 @@ export class ComposerStateProvider implements StateProvider<State> {
 							...hunk,
 							assigned: true,
 						})),
+						hasUsedAutoCompose: true,
 						timestamp: Date.now(),
 					};
 
@@ -155,6 +159,42 @@ export class ComposerStateProvider implements StateProvider<State> {
 					const updatedState = {
 						...this._state,
 						loadingError: msg.params.error,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidCancelGenerateCommitsNotification.is(msg): {
+					// Clear loading state and reset to pre-generation state
+					const updatedState = {
+						...this._state,
+						generatingCommits: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidCancelGenerateCommitMessageNotification.is(msg): {
+					// Clear loading state for commit message generation
+					const updatedState = {
+						...this._state,
+						generatingCommitMessage: null,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidCancelFinishCommittingNotification.is(msg): {
+					// Clear loading state for commit creation
+					const updatedState = {
+						...this._state,
+						committing: false,
 						timestamp: Date.now(),
 					};
 

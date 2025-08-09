@@ -1048,6 +1048,7 @@ export type Sources =
 	| 'cloud-patches'
 	| 'code-suggest'
 	| 'commandPalette'
+	| 'composer'
 	| 'deeplink'
 	| 'editor:hover'
 	| 'feature-badge'
