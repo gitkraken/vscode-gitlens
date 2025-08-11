@@ -251,6 +251,47 @@ export class ComposerApp extends LitElement {
 			.unassigned-changes-section:last-child {
 				margin-bottom: 0;
 			}
+
+			.error-dialog::part(base) {
+				max-width: 500px;
+			}
+
+			.error-dialog h2,
+			.error-dialog p {
+				margin-block: 0;
+			}
+
+			.error-dialog h2 code-icon {
+				vertical-align: middle;
+			}
+
+			.error-dialog__container {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+			}
+
+			.error-dialog__message {
+				background: var(--vscode-diffEditor-removedTextBackground);
+				border: 1px solid var(--vscode-diffEditor-removedLineBackground);
+				border-radius: 0.4rem;
+				padding: 1.2rem;
+				font-family: var(--vscode-editor-font-family);
+				font-size: 1.2rem;
+				color: var(--vscode-foreground);
+			}
+
+			.error-dialog__secondary {
+				margin: 0;
+				font-size: 1.2rem;
+				color: var(--color-foreground--75);
+			}
+
+			.error-dialog__actions {
+				display: flex;
+				gap: 8px;
+				justify-content: flex-end;
+			}
 		`,
 	];
 
@@ -1491,65 +1532,35 @@ export class ComposerApp extends LitElement {
 				${this.renderLoadingDialogs()}
 
 				<!-- Safety error overlay -->
-				<gl-dialog ?open=${this.state.safetyError != null} modal>
-					<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
-						<h2
-							style="margin: 0; color: var(--vscode-foreground); display: flex; align-items: center; gap: 8px;"
-						>
+				<gl-dialog class="error-dialog" ?open=${this.state.safetyError != null} modal>
+					<div class="error-dialog__container">
+						<h2>
 							<code-icon icon="warning"></code-icon>
 							Repository State Changed
 						</h2>
-						<div
-							style="
-							background: var(--vscode-diffEditor-removedTextBackground);
-							border: 1px solid var(--vscode-diffEditor-removedLineBackground);
-							border-radius: 4px;
-							padding: 12px;
-							font-family: var(--vscode-editor-font-family);
-							font-size: 0.9em;
-							white-space: pre-line;
-							color: var(--vscode-foreground);
-						"
-						>
-							${this.state.safetyError}
-						</div>
-						<p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
+						<p class="error-dialog__message">${replaceLineBreaks(this.state.safetyError)}</p>
+						<p class="error-dialog__secondary">
 							The repository state has changed since Commit Composer was opened. Please reload to update
 							with new changes.
 						</p>
-						<div style="display: flex; gap: 8px; justify-content: flex-end;">
+						<nav class="error-dialog__actions">
 							<gl-button appearance="secondary" @click=${this.handleCloseSafetyError}>Close</gl-button>
-							<gl-button appearance="primary" @click=${this.handleReloadComposer}>Reload</gl-button>
-						</div>
+							<gl-button @click=${this.handleReloadComposer}>Reload</gl-button>
+						</nav>
 					</div>
 				</gl-dialog>
 
 				<!-- Loading error overlay -->
-				<gl-dialog ?open=${this.state.loadingError != null} modal>
-					<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
-						<h2
-							style="margin: 0; color: var(--vscode-foreground); display: flex; align-items: center; gap: 8px;"
-						>
+				<gl-dialog class="error-dialog" ?open=${this.state.loadingError != null} modal>
+					<div class="error-dialog__container">
+						<h2>
 							<code-icon icon="warning"></code-icon>
 							Loading Error
 						</h2>
-						<div
-							style="
-							background: var(--vscode-diffEditor-removedTextBackground);
-							border: 1px solid var(--vscode-diffEditor-removedLineBackground);
-							border-radius: 4px;
-							padding: 12px;
-							font-family: var(--vscode-editor-font-family);
-							font-size: 0.9em;
-							white-space: pre-line;
-							color: var(--vscode-foreground);
-						"
-						>
-							${this.state.loadingError}
-						</div>
-						<div style="display: flex; gap: 8px; justify-content: flex-end;">
+						<p class="error-dialog__message">${replaceLineBreaks(this.state.loadingError)}</p>
+						<nav class="error-dialog__actions">
 							<gl-button appearance="secondary" @click=${this.handleCloseLoadingError}>Close</gl-button>
-						</div>
+						</nav>
 					</div>
 				</gl-dialog>
 			</main>
@@ -1594,4 +1605,8 @@ export class ComposerApp extends LitElement {
 			</nav>
 		`;
 	}
+}
+
+function replaceLineBreaks(text?: string | null, replaceWith: string = '<br>'): string | undefined {
+	return text?.replaceAll(/\n/g, replaceWith);
 }
