@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.3.4] - 2025-08-11
+
 ### Added
 
 - Improves the experience when using multiple repositories or worktrees within a single workspace
@@ -6281,7 +6283,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.4...HEAD
+[17.3.4]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.3...gitkraken:v17.3.4
 [17.3.3]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.2...gitkraken:v17.3.3
 [17.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.1...gitkraken:v17.3.2
 [17.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...gitkraken:v17.3.1
