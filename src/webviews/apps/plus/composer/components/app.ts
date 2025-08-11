@@ -7,7 +7,6 @@ import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/compo
 import {
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
-	CancelFinishAndCommitCommand,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
 	CloseComposerCommand,
@@ -1136,7 +1135,7 @@ export class ComposerApp extends LitElement {
 		return this.aiEnabled; // Allowed in both modes if AI is enabled
 	}
 
-	private composeCommits() {
+	private finishAndCommit() {
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
 			hunks: this.hunksWithAssignments,
@@ -1172,10 +1171,6 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(CancelGenerateCommitMessageCommand, undefined);
 	}
 
-	private handleCancelFinishAndCommit() {
-		this._ipc.sendCommand(CancelFinishAndCommitCommand, undefined);
-	}
-
 	private renderLoadingDialogs() {
 		// Generate Commits loading dialog
 		if (this.state.generatingCommits) {
@@ -1201,14 +1196,13 @@ export class ComposerApp extends LitElement {
 			return this.renderLoadingDialog(
 				'Creating Commits',
 				`Committing ${commitCount} commit${commitCount === 1 ? '' : 's'}.`,
-				this.handleCancelFinishAndCommit,
 			);
 		}
 
 		return '';
 	}
 
-	private renderLoadingDialog(title: string, bodyText: string, onCancel: () => void) {
+	private renderLoadingDialog(title: string, bodyText: string, onCancel?: () => void) {
 		return html`
 			<gl-dialog open modal>
 				<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
@@ -1220,7 +1214,10 @@ export class ComposerApp extends LitElement {
 					</h2>
 					<p style="margin: 0; font-size: 0.9em; opacity: 0.8;">${bodyText}</p>
 					<div style="display: flex; gap: 8px; justify-content: flex-end;">
-						<gl-button appearance="secondary" @click=${onCancel}>Cancel</gl-button>
+						${when(
+							onCancel,
+							() => html`<gl-button appearance="secondary" @click=${onCancel}>Cancel</gl-button>`,
+						)}
 					</div>
 				</div>
 			</gl-dialog>
@@ -1479,7 +1476,7 @@ export class ComposerApp extends LitElement {
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
-					@finish-and-commit=${this.composeCommits}
+					@finish-and-commit=${this.finishAndCommit}
 					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
 					@custom-instructions-change=${this.handleCustomInstructionsChange}
 					@focus-commit-message=${this.handleFocusCommitMessage}

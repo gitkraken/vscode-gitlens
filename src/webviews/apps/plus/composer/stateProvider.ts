@@ -1,7 +1,6 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
 import {
-	DidCancelFinishCommittingNotification,
 	DidCancelGenerateCommitMessageNotification,
 	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
@@ -183,18 +182,6 @@ export class ComposerStateProvider implements StateProvider<State> {
 					const updatedState = {
 						...this._state,
 						generatingCommitMessage: null,
-						timestamp: Date.now(),
-					};
-
-					(this as any)._state = updatedState;
-					this.provider.setValue(this._state, true);
-					break;
-				}
-				case DidCancelFinishCommittingNotification.is(msg): {
-					// Clear loading state for commit creation
-					const updatedState = {
-						...this._state,
-						committing: false,
 						timestamp: Date.now(),
 					};
 

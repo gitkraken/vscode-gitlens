@@ -1806,7 +1806,7 @@ void
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
   // Provided for compatibility with other GK surfaces
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm-input' | 'startWork' | 'trial-indicator' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm-input' | 'startWork' | 'trial-indicator' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 

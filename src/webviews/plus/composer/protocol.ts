@@ -165,7 +165,6 @@ export const CloseComposerCommand = new IpcCommand<void>(ipcScope, 'close');
 export const ReloadComposerCommand = new IpcCommand<ReloadComposerParams>(ipcScope, 'reload');
 export const CancelGenerateCommitsCommand = new IpcCommand<void>(ipcScope, 'cancelGenerateCommits');
 export const CancelGenerateCommitMessageCommand = new IpcCommand<void>(ipcScope, 'cancelGenerateCommitMessage');
-export const CancelFinishAndCommitCommand = new IpcCommand<void>(ipcScope, 'cancelFinishAndCommit');
 export const OnSelectAIModelCommand = new IpcCommand<void>(ipcScope, 'selectAIModel');
 export interface AIFeedbackParams {
 	sessionId: string | null;
@@ -202,7 +201,6 @@ export const DidCancelGenerateCommitMessageNotification = new IpcNotification<vo
 	ipcScope,
 	'didCancelGenerateCommitMessage',
 );
-export const DidCancelFinishCommittingNotification = new IpcNotification<void>(ipcScope, 'didCancelFinishCommitting');
 export const DidChangeAiEnabledNotification = new IpcNotification<DidChangeAiEnabledParams>(
 	ipcScope,
 	'didChangeAiEnabled',
