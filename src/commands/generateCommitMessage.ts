@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { ProgressLocation, window } from 'vscode';
+import { ProgressLocation } from 'vscode';
 import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -82,12 +82,6 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');
-
-			if (ex instanceof Error && ex.message.startsWith('No changes')) {
-				void window.showInformationMessage('No changes to generate a commit message from.');
-				return;
-			}
-
 			void showGenericErrorMessage(ex.message);
 		}
 	}

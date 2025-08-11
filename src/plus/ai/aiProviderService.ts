@@ -1847,7 +1847,7 @@ export class AIProviderService implements Disposable {
 			let diff = await changesOrRepo.git.diff.getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
 				diff = await changesOrRepo.git.diff.getDiff?.(uncommitted);
-				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
+				if (!diff?.contents) throw new AINoRequestDataError('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
 
