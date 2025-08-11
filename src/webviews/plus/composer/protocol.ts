@@ -75,6 +75,7 @@ export interface State extends WebviewState {
 	committing: boolean; // true when finish and commit is in progress
 	safetyError: string | null; // error message if safety validation failed, or null
 	loadingError: string | null; // error message if there was an error loading the webview, or null
+	aiOperationError: { operation: string; error?: string } | null; // error message if AI operation failed, or null
 
 	// AI composition state
 	hasUsedAutoCompose: boolean; // true if auto-compose has been successfully used at least once
@@ -126,6 +127,7 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	committing: false,
 	safetyError: null,
 	loadingError: null,
+	aiOperationError: null,
 	hasUsedAutoCompose: false,
 	mode: 'preview',
 	aiEnabled: {
@@ -165,6 +167,8 @@ export const CloseComposerCommand = new IpcCommand<void>(ipcScope, 'close');
 export const ReloadComposerCommand = new IpcCommand<ReloadComposerParams>(ipcScope, 'reload');
 export const CancelGenerateCommitsCommand = new IpcCommand<void>(ipcScope, 'cancelGenerateCommits');
 export const CancelGenerateCommitMessageCommand = new IpcCommand<void>(ipcScope, 'cancelGenerateCommitMessage');
+export const CancelFinishAndCommitCommand = new IpcCommand<void>(ipcScope, 'cancelFinishAndCommit');
+export const ClearAIOperationErrorCommand = new IpcCommand<void>(ipcScope, 'clearAIOperationError');
 export const OnSelectAIModelCommand = new IpcCommand<void>(ipcScope, 'selectAIModel');
 export interface AIFeedbackParams {
 	sessionId: string | null;
@@ -201,6 +205,15 @@ export const DidCancelGenerateCommitMessageNotification = new IpcNotification<vo
 	ipcScope,
 	'didCancelGenerateCommitMessage',
 );
+export interface DidErrorAIOperationParams {
+	operation: string;
+	error?: string;
+}
+export const DidErrorAIOperationNotification = new IpcNotification<DidErrorAIOperationParams>(
+	ipcScope,
+	'didErrorAIOperation',
+);
+export const DidClearAIOperationErrorNotification = new IpcNotification<void>(ipcScope, 'didClearAIOperationError');
 export const DidChangeAiEnabledNotification = new IpcNotification<DidChangeAiEnabledParams>(
 	ipcScope,
 	'didChangeAiEnabled',

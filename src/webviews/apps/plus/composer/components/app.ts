@@ -9,6 +9,7 @@ import {
 	AIFeedbackUnhelpfulCommand,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
+	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
@@ -1168,6 +1169,11 @@ export class ComposerApp extends LitElement {
 		this.closeComposer();
 	}
 
+	private handleCloseAIOperationError() {
+		// Clear the AI operation error state
+		this._ipc.sendCommand(ClearAIOperationErrorCommand, undefined);
+	}
+
 	private handleCancelGenerateCommits() {
 		this._ipc.sendCommand(CancelGenerateCommitsCommand, undefined);
 	}
@@ -1561,6 +1567,24 @@ export class ComposerApp extends LitElement {
 						<p class="generic-dialog__message is-error">${replaceLineBreaks(this.state.loadingError)}</p>
 						<nav class="generic-dialog__actions">
 							<gl-button appearance="secondary" @click=${this.handleCloseLoadingError}>Close</gl-button>
+						</nav>
+					</div>
+				</gl-dialog>
+
+				<!-- AI operation error overlay -->
+				<gl-dialog class="generic-dialog" ?open=${this.state.aiOperationError != null} modal>
+					<div class="generic-dialog__container">
+						<h2>
+							<code-icon icon="warning"></code-icon>
+							Operation Failed
+						</h2>
+						<p class="generic-dialog__message is-error">
+							${replaceLineBreaks(
+								`Failed to ${this.state.aiOperationError?.operation ?? 'perform operation'}${this.state.aiOperationError?.error ? `: ${this.state.aiOperationError.error}` : ''}`,
+							)}
+						</p>
+						<nav class="generic-dialog__actions">
+							<gl-button appearance="secondary" @click=${this.handleCloseAIOperationError}>OK</gl-button>
 						</nav>
 					</div>
 				</gl-dialog>

@@ -25,11 +25,14 @@ import {
 	AIFeedbackUnhelpfulCommand,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
+	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
 	DidCancelGenerateCommitMessageNotification,
 	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
 	DidChangeAiModelNotification,
+	DidClearAIOperationErrorNotification,
+	DidErrorAIOperationNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
@@ -107,6 +110,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case CancelGenerateCommitMessageCommand.is(e):
 				void this.onCancelGenerateCommitMessage();
+				break;
+			case ClearAIOperationErrorCommand.is(e):
+				void this.onClearAIOperationError();
 				break;
 		}
 	}
@@ -301,6 +307,11 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	private async onClearAIOperationError(): Promise<void> {
+		// Send notification to clear the AI operation error
+		await this.host.notify(DidClearAIOperationErrorNotification, undefined);
+	}
+
 	onShowing(
 		_loading: boolean,
 		_options: any,
@@ -454,17 +465,23 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				// Send cancellation notification instead of success notification
 				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 			} else {
-				// Clear loading state on failure (not cancellation)
-				await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
+				// Send error notification for failure (not cancellation)
+				await this.host.notify(DidErrorAIOperationNotification, {
+					operation: 'generate commits',
+					error: undefined,
+				});
 			}
-		} catch {
+		} catch (error) {
 			// Check if this was a cancellation or a real error
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
 				// Send cancellation notification
 				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 			} else {
-				// Clear loading state on error
-				await this.host.notify(DidGenerateCommitsNotification, { commits: params.commits });
+				// Send error notification for exception
+				await this.host.notify(DidErrorAIOperationNotification, {
+					operation: 'generate commits',
+					error: error instanceof Error ? error.message : undefined,
+				});
 			}
 		} finally {
 			// Clean up cancellation token
@@ -510,22 +527,22 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				// Send cancellation notification instead of success notification
 				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 			} else {
-				// Clear loading state on failure (not cancellation)
-				await this.host.notify(DidGenerateCommitMessageNotification, {
-					commitId: params.commitId,
-					message: '',
+				// Send error notification for failure (not cancellation)
+				await this.host.notify(DidErrorAIOperationNotification, {
+					operation: 'generate commit message',
+					error: undefined,
 				});
 			}
-		} catch {
+		} catch (error) {
 			// Check if this was a cancellation or a real error
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
 				// Send cancellation notification
 				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 			} else {
-				// Clear loading state on error
-				await this.host.notify(DidGenerateCommitMessageNotification, {
-					commitId: params.commitId,
-					message: '',
+				// Send error notification for exception
+				await this.host.notify(DidErrorAIOperationNotification, {
+					operation: 'generate commit message',
+					error: error instanceof Error ? error.message : undefined,
 				});
 			}
 		} finally {

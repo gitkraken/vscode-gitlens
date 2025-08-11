@@ -5,6 +5,8 @@ import {
 	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
 	DidChangeAiModelNotification,
+	DidClearAIOperationErrorNotification,
+	DidErrorAIOperationNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
@@ -158,6 +160,34 @@ export class ComposerStateProvider implements StateProvider<State> {
 					const updatedState = {
 						...this._state,
 						loadingError: msg.params.error,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidErrorAIOperationNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						aiOperationError: {
+							operation: msg.params.operation,
+							error: msg.params.error,
+						},
+						// Clear any loading states since the operation failed
+						generatingCommits: false,
+						generatingCommitMessage: null,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidClearAIOperationErrorNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						aiOperationError: null,
 						timestamp: Date.now(),
 					};
 
