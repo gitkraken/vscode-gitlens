@@ -722,9 +722,6 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private dispatchGenerateCommitsWithAI() {
-		// Mark that auto-compose has been used
-		this.hasUsedAutoCompose = true;
-
 		this.dispatchEvent(
 			new CustomEvent('generate-commits-with-ai', {
 				detail: {
