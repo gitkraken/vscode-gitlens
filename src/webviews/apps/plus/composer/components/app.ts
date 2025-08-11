@@ -1447,7 +1447,7 @@ export class ComposerApp extends LitElement {
 		return html`
 			<header class="header">
 				<h1>
-					GitLens Composer <small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
+					Commit Composer <small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
 				</h1>
 				${this.renderActions()}
 			</header>
