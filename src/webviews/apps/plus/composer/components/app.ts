@@ -251,28 +251,28 @@ export class ComposerApp extends LitElement {
 				margin-bottom: 0;
 			}
 
-			.error-dialog::part(base) {
+			.generic-dialog::part(base) {
 				max-width: 500px;
 			}
 
-			.error-dialog h2,
-			.error-dialog p {
+			.generic-dialog h2,
+			.generic-dialog p {
 				margin-block: 0;
 			}
 
-			.error-dialog h2 code-icon {
+			.generic-dialog h2 code-icon {
 				vertical-align: middle;
 			}
 
-			.error-dialog__container {
+			.generic-dialog__container {
 				display: flex;
 				flex-direction: column;
 				gap: 16px;
 			}
 
-			.error-dialog__message {
-				background: var(--vscode-diffEditor-removedTextBackground);
-				border: 1px solid var(--vscode-diffEditor-removedLineBackground);
+			.generic-dialog__message {
+				background: var(--color-background);
+				border: 1px solid var(--vscode-panel-border);
 				border-radius: 0.4rem;
 				padding: 1.2rem;
 				font-family: var(--vscode-editor-font-family);
@@ -280,13 +280,18 @@ export class ComposerApp extends LitElement {
 				color: var(--vscode-foreground);
 			}
 
-			.error-dialog__secondary {
+			.generic-dialog__message.is-error {
+				background: var(--vscode-diffEditor-removedTextBackground);
+				border-color: var(--vscode-diffEditor-removedLineBackground);
+			}
+
+			.generic-dialog__secondary {
 				margin: 0;
 				font-size: 1.2rem;
 				color: var(--color-foreground--75);
 			}
 
-			.error-dialog__actions {
+			.generic-dialog__actions {
 				display: flex;
 				gap: 8px;
 				justify-content: flex-end;
@@ -1204,21 +1209,20 @@ export class ComposerApp extends LitElement {
 
 	private renderLoadingDialog(title: string, bodyText: string, onCancel?: () => void) {
 		return html`
-			<gl-dialog open modal>
-				<div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
-					<h2
-						style="margin: 0; color: var(--vscode-foreground); display: flex; align-items: center; gap: 8px;"
-					>
+			<gl-dialog class="generic-dialog" open modal>
+				<div class="generic-dialog__container">
+					<h2>
 						<code-icon icon="loading" modifier="spin"></code-icon>
 						${title}
 					</h2>
-					<p style="margin: 0; font-size: 0.9em; opacity: 0.8;">${bodyText}</p>
-					<div style="display: flex; gap: 8px; justify-content: flex-end;">
-						${when(
-							onCancel,
-							() => html`<gl-button appearance="secondary" @click=${onCancel}>Cancel</gl-button>`,
-						)}
-					</div>
+					<p class="generic-dialog__secondary">${bodyText}</p>
+					${when(
+						onCancel,
+						() =>
+							html`<nav class="generic-dialog__actions">
+								<gl-button appearance="secondary" @click=${onCancel}>Cancel</gl-button>
+							</nav>`,
+					)}
 				</div>
 			</gl-dialog>
 		`;
@@ -1529,18 +1533,18 @@ export class ComposerApp extends LitElement {
 				${this.renderLoadingDialogs()}
 
 				<!-- Safety error overlay -->
-				<gl-dialog class="error-dialog" ?open=${this.state.safetyError != null} modal>
-					<div class="error-dialog__container">
+				<gl-dialog class="generic-dialog" ?open=${this.state.safetyError != null} modal>
+					<div class="generic-dialog__container">
 						<h2>
 							<code-icon icon="warning"></code-icon>
 							Repository State Changed
 						</h2>
-						<p class="error-dialog__message">${replaceLineBreaks(this.state.safetyError)}</p>
-						<p class="error-dialog__secondary">
+						<p class="generic-dialog__message is-error">${replaceLineBreaks(this.state.safetyError)}</p>
+						<p class="generic-dialog__secondary">
 							The repository state has changed since Commit Composer was opened. Please reload to update
 							with new changes.
 						</p>
-						<nav class="error-dialog__actions">
+						<nav class="generic-dialog__actions">
 							<gl-button appearance="secondary" @click=${this.handleCloseSafetyError}>Close</gl-button>
 							<gl-button @click=${this.handleReloadComposer}>Reload</gl-button>
 						</nav>
@@ -1548,14 +1552,14 @@ export class ComposerApp extends LitElement {
 				</gl-dialog>
 
 				<!-- Loading error overlay -->
-				<gl-dialog class="error-dialog" ?open=${this.state.loadingError != null} modal>
-					<div class="error-dialog__container">
+				<gl-dialog class="generic-dialog" ?open=${this.state.loadingError != null} modal>
+					<div class="generic-dialog__container">
 						<h2>
 							<code-icon icon="warning"></code-icon>
 							Loading Error
 						</h2>
-						<p class="error-dialog__message">${replaceLineBreaks(this.state.loadingError)}</p>
-						<nav class="error-dialog__actions">
+						<p class="generic-dialog__message is-error">${replaceLineBreaks(this.state.loadingError)}</p>
+						<nav class="generic-dialog__actions">
 							<gl-button appearance="secondary" @click=${this.handleCloseLoadingError}>Close</gl-button>
 						</nav>
 					</div>
