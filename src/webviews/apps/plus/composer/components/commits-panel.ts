@@ -13,6 +13,7 @@ import {
 } from '../../../../plus/composer/utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
+import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import './commit-item';
@@ -23,6 +24,9 @@ export class CommitsPanel extends LitElement {
 		boxSizingBase,
 		focusableBaseStyles,
 		scrollableBase,
+		composerItemStyles,
+		composerItemCommitStyles,
+		composerItemContentStyles,
 		css`
 			:host {
 				display: flex;
@@ -65,28 +69,6 @@ export class CommitsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.2rem;
-			}
-
-			.unassigned-section {
-				background: var(--composer-background-05);
-				border: 1px dashed var(--vscode-panel-border);
-				border-radius: 12px;
-				padding: 0.75rem;
-				cursor: pointer;
-				transition: background-color 0.2s ease;
-				/* margin-bottom: 0.5rem; */
-			}
-
-			.unassigned-section:hover {
-				background: var(--vscode-list-hoverBackground);
-			}
-
-			.unassigned-section.selected {
-				background: var(--vscode-list-activeSelectionBackground);
-			}
-
-			.add-to-draft-button-container {
-				margin-top: 0.8rem;
 			}
 
 			.auto-compose-review-text {
@@ -139,31 +121,6 @@ export class CommitsPanel extends LitElement {
 
 			.composition-summary-header h3 {
 				margin: 0;
-			}
-
-			.composition-summary-card {
-				display: flex;
-				align-items: center;
-				gap: 0.6rem;
-				padding: 0.8rem;
-				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border: 1px solid var(--d2h-file-header-border-color);
-				border-radius: 4px;
-				cursor: pointer;
-				transition: background-color 0.2s ease;
-			}
-
-			.composition-summary-card:hover {
-				background: var(--vscode-list-hoverBackground);
-			}
-
-			.composition-summary-card.selected {
-				background: var(--vscode-list-activeSelectionBackground);
-			}
-
-			.composition-summary-label {
-				font-weight: 500;
-				color: var(--vscode-foreground);
 			}
 
 			.composition-feedback-row {
@@ -238,41 +195,6 @@ export class CommitsPanel extends LitElement {
 
 			.cancel-button-container {
 				margin-top: 1.2rem;
-			}
-
-			.unassigned-header {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				font-weight: 500;
-			}
-
-			.unassigned-summary {
-				font-size: 0.9em;
-				color: var(--vscode-descriptionForeground);
-				margin-top: 0.25rem;
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-			}
-
-			.unassigned-summary .file-count {
-				color: var(--vscode-foreground);
-			}
-
-			.unassigned-summary .diff-stats {
-				display: flex;
-				align-items: center;
-				gap: 0.3rem;
-				font-weight: 500;
-			}
-
-			.unassigned-summary .additions {
-				color: var(--vscode-gitDecoration-addedResourceForeground);
-			}
-
-			.unassigned-summary .deletions {
-				color: var(--vscode-gitDecoration-deletedResourceForeground);
 			}
 
 			.new-commit-drop-zone {
@@ -356,78 +278,6 @@ export class CommitsPanel extends LitElement {
 
 			.sortable-ghost-hidden {
 				display: none !important;
-			}
-
-			/* Base commit styles */
-			.base-commit {
-				background: var(--vscode-editor-background);
-				border-radius: 12px;
-				opacity: 0.7;
-				pointer-events: none;
-				display: flex;
-				align-items: stretch;
-				min-height: 60px;
-			}
-
-			.base-commit-icon {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 2.4rem;
-				flex-shrink: 0;
-				position: relative;
-				padding-left: 0.4rem;
-			}
-
-			.base-commit-icon::before {
-				content: '';
-				position: absolute;
-				left: calc(50% + 0.4rem);
-				top: 0;
-				bottom: 0;
-				width: 2px;
-				background: var(--vscode-descriptionForeground);
-				transform: translateX(-50%);
-				opacity: 0.7;
-			}
-
-			.base-commit-icon::after {
-				content: '';
-				position: absolute;
-				left: calc(50% + 0.4rem);
-				top: 50%;
-				width: 20px;
-				height: 20px;
-				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border: 2px solid var(--vscode-descriptionForeground);
-				border-radius: 50%;
-				transform: translate(-50%, -50%);
-				z-index: 1;
-			}
-
-			.base-commit-content {
-				flex: 1;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				padding: 1.2rem;
-				gap: 0.4rem;
-			}
-
-			.base-commit-message {
-				color: var(--vscode-descriptionForeground);
-				font-weight: 500;
-				overflow: hidden;
-				white-space: nowrap;
-				text-overflow: ellipsis;
-				line-height: 1.4;
-			}
-
-			.base-commit-details {
-				display: flex;
-				align-items: center;
-				color: var(--vscode-descriptionForeground);
-				font-size: 0.9em;
 			}
 
 			.repo-name,
@@ -1048,40 +898,46 @@ export class CommitsPanel extends LitElement {
 		return sections.map(
 			section => html`
 				<div
-					class="unassigned-section ${this.selectedUnassignedSection === section.key ? 'selected' : ''}"
+					class="composer-item is-uncommitted${this.selectedUnassignedSection === section.key
+						? ' is-selected'
+						: ''}"
 					@click=${() => this.dispatchUnassignedSelect(section.key)}
 				>
-					<div class="unassigned-header">
-						<code-icon icon="diff-single"></code-icon>
-						${section.title}
+					<div class="composer-item__content">
+						<div class="composer-item__header">
+							<code-icon icon="diff-single"></code-icon>
+							${section.title}
+						</div>
+						<div class="composer-item__body">
+							<span class="file-count"
+								>${section.fileCount} ${section.fileCount === 1 ? 'file' : 'files'}</span
+							>
+							<span class="diff-stats">
+								<span class="additions">+${section.changes.additions}</span>
+								<span class="deletions">-${section.changes.deletions}</span>
+							</span>
+						</div>
+						${when(
+							this.shouldShowAddToDraftButton,
+							() => html`
+								<div>
+									<button-container layout="editor" class="add-to-draft-button-container">
+										<gl-button
+											full
+											appearance="secondary"
+											@click=${(e: Event) => {
+												e.stopPropagation();
+												this.handleAddAllToDraftCommit(section.key);
+											}}
+										>
+											<code-icon icon="plus" slot="prefix"></code-icon>
+											Add All to Draft Commit
+										</gl-button>
+									</button-container>
+								</div>
+							`,
+						)}
 					</div>
-					<div class="unassigned-summary">
-						<span class="file-count"
-							>${section.fileCount} ${section.fileCount === 1 ? 'file' : 'files'}</span
-						>
-						<span class="diff-stats">
-							<span class="additions">+${section.changes.additions}</span>
-							<span class="deletions">-${section.changes.deletions}</span>
-						</span>
-					</div>
-					${when(
-						this.shouldShowAddToDraftButton,
-						() => html`
-							<button-container layout="editor" class="add-to-draft-button-container">
-								<gl-button
-									full
-									appearance="secondary"
-									@click=${(e: Event) => {
-										e.stopPropagation();
-										this.handleAddAllToDraftCommit(section.key);
-									}}
-								>
-									<code-icon icon="plus" slot="prefix"></code-icon>
-									Add All to Draft Commit
-								</gl-button>
-							</button-container>
-						`,
-					)}
 				</div>
 			`,
 		);
@@ -1094,11 +950,15 @@ export class CommitsPanel extends LitElement {
 					<h3>Composition Summary</h3>
 				</div>
 				<div
-					class="composition-summary-card ${this.compositionSummarySelected ? 'selected' : ''}"
+					class="composer-item is-summary${this.compositionSummarySelected ? ' is-selected' : ''}"
 					@click=${this.handleCompositionSummaryClick}
 				>
-					<code-icon icon="note"></code-icon>
-					<span class="composition-summary-label">Auto-composition Summary</span>
+					<div class="composer-item__content">
+						<div class="composer-item__header">
+							<code-icon icon="note"></code-icon>
+							<span>Auto-composition Summary</span>
+						</div>
+					</div>
 				</div>
 
 				<!-- Feedback row -->
@@ -1154,7 +1014,7 @@ export class CommitsPanel extends LitElement {
 					${repeat(
 						this.commits.slice().reverse(), // Reverse order - bottom to top
 						commit => commit.id,
-						commit => {
+						(commit, i) => {
 							const changes = getCommitChanges(commit, this.hunks);
 							return html`
 								<gl-commit-item
@@ -1166,6 +1026,7 @@ export class CommitsPanel extends LitElement {
 									.selected=${this.selectedCommitId === commit.id}
 									.multiSelected=${this.selectedCommitIds.has(commit.id)}
 									.isPreviewMode=${this.isPreviewMode}
+									?first=${i === 0}
 									@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e.shiftKey)}
 								></gl-commit-item>
 							`;
@@ -1174,11 +1035,11 @@ export class CommitsPanel extends LitElement {
 				</div>
 
 				<!-- Base commit (informational only) -->
-				<div class="base-commit">
-					<div class="base-commit-icon"></div>
-					<div class="base-commit-content">
-						<div class="base-commit-message">${this.baseCommit?.message || 'HEAD'}</div>
-						<div class="base-commit-details">
+				<div class="composer-item is-base">
+					<div class="composer-item__commit"></div>
+					<div class="composer-item__content">
+						<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
+						<div class="composer-item__body">
 							<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
 							<span>/</span>
 							<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
