@@ -13,7 +13,7 @@ import type { ExplainStashCommandArgs } from '../../../commands/explainStash';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
-import type { GenerateCommitsCommandArgs, GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
+import type { GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
 import type { InspectCommandArgs } from '../../../commands/inspect';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
@@ -711,12 +711,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
-			this.host.registerWebviewCommand('gitlens.ai.generateCommits:graph', this.generateCommits),
-			this.host.registerWebviewCommand<GraphItemContext>('gitlens.ai.composeCommitsPreview:graph', item =>
-				this.composeCommits(item, 'preview'),
-			),
-			this.host.registerWebviewCommand<GraphItemContext>('gitlens.ai.composeCommits:graph', item =>
-				this.composeCommits(item, 'experimental'),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.composeCommits:graph', item =>
+				this.composeCommits(item),
 			),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
@@ -4075,30 +4071,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async generateCommits(item?: GraphItemContext) {
+	private async composeCommits(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 
-			await executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
+			await executeCommand<ComposeCommandArgs>('gitlens.composeCommits', {
 				repoPath: ref.repoPath,
-				source: { source: 'graph' },
+				source: 'graph',
 			});
-		}
-		return Promise.resolve();
-	}
-
-	@log()
-	private async composeCommits(item?: GraphItemContext, mode?: 'experimental' | 'preview') {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-
-			await executeCommand<ComposeCommandArgs>(
-				mode === 'experimental' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
-				{
-					repoPath: ref.repoPath,
-					source: 'graph',
-				},
-			);
 		}
 		return Promise.resolve();
 	}

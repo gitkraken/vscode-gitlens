@@ -330,9 +330,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private updateTitle(mode?: 'experimental' | 'preview'): void {
 		const currentMode = mode ?? this._args?.mode ?? 'preview';
 		if (currentMode === 'experimental') {
-			this.host.title = 'GitLens Composer (Experimental)';
+			this.host.title = 'Commit Composer (Experimental)';
 		} else {
-			this.host.title = 'GitLens Composer (Preview)';
+			this.host.title = 'Commit Composer (Preview)';
 		}
 	}
 

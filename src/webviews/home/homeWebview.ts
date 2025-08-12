@@ -8,7 +8,6 @@ import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBr
 import type { ComposeCommandArgs } from '../../commands/composer';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
-import type { GenerateCommitsCommandArgs } from '../../commands/generateRebase';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
@@ -381,9 +380,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.enableAi', this.enableAi, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
-			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
-			registerCommand('gitlens.ai.composeCommitsPreview:home', ref => this.composeCommits(ref, 'preview'), this),
-			registerCommand('gitlens.ai.composeCommits:home', ref => this.composeCommits(ref, 'experimental'), this),
+			registerCommand('gitlens.composeCommits:home', ref => this.composeCommits(ref), this),
 		];
 	}
 
@@ -621,29 +618,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	@log<HomeWebviewProvider['generateCommits']>({ args: { 0: r => r.branchId } })
-	private async generateCommits(ref: BranchRef) {
-		const { repo } = await this.getRepoInfoFromRef(ref);
-		if (repo == null) return;
-
-		void executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
-			repoPath: repo.path,
-			source: { source: 'home' },
-		});
-	}
-
 	@log<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
-	private async composeCommits(ref: BranchRef, mode: 'experimental' | 'preview' = 'preview') {
+	private async composeCommits(ref: BranchRef) {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		void executeCommand<ComposeCommandArgs>(
-			mode === 'experimental' ? 'gitlens.ai.composeCommits' : 'gitlens.ai.composeCommitsPreview',
-			{
-				repoPath: repo.path,
-				source: 'home',
-			},
-		);
+		void executeCommand<ComposeCommandArgs>('gitlens.composeCommits', {
+			repoPath: repo.path,
+			source: 'home',
+		});
 	}
 
 	@log()

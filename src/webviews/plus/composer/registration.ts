@@ -20,7 +20,7 @@ export function registerComposerWebviewPanel(
 			id: 'gitlens.composer',
 			fileName: 'composer.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'GitLens Composer',
+			title: 'Commit Composer',
 			contextKeyPrefix: `gitlens:webview:composer`,
 			trackingFeature: 'composerWebview',
 			type: 'composer',

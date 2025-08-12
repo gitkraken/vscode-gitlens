@@ -1,8 +1,10 @@
+import type { Uri } from 'vscode';
 import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { Logger } from '../system/logger';
 import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController';
 import { GlCommandBase } from './commandBase';
@@ -14,7 +16,7 @@ import {
 } from './commandContext.utils';
 
 export interface ComposeCommandArgs {
-	repoPath?: string;
+	repoPath?: string | Uri;
 	source?: Sources;
 	mode?: 'experimental' | 'preview';
 }
@@ -22,11 +24,17 @@ export interface ComposeCommandArgs {
 @command()
 export class ComposeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.composeCommits', 'gitlens.ai.composeCommitsPreview']);
+		super(['gitlens.composeCommits', 'gitlens.composeCommits:scm']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ComposeCommandArgs): Promise<void> {
-		if (isCommandContextViewNodeHasWorktree(context)) {
+		if (context.command === 'gitlens.composeCommits:scm') {
+			args = { ...args };
+			args.source = args.source ?? 'scm';
+			if (context.type === 'scm' && context.scm.rootUri != null) {
+				args = { ...args, repoPath: context.scm.rootUri };
+			}
+		} else if (isCommandContextViewNodeHasWorktree(context)) {
 			args = { ...args };
 			args.repoPath = context.node.worktree.path;
 			args.source = args.source ?? 'view';
@@ -41,7 +49,7 @@ export class ComposeCommand extends GlCommandBase {
 		}
 
 		if (args != null) {
-			args.mode = context.command === 'gitlens.ai.composeCommitsPreview' ? 'preview' : 'experimental';
+			args.mode = configuration.get('ai.experimental.composer.enabled') ? 'experimental' : 'preview';
 		}
 
 		return this.execute(args);

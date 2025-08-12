@@ -1068,6 +1068,7 @@ export type Sources =
 	| 'quick-wizard'
 	| 'rebaseEditor'
 	| 'remoteProvider'
+	| 'scm'
 	| 'scm-input'
 	| 'settings'
 	| 'startWork'
