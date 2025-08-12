@@ -2123,7 +2123,6 @@ export class AIProviderService implements Disposable {
 		source: Source,
 		options?: {
 			cancellation?: CancellationToken;
-			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 			customInstructions?: string;
@@ -2150,7 +2149,6 @@ export class AIProviderService implements Disposable {
 		source: Source,
 		options?: {
 			cancellation?: CancellationToken;
-			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 			customInstructions?: string;
@@ -2206,7 +2204,7 @@ export class AIProviderService implements Disposable {
 				m => ({
 					key: 'ai/generate',
 					data: {
-						type: 'rebase',
+						type: 'commits',
 						id: undefined,
 						'model.id': m.id,
 						'model.provider.id': m.provider.id,
@@ -2241,7 +2239,6 @@ export class AIProviderService implements Disposable {
 		source: Source,
 		options?: {
 			cancellation?: CancellationToken;
-			context?: string;
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 			customInstructions?: string;
@@ -2265,7 +2262,6 @@ export class AIProviderService implements Disposable {
 						hunks: hunksJson,
 						existingCommits: existingCommitsJson,
 						hunkMap: hunkMapJson,
-						context: options?.context,
 						instructions: options?.customInstructions,
 					},
 					maxInputTokens,
