@@ -155,6 +155,37 @@ export class DetailsPanel extends LitElement {
 				margin-block-end: 0.8rem;
 				opacity: 0.75;
 			}
+
+			.no-changes-state {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				text-align: center;
+				padding: 2rem;
+				gap: 1.6rem;
+				height: 100%;
+			}
+
+			.no-changes-title {
+				font-size: 1.6rem;
+				font-weight: 600;
+				margin: 0;
+				color: var(--vscode-foreground);
+			}
+
+			.no-changes-description {
+				color: var(--vscode-descriptionForeground);
+				line-height: 1.5;
+				margin: 0;
+				max-width: 40rem;
+			}
+
+			.no-changes-actions {
+				display: flex;
+				gap: 1.2rem;
+				margin-top: 1.2rem;
+			}
 		`,
 	];
 
@@ -196,6 +227,9 @@ export class DetailsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	compositionSummarySelected: boolean = false;
+
+	@property({ type: Boolean })
+	hasChanges: boolean = true;
 
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
@@ -639,6 +673,15 @@ export class DetailsPanel extends LitElement {
 	}
 
 	override render() {
+		// Handle no changes state
+		if (!this.hasChanges) {
+			return html`
+				<div class="details-panel">
+					<div class="changes-list scrollable">${this.renderNoChangesState()}</div>
+				</div>
+			`;
+		}
+
 		const isMultiSelect = this.selectedCommits.length > 1;
 
 		return html`
@@ -646,6 +689,41 @@ export class DetailsPanel extends LitElement {
 				<div class="changes-list scrollable">${this.renderDetails()}</div>
 			</div>
 		`;
+	}
+
+	private renderNoChangesState() {
+		return html`
+			<div class="no-changes-state">
+				<h2 class="no-changes-title">Commit Composer Needs Something to Compose</h2>
+				<p class="no-changes-description">
+					Commit Composer helps you organize changes into meaningful commits before committing them and can
+					leverage AI to do this automatically.
+				</p>
+				<p class="no-changes-description">
+					Make some working directory changes and Reload or come back to this view to see how it works.
+				</p>
+				<div class="no-changes-actions">
+					<gl-button appearance="secondary" @click=${this.handleClose}>Close</gl-button>
+					<gl-button @click=${this.handleReload}>Reload</gl-button>
+				</div>
+			</div>
+		`;
+	}
+
+	private handleClose() {
+		this.dispatchEvent(
+			new CustomEvent('close-composer', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleReload() {
+		this.dispatchEvent(
+			new CustomEvent('reload-composer', {
+				bubbles: true,
+			}),
+		);
 	}
 
 	private renderDetails() {

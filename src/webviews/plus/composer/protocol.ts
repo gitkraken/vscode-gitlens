@@ -80,6 +80,9 @@ export interface State extends WebviewState {
 	// AI composition state
 	hasUsedAutoCompose: boolean; // true if auto-compose has been successfully used at least once
 
+	// Content state
+	hasChanges: boolean; // true if there are working directory changes to compose
+
 	// Mode controls
 	mode: 'experimental' | 'preview'; // experimental = normal mode, preview = locked AI preview mode
 
@@ -129,6 +132,7 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	loadingError: null,
 	aiOperationError: null,
 	hasUsedAutoCompose: false,
+	hasChanges: true,
 	mode: 'preview',
 	aiEnabled: {
 		org: false,
@@ -283,6 +287,7 @@ export interface DidReloadComposerParams {
 	baseCommit: ComposerBaseCommit;
 	safetyState: ComposerSafetyState;
 	loadingError: string | null;
+	hasChanges: boolean;
 }
 
 export interface DidLoadingErrorParams {

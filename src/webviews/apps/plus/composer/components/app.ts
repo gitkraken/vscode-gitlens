@@ -1478,6 +1478,7 @@ export class ComposerApp extends LitElement {
 					.baseCommit=${this.state.baseCommit}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
+					.hasChanges=${this.state.hasChanges}
 					.aiModel=${this.state.ai?.model}
 					.compositionSummarySelected=${this.compositionSummarySelected}
 					.compositionFeedback=${this.compositionFeedback}
@@ -1520,6 +1521,7 @@ export class ComposerApp extends LitElement {
 					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
 					.isPreviewMode=${this.isPreviewMode}
+					.hasChanges=${this.state.hasChanges}
 					.compositionSummarySelected=${this.compositionSummarySelected}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
@@ -1533,6 +1535,8 @@ export class ComposerApp extends LitElement {
 					@hunk-move=${(e: CustomEvent) => this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+					@close-composer=${this.handleCloseComposer}
+					@reload-composer=${this.handleReloadComposer}
 				></gl-details-panel>
 
 				<!-- Loading overlays -->

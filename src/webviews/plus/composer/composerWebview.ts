@@ -167,12 +167,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
 
-		if (!stagedDiff?.contents && !unstagedDiff?.contents) {
-			return {
-				...this.initialState,
-				loadingError: 'No changes found to compose commits from.',
-			};
-		}
+		// Allow composer to open with no changes - we'll handle this in the UI
+		const hasChanges = Boolean(stagedDiff?.contents || unstagedDiff?.contents);
 
 		const { hunkMap, hunks } = createHunksFromDiffs(stagedDiff?.contents, unstagedDiff?.contents);
 
@@ -229,12 +225,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				repoName: repo.name,
 				branchName: currentBranch.name,
 			},
-			commits: [initialCommit],
+			commits: hasChanges ? [initialCommit] : [],
 			safetyState: safetyState,
 			aiEnabled: aiEnabled,
 			ai: {
 				model: aiModel,
 			},
+			hasChanges: hasChanges,
 			mode: mode,
 		};
 	}
@@ -274,6 +271,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				baseCommit: composerData.baseCommit,
 				safetyState: composerData.safetyState,
 				loadingError: composerData.loadingError,
+				hasChanges: composerData.hasChanges,
 			});
 		} catch (error) {
 			// Show error in the safety error overlay

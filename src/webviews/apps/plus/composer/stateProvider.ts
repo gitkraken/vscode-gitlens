@@ -139,6 +139,7 @@ export class ComposerStateProvider implements StateProvider<State> {
 						baseCommit: msg.params.baseCommit,
 						safetyState: msg.params.safetyState,
 						loadingError: msg.params.loadingError,
+						hasChanges: msg.params.hasChanges,
 						safetyError: null, // Clear any existing safety errors
 						// Reset UI state to defaults
 						selectedCommitId: null,

@@ -40,6 +40,13 @@ export class CommitsPanel extends LitElement {
 				margin: 0;
 			}
 
+			.no-changes-message {
+				color: var(--vscode-descriptionForeground);
+				font-style: italic;
+				margin: 1.2rem 0;
+				text-align: center;
+			}
+
 			.commits-actions {
 				min-height: 40px;
 				padding: 0.8rem;
@@ -421,6 +428,9 @@ export class CommitsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	hasUsedAutoCompose: boolean = false;
+
+	@property({ type: Boolean })
+	hasChanges: boolean = true;
 
 	@property({ type: Object })
 	aiModel: any = undefined;
@@ -1104,6 +1114,31 @@ export class CommitsPanel extends LitElement {
 	}
 
 	override render() {
+		// Handle no changes state
+		if (!this.hasChanges) {
+			return html`
+				<div class="commits-list scrollable">
+					<h3 class="commits-header">Draft Commits</h3>
+					<p class="no-changes-message">
+						When working directory changes are present, draft commits will appear here.
+					</p>
+
+					<!-- Base commit (informational only) -->
+					<div class="composer-item is-base">
+						<div class="composer-item__commit"></div>
+						<div class="composer-item__content">
+							<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
+							<div class="composer-item__body">
+								<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
+								<span>/</span>
+								<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+		}
+
 		return html`
 			<div class="commits-list scrollable">
 				<!-- Auto-Compose container at top when not used yet -->
