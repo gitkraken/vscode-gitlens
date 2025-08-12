@@ -910,6 +910,18 @@ or
 }
 ```
 
+### composer/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### composer/showAborted
 
 ```typescript

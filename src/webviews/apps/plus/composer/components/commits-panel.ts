@@ -294,6 +294,24 @@ export class CommitsPanel extends LitElement {
 				min-width: 0;
 			}
 
+			/* Muted warning background for unassigned change sections */
+			.composer-item.is-uncommitted {
+				background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 8%, transparent);
+				border: 1px solid color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 15%, transparent);
+				border-radius: 4px;
+			}
+
+			.composer-item.is-uncommitted.is-selected {
+				background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 12%, transparent);
+				border-color: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 25%, transparent);
+			}
+
+			/* Include changes button styling */
+			.add-to-draft-button-container gl-button {
+				background: color-mix(in srgb, var(--vscode-button-foreground) 10%, transparent) !important;
+				color: var(--vscode-foreground) !important;
+			}
+
 			/* Auto-Compose container styles */
 			.auto-compose-container {
 				border: 1px solid var(--vscode-panel-border);
@@ -887,6 +905,19 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
+	private getIncludeButtonText(sectionKey: string): string {
+		switch (sectionKey) {
+			case 'unstaged':
+				return 'Include Unstaged Changes';
+			case 'staged':
+				return 'Include Staged Changes';
+			case 'commits':
+				return 'Include Unassigned Changes';
+			default:
+				return 'Include Changes';
+		}
+	}
+
 	private renderUnassignedSection() {
 		const unassignedHunks = getUnassignedHunks(this.hunks);
 		const sections = [];
@@ -897,7 +928,7 @@ export class CommitsPanel extends LitElement {
 			const changes = getFileChanges(unassignedHunks.unstaged);
 			sections.push({
 				key: 'unstaged',
-				title: 'Working Changes (Unstaged)',
+				title: 'Unincluded changes (unstaged)',
 				fileCount: fileCount,
 				changes: changes,
 			});
@@ -907,7 +938,7 @@ export class CommitsPanel extends LitElement {
 			const changes = getFileChanges(unassignedHunks.staged);
 			sections.push({
 				key: 'staged',
-				title: 'Working Changes (Staged)',
+				title: 'Unincluded changes (staged)',
 				fileCount: fileCount,
 				changes: changes,
 			});
@@ -917,7 +948,7 @@ export class CommitsPanel extends LitElement {
 			const changes = getFileChanges(unassignedHunks.unassigned);
 			sections.push({
 				key: 'unassigned',
-				title: 'Changes from Commits',
+				title: 'Unincluded changes (commits)',
 				fileCount: fileCount,
 				changes: changes,
 			});
@@ -959,7 +990,7 @@ export class CommitsPanel extends LitElement {
 											}}
 										>
 											<code-icon icon="plus" slot="prefix"></code-icon>
-											Add All to Draft Commit
+											${this.getIncludeButtonText(section.key)}
 										</gl-button>
 									</button-container>
 								</div>
@@ -1026,8 +1057,8 @@ export class CommitsPanel extends LitElement {
 					!this.hasUsedAutoCompose,
 					() => html`
 						<p class="auto-compose-description">
-							Let AI organize your working changes into well-formed commits with clear messages and
-							descriptions that help reviewers.
+							Let AI organize your changes into well-formed commits with clear messages and descriptions
+							that help reviewers.
 						</p>
 					`,
 				)}
