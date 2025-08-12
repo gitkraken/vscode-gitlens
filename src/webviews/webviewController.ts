@@ -227,6 +227,9 @@ export class WebviewController<
 		this.provider?.onFocusChanged?.(false);
 		this.provider?.onVisibilityChanged?.(false);
 
+		const context = this.provider.getTelemetryContext?.() ?? this.getTelemetryContext();
+		this.container.telemetry.sendEvent(`${this.descriptor.type}/closed`, context);
+
 		this._ready = false;
 
 		this._onDidDispose.fire();

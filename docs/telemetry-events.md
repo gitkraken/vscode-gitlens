@@ -750,6 +750,18 @@ or
 }
 ```
 
+### commitDetails/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### commitDetails/mode/changed
 
 > Sent when the user changes the selected tab (mode) on the Graph Details view
@@ -936,6 +948,18 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
   'context.webview.host': 'editor' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
@@ -1185,6 +1209,18 @@ or
 }
 ```
 
+### graphDetails/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/mode/changed
 
 > Sent when the user changes the selected tab (mode) on the Graph Details view
@@ -1308,6 +1344,18 @@ or
 
 ```typescript
 void
+```
+
+### home/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
 ```
 
 ### home/command
@@ -1735,6 +1783,18 @@ void
 }
 ```
 
+### patchDetails/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### patchDetails/showAborted
 
 ```typescript
@@ -1877,6 +1937,18 @@ void
   'repository.provider.id': string,
   'repository.scheme': string,
   'repository.visibility': 'private' | 'public' | 'local'
+}
+```
+
+### settings/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
 }
 ```
 
@@ -2166,6 +2238,18 @@ or
   'scope.hasBase': boolean,
   'scope.hasHead': boolean,
   'scope.type': 'file' | 'folder' | 'repo'
+}
+```
+
+### timeline/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
 }
 ```
 

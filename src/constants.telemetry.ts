@@ -51,7 +51,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	'workspace.isTrusted': boolean;
 }
 
-export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownEvents {
+export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownEvents, WebviewClosedEvents {
 	/** Sent when account validation fails */
 	'account/validation/failed': AccountValidationFailedEvent;
 
@@ -305,6 +305,11 @@ type WebviewShownEvents = {
 		WebviewTypes | WebviewViewTypes,
 		'commitDetails' | 'graph' | 'graphDetails' | 'timeline'
 	>}/shown`]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
+};
+
+type WebviewClosedEvents = {
+	[K in `${WebviewTypes | WebviewViewTypes}/closed`]: WebviewContextEventData &
+		Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
 type ConfigEventData = {
