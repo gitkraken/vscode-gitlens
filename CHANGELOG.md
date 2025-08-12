@@ -18,7 +18,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new _upstream_ sub-command to the _branch_ Git Command Palette
 - Adds updated AI model support for GitLens' AI features
   - Adds GPT-5 family (GPT-5, GPT-5 Mini, GPT-5 Nano), and Claude 4.1 Opus models
-- Add Azure DevOps Server integration support ([#4478](https://github.com/gitkraken/vscode-gitlens/issues/4478))
+- Adds AI powered operations for a branch: "Recompose branch commits", "Recompose unpushed commits", "Explain Unpushed Changed". They are added to the _Commit Graph_ and views context menu for branches ([#4443](https://github.com/gitkraken/vscode-gitlens/issues/4443))
+- Adds Azure DevOps Server integration support ([#4478](https://github.com/gitkraken/vscode-gitlens/issues/4478))
 
 ### Changed
 
