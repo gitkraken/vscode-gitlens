@@ -33,12 +33,11 @@ export class CommitsPanel extends LitElement {
 				flex-direction: column;
 				height: 100%;
 				overflow: hidden;
-				gap: 1.2rem;
 			}
 
 			.commits-header {
 				font-size: 1.4rem;
-				margin-block: 1.7rem 0.4rem;
+				margin: 0;
 			}
 
 			.commits-actions {
@@ -59,10 +58,11 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.commits-list {
+				flex: 1;
 				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				padding: 0 1.2rem 1.2rem 1.2rem;
 			}
 
 			.commits-only {
@@ -166,6 +166,8 @@ export class CommitsPanel extends LitElement {
 
 			/* Finish & Commit section styles */
 			.finish-commit-section {
+				flex-shrink: 0;
+				padding: 1.2rem;
 			}
 
 			.finish-commit-header {
@@ -285,12 +287,41 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 			}
 
+			.composer-item.is-base .composer-item__body {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				min-width: 0;
+			}
+
 			/* Auto-Compose container styles */
 			.auto-compose-container {
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 6px;
 				padding: 1.2rem;
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+			}
+
+			.commits-list > .auto-compose-container:first-child {
+				margin-top: 0.8rem;
+				margin-bottom: 1.2rem;
+			}
+
+			.commits-list > .auto-compose-container:not(:first-child) {
+				margin-top: 1.2rem;
+			}
+
+			.commits-list > .unassigned-section,
+			.commits-list > .composition-summary-section {
+				margin-bottom: 1.2rem;
+			}
+
+			.commits-list > .commits-header {
+				margin-bottom: 0.4rem;
+			}
+
+			.commits-list > *:not(.commits-header) + .commits-header {
+				margin-top: 1.2rem;
 			}
 
 			.auto-compose-header {
@@ -987,9 +1018,65 @@ export class CommitsPanel extends LitElement {
 		`;
 	}
 
+	private renderAutoComposeContainer() {
+		return html`
+			<div class="auto-compose-container">
+				<h4 class="auto-compose-header">Auto-Compose Commits with AI (Preview)</h4>
+				${when(
+					!this.hasUsedAutoCompose,
+					() => html`
+						<p class="auto-compose-description">
+							Let AI organize your working changes into well-formed commits with clear messages and
+							descriptions that help reviewers.
+						</p>
+					`,
+				)}
+
+				<!-- AI Model Picker -->
+				<a href="#" class="ai-model-picker" @click=${this.handleAIModelPickerClick}>
+					<span class="ai-model-picker-text">${this.aiModelDisplayName}</span>
+					<code-icon icon="chevron-down" class="ai-model-picker-icon"></code-icon>
+				</a>
+
+				<!-- Custom instructions input -->
+				<div class="custom-instructions-container">
+					<input
+						type="text"
+						class="custom-instructions-input"
+						placeholder="Add custom instructions"
+						.value=${this.customInstructions}
+						@input=${this.handleCustomInstructionsChange}
+					/>
+				</div>
+
+				<!-- Auto-Compose button -->
+				<button-container layout="editor">
+					<gl-button
+						full
+						appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
+						?disabled=${this.generating || this.committing}
+						@click=${this.dispatchGenerateCommitsWithAI}
+					>
+						<code-icon icon=${this.generating ? 'loading~spin' : 'sparkle'} slot="prefix"></code-icon>
+						${this.generating
+							? 'Generating Commits...'
+							: this.hasUsedAutoCompose
+								? 'Recompose Commits'
+								: 'Auto-Compose Commits'}
+					</gl-button>
+				</button-container>
+
+				<!-- Review text (always visible) -->
+				<div class="auto-compose-review-text">You will be able to review before committing</div>
+			</div>
+		`;
+	}
+
 	override render() {
 		return html`
 			<div class="commits-list scrollable">
+				<!-- Auto-Compose container at top when not used yet -->
+				${when(this.aiEnabled && !this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 				${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
 
 				<h3 class="commits-header">Draft Commits</h3>
@@ -1056,66 +1143,10 @@ export class CommitsPanel extends LitElement {
 						</div>
 					`,
 				)}
+
+				<!-- Auto-Compose container in original position when already used -->
+				${when(this.aiEnabled && this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 			</div>
-
-			<!-- Auto-Compose Commits with AI container -->
-			${when(
-				this.aiEnabled,
-				() => html`
-					<div class="auto-compose-container">
-						<h4 class="auto-compose-header">Auto-Compose Commits with AI (Preview)</h4>
-						${when(
-							!this.hasUsedAutoCompose,
-							() => html`
-								<p class="auto-compose-description">
-									Let AI organize your working changes into well-formed commits with clear messages
-									and descriptions that help reviewers.
-								</p>
-							`,
-						)}
-
-						<!-- AI Model Picker -->
-						<a href="#" class="ai-model-picker" @click=${this.handleAIModelPickerClick}>
-							<span class="ai-model-picker-text">${this.aiModelDisplayName}</span>
-							<code-icon icon="chevron-down" class="ai-model-picker-icon"></code-icon>
-						</a>
-
-						<!-- Custom instructions input -->
-						<div class="custom-instructions-container">
-							<input
-								type="text"
-								class="custom-instructions-input"
-								placeholder="Add custom instructions"
-								.value=${this.customInstructions}
-								@input=${this.handleCustomInstructionsChange}
-							/>
-						</div>
-
-						<!-- Auto-Compose button -->
-						<button-container layout="editor">
-							<gl-button
-								full
-								appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
-								?disabled=${this.generating || this.committing}
-								@click=${this.dispatchGenerateCommitsWithAI}
-							>
-								<code-icon
-									icon=${this.generating ? 'loading~spin' : 'sparkle'}
-									slot="prefix"
-								></code-icon>
-								${this.generating
-									? 'Generating Commits...'
-									: this.hasUsedAutoCompose
-										? 'Recompose Commits'
-										: 'Auto-Compose Commits'}
-							</gl-button>
-						</button-container>
-
-						<!-- Review text (always visible) -->
-						<div class="auto-compose-review-text">You will be able to review before committing</div>
-					</div>
-				`,
-			)}
 
 			<!-- Finish & Commit section -->
 			<div class="finish-commit-section">
