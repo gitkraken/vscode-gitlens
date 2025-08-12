@@ -1,4 +1,5 @@
 import { consume } from '@lit/context';
+import type { Driver } from 'driver.js';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -22,7 +23,10 @@ import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
+import type { KeyedDriveStep } from '../../../shared/onboarding';
+import { createOnboarding } from '../../../shared/onboarding';
 import { stateContext } from '../context';
+import type { CommitsPanel } from './commits-panel';
 import type { DetailsPanel } from './details-panel';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -300,6 +304,11 @@ export class ComposerApp extends LitElement {
 		`,
 	];
 
+	@query('gl-commits-panel')
+	commitsPanel!: CommitsPanel;
+
+	private onboarding?: Driver;
+
 	@state()
 	private selectedCommitId: string | null = null;
 
@@ -347,6 +356,7 @@ export class ComposerApp extends LitElement {
 		if (this.state.commits.length > 0) {
 			this.selectCommit(this.state.commits[0].id);
 		}
+		this.initializeOnboarding();
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -366,6 +376,7 @@ export class ComposerApp extends LitElement {
 			clearTimeout(this.commitMessageDebounceTimer);
 		}
 		this.commitMessageBeingEdited = null;
+		this.onboarding?.destroy();
 	}
 
 	private initializeSortable() {
@@ -1633,6 +1644,58 @@ export class ComposerApp extends LitElement {
 				>
 			</nav>
 		`;
+	}
+
+	private initializeOnboarding() {
+		if (this.onboarding) return;
+
+		const onboardingKey = 'composer-onboarding';
+		const steps: KeyedDriveStep[] = [
+			{
+				key: `${onboardingKey}-welcome`,
+				popover: {
+					title: 'Welcome to Commit Composer',
+					description:
+						'Compose your changes into organized, meaningful commits before committing them. Use AI to automatically structure your work into draft commits with clear messages and descriptions, or commit manually.',
+				},
+			},
+			{
+				key: `${onboardingKey}-compose`,
+				element: () => this.commitsPanel.autoComposeSection!,
+				popover: {
+					title: 'Auto Compose Commits with AI',
+					description:
+						'Allow AI to organize your working changes into well-formed commits with clear messages and descriptions that help reviewers. <br><br> You can change which model to use and add custom instructions.',
+				},
+			},
+			{
+				key: `${onboardingKey}-changes`,
+				element: () => this.commitsPanel.changesSection,
+				popover: {
+					title: 'Review and Compose Working Changes',
+					description:
+						"Draft Commits represent what will be committed when you're finished. You can inspect changes to add commit messages and review diffs. <br><br> Coming soon: add draft commits and easily move hunks and lines between them.",
+				},
+			},
+			{
+				key: `${onboardingKey}-finish`,
+				element: () => this.commitsPanel.finishSection,
+				popover: {
+					title: 'Finish & Commit',
+					description: "Draft commits and messages will be committed when you're finished.",
+				},
+			},
+		];
+
+		if (!this.aiEnabled) {
+			steps.splice(1, 1); // Remove AI step if AI is not enabled
+		}
+
+		this.onboarding = createOnboarding(steps);
+
+		setTimeout(() => {
+			this.onboarding?.drive();
+		}, 1500);
 	}
 }
 

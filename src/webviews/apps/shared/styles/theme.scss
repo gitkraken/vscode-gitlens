@@ -96,6 +96,7 @@
 	--color-alert-errorHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-errorBackground));
 	--color-alert-neutralBackground: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
+	--gl-tour-overlay-color: #000 50%;
 }
 
 @include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
@@ -104,4 +105,5 @@
 	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));
 	--color-alert-neutralBackground: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-neutralBackground));
+	--gl-tour-overlay-color: #fff;
 }

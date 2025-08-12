@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
@@ -446,6 +446,15 @@ export class CommitsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	isReadyToCommit: boolean = false;
+
+	@query('.commits-list')
+	changesSection!: HTMLElement;
+
+	@query('.auto-compose-container')
+	autoComposeSection?: HTMLElement;
+
+	@query('.finish-commit-section')
+	finishSection!: HTMLElement;
 
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
