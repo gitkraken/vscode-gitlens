@@ -161,6 +161,7 @@ export interface ComposerContext {
 	};
 	draftCommits: {
 		initialCount: number;
+		composedCount: number | undefined;
 		finalCount: number | undefined;
 	};
 	ai: {
@@ -207,6 +208,11 @@ export interface ComposerContext {
 		loading: number;
 		aiOperation: number;
 	};
+	history: {
+		undoCount: number;
+		redoCount: number;
+		resetCount: number;
+	};
 }
 
 export const baseContext: ComposerContext = {
@@ -221,6 +227,7 @@ export const baseContext: ComposerContext = {
 	},
 	draftCommits: {
 		initialCount: 0,
+		composedCount: undefined,
 		finalCount: undefined,
 	},
 	ai: {
@@ -267,6 +274,11 @@ export const baseContext: ComposerContext = {
 		loading: 0,
 		aiOperation: 0,
 	},
+	history: {
+		undoCount: 0,
+		redoCount: 0,
+		resetCount: 0,
+	},
 };
 
 // Commands that can be sent from the webview to the host
@@ -309,10 +321,21 @@ export const AIFeedbackUnhelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcSc
 
 export const DismissOnboardingCommand = new IpcCommand<void>(ipcScope, 'dismissOnboarding');
 
-export interface AddedHunksToCommitParams {
+// Commands intended only to update context/telemetry
+export interface OnAddHunksToCommitParams {
 	source: string;
 }
-export const AddedHunksToCommitCommand = new IpcCommand<AddedHunksToCommitParams>(ipcScope, 'addedHunksToCommit');
+export const OnAddHunksToCommitCommand = new IpcCommand<OnAddHunksToCommitParams>(ipcScope, 'onAddHunksToCommit');
+export const OnUndoCommand = new IpcCommand<void>(ipcScope, 'onUndo');
+export const OnRedoCommand = new IpcCommand<void>(ipcScope, 'onRedo');
+export const OnResetCommand = new IpcCommand<void>(ipcScope, 'onReset');
+export interface OnUpdateCustomInstructionsParams {
+	customInstructions: string;
+}
+export const OnUpdateCustomInstructionsCommand = new IpcCommand<OnUpdateCustomInstructionsParams>(
+	ipcScope,
+	'onUpdateCustomInstructions',
+);
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');

@@ -6,7 +6,6 @@ import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
-	AddedHunksToCommitCommand,
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
 	CancelGenerateCommitMessageCommand,
@@ -17,7 +16,12 @@ import {
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
+	OnAddHunksToCommitCommand,
+	OnRedoCommand,
+	OnResetCommand,
 	OnSelectAIModelCommand,
+	OnUndoCommand,
+	OnUpdateCustomInstructionsCommand,
 	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
@@ -614,6 +618,8 @@ export class ComposerApp extends LitElement {
 		// Restore previous state
 		const previousState = this.history.undoStack.pop()!;
 		this.applyDataSnapshot(previousState);
+
+		this._ipc.sendCommand(OnUndoCommand, undefined);
 	}
 
 	private redo() {
@@ -630,6 +636,8 @@ export class ComposerApp extends LitElement {
 		// Restore next state
 		const nextState = this.history.redoStack.pop()!;
 		this.applyDataSnapshot(nextState);
+
+		this._ipc.sendCommand(OnRedoCommand, undefined);
 	}
 
 	private reset() {
@@ -639,6 +647,8 @@ export class ComposerApp extends LitElement {
 		this.saveToHistory();
 		// Restore reset state
 		this.applyDataSnapshot(this.history.resetState);
+
+		this._ipc.sendCommand(OnResetCommand, undefined);
 	}
 
 	private reorderCommits(oldIndex: number, newIndex: number) {
@@ -1303,7 +1313,7 @@ export class ComposerApp extends LitElement {
 
 		// Remove commits that no longer have any hunks
 		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
-		this._ipc.sendCommand(AddedHunksToCommitCommand, {
+		this._ipc.sendCommand(OnAddHunksToCommitCommand, {
 			source: source,
 		});
 		this.requestUpdate();
@@ -1339,6 +1349,12 @@ export class ComposerApp extends LitElement {
 
 	private handleCustomInstructionsChange(e: CustomEvent) {
 		this.customInstructions = e.detail?.customInstructions ?? '';
+	}
+
+	private handleCustomInstructionsUpdate(e: CustomEvent) {
+		this._ipc.sendCommand(OnUpdateCustomInstructionsCommand, {
+			customInstructions: e.detail?.customInstructions ?? '',
+		});
 	}
 
 	@query('gl-details-panel')
@@ -1520,6 +1536,7 @@ export class ComposerApp extends LitElement {
 					@finish-and-commit=${this.finishAndCommit}
 					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
 					@custom-instructions-change=${this.handleCustomInstructionsChange}
+					@custom-instructions-update=${this.handleCustomInstructionsUpdate}
 					@focus-commit-message=${this.handleFocusCommitMessage}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
