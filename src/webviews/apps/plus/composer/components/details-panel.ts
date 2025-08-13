@@ -491,7 +491,10 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
-	private handleGenerateCommitMessage(commitId: string) {
+	private handleGenerateCommitMessage(commitId: string, e?: CustomEvent) {
+		e?.preventDefault();
+		e?.stopPropagation();
+
 		// Get hunk indices for this commit
 		const commit = this.selectedCommits.find(c => c.id === commitId);
 		const hunkIndices = commit?.hunkIndices || [];
@@ -620,7 +623,7 @@ export class DetailsPanel extends LitElement {
 					?ai-enabled=${this.aiEnabled}
 					editable
 					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
-					@generate-commit-message=${() => this.handleGenerateCommitMessage(commit.id)}
+					@generate-commit-message=${(e: CustomEvent) => this.handleGenerateCommitMessage(commit.id, e)}
 				></gl-commit-message>
 
 				<section>
