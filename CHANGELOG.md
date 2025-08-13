@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes branch favoriting to apply to both local and remote branch pairs ([#4497](https://github.com/gitkraken/vscode-gitlens/issues/4497))
 - Supports opening an explain summary document before summary content is generated ([#4328](https://github.com/gitkraken/vscode-gitlens/issues/4328))
 
+### Fixed
+
+- Fixes issues with handling token limits when using Copilot models ([#4529](https://github.com/gitkraken/vscode-gitlens/issues/4529))
+
 ## [17.3.4] - 2025-08-11
 
 ### Added
