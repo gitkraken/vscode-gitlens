@@ -12,6 +12,7 @@ import {
 	CancelGenerateCommitsCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
+	DismissOnboardingCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
@@ -54,6 +55,8 @@ interface ComposerHistory {
 }
 
 const historyLimit = 3;
+
+const onboardingKey = 'composer-onboarding';
 
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
@@ -356,7 +359,9 @@ export class ComposerApp extends LitElement {
 		if (this.state.commits.length > 0) {
 			this.selectCommit(this.state.commits[0].id);
 		}
-		this.initializeOnboarding();
+		if (!this.state.onboardingDismissed) {
+			this.openOnboarding();
+		}
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -1658,56 +1663,65 @@ export class ComposerApp extends LitElement {
 		`;
 	}
 
-	private initializeOnboarding() {
+	private onboardingSteps: KeyedDriveStep[] = [
+		{
+			key: `${onboardingKey}-welcome`,
+			popover: {
+				title: 'Welcome to Commit Composer',
+				description:
+					'Compose your changes into organized, meaningful commits before committing them. Use AI to automatically structure your work into draft commits with clear messages and descriptions, or commit manually.',
+			},
+		},
+		{
+			key: `${onboardingKey}-compose`,
+			element: () => this.commitsPanel.autoComposeSection!,
+			popover: {
+				title: 'Auto Compose Commits with AI',
+				description:
+					'Allow AI to organize your working changes into well-formed commits with clear messages and descriptions that help reviewers. <br><br> You can change which model to use and add custom instructions.',
+			},
+		},
+		{
+			key: `${onboardingKey}-changes`,
+			element: () => this.commitsPanel.changesSection,
+			popover: {
+				title: 'Review and Compose Working Changes',
+				description:
+					"Draft Commits represent what will be committed when you're finished. You can inspect changes to add commit messages and review diffs. <br><br> Coming soon: add draft commits and easily move hunks and lines between them.",
+			},
+		},
+		{
+			key: `${onboardingKey}-finish`,
+			element: () => this.commitsPanel.finishSection,
+			popover: {
+				title: 'Finish & Commit',
+				description: "Draft commits and messages will be committed when you're finished.",
+			},
+		},
+	];
+
+	private openOnboarding() {
 		if (this.onboarding) return;
 
-		const onboardingKey = 'composer-onboarding';
-		const steps: KeyedDriveStep[] = [
-			{
-				key: `${onboardingKey}-welcome`,
-				popover: {
-					title: 'Welcome to Commit Composer',
-					description:
-						'Compose your changes into organized, meaningful commits before committing them. Use AI to automatically structure your work into draft commits with clear messages and descriptions, or commit manually.',
-				},
+		this.onboarding = createOnboarding(this.onboardingSteps, {
+			onDestroyStarted: (_el, _step) => {
+				this.dismissOnboarding();
 			},
-			{
-				key: `${onboardingKey}-compose`,
-				element: () => this.commitsPanel.autoComposeSection!,
-				popover: {
-					title: 'Auto Compose Commits with AI',
-					description:
-						'Allow AI to organize your working changes into well-formed commits with clear messages and descriptions that help reviewers. <br><br> You can change which model to use and add custom instructions.',
-				},
-			},
-			{
-				key: `${onboardingKey}-changes`,
-				element: () => this.commitsPanel.changesSection,
-				popover: {
-					title: 'Review and Compose Working Changes',
-					description:
-						"Draft Commits represent what will be committed when you're finished. You can inspect changes to add commit messages and review diffs. <br><br> Coming soon: add draft commits and easily move hunks and lines between them.",
-				},
-			},
-			{
-				key: `${onboardingKey}-finish`,
-				element: () => this.commitsPanel.finishSection,
-				popover: {
-					title: 'Finish & Commit',
-					description: "Draft commits and messages will be committed when you're finished.",
-				},
-			},
-		];
-
-		if (!this.aiEnabled) {
-			steps.splice(1, 1); // Remove AI step if AI is not enabled
-		}
-
-		this.onboarding = createOnboarding(steps);
+		});
 
 		setTimeout(() => {
 			this.onboarding?.drive();
 		}, 1500);
+	}
+
+	dismissOnboarding() {
+		if (!this.onboarding) return;
+
+		this.onboarding.destroy();
+		this.onboarding = undefined;
+		this._ipc.sendCommand(DismissOnboardingCommand);
+		this.state.onboardingDismissed = true;
+		this.requestUpdate();
 	}
 }
 

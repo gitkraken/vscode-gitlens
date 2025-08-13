@@ -27,6 +27,7 @@ import {
 	CancelGenerateCommitsCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
+	currentOnboardingVersion,
 	DidCancelGenerateCommitMessageNotification,
 	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
@@ -42,6 +43,7 @@ import {
 	DidStartCommittingNotification,
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
+	DismissOnboardingCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
@@ -113,6 +115,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case ClearAIOperationErrorCommand.is(e):
 				void this.onClearAIOperationError();
+				break;
+			case DismissOnboardingCommand.is(e):
+				this.onDismissOnboarding();
 				break;
 		}
 	}
@@ -215,6 +220,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
 
+		const onboardingDismissed = this.isOnboardingDismissed();
+
 		return {
 			...this.initialState,
 			hunks: hunks,
@@ -233,6 +240,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			},
 			hasChanges: hasChanges,
 			mode: mode,
+			onboardingDismissed: onboardingDismissed,
 		};
 	}
 
@@ -308,6 +316,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async onClearAIOperationError(): Promise<void> {
 		// Send notification to clear the AI operation error
 		await this.host.notify(DidClearAIOperationErrorNotification, undefined);
+	}
+
+	private onDismissOnboarding(): void {
+		if (this.isOnboardingDismissed()) {
+			return;
+		}
+
+		void this.container.storage.store('composer:onboarding:dismissed', currentOnboardingVersion).catch();
+	}
+
+	private isOnboardingDismissed(): boolean {
+		const dismissedVersion = this.container.storage.get('composer:onboarding:dismissed');
+		return dismissedVersion === currentOnboardingVersion;
 	}
 
 	onShowing(

@@ -5,6 +5,8 @@ import { IpcCommand, IpcNotification } from '../../protocol';
 
 export const scope: IpcScope = 'composer';
 
+export const currentOnboardingVersion = '1.0.0'; // Update this when onboarding changes
+
 export interface ComposerHunk {
 	index: number; // Unique hunk index (1-based to match hunkMap)
 	fileName: string;
@@ -94,6 +96,7 @@ export interface State extends WebviewState {
 	ai: {
 		model: AIModel | undefined;
 	};
+	onboardingDismissed: boolean;
 }
 
 export const initialState: Omit<State, keyof WebviewState> = {
@@ -141,6 +144,7 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	ai: {
 		model: undefined,
 	},
+	onboardingDismissed: false,
 };
 
 // Commands that can be sent from the webview to the host
@@ -180,6 +184,8 @@ export interface AIFeedbackParams {
 
 export const AIFeedbackHelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackHelpful');
 export const AIFeedbackUnhelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackUnhelpful');
+
+export const DismissOnboardingCommand = new IpcCommand<void>(ipcScope, 'dismissOnboarding');
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
