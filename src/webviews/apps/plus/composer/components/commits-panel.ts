@@ -36,18 +36,6 @@ export class CommitsPanel extends LitElement {
 				overflow: hidden;
 			}
 
-			.commits-header {
-				font-size: 1.4rem;
-				margin: 0;
-			}
-
-			.no-changes-message {
-				color: var(--vscode-descriptionForeground);
-				font-style: italic;
-				margin: 1.2rem 0;
-				text-align: center;
-			}
-
 			.working-section {
 				flex: 1;
 				overflow-y: auto;
@@ -63,82 +51,55 @@ export class CommitsPanel extends LitElement {
 				gap: 0.4rem;
 			}
 
+			.commits-header {
+				font-size: 1.4rem;
+				margin-block: 0 0.4rem;
+			}
+
+			.commits-list > *:not(.commits-header) + .commits-header {
+				margin-block-start: 1.2rem;
+			}
+
+			.no-changes-message {
+				color: var(--vscode-descriptionForeground);
+				font-style: italic;
+				margin-block: 1.2rem;
+				text-align: center;
+			}
+
 			.commits-only {
 				display: flex;
 				flex-direction: column;
 				gap: 0.4rem;
 			}
 
-			.auto-compose-review-text {
-				text-align: center;
-				font-size: 0.85em;
-				color: var(--vscode-descriptionForeground);
-				margin-top: 0.8rem;
+			.composition-summary {
+				margin-bottom: 0.4rem;
 			}
 
-			.ai-model-picker {
-				display: inline-flex;
-				flex-direction: row;
-				align-items: center;
-				gap: 0.4rem;
-				padding: 0.3rem 0.8rem;
-				margin-bottom: 0.8rem;
-				background: rgba(255, 255, 255, 0.15);
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 50px;
-				cursor: pointer;
-				transition: background-color 0.2s ease;
-				max-width: 100%;
-				text-decoration: none;
-				color: var(--vscode-foreground);
-				font-size: 1.2rem;
+			.composition-summary__header {
+				margin-block: 0 0.8rem;
 			}
 
-			.ai-model-picker:hover {
-				text-decoration: none;
-				background: rgba(255, 255, 255, 0.2);
-			}
-
-			.ai-model-picker-text {
-			}
-
-			.ai-model-picker-icon {
-				transform: translateY(-1px);
-			}
-
-			.composition-summary-section {
-				margin-bottom: 1.2rem;
-			}
-
-			.composition-summary-header {
-				display: flex;
-				flex-direction: column;
-				gap: 0.4rem;
-				margin: 1.2rem 0 0.8rem 0;
-			}
-
-			.composition-summary-header h3 {
-				margin: 0;
-			}
-
-			.composition-feedback-row {
+			.composition-summary__feedback {
 				display: flex;
 				align-items: center;
+				gap: 0.8rem;
 				justify-content: space-between;
-				margin: 0.8rem 0;
-				font-size: 0.9em;
+				font-size: 1.2rem;
+				margin-block: 0.8rem;
 			}
 
-			.composition-feedback-text {
-				color: var(--vscode-foreground);
+			.composition-summary__feedback-label {
+				margin-block: 0;
 			}
 
-			.composition-feedback-icons {
+			.composition-summary__feedback-actions {
 				display: flex;
-				gap: 0.5rem;
+				gap: 0.4rem;
 			}
 
-			.composition-feedback-icon {
+			.composition-summary__feedback-action {
 				cursor: pointer;
 				padding: 0.2rem;
 				border-radius: 3px;
@@ -146,16 +107,17 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-foreground);
 			}
 
-			.composition-feedback-icon:hover {
+			.composition-summary__feedback-action:hover,
+			.composition-summary__feedback-action:focus {
 				background: var(--vscode-toolbar-hoverBackground);
 			}
 
-			.composition-feedback-icon.selected {
+			.composition-summary__feedback-action.is-selected {
 				color: var(--vscode-button-foreground);
 				background: var(--vscode-button-background);
 			}
 
-			.composition-instructions {
+			.composition-summary__instructions {
 				font-size: 0.85em;
 				color: var(--vscode-descriptionForeground);
 				margin-top: 0.8rem;
@@ -163,37 +125,23 @@ export class CommitsPanel extends LitElement {
 			}
 
 			/* Finish & Commit section styles */
-			.finish-commit-section {
+			.finish-commit {
 				flex: none;
 			}
 
-			.finish-commit-header {
-				margin-block-end: 1.2rem;
-			}
-
-			.finish-commit-header h3 {
+			.finish-commit__header {
 				font-size: 1.4rem;
 				margin-block: 0 0.4rem;
 			}
 
-			.finish-commit-subtext {
+			.finish-commit__description {
 				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
-				margin-block: 0;
-			}
-
-			.commit-message-row {
-				display: flex;
-				align-items: center;
-				gap: 0.8rem;
-			}
-
-			.commit-message-button {
-				flex: 1;
+				margin-block: 0 0.8rem;
 			}
 
 			.cancel-button-container {
-				margin-top: 1.2rem;
+				margin-top: 0.8rem;
 			}
 
 			.new-commit-drop-zone {
@@ -310,53 +258,43 @@ export class CommitsPanel extends LitElement {
 			}
 
 			/* Auto-Compose container styles */
-			.auto-compose-container {
+			.auto-compose {
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 6px;
 				padding: 1.2rem;
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 			}
 
-			.auto-compose-container.is-used {
+			.auto-compose.is-used {
 				margin-block: 1.2rem 0;
 			}
-
-			.commits-list > .unassigned-section,
-			.commits-list > .composition-summary-section {
-				margin-bottom: 1.2rem;
-			}
-
-			.commits-list > .commits-header {
-				margin-bottom: 0.4rem;
-			}
-
-			.commits-list > *:not(.commits-header) + .commits-header {
-				margin-top: 1.2rem;
-			}
-
-			.auto-compose-header {
-				font-size: 1.2rem;
+			.auto-compose__header {
+				font-size: 1.3rem;
 				color: var(--vscode-foreground);
 				margin-block: 0 0.4rem;
 			}
 
-			.auto-compose-description {
+			.auto-compose__description {
 				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
 				line-height: 1.4;
-				margin-block: 0 1.6rem;
+				margin-block: 0 0.4rem;
 			}
 
-			.custom-instructions-container {
-				margin-bottom: 1rem;
+			.auto-compose__model-picker {
+				margin-block-start: 0.4rem;
 			}
 
-			.custom-instructions-input {
+			.auto-compose__instructions {
+				margin-block: 0.8rem;
+			}
+
+			.auto-compose__instructions-input {
 				width: 100%;
 				padding: 0.6rem;
 				border: 1px solid var(--vscode-input-border);
 				border-radius: 3px;
-				background: transparent;
+				background: var(--vscode-input-background);
 				color: var(--vscode-input-foreground);
 				font-family: inherit;
 				font-size: 1rem;
@@ -364,13 +302,15 @@ export class CommitsPanel extends LitElement {
 				min-height: 2.4rem;
 			}
 
-			.custom-instructions-input::placeholder {
+			.auto-compose__instructions-input::placeholder {
 				color: var(--vscode-input-placeholderForeground);
 			}
 
-			.custom-instructions-input:focus {
-				outline: none;
-				border-color: var(--vscode-focusBorder);
+			.auto-compose__footer {
+				text-align: center;
+				font-size: 1.1rem;
+				color: var(--color-foreground--75);
+				margin-block: 0.8rem 0;
 			}
 
 			.ai-button-wrapper {
@@ -443,10 +383,10 @@ export class CommitsPanel extends LitElement {
 	@query('.commits-list')
 	changesSection!: HTMLElement;
 
-	@query('.auto-compose-container')
+	@query('.auto-compose')
 	autoComposeSection?: HTMLElement;
 
-	@query('.finish-commit-section')
+	@query('.finish-commit')
 	finishSection!: HTMLElement;
 
 	private commitsSortable?: Sortable;
@@ -1018,10 +958,8 @@ export class CommitsPanel extends LitElement {
 
 	private renderCompositionSummarySection() {
 		return html`
-			<div class="composition-summary-section">
-				<div class="composition-summary-header">
-					<h3>Composition Summary</h3>
-				</div>
+			<div class="composition-summary">
+				<h3 class="composition-summary__header">Composition Summary</h3>
 				<div
 					class="composer-item is-summary${this.compositionSummarySelected ? ' is-selected' : ''}"
 					@click=${this.handleCompositionSummaryClick}
@@ -1035,42 +973,44 @@ export class CommitsPanel extends LitElement {
 				</div>
 
 				<!-- Feedback row -->
-				<div class="composition-feedback-row">
-					<span class="composition-feedback-text">Was this composition helpful?</span>
-					<div class="composition-feedback-icons">
+				<div class="composition-summary__feedback">
+					<p class="composition-summary__feedback-label">Was this composition helpful?</p>
+					<nav class="composition-summary__feedback-actions">
 						<code-icon
+							tabindex="0"
 							icon=${this.compositionFeedback === 'helpful' ? 'thumbsup-filled' : 'thumbsup'}
-							class="composition-feedback-icon ${this.compositionFeedback === 'helpful'
-								? 'selected'
+							class="composition-summary__feedback-action${this.compositionFeedback === 'helpful'
+								? ' is-selected'
 								: ''}"
 							@click=${this.handleCompositionFeedbackHelpful}
 						></code-icon>
 						<code-icon
+							tabindex="0"
 							icon=${this.compositionFeedback === 'unhelpful' ? 'thumbsdown-filled' : 'thumbsdown'}
-							class="composition-feedback-icon ${this.compositionFeedback === 'unhelpful'
-								? 'selected'
+							class="composition-summary__feedback-action${this.compositionFeedback === 'unhelpful'
+								? ' is-selected'
 								: ''}"
 							@click=${this.handleCompositionFeedbackUnhelpful}
 						></code-icon>
-					</div>
+					</nav>
 				</div>
 
 				<!-- Instructions -->
-				<div class="composition-instructions">
+				<p class="composition-summary__instructions">
 					Review the auto-generated draft commits below to inspect diffs and modify commit messages.
-				</div>
+				</p>
 			</div>
 		`;
 	}
 
 	private renderAutoComposeContainer() {
 		return html`
-			<div class="auto-compose-container${this.hasUsedAutoCompose ? ' is-used' : ''}">
-				<h4 class="auto-compose-header">Auto-Compose Commits with AI (Preview)</h4>
+			<div class="auto-compose${this.hasUsedAutoCompose ? ' is-used' : ''}">
+				<h4 class="auto-compose__header">Auto-Compose Commits with AI (Preview)</h4>
 				${when(
 					!this.hasUsedAutoCompose,
 					() => html`
-						<p class="auto-compose-description">
+						<p class="auto-compose__description">
 							Let AI organize your changes into well-formed commits with clear messages and descriptions
 							that help reviewers.
 						</p>
@@ -1078,16 +1018,21 @@ export class CommitsPanel extends LitElement {
 				)}
 
 				<!-- AI Model Picker -->
-				<a href="#" class="ai-model-picker" @click=${this.handleAIModelPickerClick}>
-					<span class="ai-model-picker-text">${this.aiModelDisplayName}</span>
-					<code-icon icon="chevron-down" class="ai-model-picker-icon"></code-icon>
-				</a>
+				<gl-button
+					class="auto-compose__model-picker"
+					appearance="toolbar"
+					tooltip="Select AI Model"
+					@click=${this.handleAIModelPickerClick}
+				>
+					${this.aiModelDisplayName}
+					<code-icon slot="suffix" icon="chevron-down" size="10"></code-icon>
+				</gl-button>
 
 				<!-- Custom instructions input -->
-				<div class="custom-instructions-container">
+				<div class="auto-compose__instructions">
 					<input
 						type="text"
-						class="custom-instructions-input"
+						class="auto-compose__instructions-input"
 						placeholder="Add custom instructions"
 						.value=${this.customInstructions}
 						@input=${this.handleCustomInstructionsChange}
@@ -1096,25 +1041,42 @@ export class CommitsPanel extends LitElement {
 
 				<!-- Auto-Compose button -->
 				<button-container layout="editor">
-					<div class="ai-button-wrapper" title=${!this.aiEnabled ? this.aiDisabledReason || '' : ''}>
-						<gl-button
-							full
-							appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
-							?disabled=${this.generating || this.committing || !this.aiEnabled}
-							@click=${this.dispatchGenerateCommitsWithAI}
-						>
-							<code-icon icon=${this.generating ? 'loading~spin' : 'sparkle'} slot="prefix"></code-icon>
-							${this.generating
-								? 'Generating Commits...'
-								: this.hasUsedAutoCompose
-									? 'Recompose Commits'
-									: 'Auto-Compose Commits'}
-						</gl-button>
-					</div>
+					${when(
+						this.aiEnabled,
+						() => html`
+							<gl-button
+								full
+								appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
+								?disabled=${this.generating || this.committing || !this.aiEnabled}
+								@click=${this.dispatchGenerateCommitsWithAI}
+							>
+								<code-icon
+									modifier=${this.generating ? 'spin' : ''}
+									icon=${this.generating ? 'loading' : 'sparkle'}
+									slot="prefix"
+								></code-icon>
+								${this.generating
+									? 'Generating Commits...'
+									: this.hasUsedAutoCompose
+										? 'Recompose Commits'
+										: 'Auto-Compose Commits'}
+							</gl-button>
+						`,
+						() => html`
+							<gl-button
+								full
+								appearance="secondary"
+								tooltip=${this.aiDisabledReason || 'Auto-Compose Commits is disabled'}
+							>
+								<code-icon icon="sparkle" slot="prefix"></code-icon>
+								Auto-Compose Commits
+							</gl-button>
+						`,
+					)}
 				</button-container>
 
 				<!-- Review text (always visible) -->
-				<div class="auto-compose-review-text">You will be able to review before committing</div>
+				<p class="auto-compose__footer">You will be able to review before committing</p>
 			</div>
 		`;
 	}
@@ -1123,7 +1085,7 @@ export class CommitsPanel extends LitElement {
 		// Handle no changes state
 		if (!this.hasChanges) {
 			return html`
-				<div class="commits-list scrollable">
+				<div class="working-section scrollable">
 					<div class="commits-list">
 						<h3 class="commits-header">Draft Commits</h3>
 						<p class="no-changes-message">
@@ -1224,17 +1186,15 @@ export class CommitsPanel extends LitElement {
 			</div>
 
 			<!-- Finish & Commit section -->
-			<div class="finish-commit-section">
+			<div class="finish-commit">
 				${when(
 					this.selectedCommitIds.size > 1 && !this.isPreviewMode,
 					() => html`
-						<div class="finish-commit-header">
-							<h3>Finish & Commit</h3>
-							<p class="finish-commit-subtext">
-								New commits will be added to your current branch and a stash will be created with your
-								original changes.
-							</p>
-						</div>
+						<h3 class="finish-commit__header">Finish & Commit</h3>
+						<p class="finish-commit__description">
+							New commits will be added to your current branch and a stash will be created with your
+							original changes.
+						</p>
 						<button-container layout="editor">
 							<gl-button
 								full
