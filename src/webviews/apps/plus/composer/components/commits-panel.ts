@@ -31,6 +31,7 @@ export class CommitsPanel extends LitElement {
 			:host {
 				display: flex;
 				flex-direction: column;
+				gap: 0.8rem;
 				height: 100%;
 				overflow: hidden;
 			}
@@ -47,35 +48,25 @@ export class CommitsPanel extends LitElement {
 				text-align: center;
 			}
 
-			.commits-actions {
-				min-height: 40px;
-				padding: 0.8rem;
-				border-top: 1px solid var(--vscode-panel-border);
-				background: var(--vscode-sideBar-background);
-			}
-
-			.commits-actions:empty {
-				display: none;
-			}
-
-			.commits-actions gl-button {
-				min-width: 160px;
-				padding-left: 1.6rem;
-				padding-right: 1.6rem;
-			}
-
-			.commits-list {
+			.working-section {
 				flex: 1;
 				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
-				padding: 0 1.2rem 1.2rem 1.2rem;
+				gap: 1.6rem;
+				padding-block-end: 0.8rem;
+			}
+
+			.commits-list {
+				display: flex;
+				flex-direction: column;
+				gap: 0.4rem;
 			}
 
 			.commits-only {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: 0.4rem;
 			}
 
 			.auto-compose-review-text {
@@ -173,8 +164,7 @@ export class CommitsPanel extends LitElement {
 
 			/* Finish & Commit section styles */
 			.finish-commit-section {
-				flex-shrink: 0;
-				padding: 1.2rem;
+				flex: none;
 			}
 
 			.finish-commit-header {
@@ -327,13 +317,8 @@ export class CommitsPanel extends LitElement {
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 			}
 
-			.commits-list > .auto-compose-container:first-child {
-				margin-top: 0.8rem;
-				margin-bottom: 1.2rem;
-			}
-
-			.commits-list > .auto-compose-container:not(:first-child) {
-				margin-top: 1.2rem;
+			.auto-compose-container.is-used {
+				margin-block: 1.2rem 0;
 			}
 
 			.commits-list > .unassigned-section,
@@ -1080,7 +1065,7 @@ export class CommitsPanel extends LitElement {
 
 	private renderAutoComposeContainer() {
 		return html`
-			<div class="auto-compose-container">
+			<div class="auto-compose-container${this.hasUsedAutoCompose ? ' is-used' : ''}">
 				<h4 class="auto-compose-header">Auto-Compose Commits with AI (Preview)</h4>
 				${when(
 					!this.hasUsedAutoCompose,
@@ -1139,10 +1124,74 @@ export class CommitsPanel extends LitElement {
 		if (!this.hasChanges) {
 			return html`
 				<div class="commits-list scrollable">
+					<div class="commits-list">
+						<h3 class="commits-header">Draft Commits</h3>
+						<p class="no-changes-message">
+							When working directory changes are present, draft commits will appear here.
+						</p>
+
+						<!-- Base commit (informational only) -->
+						<div class="composer-item is-base">
+							<div class="composer-item__commit"></div>
+							<div class="composer-item__content">
+								<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
+								<div class="composer-item__body">
+									<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
+									<span>/</span>
+									<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+		}
+
+		return html`
+			<div class="working-section scrollable">
+				<!-- Auto-Compose container at top when not used yet -->
+				${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
+				<div class="commits-list">
+					${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
+
 					<h3 class="commits-header">Draft Commits</h3>
-					<p class="no-changes-message">
-						When working directory changes are present, draft commits will appear here.
-					</p>
+
+					<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
+					${when(
+						!this.isPreviewMode && this.shouldShowNewCommitZone,
+						() => html`
+							<div class="new-commit-drop-zone">
+								<div class="drop-zone-content">
+									<code-icon icon="plus"></code-icon>
+									<span>Drop hunks here to create new commit</span>
+								</div>
+							</div>
+						`,
+					)}
+
+					<div class="commits-only">
+						${repeat(
+							this.commits.slice().reverse(), // Reverse order - bottom to top
+							commit => commit.id,
+							(commit, i) => {
+								const changes = getCommitChanges(commit, this.hunks);
+								return html`
+									<gl-commit-item
+										.commitId=${commit.id}
+										.message=${commit.message}
+										.fileCount=${getFileCountForCommit(commit, this.hunks)}
+										.additions=${changes.additions}
+										.deletions=${changes.deletions}
+										.selected=${this.selectedCommitId === commit.id}
+										.multiSelected=${this.selectedCommitIds.has(commit.id)}
+										.isPreviewMode=${this.isPreviewMode}
+										?first=${i === 0}
+										@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e.shiftKey)}
+									></gl-commit-item>
+								`;
+							},
+						)}
+					</div>
 
 					<!-- Base commit (informational only) -->
 					<div class="composer-item is-base">
@@ -1156,81 +1205,20 @@ export class CommitsPanel extends LitElement {
 							</div>
 						</div>
 					</div>
-				</div>
-			`;
-		}
 
-		return html`
-			<div class="commits-list scrollable">
-				<!-- Auto-Compose container at top when not used yet -->
-				${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
-				${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
-
-				<h3 class="commits-header">Draft Commits</h3>
-
-				<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
-				${when(
-					!this.isPreviewMode && this.shouldShowNewCommitZone,
-					() => html`
-						<div class="new-commit-drop-zone">
-							<div class="drop-zone-content">
-								<code-icon icon="plus"></code-icon>
-								<span>Drop hunks here to create new commit</span>
+					<!-- Drop zone for unassigning hunks (hidden when not dragging or in AI preview mode) -->
+					${when(
+						!this.isPreviewMode && this.shouldShowUnassignZone,
+						() => html`
+							<div class="unassign-drop-zone">
+								<div class="drop-zone-content">
+									<code-icon icon="trash"></code-icon>
+									<span>Drop hunks here to unassign</span>
+								</div>
 							</div>
-						</div>
-					`,
-				)}
-
-				<div class="commits-only">
-					${repeat(
-						this.commits.slice().reverse(), // Reverse order - bottom to top
-						commit => commit.id,
-						(commit, i) => {
-							const changes = getCommitChanges(commit, this.hunks);
-							return html`
-								<gl-commit-item
-									.commitId=${commit.id}
-									.message=${commit.message}
-									.fileCount=${getFileCountForCommit(commit, this.hunks)}
-									.additions=${changes.additions}
-									.deletions=${changes.deletions}
-									.selected=${this.selectedCommitId === commit.id}
-									.multiSelected=${this.selectedCommitIds.has(commit.id)}
-									.isPreviewMode=${this.isPreviewMode}
-									?first=${i === 0}
-									@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e.shiftKey)}
-								></gl-commit-item>
-							`;
-						},
+						`,
 					)}
 				</div>
-
-				<!-- Base commit (informational only) -->
-				<div class="composer-item is-base">
-					<div class="composer-item__commit"></div>
-					<div class="composer-item__content">
-						<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
-						<div class="composer-item__body">
-							<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
-							<span>/</span>
-							<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Drop zone for unassigning hunks (hidden when not dragging or in AI preview mode) -->
-				${when(
-					!this.isPreviewMode && this.shouldShowUnassignZone,
-					() => html`
-						<div class="unassign-drop-zone">
-							<div class="drop-zone-content">
-								<code-icon icon="trash"></code-icon>
-								<span>Drop hunks here to unassign</span>
-							</div>
-						</div>
-					`,
-				)}
-
 				<!-- Auto-Compose container in original position when already used -->
 				${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 			</div>
