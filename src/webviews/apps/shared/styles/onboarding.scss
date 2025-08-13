@@ -215,8 +215,8 @@
 
 @mixin core() {
 	.driver-overlay path {
-		fill: var(--gl-tour-overlay-color) !important;
-		// opacity: 1 !important;
+		fill: var(--gl-overlay-color) !important;
+		opacity: 1 !important;
 	}
 	.driver-active .driver-overlay,
 	.driver-active * {

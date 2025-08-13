@@ -13,7 +13,7 @@ export class GlDialog extends LitElement {
 			}
 
 			::backdrop {
-				background: rgba(0, 0, 0, 0.5);
+				background: var(--gl-overlay-color);
 			}
 
 			dialog {
@@ -22,7 +22,7 @@ export class GlDialog extends LitElement {
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 0.4rem;
 				color: var(--vscode-foreground);
-				box-shadow: 0 0.4rem 0.4rem 0 hsba(0, 0%, 0%, 0.25);
+				box-shadow: 0 0.4rem 0.4rem 0 var(--gl-tooltip-shadow);
 			}
 		`,
 	];
