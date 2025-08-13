@@ -222,6 +222,11 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async getBootstrapState(): Promise<State> {
+		// Wait for repository discovery to complete if it's in progress
+		if (this.container.git.isDiscoveringRepositories) {
+			await this.container.git.isDiscoveringRepositories;
+		}
+
 		// Use real data if provided, otherwise initialize from best repository
 		const args = this._args;
 
