@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds updated AI model support for GitLens' AI features
   - Adds GPT-5 family (GPT-5, GPT-5 Mini, GPT-5 Nano), and Claude 4.1 Opus models
 - Add Azure DevOps Server integration support ([#4478](https://github.com/gitkraken/vscode-gitlens/issues/4478))
+- Adds ability to switch between open repositories on the _Visual History_
+- Adds _Visualize Repository History_ commands to the SCM menus
 
 ### Changed
 

@@ -558,6 +558,7 @@ export interface MenuConfig {
 		| false
 		| {
 				readonly graph: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmRepositoryInline:
 		| false
@@ -565,14 +566,15 @@ export interface MenuConfig {
 				readonly generateCommitMessage: boolean;
 				readonly graph: boolean;
 				readonly stash: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmRepository:
 		| false
 		| {
 				readonly authors: boolean;
 				readonly generateCommitMessage: boolean;
-				readonly patch: boolean;
 				readonly graph: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmGroupInline:
 		| false

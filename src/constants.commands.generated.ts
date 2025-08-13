@@ -649,7 +649,9 @@ export type ContributedCommands =
 	| 'gitlens.visualizeHistory.file:scm'
 	| 'gitlens.visualizeHistory.file:views'
 	| 'gitlens.visualizeHistory.folder:explorer'
-	| 'gitlens.visualizeHistory.folder:scm';
+	| 'gitlens.visualizeHistory.folder:scm'
+	| 'gitlens.visualizeHistory.repo:scm'
+	| 'gitlens.visualizeHistory.repo:views';
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'

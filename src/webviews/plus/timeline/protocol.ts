@@ -22,6 +22,7 @@ export interface State extends WebviewState {
 
 	scope: TimelineScopeSerialized | undefined;
 	repository: (RepositoryShape & { ref: GitReference | undefined }) | undefined;
+	repositories: { count: number; openCount: number };
 
 	access: FeatureAccess;
 }

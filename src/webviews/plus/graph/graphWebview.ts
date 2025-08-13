@@ -1706,7 +1706,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const pick = await showRepositoryPicker(
 			this.container,
-			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
+			this.repository ? `Switch Repository ${GlyphChars.Dot} ${this.repository.name}` : 'Switch Repository',
 			'Choose a repository to switch to',
 			this.container.git.openRepositories,
 			{ picked: this.repository },

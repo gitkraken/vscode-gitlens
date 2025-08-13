@@ -255,7 +255,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const pick = await showRepositoryPicker(
 			this.container,
-			`Switch Repository ${GlyphChars.Dot} ${currentRepo?.name}`,
+			currentRepo ? `Switch Repository ${GlyphChars.Dot} ${currentRepo.name}` : 'Switch Repository',
 			'Choose a repository to switch to',
 			this.container.git.openRepositories,
 			{ picked: currentRepo },

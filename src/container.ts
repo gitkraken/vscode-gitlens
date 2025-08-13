@@ -242,7 +242,7 @@ export class Container {
 
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);
-		this._disposables.push(registerTimelineWebviewCommands(timelinePanels));
+		this._disposables.push(registerTimelineWebviewCommands(this, timelinePanels));
 
 		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
 
