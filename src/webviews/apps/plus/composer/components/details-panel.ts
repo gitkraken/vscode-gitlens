@@ -222,6 +222,9 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	aiEnabled: boolean = false;
 
+	@property({ type: String })
+	aiDisabledReason: string | null = null;
+
 	@property({ type: Boolean })
 	isPreviewMode: boolean = false;
 
@@ -621,6 +624,7 @@ export class DetailsPanel extends LitElement {
 					.explanation=${commit.aiExplanation}
 					?generating=${this.generatingCommitMessage === commit.id}
 					?ai-enabled=${this.aiEnabled}
+					.aiDisabledReason=${this.aiDisabledReason}
 					editable
 					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
 					@generate-commit-message=${(e: CustomEvent) => this.handleGenerateCommitMessage(commit.id, e)}

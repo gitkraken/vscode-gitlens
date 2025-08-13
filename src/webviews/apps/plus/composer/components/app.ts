@@ -1090,6 +1090,16 @@ export class ComposerApp extends LitElement {
 		return this.state?.aiEnabled?.org === true && this.state?.aiEnabled?.config === true;
 	}
 
+	private get aiDisabledReason(): string | null {
+		if (this.state?.aiEnabled?.org !== true) {
+			return 'AI features are disabled by your GitKraken admin';
+		}
+		if (this.state?.aiEnabled?.config !== true) {
+			return 'AI features are disabled in your settings';
+		}
+		return null;
+	}
+
 	private get canFinishAndCommit(): boolean {
 		return this.state.commits.length > 0;
 	}
@@ -1481,6 +1491,7 @@ export class ComposerApp extends LitElement {
 					.generating=${this.state.generatingCommits}
 					.committing=${this.state.committing}
 					.aiEnabled=${this.aiEnabled}
+					.aiDisabledReason=${this.aiDisabledReason}
 					.canReorderCommits=${this.canReorderCommits}
 					.canCombineCommits=${this.canCombineCommits}
 					.canMoveHunks=${this.canMoveHunks}
@@ -1531,6 +1542,7 @@ export class ComposerApp extends LitElement {
 					.canGenerateCommitMessages=${this.canGenerateCommitMessages}
 					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
+					.aiDisabledReason=${this.aiDisabledReason}
 					.isPreviewMode=${this.isPreviewMode}
 					.hasChanges=${this.state.hasChanges}
 					.compositionSummarySelected=${this.compositionSummarySelected}

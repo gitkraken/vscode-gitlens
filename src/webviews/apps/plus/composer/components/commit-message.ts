@@ -90,12 +90,6 @@ export class CommitMessage extends LitElement {
 				pointer-events: none;
 			}
 
-			.commit-message__action {
-				position: absolute;
-				top: 0.5rem;
-				right: 0.5rem;
-			}
-
 			.commit-message__explanation {
 				padding: 0.8rem 1.6rem;
 				font-size: 1.2rem;
@@ -151,6 +145,18 @@ export class CommitMessage extends LitElement {
 				background-color: var(--vscode-inputValidation-errorBackground);
 				border-color: var(--vscode-inputValidation-errorBorder);
 			}
+
+			.ai-button-tooltip-wrapper {
+				position: absolute;
+				top: 0.5rem;
+				right: 0.5rem;
+				z-index: 1;
+				pointer-events: none;
+			}
+
+			.ai-button-tooltip-wrapper gl-button {
+				pointer-events: auto;
+			}
 		`,
 	];
 
@@ -174,6 +180,9 @@ export class CommitMessage extends LitElement {
 
 	@property({ type: Boolean, attribute: 'ai-enabled', reflect: true })
 	aiEnabled: boolean = false;
+
+	@property({ type: String })
+	aiDisabledReason: string | null = null;
 
 	@property({ type: Boolean, reflect: true })
 	generating: boolean = false;
@@ -215,22 +224,25 @@ export class CommitMessage extends LitElement {
 					@input=${this.onMessageInput}
 				></textarea>
 				${this.renderHelpText()}
-				${when(
-					this.aiEnabled,
-					() =>
-						html`<gl-button
-							class="commit-message__action"
-							appearance="toolbar"
-							.title=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
-							?disabled=${this.generating}
-							@click=${() => this.onGenerateCommitMessageClick()}
-						>
-							<code-icon
-								.icon=${this.generating ? 'loading' : 'sparkle'}
-								.modifier=${this.generating ? 'spin' : ''}
-							></code-icon>
-						</gl-button>`,
-				)}
+				<span
+					class="ai-button-tooltip-wrapper"
+					title=${this.generating
+						? 'Generating...'
+						: !this.aiEnabled
+							? this.aiDisabledReason || 'AI features are disabled'
+							: 'Generate commit message with AI'}
+				>
+					<gl-button
+						appearance="toolbar"
+						?disabled=${this.generating || !this.aiEnabled}
+						@click=${() => this.onGenerateCommitMessageClick()}
+					>
+						<code-icon
+							.icon=${this.generating ? 'loading' : 'sparkle'}
+							.modifier=${this.generating ? 'spin' : ''}
+						></code-icon>
+					</gl-button>
+				</span>
 			</div>
 		`;
 	}
@@ -260,6 +272,8 @@ export class CommitMessage extends LitElement {
 	}
 
 	private onGenerateCommitMessageClick() {
+		if (!this.aiEnabled) return;
+
 		this.dispatchEvent(
 			new CustomEvent('generate-commit-message', {
 				bubbles: true,

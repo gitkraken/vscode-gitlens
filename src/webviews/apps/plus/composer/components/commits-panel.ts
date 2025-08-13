@@ -387,6 +387,11 @@ export class CommitsPanel extends LitElement {
 				outline: none;
 				border-color: var(--vscode-focusBorder);
 			}
+
+			.ai-button-wrapper {
+				display: block;
+				width: 100%;
+			}
 		`,
 	];
 
@@ -416,6 +421,9 @@ export class CommitsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	aiEnabled: boolean = false;
+
+	@property({ type: String })
+	aiDisabledReason: string | null = null;
 
 	@property({ type: Boolean })
 	isPreviewMode: boolean = false;
@@ -790,6 +798,8 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private dispatchGenerateCommitsWithAI() {
+		if (!this.aiEnabled) return;
+
 		this.dispatchEvent(
 			new CustomEvent('generate-commits-with-ai', {
 				detail: {
@@ -1101,19 +1111,21 @@ export class CommitsPanel extends LitElement {
 
 				<!-- Auto-Compose button -->
 				<button-container layout="editor">
-					<gl-button
-						full
-						appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
-						?disabled=${this.generating || this.committing}
-						@click=${this.dispatchGenerateCommitsWithAI}
-					>
-						<code-icon icon=${this.generating ? 'loading~spin' : 'sparkle'} slot="prefix"></code-icon>
-						${this.generating
-							? 'Generating Commits...'
-							: this.hasUsedAutoCompose
-								? 'Recompose Commits'
-								: 'Auto-Compose Commits'}
-					</gl-button>
+					<div class="ai-button-wrapper" title=${!this.aiEnabled ? this.aiDisabledReason || '' : ''}>
+						<gl-button
+							full
+							appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
+							?disabled=${this.generating || this.committing || !this.aiEnabled}
+							@click=${this.dispatchGenerateCommitsWithAI}
+						>
+							<code-icon icon=${this.generating ? 'loading~spin' : 'sparkle'} slot="prefix"></code-icon>
+							${this.generating
+								? 'Generating Commits...'
+								: this.hasUsedAutoCompose
+									? 'Recompose Commits'
+									: 'Auto-Compose Commits'}
+						</gl-button>
+					</div>
 				</button-container>
 
 				<!-- Review text (always visible) -->
@@ -1151,7 +1163,7 @@ export class CommitsPanel extends LitElement {
 		return html`
 			<div class="commits-list scrollable">
 				<!-- Auto-Compose container at top when not used yet -->
-				${when(this.aiEnabled && !this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
+				${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 				${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
 
 				<h3 class="commits-header">Draft Commits</h3>
@@ -1220,7 +1232,7 @@ export class CommitsPanel extends LitElement {
 				)}
 
 				<!-- Auto-Compose container in original position when already used -->
-				${when(this.aiEnabled && this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
+				${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 			</div>
 
 			<!-- Finish & Commit section -->
