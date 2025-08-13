@@ -11,20 +11,20 @@ import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import { PromiseCache } from '../../../system/promiseCache';
-import type { IpcMessage } from '../../protocol';
+import type { ComposerTelemetryEvent, IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import type {
-	AddedHunksToCommitParams,
 	AIFeedbackParams,
 	ComposerContext,
 	FinishAndCommitParams,
 	GenerateCommitMessageParams,
 	GenerateCommitsParams,
+	OnAddHunksToCommitParams,
+	OnUpdateCustomInstructionsParams,
 	ReloadComposerParams,
 	State,
 } from './protocol';
 import {
-	AddedHunksToCommitCommand,
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
 	baseContext,
@@ -53,7 +53,12 @@ import {
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
 	initialState,
+	OnAddHunksToCommitCommand,
+	OnRedoCommand,
+	OnResetCommand,
 	OnSelectAIModelCommand,
+	OnUndoCommand,
+	OnUpdateCustomInstructionsCommand,
 	ReloadComposerCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
@@ -91,7 +96,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	dispose(): void {
 		this._cache.clear();
-		this.resetTelemetryContext();
+		this.resetContext();
 		this._generateCommitsCancellation?.dispose();
 		this._generateCommitMessageCancellation?.dispose();
 		this._disposable.dispose();
@@ -135,8 +140,20 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			case DismissOnboardingCommand.is(e):
 				this.onDismissOnboarding();
 				break;
-			case AddedHunksToCommitCommand.is(e):
-				this.onAddedHunksToCommit(e.params);
+			case OnAddHunksToCommitCommand.is(e):
+				this.onAddHunksToCommit(e.params);
+				break;
+			case OnUndoCommand.is(e):
+				this.onUndo();
+				break;
+			case OnRedoCommand.is(e):
+				this.onRedo();
+				break;
+			case OnResetCommand.is(e):
+				this.onReset();
+				break;
+			case OnUpdateCustomInstructionsCommand.is(e):
+				this.onUpdateCustomInstructions(e.params);
 				break;
 		}
 	}
@@ -144,6 +161,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	getTelemetryContext(): ComposerTelemetryContext {
 		return {
 			...this.host.getTelemetryContext(),
+			'context.source': this._context.source,
+			'context.mode': this._context.mode,
 			'context.sessionId': this._context.sessionId,
 			'context.files.count': this._context.diff.files,
 			'context.hunks.count': this._context.diff.hunks,
@@ -192,6 +211,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			'context.ai.enabled.config': this._context.ai.enabled.config,
 			'context.ai.enabled.org': this._context.ai.enabled.org,
 			'context.onboarding.dismissed': this._context.onboarding.dismissed,
+			'context.history.undo.count': this._context.history.undoCount,
+			'context.history.redo.count': this._context.history.redoCount,
+			'context.history.reset.count': this._context.history.resetCount,
 		};
 	}
 
@@ -233,6 +255,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		repo: Repository,
 		mode: 'experimental' | 'preview' = 'preview',
 		source?: Sources,
+		isReload?: boolean,
 	): Promise<State> {
 		// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
 		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
@@ -319,6 +342,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._context.source = source;
 		this._context.mode = mode;
 		this._context.sessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+		this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/opened');
 
 		return {
 			...this.initialState,
@@ -342,10 +366,34 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
-	private onAddedHunksToCommit(params: AddedHunksToCommitParams): void {
+	private onAddHunksToCommit(params: OnAddHunksToCommitParams): void {
 		if (params.source === 'unstaged') {
 			this._context.diff.unstagedIncluded = true;
+			this.sendTelemetryEvent('composer/includedUnstagedChanges');
 		}
+	}
+
+	private onUndo(): void {
+		this._context.history.undoCount++;
+		this.sendTelemetryEvent('composer/undo');
+	}
+
+	private onRedo(): void {
+		this._context.history.redoCount++;
+	}
+
+	private onReset(): void {
+		this._context.history.resetCount++;
+		this.sendTelemetryEvent('composer/reset');
+	}
+
+	private onUpdateCustomInstructions(params: OnUpdateCustomInstructionsParams): void {
+		this._context.ai.operations.generateCommits.customInstructions.used = Boolean(params.customInstructions);
+		this._context.ai.operations.generateCommits.customInstructions.length = params.customInstructions?.length ?? 0;
+		this._context.ai.operations.generateCommits.customInstructions.hash = params.customInstructions
+			? md5(params.customInstructions)
+			: '';
+		this.sendTelemetryEvent('composer/customInstructions/updated');
 	}
 
 	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
@@ -365,7 +413,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Initialize composer data from the repository
-			const composerData = await this.createInitialStateFromRepo(repo, params.mode, params.source);
+			const composerData = await this.createInitialStateFromRepo(repo, params.mode, params.source, true);
 
 			// Check if there was a loading error
 			if (composerData.loadingError) {
@@ -402,6 +450,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Send cancellation notification to clear loading state properly
 			this._context.ai.operations.generateCommits.cancelledCount++;
+			this.sendTelemetryEvent('composer/generateCommits/cancelled');
 			await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 
 			// Note: Don't dispose the token immediately - let the finally block handle cleanup
@@ -415,6 +464,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Send cancellation notification to clear loading state properly
 			this._context.ai.operations.generateCommitMessage.cancelledCount++;
+			this.sendTelemetryEvent('composer/generateCommitMessage/cancelled');
 			await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 
 			// Note: Don't dispose the token immediately - let the finally block handle cleanup
@@ -441,7 +491,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		return dismissedVersion === currentOnboardingVersion;
 	}
 
-	private resetTelemetryContext(): void {
+	private resetContext(): void {
 		this._context = { ...baseContext };
 	}
 
@@ -454,7 +504,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		if (args?.[0]) {
 			// Clear cache when new args are provided (new composer session)
 			this._cache.clear();
-			this.resetTelemetryContext();
+			this.resetContext();
 			this._args = args[0];
 			this.updateTitle(args[0].mode);
 		}
@@ -478,6 +528,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		try {
 			const model = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
 			this._context.ai.model = model;
+			this.sendTelemetryEvent('composer/aiModel/changed');
 			await this.host.notify(DidChangeAiModelNotification, { model: model });
 		} catch {
 			// Ignore errors when getting AI model
@@ -606,6 +657,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				}));
 
 				// Notify the webview with the generated commits (this will also clear loading state)
+				this._context.draftCommits.composedCount = newCommits.length;
+				this.sendTelemetryEvent('composer/generateCommits');
 				await this.host.notify(DidGenerateCommitsNotification, { commits: newCommits });
 			} else if (result === 'cancelled') {
 				this._context.ai.operations.generateCommits.cancelledCount++;
@@ -674,6 +727,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					: result.parsed.summary;
 
 				// Notify the webview with the generated commit message
+				this.sendTelemetryEvent('composer/generateCommitMessage');
 				await this.host.notify(DidGenerateCommitMessageNotification, {
 					commitId: params.commitId,
 					message: message,
@@ -826,6 +880,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Clear the committing state and close the composer webview first
 			this._context.draftCommits.finalCount = shas.length;
+			this.sendTelemetryEvent('composer/finishAndCommit');
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
 		} catch (error) {
@@ -881,5 +936,11 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			org: getContext('gitlens:gk:organization:ai:enabled', true),
 			config: configuration.get('ai.enabled', undefined, true),
 		};
+	}
+
+	private sendTelemetryEvent(event: ComposerTelemetryEvent) {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent(event, this.getTelemetryContext());
 	}
 }

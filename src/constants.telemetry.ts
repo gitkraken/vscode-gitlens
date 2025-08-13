@@ -129,6 +129,31 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
 	'commitDetails/mode/changed': CommitDetailsModeChangedEvent;
 
+	/** Sent when the Commit Composer is opened */
+	'composer/opened': ComposerEvent;
+	/** Sent when the Commit Composer is reloaded */
+	'composer/reloaded': ComposerEvent;
+	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */
+	'composer/includedUnstagedChanges': ComposerEvent;
+	/** Sent when the user uses auto-compose in the Commit Composer */
+	'composer/generateCommits': ComposerEvent;
+	/** Sent when the user cancels an auto-compose operation in the Commit Composer */
+	'composer/generateCommits/cancelled': ComposerEvent;
+	/** Sent when the user uses generate commit message in the Commit Composer */
+	'composer/generateCommitMessage': ComposerEvent;
+	/** Sent when the user cancels a generate commit message operation in the Commit Composer */
+	'composer/generateCommitMessage/cancelled': ComposerEvent;
+	/** Sent when the user updates custom instructions in the Commit Composer */
+	'composer/customInstructions/updated': ComposerEvent;
+	/** Sent when the user changes the AI model in the Commit Composer */
+	'composer/aiModel/changed': ComposerEvent;
+	/** Sent when the user finishes and commits in the Commit Composer */
+	'composer/finishAndCommit': ComposerEvent;
+	/** Sent when the user uses the undo button in the Commit Composer */
+	'composer/undo': ComposerEvent;
+	/** Sent when the user uses the reset button in the Commit Composer */
+	'composer/reset': ComposerEvent;
+
 	/** Sent when the Commit Graph is shown */
 	'graph/shown': GraphShownEvent;
 	/** Sent when a Commit Graph command is executed */
@@ -710,6 +735,8 @@ type ComposerContextAIOperationData = {
 
 type ComposerSessionContextEventData = ComposerContextModelData &
 	ComposerContextAIOperationData & {
+		'context.source': Sources | undefined;
+		'context.mode': 'experimental' | 'preview';
 		'context.sessionId': string;
 		'context.files.count': number;
 		'context.hunks.count': number;
@@ -720,7 +747,12 @@ type ComposerSessionContextEventData = ComposerContextModelData &
 		'context.diffSources.unstaged': boolean;
 		'context.diffSources.unstaged.included': boolean;
 		'context.onboarding.dismissed': boolean;
+		'context.history.undo.count': number;
+		'context.history.redo.count': number;
+		'context.history.reset.count': number;
 	};
+
+type ComposerEvent = ComposerContextEventData;
 
 interface LaunchpadEventDataBase {
 	/** @order 1 */

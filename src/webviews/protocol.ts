@@ -207,3 +207,17 @@ export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEdi
 	webviewInstanceId: string | undefined;
 	timestamp: number;
 }
+
+export type ComposerTelemetryEvent =
+	| 'composer/opened'
+	| 'composer/reloaded'
+	| 'composer/includedUnstagedChanges'
+	| 'composer/generateCommits'
+	| 'composer/generateCommits/cancelled'
+	| 'composer/generateCommitMessage'
+	| 'composer/generateCommitMessage/cancelled'
+	| 'composer/customInstructions/updated'
+	| 'composer/aiModel/changed'
+	| 'composer/finishAndCommit'
+	| 'composer/undo'
+	| 'composer/reset';

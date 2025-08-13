@@ -359,6 +359,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: String })
 	customInstructions: string = '';
 
+	// Track the original value for telemetry purposes
+	private _originalCustomInstructions = '';
+
 	@property({ type: Boolean })
 	hasUsedAutoCompose: boolean = false;
 
@@ -860,6 +863,27 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
+	private handleCustomInstructionsFocus(e: Event) {
+		const input = e.target as HTMLInputElement;
+		// Store the original value when focus is gained
+		this._originalCustomInstructions = input.value;
+	}
+
+	private handleCustomInstructionsBlur(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const currentValue = input.value;
+
+		// Only dispatch telemetry event if the value actually changed
+		if (currentValue !== this._originalCustomInstructions) {
+			this.dispatchEvent(
+				new CustomEvent('custom-instructions-update', {
+					detail: { customInstructions: currentValue },
+					bubbles: true,
+				}),
+			);
+		}
+	}
+
 	private getIncludeButtonText(sectionKey: string): string {
 		switch (sectionKey) {
 			case 'unstaged':
@@ -1037,6 +1061,8 @@ export class CommitsPanel extends LitElement {
 						placeholder="Add custom instructions"
 						.value=${this.customInstructions}
 						@input=${this.handleCustomInstructionsChange}
+						@focus=${this.handleCustomInstructionsFocus}
+						@blur=${this.handleCustomInstructionsBlur}
 					/>
 				</div>
 
