@@ -9,7 +9,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { ComposerHunk } from '../../../../../plus/composer/protocol';
 import { focusableBaseStyles } from '../../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../../shared/components/styles/lit/base.css';
+import { boxSizingBase, scrollableBase } from '../../../../shared/components/styles/lit/base.css';
 import {
 	blockHeaderTemplate,
 	genericFilePathTemplate,
@@ -23,6 +23,7 @@ import '../../../../shared/components/code-icon';
 export class GlDiffFile extends LitElement {
 	static override styles = [
 		boxSizingBase,
+		scrollableBase,
 		focusableBaseStyles,
 		css`
 			[hidden] {
