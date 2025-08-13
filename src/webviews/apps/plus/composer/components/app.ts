@@ -51,6 +51,7 @@ interface ComposerDataSnapshot {
 	selectedCommitIds: Set<string>;
 	selectedUnassignedSection: string | null;
 	selectedHunkIds: Set<string>;
+	hasUsedAutoCompose: boolean;
 }
 
 interface ComposerHistory {
@@ -564,6 +565,7 @@ export class ComposerApp extends LitElement {
 			selectedCommitIds: new Set([...this.selectedCommitIds]),
 			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
+			hasUsedAutoCompose: this.state?.hasUsedAutoCompose ?? false,
 		};
 	}
 
@@ -573,6 +575,7 @@ export class ComposerApp extends LitElement {
 		this.state.selectedCommitId = snapshot.selectedCommitId;
 		this.selectedCommitIds = snapshot.selectedCommitIds;
 		this.state.selectedUnassignedSection = snapshot.selectedUnassignedSection;
+		this.state.hasUsedAutoCompose = snapshot.hasUsedAutoCompose;
 		this.selectedHunkIds = snapshot.selectedHunkIds;
 		this.requestUpdate();
 	}
