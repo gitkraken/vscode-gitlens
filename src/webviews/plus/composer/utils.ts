@@ -366,7 +366,7 @@ function extractRenameHunks(diffContent: string, source: 'staged' | 'unstaged'):
  */
 export async function getCurrentDiffsForValidation(
 	repo: Repository,
-): Promise<{ stagedDiff: string | null; unstagedDiff: string | null }> {
+): Promise<{ stagedDiff: string | null; unstagedDiff: string | null; unifiedDiff: string | null }> {
 	try {
 		// Get staged diff (index vs HEAD)
 		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
@@ -374,15 +374,19 @@ export async function getCurrentDiffsForValidation(
 		// Get unstaged diff (working tree vs index)
 		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
 
+		const unifiedDiff = await repo.git.diff.getDiff?.(uncommitted, 'HEAD', { notation: '...' });
+
 		return {
 			stagedDiff: stagedDiff?.contents || null,
 			unstagedDiff: unstagedDiff?.contents || null,
+			unifiedDiff: unifiedDiff?.contents || null,
 		};
 	} catch {
 		// If we can't get diffs, return nulls
 		return {
 			stagedDiff: null,
 			unstagedDiff: null,
+			unifiedDiff: null,
 		};
 	}
 }
@@ -399,7 +403,7 @@ export async function createSafetyState(repo: Repository): Promise<ComposerSafet
 	const currentWorktree = worktrees?.find(wt => wt.branch?.id === currentBranch?.id);
 
 	// Get current diffs for validation
-	const { stagedDiff, unstagedDiff } = await getCurrentDiffsForValidation(repo);
+	const { stagedDiff, unstagedDiff, unifiedDiff } = await getCurrentDiffsForValidation(repo);
 
 	if (!currentBranch?.name) {
 		throw new Error('Cannot create safety state: no current branch found');
@@ -422,6 +426,7 @@ export async function createSafetyState(repo: Repository): Promise<ComposerSafet
 		worktreeName: currentWorktree.name,
 		stagedDiff: stagedDiff,
 		unstagedDiff: unstagedDiff,
+		unifiedDiff: unifiedDiff,
 		timestamp: Date.now(),
 	};
 }
@@ -433,7 +438,7 @@ export async function createSafetyState(repo: Repository): Promise<ComposerSafet
 export async function validateSafetyState(
 	repo: Repository,
 	safetyState: ComposerSafetyState,
-	hunksBeingCommitted?: { source: 'staged' | 'unstaged' }[],
+	hunksBeingCommitted?: ComposerHunk[],
 ): Promise<{ isValid: boolean; errors: string[] }> {
 	const errors: string[] = [];
 
@@ -502,5 +507,24 @@ export async function validateSafetyState(
 			isValid: false,
 			errors: errors,
 		};
+	}
+}
+
+/** Validates combined output diff against input diff, based on whether unstaged changes are included or not */
+export function validateCombinedDiff(
+	safetyState: ComposerSafetyState,
+	combinedDiff: string,
+	includeUnstagedChanges: boolean,
+): boolean {
+	try {
+		const { stagedDiff, unifiedDiff } = safetyState;
+
+		if (includeUnstagedChanges) {
+			return combinedDiff === unifiedDiff;
+		}
+
+		return combinedDiff === stagedDiff;
+	} catch {
+		return false;
 	}
 }
