@@ -8,6 +8,7 @@ import {
 	getFileCountForCommit,
 	getHunksForCommit,
 	getUnassignedHunks,
+	getUniqueFileNames,
 	groupHunksByFile,
 } from '../../../../plus/composer/utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
@@ -605,7 +606,7 @@ export class DetailsPanel extends LitElement {
 				<gl-commit-message .message=${this.getSectionTitle(this.selectedUnassignedSection)}></gl-commit-message>
 
 				<section>
-					<h3 class="files-headline">Files Changed (${hunks.length})</h3>
+					<h3 class="files-headline">Files Changed (${getUniqueFileNames(hunks).length})</h3>
 					<div class="files-list" data-source="${this.selectedUnassignedSection}">
 						${this.renderFileHierarchy(hunks)}
 					</div>
