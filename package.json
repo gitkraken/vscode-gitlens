@@ -4278,6 +4278,16 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.generateCommits.customInstructions": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating commits",
+						"scope": "window",
+						"order": 200,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.enabled": {
 						"type": "boolean",
 						"default": true,

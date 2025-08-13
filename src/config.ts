@@ -234,6 +234,9 @@ interface AIConfig {
 		readonly customInstructions: string;
 		readonly enabled: boolean;
 	};
+	readonly generateCommits: {
+		readonly customInstructions: string;
+	};
 	readonly generateStashMessage: {
 		readonly customInstructions: string;
 	};
