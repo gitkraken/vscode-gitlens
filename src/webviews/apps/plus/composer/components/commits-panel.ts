@@ -12,7 +12,8 @@ import {
 	getUniqueFileNames,
 } from '../../../../plus/composer/utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
+import { boxSizingBase, inlineCode, scrollableBase } from '../../../shared/components/styles/lit/base.css';
+import { ruleStyles } from '../../shared/components/vscode.css';
 import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
@@ -24,6 +25,8 @@ export class CommitsPanel extends LitElement {
 		boxSizingBase,
 		focusableBaseStyles,
 		scrollableBase,
+		ruleStyles,
+		inlineCode,
 		composerItemStyles,
 		composerItemCommitStyles,
 		composerItemContentStyles,
@@ -118,7 +121,7 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.composition-summary__instructions {
-				font-size: 0.85em;
+				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
 				margin-top: 0.8rem;
 				line-height: 1.4;
@@ -286,9 +289,15 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.auto-compose__instructions {
+				display: flex;
+				flex-direction: row;
+				gap: 0.2rem;
 				margin-block: 0.8rem;
 			}
 
+			.auto-compose__instructions-info {
+				--gl-tooltip-max-width: 37rem;
+			}
 			.auto-compose__instructions-input {
 				width: 100%;
 				padding: 0.6rem;
@@ -316,6 +325,11 @@ export class CommitsPanel extends LitElement {
 			.ai-button-wrapper {
 				display: block;
 				width: 100%;
+			}
+
+			.instructions-list {
+				margin-block: 0.4rem;
+				padding-inline-start: 1.6rem;
 			}
 		`,
 	];
@@ -1058,12 +1072,29 @@ export class CommitsPanel extends LitElement {
 					<input
 						type="text"
 						class="auto-compose__instructions-input"
-						placeholder="Add custom instructions"
+						placeholder="Include additional instructions"
 						.value=${this.customInstructions}
 						@input=${this.handleCustomInstructionsChange}
 						@focus=${this.handleCustomInstructionsFocus}
 						@blur=${this.handleCustomInstructionsBlur}
 					/>
+					<gl-button appearance="toolbar" class="auto-compose__instructions-info">
+						<code-icon icon="info"></code-icon>
+						<div slot="tooltip">
+							Providing additional instructions can help steer the AI composition for this session.
+							<br /><br />
+							Potential instructions include:
+							<ul class="instructions-list">
+								<li>conventional commits format</li>
+								<li>size of commits</li>
+								<li>focus on certain changes</li>
+							</ul>
+							<hr />
+							You can also specify custom instructions that apply to all composer sessions with the
+							following setting:
+							<code class="inline-code">gitlens.ai.generateCommits.customInstructions</code>
+						</div>
+					</gl-button>
 				</div>
 
 				<!-- Auto-Compose button -->

@@ -12,7 +12,7 @@ setDefaultAnimation('tooltip.hide', null);
 export class GlTooltip extends LitElement {
 	static override styles = css`
 		sl-tooltip {
-			--max-width: 320px;
+			--max-width: var(--gl-tooltip-max-width, 320px);
 			--hide-delay: 0ms;
 			--show-delay: 500ms;
 		}
