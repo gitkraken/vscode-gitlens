@@ -158,6 +158,7 @@ interface Context {
 
 	commit: GitCommit | undefined;
 	autolinksEnabled: boolean;
+	experimentalComposerEnabled: boolean;
 	richStateLoaded: boolean;
 	formattedMessage: string | undefined;
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
@@ -200,6 +201,7 @@ export class CommitDetailsWebviewProvider
 
 			commit: undefined,
 			autolinksEnabled: configuration.get('views.commitDetails.autolinks.enabled'),
+			experimentalComposerEnabled: configuration.get('ai.experimental.composer.enabled', undefined, false),
 			richStateLoaded: false,
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
@@ -1259,6 +1261,7 @@ export class CommitDetailsWebviewProvider
 			preferences: current.preferences,
 			includeRichContent: current.richStateLoaded,
 			autolinksEnabled: current.autolinksEnabled,
+			experimentalComposerEnabled: current.experimentalComposerEnabled,
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
 			wip: serializeWipContext(wip),
@@ -1463,6 +1466,7 @@ export class CommitDetailsWebviewProvider
 
 		this.updatePendingContext({
 			autolinksEnabled: current.autolinksEnabled,
+			experimentalComposerEnabled: current.experimentalComposerEnabled,
 			richStateLoaded: true,
 			formattedMessage: formattedMessage,
 			autolinkedIssues:
@@ -1535,6 +1539,7 @@ export class CommitDetailsWebviewProvider
 			{
 				commit: commit,
 				autolinksEnabled: configuration.get('views.commitDetails.autolinks.enabled'),
+				experimentalComposerEnabled: configuration.get('ai.experimental.composer.enabled', undefined, false),
 				richStateLoaded:
 					Boolean(commit?.isUncommitted) ||
 					(commit != null

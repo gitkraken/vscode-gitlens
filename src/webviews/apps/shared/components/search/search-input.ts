@@ -10,6 +10,7 @@ import type { GlPopover } from '../overlays/popover';
 import '../button';
 import '../code-icon';
 import '../copy-container';
+import '../menu/menu-divider';
 import '../menu/menu-label';
 import '../menu/menu-item';
 import '../overlays/popover';

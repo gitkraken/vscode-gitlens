@@ -20,19 +20,21 @@ This project incorporates components from the projects listed below.
 15. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
 16. @vscode/codicons version 0.0.39 (https://github.com/microsoft/vscode-codicons)
 17. billboard.js version 3.16.0 (https://github.com/naver/billboard.js)
-18. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-19. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-20. lit version 3.3.1 (https://github.com/lit/lit)
-21. marked version 16.1.2 (https://github.com/markedjs/marked)
-22. microsoft/vscode (https://github.com/microsoft/vscode)
-23. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-24. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-25. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-26. react-dom version 19.0.0 (https://github.com/facebook/react)
-27. react version 19.0.0 (https://github.com/facebook/react)
-28. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-29. slug version 11.0.0 (https://github.com/Trott/slug)
-30. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
+18. diff2html version 3.4.52 (https://github.com/rtfpessoa/diff2html)
+19. driver.js version 1.3.6 (https://github.com/kamranahmedse/driver.js)
+20. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+21. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+22. lit version 3.3.1 (https://github.com/lit/lit)
+23. marked version 16.1.2 (https://github.com/markedjs/marked)
+24. microsoft/vscode (https://github.com/microsoft/vscode)
+25. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+26. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+27. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+28. react-dom version 19.0.0 (https://github.com/facebook/react)
+29. react version 19.0.0 (https://github.com/facebook/react)
+30. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+31. slug version 11.0.0 (https://github.com/Trott/slug)
+32. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
 
 %% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1763,6 +1765,52 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =========================================
 END OF  billboard.js NOTICES AND INFORMATION
+
+%% diff2html NOTICES AND INFORMATION BEGIN HERE
+=========================================
+Copyright 2014-2016 Rodrigo Fernandes https://rtfpessoa.github.io/
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=========================================
+END OF  diff2html NOTICES AND INFORMATION
+
+%% driver.js NOTICES AND INFORMATION BEGIN HERE
+=========================================
+The MIT License
+
+Copyright (c) Kamran Ahmed
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+=========================================
+END OF  driver.js NOTICES AND INFORMATION
 
 %% https-proxy-agent NOTICES AND INFORMATION BEGIN HERE
 =========================================

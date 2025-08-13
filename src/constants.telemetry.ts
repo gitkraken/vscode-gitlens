@@ -392,6 +392,10 @@ export interface AIGenerateRebaseEventData extends AIEventDataSendBase {
 	type: 'rebase';
 }
 
+export interface AIGenerateCommitsEventData extends AIEventDataSendBase {
+	type: 'commits';
+}
+
 export interface AIGenerateSearchQueryEventData extends AIEventDataSendBase {
 	type: 'searchQuery';
 }
@@ -406,6 +410,7 @@ type AIGenerateEvent =
 	| AIGenerateCreateDraftEventData
 	| AIGenerateCreatePullRequestEventData
 	| AIGenerateRebaseEventData
+	| AIGenerateCommitsEventData
 	| AIGenerateSearchQueryEventData
 	| AIGenerateStashMessageEventData;
 
@@ -1048,6 +1053,7 @@ export type Sources =
 	| 'cloud-patches'
 	| 'code-suggest'
 	| 'commandPalette'
+	| 'composer'
 	| 'deeplink'
 	| 'editor:hover'
 	| 'feature-badge'
@@ -1067,6 +1073,7 @@ export type Sources =
 	| 'quick-wizard'
 	| 'rebaseEditor'
 	| 'remoteProvider'
+	| 'scm'
 	| 'scm-input'
 	| 'settings'
 	| 'startWork'

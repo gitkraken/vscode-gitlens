@@ -106,8 +106,16 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					options.cancellation,
 				);
 
+				if (options.cancellation.isCancellationRequested) {
+					throw new CancellationError();
+				}
+
 				let message = '';
 				for await (const fragment of rsp.text) {
+					if (options.cancellation.isCancellationRequested) {
+						throw new CancellationError();
+					}
+
 					message += fragment;
 				}
 

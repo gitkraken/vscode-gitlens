@@ -13,7 +13,6 @@ import { showGenericErrorMessage } from '../messages';
 import type { AIRebaseResult } from '../plus/ai/aiProviderService';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
@@ -56,58 +55,6 @@ export interface RebaseDiffInfo {
 	explanation?: string;
 	filePatches: Map<string, string[]>;
 	patch: string;
-}
-
-@command()
-export class GenerateCommitsCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.ai.generateCommits');
-	}
-
-	protected override preExecute(context: CommandContext, args?: GenerateCommitsCommandArgs): Promise<void> {
-		if (isCommandContextViewNodeHasWorktree(context)) {
-			args = { ...args };
-			args.repoPath = context.node.worktree.path;
-			args.source = args.source ?? { source: 'view' };
-		} else if (isCommandContextViewNodeHasRepository(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repo.path;
-			args.source = args.source ?? { source: 'view' };
-		} else if (isCommandContextViewNodeHasRepoPath(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repoPath;
-			args.source = args.source ?? { source: 'view' };
-		}
-
-		return this.execute(args);
-	}
-
-	async execute(args?: GenerateCommitsCommandArgs): Promise<void> {
-		try {
-			let svc;
-			if (args?.repoPath != null) {
-				svc = this.container.git.getRepositoryService(args.repoPath);
-			}
-			svc ??= (await getRepositoryOrShowPicker(this.container, 'Generate Commits from Working Changes'))?.git;
-			if (svc == null) return;
-
-			await generateRebase(
-				this.container,
-				svc,
-				createReference(uncommitted, svc.path, { refType: 'revision' }),
-				createReference('HEAD', svc.path, { refType: 'revision' }),
-				args?.source ?? { source: 'commandPalette' },
-				{
-					title: 'Generate Commits',
-					progress: { location: ProgressLocation.Notification },
-					generateCommits: true,
-				},
-			);
-		} catch (ex) {
-			Logger.error(ex, 'GenerateCommitsCommand', 'execute');
-			void showGenericErrorMessage('Unable to generate commits');
-		}
-	}
 }
 
 @command()

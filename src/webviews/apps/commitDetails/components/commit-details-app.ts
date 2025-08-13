@@ -507,6 +507,7 @@ export class GlCommitDetailsApp extends LitElement {
 							></gl-commit-details>`,
 						() =>
 							html`<gl-wip-details
+								.experimentalComposerEnabled=${this.state?.experimentalComposerEnabled}
 								.wip=${wip}
 								.files=${wip?.changes?.files}
 								.preferences=${this.state?.preferences}

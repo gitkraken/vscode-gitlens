@@ -1,20 +1,37 @@
 import { consume } from '@lit/context';
-import { css, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import type { Driver } from 'driver.js';
+import { css, html, LitElement, nothing } from 'lit';
+import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
+	AIFeedbackHelpfulCommand,
+	AIFeedbackUnhelpfulCommand,
+	CancelGenerateCommitMessageCommand,
+	CancelGenerateCommitsCommand,
+	ClearAIOperationErrorCommand,
+	CloseComposerCommand,
+	DismissOnboardingCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
 	GenerateCommitsCommand,
+	OnSelectAIModelCommand,
+	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
+import type { KeyedDriveStep } from '../../../shared/onboarding';
+import { createOnboarding } from '../../../shared/onboarding';
 import { stateContext } from '../context';
+import type { CommitsPanel } from './commits-panel';
+import type { DetailsPanel } from './details-panel';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
+import '../../../shared/components/overlays/dialog';
 import '../../../shared/components/overlays/tooltip';
 import './commit-item';
 import './commits-panel';
@@ -39,6 +56,8 @@ interface ComposerHistory {
 
 const historyLimit = 3;
 
+const onboardingKey = 'composer-onboarding';
+
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
 	@consume({ context: stateContext, subscribe: true })
@@ -58,215 +77,240 @@ export class ComposerApp extends LitElement {
 	private commitMessageDebounceTimer?: number;
 	private commitMessageBeingEdited: string | null = null; // Track which commit is being edited
 
-	static override styles = css`
-		:host {
-			display: flex;
-			flex-direction: column;
-			height: 100vh;
-			padding: 1.6rem;
-			gap: 1.6rem;
-			box-sizing: border-box;
-		}
+	static override styles = [
+		boxSizingBase,
+		focusableBaseStyles,
+		css`
+			:host {
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+				padding: 1.6rem;
+				gap: 1.6rem;
+				box-sizing: border-box;
+			}
 
-		.header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-		}
+			.header {
+				flex: none;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
 
-		.header h1 {
-			margin: 0;
-			font-size: 2.4rem;
-			font-weight: 600;
-		}
+			.header h1 {
+				margin-block: 0;
+				font-size: 1.6rem;
+			}
 
-		.header-actions {
-			display: flex;
-			gap: 0.8rem;
-			align-items: center;
-		}
+			.header small {
+				font-size: 1.2rem;
+				color: var(--color-foreground--65);
+				text-transform: uppercase;
+				margin-inline-start: 0.4rem;
+			}
 
-		.history-button {
-			padding: 0.4rem 0.8rem;
-			border: 1px solid var(--vscode-button-border);
-			background: var(--vscode-button-secondaryBackground);
-			color: var(--vscode-button-secondaryForeground);
-			border-radius: 3px;
-			cursor: pointer;
-			font-size: 0.9rem;
-			transition: all 0.2s ease;
-		}
+			.header-actions {
+				flex: none;
+				display: flex;
+				gap: 0.8rem;
+				justify-content: flex-end;
+			}
 
-		.history-button:hover:not(:disabled) {
-			background: var(--vscode-button-secondaryHoverBackground);
-		}
+			.main-content {
+				display: flex;
+				flex: 1;
+				gap: 2.4rem;
+				min-height: 0;
+			}
 
-		.history-button:disabled {
-			opacity: 0.5;
-			cursor: not-allowed;
-		}
+			gl-commits-panel {
+				flex: none;
+				width: clamp(30rem, 28vw, 44rem);
+			}
 
-		.main-content {
-			display: flex;
-			flex: 1;
-			gap: 1.6rem;
-			min-height: 0;
-		}
+			gl-details-panel {
+				flex: 1;
+				min-width: 0;
+			}
 
-		gl-commits-panel {
-			flex: 0 0 300px;
-			min-width: 300px;
-			max-width: 300px;
-		}
+			.modal::part(base) {
+				min-width: 300px;
+				text-align: center;
+			}
 
-		gl-details-panel {
-			flex: 1;
-			min-width: 0;
-		}
+			.modal h2 {
+				margin: 0 0 1.6rem 0;
+				color: var(--vscode-foreground);
+			}
 
-		.modal-overlay {
-			position: fixed;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			background: rgba(0, 0, 0, 0.5);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			z-index: 1000;
-		}
+			.modal p {
+				margin: 0 0 2.4rem 0;
+				color: var(--vscode-descriptionForeground);
+			}
 
-		.modal {
-			background: var(--vscode-editor-background);
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 8px;
-			padding: 2.4rem;
-			min-width: 300px;
-			text-align: center;
-		}
+			.section-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 1.2rem;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+				border-bottom: 1px solid var(--vscode-panel-border);
+				cursor: pointer;
+				user-select: none;
+			}
 
-		.modal h2 {
-			margin: 0 0 1.6rem 0;
-			color: var(--vscode-foreground);
-		}
+			.section-header:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
 
-		.modal p {
-			margin: 0 0 2.4rem 0;
-			color: var(--vscode-descriptionForeground);
-		}
+			.section-header h4 {
+				margin: 0;
+				font-size: 1.1em;
+				font-weight: 600;
+			}
 
-		.section-header {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 1.2rem;
-			background: var(--vscode-editorGroupHeader-tabsBackground);
-			border-bottom: 1px solid var(--vscode-panel-border);
-			cursor: pointer;
-			user-select: none;
-		}
+			.section-toggle {
+				color: var(--vscode-descriptionForeground);
+				transition: transform 0.2s ease;
+			}
 
-		.section-header:hover {
-			background: var(--vscode-list-hoverBackground);
-		}
+			.section-toggle.expanded {
+				transform: rotate(90deg);
+			}
 
-		.section-header h4 {
-			margin: 0;
-			font-size: 1.1em;
-			font-weight: 600;
-		}
+			.section-content {
+				padding: 0.8rem;
+				overflow: hidden;
+				box-sizing: border-box;
+				display: flex;
+				flex-direction: column;
+			}
 
-		.section-toggle {
-			color: var(--vscode-descriptionForeground);
-			transition: transform 0.2s ease;
-		}
+			/* Files changed section should expand to fill space */
+			.section-content.files-changed {
+				flex: 1;
+				min-height: 0;
+			}
 
-		.section-toggle.expanded {
-			transform: rotate(90deg);
-		}
+			/* Commit message and AI explanation should have limited height */
+			.section-content.commit-message,
+			.section-content.ai-explanation {
+				flex: 0 0 auto;
+				max-height: 200px;
+			}
 
-		.section-content {
-			padding: 0.8rem;
-			overflow: hidden;
-			box-sizing: border-box;
-			display: flex;
-			flex-direction: column;
-		}
+			.section-content.collapsed {
+				display: none;
+			}
 
-		/* Files changed section should expand to fill space */
-		.section-content.files-changed {
-			flex: 1;
-			min-height: 0;
-		}
+			.ai-explanation {
+				color: var(--vscode-foreground);
+				line-height: 1.5;
+				margin: 0;
+			}
 
-		/* Commit message and AI explanation should have limited height */
-		.section-content.commit-message,
-		.section-content.ai-explanation {
-			flex: 0 0 auto;
-			max-height: 200px;
-		}
+			.ai-explanation.placeholder {
+				color: var(--vscode-descriptionForeground);
+				font-style: italic;
+			}
 
-		.section-content.collapsed {
-			display: none;
-		}
+			.unassigned-changes-item {
+				padding: 1.2rem;
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 4px;
+				background: var(--vscode-list-inactiveSelectionBackground);
+				cursor: pointer;
+				transition: all 0.2s ease;
+				margin-bottom: 1.2rem;
+				display: flex;
+				align-items: center;
+				gap: 0.8rem;
+				user-select: none;
+			}
 
-		.ai-explanation {
-			color: var(--vscode-foreground);
-			line-height: 1.5;
-			margin: 0;
-		}
+			.unassigned-changes-item:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
 
-		.ai-explanation.placeholder {
-			color: var(--vscode-descriptionForeground);
-			font-style: italic;
-		}
+			.unassigned-changes-item.selected {
+				background: var(--vscode-list-activeSelectionBackground);
+				border-color: var(--vscode-focusBorder);
+			}
 
-		.unassigned-changes-item {
-			padding: 1.2rem;
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			background: var(--vscode-list-inactiveSelectionBackground);
-			cursor: pointer;
-			transition: all 0.2s ease;
-			margin-bottom: 1.2rem;
-			display: flex;
-			align-items: center;
-			gap: 0.8rem;
-			user-select: none;
-		}
+			.unassigned-changes-item code-icon {
+				color: var(--vscode-descriptionForeground);
+			}
 
-		.unassigned-changes-item:hover {
-			background: var(--vscode-list-hoverBackground);
-		}
+			.unassigned-changes-item .title {
+				font-weight: 500;
+				color: var(--vscode-foreground);
+			}
 
-		.unassigned-changes-item.selected {
-			background: var(--vscode-list-activeSelectionBackground);
-			border-color: var(--vscode-focusBorder);
-		}
+			.unassigned-changes-item .count {
+				color: var(--vscode-descriptionForeground);
+				font-size: 0.9em;
+			}
 
-		.unassigned-changes-item code-icon {
-			color: var(--vscode-descriptionForeground);
-		}
+			.unassigned-changes-section {
+				margin-bottom: 1.5rem;
+			}
 
-		.unassigned-changes-item .title {
-			font-weight: 500;
-			color: var(--vscode-foreground);
-		}
+			.unassigned-changes-section:last-child {
+				margin-bottom: 0;
+			}
 
-		.unassigned-changes-item .count {
-			color: var(--vscode-descriptionForeground);
-			font-size: 0.9em;
-		}
+			.generic-dialog::part(base) {
+				max-width: 500px;
+			}
 
-		.unassigned-changes-section {
-			margin-bottom: 1.5rem;
-		}
+			.generic-dialog h2,
+			.generic-dialog p {
+				margin-block: 0;
+			}
 
-		.unassigned-changes-section:last-child {
-			margin-bottom: 0;
-		}
-	`;
+			.generic-dialog h2 code-icon {
+				vertical-align: middle;
+			}
+
+			.generic-dialog__container {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+			}
+
+			.generic-dialog__message {
+				background: var(--color-background);
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 0.4rem;
+				padding: 1.2rem;
+				font-family: var(--vscode-editor-font-family);
+				font-size: 1.2rem;
+				color: var(--vscode-foreground);
+			}
+
+			.generic-dialog__message.is-error {
+				background: var(--vscode-diffEditor-removedTextBackground);
+				border-color: var(--vscode-diffEditor-removedLineBackground);
+			}
+
+			.generic-dialog__secondary {
+				margin: 0;
+				font-size: 1.2rem;
+				color: var(--color-foreground--75);
+			}
+
+			.generic-dialog__actions {
+				display: flex;
+				gap: 8px;
+				justify-content: flex-end;
+			}
+		`,
+	];
+
+	@query('gl-commits-panel')
+	commitsPanel!: CommitsPanel;
+
+	private onboarding?: Driver;
 
 	@state()
 	private selectedCommitId: string | null = null;
@@ -283,11 +327,23 @@ export class ComposerApp extends LitElement {
 	@state()
 	private selectedHunkIds: Set<string> = new Set();
 
+	@state()
+	private customInstructions: string = '';
+
+	@state()
+	private compositionSummarySelected: boolean = false;
+
+	@state()
+	private compositionFeedback: 'helpful' | 'unhelpful' | null = null;
+
+	@state()
+	private compositionSessionId: string | null = null;
+
 	private currentDropTarget: HTMLElement | null = null;
 	private lastSelectedHunkId: string | null = null;
 
 	@state()
-	private showModal = false;
+	private showCommitsGeneratedModal: boolean = false;
 
 	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
@@ -300,6 +356,12 @@ export class ComposerApp extends LitElement {
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
+		if (this.state.commits.length > 0) {
+			this.selectCommit(this.state.commits[0].id);
+		}
+		if (!this.state.onboardingDismissed) {
+			this.openOnboarding();
+		}
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -319,6 +381,7 @@ export class ComposerApp extends LitElement {
 			clearTimeout(this.commitMessageDebounceTimer);
 		}
 		this.commitMessageBeingEdited = null;
+		this.onboarding?.destroy();
 	}
 
 	private initializeSortable() {
@@ -490,11 +553,11 @@ export class ComposerApp extends LitElement {
 	// History management methods
 	private createDataSnapshot(): ComposerDataSnapshot {
 		return {
-			hunks: JSON.parse(JSON.stringify(this.state.hunks)),
-			commits: JSON.parse(JSON.stringify(this.state.commits)),
-			selectedCommitId: this.state.selectedCommitId,
+			hunks: JSON.parse(JSON.stringify(this.state?.hunks ?? [])),
+			commits: JSON.parse(JSON.stringify(this.state?.commits ?? [])),
+			selectedCommitId: this.state?.selectedCommitId ?? null,
 			selectedCommitIds: new Set([...this.selectedCommitIds]),
-			selectedUnassignedSection: this.state.selectedUnassignedSection,
+			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
 		};
 	}
@@ -578,10 +641,18 @@ export class ComposerApp extends LitElement {
 	}
 
 	private reorderCommits(oldIndex: number, newIndex: number) {
+		if (!this.canReorderCommits) return;
+
 		this.saveToHistory();
 		const newCommits = [...this.state.commits];
-		const [movedCommit] = newCommits.splice(oldIndex, 1);
-		newCommits.splice(newIndex, 0, movedCommit);
+
+		// Since we display commits in reverse order (bottom to top), we need to convert
+		// the display indices to actual array indices
+		const actualOldIndex = newCommits.length - 1 - oldIndex;
+		const actualNewIndex = newCommits.length - 1 - newIndex;
+
+		const [movedCommit] = newCommits.splice(actualOldIndex, 1);
+		newCommits.splice(actualNewIndex, 0, movedCommit);
 		this.state.commits = newCommits;
 		this.requestUpdate();
 	}
@@ -682,7 +753,7 @@ export class ComposerApp extends LitElement {
 		// Create new commit
 		const newCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: `New Commit`,
+			message: '', // Empty message - user will add their own
 			hunkIndices: hunkIndices,
 		};
 
@@ -716,6 +787,8 @@ export class ComposerApp extends LitElement {
 	}
 
 	private moveHunksToCommit(hunkIds: string[], targetCommitId: string) {
+		if (!this.canMoveHunks) return;
+
 		this.saveToHistory();
 		// Convert hunk IDs to indices
 		const hunkIndices = hunkIds.map(id => parseInt(id, 10)).filter(index => !isNaN(index));
@@ -840,8 +913,9 @@ export class ComposerApp extends LitElement {
 			this.selectedCommitId = commitId;
 		}
 
-		// Clear unassigned changes selection
+		// Clear unassigned changes selection and composition summary
 		this.selectedUnassignedSection = null;
+		this.compositionSummarySelected = false;
 
 		// Reinitialize sortables after the DOM updates
 		void this.updateComplete.then(() => {
@@ -860,9 +934,10 @@ export class ComposerApp extends LitElement {
 		// Select unassigned section
 		this.selectedUnassignedSection = section;
 
-		// Clear hunk selection
+		// Clear hunk selection and composition summary
 		this.selectedHunkId = null;
 		this.selectedHunkIds = new Set();
+		this.compositionSummarySelected = false;
 
 		// Reinitialize sortables after the DOM updates to include unassigned hunks
 		void this.updateComplete.then(() => {
@@ -1003,7 +1078,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private closeModal() {
-		this.showModal = false;
+		this.showCommitsGeneratedModal = false;
 		// Close the webview
 		window.close();
 	}
@@ -1020,29 +1095,298 @@ export class ComposerApp extends LitElement {
 		return this.state?.aiEnabled?.org === true && this.state?.aiEnabled?.config === true;
 	}
 
+	private get aiDisabledReason(): string | null {
+		if (this.state?.aiEnabled?.org !== true) {
+			return 'AI features are disabled by your GitKraken admin';
+		}
+		if (this.state?.aiEnabled?.config !== true) {
+			return 'AI features are disabled in your settings';
+		}
+		return null;
+	}
+
 	private get canFinishAndCommit(): boolean {
 		return this.state.commits.length > 0;
 	}
 
-	private generateCommits() {
+	private get isPreviewMode(): boolean {
+		return this.state?.mode === 'preview';
+	}
+
+	private get canReorderCommits(): boolean {
+		return !this.isPreviewMode;
+	}
+
+	private get canCombineCommits(): boolean {
+		return !this.isPreviewMode;
+	}
+
+	private get showHistoryButtons(): boolean {
+		return true; // Show history buttons in both interactive and AI preview modes
+	}
+
+	private get canMoveHunks(): boolean {
+		return !this.isPreviewMode;
+	}
+
+	private get isReadyToFinishAndCommit(): boolean {
+		return this.state.commits.length > 0 && this.state.commits.every(commit => commit.message.trim().length > 0);
+	}
+
+	private get canGenerateCommitsWithAI(): boolean {
+		if (!this.aiEnabled) return false;
+
+		// Check if there are any eligible hunks for AI generation
+		const eligibleHunks = this.getEligibleHunksForAI();
+		return eligibleHunks.length > 0;
+	}
+
+	private getEligibleHunksForAI(): typeof this.hunksWithAssignments {
+		let availableHunks: typeof this.hunksWithAssignments;
+
+		if (this.isPreviewMode) {
+			// In AI preview mode, treat all hunks as available (ignore existing commits)
+			availableHunks = this.hunksWithAssignments.filter(hunk => hunk.assigned);
+		} else {
+			// In interactive mode, only consider unassigned hunks
+			const assignedHunkIndices = new Set<number>();
+			this.state.commits.forEach(commit => {
+				commit.hunkIndices.forEach(index => assignedHunkIndices.add(index));
+			});
+			availableHunks = this.hunksWithAssignments.filter(hunk => !assignedHunkIndices.has(hunk.index));
+		}
+
+		return availableHunks;
+	}
+
+	private get canEditCommitMessages(): boolean {
+		return true; // Always allowed
+	}
+
+	private get canGenerateCommitMessages(): boolean {
+		return this.aiEnabled; // Allowed in both modes if AI is enabled
+	}
+
+	private finishAndCommit() {
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
 			hunks: this.hunksWithAssignments,
 			baseCommit: this.state.baseCommit,
+			safetyState: this.state.safetyState,
 		});
 	}
 
-	private generateCommitsWithAI() {
+	private closeComposer() {
+		this._ipc.sendCommand(CloseComposerCommand, undefined);
+	}
+
+	private handleCloseSafetyError() {
+		this.closeComposer();
+	}
+
+	private handleReloadComposer() {
+		this._ipc.sendCommand(ReloadComposerCommand, {
+			repoPath: this.state.safetyState.repoPath,
+			mode: this.state.mode,
+		});
+	}
+
+	private handleCloseLoadingError() {
+		this.closeComposer();
+	}
+
+	private handleCloseAIOperationError() {
+		// Clear the AI operation error state
+		this._ipc.sendCommand(ClearAIOperationErrorCommand, undefined);
+	}
+
+	private handleCancelGenerateCommits() {
+		this._ipc.sendCommand(CancelGenerateCommitsCommand, undefined);
+	}
+
+	private handleCancelGenerateCommitMessage() {
+		this._ipc.sendCommand(CancelGenerateCommitMessageCommand, undefined);
+	}
+
+	private renderLoadingDialogs() {
+		// Generate Commits loading dialog
+		if (this.state.generatingCommits) {
+			return this.renderLoadingDialog(
+				'Generating Commits',
+				'Commits are being generated.',
+				this.handleCancelGenerateCommits,
+			);
+		}
+
+		// Generate Commit Message loading dialog
+		if (this.state.generatingCommitMessage != null) {
+			return this.renderLoadingDialog(
+				'Generating Commit Message',
+				'A commit message is being generated.',
+				this.handleCancelGenerateCommitMessage,
+			);
+		}
+
+		// Create Commits loading dialog
+		if (this.state.committing) {
+			const commitCount = this.state.commits.filter(c => c.message.trim() !== '').length;
+			return this.renderLoadingDialog(
+				'Creating Commits',
+				`Committing ${commitCount} commit${commitCount === 1 ? '' : 's'}.`,
+			);
+		}
+
+		return '';
+	}
+
+	private renderLoadingDialog(title: string, bodyText: string, onCancel?: () => void) {
+		return html`
+			<gl-dialog class="generic-dialog" open modal>
+				<div class="generic-dialog__container">
+					<h2>
+						<code-icon icon="loading" modifier="spin"></code-icon>
+						${title}
+					</h2>
+					<p class="generic-dialog__secondary">${bodyText}</p>
+					${when(
+						onCancel,
+						() =>
+							html`<nav class="generic-dialog__actions">
+								<gl-button appearance="secondary" @click=${onCancel}>Cancel</gl-button>
+							</nav>`,
+					)}
+				</div>
+			</gl-dialog>
+		`;
+	}
+
+	private handleGenerateCommitsWithAI(e: CustomEvent) {
+		this.customInstructions = e.detail?.customInstructions ?? '';
+
+		// Reset feedback state and create new session ID for new composition
+		this.compositionFeedback = null;
+		this.compositionSessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+		// Automatically select the composition summary
+		this.selectedCommitId = null;
+		this.selectedCommitIds = new Set();
+		this.selectedUnassignedSection = null;
+		this.compositionSummarySelected = true;
+
+		this.generateCommitsWithAI(e.detail?.customInstructions);
+	}
+
+	private handleAddHunksToCommit(e: CustomEvent) {
+		const { commitId, hunkIndices } = e.detail;
+
+		// Find the target commit
+		const targetCommit = this.state.commits.find(c => c.id === commitId);
+		if (!targetCommit) return;
+
 		this.saveToHistory();
+
+		// Remove hunks from any existing commits first
+		this.state.commits.forEach(commit => {
+			if (commit.id !== commitId) {
+				commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
+			}
+		});
+
+		// Add hunks to the target commit (avoid duplicates)
+		const existingIndices = new Set(targetCommit.hunkIndices);
+		hunkIndices.forEach((index: number) => {
+			if (!existingIndices.has(index)) {
+				targetCommit.hunkIndices.push(index);
+			}
+		});
+
+		// Remove commits that no longer have any hunks
+		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
+
+		this.requestUpdate();
+	}
+
+	private handleCloseComposer() {
+		this.closeComposer();
+	}
+
+	private handleSelectAIModel() {
+		this._ipc.sendCommand(OnSelectAIModelCommand, undefined);
+	}
+
+	private handleSelectCompositionSummary() {
+		// Clear other selections and select composition summary
+		this.selectedCommitId = null;
+		this.selectedCommitIds = new Set();
+		this.selectedUnassignedSection = null;
+		this.compositionSummarySelected = true;
+	}
+
+	private handleCompositionFeedbackHelpful(e: CustomEvent) {
+		const sessionId = e.detail?.sessionId;
+		this.compositionFeedback = 'helpful';
+		this._ipc.sendCommand(AIFeedbackHelpfulCommand, { sessionId: sessionId });
+	}
+
+	private handleCompositionFeedbackUnhelpful(e: CustomEvent) {
+		const sessionId = e.detail?.sessionId;
+		this.compositionFeedback = 'unhelpful';
+		this._ipc.sendCommand(AIFeedbackUnhelpfulCommand, { sessionId: sessionId });
+	}
+
+	private handleCustomInstructionsChange(e: CustomEvent) {
+		this.customInstructions = e.detail?.customInstructions ?? '';
+	}
+
+	@query('gl-details-panel')
+	private detailsPanel!: DetailsPanel;
+
+	private handleFocusCommitMessage(e: CustomEvent<{ commitId: string; checkValidity: boolean }>) {
+		const { commitId, checkValidity } = e.detail;
+		if (!commitId) return;
+
+		// Select the commit first
+		this.selectedCommitId = commitId;
+		this.selectedCommitIds.clear();
+		this.selectedCommitIds.add(commitId);
+		this.selectedUnassignedSection = null;
+
+		// Focus the commit message input in the details panel
+		this.requestUpdate();
+
+		// Use a small delay to ensure the details panel has rendered and focus the input
+		setTimeout(() => {
+			this.detailsPanel?.focusCommitMessageInput?.(commitId, checkValidity);
+		}, 100);
+	}
+
+	private generateCommitsWithAI(customInstructions: string = '') {
+		if (!this.aiEnabled) return;
+
+		// Get eligible hunks using the shared logic
+		const hunksToGenerate = this.getEligibleHunksForAI();
+
+		// Early return if no eligible hunks (this should be prevented by UI, but safety check)
+		if (hunksToGenerate.length === 0) {
+			return;
+		}
+
+		this.saveToHistory();
+
 		this._ipc.sendCommand(GenerateCommitsCommand, {
-			hunks: this.hunksWithAssignments,
-			commits: this.state.commits,
+			hunks: hunksToGenerate,
+			// In preview mode, send empty commits array to overwrite existing commits
+			// In interactive mode, send existing commits to preserve them
+			commits: this.isPreviewMode ? [] : this.state.commits,
 			hunkMap: this.state.hunkMap,
 			baseCommit: this.state.baseCommit,
+			customInstructions: customInstructions || undefined,
 		});
 	}
 
 	private generateCommitMessage(commitId: string) {
+		if (!this.canGenerateCommitMessages) return;
+
 		// Find the commit
 		const commit = this.state.commits.find(c => c.id === commitId);
 		if (!commit) {
@@ -1062,7 +1406,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private combineSelectedCommits() {
-		if (this.selectedCommitIds.size < 2) return;
+		if (this.selectedCommitIds.size < 2 || !this.canCombineCommits) return;
 
 		this.saveToHistory();
 
@@ -1134,35 +1478,14 @@ export class ComposerApp extends LitElement {
 		const hunks = this.hunksWithAssignments;
 
 		return html`
-			<div class="header">
-				<h1>GitLens Composer</h1>
-				<div class="header-actions">
-					<button
-						class="history-button"
-						?disabled=${!this.canUndo()}
-						@click=${this.undo}
-						title="Undo last action"
-					>
-						<code-icon icon="arrow-left"></code-icon>
-						Undo
-					</button>
-					<button
-						class="history-button"
-						?disabled=${!this.canRedo()}
-						@click=${this.redo}
-						title="Redo last undone action"
-					>
-						<code-icon icon="arrow-right"></code-icon>
-						Redo
-					</button>
-					<button class="history-button" @click=${this.reset} title="Reset to initial state">
-						<code-icon icon="refresh"></code-icon>
-						Reset
-					</button>
-				</div>
-			</div>
+			<header class="header">
+				<h1>
+					Commit Composer <small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
+				</h1>
+				${this.renderActions()}
+			</header>
 
-			<div class="main-content">
+			<main class="main-content">
 				<gl-commits-panel
 					.commits=${this.state.commits}
 					.hunks=${hunks}
@@ -1173,19 +1496,44 @@ export class ComposerApp extends LitElement {
 					.generating=${this.state.generatingCommits}
 					.committing=${this.state.committing}
 					.aiEnabled=${this.aiEnabled}
+					.aiDisabledReason=${this.aiDisabledReason}
+					.canReorderCommits=${this.canReorderCommits}
+					.canCombineCommits=${this.canCombineCommits}
+					.canMoveHunks=${this.canMoveHunks}
+					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
+					.isPreviewMode=${this.isPreviewMode}
+					.baseCommit=${this.state.baseCommit}
+					.customInstructions=${this.customInstructions}
+					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
+					.hasChanges=${this.state.hasChanges}
+					.aiModel=${this.state.ai?.model}
+					.compositionSummarySelected=${this.compositionSummarySelected}
+					.compositionFeedback=${this.compositionFeedback}
+					.compositionSessionId=${this.compositionSessionId}
+					.isReadyToCommit=${this.isReadyToFinishAndCommit}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
-					@finish-and-commit=${this.generateCommits}
-					@generate-commits-with-ai=${this.generateCommitsWithAI}
+					@finish-and-commit=${this.finishAndCommit}
+					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
+					@custom-instructions-change=${this.handleCustomInstructionsChange}
+					@focus-commit-message=${this.handleFocusCommitMessage}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
 					@unassign-hunks=${(e: CustomEvent) => this.unassignHunks(e.detail.hunkIds)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+					@add-hunks-to-commit=${this.handleAddHunksToCommit}
+					@generate-commit-message=${(e: CustomEvent) => this.generateCommitMessage(e.detail.commitId)}
+					@cancel-composer=${this.handleCloseComposer}
+					@select-ai-model=${this.handleSelectAIModel}
+					@select-composition-summary=${this.handleSelectCompositionSummary}
+					@composition-feedback-helpful=${this.handleCompositionFeedbackHelpful}
+					@composition-feedback-unhelpful=${this.handleCompositionFeedbackUnhelpful}
 				></gl-commits-panel>
 
 				<gl-details-panel
+					.commits=${this.state.commits}
 					.selectedCommits=${selectedCommits}
 					.hunks=${hunks}
 					.selectedUnassignedSection=${this.selectedUnassignedSection}
@@ -1195,7 +1543,14 @@ export class ComposerApp extends LitElement {
 					.selectedHunkIds=${this.selectedHunkIds}
 					.generatingCommitMessage=${this.state.generatingCommitMessage}
 					.committing=${this.state.committing}
+					.canEditCommitMessages=${this.canEditCommitMessages}
+					.canGenerateCommitMessages=${this.canGenerateCommitMessages}
+					.canMoveHunks=${this.canMoveHunks}
 					.aiEnabled=${this.aiEnabled}
+					.aiDisabledReason=${this.aiDisabledReason}
+					.isPreviewMode=${this.isPreviewMode}
+					.hasChanges=${this.state.hasChanges}
+					.compositionSummarySelected=${this.compositionSummarySelected}
 					@toggle-commit-message=${this.toggleCommitMessageExpanded}
 					@toggle-ai-explanation=${this.toggleAiExplanationExpanded}
 					@toggle-files-changed=${this.toggleFilesChangedExpanded}
@@ -1208,21 +1563,168 @@ export class ComposerApp extends LitElement {
 					@hunk-move=${(e: CustomEvent) => this.handleHunkMove(e.detail.hunkId, e.detail.targetCommitId)}
 					@move-hunks-to-commit=${(e: CustomEvent) =>
 						this.moveHunksToCommit(e.detail.hunkIds, e.detail.targetCommitId)}
+					@close-composer=${this.handleCloseComposer}
+					@reload-composer=${this.handleReloadComposer}
 				></gl-details-panel>
-			</div>
 
-			${when(
-				this.showModal,
-				() => html`
-					<div class="modal-overlay" @click=${this.closeModal}>
-						<div class="modal" @click=${(e: Event) => e.stopPropagation()}>
-							<h2>Commits Generated</h2>
-							<p>${this.state.commits.length} commits have been generated successfully!</p>
-							<gl-button appearance="primary" @click=${this.closeModal}>OK</gl-button>
-						</div>
+				<!-- Loading overlays -->
+				${this.renderLoadingDialogs()}
+
+				<!-- Safety error overlay -->
+				<gl-dialog class="generic-dialog" ?open=${this.state.safetyError != null} modal>
+					<div class="generic-dialog__container">
+						<h2>
+							<code-icon icon="warning"></code-icon>
+							Repository State Changed
+						</h2>
+						<p class="generic-dialog__message is-error">${replaceLineBreaks(this.state.safetyError)}</p>
+						<p class="generic-dialog__secondary">
+							The repository state has changed since Commit Composer was opened. Please reload to update
+							with new changes.
+						</p>
+						<nav class="generic-dialog__actions">
+							<gl-button appearance="secondary" @click=${this.handleCloseSafetyError}>Close</gl-button>
+							<gl-button @click=${this.handleReloadComposer}>Reload</gl-button>
+						</nav>
 					</div>
-				`,
-			)}
+				</gl-dialog>
+
+				<!-- Loading error overlay -->
+				<gl-dialog class="generic-dialog" ?open=${this.state.loadingError != null} modal>
+					<div class="generic-dialog__container">
+						<h2>
+							<code-icon icon="warning"></code-icon>
+							Loading Error
+						</h2>
+						<p class="generic-dialog__message is-error">${replaceLineBreaks(this.state.loadingError)}</p>
+						<nav class="generic-dialog__actions">
+							<gl-button appearance="secondary" @click=${this.handleCloseLoadingError}>Close</gl-button>
+						</nav>
+					</div>
+				</gl-dialog>
+
+				<!-- AI operation error overlay -->
+				<gl-dialog class="generic-dialog" ?open=${this.state.aiOperationError != null} modal>
+					<div class="generic-dialog__container">
+						<h2>
+							<code-icon icon="warning"></code-icon>
+							Operation Failed
+						</h2>
+						<p class="generic-dialog__message is-error">
+							${replaceLineBreaks(
+								`Failed to ${this.state.aiOperationError?.operation ?? 'perform operation'}${this.state.aiOperationError?.error ? `: ${this.state.aiOperationError.error}` : ''}`,
+							)}
+						</p>
+						<nav class="generic-dialog__actions">
+							<gl-button appearance="secondary" @click=${this.handleCloseAIOperationError}>OK</gl-button>
+						</nav>
+					</div>
+				</gl-dialog>
+			</main>
+
+			<gl-dialog ?open=${this.showCommitsGeneratedModal} modal class="modal">
+				<h2>Commits Generated</h2>
+				<p>${this.state.commits.length} commits have been generated successfully!</p>
+				<gl-button @click=${this.closeModal}>Exit Composer</gl-button>
+			</gl-dialog>
 		`;
 	}
+
+	private renderActions() {
+		if (!this.showHistoryButtons) return nothing;
+
+		const showRedo = false; // Hide redo button for now, as it's not implemented
+
+		return html`
+			<nav class="header-actions" aria-label="Composer actions">
+				<gl-button
+					?disabled=${!this.canUndo()}
+					@click=${() => this.undo()}
+					tooltip="Undo last action"
+					appearance="secondary"
+					><code-icon icon="discard" slot="prefix"></code-icon>Undo</gl-button
+				>
+				${when(
+					showRedo,
+					() =>
+						html` <gl-button
+							hidden
+							?disabled=${!this.canRedo()}
+							@click=${() => this.redo()}
+							tooltip="Redo last undone action"
+							appearance="secondary"
+							><code-icon icon="discard" flip="inline" slot="prefix"></code-icon>Redo</gl-button
+						>`,
+				)}
+				<gl-button @click=${() => this.reset()} tooltip="Reset to initial state" appearance="secondary"
+					><code-icon icon="trash" slot="prefix"></code-icon>Reset</gl-button
+				>
+			</nav>
+		`;
+	}
+
+	private onboardingSteps: KeyedDriveStep[] = [
+		{
+			key: `${onboardingKey}-welcome`,
+			popover: {
+				title: 'Welcome to Commit Composer',
+				description:
+					'Compose your changes into organized, meaningful commits before committing them. Use AI to automatically structure your work into draft commits with clear messages and descriptions, or commit manually.',
+			},
+		},
+		{
+			key: `${onboardingKey}-compose`,
+			element: () => this.commitsPanel.autoComposeSection!,
+			popover: {
+				title: 'Auto Compose Commits with AI',
+				description:
+					'Allow AI to organize your working changes into well-formed commits with clear messages and descriptions that help reviewers. <br><br> You can change which model to use and add custom instructions.',
+			},
+		},
+		{
+			key: `${onboardingKey}-changes`,
+			element: () => this.commitsPanel.changesSection,
+			popover: {
+				title: 'Review and Compose Working Changes',
+				description:
+					"Draft Commits represent what will be committed when you're finished. You can inspect changes to add commit messages and review diffs. <br><br> Coming soon: add draft commits and easily move hunks and lines between them.",
+			},
+		},
+		{
+			key: `${onboardingKey}-finish`,
+			element: () => this.commitsPanel.finishSection,
+			popover: {
+				title: 'Finish & Commit',
+				description: "Draft commits and messages will be committed when you're finished.",
+			},
+		},
+	];
+
+	private openOnboarding() {
+		if (this.onboarding) return;
+
+		this.onboarding = createOnboarding(this.onboardingSteps, {
+			onDestroyStarted: (_el, _step) => {
+				this.dismissOnboarding();
+			},
+		});
+
+		setTimeout(() => {
+			this.onboarding?.drive();
+		}, 1500);
+	}
+
+	dismissOnboarding() {
+		if (!this.onboarding) return;
+
+		this.onboarding.destroy();
+		this.onboarding = undefined;
+		this._ipc.sendCommand(DismissOnboardingCommand);
+		this.state.onboardingDismissed = true;
+		this.requestUpdate();
+	}
+}
+
+function replaceLineBreaks(text?: string | null, replaceWith: string = '<br>'): string | undefined {
+	return text?.replaceAll(/\n/g, replaceWith);
 }

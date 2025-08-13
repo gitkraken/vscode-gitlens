@@ -1,28 +1,38 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
 import {
-	getFileChanges,
+	generateComposerMarkdown,
 	getFileCountForCommit,
 	getHunksForCommit,
 	getUnassignedHunks,
 	groupHunksByFile,
 } from '../../../../plus/composer/utils';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
+import type { CommitMessage } from './commit-message';
+import '../../../shared/components/button';
+import '../../../shared/components/markdown/markdown';
 import './hunk-item';
+// import './diff/diff';
+import './diff/diff-file';
+import './commit-message';
 
 @customElement('gl-details-panel')
 export class DetailsPanel extends LitElement {
 	static override styles = [
+		boxSizingBase,
+		scrollableBase,
+		focusableBaseStyles,
 		css`
+			[hidden] {
+				display: none !important;
+			}
+
 			:host {
-				display: flex;
-				flex-direction: column;
-				height: 100%;
-				overflow: hidden;
-				position: relative;
+				display: contents;
 			}
 
 			.details-panel {
@@ -30,6 +40,7 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				overflow: hidden;
+				gap: 1.6rem;
 			}
 
 			.details-panel.split-view {
@@ -38,178 +49,71 @@ export class DetailsPanel extends LitElement {
 				scroll-behavior: smooth;
 			}
 
-			.commit-details {
-				display: flex;
-				flex-direction: column;
-				min-width: 0;
-				border-bottom: 1px solid var(--vscode-panel-border);
-				margin-bottom: 1.5rem;
-				background: var(--vscode-editor-background);
-			}
-
-			/* Single commit: take full height */
-			:host(:not([multiple-commits])) .commit-details {
-				flex: 1;
-				margin-bottom: 0;
-			}
-
-			/* Multiple commits: fixed height containers that stack */
-			:host([multiple-commits]) .commit-details {
-				height: 100vh;
-				flex: none;
-				margin-bottom: 2rem;
-			}
-
-			.commit-details:last-child {
-				border-bottom: none;
-				margin-bottom: 0;
-			}
-
-			.commit-header {
-				padding: 1rem;
-				border-bottom: 1px solid var(--vscode-panel-border);
-				background: var(--vscode-editor-background);
-			}
-
-			.commit-message {
-				font-weight: 500;
-				margin-bottom: 0.5rem;
-				word-wrap: break-word;
-				max-width: 100%;
-				overflow-wrap: break-word;
-				white-space: pre-wrap;
-			}
-
-			.commit-message.truncated {
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: normal;
-			}
-
-			.section {
-				border-bottom: 1px solid var(--vscode-panel-border);
-				display: flex;
-				flex-direction: column;
-			}
-
-			.section.files-changed-section {
-				flex: 1;
-				min-height: 0;
-				max-height: 75vh;
-			}
-
-			.section:last-child {
-				border-bottom: none;
-			}
-
-			.section-header {
-				padding: 0.75rem 1rem;
-				background: var(--vscode-sideBar-background);
-				border-bottom: 1px solid var(--vscode-panel-border);
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				gap: 0.5rem;
-				font-weight: 500;
-			}
-
-			.section-header-left {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				cursor: pointer;
-				user-select: none;
-				flex: 1;
-			}
-
-			.section-header:hover {
-				background: var(--vscode-list-hoverBackground);
-			}
-
-			.section-content {
-				transition: max-height 0.3s ease;
-			}
-
-			.section-content.collapsed {
-				max-height: 0 !important;
-				overflow: hidden !important;
-			}
-
-			.section-content.commit-message {
-				padding: 1rem;
-				max-height: 200px;
-				overflow-y: auto;
-			}
-
-			.section-content.ai-explanation {
-				padding: 1rem;
-				max-height: 300px;
-				overflow-y: auto;
-			}
-
-			.section-content.files-changed {
-				padding: 0;
+			.changes-list {
 				flex: 1;
 				overflow-y: auto;
-				min-height: 0;
-				max-height: 100%;
-			}
-
-			.section-content.files-changed.collapsed {
-				overflow: hidden !important;
-			}
-
-			.section-content.files-changed.drag-over {
-				border: 2px solid var(--vscode-focusBorder);
-				background: var(--vscode-list-dropBackground);
-			}
-
-			.ai-explanation {
-				line-height: 1.5;
-				color: var(--vscode-editor-foreground);
-			}
-
-			.ai-explanation.placeholder {
-				color: var(--vscode-descriptionForeground);
-				font-style: italic;
-			}
-
-			.hunks-list {
 				display: flex;
 				flex-direction: column;
-				gap: 0.5rem;
-				padding: 0.5rem;
+				gap: 3.2rem;
+			}
+
+			.change-details {
+				display: flex;
+				flex-direction: column;
+				gap: 1.2rem;
+			}
+
+			.files-headline {
+				font-size: 1.4rem;
+				margin-block: 0 0.8rem;
 			}
 
 			.files-list {
 				display: flex;
 				flex-direction: column;
-				gap: 1rem;
-				padding: 0.5rem;
+				gap: 0.8rem;
+			}
+
+			.files-list.drag-over {
+				border: 2px solid var(--vscode-focusBorder);
+				background: var(--vscode-list-dropBackground);
 			}
 
 			.file-group {
 				border: 1px solid var(--vscode-panel-border);
-				border-radius: 4px;
+				border-radius: 0.4rem;
 				overflow: hidden;
 			}
 
-			.file-header {
+			.file-group__header {
 				display: flex;
 				align-items: center;
-				justify-content: space-between;
-				padding: 0.5rem 0.75rem;
+				padding: 0.5rem 0.8rem;
 				background: var(--vscode-editorGroupHeader-tabsBackground);
+				cursor: pointer;
+			}
+
+			.file-group[open] .file-group__header {
 				border-bottom: 1px solid var(--vscode-panel-border);
+			}
+
+			.file-group__header:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
+
+			.file-group__icon {
+			}
+
+			.file-group:not([open]) .file-group__icon--open,
+			.file-group[open] .file-group__icon--closed {
+				display: none;
 			}
 
 			.file-name {
 				display: flex;
 				align-items: center;
 				gap: 0.5rem;
+				font-size: 1.4rem;
 				font-weight: 500;
 				color: var(--vscode-foreground);
 			}
@@ -235,20 +139,58 @@ export class DetailsPanel extends LitElement {
 				flex-direction: column;
 			}
 
-			.commit-message-textarea {
-				width: 100%;
-				min-width: 0;
-				resize: vertical;
-				background: var(--vscode-input-background);
-				color: var(--vscode-input-foreground);
-				border: 1px solid var(--vscode-input-border);
-				padding: 0.5rem;
-				font-family: inherit;
-				font-size: inherit;
-				box-sizing: border-box;
+			.empty-state {
+				padding: 2rem;
+				margin-block: 0;
+				font-weight: bold;
+				text-align: center;
+				color: var(--vscode-descriptionForeground);
+				background: var(--vscode-editor-background);
+				border: 0.1rem solid var(--vscode-panel-border);
+				border-radius: 0.3rem;
+			}
+
+			.empty-state__icon {
+				font-size: 7.2rem;
+				margin-block-end: 0.8rem;
+				opacity: 0.75;
+			}
+
+			.no-changes-state {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				text-align: center;
+				padding: 2rem;
+				gap: 1.6rem;
+				height: 100%;
+			}
+
+			.no-changes-title {
+				font-size: 1.6rem;
+				font-weight: 600;
+				margin: 0;
+				color: var(--vscode-foreground);
+			}
+
+			.no-changes-description {
+				color: var(--vscode-descriptionForeground);
+				line-height: 1.5;
+				margin: 0;
+				max-width: 40rem;
+			}
+
+			.no-changes-actions {
+				display: flex;
+				gap: 1.2rem;
+				margin-top: 1.2rem;
 			}
 		`,
 	];
+
+	@property({ type: Array })
+	commits: ComposerCommit[] = [];
 
 	@property({ type: Array })
 	selectedCommits: ComposerCommit[] = [];
@@ -256,8 +198,8 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Array })
 	hunks: ComposerHunk[] = [];
 
-	@property({ type: Object })
-	selectedUnassignedSection: string | null = null;
+	@property()
+	selectedUnassignedSection: 'staged' | 'unstaged' | 'unassigned' | null = null;
 
 	@property({ type: Boolean })
 	commitMessageExpanded = true;
@@ -280,17 +222,36 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	aiEnabled: boolean = false;
 
+	@property({ type: String })
+	aiDisabledReason: string | null = null;
+
+	@property({ type: Boolean })
+	isPreviewMode: boolean = false;
+
+	@property({ type: Boolean })
+	compositionSummarySelected: boolean = false;
+
+	@property({ type: Boolean })
+	hasChanges: boolean = true;
+
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
 	private autoScrollInterval?: number;
 	private dragOverCleanupTimeout?: number;
 
+	@query('.details-panel')
+	private detailsPanel!: HTMLDivElement;
+
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
 
-		// Reinitialize sortables when commits or hunks change
-		if (changedProperties.has('selectedCommits') || changedProperties.has('hunks')) {
+		// Reinitialize sortables when commits, hunks, or AI preview mode change
+		if (
+			changedProperties.has('selectedCommits') ||
+			changedProperties.has('hunks') ||
+			changedProperties.has('isPreviewMode')
+		) {
 			this.initializeHunksSortable();
 			this.setupAutoScroll();
 		}
@@ -314,40 +275,43 @@ export class DetailsPanel extends LitElement {
 	private initializeHunksSortable() {
 		this.destroyHunksSortables();
 
+		// Don't initialize sortable in AI preview mode
+		if (this.isPreviewMode) {
+			return;
+		}
+
 		// Find all file hunks containers (could be multiple in split view)
 		const fileHunksContainers = this.shadowRoot?.querySelectorAll('.file-hunks');
-		if (fileHunksContainers && fileHunksContainers.length > 0) {
-			fileHunksContainers.forEach(hunksContainer => {
-				const sortable = Sortable.create(hunksContainer as HTMLElement, {
-					group: {
-						name: 'hunks',
-						pull: true, // Allow pulling hunks out
-						put: false, // Allow dropping hunks between commits
-					},
-					animation: 0,
-					dragClass: 'sortable-drag',
-					selectedClass: 'sortable-selected',
-					sort: false, // Don't allow reordering within the same container
-					onStart: evt => {
-						const draggedHunkId = evt.item.dataset.hunkId;
-						if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
-							// Multi-hunk drag - collect all selected hunks
-							this.dispatchHunkDragStart(Array.from(this.selectedHunkIds));
-						} else {
-							// Single hunk drag
-							this.dispatchHunkDragStart(draggedHunkId ? [draggedHunkId] : []);
-						}
+		fileHunksContainers?.forEach(hunksContainer => {
+			const sortable = Sortable.create(hunksContainer as HTMLElement, {
+				group: {
+					name: 'hunks',
+					pull: true, // Allow pulling hunks out
+					put: false, // Allow dropping hunks between commits
+				},
+				animation: 0,
+				dragClass: 'sortable-drag',
+				selectedClass: 'sortable-selected',
+				sort: false, // Don't allow reordering within the same container
+				onStart: evt => {
+					const draggedHunkId = evt.item.dataset.hunkId;
+					if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
+						// Multi-hunk drag - collect all selected hunks
+						this.dispatchHunkDragStart(Array.from(this.selectedHunkIds));
+					} else {
+						// Single hunk drag
+						this.dispatchHunkDragStart(draggedHunkId ? [draggedHunkId] : []);
+					}
 
-						// Store original element for restoration if needed
-						evt.item.setAttribute('data-original-parent', evt.from.id || 'unknown');
-					},
-					onEnd: () => {
-						this.dispatchHunkDragEnd();
-					},
-				});
-				this.hunksSortables.push(sortable);
+					// Store original element for restoration if needed
+					evt.item.setAttribute('data-original-parent', evt.from.id || 'unknown');
+				},
+				onEnd: () => {
+					this.dispatchHunkDragEnd();
+				},
 			});
-		}
+			this.hunksSortables.push(sortable);
+		});
 
 		// Add drag event listeners to files-list containers for visual feedback
 		const filesListContainers = this.shadowRoot?.querySelectorAll('.files-changed');
@@ -403,23 +367,17 @@ export class DetailsPanel extends LitElement {
 	};
 
 	private setupAutoScroll() {
-		const detailsPanel = this.shadowRoot?.querySelector('.details-panel');
-		if (!detailsPanel) return;
-
 		// Remove existing listeners
 		this.cleanupAutoScroll();
 
 		// Add dragover listener for auto-scroll
-		detailsPanel.addEventListener('dragover', this.handleDragOverForAutoScroll);
+		this.detailsPanel.addEventListener('dragover', this.handleDragOverForAutoScroll);
 		// Add global dragend listener as a safety net to clean up drag state
 		document.addEventListener('dragend', this.handleGlobalDragEnd);
 	}
 
 	private cleanupAutoScroll() {
-		const detailsPanel = this.shadowRoot?.querySelector('.details-panel');
-		if (detailsPanel) {
-			detailsPanel.removeEventListener('dragover', this.handleDragOverForAutoScroll);
-		}
+		this.detailsPanel.removeEventListener('dragover', this.handleDragOverForAutoScroll);
 		document.removeEventListener('dragend', this.handleGlobalDragEnd);
 		if (this.autoScrollInterval) {
 			clearInterval(this.autoScrollInterval);
@@ -436,8 +394,7 @@ export class DetailsPanel extends LitElement {
 
 	private handleDragOverForAutoScroll = (e: Event) => {
 		// Only auto-scroll when in split-view (multiple commits) and we're dragging hunks
-		const detailsPanel = this.shadowRoot?.querySelector('.details-panel');
-		if (!detailsPanel?.classList.contains('split-view') || !this.isDraggingHunks) {
+		if (!this.detailsPanel?.classList.contains('split-view') || !this.isDraggingHunks) {
 			return;
 		}
 
@@ -537,7 +494,10 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
-	private handleGenerateCommitMessage(commitId: string) {
+	private handleGenerateCommitMessage(commitId: string, e?: CustomEvent) {
+		e?.preventDefault();
+		e?.stopPropagation();
+
 		// Get hunk indices for this commit
 		const commit = this.selectedCommits.find(c => c.id === commitId);
 		const hunkIndices = commit?.hunkIndices || [];
@@ -556,67 +516,63 @@ export class DetailsPanel extends LitElement {
 		return Array.from(fileGroups.entries())
 			.filter(([, fileHunks]) => fileHunks.length > 0) // Only show files that have hunks
 			.map(([fileName, fileHunks]) => {
-				const fileChanges = getFileChanges(fileHunks);
-
-				return html`
-					<div class="file-group">
-						<div class="file-header">
-							<div class="file-name">
-								<code-icon icon="file-code"></code-icon>
-								${fileName}
-							</div>
-							<div class="file-stats">
-								<span class="additions">+${fileChanges.additions}</span>
-								<span class="deletions">-${fileChanges.deletions}</span>
-							</div>
-						</div>
-						<div class="file-hunks">
-							${repeat(
-								fileHunks,
-								hunk => hunk.index,
-								hunk => html`
-									<gl-hunk-item
-										data-hunk-id=${hunk.index.toString()}
-										.hunkId=${hunk.index.toString()}
-										.fileName=${hunk.fileName}
-										.hunkHeader=${hunk.hunkHeader}
-										.content=${hunk.content}
-										.additions=${hunk.additions}
-										.deletions=${hunk.deletions}
-										.selected=${this.selectedHunkIds.has(hunk.index.toString())}
-										.isRename=${hunk.isRename || false}
-										.originalFileName=${hunk.originalFileName}
-										@hunk-selected=${(e: CustomEvent) =>
-											this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
-									></gl-hunk-item>
-								`,
-							)}
-						</div>
-					</div>
-				`;
+				return this.renderFile(fileName, fileHunks);
+				// return this.renderFileOld(fileName, fileHunks);
 			});
 	}
 
-	private toggleSection(section: 'commitMessage' | 'aiExplanation' | 'filesChanged') {
-		let eventName: string;
-		switch (section) {
-			case 'commitMessage':
-				eventName = 'toggle-commit-message';
-				break;
-			case 'aiExplanation':
-				eventName = 'toggle-ai-explanation';
-				break;
-			case 'filesChanged':
-				eventName = 'toggle-files-changed';
-				break;
-		}
+	private renderFile(fileName: string, fileHunks: ComposerHunk[]) {
+		// const fileChanges = getFileChanges(fileHunks);
 
-		this.dispatchEvent(
-			new CustomEvent(eventName, {
-				bubbles: true,
-			}),
-		);
+		return html`<gl-diff-file .filename=${fileName} .hunks=${fileHunks}></gl-diff-file>`;
 	}
+
+	// private renderFileOld(fileName: string, fileHunks: ComposerHunk[]) {
+	// 	const fileChanges = getFileChanges(fileHunks);
+
+	// 	return html`
+	// 		<details open class="file-group">
+	// 			<summary class="file-group__header">
+	// 				<code-icon class="file-group__icon file-group__icon--open" icon="chevron-down"></code-icon>
+	// 				<code-icon class="file-group__icon file-group__icon--closed" icon="chevron-right"></code-icon>
+	// 				<div class="file-name">${fileName}</div>
+	// 				<div class="file-stats" hidden>
+	// 					<span class="additions">+${fileChanges.additions}</span>
+	// 					<span class="deletions">-${fileChanges.deletions}</span>
+	// 				</div>
+	// 			</summary>
+	// 			<div class="file-hunks">
+	// 				${repeat(
+	// 					fileHunks,
+	// 					hunk => hunk.index,
+	// 					hunk => html`
+	// 						<gl-hunk-item
+	// 							hidden
+	// 							data-hunk-id=${hunk.index.toString()}
+	// 							.hunkId=${hunk.index.toString()}
+	// 							.fileName=${hunk.fileName}
+	// 							.hunkHeader=${hunk.hunkHeader}
+	// 							.content=${hunk.content}
+	// 							.additions=${hunk.additions}
+	// 							.deletions=${hunk.deletions}
+	// 							.selected=${this.selectedHunkIds.has(hunk.index.toString())}
+	// 							.isRename=${hunk.isRename || false}
+	// 							.originalFileName=${hunk.originalFileName}
+	// 							.isAIPreviewMode=${this.isAIPreviewMode}
+	// 							@hunk-selected=${(e: CustomEvent) =>
+	// 								this.dispatchHunkSelect(e.detail.hunkId, e.detail.shiftKey)}
+	// 						></gl-hunk-item>
+	// 						<gl-diff-hunk
+	// 							.diffHeader=${hunk.diffHeader}
+	// 							.hunkHeader=${hunk.hunkHeader}
+	// 							.hunkContent=${hunk.content}
+	// 						></gl-diff-hunk>
+	// 					`,
+	// 				)}
+	// 			</div>
+	// 		</details>
+	// 	`;
+	// }
 
 	private dispatchHunkSelect(hunkId: string, shiftKey: boolean = false) {
 		this.dispatchEvent(
@@ -627,116 +583,62 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
+	public focusCommitMessageInput(commitId: string, checkValidity = false) {
+		// Find the commit message textarea for the specified commit
+		const commitElement = this.shadowRoot?.querySelector(
+			`[data-commit-id="${commitId}"] gl-commit-message`,
+		) as CommitMessage;
+		if (commitElement) {
+			commitElement.focus();
+			// Select all text so user can start typing immediately
+			commitElement.select(checkValidity);
+		}
+	}
+
 	private renderUnassignedSectionDetails() {
 		if (!this.selectedUnassignedSection) return nothing;
 
 		const hunks = this.getHunksForSection(this.selectedUnassignedSection);
 
 		return html`
-			<div class="commit-details">
-				<div class="commit-header">
-					<div class="commit-message">${this.getSectionTitle(this.selectedUnassignedSection)}</div>
-				</div>
+			<article class="change-details">
+				<gl-commit-message .message=${this.getSectionTitle(this.selectedUnassignedSection)}></gl-commit-message>
 
-				<div class="section files-changed-section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
-							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-							Files Changed (${hunks.length})
-						</div>
+				<section>
+					<h3 class="files-headline">Files Changed (${hunks.length})</h3>
+					<div class="files-list" data-source="${this.selectedUnassignedSection}">
+						${this.renderFileHierarchy(hunks)}
 					</div>
-					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
-						<div class="files-list" data-source="${this.selectedUnassignedSection}">
-							${this.renderFileHierarchy(hunks)}
-						</div>
-					</div>
-				</div>
-			</div>
+				</section>
+			</article>
 		`;
 	}
 
 	private renderCommitDetails(commit: ComposerCommit) {
 		const commitHunks = getHunksForCommit(commit, this.hunks);
 		return html`
-			<div class="commit-details" data-commit-id=${commit.id}>
-				<div class="commit-header">
-					<div class="commit-message truncated">${commit.message}</div>
-				</div>
+			<article class="change-details" data-commit-id=${commit.id}>
+				<gl-commit-message
+					.message=${commit.message}
+					.commitId=${commit.id}
+					.explanation=${commit.aiExplanation}
+					?generating=${this.generatingCommitMessage === commit.id}
+					?ai-enabled=${this.aiEnabled}
+					.aiDisabledReason=${this.aiDisabledReason}
+					editable
+					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
+					@generate-commit-message=${(e: CustomEvent) => this.handleGenerateCommitMessage(commit.id, e)}
+				></gl-commit-message>
 
-				<div class="section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('commitMessage')}>
-							<code-icon
-								icon=${this.commitMessageExpanded ? 'chevron-down' : 'chevron-right'}
-							></code-icon>
-							Commit Message
-						</div>
-						${this.aiEnabled
-							? html`
-									<gl-button
-										appearance="secondary"
-										size="small"
-										?disabled=${this.generatingCommitMessage === commit.id || this.committing}
-										@click=${() => this.handleGenerateCommitMessage(commit.id)}
-										title=${this.generatingCommitMessage === commit.id
-											? 'Generating...'
-											: 'Generate Commit Message with AI'}
-									>
-										<code-icon
-											icon=${this.generatingCommitMessage === commit.id
-												? 'loading~spin'
-												: 'sparkle'}
-										></code-icon>
-									</gl-button>
-								`
-							: ''}
-					</div>
-					<div class="section-content commit-message ${this.commitMessageExpanded ? '' : 'collapsed'}">
-						<textarea
-							class="commit-message-textarea"
-							.value=${commit.message}
-							placeholder="Enter commit message..."
-							rows="3"
-							@input=${(e: InputEvent) =>
-								this.handleCommitMessageChange(commit.id, (e.target as HTMLTextAreaElement).value)}
-						></textarea>
-					</div>
-				</div>
-
-				<div class="section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('aiExplanation')}>
-							<code-icon
-								icon=${this.aiExplanationExpanded ? 'chevron-down' : 'chevron-right'}
-							></code-icon>
-							AI Explanation
-						</div>
-					</div>
-					<div class="section-content ai-explanation ${this.aiExplanationExpanded ? '' : 'collapsed'}">
-						<p class="ai-explanation ${commit.aiExplanation ? '' : 'placeholder'}">
-							${commit.aiExplanation || 'No AI explanation available for this commit.'}
-						</p>
-					</div>
-				</div>
-
-				<div class="section files-changed-section">
-					<div class="section-header">
-						<div class="section-header-left" @click=${() => this.toggleSection('filesChanged')}>
-							<code-icon icon=${this.filesChangedExpanded ? 'chevron-down' : 'chevron-right'}></code-icon>
-							Files Changed (${getFileCountForCommit(commit, this.hunks)})
-						</div>
-					</div>
-					<div class="section-content files-changed ${this.filesChangedExpanded ? '' : 'collapsed'}">
-						<div class="files-list" data-commit-id=${commit.id}>
-							${this.renderFileHierarchy(commitHunks)}
-						</div>
-					</div>
-				</div>
-			</div>
+				<section>
+					<h3 class="files-headline">Files Changed (${getFileCountForCommit(commit, this.hunks)})</h3>
+					<div class="files-list" data-commit-id=${commit.id}>${this.renderFileHierarchy(commitHunks)}</div>
+				</section>
+			</article>
 		`;
 	}
 
-	private getHunksForSection(section: string): ComposerHunk[] {
+	private getHunksForSection(section: 'staged' | 'unstaged' | 'unassigned'): ComposerHunk[] {
 		const unassignedHunks = getUnassignedHunks(this.hunks);
 
 		switch (section) {
@@ -751,7 +653,7 @@ export class DetailsPanel extends LitElement {
 		}
 	}
 
-	private getSectionTitle(section: string): string {
+	private getSectionTitle(section: 'staged' | 'unstaged' | 'unassigned'): string {
 		switch (section) {
 			case 'staged':
 				return 'Staged Changes';
@@ -764,32 +666,93 @@ export class DetailsPanel extends LitElement {
 		}
 	}
 
+	private renderCompositionSummary() {
+		if (!this.compositionSummarySelected) return nothing;
+
+		// Generate the composition summary markdown
+		const summaryMarkdown = generateComposerMarkdown(this.commits, this.hunks);
+
+		return html`
+			<article class="change-details">
+				<gl-markdown density="document" .markdown=${summaryMarkdown}></gl-markdown>
+			</article>
+		`;
+	}
+
 	override render() {
+		// Handle no changes state
+		if (!this.hasChanges) {
+			return html`
+				<div class="details-panel">
+					<div class="changes-list scrollable">${this.renderNoChangesState()}</div>
+				</div>
+			`;
+		}
+
 		const isMultiSelect = this.selectedCommits.length > 1;
 
 		return html`
 			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
-				${when(
-					this.selectedUnassignedSection,
-					() => this.renderUnassignedSectionDetails(),
-					() =>
-						when(
-							this.selectedCommits.length > 0,
-							() =>
-								repeat(
-									this.selectedCommits,
-									commit => commit.id,
-									commit => this.renderCommitDetails(commit),
-								),
-							() =>
-								html`<div
-									style="padding: 2rem; text-align: center; color: var(--vscode-descriptionForeground);"
-								>
-									Select a commit or unassigned changes to view details
-								</div>`,
-						),
-				)}
+				<div class="changes-list scrollable">${this.renderDetails()}</div>
 			</div>
 		`;
+	}
+
+	private renderNoChangesState() {
+		return html`
+			<div class="no-changes-state">
+				<h2 class="no-changes-title">Commit Composer Needs Something to Compose</h2>
+				<p class="no-changes-description">
+					Commit Composer helps you organize changes into meaningful commits before committing them and can
+					leverage AI to do this automatically.
+				</p>
+				<p class="no-changes-description">
+					Make some working directory changes and Reload or come back to this view to see how it works.
+				</p>
+				<div class="no-changes-actions">
+					<gl-button appearance="secondary" @click=${this.handleClose}>Close</gl-button>
+					<gl-button @click=${this.handleReload}>Reload</gl-button>
+				</div>
+			</div>
+		`;
+	}
+
+	private handleClose() {
+		this.dispatchEvent(
+			new CustomEvent('close-composer', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	private handleReload() {
+		this.dispatchEvent(
+			new CustomEvent('reload-composer', {
+				bubbles: true,
+			}),
+		);
+	}
+
+	private renderDetails() {
+		if (this.compositionSummarySelected) {
+			return this.renderCompositionSummary();
+		}
+
+		if (this.selectedUnassignedSection) {
+			return this.renderUnassignedSectionDetails();
+		}
+
+		if (this.selectedCommits.length === 0) {
+			return html`<p class="empty-state">
+				<code-icon class="empty-state__icon" icon="list-unordered"></code-icon><br />
+				Select a commit or unassigned changes to view details
+			</p>`;
+		}
+
+		return repeat(
+			this.selectedCommits,
+			commit => commit.id,
+			commit => this.renderCommitDetails(commit),
+		);
 	}
 }
