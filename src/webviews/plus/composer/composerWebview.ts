@@ -1,7 +1,8 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, ProgressLocation, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import type { ContextKeys } from '../../../constants.context';
-import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
+import type { ComposerTelemetryContext, Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Repository } from '../../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
@@ -13,7 +14,9 @@ import { PromiseCache } from '../../../system/promiseCache';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import type {
+	AddedHunksToCommitParams,
 	AIFeedbackParams,
+	ComposerContext,
 	FinishAndCommitParams,
 	GenerateCommitMessageParams,
 	GenerateCommitsParams,
@@ -21,8 +24,10 @@ import type {
 	State,
 } from './protocol';
 import {
+	AddedHunksToCommitCommand,
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
+	baseContext,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
 	ClearAIOperationErrorCommand,
@@ -69,6 +74,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private _generateCommitsCancellation?: CancellationTokenSource;
 	private _generateCommitMessageCancellation?: CancellationTokenSource;
 
+	// Telemetry context - tracks composer-specific data for getTelemetryContext
+	private _context: ComposerContext;
+
 	constructor(
 		protected readonly container: Container,
 		protected readonly host: WebviewHost<'gitlens.composer'>,
@@ -78,10 +86,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
 		);
+		this._context = { ...baseContext };
 	}
 
 	dispose(): void {
 		this._cache.clear();
+		this.resetTelemetryContext();
 		this._generateCommitsCancellation?.dispose();
 		this._generateCommitMessageCancellation?.dispose();
 		this._disposable.dispose();
@@ -125,12 +135,63 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			case DismissOnboardingCommand.is(e):
 				this.onDismissOnboarding();
 				break;
+			case AddedHunksToCommitCommand.is(e):
+				this.onAddedHunksToCommit(e.params);
+				break;
 		}
 	}
 
-	getTelemetryContext(): WebviewTelemetryContext {
+	getTelemetryContext(): ComposerTelemetryContext {
 		return {
 			...this.host.getTelemetryContext(),
+			'context.sessionId': this._context.sessionId,
+			'context.files.count': this._context.diff.files,
+			'context.hunks.count': this._context.diff.hunks,
+			'context.lines.count': this._context.diff.lines,
+			'context.draftCommits.initialCount': this._context.draftCommits.initialCount,
+			'context.draftCommits.finalCount': this._context.draftCommits.finalCount,
+			'context.diffSources.staged': this._context.diff.staged,
+			'context.diffSources.unstaged': this._context.diff.unstaged,
+			'context.diffSources.unstaged.included': this._context.diff.unstagedIncluded,
+			'context.model.id': this._context.ai.model?.id,
+			'context.model.name': this._context.ai.model?.name,
+			'context.model.provider.id': this._context.ai.model?.provider.id,
+			'context.model.temperature': this._context.ai.model?.temperature ?? undefined,
+			'context.model.maxTokens.input': this._context.ai.model?.maxTokens.input,
+			'context.model.maxTokens.output': this._context.ai.model?.maxTokens.output,
+			'context.model.default': this._context.ai.model?.default,
+			'context.model.hidden': this._context.ai.model?.hidden,
+			'context.ai.operations.generateCommits.count': this._context.ai.operations.generateCommits.count,
+			'context.ai.operations.generateCommits.cancelled.count':
+				this._context.ai.operations.generateCommits.cancelledCount,
+			'context.ai.operations.generateCommits.error.count': this._context.ai.operations.generateCommits.errorCount,
+			'context.ai.operations.generateCommits.customInstructions.used':
+				this._context.ai.operations.generateCommits.customInstructions.used,
+			'context.ai.operations.generateCommits.customInstructions.length':
+				this._context.ai.operations.generateCommits.customInstructions.length,
+			'context.ai.operations.generateCommits.customInstructions.hash':
+				this._context.ai.operations.generateCommits.customInstructions.hash,
+			'context.ai.operations.generateCommits.customInstructions.setting.used':
+				this._context.ai.operations.generateCommits.customInstructions.settingUsed,
+			'context.ai.operations.generateCommits.customInstructions.setting.length':
+				this._context.ai.operations.generateCommits.customInstructions.settingLength,
+			'context.ai.operations.generateCommits.feedback.upvote.count':
+				this._context.ai.operations.generateCommits.feedback.upvoteCount,
+			'context.ai.operations.generateCommits.feedback.downvote.count':
+				this._context.ai.operations.generateCommits.feedback.downvoteCount,
+			'context.ai.operations.generateCommitMessage.count':
+				this._context.ai.operations.generateCommitMessage.count,
+			'context.ai.operations.generateCommitMessage.cancelled.count':
+				this._context.ai.operations.generateCommitMessage.cancelledCount,
+			'context.ai.operations.generateCommitMessage.error.count':
+				this._context.ai.operations.generateCommitMessage.errorCount,
+			'context.ai.operations.generateCommitMessage.customInstructions.setting.used':
+				this._context.ai.operations.generateCommitMessage.customInstructions.settingUsed,
+			'context.ai.operations.generateCommitMessage.customInstructions.setting.length':
+				this._context.ai.operations.generateCommitMessage.customInstructions.settingLength,
+			'context.ai.enabled.config': this._context.ai.enabled.config,
+			'context.ai.enabled.org': this._context.ai.enabled.org,
+			'context.onboarding.dismissed': this._context.onboarding.dismissed,
 		};
 	}
 
@@ -171,7 +232,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async createInitialStateFromRepo(
 		repo: Repository,
 		mode: 'experimental' | 'preview' = 'preview',
-		_source?: Sources,
+		source?: Sources,
 	): Promise<State> {
 		// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
 		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
@@ -227,6 +288,29 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const aiModel = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
 
 		const onboardingDismissed = this.isOnboardingDismissed();
+		const commits = hasChanges ? [initialCommit] : [];
+
+		const customInstructionsSetting = configuration.get('ai.generateCommitMessage.customInstructions');
+
+		// Update context
+		if (customInstructionsSetting) {
+			this._context.ai.operations.generateCommitMessage.customInstructions.settingUsed = true;
+			this._context.ai.operations.generateCommitMessage.customInstructions.settingLength =
+				customInstructionsSetting.length;
+		}
+		this._context.diff.files = new Set(hunks.map(h => h.fileName)).size;
+		this._context.diff.hunks = hunks.length;
+		this._context.diff.lines = hunks.reduce((total, hunk) => total + hunk.content.split('\n').length - 1, 0);
+		this._context.diff.staged = hasStagedChanges;
+		this._context.diff.unstaged = hasUnstagedChanges;
+		this._context.draftCommits.initialCount = commits.length;
+		this._context.ai.enabled.org = aiEnabled.org;
+		this._context.ai.enabled.config = aiEnabled.config;
+		this._context.ai.model = aiModel;
+		this._context.onboarding.dismissed = onboardingDismissed;
+		this._context.source = source;
+		this._context.mode = mode;
+		this._context.sessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
 		return {
 			...this.initialState,
@@ -238,7 +322,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				repoName: repo.name,
 				branchName: currentBranch.name,
 			},
-			commits: hasChanges ? [initialCommit] : [],
+			commits: commits,
 			safetyState: safetyState,
 			aiEnabled: aiEnabled,
 			ai: {
@@ -250,6 +334,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
+	private onAddedHunksToCommit(params: AddedHunksToCommitParams): void {
+		if (params.source === 'unstaged') {
+			this._context.diff.unstagedIncluded = true;
+		}
+	}
+
 	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
 		try {
 			// Clear cache to force fresh data on reload
@@ -259,6 +349,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			const repo = this.container.git.getRepository(params.repoPath);
 			if (!repo) {
 				// Show error in the safety error overlay
+				this._context.errors.safety++;
 				await this.host.notify(DidSafetyErrorNotification, {
 					error: 'Repository is no longer available',
 				});
@@ -271,6 +362,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Check if there was a loading error
 			if (composerData.loadingError) {
 				// Send loading error notification instead of reload notification
+				this._context.errors.loading++;
 				await this.host.notify(DidLoadingErrorNotification, {
 					error: composerData.loadingError,
 				});
@@ -289,6 +381,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			});
 		} catch (error) {
 			// Show error in the safety error overlay
+			this._context.errors.loading++;
 			await this.host.notify(DidLoadingErrorNotification, {
 				error: error instanceof Error ? error.message : 'Failed to reload composer',
 			});
@@ -300,6 +393,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			this._generateCommitsCancellation.cancel();
 
 			// Send cancellation notification to clear loading state properly
+			this._context.ai.operations.generateCommits.cancelledCount++;
 			await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 
 			// Note: Don't dispose the token immediately - let the finally block handle cleanup
@@ -312,6 +406,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			this._generateCommitMessageCancellation.cancel();
 
 			// Send cancellation notification to clear loading state properly
+			this._context.ai.operations.generateCommitMessage.cancelledCount++;
 			await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 
 			// Note: Don't dispose the token immediately - let the finally block handle cleanup
@@ -329,12 +424,17 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			return;
 		}
 
+		this._context.onboarding.dismissed = true;
 		void this.container.storage.store('composer:onboarding:dismissed', currentOnboardingVersion).catch();
 	}
 
 	private isOnboardingDismissed(): boolean {
 		const dismissedVersion = this.container.storage.get('composer:onboarding:dismissed');
 		return dismissedVersion === currentOnboardingVersion;
+	}
+
+	private resetTelemetryContext(): void {
+		this._context = { ...baseContext };
 	}
 
 	onShowing(
@@ -346,6 +446,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		if (args?.[0]) {
 			// Clear cache when new args are provided (new composer session)
 			this._cache.clear();
+			this.resetTelemetryContext();
 			this._args = args[0];
 			this.updateTitle(args[0].mode);
 		}
@@ -368,6 +469,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async updateAiModel(): Promise<void> {
 		try {
 			const model = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
+			this._context.ai.model = model;
 			await this.host.notify(DidChangeAiModelNotification, { model: model });
 		} catch {
 			// Ignore errors when getting AI model
@@ -384,11 +486,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onAIFeedbackHelpful(params: AIFeedbackParams): Promise<void> {
 		// Send AI feedback for composer auto-composition
+		this._context.ai.operations.generateCommits.feedback.upvoteCount++;
 		await this.sendComposerAIFeedback('helpful', params.sessionId);
 	}
 
 	private async onAIFeedbackUnhelpful(params: AIFeedbackParams): Promise<void> {
 		// Send AI feedback for composer auto-composition
+		this._context.ai.operations.generateCommits.feedback.downvoteCount++;
 		await this.sendComposerAIFeedback('unhelpful', params.sessionId);
 	}
 
@@ -434,6 +538,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
 		try {
+			this._context.ai.operations.generateCommits.count++;
+			if (params.customInstructions) {
+				this._context.ai.operations.generateCommits.customInstructions.used = true;
+				this._context.ai.operations.generateCommits.customInstructions.length =
+					params.customInstructions.length;
+				this._context.ai.operations.generateCommits.customInstructions.hash = md5(params.customInstructions);
+			}
+
 			// Create cancellation token for this operation
 			this._generateCommitsCancellation = new CancellationTokenSource();
 
@@ -471,6 +583,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			);
 
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
+				this._context.ai.operations.generateCommits.cancelledCount++;
 				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 				return;
 			}
@@ -487,9 +600,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				// Notify the webview with the generated commits (this will also clear loading state)
 				await this.host.notify(DidGenerateCommitsNotification, { commits: newCommits });
 			} else if (result === 'cancelled') {
+				this._context.ai.operations.generateCommits.cancelledCount++;
 				// Send cancellation notification instead of success notification
 				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 			} else {
+				this._context.ai.operations.generateCommits.errorCount++;
+				this._context.errors.aiOperation++;
 				// Send error notification for failure (not cancellation)
 				await this.host.notify(DidErrorAIOperationNotification, {
 					operation: 'generate commits',
@@ -499,9 +615,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		} catch (error) {
 			// Check if this was a cancellation or a real error
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
+				this._context.ai.operations.generateCommits.cancelledCount++;
 				// Send cancellation notification
 				await this.host.notify(DidCancelGenerateCommitsNotification, undefined);
 			} else {
+				this._context.ai.operations.generateCommits.errorCount++;
+				this._context.errors.aiOperation++;
 				// Send error notification for exception
 				await this.host.notify(DidErrorAIOperationNotification, {
 					operation: 'generate commits',
@@ -517,6 +636,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
 		try {
+			this._context.ai.operations.generateCommitMessage.count++;
+
 			// Create cancellation token for this operation
 			this._generateCommitMessageCancellation = new CancellationTokenSource();
 
@@ -533,6 +654,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			);
 
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
+				this._context.ai.operations.generateCommitMessage.cancelledCount++;
 				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 				return;
 			}
@@ -549,9 +671,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					message: message,
 				});
 			} else if (result === 'cancelled') {
+				this._context.ai.operations.generateCommitMessage.cancelledCount++;
 				// Send cancellation notification instead of success notification
 				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 			} else {
+				this._context.ai.operations.generateCommitMessage.errorCount++;
+				this._context.errors.aiOperation++;
 				// Send error notification for failure (not cancellation)
 				await this.host.notify(DidErrorAIOperationNotification, {
 					operation: 'generate commit message',
@@ -561,9 +686,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		} catch (error) {
 			// Check if this was a cancellation or a real error
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
+				this._context.ai.operations.generateCommitMessage.cancelledCount++;
 				// Send cancellation notification
 				await this.host.notify(DidCancelGenerateCommitMessageNotification, undefined);
 			} else {
+				this._context.ai.operations.generateCommitMessage.errorCount++;
+				this._context.errors.aiOperation++;
 				// Send error notification for exception
 				await this.host.notify(DidErrorAIOperationNotification, {
 					operation: 'generate commit message',
@@ -587,6 +715,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (!repo) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
+				this._context.errors.safety++;
 				await this.host.notify(DidSafetyErrorNotification, {
 					error: 'Repository is no longer available',
 				});
@@ -603,6 +732,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (!validation.isValid) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
+				this._context.errors.safety++;
 				await this.host.notify(DidSafetyErrorNotification, {
 					error: validation.errors.join('\n'),
 				});
@@ -642,6 +772,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
+				this._context.errors.safety++;
 				await this.host.notify(DidSafetyErrorNotification, {
 					error: 'Output diff does not match input',
 				});
@@ -686,6 +817,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Clear the committing state and close the composer webview first
+			this._context.draftCommits.finalCount = shas.length;
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
 		} catch (error) {
@@ -699,18 +831,22 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'ai.enabled')) {
+			const newSetting = configuration.get('ai.enabled', undefined, true);
+			this._context.ai.enabled.config = newSetting;
 			// Update AI config setting in state
 			void this.host.notify(DidChangeAiEnabledNotification, {
-				config: configuration.get('ai.enabled', undefined, true),
+				config: newSetting,
 			});
 		}
 	}
 
 	private onContextChanged(key: keyof ContextKeys) {
 		if (key === 'gitlens:gk:organization:ai:enabled') {
+			const newSetting = getContext('gitlens:gk:organization:ai:enabled', true);
+			this._context.ai.enabled.org = newSetting;
 			// Update AI org setting in state
 			void this.host.notify(DidChangeAiEnabledNotification, {
-				org: getContext('gitlens:gk:organization:ai:enabled', true),
+				org: newSetting,
 			});
 		}
 	}

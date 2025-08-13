@@ -149,6 +149,126 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	onboardingDismissed: false,
 };
 
+export interface ComposerContext {
+	sessionId: string;
+	diff: {
+		files: number;
+		hunks: number;
+		lines: number;
+		staged: boolean;
+		unstaged: boolean;
+		unstagedIncluded: boolean;
+	};
+	draftCommits: {
+		initialCount: number;
+		finalCount: number | undefined;
+	};
+	ai: {
+		enabled: {
+			org: boolean;
+			config: boolean;
+		};
+		model: AIModel | undefined;
+		operations: {
+			generateCommits: {
+				count: number;
+				cancelledCount: number;
+				errorCount: number;
+				customInstructions: {
+					used: boolean;
+					length: number;
+					hash: string;
+					settingUsed: boolean;
+					settingLength: number;
+				};
+				feedback: {
+					upvoteCount: number;
+					downvoteCount: number;
+				};
+			};
+			generateCommitMessage: {
+				count: number;
+				cancelledCount: number;
+				errorCount: number;
+				customInstructions: {
+					settingUsed: boolean;
+					settingLength: number;
+				};
+			};
+		};
+	};
+	onboarding: {
+		dismissed: boolean;
+	};
+	source: Sources | undefined;
+	mode: 'experimental' | 'preview';
+	errors: {
+		safety: number;
+		loading: number;
+		aiOperation: number;
+	};
+}
+
+export const baseContext: ComposerContext = {
+	sessionId: '',
+	diff: {
+		files: 0,
+		hunks: 0,
+		lines: 0,
+		staged: false,
+		unstaged: false,
+		unstagedIncluded: false,
+	},
+	draftCommits: {
+		initialCount: 0,
+		finalCount: undefined,
+	},
+	ai: {
+		enabled: {
+			org: false,
+			config: false,
+		},
+		model: undefined,
+		operations: {
+			generateCommits: {
+				count: 0,
+				cancelledCount: 0,
+				errorCount: 0,
+				customInstructions: {
+					used: false,
+					length: 0,
+					hash: '',
+					settingUsed: false,
+					settingLength: 0,
+				},
+				feedback: {
+					upvoteCount: 0,
+					downvoteCount: 0,
+				},
+			},
+			generateCommitMessage: {
+				count: 0,
+				cancelledCount: 0,
+				errorCount: 0,
+				customInstructions: {
+					settingUsed: false,
+					settingLength: 0,
+				},
+			},
+		},
+	},
+	onboarding: {
+		dismissed: false,
+	},
+	source: undefined,
+	mode: 'preview',
+	errors: {
+		safety: 0,
+		loading: 0,
+		aiOperation: 0,
+	},
+};
+
 // Commands that can be sent from the webview to the host
 
 export interface GenerateWithAIParams {
@@ -188,6 +308,11 @@ export const AIFeedbackHelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScop
 export const AIFeedbackUnhelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackUnhelpful');
 
 export const DismissOnboardingCommand = new IpcCommand<void>(ipcScope, 'dismissOnboarding');
+
+export interface AddedHunksToCommitParams {
+	source: string;
+}
+export const AddedHunksToCommitCommand = new IpcCommand<AddedHunksToCommitParams>(ipcScope, 'addedHunksToCommit');
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');

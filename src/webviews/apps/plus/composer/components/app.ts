@@ -6,6 +6,7 @@ import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
+	AddedHunksToCommitCommand,
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
 	CancelGenerateCommitMessageCommand,
@@ -1277,7 +1278,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private handleAddHunksToCommit(e: CustomEvent) {
-		const { commitId, hunkIndices } = e.detail;
+		const { commitId, hunkIndices, source } = e.detail;
 
 		// Find the target commit
 		const targetCommit = this.state.commits.find(c => c.id === commitId);
@@ -1302,7 +1303,9 @@ export class ComposerApp extends LitElement {
 
 		// Remove commits that no longer have any hunks
 		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
-
+		this._ipc.sendCommand(AddedHunksToCommitCommand, {
+			source: source,
+		});
 		this.requestUpdate();
 	}
 
