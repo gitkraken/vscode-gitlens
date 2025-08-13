@@ -52,7 +52,13 @@ import {
 	ReloadComposerCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
-import { convertToComposerDiffInfo, createHunksFromDiffs, createSafetyState, validateSafetyState } from './utils';
+import {
+	convertToComposerDiffInfo,
+	createHunksFromDiffs,
+	createSafetyState,
+	validateCombinedDiff,
+	validateSafetyState,
+} from './utils';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -588,9 +594,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Extract hunk sources for smart validation
-			const hunksBeingCommitted = params.hunks
-				.filter(hunk => params.commits.some(c => c.hunkIndices.includes(hunk.index)))
-				.map(hunk => ({ source: hunk.source as 'staged' | 'unstaged' }));
+			const hunksBeingCommitted = params.hunks.filter(hunk =>
+				params.commits.some(c => c.hunkIndices.includes(hunk.index)),
+			);
 
 			// Validate repository safety state before proceeding
 			const validation = await validateSafetyState(repo, params.safetyState, hunksBeingCommitted);
@@ -615,6 +621,31 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (!shas?.length) {
 				throw new Error('Failed to create commits from patches');
+			}
+
+			const combinedDiff = (
+				await repo.git.diff.getDiff?.(shas[shas.length - 1], params.baseCommit.sha, {
+					notation: '...',
+				})
+			)?.contents;
+
+			if (!combinedDiff) {
+				throw new Error('Failed to get combined diff');
+			}
+
+			if (
+				!validateCombinedDiff(
+					params.safetyState,
+					combinedDiff,
+					hunksBeingCommitted.some(h => h.source === 'unstaged'),
+				)
+			) {
+				// Clear loading state and show safety error
+				await this.host.notify(DidFinishCommittingNotification, undefined);
+				await this.host.notify(DidSafetyErrorNotification, {
+					error: 'Output diff does not match input',
+				});
+				return;
 			}
 
 			// Capture previous stash state

@@ -51,6 +51,7 @@ export interface ComposerSafetyState {
 	worktreeName: string;
 	stagedDiff: string | null; // null if no staged changes when composer opened
 	unstagedDiff: string | null; // null if no unstaged changes when composer opened
+	unifiedDiff: string | null; // null if no changes when composer opened
 	timestamp: number;
 }
 
@@ -117,6 +118,7 @@ export const initialState: Omit<State, keyof WebviewState> = {
 		worktreeName: '',
 		stagedDiff: null,
 		unstagedDiff: null,
+		unifiedDiff: null,
 		timestamp: 0,
 	},
 	selectedCommitId: null,
