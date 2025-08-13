@@ -247,11 +247,11 @@
 		box-sizing: border-box;
 		color: var(--sl-tooltip-color);
 		margin: 0;
-		padding: 15px;
+		padding: 2.4rem;
 		border: 1px solid var(--gl-tooltip-border-color);
 		border-radius: var(--sl-tooltip-border-radius);
-		min-width: var(--gl-tour-width-min, 250px);
-		max-width: var(--gl-tour-width-max, 300px);
+		min-width: var(--gl-onboarding-width-min, 250px);
+		max-width: var(--gl-onboarding-width-max, 300px);
 		box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
 		z-index: 1000000000;
 		position: fixed;
@@ -279,7 +279,7 @@
 		width: 32px;
 		height: 28px;
 		cursor: pointer;
-		font-size: 18px;
+		font-size: 1.6rem;
 		font-weight: 500;
 		color: var(--sl-tooltip-color);
 		z-index: 1;
@@ -290,21 +290,19 @@
 	}
 	.driver-popover-close-btn:hover,
 	.driver-popover-close-btn:focus {
-		// color: #2d2d2d;
 		opacity: 1;
 	}
 	.driver-popover-title[style*='block'] + .driver-popover-description {
-		margin-top: 5px;
+		margin-top: 1.6rem;
 	}
 	.driver-popover-description {
 		margin-bottom: 0;
-		font: 14px / normal sans-serif;
 		line-height: 1.5;
 		font-weight: 400;
 		zoom: 1;
 	}
 	.driver-popover-footer {
-		margin-top: 15px;
+		margin-top: 1.6rem;
 		text-align: right;
 		zoom: 1;
 		display: flex;
@@ -312,16 +310,15 @@
 		justify-content: space-between;
 	}
 	.driver-popover-progress-text {
-		font-size: 13px;
+		font-size: 1.3rem;
 		font-weight: 400;
-		color: #727272;
 		zoom: 1;
 	}
 	.driver-popover-footer button {
 		all: unset;
 		display: inline-block;
 		box-sizing: border-box;
-		padding: 0.4rem 0.8rem;
+		padding: 0.8rem;
 		text-decoration: none;
 		// text-shadow: 1px 1px 0 #fff;
 		background-color: var(--vscode-button-secondaryBackground);
@@ -352,10 +349,8 @@
 	.driver-popover-navigation-btns {
 		display: flex;
 		flex-grow: 1;
+		gap: 0.8rem;
 		justify-content: flex-end;
-	}
-	.driver-popover-navigation-btns button + button {
-		margin-left: 4px;
 	}
 	.driver-popover-arrow {
 		content: '';
