@@ -676,6 +676,52 @@ type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Co
 export type InspectTelemetryContext = InspectContextEventData;
 export type InspectShownTelemetryContext = InspectShownEventData;
 
+export type ComposerTelemetryContext = ComposerContextEventData;
+type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
+type ComposerContextModelData = {
+	'context.model.id': string | undefined;
+	'context.model.name': string | undefined;
+	'context.model.provider.id': AIProviders | undefined;
+	'context.model.temperature': number | undefined;
+	'context.model.maxTokens.input': number | undefined;
+	'context.model.maxTokens.output': number | undefined;
+	'context.model.default': boolean | undefined;
+	'context.model.hidden': boolean | undefined;
+};
+type ComposerContextAIOperationData = {
+	'context.ai.enabled.org': boolean;
+	'context.ai.enabled.config': boolean;
+	'context.ai.operations.generateCommits.count': number;
+	'context.ai.operations.generateCommits.cancelled.count': number;
+	'context.ai.operations.generateCommits.error.count': number;
+	'context.ai.operations.generateCommits.customInstructions.used': boolean;
+	'context.ai.operations.generateCommits.customInstructions.length': number;
+	'context.ai.operations.generateCommits.customInstructions.hash': string;
+	'context.ai.operations.generateCommits.customInstructions.setting.used': boolean;
+	'context.ai.operations.generateCommits.customInstructions.setting.length': number;
+	'context.ai.operations.generateCommits.feedback.upvote.count': number;
+	'context.ai.operations.generateCommits.feedback.downvote.count': number;
+	'context.ai.operations.generateCommitMessage.count': number;
+	'context.ai.operations.generateCommitMessage.cancelled.count': number;
+	'context.ai.operations.generateCommitMessage.error.count': number;
+	'context.ai.operations.generateCommitMessage.customInstructions.setting.used': boolean;
+	'context.ai.operations.generateCommitMessage.customInstructions.setting.length': number;
+};
+
+type ComposerSessionContextEventData = ComposerContextModelData &
+	ComposerContextAIOperationData & {
+		'context.sessionId': string;
+		'context.files.count': number;
+		'context.hunks.count': number;
+		'context.lines.count': number;
+		'context.draftCommits.initialCount': number;
+		'context.draftCommits.finalCount': number | undefined;
+		'context.diffSources.staged': boolean;
+		'context.diffSources.unstaged': boolean;
+		'context.diffSources.unstaged.included': boolean;
+		'context.onboarding.dismissed': boolean;
+	};
+
 interface LaunchpadEventDataBase {
 	/** @order 1 */
 	instance: number;
@@ -1033,7 +1079,9 @@ export type TelemetryEventsFromWebviewApp = {
 				? GraphTelemetryContext
 				: K extends `timeline/${string}`
 					? TimelineTelemetryContext
-					: WebviewTelemetryContext)
+					: K extends `composer/${string}`
+						? ComposerTelemetryContext
+						: WebviewTelemetryContext)
 	>;
 };
 

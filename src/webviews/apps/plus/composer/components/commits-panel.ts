@@ -760,6 +760,7 @@ export class CommitsPanel extends LitElement {
 				detail: {
 					commitId: this.commits[0].id,
 					hunkIndices: hunksToAdd.map(hunk => hunk.index),
+					source: sectionKey,
 				},
 				bubbles: true,
 			}),
