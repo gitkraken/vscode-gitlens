@@ -13,7 +13,7 @@ export const lineByLineFileTemplate = `<details open id="{{fileHtmlId}}" class="
       <code-icon class="file-icon--closed" icon="chevron-right"></code-icon>
       {{{filePath}}}
     </summary>
-    <div class="d2h-file-diff">
+    <div class="d2h-file-diff scrollable">
         <div class="d2h-code-wrapper">
             <table class="d2h-diff-table">
                 <tbody class="d2h-diff-tbody">
