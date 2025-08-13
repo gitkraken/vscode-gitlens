@@ -290,14 +290,22 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const onboardingDismissed = this.isOnboardingDismissed();
 		const commits = hasChanges ? [initialCommit] : [];
 
-		const customInstructionsSetting = configuration.get('ai.generateCommitMessage.customInstructions');
+		const generateCommitsInstructionSetting = configuration.get('ai.generateCommits.customInstructions');
+		const generateCommitMessageInstructionSetting = configuration.get(
+			'ai.generateCommitMessage.customInstructions',
+		);
 
 		// Update context
-		if (customInstructionsSetting) {
-			this._context.ai.operations.generateCommitMessage.customInstructions.settingUsed = true;
-			this._context.ai.operations.generateCommitMessage.customInstructions.settingLength =
-				customInstructionsSetting.length;
-		}
+		this._context.ai.operations.generateCommits.customInstructions.settingUsed = Boolean(
+			generateCommitsInstructionSetting,
+		);
+		this._context.ai.operations.generateCommits.customInstructions.settingLength =
+			generateCommitsInstructionSetting?.length ?? 0;
+		this._context.ai.operations.generateCommitMessage.customInstructions.settingUsed = Boolean(
+			generateCommitMessageInstructionSetting,
+		);
+		this._context.ai.operations.generateCommitMessage.customInstructions.settingLength =
+			generateCommitMessageInstructionSetting?.length ?? 0;
 		this._context.diff.files = new Set(hunks.map(h => h.fileName)).size;
 		this._context.diff.hunks = hunks.length;
 		this._context.diff.lines = hunks.reduce((total, hunk) => total + hunk.content.split('\n').length - 1, 0);
@@ -837,6 +845,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			void this.host.notify(DidChangeAiEnabledNotification, {
 				config: newSetting,
 			});
+		}
+
+		if (configuration.changed(e, 'ai.generateCommits.customInstructions')) {
+			const newSetting = configuration.get('ai.generateCommits.customInstructions');
+			this._context.ai.operations.generateCommits.customInstructions.settingUsed = Boolean(newSetting);
+			this._context.ai.operations.generateCommits.customInstructions.settingLength = newSetting?.length ?? 0;
+		}
+
+		if (configuration.changed(e, 'ai.generateCommitMessage.customInstructions')) {
+			const newSetting = configuration.get('ai.generateCommitMessage.customInstructions');
+			this._context.ai.operations.generateCommitMessage.customInstructions.settingUsed = Boolean(newSetting);
+			this._context.ai.operations.generateCommitMessage.customInstructions.settingLength =
+				newSetting?.length ?? 0;
 		}
 	}
 

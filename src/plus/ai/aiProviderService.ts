@@ -2255,6 +2255,14 @@ export class AIProviderService implements Disposable {
 
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
+				let customInstructions: string | undefined = undefined;
+				const customInstructionsConfig = configuration.get('ai.generateCommits.customInstructions');
+				if (customInstructionsConfig) {
+					customInstructions = `${customInstructionsConfig}${options?.customInstructions ? `\nAnd here is additional guidance for this session:\n${options.customInstructions}` : ''}`;
+				} else {
+					customInstructions = options?.customInstructions;
+				}
+
 				const { prompt } = await this.getPrompt(
 					'generate-commits',
 					model,
@@ -2262,7 +2270,7 @@ export class AIProviderService implements Disposable {
 						hunks: hunksJson,
 						existingCommits: existingCommitsJson,
 						hunkMap: hunkMapJson,
-						instructions: options?.customInstructions,
+						instructions: customInstructions,
 					},
 					maxInputTokens,
 					retries,
