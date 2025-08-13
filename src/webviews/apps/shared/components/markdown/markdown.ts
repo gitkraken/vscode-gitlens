@@ -12,6 +12,11 @@ export class GlMarkdown extends LitElement {
 	static override styles = [
 		ruleStyles,
 		css`
+			:host {
+				--markdown-compact-block-spacing: 8px;
+				--markdown-list-spacing: 20px;
+			}
+
 			a,
 			a code {
 				text-decoration: none;
@@ -36,7 +41,19 @@ export class GlMarkdown extends LitElement {
 			h4,
 			h5,
 			h6 {
-				margin: 8px 0;
+				margin-inline: 0;
+			}
+
+			:where(:host([density='compact'])) p,
+			:where(:host([density='compact'])) .code,
+			:where(:host([density='compact'])) ul,
+			:where(:host([density='compact'])) h1,
+			:where(:host([density='compact'])) h2,
+			:where(:host([density='compact'])) h3,
+			:where(:host([density='compact'])) h4,
+			:where(:host([density='compact'])) h5,
+			:where(:host([density='compact'])) h6 {
+				margin-block: var(--markdown-compact-block-spacing);
 			}
 
 			h1,
@@ -75,10 +92,10 @@ export class GlMarkdown extends LitElement {
 
 			/* MarkupContent Layout */
 			ul {
-				padding-left: 20px;
+				padding-left: var(--markdown-list-spacing);
 			}
 			ol {
-				padding-left: 20px;
+				padding-left: var(--markdown-list-spacing);
 			}
 
 			li > p {
@@ -93,6 +110,9 @@ export class GlMarkdown extends LitElement {
 
 	@property({ type: String })
 	private markdown = '';
+
+	@property({ type: String, reflect: true })
+	density: 'compact' | 'document' = 'compact';
 
 	override render(): unknown {
 		return html`${this.markdown ? until(this.renderMarkdown(this.markdown), 'Loading...') : ''}`;

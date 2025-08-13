@@ -1,5 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import '../../../shared/components/code-icon';
 
 @customElement('gl-hunk-item')
@@ -7,12 +8,12 @@ export class HunkItem extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
-			margin-bottom: 0.8rem;
+			/* margin-bottom: 0.8rem; */
 		}
 
 		.hunk-item {
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
+			border: 1px solid transparent;
+			border-radius: 0.4rem;
 			background: var(--vscode-editor-background);
 			cursor: grab;
 			transition: all 0.2s ease;
@@ -63,10 +64,9 @@ export class HunkItem extends LitElement {
 		.hunk-header {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
-			padding: 0.8rem 1.2rem;
-			background: var(--vscode-editorGroupHeader-tabsBackground);
-			border-bottom: 1px solid var(--vscode-panel-border);
+			/* justify-content: space-between; */
+			gap: 0.8rem;
+			padding: 0.8rem;
 		}
 
 		.file-info {
@@ -106,7 +106,7 @@ export class HunkItem extends LitElement {
 		}
 
 		.hunk-content {
-			padding: 1.2rem;
+			/* padding: 1.2rem; */
 			font-family: var(--vscode-editor-font-family);
 			font-size: var(--vscode-editor-font-size);
 			line-height: 1.4;
@@ -116,8 +116,8 @@ export class HunkItem extends LitElement {
 
 		.code-block {
 			background: var(--vscode-textCodeBlock-background);
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
+			/* border: 1px solid var(--vscode-panel-border);
+			border-radius: 4px; */
 			padding: 0.8rem;
 			white-space: pre-wrap;
 			overflow-x: auto;
@@ -226,42 +226,8 @@ export class HunkItem extends LitElement {
 	@property()
 	originalFileName?: string;
 
-	private renderDiffContent() {
-		if (!this.content || typeof this.content !== 'string') {
-			return html`<span class="diff-line">No content available</span>`;
-		}
-
-		// Special rendering for rename hunks
-		if (this.isRename) {
-			return html`
-				<div class="rename-info">
-					<div class="rename-line">
-						<code-icon icon="arrow-right"></code-icon>
-						<span class="rename-text">
-							<span class="original-name">${this.originalFileName}</span>
-							<span class="arrow">→</span>
-							<span class="new-name">${this.fileName}</span>
-						</span>
-					</div>
-					<div class="similarity-info">
-						${this.content.split('\n').find(line => line.includes('similarity'))}
-					</div>
-				</div>
-			`;
-		}
-
-		// Regular diff content rendering
-		const lines = this.content.split('\n');
-		return lines.map(line => {
-			if (line.startsWith('+')) {
-				return html`<span class="diff-line addition">${line}</span>`;
-			}
-			if (line.startsWith('-')) {
-				return html`<span class="diff-line deletion">${line}</span>`;
-			}
-			return html`<span class="diff-line">${line}</span>`;
-		});
-	}
+	@property({ type: Boolean })
+	isPreviewMode = false;
 
 	override connectedCallback() {
 		super.connectedCallback?.();
@@ -297,15 +263,23 @@ export class HunkItem extends LitElement {
 				class="hunk-item ${this.selected ? 'selected' : ''} ${this.multiSelected ? 'multi-selected' : ''}"
 				@click=${this.handleClick}
 			>
-				<div class="drag-handle">
-					<code-icon icon="gripper"></code-icon>
-				</div>
+				${when(
+					!this.isPreviewMode,
+					() => html`
+						<div class="drag-handle">
+							<code-icon icon="gripper"></code-icon>
+						</div>
+					`,
+				)}
 				<div class="hunk-header">
 					<div class="file-info">
-						<code-icon class="file-icon" icon=${this.isRename ? 'arrow-right' : 'file-code'}></code-icon>
-						<span class="file-name"
-							>${this.isRename ? 'File Rename' : this.hunkHeader || this.fileName}</span
-						>
+						${when(
+							this.isRename,
+							() =>
+								html`<code-icon class="file-icon" icon="arrow-right"></code-icon
+									><span class="file-name">File Rename</span>`,
+							() => html`<span class="file-name">${this.renderHunkHeader()}</span>`,
+						)}
 					</div>
 					<div class="hunk-stats">
 						<div class="stat additions">
@@ -323,6 +297,63 @@ export class HunkItem extends LitElement {
 				</div>
 			</div>
 		`;
+	}
+
+	private renderHunkHeader() {
+		if (!this.hunkHeader) {
+			return this.fileName;
+		}
+
+		let hunkHeader = this.hunkHeader;
+		// Convert hunk header to a more readable format. E.g., "@@ -1,5 +1,7 @@" to "Lines 1-7"
+		if (hunkHeader.startsWith('@@')) {
+			const match = hunkHeader.match(/@@ -(\d+),(\d+) \+(\d+),(\d+) @@/);
+			if (match) {
+				const [_, _oldStart, _oldLines, newStart, newLines] = match;
+				const startLine = parseInt(newStart, 10);
+				const endLine = startLine + parseInt(newLines, 10) - 1;
+				hunkHeader = `Lines ${startLine}-${endLine}`;
+			}
+		}
+
+		return hunkHeader;
+	}
+
+	private renderDiffContent() {
+		if (!this.content || typeof this.content !== 'string') {
+			return html`<span class="diff-line">No content available</span>`;
+		}
+
+		// Special rendering for rename hunks
+		if (this.isRename) {
+			return html`
+				<div class="rename-info">
+					<div class="rename-line">
+						<code-icon icon="arrow-right"></code-icon>
+						<span class="rename-text">
+							<span class="original-name">${this.originalFileName}</span>
+							<span class="arrow">→</span>
+							<span class="new-name">${this.fileName}</span>
+						</span>
+					</div>
+					<div class="similarity-info">
+						${this.content.split('\n').find(line => line.includes('similarity'))}
+					</div>
+				</div>
+			`;
+		}
+
+		// Regular diff content rendering
+		const lines = this.content.split('\n');
+		return lines.map(line => {
+			if (line.startsWith('+')) {
+				return html`<span class="diff-line addition">${line}</span>`;
+			}
+			if (line.startsWith('-')) {
+				return html`<span class="diff-line deletion">${line}</span>`;
+			}
+			return html`<span class="diff-line">${line}</span>`;
+		});
 	}
 }
 

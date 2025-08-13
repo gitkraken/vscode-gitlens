@@ -8,7 +8,6 @@ import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBr
 import type { ComposeCommandArgs } from '../../commands/composer';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
-import type { GenerateCommitsCommandArgs } from '../../commands/generateRebase';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
@@ -278,7 +277,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled'])) {
+		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled', 'ai.experimental.composer.enabled'])) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -381,8 +380,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.enableAi', this.enableAi, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
-			registerCommand('gitlens.ai.generateCommits:home', this.generateCommits, this),
-			registerCommand('gitlens.ai.composeCommits:home', this.composeCommits, this),
+			registerCommand('gitlens.composeCommits:home', ref => this.composeCommits(ref), this),
 		];
 	}
 
@@ -620,23 +618,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	@log<HomeWebviewProvider['generateCommits']>({ args: { 0: r => r.branchId } })
-	private async generateCommits(ref: BranchRef) {
-		const { repo } = await this.getRepoInfoFromRef(ref);
-		if (repo == null) return;
-
-		void executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
-			repoPath: repo.path,
-			source: { source: 'home' },
-		});
-	}
-
 	@log<HomeWebviewProvider['composeCommits']>({ args: { 0: r => r.branchId } })
 	private async composeCommits(ref: BranchRef) {
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		void executeCommand<ComposeCommandArgs>('gitlens.ai.composeCommits', {
+		void executeCommand<ComposeCommandArgs>('gitlens.composeCommits', {
 			repoPath: repo.path,
 			source: 'home',
 		});
@@ -791,6 +778,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return configuration.get('ai.enabled');
 	}
 
+	private getExperimentalComposerEnabled() {
+		return configuration.get('ai.experimental.composer.enabled', undefined, false);
+	}
+
 	private getAmaBannerCollapsed() {
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
@@ -876,6 +867,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
+			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			aiAllAccessBannerCollapsed: getSettledValue(aiAllAccessBannerCollapsed, false),
@@ -1300,6 +1292,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			aiEnabled: this.getAiEnabled(),
+			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
 		});
 	}
 

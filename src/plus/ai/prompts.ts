@@ -372,7 +372,7 @@ Convert the user's natural language query into the appropriate search operators.
 
 export const generateCommits: PromptTemplate<'generate-commits'> = {
 	id: 'generate-commits',
-	variables: ['hunks', 'existingCommits', 'hunkMap', 'context', 'instructions'],
+	variables: ['hunks', 'existingCommits', 'hunkMap', 'instructions'],
 	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a complete set of commits that are related, grouped logically, atomic, and easy to review. You will be working with individual code hunks and may have some existing commits that already have hunks assigned.
 
 First, examine the following JSON array of code hunks that need to be organized:
@@ -454,7 +454,7 @@ Do not include any preceeding or succeeding text or markup, such as "Here are th
 
 export const generateRebase: PromptTemplate<'generate-rebase'> = {
 	id: 'generate-rebase',
-	variables: ['diff', 'commits', 'data', 'context', 'instructions'],
+	variables: ['diff', 'commits', 'data', 'instructions'],
 	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a new set of commits that are related, grouped logically, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
 
 First, examine the following unified Git diff of code changes:

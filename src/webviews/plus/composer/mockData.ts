@@ -364,8 +364,13 @@ export const mockHunkMap: ComposerHunkMap[] = [
 	{ index: 10, hunkHeader: '@@ -0,0 +1,12 @@' },
 ];
 
-// Mock base commit SHA
-export const mockBaseCommit = 'abc123def456789';
+// Mock base commit
+export const mockBaseCommit = {
+	sha: 'abc123def456789',
+	message: 'Initial commit with project setup',
+	repoName: 'my-awesome-project',
+	branchName: 'main',
+};
 
 // Update assigned property on mock hunks based on mock commits
 function updateMockHunkAssignments() {

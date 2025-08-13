@@ -4122,6 +4122,16 @@
 					"preview"
 				],
 				"properties": {
+					"gitlens.ai.experimental.composer.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable the experimental version of the commit composer",
+						"scope": "window",
+						"order": 10,
+						"tags": [
+							"experimental"
+						]
+					},
 					"gitlens.ai.model": {
 						"type": [
 							"string",
@@ -6157,22 +6167,6 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.ai.composeCommits",
-				"title": "Compose Commits with AI (Preview)...",
-				"category": "GitLens",
-				"icon": "$(sparkle)"
-			},
-			{
-				"command": "gitlens.ai.composeCommits:graph",
-				"title": "Compose Commits with AI (Preview)",
-				"icon": "$(sparkle)"
-			},
-			{
-				"command": "gitlens.ai.composeCommits:views",
-				"title": "Compose Commits with AI (Preview)",
-				"icon": "$(sparkle)"
-			},
-			{
 				"command": "gitlens.ai.explainBranch",
 				"title": "Explain Branch Changes (Preview)...",
 				"category": "GitLens"
@@ -6287,22 +6281,6 @@
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.generateCommits",
-				"title": "Generate Commits with AI (Preview)...",
-				"category": "GitLens",
-				"icon": "$(sparkle)"
-			},
-			{
-				"command": "gitlens.ai.generateCommits:graph",
-				"title": "Generate Commits with AI (Preview)",
-				"icon": "$(sparkle)"
-			},
-			{
-				"command": "gitlens.ai.generateCommits:views",
-				"title": "Generate Commits with AI (Preview)",
-				"icon": "$(sparkle)"
-			},
-			{
 				"command": "gitlens.ai.generateRebase",
 				"title": "Rebase with AI (Preview)...",
 				"category": "GitLens",
@@ -6322,8 +6300,12 @@
 			},
 			{
 				"command": "gitlens.ai.switchProvider",
-				"title": "Switch AI Provider/Model",
+				"title": "Switch AI Provider/Model...",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.ai.switchProvider:scm",
+				"title": "Switch GitLens AI Provider/Model..."
 			},
 			{
 				"command": "gitlens.ai.undoGenerateRebase",
@@ -6423,6 +6405,27 @@
 				"title": "Compare Working Tree with...",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "gitlens.composeCommits",
+				"title": "Compose Commits (Preview)...",
+				"category": "GitLens",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.composeCommits:graph",
+				"title": "Compose Commits (Preview)...",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.composeCommits:scm",
+				"title": "Compose Commits (Preview)...",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.composeCommits:views",
+				"title": "Compose Commits (Preview)...",
+				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.computingFileAnnotations",
@@ -7693,9 +7696,9 @@
 			},
 			{
 				"command": "gitlens.showComposerPage",
-				"title": "Open Composer",
+				"title": "Open Commit Composer",
 				"category": "GitLens",
-				"icon": "$(edit)"
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"command": "gitlens.showContributorsView",
@@ -10838,18 +10841,6 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
-					"command": "gitlens.ai.composeCommits",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-				},
-				{
-					"command": "gitlens.ai.composeCommits:graph",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.ai.composeCommits:views",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.ai.explainBranch",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
@@ -10942,18 +10933,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.generateCommits",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-				},
-				{
-					"command": "gitlens.ai.generateCommits:graph",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.ai.generateCommits:views",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.ai.generateRebase",
 					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
@@ -10968,6 +10947,10 @@
 				{
 					"command": "gitlens.ai.switchProvider",
 					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.switchProvider:scm",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.undoGenerateRebase",
@@ -11036,6 +11019,22 @@
 				{
 					"command": "gitlens.compareWorkingWith",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.composeCommits",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted"
+				},
+				{
+					"command": "gitlens.composeCommits:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.composeCommits:scm",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.composeCommits:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.computingFileAnnotations",
@@ -14511,6 +14510,11 @@
 			],
 			"git.commit": [
 				{
+					"command": "gitlens.composeCommits:scm",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+					"group": "4_gitlens@1"
+				},
+				{
 					"command": "gitlens.ai.generateCommitMessage:scm",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 					"group": "4_gitlens@2"
@@ -15241,6 +15245,30 @@
 					"command": "gitlens.openFileOnRemoteFrom",
 					"group": "1_gitlens@2",
 					"alt": "gitlens.copyRemoteFileUrlFrom"
+				}
+			],
+			"gitlens/scm/title": [
+				{
+					"command": "gitlens.ai.generateCommitMessage:scm",
+					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.composeCommits:scm",
+					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.ai.switchProvider:scm",
+					"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled",
+					"group": "9_gitlens@1"
+				}
+			],
+			"gitlens/scm/title/ai": [
+				{
+					"command": "gitlens.composeCommits:scm",
+					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens@1"
 				}
 			],
 			"gitlens/share": [
@@ -16829,8 +16857,13 @@
 			],
 			"scm/title": [
 				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage",
+					"submenu": "gitlens/scm/title",
+					"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+					"group": "navigation@-3"
+				},
+				{
+					"submenu": "gitlens/scm/title/ai",
+					"when": "scmProvider == git && gitlens:enabled && (!gitlens:gk:organization:ai:enabled || !config.gitlens.ai.enabled)",
 					"group": "navigation@-3"
 				},
 				{
@@ -16847,6 +16880,11 @@
 					"command": "gitlens.visualizeHistory.repo:scm",
 					"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepositoryInline.visualHistory",
 					"group": "navigation@0"
+				},
+				{
+					"command": "gitlens.composeCommits:scm",
+					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.ai.generateCommitMessage:scm",
@@ -18678,19 +18716,14 @@
 					"group": "3_gitlens@99"
 				},
 				{
-					"command": "gitlens.ai.generateCommits:views",
-					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "3_gitlens_ai@1"
+					"command": "gitlens.composeCommits:views",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+					"group": "3_gitlens_ai@2"
 				},
 				{
 					"command": "gitlens.ai.explainWip:views",
 					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "3_gitlens_ai@10"
-				},
-				{
-					"command": "gitlens.ai.composeCommits:views",
-					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "3_gitlens_ai@2"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -23351,8 +23384,8 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.graph.commitViaSCM",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection",
+					"command": "gitlens.composeCommits:graph",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens@1"
 				},
 				{
@@ -23361,13 +23394,8 @@
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.ai.generateCommits:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens@2"
-				},
-				{
-					"command": "gitlens.ai.composeCommits:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.graph.commitViaSCM",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection",
 					"group": "1_gitlens@3"
 				},
 				{
@@ -23541,6 +23569,16 @@
 			{
 				"id": "gitlens/scm/resourceState/openOn",
 				"label": "Open on Remote (Web)"
+			},
+			{
+				"id": "gitlens/scm/title",
+				"label": "GitLens",
+				"icon": "$(sparkle)"
+			},
+			{
+				"id": "gitlens/scm/title/ai",
+				"label": "GitLens",
+				"icon": "$(gitlens-gitlens)"
 			},
 			{
 				"id": "gitlens/share",
@@ -24722,6 +24760,8 @@
 		"@shoelace-style/shoelace": "2.20.1",
 		"@vscode/codicons": "0.0.39",
 		"billboard.js": "3.16.0",
+		"diff2html": "3.4.52",
+		"driver.js": "1.3.6",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "3.3.1",

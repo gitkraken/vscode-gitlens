@@ -29,6 +29,7 @@ import '../../../shared/components/code-icon';
 import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
+import '../../../shared/components/menu/menu-divider';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/menu/menu-label';
 import '../../../shared/components/overlays/popover';
@@ -311,17 +312,14 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.ai.generateCommits:home')}
-						>Generate Commits with AI (Preview)</menu-item
+						href=${this.createCommandLink('gitlens.ai.generateCommitMessage', {
+							repoPath: this.repo,
+							source: 'home',
+						})}
+						>Generate Commit Message</menu-item
 					>`,
 				);
-				actions.push(
-					html`<menu-item
-						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.ai.composeCommits:home')}
-						>Compose Commits with AI (Preview)</menu-item
-					>`,
-				);
+				actions.push(html`<menu-divider></menu-divider>`);
 				actions.push(
 					html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
 						>Explain Working Changes (Preview)</menu-item
@@ -336,6 +334,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			);
 
 			if (hasWip) {
+				actions.push(html`<menu-divider></menu-divider>`);
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
@@ -369,10 +368,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" aria-label="Additional Actions">
 				<code-icon icon="ellipsis"></code-icon>
 			</gl-button>
-			<div slot="content">
-				<menu-label>Actions</menu-label>
-				${actions}
-			</div>
+			<div slot="content">${actions}</div>
 		</gl-popover>`;
 	}
 
@@ -393,32 +389,20 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
 
 		if (hasWip) {
-			if (this._homeState.orgSettings.ai && this._homeState.aiEnabled) {
-				actions.push(html`
-					<gl-button
-						aria-busy=${ifDefined(isFetching)}
-						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.ai.generateCommitMessage', {
-							repoPath: this.repo,
-							source: 'home',
-						})}
-						appearance="secondary"
-						tooltip="Generate Message &amp; Commit via SCM..."
-						><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
-					</gl-button>
-				`);
-			} else {
-				actions.push(html`
-					<gl-button
-						aria-busy=${ifDefined(isFetching)}
-						?disabled=${isFetching}
-						href="command:workbench.view.scm"
-						appearance="secondary"
-						tooltip="Commit via SCM"
-						><code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon>Commit
-					</gl-button>
-				`);
-			}
+			actions.push(html`
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${this.createCommandLink('gitlens.composeCommits:home')}
+					appearance="secondary"
+					density="compact"
+					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
+						><strong>Compose Commits</strong> (Preview)<br /><i
+							>Automatically or interactively organize changes into meaningful commits</i
+						></span
+					></gl-button
+				>
+			`);
 		}
 
 		if (this.wip?.pausedOpStatus != null) {
@@ -432,12 +416,15 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
 					href=${this.createWebviewCommandLink('gitlens.views.home.publishBranch')}
-					full
 					appearance="secondary"
-					><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch<span slot="tooltip"
-						>Publish (push) <strong>${name}</strong> to ${upstream?.name ?? 'a remote'}</span
-					></gl-button
+					density="compact"
 				>
+					<code-icon icon="cloud-upload" slot="${ifDefined(hasWip ? undefined : 'prefix')}"></code-icon>
+					${hasWip ? '' : 'Publish Branch'}
+					<span slot="tooltip"
+						>Publish (push) <strong>${name}</strong> to ${upstream?.name ?? 'a remote'}</span
+					>
+				</gl-button>
 			`);
 
 			return wrappedActions();
@@ -447,23 +434,25 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			const isAhead = Boolean(upstream.state.ahead);
 			const isBehind = Boolean(upstream.state.behind);
 			if (isAhead && isBehind) {
-				const pullTooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
-				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
 				actions.push(html`
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
 						href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
-						full
 						appearance="secondary"
-						tooltip=${pullTooltip}
-						><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
+						density="compact"
+					>
+						<code-icon icon="repo-pull" slot="${ifDefined(hasWip ? undefined : 'prefix')}"></code-icon>
+						${hasWip ? '' : 'Pull'}
 						<gl-tracking-pill
 							.ahead=${upstream.state.ahead}
 							.behind=${upstream.state.behind}
 							slot="suffix"
-						></gl-tracking-pill
-					></gl-button>
+						></gl-tracking-pill>
+						<span slot="tooltip"
+							>Pull${upstream?.name ? html` from <strong>${upstream.name}</strong>` : ''}</span
+						>
+					</gl-button>
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
@@ -472,52 +461,61 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						})}
 						appearance="secondary"
 						density="compact"
-						tooltip=${forcePushTooltip}
-						><code-icon icon="repo-force-push"></code-icon
-					></gl-button>
+					>
+						<code-icon icon="repo-force-push"></code-icon>
+						<span slot="tooltip"
+							>Force Push${upstream?.name ? html` to <strong>${upstream.name}</strong>` : ''}</span
+						>
+					</gl-button>
 				`);
 
 				return wrappedActions();
 			}
 
 			if (isBehind) {
-				const tooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
 				actions.push(html`
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
 						href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
-						full
 						appearance="secondary"
-						tooltip=${tooltip}
-						><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
+						density="compact"
+					>
+						<code-icon icon="repo-pull" slot="${ifDefined(hasWip ? undefined : 'prefix')}"></code-icon>
+						${hasWip ? '' : 'Pull'}
 						<gl-tracking-pill
 							.ahead=${upstream.state.ahead}
 							.behind=${upstream.state.behind}
 							slot="suffix"
-						></gl-tracking-pill
-					></gl-button>
+						></gl-tracking-pill>
+						<span slot="tooltip"
+							>Pull${upstream?.name ? html` from <strong>${upstream.name}</strong>` : ''}</span
+						>
+					</gl-button>
 				`);
 
 				return wrappedActions();
 			}
 
 			if (isAhead) {
-				const tooltip = upstream?.name ? `Push to ${upstream.name}` : 'Push';
 				actions.push(html`
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
 						href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '')}
-						full
 						appearance="secondary"
-						tooltip=${tooltip}
-						><code-icon icon="repo-push" slot="prefix"></code-icon> Push
+						density="compact"
+					>
+						<code-icon icon="repo-push" slot="prefix"></code-icon>
+						${hasWip ? '' : 'Push'}
 						<gl-tracking-pill
 							.ahead=${upstream.state.ahead}
 							.behind=${upstream.state.behind}
 							slot="suffix"
 						></gl-tracking-pill>
+						<span slot="tooltip"
+							>Push${upstream?.name ? html` to <strong>${upstream.name}</strong>` : ''}</span
+						>
 					</gl-button>
 				`);
 

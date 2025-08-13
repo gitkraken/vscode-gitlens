@@ -1,10 +1,18 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/composer/protocol';
 import {
+	DidCancelGenerateCommitMessageNotification,
+	DidCancelGenerateCommitsNotification,
 	DidChangeAiEnabledNotification,
+	DidChangeAiModelNotification,
+	DidClearAIOperationErrorNotification,
+	DidErrorAIOperationNotification,
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
+	DidLoadingErrorNotification,
+	DidReloadComposerNotification,
+	DidSafetyErrorNotification,
 	DidStartCommittingNotification,
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
@@ -64,6 +72,7 @@ export class ComposerStateProvider implements StateProvider<State> {
 							...hunk,
 							assigned: true,
 						})),
+						hasUsedAutoCompose: true,
 						timestamp: Date.now(),
 					};
 
@@ -109,6 +118,108 @@ export class ComposerStateProvider implements StateProvider<State> {
 					this.provider.setValue(this._state, true);
 					break;
 				}
+				case DidSafetyErrorNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						safetyError: msg.params.error,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidReloadComposerNotification.is(msg): {
+					// Completely replace the state with fresh data from reload
+					const updatedState = {
+						...this._state,
+						hunks: msg.params.hunks,
+						commits: msg.params.commits,
+						hunkMap: msg.params.hunkMap,
+						baseCommit: msg.params.baseCommit,
+						safetyState: msg.params.safetyState,
+						loadingError: msg.params.loadingError,
+						hasChanges: msg.params.hasChanges,
+						safetyError: null, // Clear any existing safety errors
+						// Reset UI state to defaults
+						selectedCommitId: null,
+						selectedCommitIds: new Set<string>(),
+						selectedUnassignedSection: null,
+						selectedHunkIds: new Set<string>(),
+						// Clear any ongoing operations
+						generatingCommits: false,
+						generatingCommitMessage: null,
+						committing: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidLoadingErrorNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						loadingError: msg.params.error,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidErrorAIOperationNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						aiOperationError: {
+							operation: msg.params.operation,
+							error: msg.params.error,
+						},
+						// Clear any loading states since the operation failed
+						generatingCommits: false,
+						generatingCommitMessage: null,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidClearAIOperationErrorNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						aiOperationError: null,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidCancelGenerateCommitsNotification.is(msg): {
+					// Clear loading state and reset to pre-generation state
+					const updatedState = {
+						...this._state,
+						generatingCommits: false,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidCancelGenerateCommitMessageNotification.is(msg): {
+					// Clear loading state for commit message generation
+					const updatedState = {
+						...this._state,
+						generatingCommitMessage: null,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
 				case DidChangeAiEnabledNotification.is(msg): {
 					const updatedState = {
 						...this._state,
@@ -116,6 +227,20 @@ export class ComposerStateProvider implements StateProvider<State> {
 							...this._state.aiEnabled,
 							...(msg.params.org !== undefined && { org: msg.params.org }),
 							...(msg.params.config !== undefined && { config: msg.params.config }),
+						},
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidChangeAiModelNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						ai: {
+							...this._state.ai,
+							model: msg.params.model,
 						},
 						timestamp: Date.now(),
 					};
