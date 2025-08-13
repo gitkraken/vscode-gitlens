@@ -34,11 +34,11 @@
 	--d2h-empty-placeholder-bg-color: #f1f1f1;
 	--d2h-empty-placeholder-border-color: #e1e1e1;
 	--d2h-selected-color: #c8e1ff;
-	--d2h-ins-bg-color: var(--vscode-diffEditor-insertedLineBackground);
+	--d2h-ins-bg-color: var(--vscode-diffEditor-insertedTextBackground);
 	--d2h-ins-border-color: #b4e2b4;
 	--d2h-ins-highlight-bg-color: var(--vscode-diffEditor-insertedTextBackground);
 	--d2h-ins-label-color: #399839;
-	--d2h-del-bg-color: var(--vscode-diffEditor-removedLineBackground);
+	--d2h-del-bg-color: var(--vscode-diffEditor-removedTextBackground);
 	--d2h-del-border-color: #e9aeae;
 	--d2h-del-highlight-bg-color: var(--vscode-diffEditor-removedTextBackground);
 	--d2h-del-label-color: #c33;
