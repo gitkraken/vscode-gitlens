@@ -6,6 +6,7 @@ import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
 import {
+	AdvanceOnboardingCommand,
 	AIFeedbackHelpfulCommand,
 	AIFeedbackUnhelpfulCommand,
 	CancelGenerateCommitMessageCommand,
@@ -21,7 +22,7 @@ import {
 	OnResetCommand,
 	OnSelectAIModelCommand,
 	OnUndoCommand,
-	OnUpdateCustomInstructionsCommand,
+	OpenOnboardingCommand,
 	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
@@ -130,6 +131,31 @@ export class ComposerApp extends LitElement {
 				display: flex;
 				gap: 0.8rem;
 				justify-content: flex-end;
+			}
+
+			.working-directory-warning {
+				display: flex;
+				align-items: center;
+				gap: 0.8rem;
+				padding: 0.8rem 1.2rem;
+				background-color: var(--vscode-inputValidation-warningBackground);
+				border: 1px solid var(--vscode-inputValidation-warningBorder);
+				border-radius: 0.3rem;
+				margin-inline-start: 1.6rem;
+			}
+
+			.working-directory-warning--error {
+				background-color: var(--vscode-inputValidation-errorBackground);
+				border-color: var(--vscode-inputValidation-errorBorder);
+			}
+
+			.working-directory-warning__text {
+				color: var(--vscode-inputValidation-warningForeground);
+				font-size: 1.3rem;
+			}
+
+			.working-directory-warning--error .working-directory-warning__text {
+				color: var(--vscode-inputValidation-errorForeground);
 			}
 
 			.main-content {
@@ -360,6 +386,9 @@ export class ComposerApp extends LitElement {
 
 	@state()
 	private showCommitsGeneratedModal: boolean = false;
+
+	@state()
+	private onboardingStepNumber: number = 0;
 
 	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
@@ -1364,12 +1393,6 @@ export class ComposerApp extends LitElement {
 		this.customInstructions = e.detail?.customInstructions ?? '';
 	}
 
-	private handleCustomInstructionsUpdate(e: CustomEvent) {
-		this._ipc.sendCommand(OnUpdateCustomInstructionsCommand, {
-			customInstructions: e.detail?.customInstructions ?? '',
-		});
-	}
-
 	@query('gl-details-panel')
 	private detailsPanel!: DetailsPanel;
 
@@ -1434,6 +1457,7 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
 			diff: patch,
+			overwriteExistingMessage: commit.message.trim() !== '',
 		});
 	}
 
@@ -1521,7 +1545,7 @@ export class ComposerApp extends LitElement {
 						><code-icon icon="feedback"></code-icon
 					></gl-button>
 				</h1>
-				${this.renderActions()}
+				${this.renderWorkingDirectoryWarning()} ${this.renderActions()}
 			</header>
 
 			<main class="main-content">
@@ -1556,7 +1580,6 @@ export class ComposerApp extends LitElement {
 					@finish-and-commit=${this.finishAndCommit}
 					@generate-commits-with-ai=${this.handleGenerateCommitsWithAI}
 					@custom-instructions-change=${this.handleCustomInstructionsChange}
-					@custom-instructions-update=${this.handleCustomInstructionsUpdate}
 					@focus-commit-message=${this.handleFocusCommitMessage}
 					@commit-reorder=${(e: CustomEvent) => this.reorderCommits(e.detail.oldIndex, e.detail.newIndex)}
 					@create-new-commit=${(e: CustomEvent) => this.createNewCommitWithHunks(e.detail.hunkIds)}
@@ -1670,6 +1693,41 @@ export class ComposerApp extends LitElement {
 		`;
 	}
 
+	private renderWorkingDirectoryWarning() {
+		const { indexHasChanged, workingDirectoryHasChanged } = this.state || {};
+
+		// No warnings if neither flag is set
+		if (!indexHasChanged && !workingDirectoryHasChanged) return nothing;
+
+		// Check if there are any assigned unstaged hunks
+		const hasAssignedUnstagedHunks = this.hunksWithAssignments.some(
+			hunk => hunk.source === 'unstaged' && hunk.assigned,
+		);
+
+		let warningText: string;
+		let isError: boolean;
+
+		if (indexHasChanged) {
+			warningText = 'Index has changed. You must reload to commit.';
+			isError = true;
+		} else if (workingDirectoryHasChanged && hasAssignedUnstagedHunks) {
+			warningText = 'Working directory has changed. You must reload to commit.';
+			isError = true;
+		} else if (workingDirectoryHasChanged) {
+			warningText = 'Working directory has changed';
+			isError = false;
+		} else {
+			return nothing;
+		}
+
+		return html`
+			<div class="working-directory-warning ${isError ? 'working-directory-warning--error' : ''}">
+				<span class="working-directory-warning__text">${warningText}</span>
+				<gl-button appearance="primary" @click=${this.handleReloadComposer}>Reload</gl-button>
+			</div>
+		`;
+	}
+
 	private renderActions() {
 		if (!this.showHistoryButtons) return nothing;
 
@@ -1746,11 +1804,18 @@ export class ComposerApp extends LitElement {
 			onDestroyStarted: (_el, _step) => {
 				this.dismissOnboarding();
 			},
+			onNextClick: (_el, _step) => {
+				this.advanceOnboardingStep();
+			},
 		});
+
+		this.onboardingStepNumber = 1;
 
 		setTimeout(() => {
 			this.onboarding?.drive();
 		}, 1500);
+
+		this._ipc.sendCommand(OpenOnboardingCommand);
 	}
 
 	dismissOnboarding() {
@@ -1761,6 +1826,11 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(DismissOnboardingCommand);
 		this.state.onboardingDismissed = true;
 		this.requestUpdate();
+	}
+
+	advanceOnboardingStep() {
+		this.onboardingStepNumber++;
+		this._ipc.sendCommand(AdvanceOnboardingCommand, { stepNumber: this.onboardingStepNumber });
 	}
 }
 

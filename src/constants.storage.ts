@@ -82,6 +82,7 @@ export type GlobalStorage = {
 	'confirm:draft:storage': boolean;
 	// Value based on `currentOnboardingVersion` in composer's protocol
 	'composer:onboarding:dismissed': string;
+	'composer:onboarding:stepReached': number;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];

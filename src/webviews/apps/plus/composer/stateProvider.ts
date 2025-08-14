@@ -10,12 +10,14 @@ import {
 	DidFinishCommittingNotification,
 	DidGenerateCommitMessageNotification,
 	DidGenerateCommitsNotification,
+	DidIndexChangeNotification,
 	DidLoadingErrorNotification,
 	DidReloadComposerNotification,
 	DidSafetyErrorNotification,
 	DidStartCommittingNotification,
 	DidStartGeneratingCommitMessageNotification,
 	DidStartGeneratingNotification,
+	DidWorkingDirectoryChangeNotification,
 } from '../../../plus/composer/protocol';
 import type { ReactiveElementHost, StateProvider } from '../../shared/appHost';
 import type { Disposable } from '../../shared/events';
@@ -130,7 +132,6 @@ export class ComposerStateProvider implements StateProvider<State> {
 					break;
 				}
 				case DidReloadComposerNotification.is(msg): {
-					// Completely replace the state with fresh data from reload
 					const updatedState = {
 						...this._state,
 						hunks: msg.params.hunks,
@@ -150,6 +151,32 @@ export class ComposerStateProvider implements StateProvider<State> {
 						generatingCommits: false,
 						generatingCommitMessage: null,
 						committing: false,
+						// Reset working directory change flag on reload
+						workingDirectoryHasChanged: false,
+						indexHasChanged: false,
+						timestamp: Date.now(),
+						hasUsedAutoCompose: false,
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidWorkingDirectoryChangeNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						workingDirectoryHasChanged: true,
+						timestamp: Date.now(),
+					};
+
+					(this as any)._state = updatedState;
+					this.provider.setValue(this._state, true);
+					break;
+				}
+				case DidIndexChangeNotification.is(msg): {
+					const updatedState = {
+						...this._state,
+						indexHasChanged: true,
 						timestamp: Date.now(),
 					};
 

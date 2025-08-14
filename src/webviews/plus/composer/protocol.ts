@@ -85,6 +85,8 @@ export interface State extends WebviewState {
 
 	// Content state
 	hasChanges: boolean; // true if there are working directory changes to compose
+	workingDirectoryHasChanged: boolean; // true if working directory has changed since composer opened
+	indexHasChanged: boolean; // true if index has changed since composer opened
 
 	// Mode controls
 	mode: 'experimental' | 'preview'; // experimental = normal mode, preview = locked AI preview mode
@@ -138,6 +140,8 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	aiOperationError: null,
 	hasUsedAutoCompose: false,
 	hasChanges: true,
+	workingDirectoryHasChanged: false,
+	indexHasChanged: false,
 	mode: 'preview',
 	aiEnabled: {
 		org: false,
@@ -150,7 +154,8 @@ export const initialState: Omit<State, keyof WebviewState> = {
 };
 
 export interface ComposerContext {
-	sessionId: string;
+	sessionStart: string; // timestamp when the session started
+	sessionDuration: number | undefined; // Only populated as user is exiting composer session
 	diff: {
 		files: number;
 		hunks: number;
@@ -159,9 +164,10 @@ export interface ComposerContext {
 		unstaged: boolean;
 		unstagedIncluded: boolean;
 	};
-	draftCommits: {
+	commits: {
 		initialCount: number;
-		composedCount: number | undefined;
+		autoComposedCount: number | undefined; // What the auto-compose did
+		composedCount: number | undefined; // Anything the user did outside of auto-compose
 		finalCount: number | undefined;
 	};
 	ai: {
@@ -170,53 +176,58 @@ export interface ComposerContext {
 			config: boolean;
 		};
 		model: AIModel | undefined;
-		operations: {
-			generateCommits: {
-				count: number;
-				cancelledCount: number;
-				errorCount: number;
-				customInstructions: {
-					used: boolean;
-					length: number;
-					hash: string;
-					settingUsed: boolean;
-					settingLength: number;
-				};
-				feedback: {
-					upvoteCount: number;
-					downvoteCount: number;
-				};
-			};
-			generateCommitMessage: {
-				count: number;
-				cancelledCount: number;
-				errorCount: number;
-				customInstructions: {
-					settingUsed: boolean;
-					settingLength: number;
-				};
-			};
-		};
 	};
 	onboarding: {
+		stepReached: number | undefined;
 		dismissed: boolean;
+	};
+	operations: {
+		generateCommits: {
+			count: number;
+			cancelledCount: number;
+			errorCount: number;
+			feedback: {
+				upvoteCount: number;
+				downvoteCount: number;
+			};
+		};
+		generateCommitMessage: {
+			count: number;
+			cancelledCount: number;
+			errorCount: number;
+		};
+		finishAndCommit: {
+			errorCount: number;
+		};
+		undo: {
+			count: number;
+		};
+		redo: {
+			count: number;
+		};
+		reset: {
+			count: number;
+		};
 	};
 	source: Sources | undefined;
 	mode: 'experimental' | 'preview';
 	errors: {
-		safety: number;
-		loading: number;
-		aiOperation: number;
+		safety: {
+			count: number;
+		};
+		operation: {
+			count: number;
+		};
 	};
-	history: {
-		undoCount: number;
-		redoCount: number;
-		resetCount: number;
+	warnings: {
+		workingDirectoryChanged: boolean;
+		indexChanged: boolean;
 	};
 }
 
 export const baseContext: ComposerContext = {
-	sessionId: '',
+	sessionStart: '',
+	sessionDuration: undefined,
 	diff: {
 		files: 0,
 		hunks: 0,
@@ -225,8 +236,9 @@ export const baseContext: ComposerContext = {
 		unstaged: false,
 		unstagedIncluded: false,
 	},
-	draftCommits: {
+	commits: {
 		initialCount: 0,
+		autoComposedCount: undefined,
 		composedCount: undefined,
 		finalCount: undefined,
 	},
@@ -236,50 +248,96 @@ export const baseContext: ComposerContext = {
 			config: false,
 		},
 		model: undefined,
-		operations: {
-			generateCommits: {
-				count: 0,
-				cancelledCount: 0,
-				errorCount: 0,
-				customInstructions: {
-					used: false,
-					length: 0,
-					hash: '',
-					settingUsed: false,
-					settingLength: 0,
-				},
-				feedback: {
-					upvoteCount: 0,
-					downvoteCount: 0,
-				},
-			},
-			generateCommitMessage: {
-				count: 0,
-				cancelledCount: 0,
-				errorCount: 0,
-				customInstructions: {
-					settingUsed: false,
-					settingLength: 0,
-				},
-			},
-		},
 	},
 	onboarding: {
 		dismissed: false,
+		stepReached: undefined,
+	},
+	operations: {
+		generateCommits: {
+			count: 0,
+			cancelledCount: 0,
+			errorCount: 0,
+			feedback: {
+				upvoteCount: 0,
+				downvoteCount: 0,
+			},
+		},
+		generateCommitMessage: {
+			count: 0,
+			cancelledCount: 0,
+			errorCount: 0,
+		},
+		finishAndCommit: {
+			errorCount: 0,
+		},
+		undo: {
+			count: 0,
+		},
+		redo: {
+			count: 0,
+		},
+		reset: {
+			count: 0,
+		},
 	},
 	source: undefined,
 	mode: 'preview',
 	errors: {
-		safety: 0,
-		loading: 0,
-		aiOperation: 0,
+		safety: { count: 0 },
+		operation: { count: 0 },
 	},
-	history: {
-		undoCount: 0,
-		redoCount: 0,
-		resetCount: 0,
+	warnings: {
+		workingDirectoryChanged: false,
+		indexChanged: false,
 	},
 };
+
+export type ComposerTelemetryEvent =
+	| 'composer/opened'
+	| 'composer/reloaded'
+	| 'composer/action/includedUnstagedChanges'
+	| 'composer/action/compose'
+	| 'composer/action/compose/failed'
+	| 'composer/action/recompose'
+	| 'composer/action/recompose/failed'
+	| 'composer/action/generateCommitMessage'
+	| 'composer/action/generateCommitMessage/failed'
+	| 'composer/action/changeAiModel'
+	| 'composer/action/finishAndCommit'
+	| 'composer/action/finishAndCommit/failed'
+	| 'composer/action/undo'
+	| 'composer/action/reset'
+	| 'composer/warning/workingDirectoryChanged'
+	| 'composer/warning/indexChanged';
+
+export type ComposerLoadedErrorData = {
+	'failure.reason': 'error';
+	'failure.error.message': string;
+};
+
+export type ComposerGenerateCommitsEventData = {
+	'customInstructions.used': boolean;
+	'customInstructions.length': number;
+	'customInstructions.hash': string;
+	'customInstructions.setting.used': boolean;
+	'customInstructions.setting.length': number;
+};
+
+export type ComposerGenerateCommitMessageEventData = {
+	'customInstructions.setting.used': boolean;
+	'customInstructions.setting.length': number;
+	overwriteExistingMessage: boolean;
+};
+
+export type ComposerActionEventFailureData =
+	| {
+			'failure.reason': 'cancelled';
+	  }
+	| {
+			'failure.reason': 'error';
+			'failure.error.message': string;
+	  };
 
 // Commands that can be sent from the webview to the host
 
@@ -319,7 +377,9 @@ export interface AIFeedbackParams {
 export const AIFeedbackHelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackHelpful');
 export const AIFeedbackUnhelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackUnhelpful');
 
+export const OpenOnboardingCommand = new IpcCommand<void>(ipcScope, 'openOnboarding');
 export const DismissOnboardingCommand = new IpcCommand<void>(ipcScope, 'dismissOnboarding');
+export const AdvanceOnboardingCommand = new IpcCommand<{ stepNumber: number }>(ipcScope, 'advanceOnboarding');
 
 // Commands intended only to update context/telemetry
 export interface OnAddHunksToCommitParams {
@@ -329,13 +389,6 @@ export const OnAddHunksToCommitCommand = new IpcCommand<OnAddHunksToCommitParams
 export const OnUndoCommand = new IpcCommand<void>(ipcScope, 'onUndo');
 export const OnRedoCommand = new IpcCommand<void>(ipcScope, 'onRedo');
 export const OnResetCommand = new IpcCommand<void>(ipcScope, 'onReset');
-export interface OnUpdateCustomInstructionsParams {
-	customInstructions: string;
-}
-export const OnUpdateCustomInstructionsCommand = new IpcCommand<OnUpdateCustomInstructionsParams>(
-	ipcScope,
-	'onUpdateCustomInstructions',
-);
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
@@ -360,6 +413,8 @@ export const DidReloadComposerNotification = new IpcNotification<DidReloadCompos
 	'didReloadComposer',
 );
 export const DidLoadingErrorNotification = new IpcNotification<DidLoadingErrorParams>(ipcScope, 'didLoadingError');
+export const DidWorkingDirectoryChangeNotification = new IpcNotification<void>(ipcScope, 'didWorkingDirectoryChange');
+export const DidIndexChangeNotification = new IpcNotification<void>(ipcScope, 'didIndexChange');
 export const DidCancelGenerateCommitsNotification = new IpcNotification<void>(ipcScope, 'didCancelGenerateCommits');
 export const DidCancelGenerateCommitMessageNotification = new IpcNotification<void>(
 	ipcScope,
@@ -387,11 +442,13 @@ export interface GenerateCommitsParams {
 	hunkMap: ComposerHunkMap[];
 	baseCommit: ComposerBaseCommit;
 	customInstructions?: string;
+	isRecompose?: boolean;
 }
 
 export interface GenerateCommitMessageParams {
 	commitId: string;
 	diff: string;
+	overwriteExistingMessage?: boolean;
 }
 
 export interface FinishAndCommitParams {
