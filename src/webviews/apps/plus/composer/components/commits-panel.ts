@@ -242,29 +242,10 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 			}
 
-			.composer-item.is-base .composer-item__body {
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				min-width: 0;
-			}
-
-			/* Muted warning background for unassigned change sections */
-			.composer-item.is-uncommitted {
-				background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 8%, transparent);
-				border: 1px solid color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 15%, transparent);
-				border-radius: 4px;
-			}
-
-			.composer-item.is-uncommitted.is-selected {
-				background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 12%, transparent);
-				border-color: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 25%, transparent);
-			}
-
 			/* Include changes button styling */
 			.add-to-draft-button-container gl-button {
-				background: color-mix(in srgb, var(--vscode-button-foreground) 10%, transparent) !important;
-				color: var(--vscode-foreground) !important;
+				background: var(--composer-item-background) !important;
+				color: var(--composer-item-color) !important;
 			}
 
 			/* Auto-Compose container styles */

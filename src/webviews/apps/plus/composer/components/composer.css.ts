@@ -26,14 +26,13 @@ export const composerItemStyles = css`
 		cursor: pointer;
 	}
 
-	.composer-item:not(.is-selected):focus-visible,
-	.composer-item:not(.is-selected):hover {
+	.composer-item:not(.is-selected):is(:focus-visible, :hover) {
 		--composer-item-background: var(--vscode-list-hoverBackground);
 	}
 
 	.composer-item.is-selected {
-		--composer-item-background: var(--vscode-list-activeSelectionBackground);
-		--composer-item-icon-color: var(--vscode-list-activeSelectionForeground);
+		--composer-item-background: var(--vscode-list-activeSelectionBackground var(--vscode-background));
+		--composer-item-icon-color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
 		--composer-item-color: var(--vscode-list-activeSelectionForeground);
 		/* --composer-item-border: var(
 			--vscode-list-focusAndSelectionOutline,
@@ -41,17 +40,45 @@ export const composerItemStyles = css`
 		); */
 	}
 
-	.composer-item.is-summary,
-	.composer-item.is-uncommitted {
-		--composer-item-border: var(--vscode-panel-border);
+	:host-context(.vscode-high-contrast) .composer-item.is-selected {
+		--composer-item-border: var(
+			--vscode-list-focusAndSelectionOutline,
+			var(--vscode-contrastActiveBorder, var(--vscode-list-focusOutline))
+		);
 	}
 
 	.composer-item.is-summary {
+		--composer-item-border: var(--vscode-panel-border);
 		--composer-item-radius: 0.4rem;
 	}
 
 	.composer-item.is-uncommitted {
+		--composer-item-background: color-mix(
+			in srgb,
+			var(--vscode-notificationsWarningIcon-foreground) 8%,
+			transparent
+		);
+		--composer-item-border: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 20%, transparent);
+		--composer-item-radius: 0.4rem;
 		border-style: dashed;
+	}
+
+	.composer-item.is-uncommitted:not(.is-selected):is(:focus-visible, :hover) {
+		--composer-item-background: color-mix(
+			in srgb,
+			var(--vscode-notificationsWarningIcon-foreground) 12%,
+			transparent
+		);
+	}
+
+	.composer-item.is-uncommitted.is-selected {
+		--composer-item-background: color-mix(
+			in srgb,
+			var(--vscode-notificationsWarningIcon-foreground) 18%,
+			transparent
+		);
+		--composer-item-border: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 25%, transparent);
+		--composer-item-color: var(--vscode-foreground);
 	}
 
 	.composer-item.is-base,
@@ -85,6 +112,13 @@ export const composerItemStyles = css`
 
 	.composer-item__body {
 		font-size: 1.2rem;
+	}
+
+	.composer-item.is-base .composer-item__body {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		min-width: 0;
 	}
 `;
 
@@ -139,8 +173,6 @@ export const composerItemContentStyles = css`
 		display: flex;
 		align-items: center;
 		gap: 0.8rem;
-		color: var(--color-foreground--85);
-		/* font-size: 1.2rem; */
 	}
 
 	.file-count {
