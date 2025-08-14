@@ -924,8 +924,8 @@ export class CommitsPanel extends LitElement {
 								>${section.fileCount} ${section.fileCount === 1 ? 'file' : 'files'}</span
 							>
 							<span class="diff-stats">
-								<span class="additions">+${section.changes.additions}</span>
-								<span class="deletions">-${section.changes.deletions}</span>
+								<span class="diff-stats__additions">+${section.changes.additions}</span>
+								<span class="diff-stats__deletions">-${section.changes.deletions}</span>
 							</span>
 						</div>
 						${when(

@@ -10,7 +10,6 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--composer-background-05);
 		--composer-item-border: transparent;
 		--composer-item-radius: 1.2rem;
-		/* --composer-item-border: var(--vscode-contrastActiveBorder, var(--vscode-list-inactiveFocusOutline)); */
 		--composer-item-color: var(--vscode-foreground);
 		--composer-item-icon-color: var(--vscode-icon-foreground);
 
@@ -31,13 +30,9 @@ export const composerItemStyles = css`
 	}
 
 	.composer-item.is-selected {
-		--composer-item-background: var(--vscode-list-activeSelectionBackground var(--vscode-background));
+		--composer-item-background: var(--vscode-list-activeSelectionBackground, var(--color-background));
 		--composer-item-icon-color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
 		--composer-item-color: var(--vscode-list-activeSelectionForeground);
-		/* --composer-item-border: var(
-			--vscode-list-focusAndSelectionOutline,
-			var(--vscode-contrastActiveBorder, var(--vscode-list-focusOutline))
-		); */
 	}
 
 	:host-context(.vscode-high-contrast) .composer-item.is-selected {
@@ -186,11 +181,19 @@ export const composerItemContentStyles = css`
 		font-weight: 500;
 	}
 
-	.diff-stats .additions {
+	.diff-stats__additions {
 		color: var(--vscode-gitDecoration-addedResourceForeground);
+		color: light-dark(
+			color-mix(in srgb, #fff 40%, var(--vscode-gitDecoration-addedResourceForeground)),
+			var(--vscode-gitDecoration-addedResourceForeground)
+		);
 	}
 
-	.diff-stats .deletions {
+	.diff-stats__deletions {
 		color: var(--vscode-gitDecoration-deletedResourceForeground);
+		color: light-dark(
+			color-mix(in srgb, #fff 40%, var(--vscode-gitDecoration-deletedResourceForeground)),
+			var(--vscode-gitDecoration-deletedResourceForeground)
+		);
 	}
 `;

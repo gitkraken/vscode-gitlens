@@ -137,8 +137,8 @@ export class CommitItem extends LitElement {
 					<div class="composer-item__body change-stats">
 						<div class="file-count">${this.fileCount} ${this.fileCount === 1 ? 'file' : 'files'}</div>
 						<div class="diff-stats">
-							<span class="additions">+${this.additions}</span>
-							<span class="deletions">-${this.deletions}</span>
+							<span class="diff-stats__additions">+${this.additions}</span>
+							<span class="diff-stats__deletions">-${this.deletions}</span>
 						</div>
 					</div>
 				</div>
