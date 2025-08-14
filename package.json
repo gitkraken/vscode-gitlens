@@ -6438,6 +6438,11 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.composer.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.computingFileAnnotations",
 				"title": "Computing File Annotations...",
 				"icon": "$(gitlens-gitlens-filled)"
@@ -11047,6 +11052,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.composer.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.computingFileAnnotations",
 					"when": "false"
 				},
@@ -14271,6 +14280,11 @@
 				}
 			],
 			"editor/title": [
+				{
+					"command": "gitlens.composer.refresh",
+					"when": "activeWebviewPanelId === gitlens.composer",
+					"group": "navigation@-99"
+				},
 				{
 					"command": "gitlens.graph.refresh",
 					"when": "activeWebviewPanelId === gitlens.graph",
