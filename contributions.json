@@ -530,6 +530,13 @@
 						"order": 1
 					}
 				],
+				"scm/resourceGroup/context": [
+					{
+						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_modification_gitlens",
+						"order": 1
+					}
+				],
 				"scm/title": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",

@@ -27,12 +27,19 @@ export class ComposeCommand extends GlCommandBase {
 		super(['gitlens.composeCommits', 'gitlens.composeCommits:scm']);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ComposeCommandArgs): Promise<void> {
+	protected override async preExecute(context: CommandContext, args?: ComposeCommandArgs): Promise<void> {
 		if (context.command === 'gitlens.composeCommits:scm') {
 			args = { ...args };
 			args.source = args.source ?? 'scm';
+
 			if (context.type === 'scm' && context.scm.rootUri != null) {
-				args = { ...args, repoPath: context.scm.rootUri };
+				args.repoPath = context.scm.rootUri;
+			} else if (context.type === 'scm-groups') {
+				const uri = context.scmResourceGroups[0]?.resourceStates[0]?.resourceUri;
+				if (uri != null) {
+					const repo = await this.container.git.getOrOpenRepository(uri);
+					args.repoPath = repo?.path;
+				}
 			}
 		} else if (isCommandContextViewNodeHasWorktree(context)) {
 			args = { ...args };

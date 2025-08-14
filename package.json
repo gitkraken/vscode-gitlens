@@ -16785,6 +16785,11 @@
 					"group": "1_modification@101"
 				},
 				{
+					"command": "gitlens.composeCommits:scm",
+					"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_modification_gitlens@1"
+				},
+				{
 					"submenu": "gitlens/scm/resourceGroup/changes",
 					"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmGroup.compare",
 					"group": "2_gitlens@1"
