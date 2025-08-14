@@ -322,11 +322,6 @@ export class CommitsPanel extends LitElement {
 				margin-block: 0.8rem 0;
 			}
 
-			.ai-button-wrapper {
-				display: block;
-				width: 100%;
-			}
-
 			.instructions-list {
 				margin-block: 0.4rem;
 				padding-inline-start: 1.6rem;
@@ -1105,7 +1100,7 @@ export class CommitsPanel extends LitElement {
 							<gl-button
 								full
 								appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
-								?disabled=${this.generating || this.committing || !this.aiEnabled}
+								?disabled=${this.generating || this.committing}
 								@click=${this.dispatchGenerateCommitsWithAI}
 							>
 								<code-icon
