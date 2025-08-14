@@ -64,6 +64,8 @@ const historyLimit = 3;
 
 const onboardingKey = 'composer-onboarding';
 
+const composerFeedbackUrl = 'https://github.com/gitkraken/vscode-gitlens/discussions/4530';
+
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
 	@consume({ context: stateContext, subscribe: true })
@@ -113,6 +115,14 @@ export class ComposerApp extends LitElement {
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				margin-inline-start: 0.4rem;
+			}
+
+			.header-feedback {
+				transform: translateY(2px);
+			}
+
+			.header-feedback:not(:hover, :focus) {
+				opacity: 0.8;
 			}
 
 			.header-actions {
@@ -1503,6 +1513,13 @@ export class ComposerApp extends LitElement {
 			<header class="header">
 				<h1>
 					Commit Composer <small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
+					<gl-button
+						class="header-feedback"
+						appearance="toolbar"
+						href=${composerFeedbackUrl}
+						tooltip="Commit Composer Feedback"
+						><code-icon icon="feedback"></code-icon
+					></gl-button>
 				</h1>
 				${this.renderActions()}
 			</header>
@@ -1691,8 +1708,7 @@ export class ComposerApp extends LitElement {
 			key: `${onboardingKey}-welcome`,
 			popover: {
 				title: 'Welcome to Commit Composer',
-				description:
-					'Compose your changes into organized, meaningful commits before committing them. Use AI to automatically structure your work into draft commits with clear messages and descriptions, or commit manually.',
+				description: `Compose your changes into organized, meaningful commits before committing them. Use AI to automatically structure your work into draft commits with clear messages and descriptions, or commit manually. <br><br> <a href="${composerFeedbackUrl}">Learn More</a>`,
 			},
 		},
 		{
