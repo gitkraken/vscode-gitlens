@@ -134,25 +134,33 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the Commit Composer is reloaded */
 	'composer/reloaded': ComposerEvent;
 	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */
-	'composer/includedUnstagedChanges': ComposerEvent;
+	'composer/action/includedUnstagedChanges': ComposerEvent;
 	/** Sent when the user uses auto-compose in the Commit Composer */
-	'composer/generateCommits': ComposerEvent;
-	/** Sent when the user cancels an auto-compose operation in the Commit Composer */
-	'composer/generateCommits/cancelled': ComposerEvent;
+	'composer/action/compose': ComposerEvent;
+	/** Sent when the user fails an auto-compose operation in the Commit Composer */
+	'composer/action/compose/failed': ComposerEvent;
+	/** Sent when the user uses recompose in the Commit Composer */
+	'composer/action/recompose': ComposerEvent;
+	/** Sent when the user fails a recompose operation in the Commit Composer */
+	'composer/action/recompose/failed': ComposerEvent;
 	/** Sent when the user uses generate commit message in the Commit Composer */
-	'composer/generateCommitMessage': ComposerEvent;
-	/** Sent when the user cancels a generate commit message operation in the Commit Composer */
-	'composer/generateCommitMessage/cancelled': ComposerEvent;
-	/** Sent when the user updates custom instructions in the Commit Composer */
-	'composer/customInstructions/updated': ComposerEvent;
+	'composer/action/generateCommitMessage': ComposerEvent;
+	/** Sent when the user fails a generate commit message operation in the Commit Composer */
+	'composer/action/generateCommitMessage/failed': ComposerEvent;
 	/** Sent when the user changes the AI model in the Commit Composer */
-	'composer/aiModel/changed': ComposerEvent;
+	'composer/action/changeAiModel': ComposerEvent;
 	/** Sent when the user finishes and commits in the Commit Composer */
-	'composer/finishAndCommit': ComposerEvent;
+	'composer/action/finishAndCommit': ComposerEvent;
+	/** Sent when the user fails to finish and commit in the Commit Composer */
+	'composer/action/finishAndCommit/failed': ComposerEvent;
 	/** Sent when the user uses the undo button in the Commit Composer */
-	'composer/undo': ComposerEvent;
+	'composer/action/undo': ComposerEvent;
 	/** Sent when the user uses the reset button in the Commit Composer */
-	'composer/reset': ComposerEvent;
+	'composer/action/reset': ComposerEvent;
+	/** Sent when the user is warned that the working directory has changed in the Commit Composer */
+	'composer/warning/workingDirectoryChanged': ComposerEvent;
+	/** Sent when the user is warned that the index has changed in the Commit Composer */
+	'composer/warning/indexChanged': ComposerEvent;
 
 	/** Sent when the Commit Graph is shown */
 	'graph/shown': GraphShownEvent;
@@ -703,53 +711,73 @@ export type InspectShownTelemetryContext = InspectShownEventData;
 
 export type ComposerTelemetryContext = ComposerContextEventData;
 type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
-type ComposerContextModelData = {
-	'context.model.id': string | undefined;
-	'context.model.name': string | undefined;
-	'context.model.provider.id': AIProviders | undefined;
-	'context.model.temperature': number | undefined;
-	'context.model.maxTokens.input': number | undefined;
-	'context.model.maxTokens.output': number | undefined;
-	'context.model.default': boolean | undefined;
-	'context.model.hidden': boolean | undefined;
+type ComposerContextSessionData = {
+	'context.session.start': string;
+	'context.session.duration': number | undefined;
 };
-type ComposerContextAIOperationData = {
+type ComposerContextDiffData = {
+	'context.diff.files.count': number;
+	'context.diff.hunks.count': number;
+	'context.diff.lines.count': number;
+	'context.diff.staged.exists': boolean;
+	'context.diff.unstaged.exists': boolean;
+	'context.diff.unstaged.included': boolean;
+};
+type ComposerContextCommitsData = {
+	'context.commits.initialCount': number;
+	'context.commits.autoComposedCount': number | undefined;
+	'context.commits.composedCount': number | undefined;
+	'context.commits.finalCount': number | undefined;
+};
+type ComposerContextOnboardingData = {
+	'context.onboarding.dismissed': boolean;
+	'context.onboarding.stepReached': number | undefined;
+};
+type ComposerContextAIData = {
 	'context.ai.enabled.org': boolean;
 	'context.ai.enabled.config': boolean;
-	'context.ai.operations.generateCommits.count': number;
-	'context.ai.operations.generateCommits.cancelled.count': number;
-	'context.ai.operations.generateCommits.error.count': number;
-	'context.ai.operations.generateCommits.customInstructions.used': boolean;
-	'context.ai.operations.generateCommits.customInstructions.length': number;
-	'context.ai.operations.generateCommits.customInstructions.hash': string;
-	'context.ai.operations.generateCommits.customInstructions.setting.used': boolean;
-	'context.ai.operations.generateCommits.customInstructions.setting.length': number;
-	'context.ai.operations.generateCommits.feedback.upvote.count': number;
-	'context.ai.operations.generateCommits.feedback.downvote.count': number;
-	'context.ai.operations.generateCommitMessage.count': number;
-	'context.ai.operations.generateCommitMessage.cancelled.count': number;
-	'context.ai.operations.generateCommitMessage.error.count': number;
-	'context.ai.operations.generateCommitMessage.customInstructions.setting.used': boolean;
-	'context.ai.operations.generateCommitMessage.customInstructions.setting.length': number;
+	'context.ai.model.id': string | undefined;
+	'context.ai.model.name': string | undefined;
+	'context.ai.model.provider.id': AIProviders | undefined;
+	'context.ai.model.temperature': number | undefined;
+	'context.ai.model.maxTokens.input': number | undefined;
+	'context.ai.model.maxTokens.output': number | undefined;
+	'context.ai.model.default': boolean | undefined;
+	'context.ai.model.hidden': boolean | undefined;
+};
+type ComposerContextOperationData = {
+	'context.operations.generateCommits.count': number;
+	'context.operations.generateCommits.cancelled.count': number;
+	'context.operations.generateCommits.error.count': number;
+	'context.operations.generateCommits.feedback.upvote.count': number;
+	'context.operations.generateCommits.feedback.downvote.count': number;
+	'context.operations.generateCommitMessage.count': number;
+	'context.operations.generateCommitMessage.cancelled.count': number;
+	'context.operations.generateCommitMessage.error.count': number;
+	'context.operations.finishAndCommit.error.count': number;
+	'context.operations.undo.count': number;
+	'context.operations.redo.count': number;
+	'context.operations.reset.count': number;
+};
+type ComposerContextWarningsData = {
+	'context.warnings.workingDirectoryChanged': boolean;
+	'context.warnings.indexChanged': boolean;
+};
+type ComposerContextErrorsData = {
+	'context.errors.safety.count': number;
+	'context.errors.operation.count': number;
 };
 
-type ComposerSessionContextEventData = ComposerContextModelData &
-	ComposerContextAIOperationData & {
+type ComposerSessionContextEventData = ComposerContextSessionData &
+	ComposerContextDiffData &
+	ComposerContextCommitsData &
+	ComposerContextOnboardingData &
+	ComposerContextAIData &
+	ComposerContextOperationData &
+	ComposerContextWarningsData &
+	ComposerContextErrorsData & {
 		'context.source': Sources | undefined;
 		'context.mode': 'experimental' | 'preview';
-		'context.sessionId': string;
-		'context.files.count': number;
-		'context.hunks.count': number;
-		'context.lines.count': number;
-		'context.draftCommits.initialCount': number;
-		'context.draftCommits.finalCount': number | undefined;
-		'context.diffSources.staged': boolean;
-		'context.diffSources.unstaged': boolean;
-		'context.diffSources.unstaged.included': boolean;
-		'context.onboarding.dismissed': boolean;
-		'context.history.undo.count': number;
-		'context.history.redo.count': number;
-		'context.history.reset.count': number;
 	};
 
 type ComposerEvent = ComposerContextEventData;
