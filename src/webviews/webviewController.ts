@@ -94,7 +94,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor<ID>,
-		instanceId: string | undefined,
+		instanceId: string,
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
@@ -110,7 +110,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewViewDescriptor<ID>,
-		instanceId: string | undefined,
+		instanceId: string,
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
@@ -126,7 +126,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: GetWebviewDescriptor<ID>,
-		instanceId: string | undefined,
+		instanceId: string,
 		parent: GetWebviewParent<ID>,
 		resolveProvider: (
 			container: Container,
@@ -173,7 +173,7 @@ export class WebviewController<
 		private readonly container: Container,
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
 		private readonly descriptor: GetWebviewDescriptor<ID>,
-		public readonly instanceId: string | undefined,
+		public readonly instanceId: string,
 		public readonly parent: GetWebviewParent<ID>,
 		resolveProvider: (
 			container: Container,
@@ -240,7 +240,14 @@ export class WebviewController<
 		command: WebviewCommands | WebviewViewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
-		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
+		return this._commandRegistrar.registerCommand(
+			this.provider,
+			this.id,
+			// We should be able to remove this in the future and always use the instanceId, but we need to do more testing to make sure each webview command always comes with the instanceId
+			this.descriptor.allowMultipleInstances ? this.instanceId : undefined,
+			command,
+			callback,
+		);
 	}
 
 	private _initializing: Promise<void> | undefined;

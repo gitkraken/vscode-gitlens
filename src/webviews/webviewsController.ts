@@ -55,7 +55,7 @@ export interface WebviewPanelProxy<
 	SerializedState = unknown,
 > extends Disposable {
 	readonly id: ID;
-	readonly instanceId: string | undefined;
+	readonly instanceId: string;
 	readonly ready: boolean;
 	readonly active: boolean;
 	readonly visible: boolean;
@@ -96,6 +96,8 @@ export interface WebviewViewDescriptor<ID extends WebviewViewIds = WebviewViewId
 	readonly webviewHostOptions?: {
 		readonly retainContextWhenHidden?: boolean;
 	};
+
+	readonly allowMultipleInstances?: never;
 }
 
 interface WebviewViewRegistration<
@@ -192,7 +194,7 @@ export class WebviewsController implements Disposable {
 							this.container,
 							this._commandRegistrar,
 							descriptor,
-							undefined,
+							uuid(),
 							webviewView,
 							resolveProvider,
 						);
@@ -346,7 +348,7 @@ export class WebviewsController implements Disposable {
 					container,
 					commandRegistrar,
 					descriptor,
-					descriptor.allowMultipleInstances ? uuid() : undefined,
+					uuid(),
 					panel,
 					resolveProvider,
 				);
