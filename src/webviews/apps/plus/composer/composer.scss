@@ -5,9 +5,11 @@
 @use '../../shared/styles/utils';
 
 @include utils.dark-theme {
+	color-scheme: dark;
 	--composer-background-05: var(--color-background--lighten-05);
 }
 @include utils.light-theme {
+	color-scheme: light;
 	--composer-background-05: var(--color-background--darken-05);
 }
 
