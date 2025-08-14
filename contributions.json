@@ -552,6 +552,19 @@
 				]
 			}
 		},
+		"gitlens.composer.refresh": {
+			"label": "Refresh",
+			"icon": "$(refresh)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.composer",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
+		},
 		"gitlens.computingFileAnnotations": {
 			"label": "Computing File Annotations...",
 			"icon": "$(gitlens-gitlens-filled)",

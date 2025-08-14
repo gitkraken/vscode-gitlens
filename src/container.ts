@@ -69,7 +69,7 @@ import { UriService } from './uris/uriService';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { Views } from './views/views';
 import { VslsController } from './vsls/vsls';
-import { registerComposerWebviewPanel } from './webviews/plus/composer/registration';
+import { registerComposerWebviewCommands, registerComposerWebviewPanel } from './webviews/plus/composer/registration';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration';
 import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration';
 import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from './webviews/plus/timeline/registration';
@@ -243,6 +243,7 @@ export class Container {
 
 		const composerPanels = registerComposerWebviewPanel(webviews);
 		this._disposables.push(composerPanels);
+		this._disposables.push(registerComposerWebviewCommands(this, composerPanels));
 
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);

@@ -1,5 +1,7 @@
-import { ViewColumn } from 'vscode';
+import { Disposable, ViewColumn } from 'vscode';
 import type { Sources } from '../../../constants.telemetry';
+import type { Container } from '../../../container';
+import { registerCommand } from '../../../system/-webview/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
 import type { State } from './protocol';
 
@@ -37,5 +39,14 @@ export function registerComposerWebviewPanel(
 			);
 			return new ComposerWebviewProvider(container, host);
 		},
+	);
+}
+
+export function registerComposerWebviewCommands<T>(
+	_container: Container,
+	panels: WebviewPanelsProxy<'gitlens.composer', ComposerWebviewShowingArgs, T>,
+): Disposable {
+	return Disposable.from(
+		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 	);
 }
