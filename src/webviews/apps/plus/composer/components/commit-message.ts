@@ -146,16 +146,15 @@ export class CommitMessage extends LitElement {
 				border-color: var(--vscode-inputValidation-errorBorder);
 			}
 
-			.ai-button-tooltip-wrapper {
+			.commit-message__field {
+				position: relative;
+			}
+
+			.commit-message__ai-button {
 				position: absolute;
 				top: 0.5rem;
 				right: 0.5rem;
 				z-index: 1;
-				pointer-events: none;
-			}
-
-			.ai-button-tooltip-wrapper gl-button {
-				pointer-events: auto;
 			}
 		`,
 	];
@@ -224,25 +223,30 @@ export class CommitMessage extends LitElement {
 					@input=${this.onMessageInput}
 				></textarea>
 				${this.renderHelpText()}
-				<span
-					class="ai-button-tooltip-wrapper"
-					title=${this.generating
-						? 'Generating...'
-						: !this.aiEnabled
-							? this.aiDisabledReason || 'AI features are disabled'
-							: 'Generate commit message with AI'}
-				>
-					<gl-button
-						appearance="toolbar"
-						?disabled=${this.generating || !this.aiEnabled}
-						@click=${() => this.onGenerateCommitMessageClick()}
-					>
-						<code-icon
-							.icon=${this.generating ? 'loading' : 'sparkle'}
-							.modifier=${this.generating ? 'spin' : ''}
-						></code-icon>
-					</gl-button>
-				</span>
+				${when(
+					this.aiEnabled,
+					() =>
+						html`<gl-button
+							class="commit-message__ai-button"
+							appearance="toolbar"
+							?disabled=${this.generating}
+							.tooltip=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
+							@click=${() => this.onGenerateCommitMessageClick()}
+						>
+							<code-icon
+								.icon=${this.generating ? 'loading' : 'sparkle'}
+								.modifier=${this.generating ? 'spin' : ''}
+							></code-icon>
+						</gl-button>`,
+					() =>
+						html`<gl-button
+							class="commit-message__ai-button"
+							appearance="toolbar"
+							.tooltip=${this.aiDisabledReason || 'AI features are disabled'}
+						>
+							<code-icon icon="sparkle"></code-icon>
+						</gl-button>`,
+				)}
 			</div>
 		`;
 	}
