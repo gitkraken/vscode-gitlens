@@ -1412,7 +1412,11 @@ export class ViewCommands implements Disposable {
 			case 'gitlens.diffWithPrevious' satisfies GlCommands: {
 				const [, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
 				args.showOptions!.preview = false;
-				void executeEditorCommand<DiffWithPreviousCommandArgs>(command.command, undefined, args);
+				void executeEditorCommand<DiffWithPreviousCommandArgs>(
+					'gitlens.diffWithPrevious:views',
+					undefined,
+					args,
+				);
 				break;
 			}
 			default:
@@ -1538,7 +1542,7 @@ export class ViewCommands implements Disposable {
 	@log()
 	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('status-file')) {
-			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.uri,
 				showOptions: {
 					preserveFocus: true,
@@ -1548,7 +1552,7 @@ export class ViewCommands implements Disposable {
 		}
 
 		if (node.is('conflict-file')) {
-			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.baseUri,
 				showOptions: {
 					preserveFocus: true,
@@ -1560,7 +1564,7 @@ export class ViewCommands implements Disposable {
 		if (node.is('file-commit') && node.commit.file?.hasConflicts) {
 			const baseUri = await node.getConflictBaseUri();
 			if (baseUri != null) {
-				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 					uri: baseUri,
 					showOptions: {
 						preserveFocus: true,

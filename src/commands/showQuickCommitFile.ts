@@ -153,7 +153,11 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 @command()
 export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.showQuickRevisionDetails');
+		super([
+			'gitlens.showQuickRevisionDetails',
+			'gitlens.showQuickRevisionDetails:editor',
+			'gitlens.showQuickRevisionDetails:editor/title',
+		]);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {

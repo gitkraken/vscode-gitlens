@@ -123,16 +123,31 @@ type InternalWalkthroughCommands =
 
 type InternalGlCommands =
 	| `gitlens.action.${string}`
-	| 'gitlens.changeBranchMergeTarget'
-	| 'gitlens.diffWith'
 	| 'gitlens.ai.explainCommit:editor'
 	| 'gitlens.ai.explainWip:editor'
 	| 'gitlens.ai.feedback.helpful'
 	| 'gitlens.ai.feedback.unhelpful'
+	| 'gitlens.changeBranchMergeTarget'
+	| 'gitlens.diffWith'
+	| 'gitlens.diffWithPrevious:codelens'
+	| 'gitlens.diffWithPrevious:command'
+	| 'gitlens.diffWithPrevious:views'
+	| 'gitlens.diffWithWorking:command'
+	| 'gitlens.diffWithWorking:views'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
+	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
+	| 'gitlens.toggleFileBlame:codelens'
+	| 'gitlens.toggleFileBlame:mode'
+	| 'gitlens.toggleFileBlame:statusbar'
+	| 'gitlens.toggleFileChanges:codelens'
+	| 'gitlens.toggleFileChanges:mode'
+	| 'gitlens.toggleFileChanges:statusbar'
+	| 'gitlens.toggleFileHeatmap:codelens'
+	| 'gitlens.toggleFileHeatmap:mode'
+	| 'gitlens.toggleFileHeatmap:statusbar'
 	| 'gitlens.visualizeHistory'
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands

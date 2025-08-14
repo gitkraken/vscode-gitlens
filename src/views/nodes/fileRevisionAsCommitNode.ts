@@ -167,7 +167,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		}
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-			'gitlens.diffWithPrevious',
+			'gitlens.diffWithPrevious:views',
 			'Open Changes with Previous Revision',
 			undefined,
 			{

@@ -64,7 +64,15 @@ export type ToggleFileAnnotationCommandArgs =
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.toggleFileBlame');
+		super([
+			'gitlens.toggleFileBlame',
+			'gitlens.toggleFileBlame:codelens',
+			'gitlens.toggleFileBlame:editor',
+			'gitlens.toggleFileBlame:editor/title',
+			'gitlens.toggleFileBlame:key',
+			'gitlens.toggleFileBlame:mode',
+			'gitlens.toggleFileBlame:statusbar',
+		]);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {
@@ -78,7 +86,14 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 @command()
 export class ToggleFileChangesCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.toggleFileChanges');
+		super([
+			'gitlens.toggleFileChanges',
+			'gitlens.toggleFileChanges:codelens',
+			'gitlens.toggleFileChanges:editor',
+			'gitlens.toggleFileChanges:editor/title',
+			'gitlens.toggleFileChanges:mode',
+			'gitlens.toggleFileChanges:statusbar',
+		]);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileChangesAnnotationCommandArgs): Promise<void> {
@@ -94,6 +109,11 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
 			'gitlens.toggleFileHeatmap',
+			'gitlens.toggleFileHeatmap:codelens',
+			'gitlens.toggleFileHeatmap:editor',
+			'gitlens.toggleFileHeatmap:editor/title',
+			'gitlens.toggleFileHeatmap:mode',
+			'gitlens.toggleFileHeatmap:statusbar',
 			'gitlens.toggleFileHeatmapInDiffLeft',
 			'gitlens.toggleFileHeatmapInDiffRight',
 		]);

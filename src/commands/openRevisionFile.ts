@@ -21,7 +21,7 @@ export interface OpenRevisionFileCommandArgs {
 @command()
 export class OpenRevisionFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.openRevisionFile');
+		super(['gitlens.openRevisionFile', 'gitlens.openRevisionFile:editor/title']);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs): Promise<void> {

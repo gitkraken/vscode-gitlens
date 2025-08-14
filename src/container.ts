@@ -771,13 +771,13 @@ export class Container {
 			let command: GlCommands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
-					command = 'gitlens.toggleFileBlame';
+					command = 'gitlens.toggleFileBlame:mode';
 					break;
 				case 'changes':
-					command = 'gitlens.toggleFileChanges';
+					command = 'gitlens.toggleFileChanges:mode';
 					break;
 				case 'heatmap':
-					command = 'gitlens.toggleFileHeatmap';
+					command = 'gitlens.toggleFileHeatmap:mode';
 					break;
 			}
 

@@ -202,7 +202,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 	override getCommand(): Command | undefined {
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-			'gitlens.diffWithPrevious',
+			'gitlens.diffWithPrevious:views',
 			'Open Changes with Previous Revision',
 			undefined,
 			{

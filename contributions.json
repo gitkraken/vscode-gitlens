@@ -1249,7 +1249,12 @@
 			"label": "Open Changes with Next Revision",
 			"icon": "$(gitlens-next-commit)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.diffWithNext:editor/title": {
+			"label": "Open Changes with Next Revision",
+			"icon": "$(gitlens-next-commit)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
@@ -1258,7 +1263,12 @@
 						"order": 99
 					}
 				]
-			},
+			}
+		},
+		"gitlens.diffWithNext:key": {
+			"label": "Open Changes with Next Revision",
+			"icon": "$(gitlens-next-commit)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
 			"keybindings": [
 				{
 					"key": "alt+.",
@@ -1274,16 +1284,12 @@
 		"gitlens.diffWithPrevious": {
 			"label": "Open Changes with Previous Revision",
 			"icon": "$(gitlens-prev-commit)",
-			"commandPalette": "resource in gitlens:tabs:tracked",
+			"commandPalette": "resource in gitlens:tabs:tracked"
+		},
+		"gitlens.diffWithPrevious:editor": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
 			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-						"group": "navigation",
-						"order": 97,
-						"alt": "gitlens.diffWithRevision"
-					}
-				],
 				"gitlens/editor/changes": [
 					{
 						"group": "1_gitlens",
@@ -1295,7 +1301,27 @@
 						"group": "2_gitlens",
 						"order": 1
 					}
-				],
+				]
+			}
+		},
+		"gitlens.diffWithPrevious:editor/title": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+						"group": "navigation",
+						"order": 97,
+						"alt": "gitlens.diffWithRevision"
+					}
+				]
+			}
+		},
+		"gitlens.diffWithPrevious:explorer": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
+			"menus": {
 				"gitlens/explorer/changes": [
 					{
 						"when": "!explorerResourceIsFolder",
@@ -1303,7 +1329,11 @@
 						"order": 1
 					}
 				]
-			},
+			}
+		},
+		"gitlens.diffWithPrevious:key": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
 			"keybindings": [
 				{
 					"key": "alt+,",
@@ -1396,15 +1426,12 @@
 		"gitlens.diffWithWorking": {
 			"label": "Open Changes with Working File",
 			"icon": "$(gitlens-compare-ref-working)",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.diffWithWorking:editor": {
+			"label": "Open Changes with Working File",
+			"icon": "$(gitlens-compare-ref-working)",
 			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-						"group": "navigation",
-						"order": -99
-					}
-				],
 				"gitlens/editor/changes": [
 					{
 						"when": "resourceScheme == gitlens",
@@ -1419,7 +1446,24 @@
 						"order": 2
 					}
 				]
-			},
+			}
+		},
+		"gitlens.diffWithWorking:editor/title": {
+			"label": "Open Changes with Working File",
+			"icon": "$(gitlens-compare-ref-working)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
+		},
+		"gitlens.diffWithWorking:key": {
+			"label": "Open Changes with Working File",
+			"icon": "$(gitlens-compare-ref-working)",
 			"keybindings": [
 				{
 					"key": "ctrl+shift+g shift+.",
@@ -3519,7 +3563,12 @@
 			"label": "Open File at Revision",
 			"icon": "$(gitlens-open-revision)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor"
+		},
+		"gitlens.openRevisionFile:editor/title": {
+			"label": "Open File at Revision",
+			"icon": "$(gitlens-open-revision)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
@@ -3537,7 +3586,11 @@
 		"gitlens.openWorkingFile": {
 			"label": "Open File",
 			"icon": "$(go-to-file)",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.openWorkingFile:editor/context": {
+			"label": "Open File",
+			"icon": "$(go-to-file)",
 			"menus": {
 				"editor/context": [
 					{
@@ -3545,7 +3598,13 @@
 						"group": "1_z_gitlens",
 						"order": 0
 					}
-				],
+				]
+			}
+		},
+		"gitlens.openWorkingFile:editor/title": {
+			"label": "Open File",
+			"icon": "$(go-to-file)",
+			"menus": {
 				"editor/title": [
 					{
 						"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
@@ -4235,20 +4294,32 @@
 			"label": "Show Revision Commit",
 			"icon": "$(gitlens-commit-horizontal)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.showQuickRevisionDetails:editor": {
+			"label": "Show Revision Commit",
+			"icon": "$(gitlens-commit-horizontal)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
+			"menus": {
+				"gitlens/editor/context/changes": [
+					{
+						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled",
+						"group": "3_gitlens_1",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.showQuickRevisionDetails:editor/title": {
+			"label": "Show Revision Commit",
+			"icon": "$(gitlens-commit-horizontal)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
 						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 						"group": "navigation",
 						"order": 98
-					}
-				],
-				"gitlens/editor/context/changes": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled",
-						"group": "3_gitlens_1",
-						"order": 1
 					}
 				]
 			}
@@ -5308,16 +5379,12 @@
 		"gitlens.toggleFileBlame": {
 			"label": "Toggle File Blame",
 			"icon": "$(gitlens-gitlens)",
-			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.blame.toggleMode == window",
+			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.blame.toggleMode == window"
+		},
+		"gitlens.toggleFileBlame:editor": {
+			"label": "Toggle File Blame",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
-						"group": "navigation",
-						"order": 100,
-						"alt": "gitlens.toggleFileHeatmap"
-					}
-				],
 				"gitlens/editor/annotations": [
 					{
 						"when": "resource in gitlens:tabs:blameable",
@@ -5325,7 +5392,25 @@
 						"order": 1
 					}
 				]
-			},
+			}
+		},
+		"gitlens.toggleFileBlame:editor/title": {
+			"label": "Toggle File Blame",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
+						"group": "navigation",
+						"order": 100,
+						"alt": "gitlens.toggleFileHeatmap:editor/title"
+					}
+				]
+			}
+		},
+		"gitlens.toggleFileBlame:key": {
+			"label": "Toggle File Blame",
+			"icon": "$(gitlens-gitlens)",
 			"keybindings": [
 				{
 					"key": "alt+b",
@@ -5341,21 +5426,31 @@
 		"gitlens.toggleFileChanges": {
 			"label": "Toggle File Changes",
 			"icon": "$(gitlens-gitlens)",
-			"commandPalette": "(resource in gitlens:tabs:blameable  || config.gitlens.changes.toggleMode == window) && !gitlens:hasVirtualFolders",
+			"commandPalette": "(resource in gitlens:tabs:blameable  || config.gitlens.changes.toggleMode == window) && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.toggleFileChanges:editor": {
+			"label": "Toggle File Changes",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"gitlens/editor/annotations": [
+					{
+						"when": "resource in gitlens:tabs:blameable && !gitlens:hasVirtualFolders",
+						"group": "2_gitlens",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.toggleFileChanges:editor/title": {
+			"label": "Toggle File Changes",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
 				"editor/title": [
 					{
 						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:hasVirtualFolders && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes",
 						"group": "navigation",
 						"order": 100,
-						"alt": "gitlens.toggleFileBlame"
-					}
-				],
-				"gitlens/editor/annotations": [
-					{
-						"when": "resource in gitlens:tabs:blameable && !gitlens:hasVirtualFolders",
-						"group": "2_gitlens",
-						"order": 3
+						"alt": "gitlens.toggleFileBlame:editor/title"
 					}
 				]
 			}
@@ -5367,7 +5462,24 @@
 		"gitlens.toggleFileHeatmap": {
 			"label": "Toggle File Heatmap",
 			"icon": "$(gitlens-gitlens)",
-			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.heatmap.toggleMode == window",
+			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.heatmap.toggleMode == window"
+		},
+		"gitlens.toggleFileHeatmap:editor": {
+			"label": "Toggle File Heatmap",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"gitlens/editor/annotations": [
+					{
+						"when": "resource in gitlens:tabs:blameable && !isInDiffEditor",
+						"group": "2_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.toggleFileHeatmap:editor/title": {
+			"label": "Toggle File Heatmap",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
 				"editor/title": [
 					{
@@ -5375,13 +5487,6 @@
 						"group": "navigation",
 						"order": 100,
 						"alt": "gitlens.toggleFileBlame"
-					}
-				],
-				"gitlens/editor/annotations": [
-					{
-						"when": "resource in gitlens:tabs:blameable && !isInDiffEditor",
-						"group": "2_gitlens",
-						"order": 2
 					}
 				]
 			}

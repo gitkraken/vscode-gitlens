@@ -292,7 +292,7 @@ export async function openChanges(
 
 	if (file.status === 'A' && hasCommit) {
 		const commit = await commitOrRefs.getCommitForFile(file);
-		void executeCommand<DiffWithPreviousCommandArgs>('gitlens.diffWithPrevious', {
+		void executeCommand<DiffWithPreviousCommandArgs>('gitlens.diffWithPrevious:command', {
 			commit: commit,
 			showOptions: options,
 		});
@@ -385,7 +385,7 @@ export async function openChangesWithWorking(
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	void (await executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+	void (await executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:command', undefined, {
 		uri: GitUri.fromFile(file, ref.repoPath, ref.ref),
 		showOptions: options,
 		lhsTitle: options?.lhsTitle,
@@ -490,7 +490,7 @@ export async function openFile(
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	void (await executeEditorCommand<OpenWorkingFileCommandArgs>('gitlens.openWorkingFile', undefined, {
+	void (await executeEditorCommand<OpenWorkingFileCommandArgs>('gitlens.openWorkingFile:command', undefined, {
 		uri: uri,
 		showOptions: options,
 	}));
