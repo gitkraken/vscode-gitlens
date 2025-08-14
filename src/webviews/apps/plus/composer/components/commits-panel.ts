@@ -32,20 +32,23 @@ export class CommitsPanel extends LitElement {
 		composerItemContentStyles,
 		css`
 			:host {
-				display: flex;
-				flex-direction: column;
-				gap: 0.8rem;
+				display: block;
 				height: 100%;
 				overflow: hidden;
 			}
 
+			.container {
+				display: flex;
+				flex-direction: column;
+				gap: 0.8rem;
+				height: 100%;
+				overflow: hidden auto;
+			}
+
 			.working-section {
-				flex: 1;
-				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
 				gap: 1.6rem;
-				padding-block-end: 0.8rem;
 			}
 
 			.commits-list {
@@ -129,7 +132,11 @@ export class CommitsPanel extends LitElement {
 
 			/* Finish & Commit section styles */
 			.finish-commit {
-				flex: none;
+				position: sticky;
+				bottom: 0;
+				z-index: 600;
+				background-color: var(--color-background);
+				padding-block-start: 0.8rem;
 			}
 
 			.finish-commit__header {
@@ -1138,12 +1145,81 @@ export class CommitsPanel extends LitElement {
 		// Handle no changes state
 		if (!this.hasChanges) {
 			return html`
-				<div class="working-section scrollable">
+				<div class="container scrollable">
+					<div class="working-section">
+						<div class="commits-list">
+							<h3 class="commits-header">Draft Commits</h3>
+							<p class="no-changes-message">
+								When working directory changes are present, draft commits will appear here.
+							</p>
+
+							<!-- Base commit (informational only) -->
+							<div class="composer-item is-base">
+								<div class="composer-item__commit"></div>
+								<div class="composer-item__content">
+									<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
+									<div class="composer-item__body">
+										<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
+										<span>/</span>
+										<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+		}
+
+		return html`
+			<div class="container scrollable">
+				<div class="working-section">
+					<!-- Auto-Compose container at top when not used yet -->
+					${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 					<div class="commits-list">
+						${this.hasUsedAutoCompose
+							? this.renderCompositionSummarySection()
+							: this.renderUnassignedSection()}
+
 						<h3 class="commits-header">Draft Commits</h3>
-						<p class="no-changes-message">
-							When working directory changes are present, draft commits will appear here.
-						</p>
+
+						<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
+						${when(
+							!this.isPreviewMode && this.shouldShowNewCommitZone,
+							() => html`
+								<div class="new-commit-drop-zone">
+									<div class="drop-zone-content">
+										<code-icon icon="plus"></code-icon>
+										<span>Drop hunks here to create new commit</span>
+									</div>
+								</div>
+							`,
+						)}
+
+						<div class="commits-only">
+							${repeat(
+								this.commits.slice().reverse(), // Reverse order - bottom to top
+								commit => commit.id,
+								(commit, i) => {
+									const changes = getCommitChanges(commit, this.hunks);
+									return html`
+										<gl-commit-item
+											.commitId=${commit.id}
+											.message=${commit.message}
+											.fileCount=${getFileCountForCommit(commit, this.hunks)}
+											.additions=${changes.additions}
+											.deletions=${changes.deletions}
+											.selected=${this.selectedCommitId === commit.id}
+											.multiSelected=${this.selectedCommitIds.has(commit.id)}
+											.isPreviewMode=${this.isPreviewMode}
+											?first=${i === 0}
+											@click=${(e: MouseEvent) =>
+												this.dispatchCommitSelect(commit.id, e.shiftKey)}
+										></gl-commit-item>
+									`;
+								},
+							)}
+						</div>
 
 						<!-- Base commit (informational only) -->
 						<div class="composer-item is-base">
@@ -1157,144 +1233,80 @@ export class CommitsPanel extends LitElement {
 								</div>
 							</div>
 						</div>
-					</div>
-				</div>
-			`;
-		}
 
-		return html`
-			<div class="working-section scrollable">
-				<!-- Auto-Compose container at top when not used yet -->
-				${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
-				<div class="commits-list">
-					${this.hasUsedAutoCompose ? this.renderCompositionSummarySection() : this.renderUnassignedSection()}
-
-					<h3 class="commits-header">Draft Commits</h3>
-
-					<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
-					${when(
-						!this.isPreviewMode && this.shouldShowNewCommitZone,
-						() => html`
-							<div class="new-commit-drop-zone">
-								<div class="drop-zone-content">
-									<code-icon icon="plus"></code-icon>
-									<span>Drop hunks here to create new commit</span>
+						<!-- Drop zone for unassigning hunks (hidden when not dragging or in AI preview mode) -->
+						${when(
+							!this.isPreviewMode && this.shouldShowUnassignZone,
+							() => html`
+								<div class="unassign-drop-zone">
+									<div class="drop-zone-content">
+										<code-icon icon="trash"></code-icon>
+										<span>Drop hunks here to unassign</span>
+									</div>
 								</div>
-							</div>
-						`,
-					)}
-
-					<div class="commits-only">
-						${repeat(
-							this.commits.slice().reverse(), // Reverse order - bottom to top
-							commit => commit.id,
-							(commit, i) => {
-								const changes = getCommitChanges(commit, this.hunks);
-								return html`
-									<gl-commit-item
-										.commitId=${commit.id}
-										.message=${commit.message}
-										.fileCount=${getFileCountForCommit(commit, this.hunks)}
-										.additions=${changes.additions}
-										.deletions=${changes.deletions}
-										.selected=${this.selectedCommitId === commit.id}
-										.multiSelected=${this.selectedCommitIds.has(commit.id)}
-										.isPreviewMode=${this.isPreviewMode}
-										?first=${i === 0}
-										@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e.shiftKey)}
-									></gl-commit-item>
-								`;
-							},
+							`,
 						)}
 					</div>
-
-					<!-- Base commit (informational only) -->
-					<div class="composer-item is-base">
-						<div class="composer-item__commit"></div>
-						<div class="composer-item__content">
-							<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
-							<div class="composer-item__body">
-								<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
-								<span>/</span>
-								<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
-							</div>
-						</div>
-					</div>
-
-					<!-- Drop zone for unassigning hunks (hidden when not dragging or in AI preview mode) -->
-					${when(
-						!this.isPreviewMode && this.shouldShowUnassignZone,
-						() => html`
-							<div class="unassign-drop-zone">
-								<div class="drop-zone-content">
-									<code-icon icon="trash"></code-icon>
-									<span>Drop hunks here to unassign</span>
-								</div>
-							</div>
-						`,
-					)}
+					<!-- Auto-Compose container in original position when already used -->
+					${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 				</div>
-				<!-- Auto-Compose container in original position when already used -->
-				${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
-			</div>
 
-			<!-- Finish & Commit section -->
-			<div class="finish-commit">
-				${when(
-					this.selectedCommitIds.size > 1 && !this.isPreviewMode,
-					() => html`
-						<h3 class="finish-commit__header">Finish & Commit</h3>
-						<p class="finish-commit__description">
-							New commits will be added to your current branch and a stash will be created with your
-							original changes.
-						</p>
-						<button-container layout="editor">
-							<gl-button
-								full
-								appearance="secondary"
-								?disabled=${this.generating || this.committing}
-								@click=${this.dispatchCombineCommits}
-							>
-								Combine ${this.selectedCommitIds.size} Commits
-							</gl-button>
-						</button-container>
+				<!-- Finish & Commit section -->
+				<div class="finish-commit">
+					${when(
+						this.selectedCommitIds.size > 1 && !this.isPreviewMode,
+						() => html`
+							<h3 class="finish-commit__header">Finish & Commit</h3>
+							<p class="finish-commit__description">
+								New commits will be added to your current branch and a stash will be created with your
+								original changes.
+							</p>
+							<button-container layout="editor">
+								<gl-button
+									full
+									appearance="secondary"
+									?disabled=${this.generating || this.committing}
+									@click=${this.dispatchCombineCommits}
+								>
+									Combine ${this.selectedCommitIds.size} Commits
+								</gl-button>
+							</button-container>
 
-						<!-- Cancel button -->
-						<button-container layout="editor" class="cancel-button-container">
-							<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
-						</button-container>
-					`,
-					() => html`
-						<div class="finish-commit-header">
-							<h3>Finish & Commit</h3>
-							<p class="finish-commit-subtext">
+							<!-- Cancel button -->
+							<button-container layout="editor" class="cancel-button-container">
+								<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
+							</button-container>
+						`,
+						() => html`
+							<h3 class="finish-commit__header">Finish & Commit</h3>
+							<p class="finish-commit__description">
 								${this.isReadyToCommit
 									? 'New commits will be added to your current branch.'
 									: 'Commit the changes in this draft.'}
 							</p>
-						</div>
 
-						<!-- Single Create Commits button -->
-						<button-container layout="editor">
-							<gl-button
-								full
-								.appearance=${!this.isReadyToCommit ? 'secondary' : undefined}
-								?disabled=${this.commits.length === 0 || this.generating || this.committing}
-								@click=${this.handleCreateCommitsClick}
-							>
-								<code-icon icon=${this.committing ? 'loading~spin' : ''} slot="prefix"></code-icon>
-								${this.committing
-									? 'Committing...'
-									: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
-							</gl-button>
-						</button-container>
+							<!-- Single Create Commits button -->
+							<button-container layout="editor">
+								<gl-button
+									full
+									.appearance=${!this.isReadyToCommit ? 'secondary' : undefined}
+									?disabled=${this.commits.length === 0 || this.generating || this.committing}
+									@click=${this.handleCreateCommitsClick}
+								>
+									<code-icon icon=${this.committing ? 'loading~spin' : ''} slot="prefix"></code-icon>
+									${this.committing
+										? 'Committing...'
+										: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
+								</gl-button>
+							</button-container>
 
-						<!-- Cancel button (always shown) -->
-						<button-container layout="editor" class="cancel-button-container">
-							<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
-						</button-container>
-					`,
-				)}
+							<!-- Cancel button (always shown) -->
+							<button-container layout="editor" class="cancel-button-container">
+								<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
+							</button-container>
+						`,
+					)}
+				</div>
 			</div>
 		`;
 	}
