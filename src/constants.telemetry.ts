@@ -530,7 +530,7 @@ interface CodeSuggestViewedEventData {
 }
 
 interface CommandEventData {
-	command: GlCommands;
+	command: string;
 	'context.mode'?: never;
 	'context.submode'?: never;
 	webview?: string;
@@ -998,7 +998,7 @@ type WalkthroughActionNames =
 	| 'switch/ai-model';
 
 type WalkthroughActionEvent =
-	| { type: 'command'; name: WalkthroughActionNames; command: GlCommands; detail?: string }
+	| { type: 'command'; name: WalkthroughActionNames; command: string; detail?: string }
 	| { type: 'url'; name: WalkthroughActionNames; url: string; detail?: string };
 
 interface WalkthroughCompletionEvent {

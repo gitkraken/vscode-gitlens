@@ -724,7 +724,7 @@ or when connection refresh is skipped due to being a non-cloud session
 
 ```typescript
 {
-  'command': string /* GlCommands */,
+  'command': string,
   'webview': string
 }
 ```
@@ -995,7 +995,7 @@ or
 
 ```typescript
 {
-  'command': string /* GlCommands */,
+  'command': string,
   'webview': string
 }
 ```
@@ -1364,7 +1364,7 @@ void
 
 ```typescript
 {
-  'command': string /* GlCommands */,
+  'command': string,
   'webview': string
 }
 ```
@@ -2395,7 +2395,7 @@ or
 
 ```typescript
 {
-  'command': string /* GlCommands */,
+  'command': string,
   'detail': string,
   'name': 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/help-center/ai-features' | 'open/help-center/start-integrations' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/streamline-collaboration' | 'open/help-center/interactive-code-history' | 'open/help-center/community-vs-pro' | 'open/help-center/home-view' | 'open/devex-platform' | 'open/drafts' | 'open/home' | 'connect/integrations' | 'open/autolinks' | 'open/graph' | 'open/launchpad' | 'create/worktree' | 'open/help-center' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'open/walkthrough' | 'open/inspect' | 'switch/ai-model',
   'type': 'command'
