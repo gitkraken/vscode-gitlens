@@ -199,7 +199,8 @@ export const diff2htmlStyles = css`
 	}
 	.d2h-code-line {
 		padding: 0 8em;
-		width: calc(100% - 16em);
+		/* width: calc(100% - 16em); */
+		width: 100%;
 	}
 	.d2h-code-line,
 	.d2h-code-side-line {
@@ -270,8 +271,9 @@ export const diff2htmlStyles = css`
 	}
 	.d2h-code-linenumber {
 		background-color: var(--d2h-bg-color);
-		border: solid var(--d2h-line-border-color);
-		border-width: 0 1px;
+		border-style: solid;
+		border-color: transparent var(--d2h-line-border-color);
+		border-width: 1px;
 		-webkit-box-sizing: border-box;
 		box-sizing: border-box;
 		color: var(--d2h-dim-color);
@@ -283,6 +285,12 @@ export const diff2htmlStyles = css`
 	}
 	.d2h-code-linenumber:after {
 		content: '\\200b';
+	}
+	.d2h-code-linenumber.d2h-ins {
+		border-color: transparent var(--d2h-ins-border-color);
+	}
+	.d2h-code-linenumber.d2h-del {
+		border-color: transparent var(--d2h-del-border-color);
 	}
 	.d2h-code-side-linenumber {
 		background-color: var(--d2h-bg-color);
@@ -415,6 +423,12 @@ export const diff2htmlStyles = css`
 	}
 	.d2h-moved-tag {
 		border: 1px solid var(--d2h-moved-label-color);
+	}
+	:host-context(.vscode-high-contrast) .d2h-ins .d2h-code-line {
+		border: 1px dashed var(--d2h-ins-border-color);
+	}
+	:host-context(.vscode-high-contrast) .d2h-del .d2h-code-line {
+		border: 1px dashed var(--d2h-del-border-color);
 	}
 `;
 /*
