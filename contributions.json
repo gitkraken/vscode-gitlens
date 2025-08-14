@@ -290,7 +290,7 @@
 						"order": 2
 					}
 				],
-				"gitlens/scm/title": [
+				"gitlens/scm/title/ai": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens",
@@ -353,7 +353,7 @@
 		"gitlens.ai.switchProvider:scm": {
 			"label": "Switch GitLens AI Provider/Model...",
 			"menus": {
-				"gitlens/scm/title": [
+				"gitlens/scm/title/ai": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled",
 						"group": "9_gitlens",
@@ -520,14 +520,14 @@
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 1
 					}
 				],
 				"gitlens/scm/title/ai": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens",
-						"order": 1
+						"order": 2
 					}
 				],
 				"scm/resourceGroup/context": [
@@ -4019,6 +4019,13 @@
 			"icon": "$(gitlens-graph)",
 			"commandPalette": "gitlens:enabled",
 			"menus": {
+				"gitlens/scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "8_gitlens",
+						"order": 1
+					}
+				],
 				"gitlens/views/grouped/commits": [
 					{
 						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:plus:disabled",
@@ -16139,6 +16146,13 @@
 			"label": "Visualize Repository History",
 			"icon": "$(graph-scatter)",
 			"menus": {
+				"gitlens/scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "8_gitlens",
+						"order": 2
+					}
+				],
 				"scm/sourceControl": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scm.visualHistory",
@@ -16620,11 +16634,11 @@
 		},
 		"gitlens/scm/title": {
 			"label": "GitLens",
-			"icon": "$(sparkle)",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"when": "scmProvider == git && gitlens:enabled && (!gitlens:gk:organization:ai:enabled || !config.gitlens.ai.enabled)",
 						"group": "navigation",
 						"order": -3
 					}
@@ -16633,11 +16647,11 @@
 		},
 		"gitlens/scm/title/ai": {
 			"label": "GitLens",
-			"icon": "$(gitlens-gitlens)",
+			"icon": "$(sparkle)",
 			"menus": {
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && (!gitlens:gk:organization:ai:enabled || !config.gitlens.ai.enabled)",
+						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "navigation",
 						"order": -3
 					}
