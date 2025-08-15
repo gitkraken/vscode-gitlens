@@ -289,7 +289,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const baseCommit = await repo.git.commits.getCommit('HEAD');
 		if (baseCommit == null) {
 			const errorMessage = 'No base commit found to compose from.';
-			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/opened', {
+			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {
 				'failure.reason': 'error',
 				'failure.error.message': errorMessage,
 			});
@@ -302,7 +302,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const currentBranch = await repo.git.branches.getBranch();
 		if (currentBranch == null) {
 			const errorMessage = 'No current branch found to compose from.';
-			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/opened', {
+			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {
 				'failure.reason': 'error',
 				'failure.error.message': errorMessage,
 			});
@@ -361,7 +361,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._context.warnings.workingDirectoryChanged = false;
 		this._context.warnings.indexChanged = false;
 		this._context.sessionStart = new Date().toISOString();
-		this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/opened');
+		this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded');
 
 		// Subscribe to repository changes for working directory monitoring
 		this.subscribeToRepository(repo);
@@ -1132,7 +1132,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		event: 'composer/action/finishAndCommit/failed',
 		data: ComposerActionEventFailureData,
 	): void;
-	private sendTelemetryEvent(event: 'composer/opened' | 'composer/reloaded', data?: ComposerLoadedErrorData): void;
+	private sendTelemetryEvent(event: 'composer/loaded' | 'composer/reloaded', data?: ComposerLoadedErrorData): void;
 	private sendTelemetryEvent(
 		event:
 			| 'composer/action/includedUnstagedChanges'

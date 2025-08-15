@@ -129,8 +129,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
 	'commitDetails/mode/changed': CommitDetailsModeChangedEvent;
 
-	/** Sent when the Commit Composer is opened */
-	'composer/opened': ComposerEvent;
+	/** Sent when the Commit Composer is first loaded with repo data */
+	'composer/loaded': ComposerEvent;
 	/** Sent when the Commit Composer is reloaded */
 	'composer/reloaded': ComposerEvent;
 	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */

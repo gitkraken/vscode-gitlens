@@ -1582,9 +1582,9 @@ or
 }
 ```
 
-### composer/opened
+### composer/loaded
 
-> Sent when the Commit Composer is opened
+> Sent when the Commit Composer is first loaded with repo data
 
 ```typescript
 {

@@ -294,7 +294,7 @@ export const baseContext: ComposerContext = {
 };
 
 export type ComposerTelemetryEvent =
-	| 'composer/opened'
+	| 'composer/loaded'
 	| 'composer/reloaded'
 	| 'composer/action/includedUnstagedChanges'
 	| 'composer/action/compose'
