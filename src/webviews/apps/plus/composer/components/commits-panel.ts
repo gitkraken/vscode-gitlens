@@ -672,7 +672,12 @@ export class CommitsPanel extends LitElement {
 		this.requestUpdate(); // Re-render to hide unassign drop zone
 	}
 
-	private dispatchCommitSelect(commitId: string, multiSelect: boolean = false) {
+	private dispatchCommitSelect(commitId: string, e?: MouseEvent | KeyboardEvent) {
+		if (e instanceof KeyboardEvent && e.key !== 'Enter') {
+			return;
+		}
+
+		const multiSelect = e?.shiftKey ?? false;
 		this.dispatchEvent(
 			new CustomEvent('commit-select', {
 				detail: { commitId: commitId, multiSelect: multiSelect },
@@ -681,7 +686,9 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
-	private dispatchUnassignedSelect(section: string) {
+	private dispatchUnassignedSelect(section: string, e?: MouseEvent | KeyboardEvent) {
+		if (e instanceof KeyboardEvent && e.key !== 'Enter') return;
+
 		this.dispatchEvent(
 			new CustomEvent('unassigned-select', {
 				detail: { section: section },
@@ -787,7 +794,9 @@ export class CommitsPanel extends LitElement {
 		);
 	}
 
-	private handleCompositionSummaryClick() {
+	private handleCompositionSummaryClick(e: MouseEvent | KeyboardEvent) {
+		if (e instanceof KeyboardEvent && e.key !== 'Enter') return;
+
 		// Dispatch event to show composition summary
 		this.dispatchEvent(
 			new CustomEvent('select-composition-summary', {
@@ -912,7 +921,9 @@ export class CommitsPanel extends LitElement {
 					class="composer-item is-uncommitted${this.selectedUnassignedSection === section.key
 						? ' is-selected'
 						: ''}"
-					@click=${() => this.dispatchUnassignedSelect(section.key)}
+					tabindex="0"
+					@click=${(e: MouseEvent) => this.dispatchUnassignedSelect(section.key, e)}
+					@keydown=${(e: KeyboardEvent) => this.dispatchUnassignedSelect(section.key, e)}
 				>
 					<div class="composer-item__content">
 						<div class="composer-item__header">
@@ -960,7 +971,9 @@ export class CommitsPanel extends LitElement {
 				<h3 class="composition-summary__header">Composition Summary</h3>
 				<div
 					class="composer-item is-summary${this.compositionSummarySelected ? ' is-selected' : ''}"
+					tabindex="0"
 					@click=${this.handleCompositionSummaryClick}
+					@keydown=${this.handleCompositionSummaryClick}
 				>
 					<div class="composer-item__content">
 						<div class="composer-item__header">
@@ -1168,8 +1181,8 @@ export class CommitsPanel extends LitElement {
 											.multiSelected=${this.selectedCommitIds.has(commit.id)}
 											.isPreviewMode=${this.isPreviewMode}
 											?first=${i === 0}
-											@click=${(e: MouseEvent) =>
-												this.dispatchCommitSelect(commit.id, e.shiftKey)}
+											@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e)}
+											@keydown=${(e: KeyboardEvent) => this.dispatchCommitSelect(commit.id, e)}
 										></gl-commit-item>
 									`;
 								},

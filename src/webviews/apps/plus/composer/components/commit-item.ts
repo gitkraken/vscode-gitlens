@@ -1,6 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
 import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
 import '../../../shared/components/code-icon';
@@ -9,6 +10,7 @@ import '../../../shared/components/code-icon';
 export class CommitItem extends LitElement {
 	static override styles = [
 		boxSizingBase,
+		focusableBaseStyles,
 		composerItemStyles,
 		composerItemContentStyles,
 		composerItemCommitStyles,
@@ -90,9 +92,9 @@ export class CommitItem extends LitElement {
 		this.dataset.commitId = this.commitId;
 	}
 
-	private handleClick(e: MouseEvent) {
+	private handleClick(e: MouseEvent | KeyboardEvent) {
 		// Don't select commit if clicking on drag handle
-		if ((e.target as HTMLElement).closest('.drag-handle')) {
+		if ((e.target as HTMLElement).closest('.drag-handle') || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
 			return;
 		}
 
@@ -119,7 +121,9 @@ export class CommitItem extends LitElement {
 				class="composer-item commit-item ${this.selected ? ' is-selected' : ''}${this.multiSelected
 					? ' multi-selected'
 					: ''}${this.first ? ' is-first' : ''}"
+				tabindex="0"
 				@click=${this.handleClick}
+				@keydown=${this.handleClick}
 			>
 				${when(
 					!this.isPreviewMode,
