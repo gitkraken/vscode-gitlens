@@ -139,6 +139,7 @@ type InternalGlCommands =
 	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
+	| 'gitlens.showComposerPage'
 	| 'gitlens.toggleFileBlame:codelens'
 	| 'gitlens.toggleFileBlame:mode'
 	| 'gitlens.toggleFileBlame:statusbar'

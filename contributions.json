@@ -4056,11 +4056,6 @@
 			"label": "Show Commits View",
 			"commandPalette": "gitlens:enabled"
 		},
-		"gitlens.showComposerPage": {
-			"label": "Open Commit Composer",
-			"icon": "$(gitlens-gitlens)",
-			"commandPalette": true
-		},
 		"gitlens.showContributorsView": {
 			"label": "Show Contributors View",
 			"commandPalette": "gitlens:enabled"

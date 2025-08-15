@@ -7773,12 +7773,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showComposerPage",
-				"title": "Open Commit Composer",
-				"category": "GitLens",
-				"icon": "$(gitlens-gitlens)"
-			},
-			{
 				"command": "gitlens.showContributorsView",
 				"title": "Show Contributors View",
 				"category": "GitLens"
