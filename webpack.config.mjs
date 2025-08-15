@@ -675,7 +675,7 @@ function getCspHtmlPlugin(mode, env) {
 			'script-src':
 				mode !== 'production'
 					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
-					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
+					: ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"],
 			'style-src':
 				mode === 'production'
 					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"]
