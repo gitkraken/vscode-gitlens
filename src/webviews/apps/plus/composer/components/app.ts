@@ -1806,6 +1806,7 @@ export class ComposerApp extends LitElement {
 			},
 			onNextClick: (_el, _step) => {
 				this.advanceOnboardingStep();
+				this.onboarding?.moveNext();
 			},
 		});
 
