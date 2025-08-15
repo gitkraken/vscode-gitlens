@@ -409,8 +409,9 @@ export const diff2htmlStyles = css`
 		background-color: var(--d2h-bg-color);
 		display: flex;
 		font-size: 10px;
-		margin-left: 5px;
-		padding: 0 2px;
+		margin-left: 6px;
+		padding: 0px 3px;
+		border-radius: 2px;
 	}
 	.d2h-deleted-tag {
 		border: 1px solid var(--d2h-del-label-color);
