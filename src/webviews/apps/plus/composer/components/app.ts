@@ -396,8 +396,7 @@ export class ComposerApp extends LitElement {
 	private lastMouseEvent?: MouseEvent;
 
 	override firstUpdated() {
-		// Initialize reset state
-		this.initializeResetState();
+		this.initializeResetStateIfNeeded();
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
@@ -411,6 +410,8 @@ export class ComposerApp extends LitElement {
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
+
+		this.initializeResetStateIfNeeded();
 
 		// Reinitialize drop zones when commits change
 		if (changedProperties.has('commits')) {
@@ -632,10 +633,18 @@ export class ComposerApp extends LitElement {
 		this.history.undoStack.push(this.createDataSnapshot());
 	}
 
-	private initializeResetState() {
+	private initializeResetStateIfNeeded() {
 		if (!this.history.resetState) {
 			this.history.resetState = this.createDataSnapshot();
 		}
+	}
+
+	private resetHistory() {
+		this.history = {
+			resetState: null,
+			undoStack: [],
+			redoStack: [],
+		};
 	}
 
 	private canUndo(): boolean {
@@ -1238,6 +1247,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private handleReloadComposer() {
+		this.resetHistory();
 		this._ipc.sendCommand(ReloadComposerCommand, {
 			repoPath: this.state.safetyState.repoPath,
 			mode: this.state.mode,
