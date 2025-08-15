@@ -48,27 +48,33 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input {
 				width: 100%;
-				padding: 1.2rem 1.6rem;
+				padding: 0.5rem;
 				font-family: inherit;
-				font-size: 1.6rem;
-				line-height: 1.4;
-				/* border: 1px solid var(--vscode-input-border); */
-				/* border-radius: 0.2rem; */
-				/* background: var(--vscode-input-background); */
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
-				background: var(--color-background);
+				font-size: 1.3rem;
+				line-height: 2rem;
+				border: 1px solid var(--vscode-input-border);
+				border-radius: 0.2rem;
+				background: var(--vscode-input-background);
 				color: var(--vscode-input-foreground);
 				vertical-align: middle;
+				-webkit-font-smoothing: auto;
+			}
+
+			.commit-message__input:has(~ .commit-message__ai-button) {
+				padding-right: 3rem;
 			}
 
 			textarea.commit-message__input {
 				box-sizing: content-box;
-				width: calc(100% - 3.4rem);
+				width: calc(100% - 1rem);
 				resize: vertical;
 				field-sizing: content;
-				min-height: 2lh;
-				max-height: 4lh;
+				min-height: 1lh;
+				max-height: 10lh;
+				resize: none;
+			}
+			textarea.commit-message__input:has(~ .commit-message__ai-button) {
+				width: calc(100% - 3.5rem);
 			}
 
 			.has-explanation {
@@ -78,6 +84,7 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input::placeholder {
 				color: var(--vscode-input-placeholderForeground);
+				-webkit-font-smoothing: auto;
 			}
 
 			.commit-message__input[aria-valid='false'] {
@@ -152,8 +159,8 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__ai-button {
 				position: absolute;
-				top: 0.5rem;
-				right: 0.5rem;
+				top: 0.3rem;
+				right: 0.3rem;
 				z-index: 1;
 			}
 		`,
