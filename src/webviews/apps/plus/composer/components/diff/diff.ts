@@ -1,11 +1,10 @@
-import { html as html2 } from 'diff2html';
 import { ColorSchemeType } from 'diff2html/lib-esm/types';
 import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
 import { Diff2HtmlUI } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { boxSizingBase } from '../../../../shared/components/styles/lit/base.css';
+import { compiledComposerTemplates } from './diff-templates.compiled';
 import { diff2htmlStyles, diffStyles, hljsStyles } from './diff.css';
 
 @customElement('gl-diff-hunk')
@@ -79,31 +78,15 @@ export class GlDiffHunk extends LitElement {
 			outputFormat: 'line-by-line',
 			drawFileList: false,
 			highlight: false,
-			rawTemplates: this.rawTemplates,
+			// NOTE: Avoiding passing rawTemplates to Diff2HtmlUI to prevent Diff2Html from
+			// compiling templates at runtime via Hogan.compile (which uses eval), which violates
+			// the webview CSP (no 'unsafe-eval'). If we need to customize templates in the future,
+			// switch to providing precompiled templates in the bundle instead of raw strings.
+			compiledTemplates: compiledComposerTemplates,
 		};
 		const diff = `${diffHeader}\n${hunkHeader}\n${hunkContent}`;
 		this.diff2htmlUi = new Diff2HtmlUI(this.targetElement, diff, config);
 		this.diff2htmlUi.draw();
 		// this.diff2htmlUi.highlightCode();
-	}
-
-	private renderDiff2() {
-		const diffHeader = this.diffHeader.trim();
-		const hunkHeader = this.hunkHeader.trim();
-		const hunkContent = this.hunkContent.trim();
-		if (!diffHeader || !hunkHeader || !hunkContent) {
-			return nothing;
-		}
-
-		const diff = `${diffHeader}\n${hunkHeader}\n${hunkContent}`;
-		const html = html2(diff, {
-			drawFileList: false,
-			// matching: 'lines',
-			outputFormat: 'line-by-line',
-			// colorScheme: this.isDarkMode ? ColorSchemeType.DARK : ColorSchemeType.LIGHT,
-			colorScheme: ColorSchemeType.AUTO,
-		});
-
-		return unsafeHTML(html);
 	}
 }

@@ -1,21 +1,14 @@
-import { html as html2, parse as parseDiff } from 'diff2html';
-import type { RawTemplates } from 'diff2html/lib-esm/hoganjs-utils';
+import { parse as parseDiff } from 'diff2html';
 import type { DiffFile } from 'diff2html/lib-esm/types';
 import { ColorSchemeType } from 'diff2html/lib-esm/types';
 import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
 import { Diff2HtmlUI } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { ComposerHunk } from '../../../../../plus/composer/protocol';
 import { focusableBaseStyles } from '../../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../../shared/components/styles/lit/base.css';
-import {
-	blockHeaderTemplate,
-	genericFilePathTemplate,
-	lineByLineFileTemplate,
-	sideBySideFileTemplate,
-} from './diff-templates';
+import { compiledComposerTemplates } from './diff-templates.compiled';
 import { diff2htmlStyles, diffStyles, hljsStyles } from './diff.css';
 import '../../../../shared/components/code-icon';
 
@@ -57,15 +50,6 @@ export class GlDiffFile extends LitElement {
 	@state()
 	private parsedDiff?: DiffFile[];
 
-	get rawTemplates(): RawTemplates {
-		return {
-			'block-header': blockHeaderTemplate,
-			'line-by-line-file-diff': lineByLineFileTemplate,
-			'side-by-side-file-diff': sideBySideFileTemplate,
-			'generic-file-path': genericFilePathTemplate,
-		};
-	}
-
 	private diff2htmlUi?: Diff2HtmlUI;
 
 	override firstUpdated() {
@@ -86,9 +70,6 @@ export class GlDiffFile extends LitElement {
 	override render() {
 		return html`<div id="diff"></div>`;
 	}
-	// override render() {
-	// 	return this.renderDiff2();
-	// }
 
 	private renderDiff() {
 		if (!this.parsedDiff) {
@@ -100,27 +81,15 @@ export class GlDiffFile extends LitElement {
 			outputFormat: this.sideBySide ? 'side-by-side' : 'line-by-line',
 			drawFileList: false,
 			highlight: false,
-			rawTemplates: this.rawTemplates,
+			// NOTE: Avoiding passing rawTemplates to Diff2HtmlUI to prevent Diff2Html from
+			// compiling templates at runtime via Hogan.compile (which uses eval), which violates
+			// the webview CSP (no 'unsafe-eval'). If we need to customize templates in the future,
+			// switch to providing precompiled templates in the bundle instead of raw strings.
+			compiledTemplates: compiledComposerTemplates,
 		};
 		this.diff2htmlUi = new Diff2HtmlUI(this.targetElement, this.parsedDiff, config);
 		this.diff2htmlUi.draw();
 		// this.diff2htmlUi.highlightCode();
-	}
-
-	private renderDiff2() {
-		if (!this.diffText) {
-			return nothing;
-		}
-
-		const html = html2(this.diffText, {
-			drawFileList: false,
-			// matching: 'lines',
-			outputFormat: 'line-by-line',
-			// colorScheme: this.isDarkMode ? ColorSchemeType.DARK : ColorSchemeType.LIGHT,
-			colorScheme: ColorSchemeType.AUTO,
-		});
-
-		return unsafeHTML(html);
 	}
 
 	private processDiff() {
