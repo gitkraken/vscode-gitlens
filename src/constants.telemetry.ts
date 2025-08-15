@@ -5,12 +5,12 @@ import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
 import type { AIActionType } from './plus/ai/models/model';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription';
 import type { Flatten } from './system/object';
-import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol';
 
@@ -1079,6 +1079,7 @@ interface UsageTrackEvent {
 
 interface WalkthroughEvent {
 	step?: WalkthroughSteps;
+	usingFallbackUrl?: boolean;
 }
 
 type WalkthroughActionNames =

@@ -2,11 +2,11 @@ import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { Features } from './features';
 import type { OrgAIProviders } from './plus/gk/models/organization';
 import type { PromoKeys } from './plus/gk/models/promo';
 import type { SubscriptionPlanIds } from './plus/gk/models/subscription';
-import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
 export type ContextKeys = {
 	'gitlens:debugging': boolean;

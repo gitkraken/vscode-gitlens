@@ -62,7 +62,6 @@ import { flatten } from '../../system/object';
 import { pauseOnCancelOrTimeout } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import { createDisposable } from '../../system/unifiedDisposable';
-import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
@@ -486,13 +485,13 @@ export class SubscriptionService implements Disposable {
 				void this.resendVerification(source);
 			}
 		} else if (isSubscriptionPaid(this._subscription)) {
-			const learn: MessageItem | undefined = isWalkthroughSupported() ? { title: 'Learn More' } : undefined;
+			const learn: MessageItem = { title: 'Learn More' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
 				`You are now on ${actual.name} and have full access to all GitLens Pro features.`,
 				{ modal: true },
 				confirm,
-				...(learn ? [learn] : []),
+				learn,
 			);
 
 			if (result === learn) {
@@ -501,7 +500,7 @@ export class SubscriptionService implements Disposable {
 		} else if (isSubscriptionTrial(this._subscription)) {
 			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-			const learn: MessageItem | undefined = isWalkthroughSupported() ? { title: 'Learn More' } : undefined;
+			const learn: MessageItem = { title: 'Learn More' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
 				`Welcome to your ${effective.name} Trial.\n\nYou now have full access to all GitLens Pro features for ${
@@ -512,7 +511,7 @@ export class SubscriptionService implements Disposable {
 					detail: 'Your trial also includes access to the GitKraken DevEx platform, unleashing powerful Git visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.',
 				},
 				confirm,
-				...(learn ? [learn] : []),
+				learn,
 			);
 
 			if (result === learn) {
@@ -520,9 +519,7 @@ export class SubscriptionService implements Disposable {
 			}
 		} else {
 			const upgrade: MessageItem = { title: 'Upgrade to Pro' };
-			const learn: MessageItem | undefined = isWalkthroughSupported()
-				? { title: 'Community vs. Pro' }
-				: undefined;
+			const learn: MessageItem = { title: 'Community vs. Pro' };
 			const confirm: MessageItem = { title: 'Continue', isCloseAffordance: true };
 			const result = await window.showInformationMessage(
 				`You are now on ${actual.name}.`,
@@ -531,7 +528,7 @@ export class SubscriptionService implements Disposable {
 					detail: 'You only have access to Pro features on publicly-hosted repos. For full access to all Pro features, please upgrade to GitLens Pro.',
 				},
 				upgrade,
-				...(learn ? [learn] : []),
+				learn,
 				confirm,
 			);
 
