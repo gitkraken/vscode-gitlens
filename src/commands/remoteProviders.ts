@@ -13,7 +13,7 @@ import type { CommandContext } from './commandContext';
 import { isCommandContextViewNodeHasRemote } from './commandContext.utils';
 
 export interface ConnectRemoteProviderCommandArgs {
-	remote: string;
+	remote?: string;
 	repoPath: string;
 }
 
