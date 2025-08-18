@@ -1,4 +1,5 @@
 import type { Sources } from '../../../constants.telemetry';
+import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { AIModel } from '../../../plus/ai/models/model';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification } from '../../protocol';
@@ -63,6 +64,10 @@ export interface State extends WebviewState {
 	baseCommit: ComposerBaseCommit;
 	safetyState: ComposerSafetyState;
 
+	// repository data
+	repository: RepositoryShape;
+	repositories: RepositoryShape[];
+
 	// UI state
 	selectedCommitId: string | null;
 	selectedCommitIds: Set<string>;
@@ -123,6 +128,8 @@ export const initialState: Omit<State, keyof WebviewState> = {
 		unifiedDiff: null,
 		timestamp: 0,
 	},
+	repository: { id: '', name: '', path: '', uri: '', virtual: false },
+	repositories: [],
 	selectedCommitId: null,
 	selectedCommitIds: new Set<string>(),
 	selectedUnassignedSection: null,
@@ -389,6 +396,9 @@ export const OnAddHunksToCommitCommand = new IpcCommand<OnAddHunksToCommitParams
 export const OnUndoCommand = new IpcCommand<void>(ipcScope, 'onUndo');
 export const OnRedoCommand = new IpcCommand<void>(ipcScope, 'onRedo');
 export const OnResetCommand = new IpcCommand<void>(ipcScope, 'onReset');
+
+// Repository switching
+export const ChooseRepositoryCommand = new IpcCommand(ipcScope, 'chooseRepository');
 
 // Notifications sent from host to webview
 export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');

@@ -40,6 +40,7 @@ import {
 	baseContext,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
+	ChooseRepositoryCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
 	currentOnboardingVersion,
@@ -135,6 +136,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				break;
 			case ReloadComposerCommand.is(e):
 				void this.onReloadComposer(e.params);
+				break;
+			case ChooseRepositoryCommand.is(e):
+				void this.onChooseRepository();
 				break;
 			case OnSelectAIModelCommand.is(e):
 				void this.onSelectAIModel();
@@ -312,6 +316,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			};
 		}
 
+		// Get repository information
+		const repositories = await Promise.all(
+			[...this.container.git.openRepositories].map(async r => {
+				const remotes = await r.git.remotes.getBestRemotesWithProviders();
+				const remote = remotes.find(r => r.default) ?? remotes[0];
+				return remote?.provider != null 
+					? (await import('../../../git/utils/-webview/repository.utils')).toRepositoryShapeWithProvider(r, remote)
+					: (await import('../../../git/utils/-webview/repository.utils')).toRepositoryShape(r);
+			})
+		);
+
+		const repository = repositories.find(r => r.id === repo.id) ?? (await import('../../../git/utils/-webview/repository.utils')).toRepositoryShape(repo);
+
 		// Create initial commit with empty message (user will add message later)
 		const hasStagedChanges = Boolean(stagedDiff?.contents);
 		const hasUnstagedChanges = Boolean(unstagedDiff?.contents);
@@ -376,6 +393,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				repoName: repo.name,
 				branchName: currentBranch.name,
 			},
+			repository: repository,
+			repositories: repositories,
 			commits: commits,
 			safetyState: safetyState,
 			aiEnabled: aiEnabled,
@@ -409,6 +428,26 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private onReset(): void {
 		this._context.operations.reset.count++;
 		this.sendTelemetryEvent('composer/action/reset');
+	}
+
+	private async onChooseRepository(): Promise<void> {
+		const { showRepositoryPicker } = await import('../../../quickpicks/repositoryPicker');
+		const pick = await showRepositoryPicker(
+			this.container,
+			this._currentRepository ? `Switch Repository \u2022 ${this._currentRepository.name}` : 'Switch Repository',
+			'Choose a repository to switch to',
+			this.container.git.openRepositories,
+			{ picked: this._currentRepository },
+		);
+		if (pick == null || pick === this._currentRepository) return;
+
+		// Switch to the new repository by opening composer with it
+		const { executeCommand } = await import('../../../system/-webview/command');
+		await executeCommand('gitlens.showComposerPage', {
+			repoPath: pick.path,
+			source: 'composer',
+			mode: 'preview',
+		});
 	}
 
 	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
