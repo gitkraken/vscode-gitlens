@@ -90,11 +90,17 @@ export class AuthenticationConnection implements Disposable {
 		);
 
 		if (!(await openUrl(url))) {
-			Logger.error(undefined, scope, 'Opening login URL failed');
+			const clipboard = await env.clipboard.readText();
+			if (clipboard === url) {
+				// If the clipboard contains the URL, we can assume the user has copied it (via the copy button on the dialog as vscode will just say the url failed to open, e.g `false`)
+				Logger.warn(scope, 'Looks like the user copied login URL');
+			} else {
+				Logger.error(undefined, scope, 'Opening login URL failed');
 
-			this._pendingStates.delete(scopeKey);
-			this.updateStatusBarItem(false);
-			throw new Error('Cancelled');
+				this._pendingStates.delete(scopeKey);
+				this.updateStatusBarItem(false);
+				throw new Error('Cancelled');
+			}
 		}
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
