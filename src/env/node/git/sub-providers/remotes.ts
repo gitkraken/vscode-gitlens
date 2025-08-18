@@ -8,7 +8,7 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/r
 import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes';
 import { sortRemotes } from '../../../../git/utils/-webview/sorting';
 import { configuration } from '../../../../system/-webview/configuration';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';

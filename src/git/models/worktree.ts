@@ -6,7 +6,7 @@ import type { Container } from '../../container';
 import { relative } from '../../system/-webview/path';
 import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import { shortenRevision } from '../utils/revision.utils';

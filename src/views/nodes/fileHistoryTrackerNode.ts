@@ -9,7 +9,7 @@ import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { setContext } from '../../system/-webview/context';
 import { isFolderUri } from '../../system/-webview/path';
 import { isVirtualUri } from '../../system/-webview/vscode/uris';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import type { Deferrable } from '../../system/function/debounce';

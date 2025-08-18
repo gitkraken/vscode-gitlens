@@ -21,7 +21,7 @@ import {
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
 import { countStringLength } from '../../../../system/array';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { min, skip } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';

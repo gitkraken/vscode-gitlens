@@ -27,7 +27,7 @@ import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { getBestPath } from '../system/-webview/path';
 import { joinUnique } from '../system/array';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';

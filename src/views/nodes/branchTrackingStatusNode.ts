@@ -10,7 +10,7 @@ import { getHighlanderProviders } from '../../git/utils/remote.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
 import { getUpstreamStatus } from '../../git/utils/status.utils';
 import { fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { first, last, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';

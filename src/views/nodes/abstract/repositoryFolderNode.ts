@@ -6,7 +6,7 @@ import type { Repository, RepositoryChangeEvent } from '../../../git/models/repo
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { formatLastFetched } from '../../../git/utils/-webview/repository.utils';
 import { getHighlanderProviders } from '../../../git/utils/remote.utils';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import { basename } from '../../../system/path';

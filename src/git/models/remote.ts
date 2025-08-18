@@ -6,7 +6,7 @@ import {
 	getIntegrationConnectedKey,
 	getIntegrationIdForRemote,
 } from '../../plus/integrations/utils/-webview/integration.utils';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
 import { equalsIgnoreCase } from '../../system/string';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';

@@ -22,7 +22,7 @@ import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
 import type { RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/-webview/configuration';
 import { openUrl } from '../../system/-webview/vscode/uris';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
 import { filterMap, flatten, join } from '../../system/iterable';

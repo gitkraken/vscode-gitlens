@@ -13,7 +13,7 @@ import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';

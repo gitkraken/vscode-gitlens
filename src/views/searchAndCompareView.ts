@@ -14,7 +14,7 @@ import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { filterMap } from '../system/array';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { updateRecordValue } from '../system/object';
 import { isPromise } from '../system/promise';

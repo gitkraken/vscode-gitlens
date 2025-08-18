@@ -1,7 +1,7 @@
 import { Disposable, window } from 'vscode';
 import type { Container } from '../../container';
 import { setContext } from '../../system/-webview/context';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { once } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';

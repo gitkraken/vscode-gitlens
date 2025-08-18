@@ -61,7 +61,7 @@ import { asRepoComparisonKey } from '../../../repositories';
 import { configuration } from '../../../system/-webview/configuration';
 import { setContext } from '../../../system/-webview/context';
 import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function/debounce';
 import { first, join } from '../../../system/iterable';

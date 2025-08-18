@@ -50,7 +50,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { createFromDateDelta, fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { take } from '../../system/event';
 import { once } from '../../system/function';

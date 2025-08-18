@@ -10,9 +10,9 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/mode
 import { deletedOrMissing } from '../../git/models/revision';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { isUncommitted } from '../../git/utils/revision.utils';
-import { gate } from '../../system/decorators/-webview/gate';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
 import { weakEvent } from '../../system/event';
 import { filterMap, find } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';

@@ -40,7 +40,7 @@ import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quick
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';

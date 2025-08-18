@@ -6,7 +6,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { log } from '../../../system/decorators/log';
 import { supportedIntegrationIds } from '../utils/-webview/integration.utils';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService';

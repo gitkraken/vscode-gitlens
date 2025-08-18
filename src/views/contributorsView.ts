@@ -10,7 +10,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';

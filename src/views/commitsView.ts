@@ -18,7 +18,7 @@ import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { createCommand, executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
 import type { UsageChangeEvent } from '../telemetry/usageTracker';

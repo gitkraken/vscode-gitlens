@@ -14,7 +14,7 @@ import type { PullRequest } from '../../../git/models/pullRequest';
 import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../../messages';
 import { configuration } from '../../../system/-webview/configuration';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';

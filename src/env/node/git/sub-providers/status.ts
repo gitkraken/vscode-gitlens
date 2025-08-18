@@ -25,7 +25,7 @@ import { parseGitStatus } from '../../../../git/parsers/statusParser';
 import { createReference } from '../../../../git/utils/reference.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
