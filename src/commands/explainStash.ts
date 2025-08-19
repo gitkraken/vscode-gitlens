@@ -83,12 +83,8 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				return;
 			}
 
-			const {
-				aiPromise,
-				info: { model },
-			} = result;
-
-			this.openDocument(aiPromise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
+			const { promise, model } = result;
+			this.openDocument(promise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
 				header: { title: 'Stash Summary', subtitle: commit.message || commit.ref },
 				command: {
 					label: 'Explain Stash Changes',

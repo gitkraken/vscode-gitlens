@@ -832,23 +832,23 @@ export class PatchDetailsWebviewProvider
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			if (commit == null) throw new Error('Unable to find commit');
 
-			const result = await this.container.ai.explainCommit(
+			const deferredResult = await this.container.ai.explainCommit(
 				commit,
 				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
+			if (deferredResult === 'cancelled') throw new Error('Operation was canceled');
+
+			if (deferredResult == null) throw new Error('Error retrieving content');
+
+			const { promise } = deferredResult;
+
+			const result = await promise;
 			if (result === 'cancelled') throw new Error('Operation was canceled');
 
 			if (result == null) throw new Error('Error retrieving content');
 
-			const { aiPromise } = result;
-
-			const aiResult = await aiPromise;
-			if (aiResult === 'cancelled') throw new Error('Operation was canceled');
-
-			if (aiResult == null) throw new Error('Error retrieving content');
-
-			params = { result: aiResult.parsed };
+			params = { result: result.parsed };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };

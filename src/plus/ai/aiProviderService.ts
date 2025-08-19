@@ -69,7 +69,7 @@ import type {
 	PromptTemplateId,
 	PromptTemplateType,
 } from './models/promptTemplates';
-import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
+import type { AIChatMessage, AIDeferredRequestResult, AIProvider, AIRequestResult } from './models/provider';
 import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
@@ -121,8 +121,9 @@ function dedent(template: string): string {
 export interface AIResult {
 	readonly id: string;
 	readonly type: AIActionType;
-	readonly feature: string;
+
 	readonly content: string;
+	readonly feature: string;
 	readonly model: AIModel;
 	readonly usage?: {
 		readonly promptTokens?: number;
@@ -132,6 +133,14 @@ export interface AIResult {
 		readonly limits?: { readonly used: number; readonly limit: number; readonly resetsOn: Date };
 	};
 }
+
+export type AIDeferredResult<T extends AIResult> = {
+	readonly type: AIActionType;
+	readonly feature: string;
+	readonly model: AIModel;
+
+	readonly promise: Promise<T | 'cancelled' | undefined>;
+};
 
 export interface AIResultContext extends Serialized<Omit<AIResult, 'content'>, string> {}
 
@@ -573,11 +582,7 @@ export class AIProviderService implements Disposable {
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<
-		| undefined
-		| 'cancelled'
-		| { aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined>; info: { model: AIModel } }
-	> {
+	): Promise<AIDeferredResult<AISummarizeResult> | 'cancelled' | undefined> {
 		const svc = this.container.git.getRepositoryService(commitOrRevision.repoPath);
 		return this.explainChanges(
 			async cancellation => {
@@ -611,14 +616,10 @@ export class AIProviderService implements Disposable {
 			| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'explain-changes'>>),
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<
-		| undefined
-		| 'cancelled'
-		| { aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined>; info: { model: AIModel } }
-	> {
+	): Promise<AIDeferredResult<AISummarizeResult> | 'cancelled' | undefined> {
 		const { type, ...source } = sourceContext;
 
-		const complexResult = await this.sendRequestAndGetPartialRequestInfo(
+		const deferredResult = await this.sendRequestWithDeferredResult(
 			'explain-changes',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				if (typeof promptContext === 'function') {
@@ -662,10 +663,10 @@ export class AIProviderService implements Disposable {
 			options,
 		);
 
-		if (complexResult === 'cancelled') return complexResult;
-		if (complexResult == null) return undefined;
+		if (deferredResult === 'cancelled') return deferredResult;
+		if (deferredResult == null) return undefined;
 
-		const aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined> = complexResult.aiPromise.then(result =>
+		const promise: Promise<AISummarizeResult | 'cancelled' | undefined> = deferredResult.promise.then(result =>
 			result === 'cancelled'
 				? result
 				: result != null
@@ -679,8 +680,10 @@ export class AIProviderService implements Disposable {
 		);
 
 		return {
-			aiPromise: aiPromise,
-			info: complexResult.info,
+			...deferredResult,
+			type: 'explain-changes',
+			feature: `explain-${type}`,
+			promise: promise,
 		};
 	}
 
@@ -1360,11 +1363,7 @@ export class AIProviderService implements Disposable {
 					]
 				`);
 
-			return {
-				isValid: false,
-				errorMessage: errorMessage,
-				retryPrompt: retryPrompt,
-			};
+			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 		}
 
 		// Validate the structure and hunk assignments
@@ -1420,11 +1419,7 @@ export class AIProviderService implements Disposable {
 						Don't include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
 					`);
 
-				return {
-					isValid: false,
-					errorMessage: errorMessage,
-					retryPrompt: retryPrompt,
-				};
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 			}
 
 			// If validation passes, return the commits
@@ -1450,15 +1445,12 @@ export class AIProviderService implements Disposable {
 					]
 				`);
 
-			return {
-				isValid: false,
-				errorMessage: errorMessage,
-				retryPrompt: retryPrompt,
-			};
+			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 		}
 	}
 
 	@log({ args: false })
+	private async sendRequestWithDeferredResult<T extends AIActionType>(
 		action: T,
 		getMessages: (
 			model: AIModel,
@@ -1479,14 +1471,7 @@ export class AIProviderService implements Disposable {
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			progress?: ProgressOptions;
 		},
-	): Promise<
-		| undefined
-		| 'cancelled'
-		| {
-				aiPromise: Promise<AIRequestResult | 'cancelled' | undefined>;
-				info: { model: AIModel };
-		  }
-	> {
+	): Promise<AIDeferredRequestResult<AIRequestResult> | 'cancelled' | undefined> {
 		if (!(await this.ensureFeatureAccess(action, source))) {
 			return 'cancelled';
 		}
@@ -1496,7 +1481,7 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const aiPromise = this.sendRequestWithModel(
+		const promise = this.sendRequestWithModel(
 			model,
 			action,
 			getMessages,
@@ -1505,7 +1490,7 @@ export class AIProviderService implements Disposable {
 			getTelemetryInfo,
 			options,
 		);
-		return { aiPromise: aiPromise, info: { model: model } };
+		return { model: model, promise: promise };
 	}
 
 	@log({ args: false })
@@ -1536,6 +1521,11 @@ export class AIProviderService implements Disposable {
 		}
 
 		const model = await this.getModel(undefined, source);
+		if (model == null || options?.cancellation?.isCancellationRequested) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
 		return this.sendRequestWithModel(
 			model,
 			action,
