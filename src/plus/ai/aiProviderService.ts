@@ -1160,7 +1160,7 @@ export class AIProviderService implements Disposable {
 			return firstAttemptResult;
 		}
 
-		conversationMessages = firstAttemptResult.conversationMessages;
+		conversationMessages = [...firstAttemptResult.conversationMessages];
 		let rq = firstAttemptResult.response;
 
 		while (attempt < maxAttempts) {
@@ -1238,7 +1238,11 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 			generateCommits?: boolean;
 		},
-	): Promise<{ response: AIRequestResult; conversationMessages: AIChatMessage[] } | 'cancelled' | undefined> {
+	): Promise<
+		| { readonly response: AIRequestResult; readonly conversationMessages: readonly AIChatMessage[] }
+		| 'cancelled'
+		| undefined
+	> {
 		let storedPrompt = '';
 		const rq = await this.sendRequest(
 			'generate-rebase',
@@ -2202,7 +2206,7 @@ export class AIProviderService implements Disposable {
 		}
 
 		let rq = firstAttemptResult.response;
-		conversationMessages = firstAttemptResult.conversationMessages;
+		conversationMessages = [...firstAttemptResult.conversationMessages];
 
 		while (attempt < maxAttempts) {
 			const validationResult = this.validateCommitsResponse(rq, hunks, existingCommits);
@@ -2368,29 +2372,17 @@ export class AIProviderService implements Disposable {
 		  }
 		| { isValid: false; errorMessage: string; retryPrompt: string } {
 		try {
+			const rqContent = parseOutputResult(rq.content);
+
 			// Parse the JSON response
 			const commits: {
 				readonly message: string;
 				readonly explanation: string;
 				readonly hunks: { hunk: number }[];
-			}[] = JSON.parse(rq.content);
+			}[] = JSON.parse(rqContent);
 
 			if (!Array.isArray(commits)) {
-				const errorMessage = 'Invalid commits result: response is not an array';
-				const retryPrompt = dedent(`
-					Your previous response is not a valid JSON array. Please provide a JSON array of commits following this structure:
-					[
-					  {
-					    "message": "commit message",
-					    "explanation": "detailed explanation",
-					    "hunks": [{"hunk": 1}, {"hunk": 2}]
-					  }
-					]
-
-					Here was your previous response:
-					${rq.content}
-				`);
-				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+				throw new Error('Commits result is not an array');
 			}
 
 			// Collect all hunk indices used in the commits
@@ -2399,23 +2391,7 @@ export class AIProviderService implements Disposable {
 
 			for (const commit of commits) {
 				if (!commit.hunks || !Array.isArray(commit.hunks)) {
-					const errorMessage = 'Invalid commit structure: missing or invalid hunks array';
-					const retryPrompt = dedent(`
-						Your previous response has an invalid commit structure. Each commit must have "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
-
-						Here was your previous response:
-						${rq.content}
-
-						Please provide a valid JSON array of commits following this structure:
-						[
-						  {
-						    "message": "commit message",
-						    "explanation": "detailed explanation",
-						    "hunks": [{"hunk": 1}, {"hunk": 2}]
-						  }
-						]
-					`);
-					return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+					throw new Error('Invalid commit structure: missing or invalid hunks array');
 				}
 
 				for (const hunkRef of commit.hunks) {
@@ -2434,9 +2410,6 @@ export class AIProviderService implements Disposable {
 					Your previous response uses some hunks multiple times. Each hunk can only be used once across all commits.
 
 					Duplicate hunks: ${duplicateHunks.join(', ')}
-
-					Here was your previous response:
-					${rq.content}
 
 					Please provide a corrected response where each hunk is used only once.
 				`);
@@ -2461,9 +2434,6 @@ export class AIProviderService implements Disposable {
 
 					Missing hunks: ${missingHunkIndices.join(', ')}
 
-					Here was your previous response:
-					${rq.content}
-
 					Please provide a corrected response that includes all hunks.
 				`);
 				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
@@ -2476,9 +2446,6 @@ export class AIProviderService implements Disposable {
 					Your previous response includes hunks that were not in the original input. Only use the hunks that were provided.
 
 					Extra hunks: ${extraHunkIndices.join(', ')}
-
-					Here was your previous response:
-					${rq.content}
 
 					Please provide a corrected response that only uses the provided hunks.
 				`);
@@ -2493,9 +2460,6 @@ export class AIProviderService implements Disposable {
 
 					Illegally assigned hunks: ${illegallyAssignedHunkIndices.join(', ')}
 
-					Here was your previous response:
-					${rq.content}
-
 					Please provide a corrected response that does not reassign existing hunks.
 				`);
 				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
@@ -2505,21 +2469,22 @@ export class AIProviderService implements Disposable {
 			return { isValid: true, commits: commits };
 		} catch {
 			// Handle any errors during hunk validation (e.g., malformed commit structure)
-			const errorMessage = 'Invalid commit structure in commits result';
+			const errorMessage = 'Invalid response from the AI model';
 			const retryPrompt = dedent(`
-				Your previous response has an invalid commit structure. Each commit must have "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
+				Your previous response has an invalid commit structure. Ensure each commit has "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
 
-				Here was your previous response:
-				${rq.content}
-
-				Please provide a valid JSON array of commits following this structure:
+				Please provide the valid JSON structure below inside a <output> tag and include no other text:
+				<output>
 				[
-				  {
-				    "message": "commit message",
-				    "explanation": "detailed explanation",
-				    "hunks": [{"hunk": 1}, {"hunk": 2}]
-				  }
+					{
+						"message": "[commit message here]",
+						"explanation": "[detailed explanation of changes here]",
+						"hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
+					}
 				]
+				</output>
+
+				Text in [] brackets above should be replaced with your own text, not including the brackets. Return only the <output> tag and no other text.
 			`);
 			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 		}
@@ -2553,6 +2518,10 @@ async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 	}
 
 	return false;
+}
+
+function parseOutputResult(result: string): string {
+	return result.match(/<output>([\s\S]*?)(?:<\/output>|$)/)?.[1]?.trim() ?? '';
 }
 
 function parseSummarizeResult(result: string): NonNullable<AISummarizeResult['parsed']> {

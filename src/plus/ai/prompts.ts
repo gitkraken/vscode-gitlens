@@ -371,7 +371,7 @@ Convert the user's natural language query into the appropriate search operators.
 };
 
 export const generateCommits: PromptTemplate<'generate-commits'> = {
-	id: 'generate-commits',
+	id: 'generate-commits_v2',
 	variables: ['hunks', 'existingCommits', 'hunkMap', 'instructions'],
 	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a complete set of commits that are related, grouped logically, atomic, and easy to review. You will be working with individual code hunks and may have some existing commits that already have hunks assigned.
 
@@ -413,33 +413,19 @@ Output your complete commit organization as a JSON array. Each commit in the arr
 - "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
   - "hunk": The hunk index (number) from the hunk_map
 
-Here's an example of the expected JSON structure:
-
+Write the JSON structure below inside a <output> tag and include no other text:
+<output>
 [
-  {
-    "message": "feat: add user authentication",
-    "explanation": "Implements user login and registration functionality with proper validation",
-    "hunks": [
-      {
-        "hunk": 1
-      },
-      {
-        "hunk": 3
-      }
-    ]
-  },
-  {
-    "message": "fix: handle edge cases in validation",
-    "explanation": "Adds proper error handling for invalid input scenarios",
-    "hunks": [
-      {
-        "hunk": 2
-      }
-    ]
-  }
+   {
+      "message": "[commit message here]",
+      "explanation": "[detailed explanation of changes here]",
+      "hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
+   }
 ]
+</output>
 
 Remember:
+- Text in [] brackets above should be replaced with your own text, not including the brackets
 - Include all existing commits unchanged
 - Organize all unassigned hunks into new commits
 - Every hunk must be assigned to exactly one commit
@@ -447,8 +433,7 @@ Remember:
 
 \${instructions}
 
-Now, proceed with your analysis and organization of the commits. Output only the JSON array containing the complete commit organization, and nothing else.
-Do not include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
+Now, proceed with your analysis and organization of the commits. Return only the <output> tag and no other text.
 `,
 };
 
