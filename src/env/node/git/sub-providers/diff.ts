@@ -137,7 +137,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		let result;
 		try {
 			result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLog, errors: GitErrorHandling.Throw },
+				{ cwd: repoPath, configs: gitConfigsDiff, errors: GitErrorHandling.Throw },
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',
