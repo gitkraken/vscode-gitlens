@@ -1,5 +1,10 @@
+import type { GitBranch } from '../../../git/models/branch';
+import type { GitCommit } from '../../../git/models/commit';
+import type { GitDiff, ParsedGitDiff } from '../../../git/models/diff';
 import type { Repository } from '../../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
+import { parseGitDiff } from '../../../git/parsers/diffParser';
+import { getSettledValue } from '../../../system/promise';
 import type { ComposerCommit, ComposerHunk, ComposerHunkMap, ComposerSafetyState } from './protocol';
 
 export function getHunksForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): ComposerHunk[] {
@@ -8,14 +13,13 @@ export function getHunksForCommit(commit: ComposerCommit, hunks: ComposerHunk[])
 
 export function updateHunkAssignments(hunks: ComposerHunk[], commits: ComposerCommit[]): ComposerHunk[] {
 	const assignedIndices = new Set<number>();
-	commits.forEach(commit => {
-		commit.hunkIndices.forEach(index => assignedIndices.add(index));
-	});
+	for (const commit of commits) {
+		for (const index of commit.hunkIndices) {
+			assignedIndices.add(index);
+		}
+	}
 
-	return hunks.map(hunk => ({
-		...hunk,
-		assigned: assignedIndices.has(hunk.index),
-	}));
+	return hunks.map(hunk => ({ ...hunk, assigned: assignedIndices.has(hunk.index) }));
 }
 
 export function getUnassignedHunks(hunks: ComposerHunk[]): {
@@ -39,9 +43,8 @@ export function hasUnassignedHunks(hunks: ComposerHunk[]): boolean {
 }
 
 export function getUniqueFileNames(hunks: ComposerHunk[]): string[] {
-	const fileNames = new Set<string>();
-	hunks.forEach(hunk => fileNames.add(hunk.fileName));
-	return Array.from(fileNames);
+	const fileNames = new Set<string>(hunks.map(hunk => hunk.fileName));
+	return [...fileNames];
 }
 
 export function getFileCountForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): number {
@@ -54,23 +57,19 @@ export function getCommitChanges(
 	hunks: ComposerHunk[],
 ): { additions: number; deletions: number } {
 	const commitHunks = getHunksForCommit(commit, hunks);
-	return commitHunks.reduce(
-		(total, hunk) => ({
-			additions: total.additions + hunk.additions,
-			deletions: total.deletions + hunk.deletions,
-		}),
-		{ additions: 0, deletions: 0 },
-	);
+	return getFileChanges(commitHunks);
 }
 
 export function groupHunksByFile(hunks: ComposerHunk[]): Map<string, ComposerHunk[]> {
 	const fileMap = new Map<string, ComposerHunk[]>();
-	hunks.forEach(hunk => {
-		if (!fileMap.has(hunk.fileName)) {
-			fileMap.set(hunk.fileName, []);
+	for (const hunk of hunks) {
+		let array = fileMap.get(hunk.fileName);
+		if (array == null) {
+			array = [];
+			fileMap.set(hunk.fileName, array);
 		}
-		fileMap.get(hunk.fileName)!.push(hunk);
-	});
+		array.push(hunk);
+	}
 	return fileMap;
 }
 
@@ -99,23 +98,26 @@ export function createCombinedDiffForCommit(
 
 	// Group hunks by file (diffHeader)
 	const filePatches = new Map<string, string[]>();
-	commitHunks.forEach(hunk => {
+	for (const hunk of commitHunks) {
 		const diffHeader = hunk.diffHeader || `diff --git a/${hunk.fileName} b/${hunk.fileName}`;
-		if (!filePatches.has(diffHeader)) {
-			filePatches.set(diffHeader, []);
+
+		let array = filePatches.get(diffHeader);
+		if (array == null) {
+			array = [];
+			filePatches.set(diffHeader, array);
 		}
 
 		// For rename hunks, the content is already properly formatted
 		// For regular hunks, we need to add the hunk header before the content
 		if (hunk.isRename) {
 			// For renames, the diffHeader already contains the rename info, just add empty content
-			filePatches.get(diffHeader)!.push('');
+			array.push('');
 		} else {
 			// Combine hunk header and content for regular hunks
 			const hunkContent = `${hunk.hunkHeader}\n${hunk.content}`;
-			filePatches.get(diffHeader)!.push(hunkContent);
+			array.push(hunkContent);
 		}
-	});
+	}
 
 	// Build the complete patch string
 	let commitPatch = '';
@@ -177,127 +179,117 @@ export function createHunksFromDiffs(
 	stagedDiffContent?: string,
 	unstagedDiffContent?: string,
 ): { hunkMap: ComposerHunkMap[]; hunks: ComposerHunk[] } {
-	const hunkMap: ComposerHunkMap[] = [];
-	const hunks: ComposerHunk[] = [];
-	let counter = 0;
+	const allHunkMaps: ComposerHunkMap[] = [];
+	const allHunks: ComposerHunk[] = [];
+
+	let count = 0;
+	let hunkMap: ComposerHunkMap[] = [];
+	let hunks: ComposerHunk[] = [];
 
 	if (stagedDiffContent) {
-		processHunksFromDiff(stagedDiffContent, 'staged', counter, hunkMap, hunks);
-		counter = hunkMap.length;
+		const stagedDiff = parseGitDiff(stagedDiffContent);
+		({ hunkMap, hunks, count } = convertDiffToComposerHunks(stagedDiff, 'staged', count));
+
+		allHunkMaps.push(...hunkMap);
+		allHunks.push(...hunks);
 	}
 
 	if (unstagedDiffContent) {
-		processHunksFromDiff(unstagedDiffContent, 'unstaged', counter, hunkMap, hunks);
+		const unstagedDiff = parseGitDiff(unstagedDiffContent);
+		({ hunkMap, hunks, count } = convertDiffToComposerHunks(unstagedDiff, 'unstaged', count));
+
+		allHunkMaps.push(...hunkMap);
+		allHunks.push(...hunks);
 	}
 
-	return { hunkMap: hunkMap, hunks: hunks };
+	return { hunkMap: allHunkMaps, hunks: allHunks };
 }
 
-function processHunksFromDiff(
-	diffContent: string,
+/** Converts @type {ParsedGitDiff} output to @type {ComposerHunk}'s */
+function convertDiffToComposerHunks(
+	diff: ParsedGitDiff,
 	source: 'staged' | 'unstaged',
-	startCounter: number,
-	hunkMap: ComposerHunkMap[],
-	hunks: ComposerHunk[],
-): void {
-	let counter = startCounter;
+	startingCount: number,
+): { hunkMap: ComposerHunkMap[]; hunks: ComposerHunk[]; count: number } {
+	const hunkMap: ComposerHunkMap[] = [];
+	const hunks: ComposerHunk[] = [];
+	let counter = startingCount;
 
-	const renameHunks = extractRenameHunks(diffContent, source);
-	for (const renameHunk of renameHunks) {
-		const hunkIndex = ++counter;
-		renameHunk.index = hunkIndex;
+	for (const file of diff.files) {
+		// Handle files without hunks (renames, mode changes, binary files, etc.)
+		if (!file.hunks.length) {
+			const hunkIndex = ++counter;
 
-		hunkMap.push({ index: hunkIndex, hunkHeader: renameHunk.hunkHeader });
-		hunks.push(renameHunk);
-	}
+			// Determine hunk header and content based on file metadata
+			let hunkHeader: string;
+			let content: string;
 
-	for (const hunkHeaderMatch of diffContent.matchAll(/@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@(.*)$/gm)) {
-		const hunkHeader = hunkHeaderMatch[0];
-		const hunkIndex = ++counter;
+			if (file.metadata.binary) {
+				hunkHeader = 'binary';
+				content = 'Binary file';
+			} else if (file.metadata.modeChanged) {
+				hunkHeader = 'mode change';
+				content = `Mode change from ${file.metadata.modeChanged.oldMode || '?'} to ${file.metadata.modeChanged.newMode || '?'}`;
+			} else if (file.metadata.renamedOrCopied) {
+				hunkHeader = 'rename';
+				const similarity = file.metadata.renamedOrCopied?.similarity || 100;
+				content = `Rename from ${file.originalPath}\nRename to ${file.path}\nSimilarity index ${similarity}%`;
+			} else {
+				hunkHeader = 'no-content-change';
+				content = file.header.split('\n').slice(1).join('\n'); // Skip the diff --git line
+			}
 
-		hunkMap.push({ index: hunkIndex, hunkHeader: hunkHeader });
+			hunkMap.push({ index: hunkIndex, hunkHeader: hunkHeader });
 
-		const hunk = extractHunkFromDiff(diffContent, hunkHeader, hunkIndex, source);
-		if (hunk) {
-			hunks.push(hunk);
+			const composerHunk: ComposerHunk = {
+				index: hunkIndex,
+				fileName: file.path,
+				originalFileName: file.originalPath,
+				diffHeader: file.header,
+				hunkHeader: hunkHeader,
+				content: content,
+				additions: 0,
+				deletions: 0,
+				source: source,
+				assigned: false,
+				isRename: file.metadata.renamedOrCopied !== false,
+			};
+
+			hunks.push(composerHunk);
+		} else {
+			// Handle files with actual content hunks
+			for (const hunk of file.hunks) {
+				const hunkIndex = ++counter;
+
+				hunkMap.push({ index: hunkIndex, hunkHeader: hunk.header });
+
+				// Calculate additions and deletions from the hunk content
+				const { additions, deletions } = calculateHunkStats(hunk.content);
+
+				const composerHunk: ComposerHunk = {
+					index: hunkIndex,
+					fileName: file.path,
+					originalFileName: file.originalPath,
+					diffHeader: file.header,
+					hunkHeader: hunk.header,
+					content: hunk.content,
+					additions: additions,
+					deletions: deletions,
+					source: source,
+					assigned: false,
+					isRename: false,
+				};
+
+				hunks.push(composerHunk);
+			}
 		}
 	}
+
+	return { hunkMap: hunkMap, hunks: hunks, count: counter };
 }
 
-function extractHunkFromDiff(
-	diffContent: string,
-	hunkHeader: string,
-	hunkIndex: number,
-	source: 'staged' | 'unstaged',
-): ComposerHunk | null {
-	const hunkHeaderIndex = diffContent.indexOf(hunkHeader);
-	if (hunkHeaderIndex === -1) return null;
-
-	const diffLines = diffContent.substring(0, hunkHeaderIndex).split('\n').reverse();
-	const diffHeaderIndex = diffLines.findIndex(line => line.startsWith('diff --git'));
-	if (diffHeaderIndex === -1) return null;
-
-	const diffHeaderLine = diffLines[diffHeaderIndex];
-
-	const fileNameMatch = diffHeaderLine.match(/diff --git a\/(.+?) b\/(.+)/);
-	const fileName = fileNameMatch ? fileNameMatch[2] : 'unknown';
-
-	const lastHunkHeaderIndex = diffLines.slice(0, diffHeaderIndex).findLastIndex(line => line.startsWith('@@ -'));
-
-	let diffHeader = diffLines
-		.slice(lastHunkHeaderIndex > -1 ? lastHunkHeaderIndex + 1 : 0, diffHeaderIndex + 1)
-		.reverse()
-		.join('\n');
-
-	if (lastHunkHeaderIndex > -1) {
-		diffHeader += '\n';
-	}
-
-	const hunkContent = extractHunkContent(diffContent, diffHeader, hunkHeader);
-	if (!hunkContent) return null;
-
-	const { additions, deletions } = calculateHunkStats(hunkContent);
-
-	return {
-		index: hunkIndex,
-		fileName: fileName,
-		diffHeader: diffHeader,
-		hunkHeader: hunkHeader,
-		content: hunkContent,
-		additions: additions,
-		deletions: deletions,
-		source: source,
-		assigned: false,
-	};
-}
-
-function extractHunkContent(diffContent: string, diffHeader: string, hunkHeader: string): string | null {
-	const diffIndex = diffContent.indexOf(diffHeader);
-	if (diffIndex === -1) return null;
-
-	const nextDiffIndex = diffContent.indexOf('diff --git', diffIndex + 1);
-
-	const hunkIndex = diffContent.indexOf(hunkHeader, diffIndex);
-	if (hunkIndex === -1) return null;
-
-	if (nextDiffIndex !== -1 && hunkIndex > nextDiffIndex) return null;
-
-	const nextHunkIndex = diffContent.indexOf('\n@@ -', hunkIndex + 1);
-	const nextIndex =
-		nextHunkIndex !== -1 && (nextHunkIndex < nextDiffIndex || nextDiffIndex === -1)
-			? nextHunkIndex
-			: nextDiffIndex > 0
-				? nextDiffIndex - 1
-				: undefined;
-
-	const hunkHeaderEndIndex = diffContent.indexOf('\n', hunkIndex);
-	if (hunkHeaderEndIndex === -1) return null;
-
-	return diffContent.substring(hunkHeaderEndIndex + 1, nextIndex);
-}
-
-function calculateHunkStats(hunkContent: string): { additions: number; deletions: number } {
-	const lines = hunkContent.split('\n');
+function calculateHunkStats(content: string): { additions: number; deletions: number } {
+	const lines = content.split('\n');
 	let additions = 0;
 	let deletions = 0;
 
@@ -312,98 +304,44 @@ function calculateHunkStats(hunkContent: string): { additions: number; deletions
 	return { additions: additions, deletions: deletions };
 }
 
-function extractRenameHunks(diffContent: string, source: 'staged' | 'unstaged'): ComposerHunk[] {
-	const renameHunks: ComposerHunk[] = [];
-
-	const fileSections = diffContent.split(/^diff --git /m).filter(Boolean);
-
-	for (const fileSection of fileSections) {
-		if (fileSection.includes('\n@@ -')) {
-			continue;
-		}
-
-		const lines = fileSection.split('\n');
-		const firstLine = `diff --git ${lines[0]}`;
-		const diffHeaderMatch = firstLine.match(/^diff --git a\/(.+?) b\/(.+)$/);
-		if (!diffHeaderMatch) continue;
-
-		const [, originalPath, newPath] = diffHeaderMatch;
-
-		const hasRenameFrom = lines.some(line => line.startsWith('rename from '));
-		const hasRenameTo = lines.some(line => line.startsWith('rename to '));
-
-		if (hasRenameFrom && hasRenameTo) {
-			const diffHeader = `${firstLine}\n${lines.slice(1).join('\n')}`;
-
-			const similarityMatch = lines.find(line => line.startsWith('similarity index '))?.match(/(\d+)%/);
-			const similarity = similarityMatch ? parseInt(similarityMatch[1], 10) : 100;
-
-			const renameHunk: ComposerHunk = {
-				index: 0, // Will be set by caller
-				fileName: newPath,
-				originalFileName: originalPath,
-				diffHeader: diffHeader,
-				hunkHeader: 'rename',
-				content: `rename from ${originalPath}\nrename to ${newPath}\nsimilarity index ${similarity}%`,
-				additions: 0,
-				deletions: 0,
-				source: source,
-				assigned: false,
-				isRename: true,
-			};
-
-			renameHunks.push(renameHunk);
-		}
-	}
-
-	return renameHunks;
-}
-
 /* Validation Utils */
 
-/**
- * Gets the current staged and unstaged diffs for safety validation
- */
-export async function getCurrentDiffsForValidation(
-	repo: Repository,
-): Promise<{ stagedDiff: string | null; unstagedDiff: string | null; unifiedDiff: string | null }> {
-	try {
+/** Gets the current staged and unstaged diffs for safety validation */
+export interface WorkingTreeDiffs {
+	staged: GitDiff | undefined;
+	unstaged: GitDiff | undefined;
+	unified: GitDiff | undefined;
+}
+
+export async function getWorkingTreeDiffs(repo: Repository): Promise<WorkingTreeDiffs> {
+	const [stagedDiffResult, unstagedDiffResult, unifiedDiffResult] = await Promise.allSettled([
 		// Get staged diff (index vs HEAD)
-		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
-
+		repo.git.diff.getDiff?.(uncommittedStaged),
 		// Get unstaged diff (working tree vs index)
-		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
+		repo.git.diff.getDiff?.(uncommitted),
+		// Get unified diff (working tree vs HEAD)
+		repo.git.diff.getDiff?.(uncommitted, 'HEAD', { notation: '...' }),
+	]);
 
-		const unifiedDiff = await repo.git.diff.getDiff?.(uncommitted, 'HEAD', { notation: '...' });
-
-		return {
-			stagedDiff: stagedDiff?.contents || null,
-			unstagedDiff: unstagedDiff?.contents || null,
-			unifiedDiff: unifiedDiff?.contents || null,
-		};
-	} catch {
-		// If we can't get diffs, return nulls
-		return {
-			stagedDiff: null,
-			unstagedDiff: null,
-			unifiedDiff: null,
-		};
-	}
+	return {
+		staged: getSettledValue(stagedDiffResult),
+		unstaged: getSettledValue(unstagedDiffResult),
+		unified: getSettledValue(unifiedDiffResult),
+	};
 }
 
 /**
  * Creates a safety state snapshot for the composer to validate against later
  */
-export async function createSafetyState(repo: Repository): Promise<ComposerSafetyState> {
-	const currentBranch = await repo.git.branches.getBranch();
-	const headCommit = await repo.git.commits.getCommit('HEAD');
-
+export async function createSafetyState(
+	repo: Repository,
+	diffs: WorkingTreeDiffs,
+	currentBranch: GitBranch,
+	headCommit: GitCommit,
+): Promise<ComposerSafetyState> {
 	// Get current worktree information
 	const worktrees = await repo.git.worktrees?.getWorktrees();
 	const currentWorktree = worktrees?.find(wt => wt.branch?.id === currentBranch?.id);
-
-	// Get current diffs for validation
-	const { stagedDiff, unstagedDiff, unifiedDiff } = await getCurrentDiffsForValidation(repo);
 
 	if (!currentBranch?.name) {
 		throw new Error('Cannot create safety state: no current branch found');
@@ -424,9 +362,9 @@ export async function createSafetyState(repo: Repository): Promise<ComposerSafet
 		branchName: currentBranch.name,
 		branchRefSha: currentBranch.sha,
 		worktreeName: currentWorktree.name,
-		stagedDiff: stagedDiff,
-		unstagedDiff: unstagedDiff,
-		unifiedDiff: unifiedDiff,
+		stagedDiff: diffs.staged?.contents ?? null,
+		unstagedDiff: diffs.unstaged?.contents ?? null,
+		unifiedDiff: diffs.unified?.contents ?? null,
 		timestamp: Date.now(),
 	};
 }
@@ -482,31 +420,25 @@ export async function validateSafetyState(
 
 		// 6. Smart diff validation - only check diffs for sources being committed
 		if (hunksBeingCommitted && hunksBeingCommitted.length > 0) {
-			const { stagedDiff, unstagedDiff } = await getCurrentDiffsForValidation(repo);
+			const { staged, unstaged } = await getWorkingTreeDiffs(repo);
 
 			// Check if any hunks from staged source are being committed
 			const hasStagedHunks = hunksBeingCommitted.some(h => h.source === 'staged');
-			if (hasStagedHunks && stagedDiff !== safetyState.stagedDiff) {
+			if (hasStagedHunks && (staged?.contents ?? null) !== safetyState.stagedDiff) {
 				errors.push('Staged changes have been modified since composer opened');
 			}
 
 			// Check if any hunks from unstaged source are being committed
 			const hasUnstagedHunks = hunksBeingCommitted.some(h => h.source === 'unstaged');
-			if (hasUnstagedHunks && unstagedDiff !== safetyState.unstagedDiff) {
+			if (hasUnstagedHunks && (unstaged?.contents ?? null) !== safetyState.unstagedDiff) {
 				errors.push('Unstaged changes have been modified since composer opened');
 			}
 		}
 
-		return {
-			isValid: errors.length === 0,
-			errors: errors,
-		};
-	} catch (error) {
-		errors.push(`Failed to validate repository state: ${error instanceof Error ? error.message : 'Unknown error'}`);
-		return {
-			isValid: false,
-			errors: errors,
-		};
+		return { isValid: !errors.length, errors: errors };
+	} catch (ex) {
+		errors.push(`Failed to validate repository state: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+		return { isValid: false, errors: errors };
 	}
 }
 

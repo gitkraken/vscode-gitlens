@@ -10,11 +10,11 @@ import type {
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import { getSettledValue } from '../../../system/promise';
 import { PromiseCache } from '../../../system/promiseCache';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
@@ -78,6 +78,7 @@ import {
 	convertToComposerDiffInfo,
 	createHunksFromDiffs,
 	createSafetyState,
+	getWorkingTreeDiffs,
 	validateCombinedDiff,
 	validateSafetyState,
 } from './utils';
@@ -276,17 +277,21 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		source?: Sources,
 		isReload?: boolean,
 	): Promise<State> {
-		// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
-		const stagedDiff = await repo.git.diff.getDiff?.(uncommittedStaged);
+		const [diffsResult, commitResult, branchResult] = await Promise.allSettled([
+			// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
+			getWorkingTreeDiffs(repo),
+			repo.git.commits.getCommit('HEAD'),
+			repo.git.branches.getBranch(),
+		]);
 
-		const unstagedDiff = await repo.git.diff.getDiff?.(uncommitted);
+		const diffs = getSettledValue(diffsResult)!;
 
 		// Allow composer to open with no changes - we'll handle this in the UI
-		const hasChanges = Boolean(stagedDiff?.contents || unstagedDiff?.contents);
+		const hasChanges = Boolean(diffs?.staged || diffs?.unstaged);
 
-		const { hunkMap, hunks } = createHunksFromDiffs(stagedDiff?.contents, unstagedDiff?.contents);
+		const { hunkMap, hunks } = createHunksFromDiffs(diffs?.staged?.contents, diffs?.unstaged?.contents);
 
-		const baseCommit = await repo.git.commits.getCommit('HEAD');
+		const baseCommit = getSettledValue(commitResult);
 		if (baseCommit == null) {
 			const errorMessage = 'No base commit found to compose from.';
 			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {
@@ -299,7 +304,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			};
 		}
 
-		const currentBranch = await repo.git.branches.getBranch();
+		const currentBranch = getSettledValue(branchResult);
 		if (currentBranch == null) {
 			const errorMessage = 'No current branch found to compose from.';
 			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {
@@ -313,8 +318,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 
 		// Create initial commit with empty message (user will add message later)
-		const hasStagedChanges = Boolean(stagedDiff?.contents);
-		const hasUnstagedChanges = Boolean(unstagedDiff?.contents);
+		const hasStagedChanges = Boolean(diffs?.staged?.contents);
+		const hasUnstagedChanges = Boolean(diffs?.unstaged?.contents);
 
 		let initialHunkIndices: number[];
 
@@ -334,7 +339,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 
 		// Create safety state snapshot for validation
-		const safetyState = await createSafetyState(repo);
+		const safetyState = await createSafetyState(repo, diffs, currentBranch, baseCommit);
 
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel({ silent: true }, { source: 'composer' });

@@ -21,6 +21,7 @@
 		"../../constants.*.ts",
 		"../../env/browser/**/*",
 		"../../features.ts",
+		"../../git/parsers/diffParser.ts",
 		"../../system/**/*.ts",
 		"../../**/webview/**/*",
 		"../plus/composer/utils.ts"
