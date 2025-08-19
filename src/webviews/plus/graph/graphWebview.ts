@@ -526,6 +526,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote),
 			this.host.registerWebviewCommand('gitlens.graph.renameBranch', this.renameBranch),
 			this.host.registerWebviewCommand('gitlens.graph.associateIssueWithBranch', this.associateIssueWithBranch),
+			this.host.registerWebviewCommand('gitlens.changeUpstream:graph', this.changeUpstreamBranch),
+			this.host.registerWebviewCommand('gitlens.setUpstream:graph', this.changeUpstreamBranch),
 
 			this.host.registerWebviewCommand('gitlens.graph.switchToBranch', this.switchTo),
 
@@ -3817,6 +3819,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	@log()
+	private changeUpstreamBranch(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item, 'branch')) return Promise.resolve();
+		const { ref } = item.webviewItemValue;
+		return BranchActions.changeUpstream(ref.repoPath, ref);
 	}
 
 	@log()
