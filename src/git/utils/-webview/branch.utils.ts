@@ -88,7 +88,8 @@ export async function getBranchMergeTargetName(
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
 	async function getMergeTargetFallback() {
-		const [baseResult, defaultResult] = await Promise.allSettled([
+		const [storedBase, baseResult, defaultResult] = await Promise.allSettled([
+			container.git.getRepositoryService(branch.repoPath).branches.getStoredMergeTargetBranchName?.(branch.name),
 			container.git
 				.getRepositoryService(branch.repoPath)
 				.branches.getBaseBranchName?.(branch.name, options?.cancellation),
@@ -96,7 +97,7 @@ export async function getBranchMergeTargetName(
 				cancellation: options?.cancellation,
 			}),
 		]);
-		return getSettledValue(baseResult) ?? getSettledValue(defaultResult);
+		return getSettledValue(storedBase) ?? getSettledValue(baseResult) ?? getSettledValue(defaultResult);
 	}
 
 	const result = await getBranchMergeTargetNameWithoutFallback(container, branch, options);
@@ -199,4 +200,76 @@ export function getStarredBranchIds(container: Container): Set<string> {
 	if (starred == null) return new Set();
 
 	return new Set(Object.keys(starred).filter(branchId => starred[branchId] === true));
+}
+
+/**
+ * Gets the merge base for a branch by checking stored merge target configurations.
+ * This function consolidates the common logic used in both graph.ts and branchNode.ts
+ * for determining if a branch is recomposable.
+ */
+export async function getBranchMergeBaseAndCommonCommit(
+	container: Container,
+	branch: GitBranch,
+	// options?: GetBranchMergeBaseOptions,
+): Promise<{ commit: string; branch: string } | undefined> {
+	const isString = Boolean as unknown as (t: string | undefined) => t is string;
+	if (branch.remote) return undefined;
+
+	try {
+		const svc = container.git.getRepositoryService(branch.repoPath);
+		const upstreamName = branch.upstream?.name;
+
+		// Get stored merge target configurations
+		const [targetBranchResult, mergeBaseResult, defaultBranchResult] = await Promise.allSettled([
+			svc.branches.getStoredMergeTargetBranchName?.(branch.name),
+			svc.branches.getBaseBranchName?.(branch.name),
+			getDefaultBranchName(container, branch.repoPath, branch.name),
+		]);
+		const targetBranch = getSettledValue(targetBranchResult);
+		const validTargetBranch = targetBranch && targetBranch !== upstreamName ? targetBranch : undefined;
+		const mergeBase = getSettledValue(mergeBaseResult) || getSettledValue(defaultBranchResult);
+		const validMergeBase = mergeBase && mergeBase !== upstreamName ? mergeBase : undefined;
+		const validTargets = [validTargetBranch, validMergeBase].filter(isString);
+		if (validTargets.length === 0) return undefined;
+
+		return await selectMostRecentMergeBase(branch.name, validTargets, svc);
+	} catch {
+		// If we can't determine, assume not recomposable
+		return undefined;
+	}
+}
+
+/**
+ * Selects the most recent merge base from multiple target branches.
+ * This is the same logic used in graph.ts selectMostRecentMergeBase method.
+ */
+async function selectMostRecentMergeBase(
+	branchName: string,
+	targets: string[],
+	svc: ReturnType<typeof Container.prototype.git.getRepositoryService>,
+): Promise<{ commit: string; branch: string } | undefined> {
+	const mergeBaseResults = await Promise.allSettled(
+		targets.map(async target => {
+			const commit = await svc.refs.getMergeBase(branchName, target);
+			return {
+				commit: commit,
+				branch: target,
+			};
+		}),
+	);
+	const mergeBases = mergeBaseResults
+		.map(result => getSettledValue(result))
+		.filter((r): r is { commit: string; branch: string } => r?.commit != null);
+
+	if (mergeBases.length === 0) return undefined;
+
+	let mostRecentMergeBase = mergeBases[0];
+	for (let i = 1; i < mergeBases.length; i++) {
+		const isCurrentMoreRecent = await svc.commits.isAncestorOf(mostRecentMergeBase?.commit, mergeBases[i].commit);
+		if (isCurrentMoreRecent) {
+			mostRecentMergeBase = mergeBases[i];
+		}
+	}
+
+	return mostRecentMergeBase;
 }

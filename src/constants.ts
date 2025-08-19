@@ -47,6 +47,22 @@ export const enum CharCode {
 	z = 122,
 }
 
+/**
+ * `gk-merge-target` means the branch that the current branch is most likely to be merged into, e.g.
+ * - branch to compare with by default
+ * - default target for creating a PR
+ * - etc.
+ *
+ * `gk-merge-target-user` — merge target branch explicitly defined by user,
+ *    if it's defined we use this value instead of `gk-merge-target`, but we keep storing `gk-merge-target` value that was determined automatically.
+ *
+ *  `gk-merge-base` means the branch that the current branch originates from, e.g. what was the base in the moment of creation.
+ *   This value is used for: ... (TODO describe use cases).
+ *
+ * `vscode-merge-base` — value determined by VS Code that is used to determine the merge base for the current branch.
+ *   once `gk-merge-base` is determined, we stop using `vscode-merge-base`
+ *
+ */
 export type GitConfigKeys =
 	| `branch.${string}.vscode-merge-base`
 	| `branch.${string}.gk-merge-base`

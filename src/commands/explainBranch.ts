@@ -16,6 +16,7 @@ import { ExplainCommandBase } from './explainBase';
 
 export interface ExplainBranchCommandArgs extends ExplainBaseArgs {
 	ref?: string;
+	baseBranch?: string;
 }
 
 @command()
@@ -67,15 +68,25 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			}
 
 			// Clarifying the base branch
-			const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
 			let baseBranch;
-			if (!baseBranchNameResult.paused) {
-				baseBranch = await svc.branches.getBranch(baseBranchNameResult.value);
-			}
+			if (args.baseBranch) {
+				// Use the provided base branch
+				baseBranch = await svc.branches.getBranch(args.baseBranch);
+				if (!baseBranch) {
+					void showGenericErrorMessage(`Unable to find the specified base branch: ${args.baseBranch}`);
+					return;
+				}
+			} else {
+				// Fall back to automatic merge target detection
+				const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
+				if (!baseBranchNameResult.paused) {
+					baseBranch = await svc.branches.getBranch(baseBranchNameResult.value);
+				}
 
-			if (!baseBranch) {
-				void showGenericErrorMessage(`Unable to find the base branch for branch ${branch.name}.`);
-				return;
+				if (!baseBranch) {
+					void showGenericErrorMessage(`Unable to find the base branch for branch ${branch.name}.`);
+					return;
+				}
 			}
 
 			// Get the diff between the branch and its upstream or base
