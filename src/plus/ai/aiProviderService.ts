@@ -39,12 +39,13 @@ import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiMode
 import { Directive, isDirective } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
 import type { Storage } from '../../system/-webview/storage';
+import { log } from '../../system/decorators/log';
 import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
 import type { Lazy } from '../../system/lazy';
 import { lazy } from '../../system/lazy';
 import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import type { Deferred } from '../../system/promise';
 import { getSettledValue, getSettledValues } from '../../system/promise';
 import { PromiseCache } from '../../system/promiseCache';
@@ -567,6 +568,7 @@ export class AIProviderService implements Disposable {
 		return true;
 	}
 
+	@log({ args: false })
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: AIExplainSource,
@@ -602,6 +604,7 @@ export class AIProviderService implements Disposable {
 		);
 	}
 
+	@log({ args: false })
 	async explainChanges(
 		promptContext:
 			| PromptTemplateContext<'explain-changes'>
@@ -681,6 +684,7 @@ export class AIProviderService implements Disposable {
 		};
 	}
 
+	@log({ args: false })
 	async generateCommitMessage(
 		changesOrRepo: string | string[] | Repository,
 		source: Source,
@@ -742,6 +746,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateCreatePullRequest(
 		repo: Repository,
 		baseRef: string,
@@ -811,6 +816,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateCreateDraft(
 		changesOrRepo: string | string[] | Repository,
 		sourceContext: Source & { type: AIGenerateCreateDraftEventData['draftType'] },
@@ -887,6 +893,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateStashMessage(
 		changesOrRepo: string | string[] | Repository,
 		source: Source,
@@ -948,6 +955,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateChangelog(
 		changes: Lazy<Promise<AIGenerateChangelogChanges>>,
 		source: Source,
@@ -998,6 +1006,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateSearchQuery(
 		search: { query: string; context: string | undefined },
 		source: Source,
@@ -1058,6 +1067,7 @@ export class AIProviderService implements Disposable {
 	 * The method will retry up to 3 times, providing specific feedback to the AI
 	 * about what was wrong with the previous response.
 	 */
+	@log({ args: false })
 	async generateRebase(
 		repo: Repository,
 		baseRef: string,
@@ -1121,6 +1131,7 @@ export class AIProviderService implements Disposable {
 		};
 	}
 
+	@log({ args: false })
 	private async sendRebaseRequestWithRetry(
 		repo: Repository,
 		baseRef: string,
@@ -1210,6 +1221,7 @@ export class AIProviderService implements Disposable {
 		return undefined;
 	}
 
+	@log({ args: false })
 	private async sendRebaseFirstAttempt(
 		repo: Repository,
 		baseRef: string,
@@ -1446,7 +1458,7 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
-	private async sendRequestAndGetPartialRequestInfo<T extends AIActionType>(
+	@log({ args: false })
 		action: T,
 		getMessages: (
 			model: AIModel,
@@ -1496,6 +1508,7 @@ export class AIProviderService implements Disposable {
 		return { aiPromise: aiPromise, info: { model: model } };
 	}
 
+	@log({ args: false })
 	private async sendRequest<T extends AIActionType>(
 		action: T,
 		getMessages: (
@@ -1534,6 +1547,7 @@ export class AIProviderService implements Disposable {
 		);
 	}
 
+	@log({ args: false })
 	private async sendRequestWithModel<T extends AIActionType>(
 		model: AIModel | undefined,
 		action: T,
@@ -1557,16 +1571,25 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AIRequestResult | 'cancelled' | undefined> {
+		const scope = getLogScope();
+
 		if (!(await this.ensureFeatureAccess(action, source))) {
+			setLogScopeExit(scope, undefined, 'cancelled: no feature access');
 			return 'cancelled';
 		}
 
 		if (options?.cancellation?.isCancellationRequested) {
+			setLogScopeExit(scope, undefined, 'cancelled: user cancelled');
 			options?.generating?.cancel();
 			return 'cancelled';
 		}
 
 		if (model == null || options?.cancellation?.isCancellationRequested) {
+			setLogScopeExit(
+				scope,
+				model ? `model: ${model.provider.id}/${model.id}` : undefined,
+				model == null ? 'cancelled: no model set' : 'cancelled: user cancelled',
+			);
 			options?.generating?.cancel();
 			return undefined;
 		}
@@ -1586,6 +1609,12 @@ export class AIProviderService implements Disposable {
 
 		const confirmed = await showConfirmAIProviderToS(this.container.storage);
 		if (!confirmed || cancellation.isCancellationRequested) {
+			setLogScopeExit(
+				scope,
+				`model: ${model.provider.id}/${model.id}`,
+
+				cancellation.isCancellationRequested ? 'cancelled: user cancelled' : 'cancelled: user declined ToS',
+			);
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{
@@ -1603,6 +1632,7 @@ export class AIProviderService implements Disposable {
 		const apiKey = await this._provider!.getApiKey(false);
 
 		if (cancellation.isCancellationRequested) {
+			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'cancelled: user cancelled');
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' },
@@ -1614,6 +1644,7 @@ export class AIProviderService implements Disposable {
 		}
 
 		if (apiKey == null) {
+			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'failed: Not authorized');
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, failed: true, 'failed.reason': 'error', 'failed.error': 'Not authorized' },
@@ -1655,6 +1686,8 @@ export class AIProviderService implements Disposable {
 			telementry.data['usage.limits.used'] = result?.usage?.limits?.used;
 			telementry.data['usage.limits.limit'] = result?.usage?.limits?.limit;
 			telementry.data['usage.limits.resetsOn'] = result?.usage?.limits?.resetsOn?.toISOString();
+
+			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}, id: ${result?.id}`);
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, duration: Date.now() - start, id: result?.id },
@@ -1668,6 +1701,7 @@ export class AIProviderService implements Disposable {
 			return result;
 		} catch (ex) {
 			if (ex instanceof CancellationError) {
+				setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'cancelled: user cancelled');
 				this.container.telemetry.sendEvent(
 					telementry.key,
 					{
@@ -1682,6 +1716,13 @@ export class AIProviderService implements Disposable {
 				return 'cancelled';
 			}
 			if (ex instanceof AIError) {
+				setLogScopeExit(
+					scope,
+					`model: ${model.provider.id}/${model.id}`,
+					// eslint-disable-next-line @typescript-eslint/no-base-to-string
+					`failed: ${String(ex)} (${String(ex.original)})`,
+				);
+
 				this.container.telemetry.sendEvent(
 					telementry.key,
 					{
@@ -1823,6 +1864,11 @@ export class AIProviderService implements Disposable {
 				return undefined;
 			}
 
+			setLogScopeExit(
+				scope,
+				`model: ${model.provider.id}/${model.id}`,
+				`failed: ${String(ex)}${ex.original ? ` (${String(ex.original)})` : ''}`,
+			);
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{
