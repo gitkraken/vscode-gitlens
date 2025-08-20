@@ -24,14 +24,16 @@ const precomputedByteToHex = [
 	'f7', 'f8', 'f9', 'fa', 'fb', 'fc', 'fd', 'fe', 'ff',
 ];
 
-export function encodeUtf8Hex(s: string): string {
-	const bytes = textEncoder.encode(s);
-
+export function convertToHex(bytes: Uint8Array): string {
 	const hex = new Array<string>(bytes.length);
 	for (let i = 0; i < bytes.length; ++i) {
 		hex[i] = precomputedByteToHex[bytes[i]];
 	}
 	return hex.join('');
+}
+
+export function encodeUtf8Hex(s: string): string {
+	return convertToHex(textEncoder.encode(s));
 }
 
 export function decodeUtf8Hex(hex: string): string {

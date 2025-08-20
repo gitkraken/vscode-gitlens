@@ -47,20 +47,27 @@ export interface ComposerBaseCommit {
 export interface ComposerSafetyState {
 	repoPath: string;
 	headSha: string;
-	branchName: string;
-	branchRefSha: string;
-	worktreeName: string;
-	stagedDiff: string | null; // null if no staged changes when composer opened
-	unstagedDiff: string | null; // null if no unstaged changes when composer opened
-	unifiedDiff: string | null; // null if no changes when composer opened
-	timestamp: number;
+	// branchName: string;
+	// branchRefSha: string;
+	// worktreeName: string;
+	hashes: {
+		staged: string | null;
+		unstaged: string | null;
+		unified: string | null;
+	};
+
+	// stagedDiff: string | null; // null if no staged changes when composer opened
+	// unstagedDiff: string | null; // null if no unstaged changes when composer opened
+	// unifiedDiff: string | null; // null if no changes when composer opened
+	// timestamp: number;
 }
 
 export interface State extends WebviewState {
 	// data model
 	hunks: ComposerHunk[];
-	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
+
+	commits: ComposerCommit[];
 	baseCommit: ComposerBaseCommit;
 	safetyState: ComposerSafetyState;
 
@@ -121,13 +128,11 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	safetyState: {
 		repoPath: '',
 		headSha: '',
-		branchName: '',
-		branchRefSha: '',
-		worktreeName: '',
-		stagedDiff: null,
-		unstagedDiff: null,
-		unifiedDiff: null,
-		timestamp: 0,
+		hashes: {
+			staged: null,
+			unstaged: null,
+			unified: null,
+		},
 	},
 	selectedCommitId: null,
 	selectedCommitIds: new Set<string>(),

@@ -1,4 +1,5 @@
 import { base64 } from './base64';
+import { convertToHex } from './hex';
 import { md5 as _md5 } from './md5';
 
 export function getNonce(): string {
@@ -7,6 +8,12 @@ export function getNonce(): string {
 
 export function md5(data: string, encoding: 'base64' | 'hex' = 'hex'): string {
 	return _md5(data, encoding);
+}
+
+export async function sha256(data: string, encoding: 'base64' | 'hex' = 'hex'): Promise<string> {
+	const buffer = new TextEncoder().encode(data);
+	const bytes = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', buffer));
+	return encoding === 'base64' ? base64(bytes) : convertToHex(bytes);
 }
 
 export function uuid(): string {

@@ -72,23 +72,6 @@ const composerFeedbackUrl = 'https://github.com/gitkraken/vscode-gitlens/discuss
 
 @customElement('gl-composer-app')
 export class ComposerApp extends LitElement {
-	@consume({ context: stateContext, subscribe: true })
-	state!: State;
-
-	@consume({ context: ipcContext })
-	private _ipc!: HostIpc;
-
-	// Internal history management
-	private history: ComposerHistory = {
-		resetState: null,
-		undoStack: [],
-		redoStack: [],
-	};
-
-	// Debounce timer for commit message updates
-	private commitMessageDebounceTimer?: number;
-	private commitMessageBeingEdited: string | null = null; // Track which commit is being edited
-
 	static override styles = [
 		boxSizingBase,
 		focusableBaseStyles,
@@ -358,6 +341,23 @@ export class ComposerApp extends LitElement {
 			}
 		`,
 	];
+
+	@consume({ context: stateContext, subscribe: true })
+	state!: State;
+
+	@consume({ context: ipcContext })
+	private _ipc!: HostIpc;
+
+	// Internal history management
+	private history: ComposerHistory = {
+		resetState: null,
+		undoStack: [],
+		redoStack: [],
+	};
+
+	// Debounce timer for commit message updates
+	private commitMessageDebounceTimer?: number;
+	private commitMessageBeingEdited: string | null = null; // Track which commit is being edited
 
 	@query('gl-commits-panel')
 	commitsPanel!: CommitsPanel;

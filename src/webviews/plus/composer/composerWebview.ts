@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
-import { md5 } from '@env/crypto';
+import { md5, sha256 } from '@env/crypto';
 import type { ContextKeys } from '../../../constants.context';
 import type { ComposerTelemetryContext, Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -81,7 +81,7 @@ import {
 	createHunksFromDiffs,
 	createSafetyState,
 	getWorkingTreeDiffs,
-	validateCombinedDiff,
+	validateResultingDiff,
 	validateSafetyState,
 } from './utils';
 
@@ -354,7 +354,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 
 		// Create safety state snapshot for validation
-		const safetyState = await createSafetyState(repo, diffs, currentBranch, baseCommit);
+		const safetyState = await createSafetyState(repo, diffs, baseCommit.sha);
 
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
@@ -1063,13 +1063,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error(errorMessage);
 			}
 
-			const combinedDiff = (
+			const resultingDiff = (
 				await repo.git.diff.getDiff?.(shas[shas.length - 1], params.baseCommit.sha, {
 					notation: '...',
 				})
 			)?.contents;
 
-			if (!combinedDiff) {
+			if (!resultingDiff) {
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Failed to get combined diff';
@@ -1080,7 +1080,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error(errorMessage);
 			}
 
-			if (!validateCombinedDiff(params.safetyState, combinedDiff, this._context.diff.unstagedIncluded)) {
+			if (
+				!validateResultingDiff(
+					params.safetyState,
+					await sha256(resultingDiff),
+					this._context.diff.unstagedIncluded,
+				)
+			) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
 				this._context.errors.safety.count++;

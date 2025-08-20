@@ -1,5 +1,4 @@
-import type { GitBranch } from '../../../git/models/branch';
-import type { GitCommit } from '../../../git/models/commit';
+import { sha256 } from '@env/crypto';
 import type { GitDiff, ParsedGitDiff } from '../../../git/models/diff';
 import type { Repository } from '../../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
@@ -336,36 +335,20 @@ export async function getWorkingTreeDiffs(repo: Repository): Promise<WorkingTree
 export async function createSafetyState(
 	repo: Repository,
 	diffs: WorkingTreeDiffs,
-	currentBranch: GitBranch,
-	headCommit: GitCommit,
+	headSha: string,
 ): Promise<ComposerSafetyState> {
-	// Get current worktree information
-	const worktrees = await repo.git.worktrees?.getWorktrees();
-	const currentWorktree = worktrees?.find(wt => wt.branch?.id === currentBranch?.id);
-
-	if (!currentBranch?.name) {
-		throw new Error('Cannot create safety state: no current branch found');
-	}
-	if (!currentBranch?.sha) {
-		throw new Error('Cannot create safety state: no current branch SHA found');
-	}
-	if (!headCommit?.sha) {
+	if (!headSha) {
 		throw new Error('Cannot create safety state: no HEAD commit found');
-	}
-	if (!currentWorktree?.name) {
-		throw new Error('Cannot create safety state: no current worktree found');
 	}
 
 	return {
 		repoPath: repo.path,
-		headSha: headCommit.sha,
-		branchName: currentBranch.name,
-		branchRefSha: currentBranch.sha,
-		worktreeName: currentWorktree.name,
-		stagedDiff: diffs.staged?.contents ?? null,
-		unstagedDiff: diffs.unstaged?.contents ?? null,
-		unifiedDiff: diffs.unified?.contents ?? null,
-		timestamp: Date.now(),
+		headSha: headSha,
+		hashes: {
+			staged: diffs.staged?.contents ? await sha256(diffs.staged.contents) : null,
+			unstaged: diffs.unstaged?.contents ? await sha256(diffs.unstaged.contents) : null,
+			unified: diffs.unified?.contents ? await sha256(diffs.unified.contents) : null,
+		},
 	};
 }
 
@@ -393,44 +376,25 @@ export async function validateSafetyState(
 			errors.push(`HEAD commit changed from "${safetyState.headSha}" to "${currentHeadSha}"`);
 		}
 
-		// 3. Check current branch
-		const currentBranch = await repo.git.branches.getBranch();
-		const currentBranchName = currentBranch?.name;
-		if (!currentBranchName) {
-			errors.push('Current branch could not be determined');
-		} else if (currentBranchName !== safetyState.branchName) {
-			errors.push(`Branch changed from "${safetyState.branchName}" to "${currentBranchName}"`);
-		}
+		// 2. Smart diff validation - only check diffs for sources being committed
+		if (hunksBeingCommitted?.length) {
+			const { staged, unstaged /*, unified*/ } = await getWorkingTreeDiffs(repo);
 
-		// 4. Check branch ref SHA
-		const currentBranchSha = currentBranch?.sha;
-		if (!currentBranchSha) {
-			errors.push('Current branch SHA could not be determined');
-		} else if (currentBranchSha !== safetyState.branchRefSha) {
-			errors.push(`Branch ref changed from "${safetyState.branchRefSha}" to "${currentBranchSha}"`);
-		}
-
-		// 5. Check worktree state
-		const worktrees = await repo.git.worktrees?.getWorktrees();
-		const currentWorktree = worktrees?.find(wt => wt.branch?.id === currentBranch?.id);
-		const currentWorktreeName = currentWorktree?.name ?? 'main';
-		if (currentWorktreeName !== safetyState.worktreeName) {
-			errors.push(`Worktree changed from "${safetyState.worktreeName}" to "${currentWorktreeName}"`);
-		}
-
-		// 6. Smart diff validation - only check diffs for sources being committed
-		if (hunksBeingCommitted && hunksBeingCommitted.length > 0) {
-			const { staged, unstaged } = await getWorkingTreeDiffs(repo);
+			const hashes = {
+				staged: staged?.contents ? await sha256(staged.contents) : null,
+				unstaged: unstaged?.contents ? await sha256(unstaged.contents) : null,
+				// unified: unified?.contents ? await sha256(unified.contents) : null,
+			};
 
 			// Check if any hunks from staged source are being committed
 			const hasStagedHunks = hunksBeingCommitted.some(h => h.source === 'staged');
-			if (hasStagedHunks && (staged?.contents ?? null) !== safetyState.stagedDiff) {
+			if (hasStagedHunks && hashes.staged !== safetyState.hashes.staged) {
 				errors.push('Staged changes have been modified since composer opened');
 			}
 
 			// Check if any hunks from unstaged source are being committed
 			const hasUnstagedHunks = hunksBeingCommitted.some(h => h.source === 'unstaged');
-			if (hasUnstagedHunks && (unstaged?.contents ?? null) !== safetyState.unstagedDiff) {
+			if (hasUnstagedHunks && hashes.unstaged !== safetyState.hashes.unstaged) {
 				errors.push('Unstaged changes have been modified since composer opened');
 			}
 		}
@@ -442,21 +406,12 @@ export async function validateSafetyState(
 	}
 }
 
-/** Validates combined output diff against input diff, based on whether unstaged changes are included or not */
-export function validateCombinedDiff(
+/** Validates resulting output diff against input diff, based on whether unstaged changes are included or not */
+export function validateResultingDiff(
 	safetyState: ComposerSafetyState,
-	combinedDiff: string,
+	diffHash: string,
 	includeUnstagedChanges: boolean,
 ): boolean {
-	try {
-		const { stagedDiff, unifiedDiff } = safetyState;
-
-		if (includeUnstagedChanges) {
-			return combinedDiff === unifiedDiff;
-		}
-
-		return combinedDiff === stagedDiff;
-	} catch {
-		return false;
-	}
+	const { hashes } = safetyState;
+	return diffHash === (includeUnstagedChanges ? hashes.unified : hashes.staged);
 }
