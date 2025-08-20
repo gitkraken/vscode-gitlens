@@ -4,11 +4,11 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import type { ComposeCommandArgs } from '../../../../commands/composer';
 import { uncommitted } from '../../../../git/models/revision';
 import { createCommandLink } from '../../../../system/commands';
 import { equalsIgnoreCase } from '../../../../system/string';
 import type { DraftState, Wip } from '../../../commitDetails/protocol';
+import type { ComposerCommandArgs } from '../../../plus/composer/registration';
 import type { Change } from '../../../plus/patchDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
@@ -136,7 +136,7 @@ export class GlWipDetails extends GlDetailsBase {
 			<button-container>
 				<gl-button
 					full
-					.href=${createCommandLink<ComposeCommandArgs>('gitlens.composeCommits', {
+					.href=${createCommandLink<ComposerCommandArgs>('gitlens.composeCommits', {
 						repoPath: this.wip?.repo.path,
 						source: 'inspect',
 					})}

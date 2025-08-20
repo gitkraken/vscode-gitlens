@@ -1,3 +1,4 @@
+import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -6,9 +7,10 @@ import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsContr
 import type { State } from './protocol';
 
 export interface ComposerCommandArgs {
-	repoPath: string;
+	repoPath?: string | Uri;
 	source?: Sources;
 	mode?: 'experimental' | 'preview';
+	includedUnstagedChanges?: boolean;
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];

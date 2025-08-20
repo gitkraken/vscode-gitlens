@@ -5,7 +5,6 @@ import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
-import type { ComposeCommandArgs } from '../../commands/composer';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
@@ -78,6 +77,7 @@ import { getSettledValue } from '../../system/promise';
 import { SubscriptionManager } from '../../system/subscriptionManager';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
+import type { ComposerCommandArgs } from '../plus/composer/registration';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { TimelineCommandArgs } from '../plus/timeline/registration';
@@ -623,7 +623,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo } = await this.getRepoInfoFromRef(ref);
 		if (repo == null) return;
 
-		void executeCommand<ComposeCommandArgs>('gitlens.composeCommits', {
+		void executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
 			repoPath: repo.path,
 			source: 'home',
 		});

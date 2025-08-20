@@ -267,7 +267,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			};
 		}
 
-		return this.createInitialStateFromRepo(repo, args?.mode, args?.source);
+		return this.createInitialStateFromRepo(repo, args?.includedUnstagedChanges, args?.mode, args?.source);
 	}
 
 	private get initialState(): State {
@@ -279,6 +279,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async createInitialStateFromRepo(
 		repo: Repository,
+		includedUnstagedChanges?: boolean,
 		mode: 'experimental' | 'preview' = 'preview',
 		source?: Sources,
 		isReload?: boolean,
@@ -291,6 +292,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		]);
 
 		const diffs = getSettledValue(diffsResult)!;
+
+		if (includedUnstagedChanges) {
+			this._context.diff.unstagedIncluded = true;
+		}
 
 		// Hack for now to make sure we don't try to "mix" staged and unstaged hunks together
 		const staged = this._context.diff.unstagedIncluded ? diffs?.unified : diffs?.staged;
@@ -498,7 +503,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Initialize composer data from the repository
-			const composerData = await this.createInitialStateFromRepo(repo, params.mode, params.source, true);
+			const composerData = await this.createInitialStateFromRepo(
+				repo,
+				this._context.diff.unstagedIncluded,
+				params.mode,
+				params.source,
+				true,
+			);
 
 			// Check if there was a loading error
 			if (composerData.loadingError) {

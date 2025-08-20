@@ -3,7 +3,6 @@ import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/commandContext.utils';
-import type { ComposeCommandArgs } from '../../../commands/composer';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
@@ -143,6 +142,7 @@ import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../prot
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
 import { isSerializedState } from '../../webviewsController';
+import type { ComposerCommandArgs } from '../composer/registration';
 import type { TimelineCommandArgs } from '../timeline/registration';
 import {
 	formatRepositories,
@@ -4084,7 +4084,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 
-			await executeCommand<ComposeCommandArgs>('gitlens.composeCommits', {
+			await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
 				repoPath: ref.repoPath,
 				source: 'graph',
 			});
