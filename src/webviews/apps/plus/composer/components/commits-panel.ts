@@ -289,15 +289,23 @@ export class CommitsPanel extends LitElement {
 			}
 			.auto-compose__instructions-input {
 				width: 100%;
-				padding: 0.6rem;
+				padding: 0.5rem;
 				border: 1px solid var(--vscode-input-border);
 				border-radius: 3px;
 				background: var(--vscode-input-background);
 				color: var(--vscode-input-foreground);
 				font-family: inherit;
 				font-size: 1rem;
+				line-height: 1.6rem;
+			}
+			textarea.auto-compose__instructions-input {
+				box-sizing: content-box;
+				width: calc(100% - 1rem);
 				resize: vertical;
-				min-height: 2.4rem;
+				field-sizing: content;
+				min-height: 1lh;
+				max-height: 4lh;
+				resize: none;
 			}
 
 			.auto-compose__instructions-input::placeholder {
@@ -1043,14 +1051,14 @@ export class CommitsPanel extends LitElement {
 
 				<!-- Custom instructions input -->
 				<div class="auto-compose__instructions">
-					<input
-						type="text"
+					<textarea
 						class="auto-compose__instructions-input"
 						placeholder="Include additional instructions"
 						.value=${this.customInstructions}
+						rows="1"
 						@input=${this.handleCustomInstructionsChange}
 						?disabled=${disabled}
-					/>
+					></textarea>
 					<gl-button ?disabled=${disabled} appearance="toolbar" class="auto-compose__instructions-info">
 						<code-icon icon="info"></code-icon>
 						<div slot="tooltip">
