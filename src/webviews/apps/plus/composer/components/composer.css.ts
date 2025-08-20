@@ -100,9 +100,16 @@ export const composerItemStyles = css`
 		overflow: hidden;
 	}
 
-	.composer-item__header.is-placeholder {
+	.composer-item__header.is-placeholder,
+	.composer-item__header.is-empty-state {
 		font-style: italic;
 		opacity: 0.65;
+	}
+
+	.composer-item__header.is-empty-state {
+		white-space: normal;
+		text-overflow: initial;
+		text-wrap: pretty;
 	}
 
 	.composer-item__body {

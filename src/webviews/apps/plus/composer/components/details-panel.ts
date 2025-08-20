@@ -140,15 +140,20 @@ export class DetailsPanel extends LitElement {
 				flex-direction: column;
 			}
 
-			.empty-state {
+			.empty-state,
+			.no-changes-state {
 				padding: 2rem;
-				margin-block: 0;
-				font-weight: bold;
-				text-align: center;
-				color: var(--vscode-descriptionForeground);
+				max-width: 80rem;
 				background: var(--vscode-editor-background);
 				border: 0.1rem solid var(--vscode-panel-border);
 				border-radius: 0.3rem;
+				color: var(--color-foreground--85);
+			}
+
+			.empty-state {
+				margin-block: 0;
+				font-weight: bold;
+				text-align: center;
 			}
 
 			.empty-state__icon {
@@ -158,34 +163,25 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.no-changes-state {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				text-align: center;
-				padding: 2rem;
-				gap: 1.6rem;
-				height: 100%;
 			}
 
 			.no-changes-title {
 				font-size: 1.6rem;
 				font-weight: 600;
-				margin: 0;
-				color: var(--vscode-foreground);
+				margin-block: 0;
+				color: var(--color-foreground);
 			}
 
 			.no-changes-description {
-				color: var(--vscode-descriptionForeground);
 				line-height: 1.5;
-				margin: 0;
-				max-width: 40rem;
+				margin-block: 1.6rem;
+				text-wrap: pretty;
 			}
 
 			.no-changes-actions {
 				display: flex;
 				gap: 1.2rem;
-				margin-top: 1.2rem;
+				margin-block-start: 1.6rem;
 			}
 		`,
 	];
@@ -710,10 +706,11 @@ export class DetailsPanel extends LitElement {
 				<p class="no-changes-description">
 					Make some working directory changes and Reload or come back to this view to see how it works.
 				</p>
-				<div class="no-changes-actions">
-					<gl-button appearance="secondary" @click=${this.handleClose}>Close</gl-button>
-					<gl-button @click=${this.handleReload}>Reload</gl-button>
-				</div>
+				<!-- <nav class="no-changes-actions"> -->
+				<button-container layout="editor" grouping="gap-wide">
+					<gl-button full appearance="secondary" @click=${this.handleClose}>Close</gl-button>
+					<gl-button full @click=${this.handleReload}>Reload</gl-button>
+				</button-container>
 			</div>
 		`;
 	}

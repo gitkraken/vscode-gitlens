@@ -3,6 +3,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
+import type { AIModel } from '../../../../../plus/ai/models/model';
 import type { ComposerBaseCommit, ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
 import {
 	getCommitChanges,
@@ -363,7 +364,7 @@ export class CommitsPanel extends LitElement {
 	hasChanges: boolean = true;
 
 	@property({ type: Object })
-	aiModel: any = undefined;
+	aiModel?: AIModel = undefined;
 
 	@property({ type: Boolean })
 	compositionSummarySelected: boolean = false;
@@ -662,7 +663,7 @@ export class CommitsPanel extends LitElement {
 		if (!this.aiModel) {
 			return 'Choose AI Model';
 		}
-		return (this.aiModel.name as string) || 'Unknown Model';
+		return this.aiModel.name || 'Unknown Model';
 	}
 
 	private handleHunkDragEnd() {
@@ -1014,7 +1015,7 @@ export class CommitsPanel extends LitElement {
 		`;
 	}
 
-	private renderAutoComposeContainer() {
+	private renderAutoComposeContainer(disabled = false) {
 		return html`
 			<div class="auto-compose${this.hasUsedAutoCompose ? ' is-used' : ''}">
 				<h4 class="auto-compose__header">Auto-Compose Commits with AI (Preview)</h4>
@@ -1034,6 +1035,7 @@ export class CommitsPanel extends LitElement {
 					appearance="toolbar"
 					tooltip="Select AI Model"
 					@click=${this.handleAIModelPickerClick}
+					?disabled=${disabled}
 				>
 					${this.aiModelDisplayName}
 					<code-icon slot="suffix" icon="chevron-down" size="10"></code-icon>
@@ -1047,8 +1049,9 @@ export class CommitsPanel extends LitElement {
 						placeholder="Include additional instructions"
 						.value=${this.customInstructions}
 						@input=${this.handleCustomInstructionsChange}
+						?disabled=${disabled}
 					/>
-					<gl-button appearance="toolbar" class="auto-compose__instructions-info">
+					<gl-button ?disabled=${disabled} appearance="toolbar" class="auto-compose__instructions-info">
 						<code-icon icon="info"></code-icon>
 						<div slot="tooltip">
 							Providing additional instructions can help steer the AI composition for this session.
@@ -1075,7 +1078,7 @@ export class CommitsPanel extends LitElement {
 							<gl-button
 								full
 								appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
-								?disabled=${this.generating || this.committing}
+								?disabled=${disabled || this.generating || this.committing}
 								@click=${this.dispatchGenerateCommitsWithAI}
 							>
 								<code-icon
@@ -1095,6 +1098,7 @@ export class CommitsPanel extends LitElement {
 								full
 								appearance="secondary"
 								tooltip=${this.aiDisabledReason || 'Auto-Compose Commits is disabled'}
+								?disabled=${disabled}
 							>
 								<code-icon icon="sparkle" slot="prefix"></code-icon>
 								Auto-Compose Commits
@@ -1109,17 +1113,102 @@ export class CommitsPanel extends LitElement {
 		`;
 	}
 
+	private renderFinishCommitSection(disabled = false) {
+		if (disabled) {
+			return html`
+				<div class="finish-commit">
+					<h3 class="finish-commit__header">Finish & Commit</h3>
+					<p class="finish-commit__description">New commits will be added to your current branch.</p>
+					<button-container layout="editor">
+						<gl-button full appearance="secondary" disabled>Create Commits</gl-button>
+					</button-container>
+					<button-container layout="editor" class="cancel-button-container">
+						<gl-button full appearance="secondary" disabled>Cancel</gl-button>
+					</button-container>
+				</div>
+			`;
+		}
+
+		return html`
+			<!-- Finish & Commit section -->
+			<div class="finish-commit">
+				${when(
+					this.selectedCommitIds.size > 1 && !this.isPreviewMode,
+					() => html`
+						<h3 class="finish-commit__header">Finish & Commit</h3>
+						<p class="finish-commit__description">
+							New commits will be added to your current branch and a stash will be created with your
+							original changes.
+						</p>
+						<button-container layout="editor">
+							<gl-button
+								full
+								appearance="secondary"
+								?disabled=${this.generating || this.committing}
+								@click=${this.dispatchCombineCommits}
+							>
+								Combine ${this.selectedCommitIds.size} Commits
+							</gl-button>
+						</button-container>
+
+						<!-- Cancel button -->
+						<button-container layout="editor" class="cancel-button-container">
+							<gl-button full appearance="secondary" @click=${this.handleCancel}>Cancel</gl-button>
+						</button-container>
+					`,
+					() => html`
+						<h3 class="finish-commit__header">Finish & Commit</h3>
+						<p class="finish-commit__description">
+							${this.isReadyToCommit
+								? 'New commits will be added to your current branch.'
+								: 'Commit the changes in this draft.'}
+						</p>
+
+						<!-- Single Create Commits button -->
+						<button-container layout="editor">
+							<gl-button
+								full
+								.appearance=${!this.isReadyToCommit ? 'secondary' : undefined}
+								?disabled=${this.commits.length === 0 || this.generating || this.committing}
+								@click=${this.handleCreateCommitsClick}
+							>
+								${when(
+									this.committing,
+									() => html`<code-icon modifier="spin" icon="loading" slot="prefix"></code-icon>`,
+								)}
+								${this.committing
+									? 'Committing...'
+									: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
+							</gl-button>
+						</button-container>
+
+						<!-- Cancel button (always shown) -->
+						<button-container layout="editor" class="cancel-button-container">
+							<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
+						</button-container>
+					`,
+				)}
+			</div>
+		`;
+	}
+
 	override render() {
 		// Handle no changes state
 		if (!this.hasChanges) {
 			return html`
 				<div class="container scrollable">
 					<div class="working-section">
+						${this.renderAutoComposeContainer(true)}
 						<div class="commits-list">
 							<h3 class="commits-header">Draft Commits</h3>
-							<p class="no-changes-message">
-								When working directory changes are present, draft commits will appear here.
-							</p>
+							<div class="composer-item">
+								<div class="composer-item__commit"></div>
+								<div class="composer-item__content">
+									<div class="composer-item__header is-empty-state">
+										When working directory changes are present, draft commits will appear here.
+									</div>
+								</div>
+							</div>
 
 							<!-- Base commit (informational only) -->
 							<div class="composer-item is-base">
@@ -1135,6 +1224,7 @@ export class CommitsPanel extends LitElement {
 							</div>
 						</div>
 					</div>
+					${this.renderFinishCommitSection(true)}
 				</div>
 			`;
 		}
@@ -1218,63 +1308,7 @@ export class CommitsPanel extends LitElement {
 					<!-- Auto-Compose container in original position when already used -->
 					${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 				</div>
-
-				<!-- Finish & Commit section -->
-				<div class="finish-commit">
-					${when(
-						this.selectedCommitIds.size > 1 && !this.isPreviewMode,
-						() => html`
-							<h3 class="finish-commit__header">Finish & Commit</h3>
-							<p class="finish-commit__description">
-								New commits will be added to your current branch and a stash will be created with your
-								original changes.
-							</p>
-							<button-container layout="editor">
-								<gl-button
-									full
-									appearance="secondary"
-									?disabled=${this.generating || this.committing}
-									@click=${this.dispatchCombineCommits}
-								>
-									Combine ${this.selectedCommitIds.size} Commits
-								</gl-button>
-							</button-container>
-
-							<!-- Cancel button -->
-							<button-container layout="editor" class="cancel-button-container">
-								<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
-							</button-container>
-						`,
-						() => html`
-							<h3 class="finish-commit__header">Finish & Commit</h3>
-							<p class="finish-commit__description">
-								${this.isReadyToCommit
-									? 'New commits will be added to your current branch.'
-									: 'Commit the changes in this draft.'}
-							</p>
-
-							<!-- Single Create Commits button -->
-							<button-container layout="editor">
-								<gl-button
-									full
-									.appearance=${!this.isReadyToCommit ? 'secondary' : undefined}
-									?disabled=${this.commits.length === 0 || this.generating || this.committing}
-									@click=${this.handleCreateCommitsClick}
-								>
-									<code-icon icon=${this.committing ? 'loading~spin' : ''} slot="prefix"></code-icon>
-									${this.committing
-										? 'Committing...'
-										: `Create ${this.commits.length} ${this.commits.length === 1 ? 'Commit' : 'Commits'}`}
-								</gl-button>
-							</button-container>
-
-							<!-- Cancel button (always shown) -->
-							<button-container layout="editor" class="cancel-button-container">
-								<gl-button full appearance="secondary" @click=${this.handleCancel}> Cancel </gl-button>
-							</button-container>
-						`,
-					)}
-				</div>
+				${this.renderFinishCommitSection()}
 			</div>
 		`;
 	}

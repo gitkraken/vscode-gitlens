@@ -17,6 +17,10 @@ export class CommitMessage extends LitElement {
 		boxSizingBase,
 		focusableBaseStyles,
 		css`
+			:host {
+				display: contents;
+			}
+
 			.commit-message {
 				max-width: 80rem;
 			}
