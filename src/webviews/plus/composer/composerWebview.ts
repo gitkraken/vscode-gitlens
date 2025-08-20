@@ -718,6 +718,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async onRepositoryChanged(e: RepositoryChangeEvent): Promise<void> {
+		if (e.repository.id !== this._currentRepository?.id) return;
+
 		// Only care about index changes (staged/unstaged changes)
 		if (!e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
 			return;
