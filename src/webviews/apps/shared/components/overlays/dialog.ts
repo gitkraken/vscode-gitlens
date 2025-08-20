@@ -3,6 +3,8 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { focusableBaseStyles } from '../styles/lit/a11y.css';
 
+// #0000004d - light
+
 @customElement('gl-dialog')
 export class GlDialog extends LitElement {
 	static override styles = [
@@ -12,18 +14,21 @@ export class GlDialog extends LitElement {
 				display: contents;
 			}
 
-			::backdrop {
-				backdrop-filter: blur(4px);
-				-webkit-backdrop-filter: blur(4px);
+			dialog::backdrop {
+				background-color: #0000004d;
+				backdrop-filter: blur(0.4rem);
 			}
 
 			dialog {
-				padding: 2.4rem;
-				background: var(--vscode-editor-background);
-				border: 1px solid var(--vscode-widget-border);
+				padding: 2rem;
+				background: var(--vscode-editorWidget-background);
+				border: 0.1rem solid var(--vscode-widget-border);
 				border-radius: 0.3rem;
-				color: var(--vscode-foreground);
-				box-shadow: 0 0.4rem 0.4rem 0 var(--gl-tooltip-shadow);
+				color: var(--vscode-editorWidget-foreground);
+				box-shadow: 0 0 0.8rem 0 var(--vscode-widget-shadow);
+				width: min-content;
+				min-width: 40rem;
+				max-width: 50rem;
 			}
 		`,
 	];
