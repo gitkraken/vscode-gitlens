@@ -427,6 +427,20 @@ export class ComposerApp extends LitElement {
 		if (changedProperties.has('commits')) {
 			setTimeout(() => this.initializeCommitDropZones(), 100);
 		}
+
+		if (changedProperties.size === 0) {
+			this.handleForcedUpdate();
+		}
+	}
+
+	private handleForcedUpdate() {
+		if (this.compositionSummarySelected || this.selectedUnassignedSection || this.selectedCommitId) {
+			return;
+		}
+
+		if (this.state.commits.length > 0) {
+			this.selectCommit(this.state.commits[0].id);
+		}
 	}
 
 	override disconnectedCallback() {
