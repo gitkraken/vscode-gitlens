@@ -1340,35 +1340,38 @@ export class ComposerApp extends LitElement {
 	}
 
 	private handleAddHunksToCommit(e: CustomEvent) {
-		const { commitId, hunkIndices, source } = e.detail;
+		// Hack for now to make sure we don't try to "mix" staged and unstaged hunks together
+		this._ipc.sendCommand(OnAddHunksToCommitCommand, { source: e.detail.source });
 
-		// Find the target commit
-		const targetCommit = this.state.commits.find(c => c.id === commitId);
-		if (!targetCommit) return;
+		// const { commitId, hunkIndices, source } = e.detail;
 
-		this.saveToHistory();
+		// // Find the target commit
+		// const targetCommit = this.state.commits.find(c => c.id === commitId);
+		// if (!targetCommit) return;
 
-		// Remove hunks from any existing commits first
-		this.state.commits.forEach(commit => {
-			if (commit.id !== commitId) {
-				commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
-			}
-		});
+		// this.saveToHistory();
 
-		// Add hunks to the target commit (avoid duplicates)
-		const existingIndices = new Set(targetCommit.hunkIndices);
-		hunkIndices.forEach((index: number) => {
-			if (!existingIndices.has(index)) {
-				targetCommit.hunkIndices.push(index);
-			}
-		});
+		// // Remove hunks from any existing commits first
+		// this.state.commits.forEach(commit => {
+		// 	if (commit.id !== commitId) {
+		// 		commit.hunkIndices = commit.hunkIndices.filter(index => !hunkIndices.includes(index));
+		// 	}
+		// });
 
-		// Remove commits that no longer have any hunks
-		this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
-		this._ipc.sendCommand(OnAddHunksToCommitCommand, {
-			source: source,
-		});
-		this.requestUpdate();
+		// // Add hunks to the target commit (avoid duplicates)
+		// const existingIndices = new Set(targetCommit.hunkIndices);
+		// hunkIndices.forEach((index: number) => {
+		// 	if (!existingIndices.has(index)) {
+		// 		targetCommit.hunkIndices.push(index);
+		// 	}
+		// });
+
+		// // Remove commits that no longer have any hunks
+		// this.state.commits = this.state.commits.filter(commit => commit.hunkIndices.length > 0);
+		// this._ipc.sendCommand(OnAddHunksToCommitCommand, {
+		// 	source: source,
+		// });
+		// this.requestUpdate();
 	}
 
 	private handleCloseComposer() {
@@ -1733,7 +1736,7 @@ export class ComposerApp extends LitElement {
 		return html`
 			<div class="working-directory-warning ${isError ? 'working-directory-warning--error' : ''}">
 				<span class="working-directory-warning__text">${warningText}</span>
-				<gl-button appearance="primary" @click=${this.handleReloadComposer}>Reload</gl-button>
+				<gl-button @click=${this.handleReloadComposer}>Reload</gl-button>
 			</div>
 		`;
 	}

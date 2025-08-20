@@ -894,26 +894,26 @@ export class CommitsPanel extends LitElement {
 				changes: changes,
 			});
 		}
-		if (unassignedHunks.staged.length > 0) {
-			const fileCount = getUniqueFileNames(unassignedHunks.staged).length;
-			const changes = getFileChanges(unassignedHunks.staged);
-			sections.push({
-				key: 'staged',
-				title: 'Unincluded changes (staged)',
-				fileCount: fileCount,
-				changes: changes,
-			});
-		}
-		if (unassignedHunks.unassigned.length > 0) {
-			const fileCount = getUniqueFileNames(unassignedHunks.unassigned).length;
-			const changes = getFileChanges(unassignedHunks.unassigned);
-			sections.push({
-				key: 'unassigned',
-				title: 'Unincluded changes (commits)',
-				fileCount: fileCount,
-				changes: changes,
-			});
-		}
+		// if (unassignedHunks.staged.length > 0) {
+		// 	const fileCount = getUniqueFileNames(unassignedHunks.staged).length;
+		// 	const changes = getFileChanges(unassignedHunks.staged);
+		// 	sections.push({
+		// 		key: 'staged',
+		// 		title: 'Unincluded changes (staged)',
+		// 		fileCount: fileCount,
+		// 		changes: changes,
+		// 	});
+		// }
+		// if (unassignedHunks.unassigned.length > 0) {
+		// 	const fileCount = getUniqueFileNames(unassignedHunks.unassigned).length;
+		// 	const changes = getFileChanges(unassignedHunks.unassigned);
+		// 	sections.push({
+		// 		key: 'unassigned',
+		// 		title: 'Unincluded changes (commits)',
+		// 		fileCount: fileCount,
+		// 		changes: changes,
+		// 	});
+		// }
 
 		return sections.map(
 			section => html`

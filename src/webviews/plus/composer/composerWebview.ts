@@ -165,7 +165,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this.onDismissOnboarding();
 				break;
 			case OnAddHunksToCommitCommand.is(e):
-				this.onAddHunksToCommit(e.params);
+				void this.onAddHunksToCommit(e.params);
 				break;
 			case OnUndoCommand.is(e):
 				this.onUndo();
@@ -286,10 +286,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const diffs = getSettledValue(diffsResult)!;
 
-		// Allow composer to open with no changes - we'll handle this in the UI
-		const hasChanges = Boolean(diffs?.staged || diffs?.unstaged);
+		// Hack for now to make sure we don't try to "mix" staged and unstaged hunks together
+		const staged = this._context.diff.unstagedIncluded ? diffs?.unified : diffs?.staged;
+		const unstaged = this._context.diff.unstagedIncluded ? undefined : diffs?.unstaged;
 
-		const { hunkMap, hunks } = createHunksFromDiffs(diffs?.staged?.contents, diffs?.unstaged?.contents);
+		// Allow composer to open with no changes - we'll handle this in the UI
+		const hasChanges = Boolean(staged?.contents || unstaged?.contents);
+
+		const { hunkMap, hunks } = createHunksFromDiffs(staged?.contents, unstaged?.contents);
 
 		const baseCommit = getSettledValue(commitResult);
 		if (baseCommit == null) {
@@ -318,8 +322,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 
 		// Create initial commit with empty message (user will add message later)
-		const hasStagedChanges = Boolean(diffs?.staged?.contents);
-		const hasUnstagedChanges = Boolean(diffs?.unstaged?.contents);
+		const hasStagedChanges = Boolean(staged?.contents);
+		const hasUnstagedChanges = Boolean(unstaged?.contents);
 
 		let initialHunkIndices: number[];
 
@@ -395,10 +399,16 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
-	private onAddHunksToCommit(params: OnAddHunksToCommitParams): void {
+	private async onAddHunksToCommit(params: OnAddHunksToCommitParams) {
 		if (params.source === 'unstaged') {
+			// Update context to indicate unstaged changes were included
 			this._context.diff.unstagedIncluded = true;
 			this.sendTelemetryEvent('composer/action/includedUnstagedChanges');
+
+			await this.onReloadComposer({
+				repoPath: this._currentRepository!.path,
+				mode: this._context.mode,
+			});
 		}
 	}
 
