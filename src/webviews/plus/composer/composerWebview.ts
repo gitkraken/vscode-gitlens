@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { CancellationTokenSource, commands, Disposable, ProgressLocation, window } from 'vscode';
+import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import type { ContextKeys } from '../../../constants.context';
 import type { ComposerTelemetryContext, Sources } from '../../../constants.telemetry';
@@ -792,7 +792,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				{ source: 'composer' },
 				{
 					cancellation: this._generateCommitsCancellation.token,
-					progress: { location: ProgressLocation.Notification },
 					customInstructions: params.customInstructions,
 				},
 			);
