@@ -8,7 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds new [_Commit Composer_ experience](https://github.com/gitkraken/vscode-gitlens/discussions/4530 'Learn more') — the next evolution of the [initial Commit Composer preview](https://github.com/gitkraken/vscode-gitlens/discussions/4408)
+- Adds new [_Commit Composer_ view experience](https://github.com/gitkraken/vscode-gitlens/discussions/4530 'Learn more') — the next evolution of the [initial Commit Composer preview](https://github.com/gitkraken/vscode-gitlens/discussions/4408)
+  - Transforms the automatic commit process into a comprehensive drafting and review experience
+  - Adds ability to preview changes before committing and iterate by regenerating individual messages or entire commit compositions
+  - Adds support for switching between different AI models during composition
+  - Adds custom instruction support to guide AI output to match team conventions and preferences
+  - Adds integrated diff review for each proposed commit, and manual editing capabilities for any commit message or approach
+  - Adds manual commit composition support (no AI provider required for basic functionality)
+  - Adds _Compose Commits (Preview)_ commands accessible from multiple locations: _Home_ view, _Commit Graph_ WIP row, Inspect/Graph Details views, SCM view, and Command Palette
 - Adds updated AI model support for GitLens' AI features
   - Adds GPT-5 family (GPT-5, GPT-5 Mini, GPT-5 Nano), and Claude 4.1 Opus models
 - Add Azure DevOps Server integration support ([#4478](https://github.com/gitkraken/vscode-gitlens/issues/4478))
