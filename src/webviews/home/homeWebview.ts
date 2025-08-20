@@ -9,7 +9,7 @@ import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import { GlyphChars, urls } from '../../constants';
+import { urls } from '../../constants';
 import type { ContextKeys } from '../../constants.context';
 import {
 	isSupportedCloudIntegrationId,
@@ -58,7 +58,7 @@ import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadP
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
-import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -253,10 +253,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// 		a.index - b.index,
 		// );
 
+		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			this.container.git.openRepositories,
+			'Switch',
+			currentRepo?.name,
+		);
 		const pick = await showRepositoryPicker(
 			this.container,
-			currentRepo ? `Switch Repository ${GlyphChars.Dot} ${currentRepo.name}` : 'Switch Repository',
-			'Choose a repository to switch to',
+			title,
+			placeholder,
 			this.container.git.openRepositories,
 			{ picked: currentRepo },
 		);

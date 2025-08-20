@@ -1,6 +1,6 @@
 import type { TabChangeEvent, TabGroupChangeEvent } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { GlyphChars, proBadge } from '../../../constants';
+import { proBadge } from '../../../constants';
 import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { FileSelectedEvent } from '../../../eventBus';
@@ -36,7 +36,7 @@ import {
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import { Directive } from '../../../quickpicks/items/directive';
 import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../../quickpicks/referencePicker';
-import { showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker';
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
@@ -501,10 +501,15 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				scope.uri = repo.uri;
 			}
 		} else if (type === 'repo' && scope.type === 'repo') {
+			const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+				this.container.git.openRepositories,
+				'Switch',
+				repo?.name,
+			);
 			const result = await showRepositoryPicker2(
 				this.container,
-				repo ? `Switch Repository ${GlyphChars.Dot} ${repo.name}` : 'Switch Repository',
-				'Choose a repository to switch to',
+				title,
+				placeholder,
 				this.container.git.openRepositories,
 				{ picked: repo },
 			);

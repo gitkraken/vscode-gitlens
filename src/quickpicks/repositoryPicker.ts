@@ -1,5 +1,6 @@
 import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { Repository } from '../git/models/repository';
 import { groupRepositories } from '../git/utils/-webview/repository.utils';
@@ -169,7 +170,11 @@ export async function showRepositoriesPicker(
 	title: string | undefined,
 	placeholder?: string,
 	repositories?: Repository[],
-	options?: { filter?: (r: Repository) => Promise<boolean>; picked?: readonly Repository[] },
+	options?: {
+		excludeWorktrees?: boolean;
+		filter?: (r: Repository) => Promise<boolean>;
+		picked?: readonly Repository[];
+	},
 ): Promise<readonly Repository[]> {
 	const result = await showRepositoriesPicker2(container, title, placeholder, repositories, options);
 	return result?.value ?? [];
@@ -181,6 +186,7 @@ export async function showRepositoriesPicker2(
 	placeholder?: string,
 	repositories?: readonly Repository[],
 	options?: {
+		excludeWorktrees?: boolean;
 		filter?: (r: Repository) => Promise<boolean>;
 		picked?: readonly Repository[];
 	},
@@ -193,6 +199,13 @@ export async function showRepositoriesPicker2(
 			await Promise.allSettled(map(repositories, async r => ((await filter(r)) ? r : undefined))),
 			r => (r.status === 'fulfilled' ? r.value : undefined),
 		);
+	}
+
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
 	}
 
 	const items = await Promise.all<Promise<RepositoryQuickPickItem>>(
@@ -231,4 +244,25 @@ export async function showRepositoriesPicker2(
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
 	}
+}
+
+export async function getRepositoryPickerTitleAndPlaceholder(
+	repositories: Repository[],
+	action: string,
+	context?: string,
+): Promise<{ title: string; placeholder: string }> {
+	let hasWorktrees = false;
+	for (const r of repositories) {
+		if (await r.isWorktree()) {
+			hasWorktrees = true;
+			break;
+		}
+	}
+
+	const title = context
+		? `${action} ${hasWorktrees ? 'Repository or Worktree' : 'Repository'} ${GlyphChars.Dot} ${context}`
+		: action;
+	const placeholder = `Select a ${hasWorktrees ? 'repository or worktree' : 'repository'} to ${action.toLowerCase()} to`;
+
+	return { title: title, placeholder: placeholder };
 }

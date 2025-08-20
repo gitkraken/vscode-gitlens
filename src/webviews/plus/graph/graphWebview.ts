@@ -110,7 +110,7 @@ import type { ConnectionStateChangeEvent } from '../../../plus/integrations/inte
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
-import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -1710,10 +1710,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// 		a.index - b.index,
 		// );
 
+		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			this.container.git.openRepositories,
+			'Switch',
+			this.repository?.name,
+		);
 		const pick = await showRepositoryPicker(
 			this.container,
-			this.repository ? `Switch Repository ${GlyphChars.Dot} ${this.repository.name}` : 'Switch Repository',
-			'Choose a repository to switch to',
+			title,
+			placeholder,
 			this.container.git.openRepositories,
 			{ picked: this.repository },
 		);

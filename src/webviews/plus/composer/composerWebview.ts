@@ -1,7 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, ProgressLocation, window } from 'vscode';
 import { md5 } from '@env/crypto';
-import { GlyphChars } from '../../../constants';
 import type { ContextKeys } from '../../../constants.context';
 import type { ComposerTelemetryContext, Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -13,7 +12,7 @@ import type {
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
-import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import { getSettledValue } from '../../../system/promise';
@@ -455,12 +454,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async onChooseRepository(): Promise<void> {
+		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			this.container.git.openRepositories,
+			'Switch',
+			this._currentRepository?.name,
+		);
 		const pick = await showRepositoryPicker(
 			this.container,
-			this._currentRepository
-				? `Switch Repository ${GlyphChars.Dot} ${this._currentRepository.name}`
-				: 'Switch Repository',
-			'Choose a repository to switch to',
+			title,
+			placeholder,
 			this.container.git.openRepositories,
 			{ picked: this._currentRepository },
 		);
