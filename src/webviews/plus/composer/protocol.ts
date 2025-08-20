@@ -1,4 +1,5 @@
 import type { Sources } from '../../../constants.telemetry';
+import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { AIModel } from '../../../plus/ai/models/model';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification } from '../../protocol';
@@ -100,6 +101,11 @@ export interface State extends WebviewState {
 		model: AIModel | undefined;
 	};
 	onboardingDismissed: boolean;
+	// only needed when multiple repositories are open
+	repositoryState?: {
+		current: RepositoryShape;
+		hasMultipleRepositories: boolean;
+	};
 }
 
 export const initialState: Omit<State, keyof WebviewState> = {
@@ -381,6 +387,8 @@ export const OpenOnboardingCommand = new IpcCommand<void>(ipcScope, 'openOnboard
 export const DismissOnboardingCommand = new IpcCommand<void>(ipcScope, 'dismissOnboarding');
 export const AdvanceOnboardingCommand = new IpcCommand<{ stepNumber: number }>(ipcScope, 'advanceOnboarding');
 
+export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
+
 // Commands intended only to update context/telemetry
 export interface OnAddHunksToCommitParams {
 	source: string;
@@ -459,8 +467,8 @@ export interface FinishAndCommitParams {
 }
 
 export interface ReloadComposerParams {
-	repoPath: string;
-	mode: 'experimental' | 'preview';
+	repoPath?: string;
+	mode?: 'experimental' | 'preview';
 	source?: Sources;
 }
 
@@ -501,6 +509,10 @@ export interface DidReloadComposerParams {
 	safetyState: ComposerSafetyState;
 	loadingError: string | null;
 	hasChanges: boolean;
+	repositoryState?: {
+		current: RepositoryShape;
+		hasMultipleRepositories: boolean;
+	};
 }
 
 export interface DidLoadingErrorParams {

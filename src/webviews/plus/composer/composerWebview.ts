@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, ProgressLocation, window } from 'vscode';
 import { md5 } from '@env/crypto';
+import { GlyphChars } from '../../../constants';
 import type { ContextKeys } from '../../../constants.context';
 import type { ComposerTelemetryContext, Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -12,6 +13,7 @@ import type {
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
+import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import { getSettledValue } from '../../../system/promise';
@@ -40,6 +42,7 @@ import {
 	baseContext,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
+	ChooseRepositoryCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
 	currentOnboardingVersion,
@@ -176,6 +179,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			case OnResetCommand.is(e):
 				this.onReset();
 				break;
+			case ChooseRepositoryCommand.is(e):
+				void this.onChooseRepository();
+				break;
 		}
 	}
 
@@ -250,7 +256,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);
 		} else {
-			repo = this.container.git.getBestRepository();
+			repo = this.container.git.getBestRepositoryOrFirst();
 		}
 
 		if (repo == null) {
@@ -396,6 +402,23 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			onboardingDismissed: onboardingDismissed,
 			workingDirectoryHasChanged: false,
 			indexHasChanged: false,
+			repositoryState: this.getRepositoryState(),
+		};
+	}
+
+	private getRepositoryState() {
+		if (this._currentRepository == null) return undefined;
+
+		const { id, name, path, uri, virtual } = this._currentRepository;
+		return {
+			current: {
+				id: id,
+				name: name,
+				path: path,
+				uri: uri.toString(),
+				virtual: virtual,
+			},
+			hasMultipleRepositories: this.container.git.openRepositoryCount > 1,
 		};
 	}
 
@@ -426,25 +449,52 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this.sendTelemetryEvent('composer/action/reset');
 	}
 
+	private async onChooseRepository(): Promise<void> {
+		const pick = await showRepositoryPicker(
+			this.container,
+			this._currentRepository
+				? `Switch Repository ${GlyphChars.Dot} ${this._currentRepository.name}`
+				: 'Switch Repository',
+			'Choose a repository to switch to',
+			this.container.git.openRepositories,
+			{ picked: this._currentRepository },
+		);
+
+		if (pick == null) return;
+
+		await this.onReloadComposer({
+			repoPath: pick.path,
+			source: 'composer',
+		});
+	}
+
 	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
 		try {
 			// Clear cache to force fresh data on reload
 			this._cache.clear();
 
-			// Get the best repository
-			const repo = this.container.git.getRepository(params.repoPath);
-			if (!repo) {
-				// Show error in the safety error overlay
-				this._context.errors.safety.count++;
-				const errorMessage = 'Repository is no longer available';
-				this.sendTelemetryEvent('composer/reloaded', {
-					'failure.reason': 'error',
-					'failure.error.message': errorMessage,
-				});
-				await this.host.notify(DidSafetyErrorNotification, {
-					error: errorMessage,
-				});
-				return;
+			let repo = this._currentRepository;
+			if (!repo || (params.repoPath != null && repo?.path !== params.repoPath)) {
+				// Get the best repository
+				if (params.repoPath == null) {
+					repo = this.container.git.getBestRepositoryOrFirst();
+				} else {
+					repo = this.container.git.getRepository(params.repoPath);
+				}
+
+				if (!repo) {
+					// Show error in the safety error overlay
+					this._context.errors.safety.count++;
+					const errorMessage = 'Repository is no longer available';
+					this.sendTelemetryEvent('composer/reloaded', {
+						'failure.reason': 'error',
+						'failure.error.message': errorMessage,
+					});
+					await this.host.notify(DidSafetyErrorNotification, {
+						error: errorMessage,
+					});
+					return;
+				}
 			}
 
 			// Initialize composer data from the repository
@@ -468,6 +518,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				safetyState: composerData.safetyState,
 				loadingError: composerData.loadingError,
 				hasChanges: composerData.hasChanges,
+				repositoryState: composerData.repositoryState,
 			});
 		} catch (error) {
 			// Show error in the safety error overlay

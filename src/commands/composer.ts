@@ -2,7 +2,6 @@ import type { Uri } from 'vscode';
 import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { Logger } from '../system/logger';
@@ -64,17 +63,10 @@ export class ComposeCommand extends GlCommandBase {
 
 	async execute(args?: ComposeCommandArgs): Promise<void> {
 		try {
-			let repo;
-			if (args?.repoPath != null) {
-				repo = this.container.git.getRepository(args.repoPath);
-			}
-			repo ??= await getRepositoryOrShowPicker(this.container, 'Compose Commits');
-			if (repo == null) return;
-
 			await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showComposerPage', undefined, {
-				repoPath: repo.path,
+				repoPath: args?.repoPath,
 				source: args?.source,
-				mode: args?.mode ?? 'preview',
+				mode: args?.mode,
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ComposeCommand', 'execute');

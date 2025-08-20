@@ -11,6 +11,7 @@ import {
 	AIFeedbackUnhelpfulCommand,
 	CancelGenerateCommitMessageCommand,
 	CancelGenerateCommitsCommand,
+	ChooseRepositoryCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
 	DismissOnboardingCommand,
@@ -26,6 +27,7 @@ import {
 	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
 import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
+import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
 import { ipcContext } from '../../../shared/contexts/ipc';
@@ -39,6 +41,7 @@ import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/dialog';
 import '../../../shared/components/overlays/tooltip';
+import '../../../shared/components/repo-button-group';
 import './commit-item';
 import './commits-panel';
 import './details-panel';
@@ -104,9 +107,17 @@ export class ComposerApp extends LitElement {
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
+				gap: 1.6rem;
+			}
+
+			.header__group {
+				display: flex;
+				align-items: center;
+				gap: 1.6rem;
 			}
 
 			.header h1 {
+				flex: none;
 				margin-block: 0;
 				font-size: 1.6rem;
 			}
@@ -141,7 +152,6 @@ export class ComposerApp extends LitElement {
 				background-color: var(--vscode-inputValidation-warningBackground);
 				border: 1px solid var(--vscode-inputValidation-warningBorder);
 				border-radius: 0.3rem;
-				margin-inline-start: 1.6rem;
 			}
 
 			.working-directory-warning--error {
@@ -1548,16 +1558,29 @@ export class ComposerApp extends LitElement {
 
 		return html`
 			<header class="header">
-				<h1>
-					Commit Composer <small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
-					<gl-button
-						class="header-feedback"
-						appearance="toolbar"
-						href=${composerFeedbackUrl}
-						tooltip="Commit Composer Feedback"
-						><code-icon icon="feedback"></code-icon
-					></gl-button>
-				</h1>
+				<div class="header__group">
+					<h1>
+						Commit Composer
+						<small>${this.state?.mode === 'experimental' ? 'Experimental' : 'Preview'}</small>
+						<gl-button
+							class="header-feedback"
+							appearance="toolbar"
+							href=${composerFeedbackUrl}
+							tooltip="Commit Composer Feedback"
+							><code-icon icon="feedback"></code-icon
+						></gl-button>
+					</h1>
+					${when(
+						this.state?.repositoryState?.hasMultipleRepositories,
+						() =>
+							html`<gl-repo-button-group
+								.icon=${false}
+								.repository=${this.state.repositoryState!.current}
+								?hasMultipleRepositories=${this.state.repositoryState!.hasMultipleRepositories}
+								@gl-click=${this.onRepositorySelectorClicked}
+							></gl-repo-button-group>`,
+					)}
+				</div>
 				${this.renderWorkingDirectoryWarning()} ${this.renderActions()}
 			</header>
 
@@ -1772,6 +1795,12 @@ export class ComposerApp extends LitElement {
 				>
 			</nav>
 		`;
+	}
+
+	private onRepositorySelectorClicked(e: CustomEvent<RepoButtonGroupClickEvent>) {
+		if (e.detail.part === 'label') {
+			this._ipc.sendCommand(ChooseRepositoryCommand, undefined);
+		}
 	}
 
 	private onboardingSteps: KeyedDriveStep[] = [
