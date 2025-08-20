@@ -1066,13 +1066,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error(errorMessage);
 			}
 
-			if (
-				!validateCombinedDiff(
-					params.safetyState,
-					combinedDiff,
-					hunksBeingCommitted.some(h => h.source === 'unstaged'),
-				)
-			) {
+			if (!validateCombinedDiff(params.safetyState, combinedDiff, this._context.diff.unstagedIncluded)) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
 				this._context.errors.safety.count++;
