@@ -293,6 +293,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const diffs = getSettledValue(diffsResult)!;
 
+		this._context.diff.unstagedIncluded = false;
 		if (includedUnstagedChanges) {
 			this._context.diff.unstagedIncluded = true;
 		}
@@ -369,7 +370,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._context.diff.lines = hunks.reduce((total, hunk) => total + hunk.content.split('\n').length - 1, 0);
 		this._context.diff.staged = hasStagedChanges;
 		this._context.diff.unstaged = hasUnstagedChanges;
-		this._context.diff.unstagedIncluded = false;
 		this._context.commits.initialCount = 0;
 		this._context.ai.enabled.org = aiEnabled.org;
 		this._context.ai.enabled.config = aiEnabled.config;
