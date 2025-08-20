@@ -13,14 +13,15 @@ export class GlDialog extends LitElement {
 			}
 
 			::backdrop {
-				background: var(--gl-overlay-color);
+				backdrop-filter: blur(4px);
+				-webkit-backdrop-filter: blur(4px);
 			}
 
 			dialog {
 				padding: 2.4rem;
 				background: var(--vscode-editor-background);
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
+				border: 1px solid var(--vscode-widget-border);
+				border-radius: 0.3rem;
 				color: var(--vscode-foreground);
 				box-shadow: 0 0.4rem 0.4rem 0 var(--gl-tooltip-shadow);
 			}
