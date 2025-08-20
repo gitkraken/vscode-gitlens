@@ -666,6 +666,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.shareAsCloudPatch', this.shareAsCloudPatch),
 			this.host.registerWebviewCommand('gitlens.graph.createPatch', this.shareAsCloudPatch),
 			this.host.registerWebviewCommand('gitlens.graph.createCloudPatch', this.shareAsCloudPatch),
+			this.host.registerWebviewCommand('gitlens.copyPatchToClipboard:graph', this.copyPatchToClipboard),
 
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
 			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
@@ -3445,6 +3446,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const { summary: title, body: description } = splitCommitMessage(ref.message);
 		return executeCommand<CreatePatchCommandArgs, void>('gitlens.createCloudPatch', {
+			to: ref.ref,
+			repoPath: ref.repoPath,
+			title: title,
+			description: description,
+		});
+	}
+
+	@log()
+	private async copyPatchToClipboard(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision') ?? this.getGraphItemRef(item, 'stash');
+		if (ref == null) return Promise.resolve();
+
+		const { summary: title, body: description } = splitCommitMessage(ref.message);
+		return executeCommand<CreatePatchCommandArgs, void>('gitlens.copyPatchToClipboard', {
+			from: `${ref.ref}^`,
 			to: ref.ref,
 			repoPath: ref.repoPath,
 			title: title,

@@ -203,12 +203,19 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 @command()
 export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, 'gitlens.copyPatchToClipboard');
+		super(container, [
+			'gitlens.copyPatchToClipboard',
+			'gitlens.copyPatchToClipboard:scm',
+			'gitlens.copyPatchToClipboard:views',
+		]);
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Copy as Patch', args);
-		if (diff == null) return;
+		if (!diff?.contents) {
+			void window.showWarningMessage('No changes found to copy');
+			return;
+		}
 
 		await env.clipboard.writeText(diff.contents);
 		void window.showInformationMessage(

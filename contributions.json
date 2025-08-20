@@ -805,7 +805,22 @@
 		},
 		"gitlens.copyPatchToClipboard": {
 			"label": "Copy Changes (Patch)",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.copyPatchToClipboard:graph": {
+			"label": "Copy Changes (Patch)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "7_cutcopypaste",
+						"order": 97
+					}
+				]
+			}
+		},
+		"gitlens.copyPatchToClipboard:scm": {
+			"label": "Copy Changes (Patch)",
 			"menus": {
 				"git.changes": [
 					{
@@ -834,7 +849,12 @@
 						"group": "7_cutcopypaste",
 						"order": 97
 					}
-				],
+				]
+			}
+		},
+		"gitlens.copyPatchToClipboard:views": {
+			"label": "Copy Changes (Patch)",
+			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
@@ -850,13 +870,6 @@
 						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
-					}
-				],
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "7_cutcopypaste",
-						"order": 97
 					}
 				]
 			}

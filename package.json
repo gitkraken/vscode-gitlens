@@ -6517,6 +6517,18 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.copyPatchToClipboard:graph",
+				"title": "Copy Changes (Patch)"
+			},
+			{
+				"command": "gitlens.copyPatchToClipboard:scm",
+				"title": "Copy Changes (Patch)"
+			},
+			{
+				"command": "gitlens.copyPatchToClipboard:views",
+				"title": "Copy Changes (Patch)"
+			},
+			{
 				"command": "gitlens.copyRelativePathToClipboard",
 				"title": "Copy Relative Path",
 				"category": "GitLens",
@@ -11216,6 +11228,18 @@
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.copyPatchToClipboard:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard:scm",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.copyRelativePathToClipboard",
 					"when": "gitlens:enabled"
 				},
@@ -14710,7 +14734,7 @@
 			],
 			"git.changes": [
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:scm",
 					"when": "gitlens:enabled && scmProvider == git",
 					"group": "gitlens@3"
 				},
@@ -16961,7 +16985,7 @@
 					"group": "2_gitlens_1@1"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:scm",
 					"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmGroup.patch",
 					"group": "7_cutcopypaste@97"
 				}
@@ -17008,7 +17032,7 @@
 					"group": "3_gitlens@3"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:scm",
 					"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmGroup.patch",
 					"group": "7_cutcopypaste@97"
 				},
@@ -17060,7 +17084,7 @@
 					"group": "7_a_gitlens_share@1"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:scm",
 					"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.patch",
 					"group": "7_cutcopypaste@97"
 				},
@@ -17740,7 +17764,7 @@
 					"group": "7_gitlens_cutcopypaste@4"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:views",
 					"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "7_gitlens_cutcopypaste@97"
 				},
@@ -17815,7 +17839,7 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:views",
 					"when": "viewItem =~ /gitlens:compare:(branch|results(?!:))\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "7_gitlens_cutcopypaste@97"
 				},
@@ -18140,7 +18164,7 @@
 					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:views",
 					"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "7_gitlens_cutcopypaste@3"
 				},
@@ -23426,7 +23450,7 @@
 					"group": "4_gitlens_compare@2"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
+					"command": "gitlens.copyPatchToClipboard:graph",
 					"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "7_cutcopypaste@97"
 				},
