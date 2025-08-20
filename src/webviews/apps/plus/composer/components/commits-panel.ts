@@ -273,7 +273,7 @@ export class CommitsPanel extends LitElement {
 				margin-block: 0 0.4rem;
 			}
 
-			.auto-compose__model-picker {
+			.auto-compose__header ~ .auto-compose__model-picker {
 				margin-block-start: 0.4rem;
 			}
 
@@ -1018,10 +1018,10 @@ export class CommitsPanel extends LitElement {
 	private renderAutoComposeContainer(disabled = false) {
 		return html`
 			<div class="auto-compose${this.hasUsedAutoCompose ? ' is-used' : ''}">
-				<h4 class="auto-compose__header">Auto-Compose Commits with AI (Preview)</h4>
 				${when(
 					!this.hasUsedAutoCompose,
 					() => html`
+						<h4 class="auto-compose__header">Auto-Compose Commits with AI (Preview)</h4>
 						<p class="auto-compose__description">
 							Let AI organize your changes into well-formed commits with clear messages and descriptions
 							that help reviewers.
