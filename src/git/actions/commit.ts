@@ -663,12 +663,16 @@ export async function openFilesAtRevision(
 	);
 }
 
-export async function restoreFile(file: string | GitFile, revision: GitRevisionReference): Promise<void> {
+export async function restoreFile(
+	file: string | GitFile,
+	revision: GitRevisionReference,
+	previous?: boolean,
+): Promise<void> {
 	let path;
-	let ref;
+	let rev;
 	if (typeof file === 'string') {
 		path = file;
-		ref = revision.ref;
+		rev = previous ? `${revision.ref}^` : revision.ref;
 	} else {
 		path = file.path;
 		if (file.status === 'D') {
@@ -676,18 +680,18 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 			const uri = GitUri.fromFile(file, revision.repoPath);
 			try {
 				await workspace.fs.stat(uri);
-				ref = `${revision.ref}^`;
+				rev = `${revision.ref}^`;
 			} catch {
-				ref = revision.ref;
+				rev = previous ? `${revision.ref}^` : revision.ref;
 			}
 		} else if (file.status === '?') {
-			ref = `${revision.ref}^3`;
+			rev = `${revision.ref}^3`;
 		} else {
-			ref = revision.ref;
+			rev = previous ? `${revision.ref}^` : revision.ref;
 		}
 	}
 
-	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(ref, { path: path });
+	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(rev, { path: path });
 }
 
 export function revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {

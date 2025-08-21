@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Updates `gitlens.graph.multiselect` setting to default to `topological`; set to `true` to allow selecting multiple commits without restriction
 - Adds ability to switch between open repositories on the _Visual History_
 - Adds _Visualize Repository History_ commands to the SCM menus
+- Adds _Restore Previous Changes_ command to files in the views ([#4542](https://github.com/gitkraken/vscode-gitlens/issues/4542))
 
 ### Changed
 

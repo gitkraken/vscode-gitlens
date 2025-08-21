@@ -3941,6 +3941,40 @@
 			"label": "Reset Views Layout",
 			"commandPalette": true
 		},
+		"gitlens.restore.file:views": {
+			"label": "Restore Changes (Checkout)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "8_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.restorePrevious.file:views": {
+			"label": "Restore Previous Changes",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 4
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "8_gitlens_actions",
+						"order": 4
+					}
+				]
+			}
+		},
 		"gitlens.revealCommitInView": {
 			"label": "Reveal Commit in Side Bar",
 			"commandPalette": "resource in gitlens:tabs:blameable",
@@ -12072,24 +12106,6 @@
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
-						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.views.restore": {
-			"label": "Restore (Checkout)",
-			"icon": "$(gitlens-switch)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 3
-					},
-					{
-						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "8_gitlens_actions",
 						"order": 3
 					}
 				]

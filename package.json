@@ -7726,6 +7726,14 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.restore.file:views",
+				"title": "Restore Changes (Checkout)"
+			},
+			{
+				"command": "gitlens.restorePrevious.file:views",
+				"title": "Restore Previous Changes"
+			},
+			{
 				"command": "gitlens.revealCommitInView",
 				"title": "Reveal Commit in Side Bar",
 				"category": "GitLens"
@@ -9628,11 +9636,6 @@
 				"command": "gitlens.views.resetToTip",
 				"title": "Reset Current Branch to Tip...",
 				"enablement": "!operationInProgress"
-			},
-			{
-				"command": "gitlens.views.restore",
-				"title": "Restore (Checkout)",
-				"icon": "$(gitlens-switch)"
 			},
 			{
 				"command": "gitlens.views.revealRepositoryInExplorer",
@@ -12172,6 +12175,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.restore.file:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.restorePrevious.file:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.revealCommitInView",
 					"when": "resource in gitlens:tabs:blameable"
 				},
@@ -13685,10 +13696,6 @@
 				},
 				{
 					"command": "gitlens.views.resetToTip",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.restore",
 					"when": "false"
 				},
 				{
@@ -18093,9 +18100,14 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.views.restore",
+					"command": "gitlens.restore.file:views",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.restorePrevious.file:views",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.openChanges",
@@ -18189,9 +18201,14 @@
 					"group": "8_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.views.restore",
+					"command": "gitlens.restore.file:views",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "8_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.restorePrevious.file:views",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "8_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.stageDirectory",

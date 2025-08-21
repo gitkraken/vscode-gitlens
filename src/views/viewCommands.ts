@@ -993,12 +993,20 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
-	@command('gitlens.views.restore')
+	@command('gitlens.restore.file:views')
 	@log()
-	private restore(node: ViewRefFileNode) {
+	private restoreFile(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		return CommitActions.restoreFile(node.file, node.ref);
+	}
+
+	@command('gitlens.restorePrevious.file:views')
+	@log()
+	private restorePreviousFile(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		return CommitActions.restoreFile(node.file, node.ref, true);
 	}
 
 	@command('gitlens.views.revealRepositoryInExplorer')
