@@ -301,6 +301,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const staged = this._context.diff.unstagedIncluded ? diffs?.unified : diffs?.staged;
 		const unstaged = this._context.diff.unstagedIncluded ? undefined : diffs?.unstaged;
 
+		if (!diffs?.staged?.contents && diffs?.unstaged?.contents) {
+			this._context.diff.unstagedIncluded = true;
+		}
+
 		// Allow composer to open with no changes - we'll handle this in the UI
 		const hasChanges = Boolean(staged?.contents || unstaged?.contents);
 
