@@ -26,7 +26,7 @@ export interface EnrichedItemResponse {
 	userId?: string;
 	type: 'pin' | 'snooze';
 
-	provider: 'azure' | 'bitbucket' | 'github' | 'gitlab' | 'jira' | 'trello' | 'gitkraken';
+	provider: 'azure' | 'bitbucket' | 'github' | 'gitlab' | 'jira' | 'linear' | 'trello' | 'gitkraken';
 	entityType: 'issue' | 'pr';
 	entityId: string;
 	entityUrl: string;

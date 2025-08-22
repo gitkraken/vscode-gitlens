@@ -322,6 +322,10 @@ export class ProvidersApi {
 					providerApis.jira,
 				),
 			},
+			[IssuesCloudHostIntegrationId.Linear]: {
+				...providersMetadata[IssuesCloudHostIntegrationId.Linear],
+				provider: providerApis.linear,
+			},
 			[IssuesCloudHostIntegrationId.Trello]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
 				provider: providerApis.trello,

@@ -19,6 +19,7 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	Linear,
 	NumberedPageInput,
 	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
@@ -355,7 +356,7 @@ export type GetIssuesForResourceForCurrentUserFn = (
 ) => Promise<{ data: ProviderIssue[] }>;
 
 export interface ProviderInfo extends ProviderMetadata {
-	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Trello | AzureDevOps;
+	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Linear | Trello | AzureDevOps;
 	getRepoFn?: GetRepoFn;
 	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
@@ -601,6 +602,14 @@ export const providersMetadata: ProvidersMetadata = {
 			'read:project-version:jira',
 		],
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+	},
+	[IssuesCloudHostIntegrationId.Linear]: {
+		domain: 'linear.app',
+		id: IssuesCloudHostIntegrationId.Linear,
+		name: 'Linear',
+		type: 'issues',
+		iconKey: IssuesCloudHostIntegrationId.Linear,
+		scopes: [],
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',

@@ -16,6 +16,7 @@ export enum GitSelfManagedHostIntegrationId {
 
 export enum IssuesCloudHostIntegrationId {
 	Jira = 'jira',
+	Linear = 'linear',
 	Trello = 'trello',
 }
 

@@ -4,6 +4,7 @@ import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
 
 export interface Config {
+	readonly 'temporary-configured-linear-config': string | null;
 	readonly advanced: AdvancedConfig;
 	readonly ai: AIConfig;
 	readonly autolinks: AutolinkConfig[] | null;
