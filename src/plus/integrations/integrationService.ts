@@ -540,6 +540,16 @@ export class IntegrationService implements Disposable {
 					) as IssuesIntegration as IntegrationById<T>;
 					break;
 
+				case IssuesCloudHostIntegrationId.Linear:
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/linear')
+					).LinearIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as IssuesIntegration as IntegrationById<T>;
+					break;
 				default:
 					throw new Error(`Integration with '${id}' is not supported`);
 			}
