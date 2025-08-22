@@ -20,6 +20,7 @@ import type {
 	JiraProject,
 	JiraResource,
 	Linear,
+	LinearProject,
 	LinearTeam,
 	NumberedPageInput,
 	Issue as ProviderApiIssue,
@@ -77,6 +78,7 @@ export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
 export type ProviderLinearResource = LinearTeam;
+export type ProviderLinearProject = LinearProject;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -317,6 +319,10 @@ export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
 ) => Promise<{ data: JiraProject[] }>;
+export type GetLinearProjectsForResourcesFn = (
+	teamIds: string[],
+	options?: EnterpriseOptions,
+) => Promise<{ data: LinearProject[] }>;
 export type GetAzureResourcesForUserFn = (
 	input: { userId: string },
 	options?: EnterpriseOptions,
@@ -380,6 +386,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
 	getBitbucketServerPullRequestsForCurrentUserFn?: GetBitbucketServerPullRequestsForCurrentUserFn;
 	getJiraProjectsForResourcesFn?: GetJiraProjectsForResourcesFn;
+	getLinearProjectsForResourcesFn?: GetLinearProjectsForResourcesFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
 	getReposForAzureProjectFn?: GetReposForAzureProjectFn;

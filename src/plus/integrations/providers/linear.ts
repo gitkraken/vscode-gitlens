@@ -7,7 +7,7 @@ import type { IssueResourceDescriptor, ResourceDescriptor } from '../../../git/m
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { IssuesIntegration } from '../models/issuesIntegration';
-import type { IssueFilter } from './models';
+import type { IssueFilter, ProviderLinearProject } from './models';
 import { providersMetadata, toIssueShape } from './models';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
@@ -17,6 +17,10 @@ const maxPagesPerRequest = 10;
 export interface LinearTeamDescriptor extends IssueResourceDescriptor {
 	url: string;
 	avatarUrl: string;
+}
+
+export interface LinearProjectDescriptor extends IssueResourceDescriptor {
+	resourceId: string;
 }
 
 export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Linear> {
@@ -44,12 +48,15 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			this._teams.set(
 				accessToken,
 				resources != null
-					? resources.map(r => ({
-							...r,
-							key: r.id,
-							url: `https://linear.app/team/${r.id}`,
-							avatarUrl: r.iconUrl || '',
-						}))
+					? resources.map(r => {
+							const descr: LinearTeamDescriptor = {
+								...r,
+								key: r.id,
+								url: `https://linear.app/team/${r.id}`,
+								avatarUrl: r.iconUrl || '',
+							};
+							return descr;
+						})
 					: undefined,
 			);
 		}
@@ -57,12 +64,64 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return this._teams.get(accessToken);
 	}
 
-	protected override getProviderProjectsForResources(
-		session: ProviderAuthenticationSession,
+	private _projects: Map<string, LinearProjectDescriptor[] | undefined> | undefined;
+	protected override async getProviderProjectsForResources(
+		{ accessToken }: AuthenticationSession,
 		resources: ResourceDescriptor[],
-	): Promise<ResourceDescriptor[] | undefined> {
-		throw new Error('Method not implemented.');
+		force: boolean = false,
+	): Promise<LinearProjectDescriptor[] | undefined> {
+		this._projects ??= new Map<string, LinearProjectDescriptor[] | undefined>();
+
+		let resourcesWithoutProjects = [];
+		if (force) {
+			resourcesWithoutProjects = resources;
+		} else {
+			for (const resource of resources) {
+				const resourceKey = `${accessToken}:${resource.key}`;
+				const cachedProjects = this._projects.get(resourceKey);
+				if (cachedProjects == null) {
+					resourcesWithoutProjects.push(resource);
+				}
+			}
+		}
+
+		if (resourcesWithoutProjects.length > 0) {
+			const api = await this.getProvidersApi();
+			const linearProjects: ProviderLinearProject[] | undefined = await api.getLinearProjectsForResources(
+				resourcesWithoutProjects.map(r => r.key),
+				{ accessToken: accessToken },
+			);
+
+			for (const resource of resourcesWithoutProjects) {
+				const projects = linearProjects?.filter(p => p.teamId === resource.id);
+				if (projects != null) {
+					this._projects.set(
+						`${accessToken}:${resource.key}`,
+						projects.map(p => {
+							const descr: LinearProjectDescriptor = {
+								...p,
+								key: p.id,
+								resourceId: resource.key,
+							};
+							return descr;
+						}),
+					);
+				}
+			}
+		}
+
+		// Return all projects for the requested resources
+		const allProjects: LinearProjectDescriptor[] = [];
+		for (const resource of resources) {
+			const resourceKey = `${accessToken}:${resource.key}`;
+			const cachedProjects = this._projects.get(resourceKey);
+			if (cachedProjects != null) {
+				allProjects.push(...cachedProjects);
+			}
+		}
+		return allProjects.length > 0 ? allProjects : undefined;
 	}
+
 	protected override getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
@@ -89,9 +148,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined> {
 		const myResources = resources ?? (await this.getProviderResourcesForUser(session));
-		console.log(myResources);
+		const projects = myResources && (await this.getProviderProjectsForResources(session, myResources));
+		console.log(projects);
+		if (!projects) return undefined;
 		return undefined;
-		// if (!myResources) return undefined;
 		// const api = await this.getProvidersApi();
 		// const results: IssueShape[] = [];
 		// for (const resource of myResources) {

@@ -53,6 +53,7 @@ import type {
 	ProviderIssue,
 	ProviderJiraProject,
 	ProviderJiraResource,
+	ProviderLinearProject,
 	ProviderLinearResource,
 	ProviderPullRequest,
 	ProviderRepoInput,
@@ -329,6 +330,7 @@ export class ProvidersApi {
 				getLinearResourcesForCurrentUserFn: providerApis.linear.getTeamsForCurrentUser.bind(
 					providerApis.linear,
 				),
+				getLinearProjectsForResourcesFn: providerApis.linear.getProjectsForTeams.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
@@ -785,6 +787,26 @@ export class ProvidersApi {
 		} catch (e) {
 			return this.handleProviderError<ProviderJiraProject[] | undefined>(
 				IssuesCloudHostIntegrationId.Jira,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getLinearProjectsForResources(
+		teamIds: string[],
+		options?: { accessToken?: string },
+	): Promise<ProviderLinearProject[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			IssuesCloudHostIntegrationId.Linear,
+			'getLinearProjectsForResourcesFn',
+			options?.accessToken,
+		);
+		try {
+			return (await provider.getLinearProjectsForResourcesFn?.(teamIds, { token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderLinearProject[] | undefined>(
+				IssuesCloudHostIntegrationId.Linear,
 				token,
 				e,
 			);
