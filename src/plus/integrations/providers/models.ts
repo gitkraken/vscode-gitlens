@@ -19,6 +19,8 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	Linear,
+	LinearTeam,
 	NumberedPageInput,
 	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
@@ -74,6 +76,7 @@ export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
+export type ProviderLinearResource = LinearTeam;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -309,6 +312,7 @@ export type GetCurrentUserForResourceFn = (
 ) => Promise<{ data: ProviderAccount }>;
 
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
+export type GetLinearResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
@@ -355,7 +359,7 @@ export type GetIssuesForResourceForCurrentUserFn = (
 ) => Promise<{ data: ProviderIssue[] }>;
 
 export interface ProviderInfo extends ProviderMetadata {
-	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Trello | AzureDevOps;
+	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Linear | Trello | AzureDevOps;
 	getRepoFn?: GetRepoFn;
 	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
@@ -370,6 +374,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getCurrentUserForInstanceFn?: GetCurrentUserForInstanceFn;
 	getCurrentUserForResourceFn?: GetCurrentUserForResourceFn;
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
+	getLinearResourcesForCurrentUserFn?: GetLinearResourcesForCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForUserFn?: GetBitbucketResourcesForUserFn;
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
@@ -601,6 +606,14 @@ export const providersMetadata: ProvidersMetadata = {
 			'read:project-version:jira',
 		],
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+	},
+	[IssuesCloudHostIntegrationId.Linear]: {
+		domain: 'linear.app',
+		id: IssuesCloudHostIntegrationId.Linear,
+		name: 'Linear',
+		type: 'issues',
+		iconKey: IssuesCloudHostIntegrationId.Linear,
+		scopes: [],
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',

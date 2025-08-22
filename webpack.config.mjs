@@ -311,7 +311,41 @@ function getExtensionConfig(target, mode, env) {
 			fallback: {
 				'../../../product.json': false,
 				...(target === 'webworker'
-					? { path: require.resolve('path-browserify'), os: require.resolve('os-browserify/browser') }
+					? {
+							path: require.resolve('path-browserify'),
+							os: require.resolve('os-browserify/browser'),
+							// Node.js core modules fallbacks for webworker
+							// assert: false,
+							// buffer: false,
+							// child_process: false,
+							// cluster: false,
+							crypto: false,
+							// dgram: false,
+							// dns: false,
+							// domain: false,
+							// events: false,
+							// fs: false,
+							http: false,
+							https: false,
+							// module: false,
+							// net: false,
+							// punycode: false,
+							// querystring: false,
+							// readline: false,
+							// repl: false,
+							stream: false,
+							// string_decoder: false,
+							// sys: false,
+							// timers: false,
+							// tls: false,
+							// tty: false,
+							url: false,
+							// util: false,
+							// vm: false,
+							zlib: false,
+							// Optional dependencies
+							encoding: false,
+						}
 					: {}),
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],

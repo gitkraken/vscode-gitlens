@@ -53,6 +53,7 @@ import type {
 	ProviderIssue,
 	ProviderJiraProject,
 	ProviderJiraResource,
+	ProviderLinearResource,
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
@@ -320,6 +321,13 @@ export class ProvidersApi {
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
+				),
+			},
+			[IssuesCloudHostIntegrationId.Linear]: {
+				...providersMetadata[IssuesCloudHostIntegrationId.Linear],
+				provider: providerApis.linear,
+				getLinearResourcesForCurrentUserFn: providerApis.linear.getTeamsForCurrentUser.bind(
+					providerApis.linear,
 				),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
@@ -644,6 +652,26 @@ export class ProvidersApi {
 		} catch (e) {
 			return this.handleProviderError<ProviderJiraResource[] | undefined>(
 				IssuesCloudHostIntegrationId.Jira,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getLinearResourcesForCurrentUser(options?: {
+		accessToken?: string;
+	}): Promise<ProviderLinearResource[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			IssuesCloudHostIntegrationId.Linear,
+			'getLinearResourcesForCurrentUserFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (await provider.getLinearResourcesForCurrentUserFn?.({ token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderLinearResource[] | undefined>(
+				IssuesCloudHostIntegrationId.Linear,
 				token,
 				e,
 			);

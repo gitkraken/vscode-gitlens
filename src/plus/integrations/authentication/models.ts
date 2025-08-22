@@ -44,6 +44,7 @@ export interface CloudIntegrationConnection {
 
 export type CloudIntegrationType =
 	| 'jira'
+	| 'linear'
 	| 'trello'
 	| 'gitlab'
 	| 'github'
@@ -70,6 +71,7 @@ export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudI
 
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } = {
 	jira: IssuesCloudHostIntegrationId.Jira,
+	linear: IssuesCloudHostIntegrationId.Linear,
 	trello: IssuesCloudHostIntegrationId.Trello,
 	gitlab: GitCloudHostIntegrationId.GitLab,
 	github: GitCloudHostIntegrationId.GitHub,
@@ -83,6 +85,7 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } 
 
 export const toCloudIntegrationType: { [key in IntegrationIds]: CloudIntegrationType | undefined } = {
 	[IssuesCloudHostIntegrationId.Jira]: 'jira',
+	[IssuesCloudHostIntegrationId.Linear]: 'linear',
 	[IssuesCloudHostIntegrationId.Trello]: 'trello',
 	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
 	[GitCloudHostIntegrationId.GitHub]: 'github',
