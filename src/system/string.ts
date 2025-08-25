@@ -8,8 +8,6 @@ import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 import { getNumericFormat } from './date';
 
-export { fromBase64, base64 } from '@env/base64';
-
 export function capitalize(s: string): string {
 	return `${s[0].toLocaleUpperCase()}${s.slice(1)}`;
 }

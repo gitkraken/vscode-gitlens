@@ -1,5 +1,6 @@
 import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
+import { fromBase64ToString } from '@env/base64';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
 import type { Container } from '../../container';
@@ -29,7 +30,6 @@ import { debug } from '../../system/decorators/log';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { maybeUri, normalizePath } from '../../system/path';
-import { fromBase64 } from '../../system/string';
 import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
@@ -1236,7 +1236,7 @@ export class DeepLinkService implements Disposable {
 					const type = this._context.params?.get('type');
 					let prEntityId = this._context.params?.get('prEntityId') ?? undefined;
 					if (prEntityId != null) {
-						prEntityId = fromBase64(prEntityId).toString();
+						prEntityId = fromBase64ToString(prEntityId);
 					}
 
 					void (await executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {

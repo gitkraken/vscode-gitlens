@@ -1,4 +1,5 @@
 import { EventEmitter, Uri } from 'vscode';
+import { base64 } from '@env/base64';
 import { md5 } from '@env/crypto';
 import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants.storage';
@@ -9,7 +10,7 @@ import { configuration } from './system/-webview/configuration';
 import { getContext } from './system/-webview/context';
 import { debounce } from './system/function/debounce';
 import { filterMap } from './system/iterable';
-import { base64, equalsIgnoreCase } from './system/string';
+import { equalsIgnoreCase } from './system/string';
 import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)

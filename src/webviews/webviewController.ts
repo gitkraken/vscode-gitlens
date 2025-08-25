@@ -1,5 +1,6 @@
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import { base64 } from '@env/base64';
 import { getNonce } from '@env/crypto';
 import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
@@ -872,7 +873,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 				case 'body':
 					return body ?? '';
 				case 'state':
-					return bootstrap != null ? JSON.stringify(bootstrap).replace(/"/g, '&quot;') : '';
+					return bootstrap != null ? base64(JSON.stringify(bootstrap)) : '';
 				case 'endOfBody':
 					return `${
 						bootstrap != null
