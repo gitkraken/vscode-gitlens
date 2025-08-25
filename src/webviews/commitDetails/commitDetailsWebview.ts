@@ -1139,7 +1139,7 @@ export class CommitDetailsWebviewProvider
 			) {
 				await executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 					repoPath: this._context.commit.repoPath,
-					source: { source: 'inspect', type: 'wip' },
+					source: { source: 'inspect', context: { type: 'wip' } },
 				});
 			} else {
 				const isStashCommit = isStash(this._context.commit);
@@ -1148,7 +1148,7 @@ export class CommitDetailsWebviewProvider
 					{
 						repoPath: this._context.commit!.repoPath,
 						rev: this._context.commit!.sha,
-						source: { source: 'inspect', type: isStashCommit ? 'stash' : 'commit' },
+						source: { source: 'inspect', context: { type: isStashCommit ? 'stash' : 'commit' } },
 					},
 				);
 			}
@@ -1182,7 +1182,7 @@ export class CommitDetailsWebviewProvider
 
 			const result = await this.container.ai.generateCreateDraft(
 				repo,
-				{ source: 'inspect', type: 'suggested_pr_change' },
+				{ source: 'inspect', context: { type: 'suggested_pr_change' } },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
 			if (result === 'cancelled') throw new Error('Operation was canceled');

@@ -3884,7 +3884,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: ref.repoPath,
 			ref: ref.ref,
-			source: { source: 'graph', type: 'branch' },
+			source: { source: 'graph', context: { type: 'branch' } },
 		});
 	}
 	@log()
@@ -3895,7 +3895,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 			repoPath: ref.repoPath,
 			rev: ref.ref,
-			source: { source: 'graph', type: 'commit' },
+			source: { source: 'graph', context: { type: 'commit' } },
 		});
 	}
 
@@ -3907,7 +3907,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainStashCommandArgs>('gitlens.ai.explainStash', {
 			repoPath: ref.repoPath,
 			rev: ref.ref,
-			source: { source: 'graph', type: 'stash' },
+			source: { source: 'graph', context: { type: 'stash' } },
 		});
 	}
 
@@ -3918,7 +3918,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: ref.repoPath,
-			source: { source: 'graph', type: 'wip' },
+			source: { source: 'graph', context: { type: 'wip' } },
 		});
 	}
 

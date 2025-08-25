@@ -32,7 +32,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? getNodeRepoPath(context.node);
 			args.ref = args.ref ?? context.node.branch.ref;
-			args.source = args.source ?? { source: 'view', type: 'branch' };
+			args.source = args.source ?? { source: 'view', context: { type: 'branch' } };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -107,7 +107,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'branch',
+					context: { type: 'branch' },
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining branch changes...' },

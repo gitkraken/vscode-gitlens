@@ -381,6 +381,8 @@ interface AIEventDataBase {
 }
 
 interface AIEventDataSendBase extends AIEventDataBase {
+	correlationId?: string;
+
 	'retry.count': number;
 	duration?: number;
 	'input.length'?: number;
@@ -1195,6 +1197,7 @@ export type Sources =
 
 export type Source = {
 	source: Sources;
+	correlationId?: string;
 	detail?: string | TelemetryEventData;
 };
 

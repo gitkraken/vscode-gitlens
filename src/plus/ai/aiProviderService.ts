@@ -131,7 +131,8 @@ export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
 }
 
-export type AIExplainSource = Source & { type: TelemetryEvents['ai/explain']['changeType'] };
+export type AISourceContext<T> = Source & { context: T };
+export type AIExplainSourceContext = AISourceContext<{ type: TelemetryEvents['ai/explain']['changeType'] }>;
 
 // Order matters for sorting the picker
 const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>([
@@ -536,7 +537,7 @@ export class AIProviderService implements Disposable {
 	@log({ args: false })
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
-		sourceContext: AIExplainSource,
+		sourceContext: AIExplainSourceContext,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIDeferredResult<AISummarizeResult> | 'cancelled' | undefined> {
 		const svc = this.container.git.getRepositoryService(commitOrRevision.repoPath);
@@ -570,10 +571,10 @@ export class AIProviderService implements Disposable {
 		promptContext:
 			| PromptTemplateContext<'explain-changes'>
 			| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'explain-changes'>>),
-		sourceContext: AIExplainSource,
+		sourceContext: AIExplainSourceContext,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIDeferredResult<AISummarizeResult> | 'cancelled' | undefined> {
-		const { type, ...source } = sourceContext;
+		const { context, ...source } = sourceContext;
 
 		const deferredResult = await this.sendRequestWithDeferredResult(
 			'explain-changes',
@@ -608,7 +609,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/explain',
 				data: {
 					type: 'change',
-					changeType: type,
+					changeType: context.type,
 					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
@@ -629,7 +630,7 @@ export class AIProviderService implements Disposable {
 					? {
 							...result,
 							type: 'explain-changes',
-							feature: `explain-${type}`,
+							feature: `explain-${context?.type}`,
 							parsed: parseSummarizeResult(result.content),
 						}
 					: undefined,
@@ -638,7 +639,7 @@ export class AIProviderService implements Disposable {
 		return {
 			...deferredResult,
 			type: 'explain-changes',
-			feature: `explain-${type}`,
+			feature: `explain-${context.type}`,
 			promise: promise,
 		};
 	}
@@ -778,7 +779,7 @@ export class AIProviderService implements Disposable {
 	@log({ args: false })
 	async generateCreateDraft(
 		changesOrRepo: string | string[] | Repository,
-		sourceContext: Source & { type: AIGenerateCreateDraftEventData['draftType'] },
+		sourceContext: AISourceContext<{ type: AIGenerateCreateDraftEventData['draftType'] }>,
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -787,7 +788,7 @@ export class AIProviderService implements Disposable {
 			codeSuggestion?: boolean;
 		},
 	): Promise<AISummarizeResult | 'cancelled' | undefined> {
-		const { type, ...source } = sourceContext;
+		const { context, ...source } = sourceContext;
 
 		const result = await this.sendRequest(
 			options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
@@ -828,7 +829,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'draftMessage',
-					draftType: type,
+					draftType: context?.type,
 					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,

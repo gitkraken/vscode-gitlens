@@ -6,7 +6,7 @@ import type { MarkdownContentMetadata } from '../documents/markdown';
 import { getMarkdownHeaderContent } from '../documents/markdown';
 import type { GitRepositoryService } from '../git/gitRepositoryService';
 import { GitUri } from '../git/gitUri';
-import type { AIExplainSource, AIResultContext, AISummarizeResult } from '../plus/ai/aiProviderService';
+import type { AIExplainSourceContext, AIResultContext, AISummarizeResult } from '../plus/ai/aiProviderService';
 import type { AIModel } from '../plus/ai/models/model';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -17,7 +17,7 @@ import { getCommandUri } from './commandBase.utils';
 export interface ExplainBaseArgs {
 	worktreePath?: string | Uri;
 	repoPath?: string | Uri;
-	source?: AIExplainSource;
+	source?: AIExplainSourceContext;
 }
 
 export abstract class ExplainCommandBase extends GlCommandBase {

@@ -115,6 +115,7 @@
   'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -175,6 +176,7 @@
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -206,6 +208,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -237,6 +240,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'draftType': 'stash' | 'patch' | 'suggested_pr_change',
   'duration': number,
   'failed': boolean,
@@ -269,6 +273,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -300,6 +305,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -331,6 +337,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -362,6 +369,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -393,6 +401,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',

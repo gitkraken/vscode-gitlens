@@ -752,7 +752,7 @@ export async function explainCommit(
 	void (await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 		repoPath: commit.repoPath,
 		rev: commit.ref,
-		source: { ...options?.source, type: 'commit' },
+		source: { ...options?.source, context: { type: 'commit' } },
 	}));
 }
 

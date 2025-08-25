@@ -834,7 +834,7 @@ export class PatchDetailsWebviewProvider
 
 			const deferredResult = await this.container.ai.explainCommit(
 				commit,
-				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
+				{ source: 'patchDetails', context: { type: `draft-${this._context.draft.type}` } },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
 			if (deferredResult === 'cancelled') throw new Error('Operation was canceled');
@@ -885,7 +885,7 @@ export class PatchDetailsWebviewProvider
 
 			const result = await this.container.ai.generateCreateDraft(
 				repo,
-				{ source: 'patchDetails', type: 'patch' },
+				{ source: 'patchDetails', context: { type: 'patch' } },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
 			if (result === 'cancelled') throw new Error('Operation was canceled');

@@ -605,7 +605,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: repo.path,
 			ref: branch?.ref,
-			source: { source: 'home', type: 'branch' },
+			source: { source: 'home', context: { type: 'branch' } },
 		});
 	}
 
@@ -619,7 +619,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: repo.path,
 			worktreePath: worktree?.path,
-			source: { source: 'home', type: 'wip' },
+			source: { source: 'home', context: { type: 'wip' } },
 		});
 	}
 

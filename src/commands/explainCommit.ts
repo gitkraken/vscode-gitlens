@@ -42,7 +42,7 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 			args.rev = args.rev ?? context.node.commit.sha;
 			args.source = args.source ?? {
 				source: 'view',
-				type: isStash(context.node.commit) ? 'stash' : 'commit',
+				context: { type: isStash(context.node.commit) ? 'stash' : 'commit' },
 			};
 		}
 
@@ -83,7 +83,7 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: args.source?.type ?? 'commit',
+					context: { type: args.source?.context?.type ?? 'commit' },
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining commit...' },

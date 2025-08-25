@@ -30,7 +30,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? context.node.commit.repoPath;
 			args.rev = args.rev ?? context.node.commit.sha;
-			args.source = args.source ?? { source: 'view', type: 'stash' };
+			args.source = args.source ?? { source: 'view', context: { type: 'stash' } };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -69,7 +69,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'stash',
+					context: { type: 'stash' },
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining stash...' },

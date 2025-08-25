@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { md5, sha256 } from '@env/crypto';
 import type { ContextKeys } from '../../../constants.context';
-import type { ComposerTelemetryContext, Sources } from '../../../constants.telemetry';
+import type { ComposerTelemetryContext, Source, Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type {
 	Repository,
@@ -361,7 +361,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const safetyState = await createSafetyState(repo, diffs, baseCommit.sha);
 
 		const aiEnabled = this.getAiEnabled();
-		const aiModel = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
+		const aiModel = await this.container.ai.getModel(
+			{ silent: true },
+			{ source: 'composer', correlationId: this.host.instanceId },
+		);
 
 		const onboardingDismissed = this.isOnboardingDismissed();
 		const onboardingStepReached = this.getOnboardingStepReached();
@@ -641,7 +644,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async updateAiModel(): Promise<void> {
 		try {
-			const model = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
+			const model = await this.container.ai.getModel(
+				{ silent: true },
+				{ source: 'composer', correlationId: this.host.instanceId },
+			);
 			this._context.ai.model = model;
 			this.sendTelemetryEvent('composer/action/changeAiModel');
 			await this.host.notify(DidChangeAiModelNotification, { model: model });
@@ -652,8 +658,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onSelectAIModel(): Promise<void> {
 		// Trigger the AI provider/model switch command
-		await commands.executeCommand('gitlens.ai.switchProvider', {
+		await commands.executeCommand<Source>('gitlens.ai.switchProvider', {
 			source: 'composer',
+			correlationId: this.host.instanceId,
 			detail: 'model-picker',
 		});
 	}
@@ -673,7 +680,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async sendComposerAIFeedback(sentiment: 'helpful' | 'unhelpful', sessionId: string | null): Promise<void> {
 		try {
 			// Get the current AI model
-			const model = await this.container.ai.getModel({ silent: true }, { source: 'composer' });
+			const model = await this.container.ai.getModel(
+				{ silent: true },
+				{ source: 'composer', correlationId: this.host.instanceId },
+			);
 			if (!model) return;
 
 			// Create a synthetic context for composer AI feedback
@@ -703,7 +713,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Use the shared feedback event sender
-			sendFeedbackEvent(this.container, { source: 'composer' }, context, sentiment, unhelpful);
+			sendFeedbackEvent(
+				this.container,
+				{ source: 'composer', correlationId: this.host.instanceId },
+				context,
+				sentiment,
+				unhelpful,
+			);
 		} catch (error) {
 			// Log error but don't throw to avoid breaking the UI
 			console.error('Failed to send composer AI feedback:', error);
@@ -793,7 +809,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				hunks,
 				existingCommits,
 				params.hunkMap,
-				{ source: 'composer' },
+				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitsCancellation.token,
 					customInstructions: params.customInstructions,
@@ -911,7 +927,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Call the AI service to generate commit message
 			const result = await this.container.ai.generateCommitMessage(
 				params.diff,
-				{ source: 'composer' },
+				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitMessageCancellation.token,
 				},
