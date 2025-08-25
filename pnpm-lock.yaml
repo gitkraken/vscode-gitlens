@@ -122,8 +122,8 @@ importers:
         specifier: ^0.10.5
         version: 0.10.5
       '@eamodio/eslint-lite-webpack-plugin':
-        specifier: 0.2.0
-        version: 0.2.0(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.9)(eslint@9.34.0(jiti@2.4.0))(webpack-cli@6.0.1)(webpack@5.101.3)
+        specifier: 0.3.2
+        version: 0.3.2(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.9)(eslint@9.34.0(jiti@2.4.0))(webpack-cli@6.0.1)(webpack@5.101.3)
       '@eslint/compat':
         specifier: 1.3.2
         version: 1.3.2(eslint@9.34.0(jiti@2.4.0))
@@ -418,12 +418,12 @@ packages:
     resolution: {integrity: sha512-4B4OijXeVNOPZlYA2oEwWOTkzyltLao+xbotHQeqN++Rv27Y6s818+n2Qkp8q+Fxhn0t/5lA5X1Mxktud8eayQ==}
     engines: {node: '>=14.17.0'}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.2.0':
-    resolution: {integrity: sha512-aX7IEwcQpUUos5btbghWRynnUaBeCbujgFggN3SIESuoPIO0gOeHXDtm2qxHUCW5gZemyNu6bl+GZw8jB5Xb8Q==}
-    engines: {node: '>= 18.15.0'}
+  '@eamodio/eslint-lite-webpack-plugin@0.3.2':
+    resolution: {integrity: sha512-vTjob+y8He0tiRSplYngmRF6cqBKau5MKWH67HGPU7UtMS9PVs+6oIBPsdwEeWvCHrM6AIiPjWKv8T2R+sQ6Bg==}
+    engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
     peerDependencies:
-      eslint: ^9.16.0
-      webpack: ^5.97.1
+      eslint: ^9.23.0
+      webpack: ^5.98.0
 
   '@emnapi/core@1.4.5':
     resolution: {integrity: sha512-XsLw1dEOpkSX/WucdqUhPWP7hDxSvZiY+fsUC14h+FtQ2Ifni4znbBt8punRX+Uj2JG/uDb8nEHVKvrVlvdZ5Q==}
@@ -6354,12 +6354,11 @@ snapshots:
 
   '@discoveryjs/json-ext@0.6.3': {}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.2.0(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.9)(eslint@9.34.0(jiti@2.4.0))(webpack-cli@6.0.1)(webpack@5.101.3)':
+  '@eamodio/eslint-lite-webpack-plugin@0.3.2(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.9)(eslint@9.34.0(jiti@2.4.0))(webpack-cli@6.0.1)(webpack@5.101.3)':
     dependencies:
       '@types/eslint': 9.6.1
       '@types/webpack': 5.28.5(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.9)(webpack-cli@6.0.1)
       eslint: 9.34.0(jiti@2.4.0)
-      fast-glob: 3.3.3
       minimatch: 10.0.3
       webpack: 5.101.3(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.9)(webpack-cli@6.0.1)
     transitivePeerDependencies:
