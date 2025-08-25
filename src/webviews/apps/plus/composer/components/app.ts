@@ -1864,6 +1864,9 @@ export class ComposerApp extends LitElement {
 				this.advanceOnboardingStep();
 				this.onboarding?.moveNext();
 			},
+			onPrevClick: (_el, _step) => {
+				this.onboarding?.movePrevious();
+			},
 		});
 
 		this.onboardingStepNumber = 1;
@@ -1888,6 +1891,10 @@ export class ComposerApp extends LitElement {
 	advanceOnboardingStep() {
 		this.onboardingStepNumber++;
 		this._ipc.sendCommand(AdvanceOnboardingCommand, { stepNumber: this.onboardingStepNumber });
+	}
+
+	reduceOnboardingStep() {
+		this.onboardingStepNumber--;
 	}
 }
 
