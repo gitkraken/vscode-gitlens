@@ -2329,7 +2329,7 @@ export class AIProviderService implements Disposable {
 			m => ({
 				key: 'ai/generate',
 				data: {
-					type: 'rebase',
+					type: 'commits',
 					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
