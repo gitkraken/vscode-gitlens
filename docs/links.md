@@ -274,6 +274,8 @@ _{prefix}/command/{command}_
 
   - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
 
+  - _install-mcp_ - Runs the `GitLens: Install MCP` command.
+
   - _login_ - Runs the `GitLens: Sign In to GitKraken...` command.
 
   - _signup_ - Runs the `GitLens: Sign Up for GitKraken...` command.
