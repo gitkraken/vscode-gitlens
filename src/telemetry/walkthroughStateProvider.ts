@@ -2,21 +2,13 @@ import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
+import type { WalkthroughContextKeys } from '../constants.walkthroughs';
 import type { Container } from '../container';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
 import { setContext } from '../system/-webview/context';
 import { isCursor } from '../system/-webview/cursor';
 import { wait } from '../system/promise';
 import type { UsageChangeEvent } from './usageTracker';
-
-export type WalkthroughContextKeys =
-	| 'gettingStarted'
-	| 'homeView'
-	| 'visualizeCodeHistory'
-	| 'prReviews'
-	| 'streamlineCollaboration'
-	| 'integrations'
-	| 'aiFeatures';
 
 type WalkthroughUsage = {
 	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;
@@ -158,8 +150,12 @@ export class WalkthroughStateProvider implements Disposable {
 	private readonly completed = new Set<WalkthroughContextKeys>();
 	private subscriptionState: SubscriptionState | undefined;
 
+	readonly isWalkthroughSupported = isWalkthroughSupported();
+
 	constructor(private readonly container: Container) {
-		void setContext('gitlens:walkthroughSupported', true);
+		if (this.isWalkthroughSupported) {
+			void setContext('gitlens:walkthroughSupported', true);
+		}
 
 		this.disposables.push(
 			this._onDidChangeProgress,
@@ -267,6 +263,14 @@ export class WalkthroughStateProvider implements Disposable {
 
 	get progress(): number {
 		return this.doneCount / this.walkthroughSize;
+	}
+
+	getState(): Map<WalkthroughContextKeys, boolean> {
+		const state = new Map<WalkthroughContextKeys, boolean>();
+		for (const key of walkthroughRequiredMapping.keys()) {
+			state.set(key, this.completed.has(key));
+		}
+		return state;
 	}
 
 	dispose(): void {
