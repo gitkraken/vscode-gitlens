@@ -7,6 +7,7 @@ import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getContext } from '../../../../system/-webview/context';
 import { openUrl } from '../../../../system/-webview/vscode/uris';
+import { gate } from '../../../../system/decorators/gate';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { compare } from '../../../../system/version';
@@ -76,6 +77,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		this._runningDisposable = undefined;
 	}
 
+	@gate()
 	private async installMCP(): Promise<void> {
 		const scope = getLogScope();
 		try {
@@ -168,6 +170,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 	}
 
+	@gate()
 	private async setupMCPInstallation(autoInstall?: boolean): Promise<void> {
 		try {
 			if (

@@ -24,6 +24,7 @@ export enum DeepLinkCommandType {
 	Graph = 'graph',
 	Home = 'home',
 	Inspect = 'inspect',
+	InstallMCP = 'install-mcp',
 	Launchpad = 'launchpad',
 	Walkthrough = 'walkthrough',
 	Worktrees = 'worktrees',
@@ -41,6 +42,7 @@ export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlComma
 	[DeepLinkCommandType.Launchpad, 'gitlens.showLaunchpad'],
 	[DeepLinkCommandType.Walkthrough, 'gitlens.getStarted'],
 	[DeepLinkCommandType.Worktrees, 'gitlens.showWorktreesView'],
+	[DeepLinkCommandType.InstallMCP, 'gitlens.ai.mcp.install'],
 ]);
 
 export enum DeepLinkActionType {

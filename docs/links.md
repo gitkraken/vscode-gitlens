@@ -274,6 +274,8 @@ _{prefix}/command/{command}_
 
   - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
 
+  - _install-mcp_ - Runs the `GitLens: Install MCP` command.
+
   - _launchpad_ - Runs the `GitLens: Show Launchpad` command.
 
   - _walkthrough_ - Runs the `GitLens: Get Started` command.
