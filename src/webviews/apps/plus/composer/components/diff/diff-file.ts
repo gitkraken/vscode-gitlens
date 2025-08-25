@@ -50,6 +50,11 @@ export class GlDiffFile extends LitElement {
 	@state()
 	private parsedDiff?: DiffFile[];
 
+	// should only ever be one file
+	get diffFile(): DiffFile | undefined {
+		return this.parsedDiff?.[0];
+	}
+
 	private diff2htmlUi?: Diff2HtmlUI;
 
 	override firstUpdated() {
@@ -111,5 +116,7 @@ export class GlDiffFile extends LitElement {
 		this.diffText = diffLines.trim();
 		const parsedDiff = parseDiff(this.diffText);
 		this.parsedDiff = parsedDiff;
+		const lineCount = this.diffFile?.blocks.reduce((p, c) => p + 1 + c.lines.length, 0) ?? -1;
+		this.style.setProperty('--d2h-intrinsic-line-count', lineCount > -1 ? `${lineCount}` : '50');
 	}
 }

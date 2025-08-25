@@ -97,6 +97,27 @@ export const hljsStyles = css`
 `;
 
 export const diff2htmlStyles = css`
+	:host {
+		--d2h-intrinsic-base-height: 3.5rem;
+		--d2h-intrinsic-line-count: 50;
+		--d2h-intrinsic-line-height: 1.8rem;
+		--d2h-intrinsic-height: calc(
+			var(--d2h-intrinsic-base-height) + (var(--d2h-intrinsic-line-height) * var(--d2h-intrinsic-line-count))
+		);
+
+		display: block;
+		position: relative;
+	}
+
+	.d2h-file-wrapper {
+		content-visibility: auto;
+		contain-intrinsic-size: auto var(--d2h-intrinsic-base-height);
+	}
+
+	.d2h-file-wrapper[open] {
+		contain-intrinsic-height: var(--d2h-intrinsic-height);
+	}
+
 	.d2h-wrapper {
 		color: var(--d2h-color);
 		text-align: left;
@@ -427,9 +448,11 @@ export const diff2htmlStyles = css`
 	}
 	:host-context(.vscode-high-contrast) .d2h-ins .d2h-code-line {
 		border: 1px dashed var(--d2h-ins-border-color);
+		line-height: calc(var(--d2h-intrinsic-line-height) - 0.2rem);
 	}
 	:host-context(.vscode-high-contrast) .d2h-del .d2h-code-line {
 		border: 1px dashed var(--d2h-del-border-color);
+		line-height: calc(var(--d2h-intrinsic-line-height) - 0.2rem);
 	}
 `;
 /*
@@ -729,6 +752,10 @@ export const diff2htmlStyles = css`
 	} */
 
 export const diffStyles = css`
+	td {
+		padding-block: 0;
+		line-height: var(--d2h-intrinsic-line-height);
+	}
 	.d2h-file-wrapper {
 		margin-block-end: 0;
 	}
