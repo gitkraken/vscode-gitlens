@@ -162,7 +162,7 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 	accessor subscription: State['subscription'];
 
 	@signalState()
-	accessor allowed: boolean = false;
+	accessor allowed: boolean = true;
 
 	@signalState()
 	accessor avatars: State['avatars'];
@@ -236,7 +236,7 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 			// Update corresponding accessors
 			switch (key) {
 				case 'allowed':
-					this.allowed = partial.allowed ?? false;
+					this.allowed = true;
 					break;
 				case 'loading':
 					this.loading = partial.loading ?? false;
@@ -286,10 +286,10 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 					break;
 				case DidStartFeaturePreviewNotification.is(msg):
 					this._state.featurePreview = msg.params.featurePreview;
-					this._state.allowed = msg.params.allowed;
+					this._state.allowed = true;
 					this.updateState({
 						featurePreview: msg.params.featurePreview,
-						allowed: msg.params.allowed,
+						allowed: true,
 					});
 					break;
 				case DidChangeBranchStateNotification.is(msg):
@@ -449,7 +449,7 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 				case DidChangeSubscriptionNotification.is(msg):
 					this.updateState({
 						subscription: msg.params.subscription,
-						allowed: msg.params.allowed,
+						allowed: true,
 					});
 					break;
 

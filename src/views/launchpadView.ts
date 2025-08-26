@@ -158,8 +158,6 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access('launchpad');
-			if (!access.allowed) return [];
 
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];
 

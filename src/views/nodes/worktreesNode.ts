@@ -35,9 +35,6 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const access = await this.repo.access('worktrees');
-			if (!access.allowed) return [];
-
 			const worktrees = await this.repo.git.worktrees?.getWorktrees();
 			if (!worktrees?.length) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
@@ -79,13 +76,11 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 
 		const item = new TreeItem(
 			'Worktrees',
-			access.allowed ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
+			TreeItemCollapsibleState.Collapsed
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Worktrees;
-		item.description = access.allowed
-			? undefined
-			: ` ${GlyphChars.Warning}  Use on privately-hosted repos requires GitLens Pro`;
+		item.description = undefined
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

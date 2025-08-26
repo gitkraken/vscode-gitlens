@@ -719,9 +719,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		config: Context['config'],
 		access: RepoFeatureAccess | FeatureAccess,
 	): Promise<TimelineDatum[]> {
-		if (access.allowed === false) {
-			return generateRandomTimelineDataset(scope.type);
-		}
+		// if (access.allowed === false) {
+		// 	return generateRandomTimelineDataset(scope.type);
+		// }
 
 		let ref;
 		if (!config.showAllBranches) {

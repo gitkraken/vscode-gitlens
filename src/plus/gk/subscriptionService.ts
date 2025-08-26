@@ -1466,7 +1466,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async updateAccessContext(cancellation: CancellationToken): Promise<void> {
-		let allowed: boolean | 'mixed' = false;
+		let allowed: boolean | 'mixed' = true;
 		// For performance reasons, only check if we have any repositories
 		if (this.container.git.repositoryCount !== 0) {
 			({ allowed } = await this.container.git.access());

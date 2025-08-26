@@ -634,7 +634,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</span></gl-repo-button-group
 						>
 						${when(
-							this.graphState.allowed && repo,
+							repo,
 							() => html`
 								<span><code-icon icon="chevron-right"></code-icon></span>${when(
 									this.graphState.branchState?.pr,
@@ -800,7 +800,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				</div>
 
 				${when(
-					this.graphState.allowed &&
 						this.graphState.workingTreeStats != null &&
 						(this.graphState.workingTreeStats.hasConflicts ||
 							this.graphState.workingTreeStats.pausedOpStatus),
@@ -823,7 +822,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					`,
 				)}
 				${when(
-					this.graphState.allowed,
+					true,
 					() => html`
 						<div class="titlebar__row">
 							<div class="titlebar__group">

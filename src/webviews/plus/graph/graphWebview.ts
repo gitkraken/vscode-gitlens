@@ -2034,10 +2034,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		featurePreview ??= this.getFeaturePreview();
-		const [access] = await this.getGraphAccess();
+		// const [access] = await this.getGraphAccess();
 		return this.host.notify(DidStartFeaturePreviewNotification, {
 			featurePreview: featurePreview,
-			allowed: this.isGraphAccessAllowed(access, featurePreview),
+			allowed: true,
 		});
 	}
 
@@ -2075,7 +2075,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const [access] = await this.getGraphAccess();
 		return this.host.notify(DidChangeSubscriptionNotification, {
 			subscription: access.subscription.current,
-			allowed: this.isGraphAccessAllowed(access, this.getFeaturePreview()),
+			allowed: true
 		});
 	}
 
@@ -2528,7 +2528,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		access: Awaited<ReturnType<GraphWebviewProvider['getGraphAccess']>>[0] | undefined,
 		featurePreview: FeaturePreview,
 	) {
-		return (access?.allowed ?? false) !== false || getFeaturePreviewStatus(featurePreview) === 'active';
+		return getFeaturePreviewStatus(featurePreview) === 'active';
 	}
 
 	private getGraphItemContext(context: unknown): unknown | undefined {
@@ -2743,7 +2743,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
 			selectedRows: this._selectedRows,
 			subscription: access?.subscription.current,
-			allowed: this.isGraphAccessAllowed(access, featurePreview), //(access?.allowed ?? false) !== false,
+			allowed: true, //(access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
 			loading: deferRows,

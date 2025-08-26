@@ -72,7 +72,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-select-commits=${this.handleHeaderSearchNavigation}
 				></gl-graph-header>
 				<div class="graph__workspace">
-					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
 					<main id="main" class="graph__panes">
 						<div class="graph__graph-pane">
 							${when(

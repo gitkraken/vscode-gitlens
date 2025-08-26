@@ -69,7 +69,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 	private _loading = false;
 
 	get allowed() {
-		return this.state.access?.allowed ?? false;
+		return true;
 	}
 
 	get base() {
@@ -111,7 +111,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 	private renderGate() {
 		if (this.placement === 'editor') {
 			return html`<gl-feature-gate
-				?hidden=${this.allowed !== false}
+				?hidden=${true}
 				.source=${{ source: 'timeline' as const, detail: 'gate' }}
 				.state=${this.subscription?.state}
 				><p slot="feature">
@@ -127,7 +127,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 		}
 
 		return html`<gl-feature-gate
-			?hidden=${this.allowed !== false}
+			?hidden=${true}
 			.source=${{ source: 'timeline' as const, detail: 'gate' }}
 			.state=${this.subscription?.state}
 			><p slot="feature">

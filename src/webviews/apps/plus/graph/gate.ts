@@ -41,7 +41,7 @@ export class GlGraphGate extends SignalWatcher(GlElement) {
 			)}
 			appearance="alert"
 			featureWithArticleIfNeeded="the Commit Graph"
-			?hidden=${this.graphState.allowed !== false}
+			?hidden=${true}
 			.source=${{ source: 'graph', detail: 'gate' } as const}
 			.state=${this.graphState.subscription?.state}
 			.webroot=${this.graphState.webroot}

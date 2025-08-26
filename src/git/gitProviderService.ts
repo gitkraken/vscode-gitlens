@@ -733,12 +733,12 @@ export class GitProviderService implements Disposable {
 
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) {
-			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
+			return { allowed: true, subscription: { current: subscription } };
 		}
 
-		if (feature != null && (isProFeatureOnAllRepos(feature) || isAdvancedFeature(feature))) {
-			return { allowed: false, subscription: { current: subscription, required: 'pro' } };
-		}
+		// if (feature != null && (isProFeatureOnAllRepos(feature) || isAdvancedFeature(feature))) {
+		// 	return { allowed: false, subscription: { current: subscription, required: 'pro' } };
+		// }
 
 		function getRepoAccess(
 			this: GitProviderService,
