@@ -5,7 +5,6 @@ import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
-import { getContext } from '../../../../system/-webview/context';
 import { openUrl } from '../../../../system/-webview/vscode/uris';
 import { gate } from '../../../../system/decorators/gate';
 import { Logger } from '../../../../system/logger';
@@ -16,6 +15,18 @@ import { getPlatform, isWeb } from '../../platform';
 import { CliCommandHandlers } from './commands';
 import type { IpcServer } from './ipcServer';
 import { createIpcServer } from './ipcServer';
+
+const enum CLIInstallErrorReason {
+	WebEnvironmentUnsupported,
+	UnsupportedPlatform,
+	ProxyUrlFetch,
+	ProxyUrlFormat,
+	ProxyDownload,
+	ProxyExtract,
+	ProxyFetch,
+	CoreDirectory,
+	CoreInstall,
+}
 
 export interface CliCommandRequest {
 	cwd?: string;
@@ -37,9 +48,9 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		this.onConfigurationChanged();
 
-		const mcpInstallStatus = this.container.storage.get('ai:mcp:install');
-		if (!mcpInstallStatus) {
-			setTimeout(() => this.setupMCPInstallation(true), 10000 + Math.floor(Math.random() * 20000));
+		const cliInstall = this.container.storage.get('gk:cli:install');
+		if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
+			setTimeout(() => this.installCLI(true), 10000 + Math.floor(Math.random() * 20000));
 		}
 	}
 
@@ -78,14 +89,23 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@gate()
-	private async installMCP(): Promise<void> {
+	private async setupMCP(): Promise<void> {
 		const scope = getLogScope();
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('mcp/setup/started');
+		}
+
 		try {
 			if (
 				(env.appName === 'Visual Studio Code' || env.appName === 'Visual Studio Code - Insiders') &&
 				compare(codeVersion, '1.102') < 0
 			) {
 				void window.showInformationMessage('Use of this command requires VS Code 1.102 or later.');
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/setup/failed', {
+						reason: 'unsupported vscode version',
+					});
+				}
 				return;
 			}
 
@@ -104,47 +124,114 @@ export class GkCliIntegrationProvider implements Disposable {
 					break;
 				default: {
 					void window.showInformationMessage(`MCP installation is not supported for app: ${env.appName}`);
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent('mcp/setup/failed', {
+							reason: 'unsupported app',
+						});
+					}
 					return;
 				}
 			}
 
-			let autoInstallProgress = this.container.storage.get('ai:mcp:install');
-			let mcpPath = this.container.storage.get('ai:mcp:installPath');
-			let mcpFileExists = true;
-			if (mcpPath != null) {
+			let cliInstall = this.container.storage.get('gk:cli:install');
+			let cliPath = this.container.storage.get('gk:cli:path');
+			let cliProxyFileExists = true;
+			if (cliPath != null) {
 				try {
 					await workspace.fs.stat(
-						Uri.joinPath(Uri.file(mcpPath), getPlatform() === 'windows' ? 'gk.exe' : 'gk'),
+						Uri.joinPath(Uri.file(cliPath), getPlatform() === 'windows' ? 'gk.exe' : 'gk'),
 					);
 				} catch {
-					mcpFileExists = false;
+					cliProxyFileExists = false;
 				}
 			}
-			if (autoInstallProgress !== 'completed' || mcpPath == null || !mcpFileExists) {
-				await this.setupMCPInstallation();
+			if (cliInstall?.status !== 'completed' || cliPath == null || !cliProxyFileExists) {
+				try {
+					await window.withProgress(
+						{
+							location: ProgressLocation.Notification,
+							title: 'Setting up MCP integration...',
+							cancellable: false,
+						},
+						async () => {
+							await this.installCLI();
+						},
+					);
+				} catch (ex) {
+					let failureReason = 'unknown error';
+					if (ex instanceof CLIInstallError) {
+						switch (ex.reason) {
+							case CLIInstallErrorReason.WebEnvironmentUnsupported:
+								void window.showErrorMessage(
+									'MCP installation is not supported in the web environment.',
+								);
+								failureReason = 'web environment unsupported';
+								break;
+							case CLIInstallErrorReason.UnsupportedPlatform:
+								void window.showErrorMessage('MCP installation is not supported on this platform.');
+								failureReason = 'unsupported platform';
+								break;
+							case CLIInstallErrorReason.ProxyUrlFetch:
+							case CLIInstallErrorReason.ProxyUrlFormat:
+							case CLIInstallErrorReason.ProxyFetch:
+							case CLIInstallErrorReason.ProxyDownload:
+							case CLIInstallErrorReason.ProxyExtract:
+							case CLIInstallErrorReason.CoreDirectory:
+							case CLIInstallErrorReason.CoreInstall:
+								void window.showErrorMessage('Failed to install MCP server locally.');
+								failureReason = 'local installation failed';
+								break;
+							default:
+								void window.showErrorMessage(
+									`Failed to install MCP integration: ${ex instanceof Error ? ex.message : 'Unknown error during installation'}`,
+								);
+								break;
+						}
+					}
+
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent('mcp/setup/failed', {
+							reason: failureReason,
+							'error.message': ex instanceof Error ? ex.message : 'Unknown error during installation',
+						});
+					}
+				}
 			}
 
-			autoInstallProgress = this.container.storage.get('ai:mcp:install');
-			mcpPath = this.container.storage.get('ai:mcp:installPath');
-			if (autoInstallProgress !== 'completed' || mcpPath == null) {
-				void window.showErrorMessage('Failed to install MCP integration: setup failed to complete.');
+			cliInstall = this.container.storage.get('gk:cli:install');
+			cliPath = this.container.storage.get('gk:cli:path');
+			if (cliInstall?.status !== 'completed' || cliPath == null) {
+				void window.showErrorMessage('Failed to install MCP integration: Unknown error during installation.');
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/setup/failed', {
+						reason: 'unknown error',
+						'error.message': 'Unknown error during installation',
+					});
+				}
 				return;
 			}
 
-			if (appName !== 'cursor' && appName !== 'vscode') {
+			if (appName !== 'cursor' && appName !== 'vscode' && appName !== 'vscode-insiders') {
 				const confirmation = await window.showInformationMessage(
 					`MCP configured successfully. Click 'Finish' to add it to your MCP server list and complete the installation.`,
 					{ modal: true },
 					{ title: 'Finish' },
 					{ title: 'Cancel', isCloseAffordance: true },
 				);
-				if (confirmation == null || confirmation.title === 'Cancel') return;
+				if (confirmation == null || confirmation.title === 'Cancel') {
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent('mcp/setup/failed', {
+							reason: 'user cancelled',
+						});
+					}
+					return;
+				}
 			}
 
-			let output = await this.runMcpCommand(
+			let output = await this.runCLICommand(
 				['mcp', 'install', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
 				{
-					cwd: mcpPath,
+					cwd: cliPath,
 				},
 			);
 
@@ -157,12 +244,32 @@ export class GkCliIntegrationProvider implements Disposable {
 			try {
 				new URL(output);
 			} catch {
-				throw new Error('Failed to install MCP integration: unexpected output from mcp install command');
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/setup/failed', {
+						reason: 'unexpected output from mcp install command',
+						'error.message': `Unexpected output from mcp install command: ${output}`,
+					});
+				}
+				Logger.error(`Unexpected output from mcp install command: ${output}`, scope);
+				void window.showErrorMessage(`Failed to install MCP integration: error getting install URL`);
+				return;
 			}
 
 			await openUrl(output);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/setup/completed', {
+					requiresUserCompletion:
+						appName === 'cursor' || appName === 'vscode' || appName === 'vscode-insiders',
+				});
+			}
 		} catch (ex) {
 			Logger.error(`Error during MCP installation: ${ex}`, scope);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/setup/failed', {
+					reason: 'unknown error',
+					'error.message': ex instanceof Error ? ex.message : 'Unknown error during installation',
+				});
+			}
 
 			void window.showErrorMessage(
 				`Failed to install MCP integration: ${ex instanceof Error ? ex.message : String(ex)}`,
@@ -171,32 +278,34 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@gate()
-	private async setupMCPInstallation(autoInstall?: boolean): Promise<void> {
+	private async installCLI(autoInstall?: boolean): Promise<void> {
+		let attempts = 0;
 		try {
-			if (
-				(env.appName === 'Visual Studio Code' || env.appName === 'Visual Studio Code - Insiders') &&
-				compare(codeVersion, '1.102') < 0
-			) {
-				return;
+			const cliInstall = this.container.storage.get('gk:cli:install');
+			attempts = cliInstall?.attempts ?? 0;
+			attempts += 1;
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/install/started', {
+					autoInstall: autoInstall ?? false,
+					attempts: attempts,
+				});
 			}
-
-			// Kick out early if we already attempted an auto-install
-			if (autoInstall && this.container.storage.get('ai:mcp:install')) {
-				return;
-			}
-
-			void this.container.storage.store('ai:mcp:install', 'attempted').catch();
-
-			if (configuration.get('ai.enabled') === false) {
-				throw new Error('AI is disabled in settings');
-			}
-
-			if (getContext('gitlens:gk:organization:ai:enabled', true) !== true) {
-				throw new Error('AI is disabled by your organization');
-			}
+			void this.container.storage
+				.store('gk:cli:install', {
+					status: 'attempted',
+					attempts: attempts,
+				})
+				.catch();
 
 			if (isWeb) {
-				throw new Error('Web environment is not supported');
+				void this.container.storage
+					.store('gk:cli:install', {
+						status: 'unsupported',
+						attempts: attempts,
+					})
+					.catch();
+
+				throw new CLIInstallError(CLIInstallErrorReason.WebEnvironmentUnsupported);
 			}
 
 			// Detect platform and architecture
@@ -229,181 +338,222 @@ export class GkCliIntegrationProvider implements Disposable {
 					platformName = 'linux';
 					break;
 				default: {
-					throw new Error(`Unsupported platform ${platform}`);
+					void this.container.storage
+						.store('gk:cli:install', {
+							status: 'unsupported',
+							attempts: attempts,
+						})
+						.catch();
+					throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, platform);
 				}
 			}
 
-			// Wrap the main installation process with progress indicator if not silent
-			const installationTask = async () => {
-				let mcpInstallerPath: Uri | undefined;
-				let mcpExtractedFilePath: Uri | undefined;
-				const mcpFolderPath = this.container.context.globalStorageUri;
+			let cliProxyZipFilePath: Uri | undefined;
+			let cliExtractedProxyFilePath: Uri | undefined;
+			const globalStoragePath = this.container.context.globalStorageUri;
+
+			try {
+				// Download the MCP proxy installer
+				const proxyUrl = this.container.urls.getGkApiUrl(
+					'releases',
+					'gkcli-proxy',
+					'production',
+					platformName,
+					architecture,
+					'active',
+				);
+
+				let response = await fetch(proxyUrl);
+				if (!response.ok) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyUrlFetch,
+						undefined,
+						`${response.status} ${response.statusText}`,
+					);
+				}
+
+				let downloadUrl: string | undefined;
+				try {
+					const cliZipArchiveDownloadInfo: { version?: string; packages?: { zip?: string } } | undefined =
+						(await response.json()) as any;
+					downloadUrl = cliZipArchiveDownloadInfo?.packages?.zip;
+				} catch (ex) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyUrlFormat,
+						ex instanceof Error ? ex : undefined,
+						ex instanceof Error ? ex.message : undefined,
+					);
+				}
+
+				if (downloadUrl == null) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyUrlFormat,
+						undefined,
+						'No download URL found for CLI proxy archive',
+					);
+				}
+
+				response = await fetch(downloadUrl);
+				if (!response.ok) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyFetch,
+						undefined,
+						`${response.status} ${response.statusText}`,
+					);
+				}
+
+				const cliProxyZipFileDownloadData = await response.arrayBuffer();
+				if (cliProxyZipFileDownloadData.byteLength === 0) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyDownload,
+						undefined,
+						'Downloaded proxy archive data is empty',
+					);
+				}
+				// installer file name is the last part of the download URL
+				const cliProxyZipFileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
+				cliProxyZipFilePath = Uri.joinPath(globalStoragePath, cliProxyZipFileName);
+
+				// Ensure the global storage directory exists
+				try {
+					await workspace.fs.createDirectory(globalStoragePath);
+				} catch (ex) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.CoreDirectory,
+						ex instanceof Error ? ex : undefined,
+						ex instanceof Error ? ex.message : undefined,
+					);
+				}
+
+				// Write the installer to the extension storage
+				try {
+					await workspace.fs.writeFile(cliProxyZipFilePath, new Uint8Array(cliProxyZipFileDownloadData));
+				} catch (ex) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyDownload,
+						ex instanceof Error ? ex : undefined,
+						'Failed to write proxy archive to global storage',
+					);
+				}
 
 				try {
-					// Download the MCP proxy installer
-					const proxyUrl = this.container.urls.getGkApiUrl(
-						'releases',
-						'gkcli-proxy',
-						'production',
-						platformName,
-						architecture,
-						'active',
-					);
-
-					let response = await fetch(proxyUrl);
-					if (!response.ok) {
-						throw new Error(`Failed to get MCP installer info: ${response.status} ${response.statusText}`);
-					}
-
-					let downloadUrl: string | undefined;
-					try {
-						const mcpInstallerInfo: { version?: string; packages?: { zip?: string } } | undefined =
-							(await response.json()) as any;
-						downloadUrl = mcpInstallerInfo?.packages?.zip;
-					} catch (ex) {
-						throw new Error(`Failed to parse MCP installer info: ${ex}`);
-					}
-
-					if (downloadUrl == null) {
-						throw new Error('Failed to find download URL for MCP proxy installer');
-					}
-
-					response = await fetch(downloadUrl);
-					if (!response.ok) {
-						throw new Error(
-							`Failed to fetch MCP proxy installer: ${response.status} ${response.statusText}`,
+					// Use the run function to extract the installer file from the installer zip
+					if (platform === 'windows') {
+						// On Windows, use PowerShell to extract the zip file.
+						// Force overwrite if the file already exists and the force param is true
+						await run(
+							'powershell.exe',
+							[
+								'-Command',
+								`Expand-Archive -Path "${cliProxyZipFilePath.fsPath}" -DestinationPath "${globalStoragePath.fsPath}" -Force`,
+							],
+							'utf8',
 						);
+					} else {
+						// On Unix-like systems, use the unzip command to extract the zip file
+						await run('unzip', ['-o', cliProxyZipFilePath.fsPath, '-d', globalStoragePath.fsPath], 'utf8');
 					}
 
-					const installerData = await response.arrayBuffer();
-					if (installerData.byteLength === 0) {
-						throw new Error('Fetched MCP installer is empty');
-					}
-					// installer file name is the last part of the download URL
-					const installerFileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
-					mcpInstallerPath = Uri.joinPath(mcpFolderPath, installerFileName);
-
-					// Ensure the global storage directory exists
-					try {
-						await workspace.fs.createDirectory(mcpFolderPath);
-					} catch (ex) {
-						throw new Error(`Failed to create global storage directory for MCP: ${ex}`);
-					}
-
-					// Write the installer to the extension storage
-					try {
-						await workspace.fs.writeFile(mcpInstallerPath, new Uint8Array(installerData));
-					} catch (ex) {
-						throw new Error(`Failed to download MCP installer: ${ex}`);
-					}
-
-					try {
-						// Use the run function to extract the installer file from the installer zip
-						if (platform === 'windows') {
-							// On Windows, use PowerShell to extract the zip file.
-							// Force overwrite if the file already exists and the force param is true
-							await run(
-								'powershell.exe',
-								[
-									'-Command',
-									`Expand-Archive -Path "${mcpInstallerPath.fsPath}" -DestinationPath "${mcpFolderPath.fsPath}" -Force`,
-								],
-								'utf8',
-							);
-						} else {
-							// On Unix-like systems, use the unzip command to extract the zip file
-							await run('unzip', ['-o', mcpInstallerPath.fsPath, '-d', mcpFolderPath.fsPath], 'utf8');
-						}
-
-						// Check using stat to make sure the newly extracted file exists.
-						mcpExtractedFilePath = Uri.joinPath(mcpFolderPath, platform === 'windows' ? 'gk.exe' : 'gk');
-						await workspace.fs.stat(mcpExtractedFilePath);
-						void this.container.storage.store('ai:mcp:installPath', mcpFolderPath.fsPath).catch();
-					} catch (ex) {
-						throw new Error(`Failed to extract MCP installer: ${ex}`);
-					}
-
-					// Set up the local MCP server files
-					try {
-						const installOutput = await this.runMcpCommand(['install'], {
-							cwd: mcpFolderPath.fsPath,
-						});
-						const directory = installOutput.match(/Directory: (.*)/);
-						let directoryPath;
-						if (directory != null && directory.length > 1) {
-							directoryPath = directory[1];
-							void this.container.storage.store('gk:cli:installedPath', directoryPath).catch();
-						} else {
-							throw new Error('Failed to find directory in CLI install output');
-						}
-
-						Logger.log('MCP setup completed.');
-						void this.container.storage.store('ai:mcp:install', 'completed').catch();
-						await this.authMCPServer();
-					} catch (ex) {
-						throw new Error(`MCP server configuration failed: ${ex}`);
-					}
-				} finally {
-					// Clean up the installer zip file
-					if (mcpInstallerPath != null) {
-						try {
-							await workspace.fs.delete(mcpInstallerPath);
-						} catch (ex) {
-							Logger.warn(`Failed to delete MCP installer zip file: ${ex}`);
-						}
-					}
-
-					try {
-						const readmePath = Uri.joinPath(mcpFolderPath, 'README.md');
-						await workspace.fs.delete(readmePath);
-					} catch {}
+					// Check using stat to make sure the newly extracted file exists.
+					cliExtractedProxyFilePath = Uri.joinPath(
+						globalStoragePath,
+						platform === 'windows' ? 'gk.exe' : 'gk',
+					);
+					await workspace.fs.stat(cliExtractedProxyFilePath);
+					void this.container.storage.store('gk:cli:path', globalStoragePath.fsPath).catch();
+				} catch (ex) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.ProxyExtract,
+						ex instanceof Error ? ex : undefined,
+						ex instanceof Error ? ex.message : '',
+					);
 				}
-			};
 
-			// Execute the installation task with or without progress indicator
-			if (!autoInstall) {
-				await window.withProgress(
-					{
-						location: ProgressLocation.Notification,
-						title: 'Setting up MCP integration...',
-						cancellable: false,
-					},
-					async () => {
-						await installationTask();
-					},
-				);
-			} else {
-				await installationTask();
+				// Set up the local MCP server files
+				try {
+					const coreInstallOutput = await this.runCLICommand(['install'], {
+						cwd: globalStoragePath.fsPath,
+					});
+					const directory = coreInstallOutput.match(/Directory: (.*)/);
+					let directoryPath;
+					if (directory != null && directory.length > 1) {
+						directoryPath = directory[1];
+						void this.container.storage.store('gk:cli:corePath', directoryPath).catch();
+					} else {
+						throw new CLIInstallError(CLIInstallErrorReason.CoreDirectory);
+					}
+
+					Logger.log('CLI install completed.');
+					void this.container.storage
+						.store('gk:cli:install', { status: 'completed', attempts: attempts })
+						.catch();
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent('cli/install/succeeded', {
+							autoInstall: autoInstall ?? false,
+							attempts: attempts,
+						});
+					}
+					await this.authCLI();
+				} catch (ex) {
+					throw new CLIInstallError(
+						CLIInstallErrorReason.CoreInstall,
+						ex instanceof Error ? ex : undefined,
+						ex instanceof Error ? ex.message : '',
+					);
+				}
+			} finally {
+				// Clean up the installer zip file
+				if (cliProxyZipFilePath != null) {
+					try {
+						await workspace.fs.delete(cliProxyZipFilePath);
+					} catch (ex) {
+						Logger.warn(`Failed to delete CLI proxy archive: ${ex}`);
+					}
+				}
+
+				try {
+					const readmePath = Uri.joinPath(globalStoragePath, 'README.md');
+					await workspace.fs.delete(readmePath);
+				} catch (ex) {
+					Logger.warn(`Failed to delete CLI proxy README: ${ex}`);
+				}
 			}
 		} catch (ex) {
-			const errorMsg = `Failed to configure MCP: ${ex instanceof Error ? ex.message : String(ex)}`;
+			Logger.error(
+				`Failed to ${autoInstall ? 'auto-install' : 'install'} CLI: ${ex instanceof Error ? ex.message : 'Unknown error during installation'}`,
+			);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/install/failed', {
+					autoInstall: autoInstall ?? false,
+					attempts: attempts,
+					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+				});
+			}
 			if (!autoInstall) {
-				throw new Error(errorMsg);
-			} else {
-				Logger.error(errorMsg);
+				throw ex;
 			}
 		}
 	}
 
-	private async runMcpCommand(
+	private async runCLICommand(
 		args: string[],
 		options?: {
 			cwd?: string;
 		},
 	): Promise<string> {
 		const platform = getPlatform();
-		const cwd = options?.cwd ?? this.container.storage.get('ai:mcp:installPath');
+		const cwd = options?.cwd ?? this.container.storage.get('gk:cli:path');
 		if (cwd == null) {
-			throw new Error('MCP is not installed');
+			throw new Error('CLI is not installed');
 		}
 
 		return run(platform === 'windows' ? 'gk.exe' : './gk', args, 'utf8', { cwd: cwd });
 	}
 
-	private async authMCPServer(): Promise<void> {
-		const mcpInstallStatus = this.container.storage.get('ai:mcp:install');
-		const mcpInstallPath = this.container.storage.get('ai:mcp:installPath');
-		if (mcpInstallStatus !== 'completed' || mcpInstallPath == null) {
+	private async authCLI(): Promise<void> {
+		const cliInstall = this.container.storage.get('gk:cli:install');
+		const cliPath = this.container.storage.get('gk:cli:path');
+		if (cliInstall?.status !== 'completed' || cliPath == null) {
 			return;
 		}
 
@@ -413,19 +563,78 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 
 		try {
-			await this.runMcpCommand(['auth', 'login', '-t', currentSessionToken]);
+			await this.runCLICommand(['auth', 'login', '-t', currentSessionToken]);
 		} catch (ex) {
-			Logger.error(`Failed to auth MCP server: ${ex instanceof Error ? ex.message : String(ex)}`);
+			Logger.error(`Failed to auth CLI: ${ex instanceof Error ? ex.message : String(ex)}`);
 		}
 	}
 
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
 		if (e.current?.account?.id != null && e.current.account.id !== e.previous?.account?.id) {
-			await this.authMCPServer();
+			await this.authCLI();
 		}
 	}
 
 	private registerCommands(): Disposable[] {
-		return [registerCommand('gitlens.ai.mcp.install', () => this.installMCP())];
+		return [registerCommand('gitlens.ai.mcp.install', () => this.setupMCP())];
+	}
+}
+
+class CLIInstallError extends Error {
+	readonly original?: Error;
+	readonly reason: CLIInstallErrorReason;
+
+	static is(ex: unknown, reason?: CLIInstallErrorReason): ex is CLIInstallError {
+		return ex instanceof CLIInstallError && (reason == null || ex.reason === reason);
+	}
+
+	constructor(reason: CLIInstallErrorReason, original?: Error, details?: string) {
+		const message = CLIInstallError.buildErrorMessage(reason, details);
+		super(message);
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, CLIInstallError);
+	}
+
+	private static buildErrorMessage(reason: CLIInstallErrorReason, details?: string): string {
+		let message;
+		switch (reason) {
+			case CLIInstallErrorReason.WebEnvironmentUnsupported:
+				message = 'Web environment is not supported';
+				break;
+			case CLIInstallErrorReason.UnsupportedPlatform:
+				message = 'Unsupported platform';
+				break;
+			case CLIInstallErrorReason.ProxyUrlFetch:
+				message = 'Failed to fetch proxy URL';
+				break;
+			case CLIInstallErrorReason.ProxyUrlFormat:
+				message = 'Failed to parse proxy URL';
+				break;
+			case CLIInstallErrorReason.ProxyDownload:
+				message = 'Failed to download proxy';
+				break;
+			case CLIInstallErrorReason.ProxyExtract:
+				message = 'Failed to extract proxy';
+				break;
+			case CLIInstallErrorReason.ProxyFetch:
+				message = 'Failed to fetch proxy';
+				break;
+			case CLIInstallErrorReason.CoreDirectory:
+				message = 'Failed to find core directory in proxy output';
+				break;
+			case CLIInstallErrorReason.CoreInstall:
+				message = 'Failed to install core';
+				break;
+			default:
+				message = 'An unknown error occurred';
+				break;
+		}
+
+		if (details != null) {
+			message += `: ${details}`;
+		}
+
+		return message;
 	}
 }
