@@ -183,7 +183,7 @@ export function isAzureUrl(url: string): boolean {
 
 export function getOrgAIConfig(): OrgAIConfig {
 	return {
-		aiEnabled: getContext('gitlens:gk:organization:ai:enabled', true),
+		aiEnabled: false,
 		enforceAiProviders: getContext('gitlens:gk:organization:ai:enforceProviders', false),
 		aiProviders: getContext('gitlens:gk:organization:ai:providers', {}),
 	};
