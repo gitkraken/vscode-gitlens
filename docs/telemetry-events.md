@@ -570,6 +570,40 @@ void
 }
 ```
 
+### cli/install/failed
+
+> Sent when a CLI install attempt fails
+
+```typescript
+{
+  'attempts': number,
+  'autoInstall': boolean,
+  'error.message': string
+}
+```
+
+### cli/install/started
+
+> Sent when a CLI install attempt is started
+
+```typescript
+{
+  'attempts': number,
+  'autoInstall': boolean
+}
+```
+
+### cli/install/succeeded
+
+> Sent when a CLI install attempt succeeds
+
+```typescript
+{
+  'attempts': number,
+  'autoInstall': boolean
+}
+```
+
 ### cloudIntegrations/connected
 
 > Sent when connected to one or more cloud-based integrations from gkdev
@@ -2724,6 +2758,35 @@ void
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
+```
+
+### mcp/setup/completed
+
+> Sent when GitKraken MCP setup is completed
+
+```typescript
+{
+  'requiresUserCompletion': boolean
+}
+```
+
+### mcp/setup/failed
+
+> Sent when GitKraken MCP setup fails
+
+```typescript
+{
+  'error.message': string,
+  'reason': string
+}
+```
+
+### mcp/setup/started
+
+> Sent when GitKraken MCP setup is started
+
+```typescript
+void
 ```
 
 ### openReviewMode

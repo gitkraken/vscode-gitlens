@@ -6298,7 +6298,7 @@
 			},
 			{
 				"command": "gitlens.ai.mcp.install",
-				"title": "Install MCP Server",
+				"title": "Install GitKraken MCP Server",
 				"category": "GitLens"
 			},
 			{
