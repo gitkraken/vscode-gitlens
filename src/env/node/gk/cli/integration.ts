@@ -6,6 +6,7 @@ import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
+import { getHostAppName } from '../../../../system/-webview/vscode';
 import { openUrl } from '../../../../system/-webview/vscode/uris';
 import { gate } from '../../../../system/decorators/gate';
 import { Logger } from '../../../../system/logger';
@@ -97,10 +98,21 @@ export class GkCliIntegrationProvider implements Disposable {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('mcp/setup/started', { source: commandSource });
 		}
+		const appName = toMcpInstallProvider(await getHostAppName());
+		if (appName == null) {
+			void window.showInformationMessage(`Failed to install MCP integration: Could not determine app name`);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/setup/failed', {
+					reason: 'no app name',
+					source: commandSource,
+				});
+			}
+			return;
+		}
 
 		try {
 			if (
-				(env.appName === 'Visual Studio Code' || env.appName === 'Visual Studio Code - Insiders') &&
+				(appName === 'vscode' || appName === 'vscode-insiders' || appName === 'vscode-exploration') &&
 				compare(codeVersion, '1.102') < 0
 			) {
 				void window.showInformationMessage('Use of this command requires VS Code 1.102 or later.');
@@ -111,31 +123,6 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 				}
 				return;
-			}
-
-			let appName = 'vscode';
-			switch (env.appName) {
-				case 'Visual Studio Code':
-					break;
-				case 'Visual Studio Code - Insiders':
-					appName = 'vscode-insiders';
-					break;
-				case 'Cursor':
-					appName = 'cursor';
-					break;
-				case 'Windsurf':
-					appName = 'windsurf';
-					break;
-				default: {
-					void window.showInformationMessage(`MCP installation is not supported for app: ${env.appName}`);
-					if (this.container.telemetry.enabled) {
-						this.container.telemetry.sendEvent('mcp/setup/failed', {
-							reason: 'unsupported app',
-							source: commandSource,
-						});
-					}
-					return;
-				}
 			}
 
 			let cliInstall = this.container.storage.get('gk:cli:install');
@@ -247,6 +234,16 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			output = output.trim();
 			if (output === 'GitKraken MCP Server Successfully Installed!') {
+				return;
+			} else if (output.includes('not a supported MCP client')) {
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/setup/failed', {
+						reason: 'unsupported app',
+						'error.message': `Not a supported MCP client: ${appName}`,
+						source: commandSource,
+						'cli.version': cliVersion,
+					});
+				}
 				return;
 			}
 
@@ -660,5 +657,18 @@ class CLIInstallError extends Error {
 		}
 
 		return message;
+	}
+}
+
+function toMcpInstallProvider(appHostName: string | undefined): string | undefined {
+	switch (appHostName) {
+		case 'code':
+			return 'vscode';
+		case 'code-insiders':
+			return 'vscode-insiders';
+		case 'code-exploration':
+			return 'vscode-exploration';
+		default:
+			return appHostName;
 	}
 }
