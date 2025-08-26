@@ -312,7 +312,7 @@
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.mcp.install": {
-			"label": "Install MCP Server",
+			"label": "Install GitKraken MCP Server",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.rebaseOntoCommit:graph": {
