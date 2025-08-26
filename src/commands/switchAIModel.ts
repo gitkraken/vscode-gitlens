@@ -7,13 +7,13 @@ import type { CommandContext } from './commandContext';
 @command()
 export class SwitchAIModelCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.switchProvider', 'gitlens.ai.switchProvider:scm'], ['gitlens.switchAIModel']);
+		super(['gitlens.ai.switchProvider'], ['gitlens.switchAIModel']);
 	}
 
 	protected override preExecute(context: CommandContext, source?: Source): Promise<void> {
-		if (context.command === 'gitlens.ai.switchProvider:scm') {
-			source ??= { source: 'scm' };
-		}
+		// if (context.command === 'gitlens.ai.switchProvider:scm') {
+		// 	source ??= { source: 'scm' };
+		// }
 
 		return this.execute(source);
 	}

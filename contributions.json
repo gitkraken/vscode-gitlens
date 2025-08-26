@@ -290,13 +290,6 @@
 						"order": 2
 					}
 				],
-				"gitlens/scm/title/ai": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens",
-						"order": 1
-					}
-				],
 				"scm/title": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
@@ -351,16 +344,7 @@
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.switchProvider:scm": {
-			"label": "Switch GitLens AI Provider/Model...",
-			"menus": {
-				"gitlens/scm/title/ai": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled",
-						"group": "9_gitlens",
-						"order": 1
-					}
-				]
-			}
+			"label": "Switch GitLens AI Provider/Model..."
 		},
 		"gitlens.ai.undoGenerateRebase": {
 			"label": "Undo AI Generated Changes (Preview)...",
@@ -521,13 +505,6 @@
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens",
 						"order": 1
-					}
-				],
-				"gitlens/scm/title/ai": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens",
-						"order": 2
 					}
 				],
 				"scm/resourceGroup/context": [
@@ -16768,19 +16745,6 @@
 				"scm/title": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && (!gitlens:gk:organization:ai:enabled || !config.gitlens.ai.enabled)",
-						"group": "navigation",
-						"order": -3
-					}
-				]
-			}
-		},
-		"gitlens/scm/title/ai": {
-			"label": "GitLens",
-			"icon": "$(sparkle)",
-			"menus": {
-				"scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "navigation",
 						"order": -3
 					}
