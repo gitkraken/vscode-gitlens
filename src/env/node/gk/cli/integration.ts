@@ -1,6 +1,7 @@
 import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
+import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
 import { registerCommand } from '../../../../system/-webview/command';
@@ -89,10 +90,12 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@gate()
-	private async setupMCP(): Promise<void> {
+	private async setupMCP(source?: Sources): Promise<void> {
+		const commandSource = source ?? 'commandPalette';
 		const scope = getLogScope();
+		let cliVersion: string | undefined;
 		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('mcp/setup/started');
+			this.container.telemetry.sendEvent('mcp/setup/started', { source: commandSource });
 		}
 
 		try {
@@ -104,6 +107,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/failed', {
 						reason: 'unsupported vscode version',
+						source: commandSource,
 					});
 				}
 				return;
@@ -127,6 +131,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent('mcp/setup/failed', {
 							reason: 'unsupported app',
+							source: commandSource,
 						});
 					}
 					return;
@@ -154,7 +159,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							cancellable: false,
 						},
 						async () => {
-							await this.installCLI();
+							cliVersion = await this.installCLI();
 						},
 					);
 				} catch (ex) {
@@ -193,6 +198,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						this.container.telemetry.sendEvent('mcp/setup/failed', {
 							reason: failureReason,
 							'error.message': ex instanceof Error ? ex.message : 'Unknown error during installation',
+							source: commandSource,
 						});
 					}
 				}
@@ -206,6 +212,8 @@ export class GkCliIntegrationProvider implements Disposable {
 					this.container.telemetry.sendEvent('mcp/setup/failed', {
 						reason: 'unknown error',
 						'error.message': 'Unknown error during installation',
+						source: commandSource,
+						'cli.version': cliVersion,
 					});
 				}
 				return;
@@ -222,6 +230,8 @@ export class GkCliIntegrationProvider implements Disposable {
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent('mcp/setup/failed', {
 							reason: 'user cancelled',
+							source: commandSource,
+							'cli.version': cliVersion,
 						});
 					}
 					return;
@@ -248,6 +258,8 @@ export class GkCliIntegrationProvider implements Disposable {
 					this.container.telemetry.sendEvent('mcp/setup/failed', {
 						reason: 'unexpected output from mcp install command',
 						'error.message': `Unexpected output from mcp install command: ${output}`,
+						source: commandSource,
+						'cli.version': cliVersion,
 					});
 				}
 				Logger.error(`Unexpected output from mcp install command: ${output}`, scope);
@@ -260,6 +272,8 @@ export class GkCliIntegrationProvider implements Disposable {
 				this.container.telemetry.sendEvent('mcp/setup/completed', {
 					requiresUserCompletion:
 						appName === 'cursor' || appName === 'vscode' || appName === 'vscode-insiders',
+					source: commandSource,
+					'cli.version': cliVersion,
 				});
 			}
 		} catch (ex) {
@@ -268,6 +282,8 @@ export class GkCliIntegrationProvider implements Disposable {
 				this.container.telemetry.sendEvent('mcp/setup/failed', {
 					reason: 'unknown error',
 					'error.message': ex instanceof Error ? ex.message : 'Unknown error during installation',
+					source: commandSource,
+					'cli.version': cliVersion,
 				});
 			}
 
@@ -278,14 +294,16 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	@gate()
-	private async installCLI(autoInstall?: boolean): Promise<void> {
+	private async installCLI(autoInstall?: boolean, source?: Sources): Promise<string | undefined> {
 		let attempts = 0;
+		let cliVersion: string | undefined;
 		try {
 			const cliInstall = this.container.storage.get('gk:cli:install');
 			attempts = cliInstall?.attempts ?? 0;
 			attempts += 1;
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/started', {
+					source: source,
 					autoInstall: autoInstall ?? false,
 					attempts: attempts,
 				});
@@ -377,6 +395,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					const cliZipArchiveDownloadInfo: { version?: string; packages?: { zip?: string } } | undefined =
 						(await response.json()) as any;
 					downloadUrl = cliZipArchiveDownloadInfo?.packages?.zip;
+					cliVersion = cliZipArchiveDownloadInfo?.version;
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyUrlFormat,
@@ -491,6 +510,8 @@ export class GkCliIntegrationProvider implements Disposable {
 						this.container.telemetry.sendEvent('cli/install/succeeded', {
 							autoInstall: autoInstall ?? false,
 							attempts: attempts,
+							source: source,
+							version: cliVersion,
 						});
 					}
 					await this.authCLI();
@@ -527,12 +548,15 @@ export class GkCliIntegrationProvider implements Disposable {
 					autoInstall: autoInstall ?? false,
 					attempts: attempts,
 					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+					source: source,
 				});
 			}
 			if (!autoInstall) {
 				throw ex;
 			}
 		}
+
+		return cliVersion;
 	}
 
 	private async runCLICommand(
@@ -576,7 +600,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private registerCommands(): Disposable[] {
-		return [registerCommand('gitlens.ai.mcp.install', () => this.setupMCP())];
+		return [registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.setupMCP(src?.source))];
 	}
 }
 

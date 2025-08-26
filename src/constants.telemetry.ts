@@ -246,7 +246,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'launchpad/operation/slow': LaunchpadOperationSlowEvent;
 
 	/** Sent when GitKraken MCP setup is started */
-	'mcp/setup/started': void;
+	'mcp/setup/started': MCPSetupStartedEvent;
 	/** Sent when GitKraken MCP setup is completed */
 	'mcp/setup/completed': MCPSetupCompletedEvent;
 	/** Sent when GitKraken MCP setup fails */
@@ -487,6 +487,7 @@ export interface AIFeedbackEvent extends AIEventDataBase {
 }
 
 export interface CLIInstallStartedEvent {
+	source?: Sources;
 	autoInstall: boolean;
 	attempts: number;
 }
@@ -494,20 +495,31 @@ export interface CLIInstallStartedEvent {
 export interface CLIInstallSucceededEvent {
 	autoInstall: boolean;
 	attempts: number;
+	source?: Sources;
+	version?: string;
 }
 
 export interface CLIInstallFailedEvent {
 	autoInstall: boolean;
 	attempts: number;
 	'error.message'?: string;
+	source?: Sources;
+}
+
+export interface MCPSetupStartedEvent {
+	source: Sources;
 }
 
 export interface MCPSetupCompletedEvent {
+	source: Sources;
+	'cli.version'?: string;
 	requiresUserCompletion: boolean;
 }
 
 export interface MCPSetupFailedEvent {
+	source: Sources;
 	reason: string;
+	'cli.version'?: string;
 	'error.message'?: string;
 }
 
