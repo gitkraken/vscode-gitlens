@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Commit Composer view loading issues and improves performance for rendering large diffs
+
 ## [17.4.0] - 2025-08-21
 
 ### Added
