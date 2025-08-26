@@ -996,7 +996,7 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getBranchActions(): TemplateResult[] {
 		const actions = [];
 
-		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+		const aiEnabled = false;
 
 		if (this.isWorktree) {
 			actions.push(

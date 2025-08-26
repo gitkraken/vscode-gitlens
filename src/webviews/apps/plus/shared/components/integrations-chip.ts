@@ -177,7 +177,7 @@ export class GlIntegrationsChip extends LitElement {
 	}
 
 	private get aiSettingEnabled() {
-		return this._state.aiEnabled;
+		return false;
 	}
 
 	private get aiOrgEnabled() {
@@ -185,7 +185,7 @@ export class GlIntegrationsChip extends LitElement {
 	}
 
 	private get aiEnabled() {
-		return this.aiSettingEnabled && this.aiOrgEnabled;
+		return false
 	}
 
 	private get integrations() {

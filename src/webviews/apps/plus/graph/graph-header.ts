@@ -145,7 +145,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	override updated(changedProperties: PropertyValues): void {
-		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && (this.graphState.orgSettings?.ai ?? true);
+		this.aiAllowed = false
 		super.updated(changedProperties);
 	}
 

@@ -1178,7 +1178,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get aiEnabled(): boolean {
-		return this.state?.aiEnabled?.org === true && this.state?.aiEnabled?.config === true;
+		return false
 	}
 
 	private get aiDisabledReason(): string | null {
@@ -1250,7 +1250,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canGenerateCommitMessages(): boolean {
-		return this.aiEnabled; // Allowed in both modes if AI is enabled
+		return false; // Allowed in both modes if AI is enabled
 	}
 
 	private finishAndCommit() {

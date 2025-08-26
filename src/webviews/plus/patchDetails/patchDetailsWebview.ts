@@ -363,7 +363,7 @@ export class PatchDetailsWebviewProvider
 			files: configuration.get('views.patchDetails.files'),
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
-			aiEnabled: configuration.get('ai.enabled'),
+			aiEnabled: false,
 		};
 	}
 

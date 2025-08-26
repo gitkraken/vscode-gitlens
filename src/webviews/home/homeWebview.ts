@@ -780,7 +780,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getAiEnabled() {
-		return configuration.get('ai.enabled');
+		return false;
 	}
 
 	private getExperimentalComposerEnabled() {

@@ -299,7 +299,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	private renderActionsMenu() {
-		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+		const aiEnabled = false
 		const isFetching = this.busy;
 		const workingTreeState = this.wip?.workingTreeState;
 		const hasWip =

@@ -1207,8 +1207,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private getAiEnabled() {
 		return {
-			org: getContext('gitlens:gk:organization:ai:enabled', true),
-			config: configuration.get('ai.enabled', undefined, true),
+			org: false,
+			config: false,
 		};
 	}
 

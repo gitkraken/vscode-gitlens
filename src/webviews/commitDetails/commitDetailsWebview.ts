@@ -950,7 +950,7 @@ export class CommitDetailsWebviewProvider
 			files: configuration.get('views.commitDetails.files'),
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
-			aiEnabled: configuration.get('ai.enabled'),
+			aiEnabled: false,
 		};
 	}
 
