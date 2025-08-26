@@ -1,5 +1,5 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import Sortable from 'sortablejs';
 import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
@@ -67,6 +67,18 @@ export class DetailsPanel extends LitElement {
 			.files-headline {
 				font-size: 1.4rem;
 				margin-block: 0 0.8rem;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+			}
+
+			.files-headline__title {
+				margin: 0;
+			}
+
+			.files-headline__actions {
+				display: flex;
+				gap: 0.4rem;
 			}
 
 			.files-list {
@@ -207,7 +219,7 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	filesChangedExpanded = true;
 
-	@property({ type: Set })
+	@property({ type: Object })
 	selectedHunkIds: Set<string> = new Set();
 
 	@property({ type: String })
@@ -230,6 +242,9 @@ export class DetailsPanel extends LitElement {
 
 	@property({ type: Boolean })
 	hasChanges: boolean = true;
+
+	@state()
+	private defaultFilesExpanded: boolean = true;
 
 	private hunksSortables: Sortable[] = [];
 	private isDraggingHunks = false;
@@ -507,6 +522,30 @@ export class DetailsPanel extends LitElement {
 		);
 	}
 
+	private handleCollapseAllFiles() {
+		this.defaultFilesExpanded = false;
+	}
+
+	private handleExpandAllFiles() {
+		this.defaultFilesExpanded = true;
+	}
+
+	private renderFilesChangedHeader(fileCount: number | string) {
+		return html`
+			<div class="files-headline">
+				<h3 class="files-headline__title">Files Changed (${fileCount})</h3>
+				<div class="files-headline__actions">
+					<gl-button appearance="toolbar" @click=${this.handleExpandAllFiles} tooltip="Expand All">
+						<code-icon icon="expand-all"></code-icon>
+					</gl-button>
+					<gl-button appearance="toolbar" @click=${this.handleCollapseAllFiles} tooltip="Collapse All">
+						<code-icon icon="collapse-all"></code-icon>
+					</gl-button>
+				</div>
+			</div>
+		`;
+	}
+
 	private renderFileHierarchy(hunks: ComposerHunk[]) {
 		const fileGroups = groupHunksByFile(hunks);
 
@@ -521,7 +560,11 @@ export class DetailsPanel extends LitElement {
 	private renderFile(fileName: string, fileHunks: ComposerHunk[]) {
 		// const fileChanges = getFileChanges(fileHunks);
 
-		return html`<gl-diff-file .filename=${fileName} .hunks=${fileHunks}></gl-diff-file>`;
+		return html`<gl-diff-file
+			.filename=${fileName}
+			.hunks=${fileHunks}
+			.defaultExpanded=${this.defaultFilesExpanded}
+		></gl-diff-file>`;
 	}
 
 	// private renderFileOld(fileName: string, fileHunks: ComposerHunk[]) {
@@ -602,7 +645,7 @@ export class DetailsPanel extends LitElement {
 				<gl-commit-message .message=${this.getSectionTitle(this.selectedUnassignedSection)}></gl-commit-message>
 
 				<section>
-					<h3 class="files-headline">Files Changed (${getUniqueFileNames(hunks).length})</h3>
+					${this.renderFilesChangedHeader(getUniqueFileNames(hunks).length)}
 					<div class="files-list" data-source="${this.selectedUnassignedSection}">
 						${this.renderFileHierarchy(hunks)}
 					</div>
@@ -628,7 +671,7 @@ export class DetailsPanel extends LitElement {
 				></gl-commit-message>
 
 				<section>
-					<h3 class="files-headline">Files Changed (${getFileCountForCommit(commit, this.hunks)})</h3>
+					${this.renderFilesChangedHeader(getFileCountForCommit(commit, this.hunks))}
 					<div class="files-list" data-commit-id=${commit.id}>${this.renderFileHierarchy(commitHunks)}</div>
 				</section>
 			</article>
