@@ -39,8 +39,8 @@ export class LaunchpadIndicator implements Disposable {
 	) {
 		this._disposable = Disposable.from(
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
-			provider.onDidChange(this.onLaunchpadChanged, this),
-			provider.onDidRefresh(this.onLaunchpadRefreshed, this),
+			// provider.onDidChange(this.onLaunchpadChanged, this),
+			// provider.onDidRefresh(this.onLaunchpadRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
 			once(container.onReady)(this.onReady, this),

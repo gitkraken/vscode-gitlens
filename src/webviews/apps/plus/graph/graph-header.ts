@@ -731,22 +731,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-tooltip>
 						<gl-tooltip placement="bottom">
 							<a
-								href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
-									JSON.stringify({
-										source: 'graph',
-									} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-								)}`}
-								class="action-button"
-							>
-								<code-icon icon="rocket"></code-icon>
-							</a>
-							<span slot="content">
-								<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable groups
-								to help you focus and keep your team unblocked
-							</span>
-						</gl-tooltip>
-						<gl-tooltip placement="bottom">
-							<a
 								href=${createWebviewCommandLink(
 									'gitlens.visualizeHistory.repo:graph',
 									this.graphState.webviewId,
