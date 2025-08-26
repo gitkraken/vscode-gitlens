@@ -44,6 +44,7 @@ import type {
 	IssueFilter,
 	MergePullRequestFn,
 	PageInfo,
+	PagingInput,
 	PagingMode,
 	ProviderAccount,
 	ProviderAzureProject,
@@ -325,6 +326,7 @@ export class ProvidersApi {
 			[IssuesCloudHostIntegrationId.Linear]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Linear],
 				provider: providerApis.linear,
+				getIssuesForCurrentUserFn: providerApis.linear.getIssuesForCurrentUser.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
@@ -1030,6 +1032,26 @@ export class ProvidersApi {
 			provider.getIssuesForRepoFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getIssuesForCurrentUser(
+		providerId: IntegrationIds,
+		options?: PagingInput & { accessToken?: string; isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderIssue>> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			providerId,
+			'getIssuesForCurrentUserFn',
+			options?.accessToken,
+		);
+		return this.getPagedResult<ProviderIssue>(
+			provider,
+			options,
+			provider.getIssuesForCurrentUserFn,
+			token,
+			options?.cursor ?? undefined,
 			options?.isPAT,
 			options?.baseUrl,
 		);

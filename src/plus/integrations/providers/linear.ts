@@ -4,6 +4,7 @@ import type { Account } from '../../../git/models/author';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { IssueResourceDescriptor, ResourceDescriptor } from '../../../git/models/resourceDescriptor';
+import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { IssuesIntegration } from '../models/issuesIntegration';
@@ -62,11 +63,44 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return metadata.domain;
 	}
 	protected override async searchProviderMyIssues(
-		_session: ProviderAuthenticationSession,
-		_resources?: ResourceDescriptor[],
-		_cancellation?: CancellationToken,
+		session: ProviderAuthenticationSession,
+		resources?: ResourceDescriptor[],
+		cancellation?: CancellationToken,
 	): Promise<IssueShape[] | undefined> {
-		return Promise.resolve(undefined);
+		if (resources != null) {
+			return undefined;
+		}
+		const api = await this.getProvidersApi();
+		let cursor = undefined;
+		let hasMore = false;
+		let requestCount = 0;
+		const issues = [];
+		try {
+			do {
+				if (cancellation?.isCancellationRequested) {
+					break;
+				}
+				const result = await api.getIssuesForCurrentUser(this.id, {
+					accessToken: session.accessToken,
+					cursor: cursor,
+				});
+				requestCount += 1;
+				hasMore = result.paging?.more ?? false;
+				cursor = result.paging?.cursor;
+				const formattedIssues = result.values
+					.map(issue => toIssueShape(issue, this))
+					.filter((result): result is IssueShape => result != null);
+				if (formattedIssues.length > 0) {
+					issues.push(...formattedIssues);
+				}
+			} while (requestCount < maxPagesPerRequest && hasMore);
+		} catch (ex) {
+			if (issues.length === 0) {
+				throw ex;
+			}
+			Logger.error(ex, 'searchProviderMyIssues');
+		}
+		return issues;
 	}
 	protected override getProviderIssueOrPullRequest(
 		_session: ProviderAuthenticationSession,

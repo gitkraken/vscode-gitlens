@@ -281,6 +281,11 @@ export type GetIssuesForReposFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
 
+export type GetIssuesForCurrentUserFn = (
+	input: PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+
 export type GetIssuesForRepoFn = (
 	input: GetIssuesForRepoInput & PagingInput,
 	options?: EnterpriseOptions,
@@ -365,6 +370,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getPullRequestsForAzureProjectsFn?: GetPullRequestsForAzureProjectsFn;
 	getIssueFn?: GetIssueFn;
 	getIssuesForReposFn?: GetIssuesForReposFn;
+	getIssuesForCurrentUserFn?: GetIssuesForCurrentUserFn;
 	getIssuesForRepoFn?: GetIssuesForRepoFn;
 	getIssuesForAzureProjectFn?: GetIssuesForAzureProjectFn;
 	getCurrentUserFn?: GetCurrentUserFn;
