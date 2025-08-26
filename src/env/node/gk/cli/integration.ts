@@ -90,12 +90,11 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			let appName = 'vscode';
-			let isInsiders = false;
 			switch (env.appName) {
 				case 'Visual Studio Code':
 					break;
 				case 'Visual Studio Code - Insiders':
-					isInsiders = true;
+					appName = 'vscode-insiders';
 					break;
 				case 'Cursor':
 					appName = 'cursor';
@@ -132,35 +131,36 @@ export class GkCliIntegrationProvider implements Disposable {
 				return;
 			}
 
-			// TODO: REMOVE THIS ONCE VSCODE-INSIDERS IS ADDED AS AN OFFICIAL PROVIDER TO MCP INSTALL COMMAND
-			if (appName === 'vscode' && isInsiders) {
-				const mcpFileName = getPlatform() === 'windows' ? 'gk.exe' : 'gk';
-				const mcpProxyPath = Uri.joinPath(Uri.file(mcpPath), mcpFileName);
-				const config = {
-					name: 'GitKraken',
-					command: mcpProxyPath.fsPath,
-					args: ['mcp'],
-					type: 'stdio',
-				};
-				const installDeepLinkUrl = `vscode-insiders:mcp/install?${encodeURIComponent(JSON.stringify(config))}`;
-				await openUrl(installDeepLinkUrl);
-			} else {
-				if (appName !== 'cursor' && appName !== 'vscode') {
-					const confirmation = await window.showInformationMessage(
-						`MCP configured successfully. Click 'Finish' to add it to your MCP server list and complete the installation.`,
-						{ modal: true },
-						{ title: 'Finish' },
-						{ title: 'Cancel', isCloseAffordance: true },
-					);
-					if (confirmation == null || confirmation.title === 'Cancel') return;
-				}
-
-				const _output = await this.runMcpCommand(['mcp', 'install', appName, '--source=gitlens'], {
-					cwd: mcpPath,
-				});
-				// TODO: GET THE INSTALL LINK FROM THE OUTPUT IF IT EXISTS AND OPEN IT.
-				// CURRENTLY THE CLI TRIES TO DO SO BUT THE LINK DOES NOT WORK SINCE IT IS IN THE CHILD PROCESS.
+			if (appName !== 'cursor' && appName !== 'vscode') {
+				const confirmation = await window.showInformationMessage(
+					`MCP configured successfully. Click 'Finish' to add it to your MCP server list and complete the installation.`,
+					{ modal: true },
+					{ title: 'Finish' },
+					{ title: 'Cancel', isCloseAffordance: true },
+				);
+				if (confirmation == null || confirmation.title === 'Cancel') return;
 			}
+
+			let output = await this.runMcpCommand(
+				['mcp', 'install', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
+				{
+					cwd: mcpPath,
+				},
+			);
+
+			output = output.trim();
+			if (output === 'GitKraken MCP Server Successfully Installed!') {
+				return;
+			}
+
+			// Check if the output is a valid url. If so, run it
+			try {
+				new URL(output);
+			} catch {
+				throw new Error('Failed to install MCP integration: unexpected output from mcp install command');
+			}
+
+			await openUrl(output);
 		} catch (ex) {
 			Logger.error(`Error during MCP installation: ${ex}`, scope);
 
