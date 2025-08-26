@@ -79,6 +79,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when user opts in to AI All Access */
 	'aiAllAccess/optedIn': void;
 
+	/** Sent when a CLI install attempt is started */
+	'cli/install/started': CLIInstallStartedEvent;
+	/** Sent when a CLI install attempt succeeds */
+	'cli/install/succeeded': CLIInstallSucceededEvent;
+	/** Sent when a CLI install attempt fails */
+	'cli/install/failed': CLIInstallFailedEvent;
+
 	/** Sent when connecting to one or more cloud-based integrations */
 	'cloudIntegrations/connecting': CloudIntegrationsConnectingEvent;
 
@@ -237,6 +244,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'launchpad/indicator/firstLoad': void;
 	/** Sent when a launchpad operation is taking longer than a set timeout to complete */
 	'launchpad/operation/slow': LaunchpadOperationSlowEvent;
+
+	/** Sent when GitKraken MCP setup is started */
+	'mcp/setup/started': void;
+	/** Sent when GitKraken MCP setup is completed */
+	'mcp/setup/completed': MCPSetupCompletedEvent;
+	/** Sent when GitKraken MCP setup fails */
+	'mcp/setup/failed': MCPSetupFailedEvent;
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
@@ -470,6 +484,31 @@ export interface AIFeedbackEvent extends AIEventDataBase {
 	'unhelpful.reasons'?: string;
 	/** Custom feedback provided (if any) */
 	'unhelpful.custom'?: string;
+}
+
+export interface CLIInstallStartedEvent {
+	autoInstall: boolean;
+	attempts: number;
+}
+
+export interface CLIInstallSucceededEvent {
+	autoInstall: boolean;
+	attempts: number;
+}
+
+export interface CLIInstallFailedEvent {
+	autoInstall: boolean;
+	attempts: number;
+	'error.message'?: string;
+}
+
+export interface MCPSetupCompletedEvent {
+	requiresUserCompletion: boolean;
+}
+
+export interface MCPSetupFailedEvent {
+	reason: string;
+	'error.message'?: string;
 }
 
 interface CloudIntegrationsConnectingEvent {
