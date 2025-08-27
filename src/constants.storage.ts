@@ -83,7 +83,7 @@ export type GlobalStorage = {
 	// Value based on `currentOnboardingVersion` in composer's protocol
 	'composer:onboarding:dismissed': string;
 	'composer:onboarding:stepReached': number;
-	'gk:cli:install': { status: 'attempted' | 'unsupported' | 'completed'; attempts: number };
+	'gk:cli:install': { status: 'attempted' | 'unsupported' | 'completed'; attempts: number; version?: string };
 	'gk:cli:corePath': string;
 	'gk:cli:path': string;
 	'home:sections:collapsed': string[];
