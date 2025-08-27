@@ -43,10 +43,29 @@ export const supportedOrderedCloudIntegrationIds = [
 	IssuesCloudHostIntegrationId.Jira,
 ];
 
+export const integrationIds = [
+	GitCloudHostIntegrationId.GitHub,
+	GitCloudHostIntegrationId.GitLab,
+	GitCloudHostIntegrationId.Bitbucket,
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+	GitSelfManagedHostIntegrationId.BitbucketServer,
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitSelfManagedHostIntegrationId.GitHubEnterprise,
+	GitSelfManagedHostIntegrationId.GitLabSelfHosted,
+	IssuesCloudHostIntegrationId.Jira,
+	IssuesCloudHostIntegrationId.Trello,
+];
+
 export type SupportedCloudIntegrationIds = (typeof supportedOrderedCloudIntegrationIds)[number];
 
 export function isSupportedCloudIntegrationId(id: IntegrationIds): id is SupportedCloudIntegrationIds {
 	return supportedOrderedCloudIntegrationIds.includes(id as SupportedCloudIntegrationIds);
+}
+
+export function isIntegrationId(id: string): id is IntegrationIds {
+	return integrationIds.includes(id as IntegrationIds);
 }
 
 export type IntegrationFeatures = 'prs' | 'issues';

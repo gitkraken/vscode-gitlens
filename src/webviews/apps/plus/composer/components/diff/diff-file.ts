@@ -41,6 +41,9 @@ export class GlDiffFile extends LitElement {
 	@property({ type: Boolean, attribute: 'side-by-side' })
 	sideBySide = false;
 
+	@property({ type: Boolean, attribute: 'default-expanded' })
+	defaultExpanded = true;
+
 	@query('#diff')
 	targetElement!: HTMLDivElement;
 
@@ -64,10 +67,11 @@ export class GlDiffFile extends LitElement {
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
+
 		if (changedProperties.has('filename') || changedProperties.has('hunks')) {
 			this.processDiff();
 		}
-		if (changedProperties.has('diffText')) {
+		if (changedProperties.has('diffText') || changedProperties.has('defaultExpanded')) {
 			this.renderDiff();
 		}
 	}
@@ -77,7 +81,7 @@ export class GlDiffFile extends LitElement {
 	}
 
 	private renderDiff() {
-		if (!this.parsedDiff) {
+		if (!this.parsedDiff || !this.filename) {
 			this.targetElement.innerHTML = '';
 			return;
 		}
@@ -95,6 +99,11 @@ export class GlDiffFile extends LitElement {
 		this.diff2htmlUi = new Diff2HtmlUI(this.targetElement, this.parsedDiff, config);
 		this.diff2htmlUi.draw();
 		// this.diff2htmlUi.highlightCode();
+
+		const detailsElement = this.targetElement?.querySelector('details');
+		if (detailsElement) {
+			detailsElement.open = this.defaultExpanded;
+		}
 	}
 
 	private processDiff() {
