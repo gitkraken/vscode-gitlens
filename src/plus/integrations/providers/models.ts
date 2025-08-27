@@ -1055,6 +1055,7 @@ export function fromProviderIssue(
 						resourceName: issue.project.namespace,
 					}
 				: undefined,
+		issue.number,
 	);
 }
 

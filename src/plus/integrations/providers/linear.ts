@@ -4,12 +4,13 @@ import type { Account } from '../../../git/models/author';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { IssueResourceDescriptor, ResourceDescriptor } from '../../../git/models/resourceDescriptor';
+import { isIssueResourceDescriptor } from '../../../git/utils/resourceDescriptor.utils';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { IssuesIntegration } from '../models/issuesIntegration';
 import type { IssueFilter } from './models';
-import { providersMetadata, toIssueShape } from './models';
+import { fromProviderIssue, providersMetadata, toIssueShape } from './models';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -110,11 +111,35 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	): Promise<IssueOrPullRequest | undefined> {
 		throw new Error('Method not implemented.');
 	}
-	protected override getProviderIssue(
-		_session: ProviderAuthenticationSession,
-		_resource: ResourceDescriptor,
-		_id: string,
+	protected override async getProviderIssue(
+		session: ProviderAuthenticationSession,
+		resource: ResourceDescriptor,
+		id: string,
 	): Promise<Issue | undefined> {
-		throw new Error('Method not implemented.');
+		const api = await this.getProvidersApi();
+		try {
+			if (!isIssueResourceDescriptor(resource)) {
+				Logger.error(undefined, 'getProviderIssue: resource is not an IssueResourceDescriptor');
+				return undefined;
+			}
+
+			const result = await api.getIssue(
+				this.id,
+				{
+					resourceId: resource.id,
+					number: id,
+				},
+				{
+					accessToken: session.accessToken,
+				},
+			);
+
+			if (result == null) return undefined;
+
+			return fromProviderIssue(result, this);
+		} catch (ex) {
+			Logger.error(ex, 'getProviderIssue');
+			return undefined;
+		}
 	}
 }
