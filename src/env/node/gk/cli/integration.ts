@@ -19,7 +19,6 @@ import type { IpcServer } from './ipcServer';
 import { createIpcServer } from './ipcServer';
 
 const enum CLIInstallErrorReason {
-	WebEnvironmentUnsupported,
 	UnsupportedPlatform,
 	ProxyUrlFetch,
 	ProxyUrlFormat,
@@ -147,10 +146,16 @@ export class GkCliIntegrationProvider implements Disposable {
 						cancellable: false,
 					},
 					async () => {
-						const { cliVersion: installedVersion, cliPath: installedPath } = await this.installCLI(
-							false,
-							source,
-						);
+						const {
+							cliVersion: installedVersion,
+							cliPath: installedPath,
+							status,
+						} = await this.installCLI(false, source);
+						if (status === 'unsupported') {
+							throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform);
+						} else if (status === 'attempted') {
+							throw new CLIInstallError(CLIInstallErrorReason.CoreInstall);
+						}
 						cliVersion = installedVersion;
 						cliPath = installedPath;
 					},
@@ -159,12 +164,6 @@ export class GkCliIntegrationProvider implements Disposable {
 				let failureReason = 'unknown error';
 				if (ex instanceof CLIInstallError) {
 					switch (ex.reason) {
-						case CLIInstallErrorReason.WebEnvironmentUnsupported:
-							void window.showErrorMessage(
-								'GitKraken MCP installation is not supported on this platform.',
-							);
-							failureReason = 'web environment unsupported';
-							break;
 						case CLIInstallErrorReason.UnsupportedPlatform:
 							void window.showErrorMessage(
 								'GitKraken MCP installation is not supported on this platform.',
@@ -306,38 +305,35 @@ export class GkCliIntegrationProvider implements Disposable {
 	private async installCLI(
 		autoInstall?: boolean,
 		source?: Sources,
-	): Promise<{ cliVersion?: string; cliPath?: string }> {
-		let attempts = 0;
-		let cliVersion: string | undefined;
-		let cliPath: string | undefined;
+	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
 		const cliInstall = this.container.storage.get('gk:cli:install');
-		if (autoInstall) {
-			if (cliInstall?.status === 'completed') {
-				cliVersion = cliInstall.version;
-				cliPath = this.container.storage.get('gk:cli:path');
-				return { cliVersion: cliVersion, cliPath: cliPath };
-			} else if (
-				cliInstall?.status === 'unsupported' ||
-				(cliInstall?.status === 'attempted' && cliInstall.attempts >= 5)
-			) {
-				return { cliVersion: undefined, cliPath: undefined };
-			}
+		let cliInstallAttempts = cliInstall?.attempts ?? 0;
+		let cliInstallStatus = cliInstall?.status ?? 'attempted';
+		let cliVersion = cliInstall?.version;
+		let cliPath = this.container.storage.get('gk:cli:path');
+
+		if (cliInstallStatus === 'completed') {
+			cliVersion = cliInstall?.version;
+			return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
+		} else if (cliInstallStatus === 'unsupported') {
+			return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
+		} else if (autoInstall && cliInstallStatus === 'attempted' && cliInstallAttempts >= 5) {
+			return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 		}
 
 		try {
-			attempts = cliInstall?.attempts ?? 0;
-			attempts += 1;
+			cliInstallAttempts += 1;
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/started', {
 					source: source,
 					autoInstall: autoInstall ?? false,
-					attempts: attempts,
+					attempts: cliInstallAttempts,
 				});
 			}
 			void this.container.storage
 				.store('gk:cli:install', {
 					status: 'attempted',
-					attempts: attempts,
+					attempts: cliInstallAttempts,
 				})
 				.catch();
 
@@ -345,11 +341,11 @@ export class GkCliIntegrationProvider implements Disposable {
 				void this.container.storage
 					.store('gk:cli:install', {
 						status: 'unsupported',
-						attempts: attempts,
+						attempts: cliInstallAttempts,
 					})
 					.catch();
 
-				throw new CLIInstallError(CLIInstallErrorReason.WebEnvironmentUnsupported);
+				throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, 'web');
 			}
 
 			// Detect platform and architecture
@@ -385,7 +381,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					void this.container.storage
 						.store('gk:cli:install', {
 							status: 'unsupported',
-							attempts: attempts,
+							attempts: cliInstallAttempts,
 						})
 						.catch();
 					throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, platform);
@@ -532,13 +528,18 @@ export class GkCliIntegrationProvider implements Disposable {
 					}
 
 					Logger.log('CLI install completed.');
+					cliInstallStatus = 'completed';
 					void this.container.storage
-						.store('gk:cli:install', { status: 'completed', attempts: attempts, version: cliVersion })
+						.store('gk:cli:install', {
+							status: cliInstallStatus,
+							attempts: cliInstallAttempts,
+							version: cliVersion,
+						})
 						.catch();
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent('cli/install/succeeded', {
 							autoInstall: autoInstall ?? false,
-							attempts: attempts,
+							attempts: cliInstallAttempts,
 							source: source,
 							version: cliVersion,
 						});
@@ -575,17 +576,20 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/failed', {
 					autoInstall: autoInstall ?? false,
-					attempts: attempts,
+					attempts: cliInstallAttempts,
 					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
 					source: source,
 				});
 			}
-			if (!autoInstall) {
+
+			if (CLIInstallError.is(ex, CLIInstallErrorReason.UnsupportedPlatform)) {
+				cliInstallStatus = 'unsupported';
+			} else if (!autoInstall) {
 				throw ex;
 			}
 		}
 
-		return { cliVersion: cliVersion, cliPath: cliPath };
+		return { cliVersion: cliVersion, cliPath: cliPath, status: cliInstallStatus };
 	}
 
 	private async runCLICommand(
@@ -652,9 +656,6 @@ class CLIInstallError extends Error {
 	private static buildErrorMessage(reason: CLIInstallErrorReason, details?: string): string {
 		let message;
 		switch (reason) {
-			case CLIInstallErrorReason.WebEnvironmentUnsupported:
-				message = 'Web environment is not supported';
-				break;
 			case CLIInstallErrorReason.UnsupportedPlatform:
 				message = 'Unsupported platform';
 				break;
