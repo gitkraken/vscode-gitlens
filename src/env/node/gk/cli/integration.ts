@@ -49,10 +49,11 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		this.onConfigurationChanged();
 
-		const cliInstall = this.container.storage.get('gk:cli:install');
+		// TODO: Uncomment this once we feel confident enough that the install process is stable cross-platform
+		/* const cliInstall = this.container.storage.get('gk:cli:install');
 		if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
 			setTimeout(() => this.installCLI(true), 10000 + Math.floor(Math.random() * 20000));
-		}
+		} */
 	}
 
 	dispose(): void {
