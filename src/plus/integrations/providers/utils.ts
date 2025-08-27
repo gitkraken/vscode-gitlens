@@ -120,6 +120,8 @@ export function getProviderIdFromEntityIdentifier(
 				: GitSelfManagedHostIntegrationId.GitLabSelfHosted;
 		case EntityIdentifierProviderType.Jira:
 			return IssuesCloudHostIntegrationId.Jira;
+		case EntityIdentifierProviderType.Linear:
+			return IssuesCloudHostIntegrationId.Linear;
 		case EntityIdentifierProviderType.Azure:
 			return GitCloudHostIntegrationId.AzureDevOps;
 		case EntityIdentifierProviderType.AzureDevOpsServer:
@@ -147,6 +149,8 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 			return EntityIdentifierProviderType.Gitlab;
 		case 'jira':
 			return EntityIdentifierProviderType.Jira;
+		case 'linear':
+			return EntityIdentifierProviderType.Linear;
 		case 'azure':
 		case 'azureDevOps':
 		case 'azure-devops':
@@ -252,6 +256,7 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	// TODO: Centralize where we represent all supported providers for issues
 	if (
 		identifier.provider !== EntityIdentifierProviderType.Jira &&
+		identifier.provider !== EntityIdentifierProviderType.Linear &&
 		identifier.provider !== EntityIdentifierProviderType.Github &&
 		identifier.provider !== EntityIdentifierProviderType.Gitlab &&
 		identifier.provider !== EntityIdentifierProviderType.GithubEnterprise &&
@@ -288,7 +293,7 @@ export async function getIssueFromGitConfigEntityIdentifier(
 export function getIssueOwner(
 	issue: IssueShape,
 ): RepositoryDescriptor | IssueResourceDescriptor | AzureProjectInputDescriptor | undefined {
-	const isAzure = issue.provider.id === 'azure' || GitCloudHostIntegrationId.AzureDevOps || 'azure-devops';
+	const isAzure = ['azure', GitCloudHostIntegrationId.AzureDevOps, 'azure-devops'].includes(issue.provider.id);
 	return issue.repository
 		? {
 				key: `${issue.repository.owner}/${issue.repository.repo}`,
