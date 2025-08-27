@@ -98,6 +98,18 @@ export class GkCliIntegrationProvider implements Disposable {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('mcp/setup/started', { source: commandSource });
 		}
+
+		if (isWeb) {
+			void window.showErrorMessage('GitKraken MCP installation is not supported on this platform.');
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/setup/failed', {
+					reason: 'web environment unsupported',
+					source: commandSource,
+				});
+			}
+			return;
+		}
+
 		const appName = toMcpInstallProvider(await getHostAppName());
 		if (appName == null) {
 			void window.showInformationMessage(`Failed to install MCP integration: Could not determine app name`);
@@ -125,80 +137,74 @@ export class GkCliIntegrationProvider implements Disposable {
 				return;
 			}
 
-			let cliInstall = this.container.storage.get('gk:cli:install');
-			let cliPath = this.container.storage.get('gk:cli:path');
-			let cliProxyFileExists = true;
-			if (cliPath != null) {
-				try {
-					await workspace.fs.stat(
-						Uri.joinPath(Uri.file(cliPath), getPlatform() === 'windows' ? 'gk.exe' : 'gk'),
-					);
-				} catch {
-					cliProxyFileExists = false;
-				}
-			}
-			if (cliInstall?.status !== 'completed' || cliPath == null || !cliProxyFileExists) {
-				try {
-					await window.withProgress(
-						{
-							location: ProgressLocation.Notification,
-							title: 'Setting up MCP integration...',
-							cancellable: false,
-						},
-						async () => {
-							cliVersion = await this.installCLI();
-						},
-					);
-				} catch (ex) {
-					let failureReason = 'unknown error';
-					if (ex instanceof CLIInstallError) {
-						switch (ex.reason) {
-							case CLIInstallErrorReason.WebEnvironmentUnsupported:
-								void window.showErrorMessage(
-									'MCP installation is not supported in the web environment.',
-								);
-								failureReason = 'web environment unsupported';
-								break;
-							case CLIInstallErrorReason.UnsupportedPlatform:
-								void window.showErrorMessage('MCP installation is not supported on this platform.');
-								failureReason = 'unsupported platform';
-								break;
-							case CLIInstallErrorReason.ProxyUrlFetch:
-							case CLIInstallErrorReason.ProxyUrlFormat:
-							case CLIInstallErrorReason.ProxyFetch:
-							case CLIInstallErrorReason.ProxyDownload:
-							case CLIInstallErrorReason.ProxyExtract:
-							case CLIInstallErrorReason.CoreDirectory:
-							case CLIInstallErrorReason.CoreInstall:
-								void window.showErrorMessage('Failed to install MCP server locally.');
-								failureReason = 'local installation failed';
-								break;
-							default:
-								void window.showErrorMessage(
-									`Failed to install MCP integration: ${ex instanceof Error ? ex.message : 'Unknown error during installation'}`,
-								);
-								break;
-						}
-					}
-
-					if (this.container.telemetry.enabled) {
-						this.container.telemetry.sendEvent('mcp/setup/failed', {
-							reason: failureReason,
-							'error.message': ex instanceof Error ? ex.message : 'Unknown error during installation',
-							source: commandSource,
-						});
+			let cliVersion: string | undefined;
+			let cliPath: string | undefined;
+			try {
+				await window.withProgress(
+					{
+						location: ProgressLocation.Notification,
+						title: 'Setting up the GitKraken MCP...',
+						cancellable: false,
+					},
+					async () => {
+						const { cliVersion: installedVersion, cliPath: installedPath } = await this.installCLI(
+							false,
+							source,
+						);
+						cliVersion = installedVersion;
+						cliPath = installedPath;
+					},
+				);
+			} catch (ex) {
+				let failureReason = 'unknown error';
+				if (ex instanceof CLIInstallError) {
+					switch (ex.reason) {
+						case CLIInstallErrorReason.WebEnvironmentUnsupported:
+							void window.showErrorMessage(
+								'GitKraken MCP installation is not supported on this platform.',
+							);
+							failureReason = 'web environment unsupported';
+							break;
+						case CLIInstallErrorReason.UnsupportedPlatform:
+							void window.showErrorMessage(
+								'GitKraken MCP installation is not supported on this platform.',
+							);
+							failureReason = 'unsupported platform';
+							break;
+						case CLIInstallErrorReason.ProxyUrlFetch:
+						case CLIInstallErrorReason.ProxyUrlFormat:
+						case CLIInstallErrorReason.ProxyFetch:
+						case CLIInstallErrorReason.ProxyDownload:
+						case CLIInstallErrorReason.ProxyExtract:
+						case CLIInstallErrorReason.CoreDirectory:
+						case CLIInstallErrorReason.CoreInstall:
+							void window.showErrorMessage('Failed to install the GitKraken MCP server locally.');
+							failureReason = 'local installation failed';
+							break;
+						default:
+							void window.showErrorMessage(
+								`Failed to install the GitKraken MCP integration: ${ex instanceof Error ? ex.message : 'Unknown error.'}`,
+							);
+							break;
 					}
 				}
+
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/setup/failed', {
+						reason: failureReason,
+						'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+						source: commandSource,
+					});
+				}
+				return;
 			}
 
-			cliInstall = this.container.storage.get('gk:cli:install');
-			cliPath = this.container.storage.get('gk:cli:path');
-			if (cliInstall?.status !== 'completed' || cliPath == null) {
-				void window.showErrorMessage('Failed to install MCP integration: Unknown error during installation.');
+			if (cliPath == null) {
+				void window.showErrorMessage('Failed to install the GitKraken MCP: Unknown error.');
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/failed', {
 						reason: 'unknown error',
-						'error.message': 'Unknown error during installation',
+						'error.message': 'Unknown error',
 						source: commandSource,
 						'cli.version': cliVersion,
 					});
@@ -208,7 +214,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			if (appName !== 'cursor' && appName !== 'vscode' && appName !== 'vscode-insiders') {
 				const confirmation = await window.showInformationMessage(
-					`MCP configured successfully. Click 'Finish' to add it to your MCP server list and complete the installation.`,
+					`GitKraken MCP installed successfully. Click 'Finish' to add it to your MCP server list and complete the setup.`,
 					{ modal: true },
 					{ title: 'Finish' },
 					{ title: 'Cancel', isCloseAffordance: true },
@@ -234,6 +240,13 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			output = output.trim();
 			if (output === 'GitKraken MCP Server Successfully Installed!') {
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/setup/completed', {
+						requiresUserCompletion: false,
+						source: commandSource,
+						'cli.version': cliVersion,
+					});
+				}
 				return;
 			} else if (output.includes('not a supported MCP client')) {
 				if (this.container.telemetry.enabled) {
@@ -260,15 +273,14 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 				}
 				Logger.error(`Unexpected output from mcp install command: ${output}`, scope);
-				void window.showErrorMessage(`Failed to install MCP integration: error getting install URL`);
+				void window.showErrorMessage(`Failed to install the GitKrakenMCP integration: unknown error`);
 				return;
 			}
 
 			await openUrl(output);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/completed', {
-					requiresUserCompletion:
-						appName === 'cursor' || appName === 'vscode' || appName === 'vscode-insiders',
+					requiresUserCompletion: true,
 					source: commandSource,
 					'cli.version': cliVersion,
 				});
@@ -278,24 +290,41 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/failed', {
 					reason: 'unknown error',
-					'error.message': ex instanceof Error ? ex.message : 'Unknown error during installation',
+					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
 					source: commandSource,
 					'cli.version': cliVersion,
 				});
 			}
 
 			void window.showErrorMessage(
-				`Failed to install MCP integration: ${ex instanceof Error ? ex.message : String(ex)}`,
+				`Failed to install the GitKraken MCP integration: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
 			);
 		}
 	}
 
 	@gate()
-	private async installCLI(autoInstall?: boolean, source?: Sources): Promise<string | undefined> {
+	private async installCLI(
+		autoInstall?: boolean,
+		source?: Sources,
+	): Promise<{ cliVersion?: string; cliPath?: string }> {
 		let attempts = 0;
 		let cliVersion: string | undefined;
+		let cliPath: string | undefined;
+		const cliInstall = this.container.storage.get('gk:cli:install');
+		if (autoInstall) {
+			if (cliInstall?.status === 'completed') {
+				cliVersion = cliInstall.version;
+				cliPath = this.container.storage.get('gk:cli:path');
+				return { cliVersion: cliVersion, cliPath: cliPath };
+			} else if (
+				cliInstall?.status === 'unsupported' ||
+				(cliInstall?.status === 'attempted' && cliInstall.attempts >= 5)
+			) {
+				return { cliVersion: undefined, cliPath: undefined };
+			}
+		}
+
 		try {
-			const cliInstall = this.container.storage.get('gk:cli:install');
 			attempts = cliInstall?.attempts ?? 0;
 			attempts += 1;
 			if (this.container.telemetry.enabled) {
@@ -456,7 +485,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					// Use the run function to extract the installer file from the installer zip
 					if (platform === 'windows') {
 						// On Windows, use PowerShell to extract the zip file.
-						// Force overwrite if the file already exists and the force param is true
+						// Force overwrite if the file already exists with -Force
 						await run(
 							'powershell.exe',
 							[
@@ -466,7 +495,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							'utf8',
 						);
 					} else {
-						// On Unix-like systems, use the unzip command to extract the zip file
+						// On Unix-like systems, use the unzip command to extract the zip file, forcing overwrite with -o
 						await run('unzip', ['-o', cliProxyZipFilePath.fsPath, '-d', globalStoragePath.fsPath], 'utf8');
 					}
 
@@ -475,8 +504,11 @@ export class GkCliIntegrationProvider implements Disposable {
 						globalStoragePath,
 						platform === 'windows' ? 'gk.exe' : 'gk',
 					);
+
+					// This will throw if the file doesn't exist
 					await workspace.fs.stat(cliExtractedProxyFilePath);
 					void this.container.storage.store('gk:cli:path', globalStoragePath.fsPath).catch();
+					cliPath = globalStoragePath.fsPath;
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyExtract,
@@ -501,7 +533,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 					Logger.log('CLI install completed.');
 					void this.container.storage
-						.store('gk:cli:install', { status: 'completed', attempts: attempts })
+						.store('gk:cli:install', { status: 'completed', attempts: attempts, version: cliVersion })
 						.catch();
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent('cli/install/succeeded', {
@@ -553,7 +585,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		}
 
-		return cliVersion;
+		return { cliVersion: cliVersion, cliPath: cliPath };
 	}
 
 	private async runCLICommand(
