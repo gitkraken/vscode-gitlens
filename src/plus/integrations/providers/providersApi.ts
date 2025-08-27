@@ -326,6 +326,7 @@ export class ProvidersApi {
 			[IssuesCloudHostIntegrationId.Linear]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Linear],
 				provider: providerApis.linear,
+				getIssueFn: providerApis.linear.getIssue.bind(providerApis.linear) as GetIssueFn,
 				getIssuesForCurrentUserFn: providerApis.linear.getIssuesForCurrentUser.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {

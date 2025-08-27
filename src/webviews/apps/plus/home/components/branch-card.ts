@@ -567,7 +567,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							<issue-icon state=${issue.state} issue-id=${issue.id}></issue-icon>
 						</span>
 						<a href=${issue.url} class="branch-item__name branch-item__name--secondary">${issue.title}</a>
-						<span class="branch-item__identifier">#${issue.id}</span>
+						<span class="branch-item__identifier">${isNaN(parseInt(issue.id)) ? '' : '#'}${issue.id}</span>
 					</p>
 				`;
 			})}

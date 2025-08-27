@@ -1808,7 +1808,12 @@ function enrichOverviewBranchesCore(
 			issues =>
 				issues?.map(
 					i =>
-						({ id: i.id, title: i.title, state: i.state, url: i.url }) satisfies NonNullable<IssuesInfo>[0],
+						({
+							id: i.number || i.id,
+							title: i.title,
+							state: i.state,
+							url: i.url,
+						}) satisfies NonNullable<IssuesInfo>[0],
 				) ?? [],
 		);
 
