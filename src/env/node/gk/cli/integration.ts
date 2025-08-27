@@ -311,10 +311,22 @@ export class GkCliIntegrationProvider implements Disposable {
 		let cliInstallStatus = cliInstall?.status ?? 'attempted';
 		let cliVersion = cliInstall?.version;
 		let cliPath = this.container.storage.get('gk:cli:path');
+		const platform = getPlatform();
 
 		if (cliInstallStatus === 'completed') {
-			cliVersion = cliInstall?.version;
-			return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
+			if (cliPath == null) {
+				cliInstallStatus = 'attempted';
+				cliVersion = undefined;
+			} else {
+				cliVersion = cliInstall?.version;
+				try {
+					await workspace.fs.stat(Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk'));
+					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
+				} catch {
+					cliInstallStatus = 'attempted';
+					cliVersion = undefined;
+				}
+			}
 		} else if (cliInstallStatus === 'unsupported') {
 			return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
 		} else if (autoInstall && cliInstallStatus === 'attempted' && cliInstallAttempts >= 5) {
@@ -347,9 +359,6 @@ export class GkCliIntegrationProvider implements Disposable {
 
 				throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, 'web');
 			}
-
-			// Detect platform and architecture
-			const platform = getPlatform();
 
 			// Map platform names for the API and get architecture
 			let platformName: string;
