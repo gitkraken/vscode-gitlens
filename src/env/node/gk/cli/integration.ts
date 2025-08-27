@@ -111,7 +111,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		const appName = toMcpInstallProvider(await getHostAppName());
 		if (appName == null) {
-			void window.showInformationMessage(`Failed to install MCP integration: Could not determine app name`);
+			void window.showInformationMessage(`Failed to install the GitKraken MCP: Could not determine app name`);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/failed', {
 					reason: 'no app name',
@@ -182,7 +182,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							break;
 						default:
 							void window.showErrorMessage(
-								`Failed to install the GitKraken MCP integration: ${ex instanceof Error ? ex.message : 'Unknown error.'}`,
+								`Failed to install the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error.'}`,
 							);
 							break;
 					}
@@ -272,7 +272,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 				}
 				Logger.error(`Unexpected output from mcp install command: ${output}`, scope);
-				void window.showErrorMessage(`Failed to install the GitKrakenMCP integration: unknown error`);
+				void window.showErrorMessage(`Failed to install the GitKraken MCP: unknown error`);
 				return;
 			}
 
@@ -296,7 +296,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			void window.showErrorMessage(
-				`Failed to install the GitKraken MCP integration: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+				`Failed to install the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
 			);
 		}
 	}
