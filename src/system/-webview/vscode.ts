@@ -12,44 +12,52 @@ import { exists } from './vscode/uris';
 
 export const deviceCohortGroup = getDistributionGroup(env.machineId);
 
+let _hostAppName: string | undefined | null;
+export async function getHostAppName(): Promise<string | undefined> {
+	if (_hostAppName !== undefined) return _hostAppName ?? undefined;
+
+	switch (env.appName) {
+		case 'Visual Studio Code':
+			_hostAppName = 'code';
+			break;
+		case 'Visual Studio Code - Insiders':
+			_hostAppName = 'code-insiders';
+			break;
+		case 'Visual Studio Code - Exploration':
+			_hostAppName = 'code-exploration';
+			break;
+		case 'VSCodium':
+			_hostAppName = 'codium';
+			break;
+		case 'Cursor':
+			_hostAppName = 'cursor';
+			break;
+		case 'Windsurf':
+			_hostAppName = 'windsurf';
+			break;
+		default: {
+			try {
+				const bytes = await workspace.fs.readFile(Uri.file(joinPaths(env.appRoot, 'product.json')));
+				const product = JSON.parse(new TextDecoder().decode(bytes));
+				_hostAppName = product.applicationName;
+			} catch {
+				_hostAppName = null;
+			}
+
+			break;
+		}
+	}
+
+	return _hostAppName ?? undefined;
+}
+
 let _hostExecutablePath: string | undefined;
 export async function getHostExecutablePath(): Promise<string> {
 	if (_hostExecutablePath != null) return _hostExecutablePath;
 
 	const platform = getPlatform();
 
-	let app: string;
-	switch (env.appName) {
-		case 'Visual Studio Code':
-			app = 'code';
-			break;
-		case 'Visual Studio Code - Insiders':
-			app = 'code-insiders';
-			break;
-		case 'Visual Studio Code - Exploration':
-			app = 'code-exploration';
-			break;
-		case 'VSCodium':
-			app = 'codium';
-			break;
-		case 'Cursor':
-			app = 'cursor';
-			break;
-		case 'Windsurf':
-			app = 'windsurf';
-			break;
-		default: {
-			try {
-				const bytes = await workspace.fs.readFile(Uri.file(joinPaths(env.appRoot, 'product.json')));
-				const product = JSON.parse(new TextDecoder().decode(bytes));
-				app = product.applicationName;
-			} catch {
-				app = 'code';
-			}
-
-			break;
-		}
-	}
+	const app = (await getHostAppName()) ?? 'code';
 
 	_hostExecutablePath = app;
 	if (env.remoteName) return app;

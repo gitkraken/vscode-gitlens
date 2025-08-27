@@ -274,6 +274,10 @@ _{prefix}/command/{command}_
 
   - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
 
+  - _login_ - Runs the `GitLens: Sign In to GitKraken...` command.
+
+  - _signup_ - Runs the `GitLens: Sign Up for GitKraken...` command.
+
   - _launchpad_ - Runs the `GitLens: Show Launchpad` command.
 
   - _walkthrough_ - Runs the `GitLens: Get Started` command.
@@ -283,3 +287,27 @@ _{prefix}/command/{command}_
 #### Example Usage
 
 External sources, such as GitKraken web pages, can use these links to directly run a GitLens command - for example, to show the Launchpad.
+
+### Integrations
+
+#### Description
+
+Used to connect or manage integrations.
+
+#### Format
+
+_{prefix}/integrations/connect(&integration={integration})_
+
+#### References
+
+- _{integration}_ is an optional parameter representing the integration to connect. Currently supported values include:
+  - _github_ - Connects the GitHub integration.
+  - _gitlab_ - Connects the GitLab integration.
+  - _bitbucket_ - Connects the Bitbucket integration.
+  - _azuredevOps_ - Connects the Azure DevOps integration.
+  - _jira_ - Connects the Jira integration.
+  - _trello_ - Connects the Trello integration.
+  - _github-enterprise_ - Connects the GitHub Enterprise integration.
+  - _gitlab-self-hosted_ - Connects the GitLab Self-Hosted integration.
+  - _bitbucket-server_ - Connects the Bitbucket Server integration.
+  - _azure-devops-server_ - Connects the Azure DevOps Server integration.
