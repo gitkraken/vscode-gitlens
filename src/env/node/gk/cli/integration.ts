@@ -99,7 +99,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 
 		if (isWeb) {
-			void window.showErrorMessage('GitKraken MCP installation is not supported on this platform.');
+			void window.showErrorMessage('GitKraken MCP setup is not supported on this platform.');
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/failed', {
 					reason: 'web environment unsupported',
@@ -111,7 +111,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		const appName = toMcpInstallProvider(await getHostAppName());
 		if (appName == null) {
-			void window.showInformationMessage(`Failed to install the GitKraken MCP: Could not determine app name`);
+			void window.showInformationMessage(`Failed to setup the GitKraken MCP: Could not determine app name`);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/failed', {
 					reason: 'no app name',
@@ -165,9 +165,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				if (ex instanceof CLIInstallError) {
 					switch (ex.reason) {
 						case CLIInstallErrorReason.UnsupportedPlatform:
-							void window.showErrorMessage(
-								'GitKraken MCP installation is not supported on this platform.',
-							);
+							void window.showErrorMessage('GitKraken MCP setup is not supported on this platform.');
 							failureReason = 'unsupported platform';
 							break;
 						case CLIInstallErrorReason.ProxyUrlFetch:
@@ -182,7 +180,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							break;
 						default:
 							void window.showErrorMessage(
-								`Failed to install the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error.'}`,
+								`Failed to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error.'}`,
 							);
 							break;
 					}
@@ -199,7 +197,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			if (cliPath == null) {
-				void window.showErrorMessage('Failed to install the GitKraken MCP: Unknown error.');
+				void window.showErrorMessage('Failed to setup the GitKraken MCP: Unknown error.');
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/failed', {
 						reason: 'unknown error',
@@ -272,7 +270,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 				}
 				Logger.error(`Unexpected output from mcp install command: ${output}`, scope);
-				void window.showErrorMessage(`Failed to install the GitKraken MCP: unknown error`);
+				void window.showErrorMessage(`Failed to setup the GitKraken MCP: unknown error`);
 				return;
 			}
 
@@ -296,7 +294,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			void window.showErrorMessage(
-				`Failed to install the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+				`Failed to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
 			);
 		}
 	}
