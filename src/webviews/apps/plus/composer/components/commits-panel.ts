@@ -1089,27 +1089,12 @@ export class CommitsPanel extends LitElement {
 								?disabled=${disabled || this.generating || this.committing}
 								@click=${this.dispatchGenerateCommitsWithAI}
 							>
-								<code-icon
-									modifier=${this.generating ? 'spin' : ''}
-									icon=${this.generating ? 'loading' : 'sparkle'}
-									slot="prefix"
-								></code-icon>
+
 								${this.generating
 									? 'Generating Commits...'
 									: this.hasUsedAutoCompose
 										? 'Recompose Commits'
 										: 'Auto-Compose Commits'}
-							</gl-button>
-						`,
-						() => html`
-							<gl-button
-								full
-								appearance="secondary"
-								tooltip=${this.aiDisabledReason || 'Auto-Compose Commits is disabled'}
-								?disabled=${disabled}
-							>
-								<code-icon icon="sparkle" slot="prefix"></code-icon>
-								Auto-Compose Commits
 							</gl-button>
 						`,
 					)}
@@ -1206,7 +1191,6 @@ export class CommitsPanel extends LitElement {
 			return html`
 				<div class="container scrollable">
 					<div class="working-section">
-						${this.renderAutoComposeContainer(true)}
 						<div class="commits-list">
 							<h3 class="commits-header">Draft Commits</h3>
 							<div class="composer-item">
@@ -1241,7 +1225,6 @@ export class CommitsPanel extends LitElement {
 			<div class="container scrollable">
 				<div class="working-section">
 					<!-- Auto-Compose container at top when not used yet -->
-					${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 					<div class="commits-list">
 						${this.hasUsedAutoCompose
 							? this.renderCompositionSummarySection()
@@ -1314,7 +1297,6 @@ export class CommitsPanel extends LitElement {
 						)}
 					</div>
 					<!-- Auto-Compose container in original position when already used -->
-					${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
 				</div>
 				${this.renderFinishCommitSection()}
 			</div>

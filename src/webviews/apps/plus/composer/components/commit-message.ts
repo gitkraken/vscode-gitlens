@@ -234,30 +234,6 @@ export class CommitMessage extends LitElement {
 					@input=${this.onMessageInput}
 				></textarea>
 				${this.renderHelpText()}
-				${when(
-					this.aiEnabled,
-					() =>
-						html`<gl-button
-							class="commit-message__ai-button"
-							appearance="toolbar"
-							?disabled=${this.generating}
-							.tooltip=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
-							@click=${() => this.onGenerateCommitMessageClick()}
-						>
-							<code-icon
-								.icon=${this.generating ? 'loading' : 'sparkle'}
-								.modifier=${this.generating ? 'spin' : ''}
-							></code-icon>
-						</gl-button>`,
-					() =>
-						html`<gl-button
-							class="commit-message__ai-button"
-							appearance="toolbar"
-							.tooltip=${this.aiDisabledReason || 'AI features are disabled'}
-						>
-							<code-icon icon="sparkle"></code-icon>
-						</gl-button>`,
-				)}
 			</div>
 		`;
 	}
