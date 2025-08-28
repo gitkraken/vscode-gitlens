@@ -123,22 +123,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderExplainChanges() {
-		if (true) return undefined;
-
-		return html`
-			<gl-action-chip
-				label=${this.isUncommitted
-					? 'Explain Working Changes'
-					: `Explain Changes in this ${this.isStash ? 'Stash' : 'Commit'}`}
-				icon="sparkle"
-				data-action="explain-commit"
-				aria-busy="${this.explainBusy ? 'true' : nothing}"
-				?disabled="${this.explainBusy ? true : nothing}"
-				@click=${this.onExplainChanges}
-				@keydown=${this.onExplainChanges}
-				><span>explain</span></gl-action-chip
-			>
-		`;
+		return undefined
 	}
 
 	private renderCommitMessage() {
