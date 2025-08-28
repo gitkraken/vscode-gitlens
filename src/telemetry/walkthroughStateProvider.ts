@@ -137,7 +137,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.ai.generateChangelogFrom:graph:executed',
 				'command:gitlens.ai.generateChangelogFrom:views:executed',
 				'command:gitlens.ai.generateCommitMessage:graph:executed',
-				'command:gitlens.ai.generateCommitMessage:scm:executed',
 				'command:gitlens.ai.generateChangelog:views:executed',
 				'command:gitlens.ai.generateRebase:executed',
 				'command:gitlens.ai.rebaseOntoCommit:views:executed',

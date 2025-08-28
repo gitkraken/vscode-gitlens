@@ -6286,11 +6286,6 @@
 				"title": "Generate Commit Message"
 			},
 			{
-				"command": "gitlens.ai.generateCommitMessage:scm",
-				"title": "Generate Commit Message with GitLens",
-				"icon": "$(sparkle)"
-			},
-			{
 				"command": "gitlens.ai.generateRebase",
 				"title": "Rebase with AI (Preview)...",
 				"category": "GitLens",
@@ -11063,10 +11058,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.ai.generateRebase",
 					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
@@ -14758,11 +14749,6 @@
 					"group": "4_gitlens@1"
 				},
 				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "4_gitlens@2"
-				},
-				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 					"group": "4_gitlens@3"
@@ -17121,11 +17107,6 @@
 					"command": "gitlens.composeCommits:scm",
 					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
 					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.ai.generateCommitMessage:scm",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.addAuthors",

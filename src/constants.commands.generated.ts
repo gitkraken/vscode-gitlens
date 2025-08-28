@@ -20,7 +20,6 @@ export type ContributedCommands =
 	| 'gitlens.ai.generateChangelogFrom:graph'
 	| 'gitlens.ai.generateChangelogFrom:views'
 	| 'gitlens.ai.generateCommitMessage:graph'
-	| 'gitlens.ai.generateCommitMessage:scm'
 	| 'gitlens.ai.rebaseOntoCommit:graph'
 	| 'gitlens.ai.rebaseOntoCommit:views'
 	| 'gitlens.ai.switchProvider:scm'

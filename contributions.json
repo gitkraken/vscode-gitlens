@@ -279,26 +279,6 @@
 				]
 			}
 		},
-		"gitlens.ai.generateCommitMessage:scm": {
-			"label": "Generate Commit Message with GitLens",
-			"icon": "$(sparkle)",
-			"menus": {
-				"git.commit": [
-					{
-						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-						"group": "4_gitlens",
-						"order": 2
-					}
-				],
-				"scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-						"group": "2_gitlens",
-						"order": 2
-					}
-				]
-			}
-		},
 		"gitlens.ai.generateRebase": {
 			"label": "Rebase with AI (Preview)...",
 			"icon": "$(sparkle)",
