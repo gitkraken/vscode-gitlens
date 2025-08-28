@@ -123,7 +123,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderExplainChanges() {
-		if (this.state?.orgSettings.ai === false) return undefined;
+		if (true) return undefined;
 
 		return html`
 			<gl-action-chip
