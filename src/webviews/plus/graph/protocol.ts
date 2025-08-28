@@ -125,6 +125,7 @@ export interface State extends WebviewState {
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 	featurePreview?: FeaturePreview;
 	orgSettings?: { ai: boolean; drafts: boolean };
+	mcpBannerCollapsed?: boolean;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -410,6 +411,8 @@ export interface DidChangeAvatarsParams {
 	avatars: GraphAvatars;
 }
 export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
+
+export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didChange');
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;

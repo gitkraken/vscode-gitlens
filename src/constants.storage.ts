@@ -88,6 +88,7 @@ export type GlobalStorage = {
 	'gk:cli:path': string;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
+	'mcp:banner:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
