@@ -1,0 +1,24 @@
+import { getPlatform, isWeb } from '@env/platform';
+import type { Container } from '../../../../container';
+import { getHostAppName } from '../../../../system/-webview/vscode';
+
+export async function isMcpBannerEnabled(container: Container): Promise<boolean> {
+	// Check if running on web
+	if (isWeb) {
+		return false;
+	}
+
+	// Check platform
+	const platform = getPlatform();
+	if (platform !== 'windows' && platform !== 'macOS' && platform !== 'linux') {
+		return false;
+	}
+
+	if (container.storage.get('mcp:banner:dismissed', false)) return false;
+
+	// Check host app
+	const hostAppName = await getHostAppName();
+	const supportedApps = ['code', 'code-insiders', 'cursor', 'windsurf'];
+
+	return hostAppName != null && supportedApps.includes(hostAppName);
+}

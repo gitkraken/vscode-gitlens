@@ -3,6 +3,7 @@ import type { State } from '../../home/protocol';
 import {
 	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
+	DidChangeMcpBanner,
 	DidChangeOrgSettings,
 	DidChangePreviewEnabled,
 	DidChangeRepositories,
@@ -90,6 +91,13 @@ export class HomeStateProvider implements StateProvider<State> {
 
 				case DidChangeAiAllAccessBanner.is(msg):
 					this._state.aiAllAccessBannerCollapsed = msg.params;
+					this._state.timestamp = Date.now();
+
+					this.provider.setValue(this._state, true);
+					host.requestUpdate();
+					break;
+				case DidChangeMcpBanner.is(msg):
+					this._state.mcpBannerCollapsed = msg.params;
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);
