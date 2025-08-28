@@ -20,6 +20,8 @@ import type {
 	JiraProject,
 	JiraResource,
 	Linear,
+	LinearOrganization,
+	LinearTeam,
 	NumberedPageInput,
 	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
@@ -75,6 +77,8 @@ export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
+export type ProviderLinearTeam = LinearTeam;
+export type ProviderLinearOrganization = LinearOrganization;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -315,6 +319,8 @@ export type GetCurrentUserForResourceFn = (
 ) => Promise<{ data: ProviderAccount }>;
 
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
+export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
+export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
@@ -377,6 +383,8 @@ export interface ProviderInfo extends ProviderMetadata {
 	getCurrentUserForInstanceFn?: GetCurrentUserForInstanceFn;
 	getCurrentUserForResourceFn?: GetCurrentUserForResourceFn;
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
+	getLinearOrganizationFn?: GetLinearOrganizationFn;
+	getLinearTeamsForCurrentUserFn?: GetLinearTeamsForCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForUserFn?: GetBitbucketResourcesForUserFn;
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
