@@ -54,6 +54,8 @@ import type {
 	ProviderIssue,
 	ProviderJiraProject,
 	ProviderJiraResource,
+	ProviderLinearOrganization,
+	ProviderLinearTeam,
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
@@ -328,6 +330,8 @@ export class ProvidersApi {
 				provider: providerApis.linear,
 				getIssueFn: providerApis.linear.getIssue.bind(providerApis.linear) as GetIssueFn,
 				getIssuesForCurrentUserFn: providerApis.linear.getIssuesForCurrentUser.bind(providerApis.linear),
+				getLinearOrganizationFn: providerApis.linear.getLinearOrganization.bind(providerApis.linear),
+				getLinearTeamsForCurrentUserFn: providerApis.linear.getTeamsForCurrentUser.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
@@ -651,6 +655,44 @@ export class ProvidersApi {
 		} catch (e) {
 			return this.handleProviderError<ProviderJiraResource[] | undefined>(
 				IssuesCloudHostIntegrationId.Jira,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getLinearOrganization(options?: { accessToken?: string }): Promise<ProviderLinearOrganization | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			IssuesCloudHostIntegrationId.Linear,
+			'getLinearOrganizationFn',
+			options?.accessToken,
+		);
+
+		try {
+			const x = await provider.getLinearOrganizationFn?.({ token: token });
+			const y = x?.data;
+			return y;
+		} catch (e) {
+			return this.handleProviderError<ProviderLinearOrganization | undefined>(
+				IssuesCloudHostIntegrationId.Linear,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getLinearTeamsForCurrentUser(options?: { accessToken?: string }): Promise<ProviderLinearTeam[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			IssuesCloudHostIntegrationId.Linear,
+			'getLinearTeamsForCurrentUserFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (await provider.getLinearTeamsForCurrentUserFn?.({ token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderLinearTeam[] | undefined>(
+				IssuesCloudHostIntegrationId.Linear,
 				token,
 				e,
 			);

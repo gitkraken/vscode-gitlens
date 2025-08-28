@@ -1,4 +1,5 @@
-import type { CancellationToken } from 'vscode';
+import type { AuthenticationSession, CancellationToken } from 'vscode';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
 import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { Issue, IssueShape } from '../../../git/models/issue';
@@ -17,12 +18,118 @@ const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes })
 const maxPagesPerRequest = 10;
 
 export interface LinearTeamDescriptor extends IssueResourceDescriptor {
+	avatarUrl: string | undefined;
+}
+
+export interface LinearOrganizationDescriptor extends IssueResourceDescriptor {
 	url: string;
 }
 
 export interface LinearProjectDescriptor extends IssueResourceDescriptor {}
 
 export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Linear> {
+	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
+	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected || this._session == null) {
+			return [];
+		}
+		const cachedAutolinks = this._autolinks?.get(this._session.accessToken);
+		if (cachedAutolinks != null) return cachedAutolinks;
+
+		const organization = await this.getOrganization(this._session);
+		if (organization == null) return [];
+
+		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+
+		const teams = await this.getTeams(this._session);
+		for (const team of teams ?? []) {
+			const dashedPrefix = `${team.key}-`;
+			const underscoredPrefix = `${team.key}_`;
+
+			autolinks.push({
+				prefix: dashedPrefix,
+				url: `${organization.url}/issue/${dashedPrefix}<num>`,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+
+				type: 'issue',
+				description: `${organization.name} Issue ${dashedPrefix}<num>`,
+				descriptor: { ...organization },
+			});
+			autolinks.push({
+				prefix: underscoredPrefix,
+				url: `${organization.url}/issue/${dashedPrefix}<num>`,
+				alphanumeric: false,
+				ignoreCase: false,
+				referenceType: 'branch',
+				title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+
+				type: 'issue',
+				description: `${organization.name} Issue ${dashedPrefix}<num>`,
+				descriptor: { ...organization },
+			});
+		}
+
+		this._autolinks ??= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
+		this._autolinks.set(this._session.accessToken, autolinks);
+
+		return autolinks;
+	}
+
+	private _organizations: Map<string, LinearOrganizationDescriptor | undefined> | undefined;
+	private async getOrganization(
+		{ accessToken }: AuthenticationSession,
+		force: boolean = false,
+	): Promise<LinearOrganizationDescriptor | undefined> {
+		this._organizations ??= new Map<string, LinearOrganizationDescriptor | undefined>();
+
+		const cachedResources = this._organizations.get(accessToken);
+
+		if (cachedResources == null || force) {
+			const api = await this.getProvidersApi();
+			const organization = await api.getLinearOrganization({ accessToken: accessToken });
+			const descriptor: LinearOrganizationDescriptor | undefined = organization && {
+				id: organization.id,
+				key: organization.key,
+				name: organization.name,
+				url: organization.url,
+			};
+			if (descriptor) {
+				this._organizations.set(accessToken, descriptor);
+			}
+		}
+
+		return this._organizations.get(accessToken);
+	}
+
+	private _teams: Map<string, LinearTeamDescriptor[] | undefined> | undefined;
+	private async getTeams(
+		{ accessToken }: AuthenticationSession,
+		force: boolean = false,
+	): Promise<LinearTeamDescriptor[] | undefined> {
+		this._teams ??= new Map<string, LinearTeamDescriptor[] | undefined>();
+
+		const cachedResources = this._teams.get(accessToken);
+
+		if (cachedResources == null || force) {
+			const api = await this.getProvidersApi();
+			const teams = await api.getLinearTeamsForCurrentUser({ accessToken: accessToken });
+			const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
+				id: t.id,
+				key: t.key,
+				name: t.name,
+				avatarUrl: t.iconUrl,
+			}));
+			if (descriptors) {
+				this._teams.set(accessToken, descriptors);
+			}
+		}
+
+		return this._teams.get(accessToken);
+	}
+
 	protected override getProviderResourcesForUser(
 		_session: ProviderAuthenticationSession,
 	): Promise<ResourceDescriptor[] | undefined> {
