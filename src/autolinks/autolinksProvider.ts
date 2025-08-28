@@ -178,8 +178,11 @@ export class AutolinksProvider implements Disposable {
 	}
 
 	getAutolinkEnrichableId(autolink: Autolink): string {
+		// TODO: this should return linking key for all types of providers: such as TST-123 or #89 or PR 89 (or a pair: key+id).
+		// Each provider should form whatever ID they need in their specific getIssueOrPullRequest() method.
 		switch (autolink.provider?.id) {
 			case IssuesCloudHostIntegrationId.Jira:
+			case IssuesCloudHostIntegrationId.Linear:
 				return `${autolink.prefix}${autolink.id}`;
 			default:
 				return autolink.id;

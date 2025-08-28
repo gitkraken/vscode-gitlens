@@ -10,7 +10,7 @@ import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { IssuesIntegration } from '../models/issuesIntegration';
-import type { IssueFilter } from './models';
+import type { IssueFilter, ProviderIssue } from './models';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
@@ -210,19 +210,29 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		}
 		return issues;
 	}
-	protected override getProviderIssueOrPullRequest(
-		_session: ProviderAuthenticationSession,
-		_resource: ResourceDescriptor,
-		_id: string,
+	protected override async getProviderIssueOrPullRequest(
+		session: ProviderAuthenticationSession,
+		resource: ResourceDescriptor,
+		id: string,
 		_type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		throw new Error('Method not implemented.');
+		const issue = await this.getRawProviderIssue(session, resource, id);
+		return issue && toIssueShape(issue, this);
 	}
 	protected override async getProviderIssue(
 		session: ProviderAuthenticationSession,
 		resource: ResourceDescriptor,
 		id: string,
 	): Promise<Issue | undefined> {
+		const result = await this.getRawProviderIssue(session, resource, id);
+		return result && fromProviderIssue(result, this);
+	}
+
+	private async getRawProviderIssue(
+		session: ProviderAuthenticationSession,
+		resource: ResourceDescriptor,
+		id: string,
+	): Promise<ProviderIssue | undefined> {
 		const api = await this.getProvidersApi();
 		try {
 			if (!isIssueResourceDescriptor(resource)) {
@@ -243,7 +253,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 			if (result == null) return undefined;
 
-			return fromProviderIssue(result, this);
+			return result;
 		} catch (ex) {
 			Logger.error(ex, 'getProviderIssue');
 			return undefined;
