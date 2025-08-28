@@ -140,6 +140,7 @@ type InternalGlCommands =
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.showComposerPage'
+	| 'gitlens.storage.store'
 	| 'gitlens.toggleFileBlame:codelens'
 	| 'gitlens.toggleFileBlame:mode'
 	| 'gitlens.toggleFileBlame:statusbar'

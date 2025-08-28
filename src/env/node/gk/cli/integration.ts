@@ -99,6 +99,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 	@gate()
 	private async setupMCP(source?: Sources): Promise<void> {
+		await this.container.storage.store('mcp:banner:dismissed', true);
 		const commandSource = source ?? 'commandPalette';
 		const scope = getLogScope();
 		let cliVersion: string | undefined;

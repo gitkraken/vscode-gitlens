@@ -50,6 +50,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
+import { isMcpBannerEnabled } from '../../plus/gk/utils/-webview/mcp.utils';
 import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
@@ -67,6 +68,7 @@ import {
 } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
+import type { StorageChangeEvent } from '../../system/-webview/storage';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces';
 import { debug, log } from '../../system/decorators/log';
@@ -109,6 +111,7 @@ import {
 	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
 	DidChangeLaunchpad,
+	DidChangeMcpBanner,
 	DidChangeOrgSettings,
 	DidChangeOverviewFilter,
 	DidChangeOverviewRepository,
@@ -179,6 +182,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 		);
 	}
 
@@ -237,6 +241,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private onAIModelChanged(_e: AIModelChangeEvent) {
 		void this.notifyDidChangeIntegrations();
+	}
+
+	private onStorageChanged(e: StorageChangeEvent) {
+		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+			void this.onMcpBannerChanged();
+		}
 	}
 
 	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
@@ -793,6 +803,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('feb2025AmaBanner') ?? false;
 	}
 
+	private async getMcpBannerCollapsed() {
+		return !(await isMcpBannerEnabled(this.container));
+	}
+
 	private getIntegrationBannerCollapsed() {
 		return this.container.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
 	}
@@ -891,6 +905,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
+			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
 		};
 	}
 
@@ -1122,6 +1137,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (!this.host.visible) return;
 
 		void this.host.notify(DidChangeAiAllAccessBanner, await this.getAiAllAccessBannerCollapsed());
+	}
+
+	private async onMcpBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeMcpBanner, await this.getMcpBannerCollapsed());
 	}
 
 	private getSelectedRepository() {

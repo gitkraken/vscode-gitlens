@@ -7,7 +7,7 @@ import '../button';
 
 export const bannerTagName = 'gl-banner';
 
-export type BannerDisplay = 'solid' | 'outline' | 'gradient' | 'gradient-transparent';
+export type BannerDisplay = 'solid' | 'outline' | 'gradient' | 'gradient-transparent' | 'gradient-purple';
 
 @customElement(bannerTagName)
 export class GlBanner extends LitElement {
@@ -45,10 +45,20 @@ export class GlBanner extends LitElement {
 	@property({ attribute: 'secondary-button-command' })
 	secondaryButtonCommand?: string;
 
+	@property({ type: Boolean, attribute: 'dismissible' })
+	dismissible = false;
+
+	@property({ attribute: 'dismiss-href' })
+	dismissHref?: string;
+
+	@property({ attribute: 'layout' })
+	layout: 'default' | 'responsive' = 'default';
+
 	private get classNames() {
 		return {
 			banner: true,
 			[`banner--${this.display}`]: true,
+			[`banner--${this.layout}`]: this.layout !== 'default',
 		};
 	}
 
@@ -59,9 +69,24 @@ export class GlBanner extends LitElement {
 	private renderContent() {
 		return html`
 			<div class="banner__content">
-				${this.bannerTitle ? this.renderTitle() : ''} ${this.body ? this.renderBody() : ''}
-				${this.renderButtons()}
+				${this.layout === 'responsive' ? this.renderResponsiveContent() : this.renderDefaultContent()}
 			</div>
+			${this.layout !== 'responsive' && this.dismissible ? this.renderDismissButton() : ''}
+		`;
+	}
+
+	private renderDefaultContent() {
+		return html`
+			${this.bannerTitle ? this.renderTitle() : ''} ${this.body ? this.renderBody() : ''} ${this.renderButtons()}
+		`;
+	}
+
+	private renderResponsiveContent() {
+		return html`
+			<div class="banner__text">
+				${this.bannerTitle ? this.renderTitle() : ''} ${this.body ? this.renderBody() : ''}
+			</div>
+			${this.renderButtons()} ${this.dismissible ? this.renderDismissButton() : ''}
 		`;
 	}
 
@@ -70,7 +95,7 @@ export class GlBanner extends LitElement {
 	}
 
 	private renderBody() {
-		return html`<div class="banner__body">${this.body}</div>`;
+		return html`<div class="banner__body" .innerHTML=${this.body}></div>`;
 	}
 
 	private renderButtons() {
@@ -90,6 +115,8 @@ export class GlBanner extends LitElement {
 		return html`
 			<gl-button
 				class="banner__button banner__button--primary"
+				appearance=${this.display === 'gradient-purple' ? 'secondary' : undefined}
+				?full=${this.display === 'gradient-purple'}
 				href=${ifDefined(this.primaryButtonHref)}
 				truncate
 				@click=${this.onPrimaryButtonClick}
@@ -108,6 +135,21 @@ export class GlBanner extends LitElement {
 				@click=${this.onSecondaryButtonClick}
 			>
 				${this.secondaryButton}
+			</gl-button>
+		`;
+	}
+
+	private renderDismissButton() {
+		return html`
+			<gl-button
+				class="banner__dismiss"
+				appearance="toolbar"
+				href=${ifDefined(this.dismissHref)}
+				aria-label="Dismiss"
+				tooltip="Dismiss"
+				@click=${this.onDismissClick}
+			>
+				<code-icon icon="close"></code-icon>
 			</gl-button>
 		`;
 	}
@@ -132,6 +174,16 @@ export class GlBanner extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-banner-secondary-click', {
 				detail: { command: this.secondaryButtonCommand },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private onDismissClick(e: Event) {
+		e.preventDefault();
+		this.dispatchEvent(
+			new CustomEvent('gl-banner-dismiss', {
 				bubbles: true,
 				composed: true,
 			}),
