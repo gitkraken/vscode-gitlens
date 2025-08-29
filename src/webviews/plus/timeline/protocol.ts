@@ -25,6 +25,7 @@ export interface State extends WebviewState {
 	repositories: { count: number; openCount: number };
 
 	access: FeatureAccess;
+	mcpBannerCollapsed?: boolean;
 }
 
 export interface TimelineDatum {
@@ -111,3 +112,5 @@ export interface DidChangeParams {
 	state: State;
 }
 export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange');
+
+export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didChange');
