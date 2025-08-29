@@ -289,7 +289,7 @@ export class GlAccountChip extends LitElement {
 
 	private get planTier() {
 		if (isSubscriptionTrial(this.subscription)) {
-			return 'Pro Trial';
+			return this.subscription.plan.effective.id === 'student' ? 'Student' : 'Pro Trial';
 		}
 
 		return getSubscriptionPlanName(this.planId);
@@ -507,8 +507,8 @@ export class GlAccountChip extends LitElement {
 					<p>
 						You have
 						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
-						in your Pro trial. Once your trial ends, you will only be able to use Pro features on
-						publicly-hosted repos.
+						in your ${this.planTier === 'Student' ? 'Student' : 'Pro'} trial. Once your trial ends, you will
+						only be able to use Pro features on publicly-hosted repos.
 					</p>
 					<button-container layout="editor">
 						<gl-button

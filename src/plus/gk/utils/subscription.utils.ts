@@ -163,12 +163,12 @@ export function getSubscriptionProductPlanName(id: SubscriptionPlanIds): string 
 export function getSubscriptionProductPlanNameFromState(
 	state: SubscriptionState,
 	planId?: SubscriptionPlanIds,
-	_effectivePlanId?: SubscriptionPlanIds,
+	effectivePlanId?: SubscriptionPlanIds,
 ): string {
 	switch (state) {
 		case SubscriptionState.Community:
 		case SubscriptionState.Trial:
-			return `${getSubscriptionProductPlanName('pro')} Trial`;
+			return `${effectivePlanId === 'student' ? getSubscriptionProductPlanName('student') : getSubscriptionProductPlanName('pro')} Trial`;
 		// return `${getSubscriptionProductPlanName(
 		// 	_effectivePlanId != null &&
 		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? 'pro') > 0
