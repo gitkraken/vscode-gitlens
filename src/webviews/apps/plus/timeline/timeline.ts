@@ -27,6 +27,7 @@ import { timelineBaseStyles, timelineStyles } from './timeline.css';
 import './components/chart';
 import '../../shared/components/breadcrumbs';
 import '../../shared/components/button';
+import '../../shared/components/mcp-banner';
 import '../../shared/components/checkbox/checkbox';
 import '../../shared/components/code-icon';
 import '../../shared/components/copy-container';
@@ -143,6 +144,11 @@ export class GlTimelineApp extends GlAppHost<State> {
 	override render(): unknown {
 		return html`${this.renderGate()}
 			<div class="container">
+				<gl-mcp-banner
+					.source=${'timeline'}
+					layout="responsive"
+					.collapsed=${this.state?.mcpBannerCollapsed ?? true}
+				></gl-mcp-banner>
 				<progress-indicator ?active=${this._loading}></progress-indicator>
 				<header class="header" ?hidden=${!this.scope}>
 					<span class="details">${this.renderBreadcrumbs()} ${this.renderTimeframe()}</span>
