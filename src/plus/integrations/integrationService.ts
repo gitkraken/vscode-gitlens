@@ -685,7 +685,15 @@ export class IntegrationService implements Disposable {
 			if (remote?.provider == null) return undefined;
 
 			const integration = await remote.getIntegration();
-			return integration?.searchMyIssues(remote.provider.repoDesc);
+			// Normalize Azure DevOps repo names to avoid including '/_git/' path in the name
+			const owner = remote.provider.owner;
+			let name = remote.provider.repoName;
+			if (name != null) {
+				const m = /\/_git\/([^/]+)$/.exec(name);
+				if (m) name = m[1];
+			}
+			const descriptor = owner != null && name != null ? { key: `${owner}/${name}`, owner: owner, name: name } : undefined;
+			return integration?.searchMyIssues(descriptor ?? remote.provider.repoDesc);
 		}
 
 		const integrations = new Map<GitHostIntegration, ResourceDescriptor[]>();
@@ -701,7 +709,16 @@ export class IntegrationService implements Disposable {
 				repos = [];
 				integrations.set(integration, repos);
 			}
-			repos.push(remote.provider.repoDesc);
+			// Normalize Azure DevOps repo names to avoid including '/_git/' path in the name
+			const owner = remote.provider.owner;
+			let name = remote.provider.repoName;
+			if (name != null) {
+				const m = /\/_git\/([^/]+)$/.exec(name);
+				if (m) name = m[1];
+			}
+			repos.push(
+				owner != null && name != null ? { key: `${owner}/${name}`, owner: owner, name: name } : remote.provider.repoDesc,
+			);
 		}
 
 		return this.getMyIssuesCore(integrations);
