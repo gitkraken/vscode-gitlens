@@ -129,12 +129,16 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return super.owner;
 	}
 
-	override get repoName(): string | undefined {
-		if (isVsts(this.domain)) {
-			return this.path;
-		}
-		return super.repoName;
-	}
+    override get repoName(): string | undefined {
+        if (isVsts(this.domain)) {
+            // strip any leading project path and _git/ prefix, keep only the repo name
+            const match = /\/_git\/([^/]+)$/.exec(this.path);
+            if (match) {
+                return match[1];
+            }
+        }
+        return super.repoName;
+    }
 
 	override get providerDesc():
 		| {
