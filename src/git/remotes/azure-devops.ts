@@ -9,6 +9,7 @@ import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { ResourceDescriptor } from '../models/resourceDescriptor';
 import type { GitRevisionRangeNotation } from '../models/revision';
 import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
@@ -122,6 +123,16 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return 'Azure DevOps';
 	}
 
+	override get repoDesc(): ResourceDescriptor {
+		const owner = this.owner ?? '';
+		const name = this.repoName ?? '';
+		return {
+			key: owner && name ? `${owner}/${name}` : name || owner,
+			owner: owner,
+			name: name,
+		} as unknown as ResourceDescriptor;
+	}
+
 	override get owner(): string | undefined {
 		if (isVsts(this.domain)) {
 			return this.domain.split('.')[0];
@@ -129,16 +140,14 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return super.owner;
 	}
 
-    override get repoName(): string | undefined {
-        if (isVsts(this.domain)) {
-            // strip any leading project path and _git/ prefix, keep only the repo name
-            const match = /\/_git\/([^/]+)$/.exec(this.path);
-            if (match) {
-                return match[1];
-            }
-        }
-        return super.repoName;
-    }
+	override get repoName(): string | undefined {
+		// For Azure DevOps (both dev.azure.com and *.visualstudio.com), prefer extracting the repo name from '/_git/<repo>'
+		const match = /\/_git\/([^/]+)$/.exec(this.path);
+		if (match) {
+			return match[1];
+		}
+		return super.repoName;
+	}
 
 	override get providerDesc():
 		| {
