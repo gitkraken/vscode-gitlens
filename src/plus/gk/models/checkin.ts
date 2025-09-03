@@ -25,6 +25,7 @@ export interface GKLicense {
 	readonly organizationId: string | undefined;
 	readonly reactivationCount?: number;
 	readonly nextOptInDate?: string;
+	readonly hasPaymentSource?: boolean;
 }
 
 export type GKLicenseType =
