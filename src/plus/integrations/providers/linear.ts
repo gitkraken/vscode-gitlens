@@ -210,10 +210,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		}
 		return issues;
 	}
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		session: ProviderAuthenticationSession,
 		resource: ResourceDescriptor,
-		id: string,
+		{ id }: { id: string; key: string },
 		_type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
 		const issue = await this.getRawProviderIssue(session, resource, id);

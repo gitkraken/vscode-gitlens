@@ -2,7 +2,6 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import { GlyphChars } from '../constants';
 import type { IntegrationIds } from '../constants.integrations';
-import { IssuesCloudHostIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider';
@@ -177,16 +176,11 @@ export class AutolinksProvider implements Disposable {
 		return getAutolinks(message, refsets);
 	}
 
-	getAutolinkEnrichableId(autolink: Autolink): string {
-		// TODO: this should return linking key for all types of providers: such as TST-123 or #89 or PR 89 (or a pair: key+id).
-		// Each provider should form whatever ID they need in their specific getIssueOrPullRequest() method.
-		switch (autolink.provider?.id) {
-			case IssuesCloudHostIntegrationId.Jira:
-			case IssuesCloudHostIntegrationId.Linear:
-				return `${autolink.prefix}${autolink.id}`;
-			default:
-				return autolink.id;
-		}
+	getAutolinkEnrichableId(autolink: Autolink): { id: string; key: string } {
+		return {
+			id: autolink.id,
+			key: `${autolink.prefix}${autolink.id}`,
+		};
 	}
 
 	async getEnrichedAutolinks(
@@ -258,15 +252,19 @@ export class AutolinksProvider implements Disposable {
 				integration != null &&
 				integrationId === integration.id &&
 				link.provider?.domain === integration.domain
-					? integration.getIssueOrPullRequest(
+					? integration.getLinkedIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,
 							this.getAutolinkEnrichableId(link),
 							{ type: link.type },
 						)
 					: link.descriptor != null
-						? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link), {
-								type: link.type,
-							})
+						? linkIntegration?.getLinkedIssueOrPullRequest(
+								link.descriptor,
+								this.getAutolinkEnrichableId(link),
+								{
+									type: link.type,
+								},
+							)
 						: undefined;
 			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
 		}

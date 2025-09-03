@@ -499,9 +499,9 @@ export abstract class IntegrationBase<
 	): Promise<IssueShape[] | undefined>;
 
 	@debug()
-	async getIssueOrPullRequest(
+	async getLinkedIssueOrPullRequest(
 		resource: T,
-		id: string,
+		link: { id: string; key: string },
 		options?: { expiryOverride?: boolean | number; type?: IssueOrPullRequestType },
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
@@ -512,17 +512,17 @@ export abstract class IntegrationBase<
 		await this.refreshSessionIfExpired(scope);
 
 		const issueOrPR = this.container.cache.getIssueOrPullRequest(
-			id,
+			link.key,
 			options?.type,
 			resource,
 			this,
 			() => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderIssueOrPullRequest(
+						const result = await this.getProviderLinkedIssueOrPullRequest(
 							this._session!,
 							resource,
-							id,
+							link,
 							options?.type,
 						);
 						this.resetRequestExceptionCount('getIssueOrPullRequest');
@@ -538,10 +538,10 @@ export abstract class IntegrationBase<
 		return issueOrPR;
 	}
 
-	protected abstract getProviderIssueOrPullRequest(
+	protected abstract getProviderLinkedIssueOrPullRequest(
 		session: ProviderAuthenticationSession,
 		resource: T,
-		id: string,
+		link: { id: string; key: string },
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined>;
 

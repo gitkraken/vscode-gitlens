@@ -87,10 +87,10 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		});
 	}
 
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
-		id: string,
+		{ id }: { id: string; key: string },
 	): Promise<IssueOrPullRequest | undefined> {
 		return (await this.container.gitlab)?.getIssueOrPullRequest(
 			this,
