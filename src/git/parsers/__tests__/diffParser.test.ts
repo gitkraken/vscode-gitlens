@@ -9,9 +9,9 @@ rename from old-file.ts
 rename to new-file.ts`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
-		
+
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'new-file.ts', 'Should have correct new path');
 		assert.strictEqual(file.originalPath, 'old-file.ts', 'Should have correct original path');
@@ -27,9 +27,9 @@ index 0000000..abc123
 +++ b/new-file.ts`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
-		
+
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'new-file.ts', 'Should have correct path');
 		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
@@ -45,9 +45,9 @@ index abc123..0000000
 +++ /dev/null`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
-		
+
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'dev/null', 'Should have correct path');
 		assert.strictEqual(file.originalPath, 'old-file.ts', 'Should have correct original path');
@@ -61,9 +61,9 @@ old mode 100644
 new mode 100755`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
-		
+
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'script.sh', 'Should have correct path');
 		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
@@ -77,9 +77,9 @@ index abc123..def456 100644
 Binary files a/image.png and b/image.png differ`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
-		
+
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'image.png', 'Should have correct path');
 		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
@@ -99,9 +99,9 @@ index abc123..def456 100644
  line 3`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
-		
+
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'file.ts', 'Should have correct path');
 		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
@@ -124,16 +124,16 @@ index abc123..def456 100644
  line 2`;
 
 		const result = parseGitDiff(diffContent);
-		
+
 		assert.strictEqual(result.files.length, 2, 'Should parse two files');
-		
+
 		// First file (rename)
 		const renameFile = result.files[0];
 		assert.strictEqual(renameFile.path, 'new-file.ts', 'Should have correct new path');
 		assert.strictEqual(renameFile.originalPath, 'old-file.ts', 'Should have correct original path');
 		assert.strictEqual(renameFile.status, 'R', 'Should have rename status');
 		assert.strictEqual(renameFile.hunks.length, 0, 'Should have no hunks for pure rename');
-		
+
 		// Second file (regular change)
 		const modifiedFile = result.files[1];
 		assert.strictEqual(modifiedFile.path, 'regular-file.ts', 'Should have correct path');
