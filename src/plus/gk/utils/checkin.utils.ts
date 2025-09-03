@@ -25,7 +25,10 @@ export function getSubscriptionFromCheckIn(
 	// if there are any paid licenses with status of in_trial, move them to effectiveLicenses
 	for (let i = 0; i < paidLicenses.length; i++) {
 		const [, license] = paidLicenses[i];
-		if (license.latestStatus === 'in_trial' || license.latestStatus === 'trial') {
+		if (
+			(license.latestStatus === 'in_trial' || license.latestStatus === 'trial') &&
+			license.hasPaymentSource !== true
+		) {
 			effectiveLicenses.push(paidLicenses.splice(i, 1)[0]);
 			i--;
 		}
