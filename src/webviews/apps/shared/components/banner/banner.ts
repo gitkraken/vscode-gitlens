@@ -2,6 +2,7 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { bannerStyles } from './banner.css';
 import '../button';
 
@@ -62,56 +63,50 @@ export class GlBanner extends LitElement {
 		};
 	}
 
-	override render(): unknown {
-		return html` <div part="base" class=${classMap(this.classNames)}>${this.renderContent()}</div> `;
-	}
-
-	private renderContent() {
-		return html`
+	override render() {
+		return html`<div part="base" class=${classMap(this.classNames)}>
 			<div class="banner__content">
 				${this.layout === 'responsive' ? this.renderResponsiveContent() : this.renderDefaultContent()}
 			</div>
-			${this.layout !== 'responsive' && this.dismissible ? this.renderDismissButton() : ''}
-		`;
+			${this.layout !== 'responsive' ? this.renderDismissButton() : undefined}
+		</div>`;
 	}
 
 	private renderDefaultContent() {
-		return html`
-			${this.bannerTitle ? this.renderTitle() : ''} ${this.body ? this.renderBody() : ''} ${this.renderButtons()}
-		`;
+		return html`${this.renderTitle()} ${this.renderBody()} ${this.renderButtons()}`;
 	}
 
 	private renderResponsiveContent() {
 		return html`
-			<div class="banner__text">
-				${this.bannerTitle ? this.renderTitle() : ''} ${this.body ? this.renderBody() : ''}
-			</div>
-			${this.renderButtons()} ${this.dismissible ? this.renderDismissButton() : ''}
+			<div class="banner__text">${this.renderTitle()} ${this.renderBody()}</div>
+			${this.renderButtons()} ${this.renderDismissButton()}
 		`;
 	}
 
 	private renderTitle() {
+		if (!this.bannerTitle) return undefined;
+
 		return html`<div class="banner__title">${this.bannerTitle}</div>`;
 	}
 
 	private renderBody() {
-		return html`<div class="banner__body" .innerHTML=${this.body}></div>`;
+		if (!this.body) return undefined;
+
+		return html`<div class="banner__body">${unsafeHTML(this.body)}</div>`;
 	}
 
 	private renderButtons() {
-		const hasPrimary = this.primaryButton;
-		const hasSecondary = this.secondaryButton;
+		const primary = this.renderPrimaryButton();
+		const secondary = this.renderSecondaryButton();
 
-		if (!hasPrimary && !hasSecondary) return '';
+		if (!primary && !secondary) return undefined;
 
-		return html`
-			<div class="banner__buttons">
-				${hasPrimary ? this.renderPrimaryButton() : ''} ${hasSecondary ? this.renderSecondaryButton() : ''}
-			</div>
-		`;
+		return html`<div class="banner__buttons">${primary} ${secondary}</div>`;
 	}
 
 	private renderPrimaryButton() {
+		if (!this.primaryButton) return undefined;
+
 		return html`
 			<gl-button
 				class="banner__button banner__button--primary"
@@ -127,6 +122,8 @@ export class GlBanner extends LitElement {
 	}
 
 	private renderSecondaryButton() {
+		if (!this.secondaryButton) return undefined;
+
 		return html`
 			<gl-button
 				class="banner__button banner__button--secondary"
@@ -140,6 +137,8 @@ export class GlBanner extends LitElement {
 	}
 
 	private renderDismissButton() {
+		if (!this.dismissible) return undefined;
+
 		return html`
 			<gl-button
 				class="banner__dismiss"

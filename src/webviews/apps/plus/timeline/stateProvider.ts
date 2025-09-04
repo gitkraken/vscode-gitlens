@@ -1,6 +1,6 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/timeline/protocol';
-import { DidChangeMcpBanner, DidChangeNotification } from '../../../plus/timeline/protocol';
+import { DidChangeNotification } from '../../../plus/timeline/protocol';
 import type { ReactiveElementHost, StateProvider } from '../../shared/appHost';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
@@ -27,14 +27,6 @@ export class TimelineStateProvider implements StateProvider<State> {
 			switch (true) {
 				case DidChangeNotification.is(msg):
 					this._state = { ...msg.params.state, timestamp: Date.now() };
-
-					this.provider.setValue(this._state, true);
-					host.requestUpdate();
-					break;
-
-				case DidChangeMcpBanner.is(msg):
-					this._state.mcpBannerCollapsed = msg.params;
-					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);
 					host.requestUpdate();
