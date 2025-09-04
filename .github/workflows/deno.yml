@@ -1,0 +1,68 @@
+            - name: Azure CLI Action
+  uses: Azure/cli@v2.1.0
+  with:
+    # Specify the script here
+    inlineScript: 
+    # Azure CLI version to be used to execute the script. If not provided, latest version is used
+    azcliversion: # optional, default is agentazcliversion
+                      - name: Bytebase Create Plan From Release
+  # You may pin to the exact commit or the version.
+  # uses: bytebase/create-plan-from-release-action@1e3acace40fbf9cb25001e831ac7f4550a857299
+  uses: bytebase/create-plan-from-release-action@v1.0.1
+  with:
+    # The bytebase URL.
+    url: 
+    # The Bytebase access token.
+    token: 
+    # The project on Bytebase. Format: projects/{project}
+    project: 
+    # The release to create plan from. Format: projects/{project}/releases/{release}
+    release: 
+    # The database group or databases to deploy. Either a comma separated list of the databases or a database group. Databases example: `instances/mysql1/databases/db1,instances/mysql1/databases/db2`. Database format: instances/{instance}/databases/{database} Database group example: `projects/exa/databaseGroups/mygroup` Database group format: projects/{project}/databaseGroups/{databaseGroup}
+
+    targets: 
+    # An enum to determine should we run plan checks and fail on warning or error. Valid values are `SKIP`, `FAIL_ON_WARNING`, `FAIL_ON_ERROR`
+
+    check-plan: # optional, default is SKIP
+          # This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# This workflow will install Deno then run `deno lint` and `deno test`.
+# For more information see: https://github.com/denoland/setup-deno
+
+name: Deno
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        # uses: denoland/setup-deno@v1
+        uses: denoland/setup-deno@61fe2df320078202e33d7d5ad347e7dcfa0e8f31  # v1.1.2
+        with:
+          deno-version: v1.x
+
+      # Uncomment this step to verify the use of 'deno fmt' on each commit.
+      # - name: Verify formatting
+      #   run: deno fmt --check
+
+      - name: Run linter
+        run: deno lint
+
+      - name: Run tests
+        run: deno test -A
