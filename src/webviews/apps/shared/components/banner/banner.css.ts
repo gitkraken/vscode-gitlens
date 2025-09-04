@@ -156,8 +156,7 @@ export const bannerStyles = css`
 		width: 100%;
 	}
 
-	.banner--responsive .banner__button--primary,
-	.banner--responsive .banner__button--secondary {
+	.banner--responsive .banner__button {
 		grid-column: unset;
 		justify-self: unset;
 		width: 100% !important;
@@ -193,8 +192,7 @@ export const bannerStyles = css`
 			align-self: center;
 		}
 
-		.banner--responsive .banner__button--primary,
-		.banner--responsive .banner__button--secondary {
+		.banner--responsive .banner__button {
 			width: auto;
 			white-space: nowrap;
 		}

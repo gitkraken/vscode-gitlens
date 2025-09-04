@@ -3,7 +3,7 @@ import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
 import type { PropertyValues } from 'lit';
-import { html, LitElement } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -115,6 +115,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		repoHeaderStyles,
 		graphHeaderControlStyles,
 		progressStyles,
+		css`
+			.mcp-tooltip a {
+				color: var(--vscode-textLink-foreground);
+			}
+
+			.action-button--mcp {
+				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+				border: 1px solid var(--vscode-panel-border);
+			}
+		`,
 	];
 
 	// FIXME: remove light DOM
@@ -709,6 +719,24 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						)}
 					</div>
 					<div class="titlebar__group">
+						${when(
+							!(this.graphState.state.mcpBannerCollapsed ?? true),
+							() => html`
+								<gl-tooltip placement="bottom">
+									<a
+										class="action-button action-button--mcp"
+										href=${createCommandLink('gitlens.ai.mcp.install', { source: 'graph' })}
+									>
+										<code-icon class="action-button__icon" icon="mcp"></code-icon>
+									</a>
+									<span class="mcp-tooltip" slot="content">
+										<strong>Install GitKraken MCP for GitLens</strong> <br />
+										Leverage Git and Integration information from GitLens in AI chat.
+										<a href="https://help.gitkraken.com/mcp/mcp-getting-started">Learn more</a>
+									</span>
+								</gl-tooltip>
+							`,
+						)}
 						<gl-tooltip placement="bottom">
 							<a
 								class="action-button"
