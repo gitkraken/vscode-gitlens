@@ -34,7 +34,6 @@ import {
 	shortenRevision,
 } from '../../../git/utils/revision.utils';
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
-import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import { Directive } from '../../../quickpicks/items/directive';
 import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../../quickpicks/referencePicker';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
@@ -42,7 +41,6 @@ import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { isDescendant } from '../../../system/-webview/path';
-import type { StorageChangeEvent } from '../../../system/-webview/storage';
 import { openTextEditor } from '../../../system/-webview/vscode/editors';
 import { getTabUri } from '../../../system/-webview/vscode/tabs';
 import { createFromDateDelta } from '../../../system/date';
@@ -78,7 +76,6 @@ import type {
 import {
 	ChoosePathRequest,
 	ChooseRefRequest,
-	DidChangeMcpBanner,
 	DidChangeNotification,
 	SelectDataPointCommand,
 	UpdateConfigCommand,
@@ -286,12 +283,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (this.host.is('editor')) {
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-				this.container.storage.onDidChange(this.onStorageChanged, this),
 			);
 		} else {
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-				this.container.storage.onDidChange(this.onStorageChanged, this),
 				this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 				window.tabGroups.onDidChangeTabGroups(this.onTabsChanged, this),
 				window.tabGroups.onDidChangeTabs(this.onTabsChanged, this),
@@ -649,22 +644,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		void this.updateScope(this._context.scope);
 	}
 
-	private onStorageChanged(e: StorageChangeEvent) {
-		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
-			void this.onMcpBannerChanged();
-		}
-	}
-
-	private async onMcpBannerChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeMcpBanner, await this.getMcpBannerCollapsed());
-	}
-
-	private async getMcpBannerCollapsed() {
-		return !(await isMcpBannerEnabled(this.container));
-	}
-
 	@debug({ args: false })
 	private async getState(context: Context, includeDataset: boolean): Promise<State> {
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
@@ -699,7 +678,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				repository: undefined,
 				repositories: { count: 0, openCount: 0 },
 				access: access,
-				mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
 			};
 		}
 
@@ -732,7 +710,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				openCount: this.container.git.openRepositoryCount,
 			},
 			access: access,
-			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
 		};
 	}
 

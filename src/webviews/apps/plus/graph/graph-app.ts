@@ -68,11 +68,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	override render() {
 		return html`
 			<div class="graph">
-				<gl-mcp-banner
-					.source=${'graph'}
-					layout="responsive"
-					.collapsed=${this.graphState.state.mcpBannerCollapsed ?? true}
-				></gl-mcp-banner>
 				<gl-graph-header
 					class="graph__header"
 					@gl-select-commits=${this.handleHeaderSearchNavigation}

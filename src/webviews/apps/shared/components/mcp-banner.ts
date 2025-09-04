@@ -52,6 +52,7 @@ export class GlMcpBanner extends LitElement {
 
 		return html`
 			<gl-banner
+				exportparts="base"
 				display="gradient-purple"
 				layout="${this.layout}"
 				banner-title="Install GitKraken MCP for GitLens"
