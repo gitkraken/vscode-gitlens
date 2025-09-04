@@ -1,6 +1,7 @@
 import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { urls } from '../../../../constants';
 import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
@@ -261,6 +262,19 @@ export class GkCliIntegrationProvider implements Disposable {
 						'cli.version': cliVersion,
 					});
 				}
+
+				const learnMore = { title: 'Learn More' };
+				const cancel = { title: 'Cancel', isCloseAffordance: true };
+				const result = await window.showErrorMessage(
+					'Automatic setup of the GitKraken MCP server is not supported for this application. To complete setup, you will have to add the GitKraken MCP manually to your MCP configuration.',
+					{ modal: true },
+					learnMore,
+					cancel,
+				);
+				if (result === learnMore) {
+					void openUrl(urls.helpCenterMCP);
+				}
+
 				return;
 			}
 
