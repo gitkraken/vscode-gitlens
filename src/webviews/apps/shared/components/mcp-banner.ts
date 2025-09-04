@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { urls } from '../../../../constants';
 import { createCommandLink } from '../../../../system/commands';
 import './banner/banner';
 
@@ -47,8 +48,7 @@ export class GlMcpBanner extends LitElement {
 			return nothing;
 		}
 
-		const bodyHtml =
-			'Leverage Git and Integration information from GitLens in AI chat. <a href="https://help.gitkraken.com/mcp/mcp-getting-started">Learn more</a>';
+		const bodyHtml = `Leverage Git and Integration information from GitLens in AI chat. <a href="${urls.helpCenterMCP}">Learn more</a>`;
 
 		return html`
 			<gl-banner
