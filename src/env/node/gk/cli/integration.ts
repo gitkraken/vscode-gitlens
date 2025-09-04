@@ -263,10 +263,10 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 				}
 
-				const learnMore = { title: 'Learn More' };
+				const learnMore = { title: 'View Setup Instructions' };
 				const cancel = { title: 'Cancel', isCloseAffordance: true };
-				const result = await window.showErrorMessage(
-					'Automatic setup of the GitKraken MCP server is not supported for this application. To complete setup, you will have to add the GitKraken MCP manually to your MCP configuration.',
+				const result = await window.showInformationMessage(
+					'This application doesn’t support automatic MCP setup. Please add the GitKraken MCP to your configuration manually.',
 					{ modal: true },
 					learnMore,
 					cancel,
