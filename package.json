@@ -67,6 +67,12 @@
 		}
 	},
 	"contributes": {
+		"mcpServerDefinitionProviders": [
+			{
+				"id": "gitlens.mcpProvider",
+				"label": "GitLens MCP Provider"
+			}
+		],
 		"configuration": [
 			{
 				"id": "current-line-blame",

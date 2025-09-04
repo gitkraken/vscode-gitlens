@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } fr
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
 	getGkCliIntegrationProvider,
+	getMcpProvider,
 	getSharedGKStorageLocationProvider,
 	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
@@ -229,6 +230,11 @@ export class Container {
 		this._disposables.push((this._lineHoverController = new LineHoverController(this)));
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
+
+		const mcpProvider = getMcpProvider(this);
+		if (mcpProvider != null) {
+			this._disposables.push(mcpProvider);
+		}
 
 		const webviews = new WebviewsController(this);
 		this._disposables.push(webviews);
