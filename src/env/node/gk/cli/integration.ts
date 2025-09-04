@@ -36,6 +36,12 @@ export interface CliCommandRequest {
 export type CliCommandResponse = { stdout?: string; stderr?: string } | void;
 export type CliIpcServer = IpcServer<CliCommandRequest, CliCommandResponse>;
 
+const CLIProxyMCPInstallOutputs = {
+	checkingForUpdates: /checking for updates.../i,
+	notASupportedClient: /is not a supported MCP client/i,
+	installedSuccessfully: /GitKraken MCP Server Successfully Installed!/i,
+};
+
 export class GkCliIntegrationProvider implements Disposable {
 	private readonly _disposable: Disposable;
 	private _runningDisposable: Disposable | undefined;
@@ -236,8 +242,8 @@ export class GkCliIntegrationProvider implements Disposable {
 				},
 			);
 
-			output = output.trim();
-			if (output === 'GitKraken MCP Server Successfully Installed!') {
+			output = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
+			if (CLIProxyMCPInstallOutputs.installedSuccessfully.test(output)) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/completed', {
 						requiresUserCompletion: false,
@@ -246,7 +252,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					});
 				}
 				return;
-			} else if (output.includes('not a supported MCP client')) {
+			} else if (CLIProxyMCPInstallOutputs.notASupportedClient.test(output)) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/failed', {
 						reason: 'unsupported app',
