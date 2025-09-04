@@ -14,6 +14,7 @@ import { GkCliIntegrationProvider } from './gk/cli/integration';
 import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider';
 import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider';
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
+import { McpProvider } from './gk/mcp';
 
 let gitInstance: Git | undefined;
 function ensureGit(container: Container) {
@@ -70,4 +71,8 @@ export function getSupportedWorkspacesStorageProvider(
 
 export function getGkCliIntegrationProvider(container: Container): GkCliIntegrationProvider {
 	return new GkCliIntegrationProvider(container);
+}
+
+export function getMcpProvider(container: Container): McpProvider | undefined {
+	return McpProvider.create(container);
 }
