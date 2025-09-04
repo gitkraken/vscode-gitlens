@@ -179,6 +179,7 @@ export const urls = Object.freeze({
 	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
 	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
 	helpCenterHome: `https://help.gitkraken.com/gitlens/home-view/?${utm}`,
+	helpCenterMCP: `https://help.gitkraken.com/mcp/mcp-getting-started/?${utm}`,
 	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
 
 	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,
