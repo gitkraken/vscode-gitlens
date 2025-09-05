@@ -1,6 +1,8 @@
+import { lm, version } from 'vscode';
 import { getPlatform, isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
 import { getHostAppName } from '../../../../system/-webview/vscode';
+import { satisfies } from '../../../../system/version';
 
 export async function isMcpBannerEnabled(container: Container): Promise<boolean> {
 	// Check if running on web
@@ -21,4 +23,8 @@ export async function isMcpBannerEnabled(container: Container): Promise<boolean>
 	const supportedApps = ['code', 'code-insiders', 'cursor', 'windsurf'];
 
 	return hostAppName != null && supportedApps.includes(hostAppName);
+}
+
+export function supportsMcpExtensionRegistration(): boolean {
+	return satisfies(version, '>= 1.101.0') && lm.registerMcpServerDefinitionProvider != null;
 }
