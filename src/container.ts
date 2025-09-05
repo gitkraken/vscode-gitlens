@@ -231,11 +231,6 @@ export class Container {
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
-		const mcpProvider = getMcpProvider(this);
-		if (mcpProvider != null) {
-			this._disposables.push(mcpProvider);
-		}
-
 		const webviews = new WebviewsController(this);
 		this._disposables.push(webviews);
 		this._disposables.push((this._views = new Views(this, webviews)));
@@ -275,6 +270,11 @@ export class Container {
 		const cliIntegration = getGkCliIntegrationProvider(this);
 		if (cliIntegration != null) {
 			this._disposables.push(cliIntegration);
+		}
+
+		const mcpProvider = getMcpProvider(this);
+		if (mcpProvider != null) {
+			this._disposables.push(mcpProvider);
 		}
 
 		this._disposables.push(

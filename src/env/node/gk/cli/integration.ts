@@ -15,6 +15,7 @@ import { getLogScope } from '../../../../system/logger.scope';
 import { compare } from '../../../../system/version';
 import { run } from '../../git/shell';
 import { getPlatform, isWeb } from '../../platform';
+import { toMcpInstallProvider } from '../mcp/utils';
 import { CliCommandHandlers } from './commands';
 import type { IpcServer } from './ipcServer';
 import { createIpcServer } from './ipcServer';
@@ -729,18 +730,5 @@ class CLIInstallError extends Error {
 		}
 
 		return message;
-	}
-}
-
-function toMcpInstallProvider(appHostName: string | undefined): string | undefined {
-	switch (appHostName) {
-		case 'code':
-			return 'vscode';
-		case 'code-insiders':
-			return 'vscode-insiders';
-		case 'code-exploration':
-			return 'vscode-exploration';
-		default:
-			return appHostName;
 	}
 }
