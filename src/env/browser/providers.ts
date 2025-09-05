@@ -42,3 +42,7 @@ export function getSupportedWorkspacesStorageProvider(
 export function getGkCliIntegrationProvider(_container: Container): undefined {
 	return undefined;
 }
+
+export function getMcpProvider(_container: Container): undefined {
+	return undefined;
+}
