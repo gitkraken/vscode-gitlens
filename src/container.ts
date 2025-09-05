@@ -272,11 +272,6 @@ export class Container {
 			this._disposables.push(cliIntegration);
 		}
 
-		const mcpProvider = getMcpProvider(this);
-		if (mcpProvider != null) {
-			this._disposables.push(mcpProvider);
-		}
-
 		this._disposables.push(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'terminalLinks.enabled')) {
@@ -325,6 +320,7 @@ export class Container {
 
 		this._ready = true;
 		await this.registerGitProviders();
+		await this.registerMcpProvider();
 		queueMicrotask(() => this._onReady.fire());
 	}
 
@@ -337,6 +333,14 @@ export class Container {
 
 		// Don't wait here otherwise will we deadlock in certain places
 		void this._git.registrationComplete();
+	}
+
+	@log()
+	private async registerMcpProvider(): Promise<void> {
+		const mcpProvider = await getMcpProvider(this);
+		if (mcpProvider != null) {
+			this._disposables.push(mcpProvider);
+		}
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {

@@ -2,6 +2,7 @@ import type { Container } from '../../container';
 import type { GitCommandOptions } from '../../git/commandOptions';
 import type { GitProvider } from '../../git/gitProvider';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
+import { supportsMcpExtensionRegistration } from '../../plus/gk/utils/-webview/mcp.utils';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
 import { configuration } from '../../system/-webview/configuration';
@@ -14,7 +15,7 @@ import { GkCliIntegrationProvider } from './gk/cli/integration';
 import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider';
 import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider';
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
-import { McpProvider } from './gk/mcp/integration';
+import type { McpProvider } from './gk/mcp/integration';
 
 let gitInstance: Git | undefined;
 function ensureGit(container: Container) {
@@ -73,6 +74,11 @@ export function getGkCliIntegrationProvider(container: Container): GkCliIntegrat
 	return new GkCliIntegrationProvider(container);
 }
 
-export function getMcpProvider(container: Container): McpProvider | undefined {
-	return McpProvider.create(container);
+export async function getMcpProvider(container: Container): Promise<McpProvider | undefined> {
+	if (!supportsMcpExtensionRegistration()) return undefined;
+
+	// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
+	const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/integration');
+
+	return new mcpModule.McpProvider(container);
 }

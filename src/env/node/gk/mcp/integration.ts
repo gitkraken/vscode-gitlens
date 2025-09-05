@@ -1,11 +1,10 @@
 import type { Event, McpServerDefinition } from 'vscode';
-import { version as codeVersion, Disposable, env, EventEmitter, lm, McpStdioServerDefinition, window } from 'vscode';
+import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition, window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage';
 import { getHostAppName } from '../../../../system/-webview/vscode';
 import { debounce } from '../../../../system/function/debounce';
 import { Logger } from '../../../../system/logger';
-import { satisfies } from '../../../../system/version';
 import { run } from '../../git/shell';
 import { getPlatform } from '../../platform';
 import { toMcpInstallProvider } from './utils';
@@ -15,25 +14,13 @@ const CLIProxyMCPConfigOutputs = {
 };
 
 export class McpProvider implements Disposable {
-	static #instance: McpProvider | undefined;
-
-	static create(container: Container): McpProvider | undefined {
-		if (!satisfies(codeVersion, '>= 1.101.0') || !lm.registerMcpServerDefinitionProvider) return undefined;
-
-		if (this.#instance == null) {
-			this.#instance = new McpProvider(container);
-		}
-
-		return this.#instance;
-	}
-
 	private readonly _disposable: Disposable;
 	private readonly _onDidChangeMcpServerDefinitions = new EventEmitter<void>();
 	get onDidChangeMcpServerDefinitions(): Event<void> {
 		return this._onDidChangeMcpServerDefinitions.event;
 	}
 
-	private constructor(private readonly container: Container) {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			this.container.storage.onDidChange(e => this.checkStorage(e)),
 			lm.registerMcpServerDefinitionProvider('gitlens.mcpProvider', {
