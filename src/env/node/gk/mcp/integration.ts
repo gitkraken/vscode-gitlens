@@ -54,31 +54,6 @@ export class McpProvider implements Disposable {
 		return [serverDefinition];
 	}
 
-	// private async getMcpConfiguration(): Promise<
-	// 	{ name: string; type: string; command: string; args: string[]; version?: string } | undefined
-	// > {
-	// 	const cliInstall = this.container.storage.get('gk:cli:install');
-	// 	const cliPath = this.container.storage.get('gk:cli:path');
-
-	// 	if (cliInstall?.status !== 'completed' || !cliPath) {
-	// 		return undefined;
-	// 	}
-
-	// 	const platform = getPlatform();
-	// 	const executable = platform === 'windows' ? 'gk.exe' : 'gk';
-	// 	const command = Uri.joinPath(Uri.file(cliPath), executable);
-
-	// 	const appName = toMcpInstallProvider(await getHostAppName());
-	// 	const args = ['mcp', `--host=${appName}`, '--source=gitlens', `--scheme=${env.uriScheme}`];
-	// 	return {
-	// 		name: 'GitKraken MCP Server',
-	// 		type: 'stdio',
-	// 		command: command.fsPath,
-	// 		args: args,
-	// 		version: cliInstall.version,
-	// 	};
-	// }
-
 	private async getMcpConfigurationFromCLI(): Promise<
 		{ name: string; type: string; command: string; args: string[]; version?: string } | undefined
 	> {
@@ -98,7 +73,6 @@ export class McpProvider implements Disposable {
 			cwd: cliPath,
 		});
 		output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
-		console.log(output);
 
 		try {
 			const configuration = JSON.parse(output) as { name: string; type: string; command: string; args: string[] };
