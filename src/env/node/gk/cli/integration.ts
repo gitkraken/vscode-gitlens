@@ -15,10 +15,10 @@ import { getLogScope } from '../../../../system/logger.scope';
 import { compare } from '../../../../system/version';
 import { run } from '../../git/shell';
 import { getPlatform, isWeb } from '../../platform';
-import { toMcpInstallProvider } from '../mcp/utils';
 import { CliCommandHandlers } from './commands';
 import type { IpcServer } from './ipcServer';
 import { createIpcServer } from './ipcServer';
+import { runCLICommand, toMcpInstallProvider } from './utils';
 
 const enum CLIInstallErrorReason {
 	UnsupportedPlatform,
@@ -42,7 +42,7 @@ const CLIProxyMCPInstallOutputs = {
 	checkingForUpdates: /checking for updates.../i,
 	notASupportedClient: /is not a supported MCP client/i,
 	installedSuccessfully: /GitKraken MCP Server Successfully Installed!/i,
-};
+} as const;
 
 export class GkCliIntegrationProvider implements Disposable {
 	private readonly _disposable: Disposable;
@@ -238,7 +238,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 			}
 
-			let output = await this.runCLICommand(
+			let output = await runCLICommand(
 				['mcp', 'install', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
 				{
 					cwd: cliPath,
@@ -555,7 +555,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 				// Set up the local MCP server files
 				try {
-					const coreInstallOutput = await this.runCLICommand(['install'], {
+					const coreInstallOutput = await runCLICommand(['install'], {
 						cwd: globalStoragePath.fsPath,
 					});
 					const directory = coreInstallOutput.match(/Directory: (.*)/);
@@ -632,21 +632,6 @@ export class GkCliIntegrationProvider implements Disposable {
 		return { cliVersion: cliVersion, cliPath: cliPath, status: cliInstallStatus };
 	}
 
-	private async runCLICommand(
-		args: string[],
-		options?: {
-			cwd?: string;
-		},
-	): Promise<string> {
-		const platform = getPlatform();
-		const cwd = options?.cwd ?? this.container.storage.get('gk:cli:path');
-		if (cwd == null) {
-			throw new Error('CLI is not installed');
-		}
-
-		return run(platform === 'windows' ? 'gk.exe' : './gk', args, 'utf8', { cwd: cwd });
-	}
-
 	private async authCLI(): Promise<void> {
 		const cliInstall = this.container.storage.get('gk:cli:install');
 		const cliPath = this.container.storage.get('gk:cli:path');
@@ -660,7 +645,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 
 		try {
-			await this.runCLICommand(['auth', 'login', '-t', currentSessionToken]);
+			await runCLICommand(['auth', 'login', '-t', currentSessionToken]);
 		} catch (ex) {
 			Logger.error(`Failed to auth CLI: ${ex instanceof Error ? ex.message : String(ex)}`);
 		}

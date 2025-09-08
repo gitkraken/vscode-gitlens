@@ -5,13 +5,11 @@ import type { StorageChangeEvent } from '../../../../system/-webview/storage';
 import { getHostAppName } from '../../../../system/-webview/vscode';
 import { debounce } from '../../../../system/function/debounce';
 import { Logger } from '../../../../system/logger';
-import { run } from '../../git/shell';
-import { getPlatform } from '../../platform';
-import { toMcpInstallProvider } from './utils';
+import { runCLICommand, toMcpInstallProvider } from '../cli/utils';
 
 const CLIProxyMCPConfigOutputs = {
 	checkingForUpdates: /checking for updates.../i,
-};
+} as const;
 
 export class McpProvider implements Disposable {
 	private readonly _disposable: Disposable;
@@ -96,12 +94,9 @@ export class McpProvider implements Disposable {
 			return undefined;
 		}
 
-		let output = await this.runCLICommand(
-			['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
-			{
-				cwd: cliPath,
-			},
-		);
+		let output = await runCLICommand(['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`], {
+			cwd: cliPath,
+		});
 		output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 		console.log(output);
 
@@ -120,21 +115,6 @@ export class McpProvider implements Disposable {
 		}
 
 		return undefined;
-	}
-
-	private async runCLICommand(
-		args: string[],
-		options?: {
-			cwd?: string;
-		},
-	): Promise<string> {
-		const platform = getPlatform();
-		const cwd = options?.cwd ?? this.container.storage.get('gk:cli:path');
-		if (cwd == null) {
-			throw new Error('CLI is not installed');
-		}
-
-		return run(platform === 'windows' ? 'gk.exe' : './gk', args, 'utf8', { cwd: cwd });
 	}
 
 	dispose(): void {
