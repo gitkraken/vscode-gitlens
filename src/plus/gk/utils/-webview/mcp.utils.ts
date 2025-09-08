@@ -5,8 +5,8 @@ import { getHostAppName } from '../../../../system/-webview/vscode';
 import { satisfies } from '../../../../system/version';
 
 export async function isMcpBannerEnabled(container: Container): Promise<boolean> {
-	// Check if running on web
-	if (isWeb) {
+	// Check if running on web or automatically registrable
+	if (isWeb || supportsMcpExtensionRegistration()) {
 		return false;
 	}
 
@@ -26,5 +26,9 @@ export async function isMcpBannerEnabled(container: Container): Promise<boolean>
 }
 
 export function supportsMcpExtensionRegistration(): boolean {
+	if (isWeb) {
+		return false;
+	}
+
 	return satisfies(version, '>= 1.101.0') && lm.registerMcpServerDefinitionProvider != null;
 }
