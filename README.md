@@ -68,7 +68,7 @@ GitLens leverages AI to simplify tedious tasks like writing commit messages, cra
 
 **Community Features**: Community users can generate commit messages for free if they are using GitHub Copilot or have a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account with an API key connected to other providers like OpenAI, Anthropic, DeepSeek, Gemini, etc.
 
-**Pro Features**: Subscribe to GitLens Pro to access all AI features with GitKraken AI (Preview)—no manual key management required.
+**Pro Features**: Subscribe to GitLens Pro to access all AI features with GitKraken AI—no manual key management required.
 
 # Interactive Code History
 
