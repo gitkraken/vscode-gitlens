@@ -69,8 +69,8 @@
 	"contributes": {
 		"mcpServerDefinitionProviders": [
 			{
-				"id": "gitlens.mcpProvider",
-				"label": "GitLens MCP Provider"
+				"id": "gitlens.gkMcpProvider",
+				"label": "GitKraken (bundled with GitLens)"
 			}
 		],
 		"configuration": [
@@ -4107,6 +4107,16 @@
 						"markdownDescription": "Specifies whether to enable experimental integration with the GitKraken CLI",
 						"scope": "window",
 						"order": 30,
+						"tags": [
+							"experimental"
+						]
+					},
+					"gitlens.gitkraken.cli.autoInstall.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to automatically install the GitKraken CLI",
+						"scope": "window",
+						"order": 40,
 						"tags": [
 							"experimental"
 						]

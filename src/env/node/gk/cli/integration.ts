@@ -5,6 +5,7 @@ import { urls } from '../../../../constants';
 import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
+import { supportsMcpExtensionRegistration } from '../../../../plus/gk/utils/-webview/mcp.utils';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getHostAppName } from '../../../../system/-webview/vscode';
@@ -57,11 +58,13 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		this.onConfigurationChanged();
 
-		// TODO: Uncomment this once we feel confident enough that the install process is stable cross-platform
-		/* const cliInstall = this.container.storage.get('gk:cli:install');
-		if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
-			setTimeout(() => this.installCLI(true), 10000 + Math.floor(Math.random() * 20000));
-		} */
+		// TODO: Remove this experimental setting for production release
+		if (configuration.get('gitkraken.cli.autoInstall.enabled')) {
+			const cliInstall = this.container.storage.get('gk:cli:install');
+			if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
+				setTimeout(() => this.installCLI(true), 10000 + Math.floor(Math.random() * 20000));
+			}
+		}
 	}
 
 	dispose(): void {
@@ -219,6 +222,11 @@ export class GkCliIntegrationProvider implements Disposable {
 				return;
 			}
 
+			// If MCP extension registration is supported, don't proceed with manual setup
+			if (supportsMcpExtensionRegistration()) {
+				return;
+			}
+
 			if (appName !== 'cursor' && appName !== 'vscode' && appName !== 'vscode-insiders') {
 				const confirmation = await window.showInformationMessage(
 					`GitKraken MCP installed successfully. Click 'Finish' to add it to your MCP server list and complete the setup.`,
@@ -268,7 +276,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				const learnMore = { title: 'View Setup Instructions' };
 				const cancel = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					'This application doesn’t support automatic MCP setup. Please add the GitKraken MCP to your configuration manually.',
+					"This application doesn't support automatic MCP setup. Please add the GitKraken MCP to your configuration manually.",
 					{ modal: true },
 					learnMore,
 					cancel,
