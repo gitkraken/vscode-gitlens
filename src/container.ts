@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } fr
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
 	getGkCliIntegrationProvider,
-	getMcpProvider,
+	getMcpProviders,
 	getSharedGKStorageLocationProvider,
 	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
@@ -320,7 +320,7 @@ export class Container {
 
 		this._ready = true;
 		await this.registerGitProviders();
-		await this.registerMcpProvider();
+		await this.registerMcpProviders();
 		queueMicrotask(() => this._onReady.fire());
 	}
 
@@ -336,10 +336,10 @@ export class Container {
 	}
 
 	@log()
-	private async registerMcpProvider(): Promise<void> {
-		const mcpProvider = await getMcpProvider(this);
-		if (mcpProvider != null) {
-			this._disposables.push(mcpProvider);
+	private async registerMcpProviders(): Promise<void> {
+		const mcpProviders = await getMcpProviders(this);
+		if (mcpProviders != null) {
+			this._disposables.push(...mcpProviders);
 		}
 	}
 

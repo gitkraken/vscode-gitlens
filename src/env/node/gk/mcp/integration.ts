@@ -1,4 +1,4 @@
-import type { Event, McpServerDefinition } from 'vscode';
+import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
 import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition, window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage';
@@ -11,7 +11,7 @@ const CLIProxyMCPConfigOutputs = {
 	checkingForUpdates: /checking for updates.../i,
 } as const;
 
-export class McpProvider implements Disposable {
+export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	private readonly _disposable: Disposable;
 	private readonly _onDidChangeMcpServerDefinitions = new EventEmitter<void>();
 	get onDidChangeMcpServerDefinitions(): Event<void> {
@@ -21,10 +21,7 @@ export class McpProvider implements Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			this.container.storage.onDidChange(e => this.checkStorage(e)),
-			lm.registerMcpServerDefinitionProvider('gitlens.mcpProvider', {
-				onDidChangeMcpServerDefinitions: this._onDidChangeMcpServerDefinitions.event,
-				provideMcpServerDefinitions: () => this.provideMcpServerDefinitions(),
-			}),
+			lm.registerMcpServerDefinitionProvider('gitlens.gkMcpProvider', this),
 		);
 
 		this.checkStorage();
@@ -35,14 +32,14 @@ export class McpProvider implements Disposable {
 		this._onDidChangeMcpServerDefinitions.fire();
 	}
 
-	private async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
+	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
 		const config = await this.getMcpConfigurationFromCLI();
 		if (config == null) {
 			return [];
 		}
 
 		const serverDefinition = new McpStdioServerDefinition(
-			config.name,
+			`${config.name} (bundled with GitLens)`,
 			config.command,
 			config.args,
 			{},
