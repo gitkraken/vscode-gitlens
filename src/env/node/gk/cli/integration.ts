@@ -5,7 +5,10 @@ import { urls } from '../../../../constants';
 import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
-import { supportsMcpExtensionRegistration } from '../../../../plus/gk/utils/-webview/mcp.utils';
+import {
+	mcpExtensionRegistrationAllowed,
+	supportsMcpExtensionRegistration,
+} from '../../../../plus/gk/utils/-webview/mcp.utils';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getHostAppName } from '../../../../system/-webview/vscode';
@@ -58,8 +61,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		this.onConfigurationChanged();
 
-		// TODO: Remove this experimental setting for production release
-		if (configuration.get('gitkraken.cli.autoInstall.enabled')) {
+		if (mcpExtensionRegistrationAllowed()) {
 			const cliInstall = this.container.storage.get('gk:cli:install');
 			if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
 				setTimeout(
