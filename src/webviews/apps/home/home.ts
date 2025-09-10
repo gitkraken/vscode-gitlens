@@ -92,6 +92,7 @@ export class GlHomeApp extends GlAppHost<State> {
 							<gl-mcp-banner
 								.layout=${'responsive'}
 								.source=${'home'}
+								.canAutoRegister=${this.state?.mcpCanAutoRegister ?? false}
 								.collapsed=${this.state?.mcpBannerCollapsed ?? true}
 							></gl-mcp-banner>
 							<gl-active-work></gl-active-work>

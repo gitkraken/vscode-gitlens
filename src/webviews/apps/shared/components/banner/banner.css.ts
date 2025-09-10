@@ -212,6 +212,7 @@ export const bannerStyles = css`
 		font-weight: bold;
 		color: var(--gl-banner-text-color);
 		margin: 0;
+		text-wrap: pretty;
 	}
 
 	.banner__body {
@@ -219,6 +220,7 @@ export const bannerStyles = css`
 		color: var(--gl-banner-text-color);
 		margin: 0;
 		line-height: 1.4;
+		text-wrap: pretty;
 	}
 
 	.banner__buttons {
