@@ -1,7 +1,7 @@
 // Mock data for the composer following the proper data model
 // This represents the structure that would come from AI rebase results
 
-import type { ComposerCommit, ComposerHunk, ComposerHunkMap } from './protocol';
+import type { ComposerCommit, ComposerHunk } from './protocol';
 
 // Mock hunks following the AI rebase result structure
 export const mockHunks: ComposerHunk[] = [
@@ -349,20 +349,6 @@ export const mockCommits: ComposerCommit[] = [
 ];
 
 // Callbacks are no longer used - replaced with IPC commands
-
-// Mock hunk map (maps hunk indices to hunk headers for combined diff)
-export const mockHunkMap: ComposerHunkMap[] = [
-	{ index: 1, hunkHeader: '@@ -0,0 +1,15 @@' },
-	{ index: 2, hunkHeader: '@@ -0,0 +1,12 @@' },
-	{ index: 3, hunkHeader: '@@ -0,0 +1,18 @@' },
-	{ index: 4, hunkHeader: '@@ -0,0 +1,20 @@' },
-	{ index: 5, hunkHeader: '@@ -0,0 +1,10 @@' },
-	{ index: 6, hunkHeader: '@@ -0,0 +1,25 @@' },
-	{ index: 7, hunkHeader: '@@ -0,0 +1,30 @@' },
-	{ index: 8, hunkHeader: '@@ -0,0 +1,8 @@' },
-	{ index: 9, hunkHeader: '@@ -0,0 +1,15 @@' },
-	{ index: 10, hunkHeader: '@@ -0,0 +1,12 @@' },
-];
 
 // Mock base commit
 export const mockBaseCommit = {
