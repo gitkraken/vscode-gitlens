@@ -151,7 +151,7 @@ export class IntegrationAuthenticationService implements Disposable {
 				case IssuesCloudHostIntegrationId.Linear:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './linear')
-					).LinearAuthenticationProvider();
+					).LinearAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				default:
 					provider = new BuiltInAuthenticationProvider(
