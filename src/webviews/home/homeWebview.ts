@@ -51,7 +51,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isMcpBannerEnabled, supportsMcpExtensionRegistration } from '../../plus/gk/utils/-webview/mcp.utils';
+import { isMcpBannerEnabled, mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils';
 import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
@@ -807,7 +807,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getMcpCanAutoRegister() {
-		return supportsMcpExtensionRegistration();
+		return mcpExtensionRegistrationAllowed();
 	}
 
 	private getIntegrationBannerCollapsed() {
