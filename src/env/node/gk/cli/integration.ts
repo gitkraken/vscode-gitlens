@@ -62,7 +62,10 @@ export class GkCliIntegrationProvider implements Disposable {
 		if (configuration.get('gitkraken.cli.autoInstall.enabled')) {
 			const cliInstall = this.container.storage.get('gk:cli:install');
 			if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
-				setTimeout(() => this.installCLI(true), 10000 + Math.floor(Math.random() * 20000));
+				setTimeout(
+					() => this.installCLI(true, 'gk-cli-integration'),
+					10000 + Math.floor(Math.random() * 20000),
+				);
 			}
 		}
 	}

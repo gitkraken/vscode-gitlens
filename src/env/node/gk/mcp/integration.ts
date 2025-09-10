@@ -1,9 +1,9 @@
 import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
-import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition, window } from 'vscode';
+import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
 import type { Container } from '../../../../container';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage';
 import { getHostAppName } from '../../../../system/-webview/vscode';
-import { debounce } from '../../../../system/function/debounce';
+import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils';
 
@@ -44,11 +44,10 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			config.version,
 		);
 
-		this.notifyServerProvided();
-
 		return [serverDefinition];
 	}
 
+	@log()
 	private async getMcpConfigurationFromCLI(): Promise<
 		{ name: string; type: string; command: string; args: string[]; version?: string } | undefined
 	> {
@@ -72,6 +71,8 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		try {
 			const configuration = JSON.parse(output) as { name: string; type: string; command: string; args: string[] };
 
+			this.notifySetupCompleted(cliInstall.version);
+
 			return {
 				name: configuration.name,
 				type: configuration.type,
@@ -81,21 +82,35 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			};
 		} catch (ex) {
 			Logger.error(`Error getting MCP configuration: ${ex}`);
+			this.notifySetupFailed('Error getting MCP configuration', undefined, cliInstall.version);
 		}
 
 		return undefined;
+	}
+
+	private notifySetupCompleted(cliVersion?: string | undefined) {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent('mcp/setup/completed', {
+			requiresUserCompletion: false,
+			source: 'gk-mcp-provider',
+			'cli.version': cliVersion,
+		});
+	}
+
+	private notifySetupFailed(reason: string, message?: string | undefined, cliVersion?: string | undefined) {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent('mcp/setup/failed', {
+			reason: reason,
+			'error.message': message,
+			source: 'gk-mcp-provider',
+			'cli.version': cliVersion,
+		});
 	}
 
 	dispose(): void {
 		this._disposable.dispose();
 		this._onDidChangeMcpServerDefinitions.dispose();
 	}
-
-	private _notifyServerProvided = false;
-	private notifyServerProvided = debounce(() => {
-		if (this._notifyServerProvided) return;
-
-		void window.showInformationMessage('GitLens can now automatically configure the GitKraken MCP server for you');
-		this._notifyServerProvided = true;
-	}, 250);
 }

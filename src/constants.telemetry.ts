@@ -1220,6 +1220,8 @@ export type Sources =
 	| 'editor:hover'
 	| 'feature-badge'
 	| 'feature-gate'
+	| 'gk-cli-integration'
+	| 'gk-mcp-provider'
 	| 'graph'
 	| 'home'
 	| 'inspect'
