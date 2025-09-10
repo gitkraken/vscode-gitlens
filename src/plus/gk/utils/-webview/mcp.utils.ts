@@ -4,9 +4,9 @@ import type { Container } from '../../../../container';
 import { getHostAppName } from '../../../../system/-webview/vscode';
 import { satisfies } from '../../../../system/version';
 
-export async function isMcpBannerEnabled(container: Container): Promise<boolean> {
+export async function isMcpBannerEnabled(container: Container, showAutoRegistration = false): Promise<boolean> {
 	// Check if running on web or automatically registrable
-	if (isWeb || supportsMcpExtensionRegistration()) {
+	if (isWeb || (!showAutoRegistration && supportsMcpExtensionRegistration())) {
 		return false;
 	}
 

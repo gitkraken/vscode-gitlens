@@ -1,5 +1,5 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { urls } from '../../../../constants';
 import { createCommandLink } from '../../../../system/commands';
 import './banner/banner';
@@ -40,12 +40,34 @@ export class GlMcpBanner extends LitElement {
 	@property()
 	layout: 'default' | 'responsive' = 'default';
 
-	@state()
-	private collapsed: boolean = false;
+	@property({ type: Boolean })
+	collapsed: boolean = false;
+
+	@property({ type: Boolean })
+	private canAutoRegister: boolean = false;
 
 	override render(): unknown {
 		if (this.collapsed) {
 			return nothing;
+		}
+
+		if (this.canAutoRegister) {
+			const bodyHtml = `GitKraken MCP is now active in Copilot chat. Ask Copilot to "start work on issue PROJ-123" or "create a PR for my commits" to see Git workflows powered by AI. <a href="${urls.helpCenterMCP}">Learn more</a>`;
+
+			return html`
+				<gl-banner
+					exportparts="base"
+					display="gradient-purple"
+					layout="${this.layout}"
+					banner-title="GitKraken MCP for GitLens is Here!"
+					body="${bodyHtml}"
+					dismissible
+					dismiss-href="${createCommandLink('gitlens.storage.store', {
+						key: 'mcp:banner:dismissed',
+						value: true,
+					})}"
+				></gl-banner>
+			`;
 		}
 
 		const bodyHtml = `Leverage Git and Integration information from GitLens in AI chat. <a href="${urls.helpCenterMCP}">Learn more</a>`;

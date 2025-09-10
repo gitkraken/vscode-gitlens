@@ -36,6 +36,7 @@ export interface State extends WebviewState {
 	integrationBannerCollapsed: boolean;
 	aiAllAccessBannerCollapsed: boolean;
 	mcpBannerCollapsed: boolean;
+	mcpCanAutoRegister: boolean;
 	hasAnyIntegrationConnected: boolean;
 	integrations: IntegrationState[];
 	ai: { model: AIModel | undefined };
@@ -253,7 +254,11 @@ export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scop
 export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
 
 export const DidChangeAiAllAccessBanner = new IpcNotification<boolean>(scope, 'ai/allAccess/didChange');
-export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didChange');
+export interface DidChangeMcpBannerParams {
+	mcpBannerCollapsed: boolean;
+	mcpCanAutoRegister: boolean;
+}
+export const DidChangeMcpBanner = new IpcNotification<DidChangeMcpBannerParams>(scope, 'mcp/didChange');
 export const DismissAiAllAccessBannerCommand = new IpcCommand<void>(scope, 'ai/allAccess/dismiss');
 
 export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');

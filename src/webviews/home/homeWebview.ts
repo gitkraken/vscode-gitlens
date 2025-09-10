@@ -51,7 +51,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isMcpBannerEnabled } from '../../plus/gk/utils/-webview/mcp.utils';
+import { isMcpBannerEnabled, supportsMcpExtensionRegistration } from '../../plus/gk/utils/-webview/mcp.utils';
 import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
@@ -803,7 +803,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getMcpBannerCollapsed() {
-		return !(await isMcpBannerEnabled(this.container));
+		return !(await isMcpBannerEnabled(this.container, true));
+	}
+
+	private getMcpCanAutoRegister() {
+		return supportsMcpExtensionRegistration();
 	}
 
 	private getIntegrationBannerCollapsed() {
@@ -898,6 +902,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			newInstall: getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
 			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
+			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
 		};
 	}
 
@@ -1134,7 +1139,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async onMcpBannerChanged() {
 		if (!this.host.visible) return;
 
-		void this.host.notify(DidChangeMcpBanner, await this.getMcpBannerCollapsed());
+		void this.host.notify(DidChangeMcpBanner, {
+			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
+			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
+		});
 	}
 
 	private getSelectedRepository() {
