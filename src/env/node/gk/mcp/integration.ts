@@ -23,8 +23,6 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			this.container.storage.onDidChange(e => this.checkStorage(e)),
 			lm.registerMcpServerDefinitionProvider('gitlens.gkMcpProvider', this),
 		);
-
-		this.checkStorage();
 	}
 
 	private checkStorage(e?: StorageChangeEvent): void {
