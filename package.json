@@ -10992,6 +10992,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f146"
 				}
+			},
+			"gitlens-provider-linear": {
+				"description": "provider-linear icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f147"
+				}
 			}
 		},
 		"menus": {
