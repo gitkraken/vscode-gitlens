@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds enhanced integration with Linear ([#4543](https://github.com/gitkraken/vscode-gitlens/issues/4543))
+
 ## [17.4.1] - 2025-08-26
 
 ### Fixed
