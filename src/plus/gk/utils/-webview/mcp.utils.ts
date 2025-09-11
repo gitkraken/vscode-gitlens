@@ -1,29 +1,16 @@
 import { lm, version } from 'vscode';
-import { getPlatform, isWeb } from '@env/platform';
+import { isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
 import { configuration } from '../../../../system/-webview/configuration';
-import { getHostAppName } from '../../../../system/-webview/vscode';
 import { satisfies } from '../../../../system/version';
 
-export async function isMcpBannerEnabled(container: Container, showAutoRegistration = false): Promise<boolean> {
+export function isMcpBannerEnabled(container: Container, showAutoRegistration = false): boolean {
 	// Check if running on web or automatically registrable
 	if (isWeb || (!showAutoRegistration && mcpExtensionRegistrationAllowed())) {
 		return false;
 	}
 
-	// Check platform
-	const platform = getPlatform();
-	if (platform !== 'windows' && platform !== 'macOS' && platform !== 'linux') {
-		return false;
-	}
-
-	if (container.storage.get('mcp:banner:dismissed', false)) return false;
-
-	// Check host app
-	const hostAppName = await getHostAppName();
-	const supportedApps = ['code', 'code-insiders', 'cursor', 'windsurf'];
-
-	return hostAppName != null && supportedApps.includes(hostAppName);
+	return !container.storage.get('mcp:banner:dismissed', false);
 }
 
 export function supportsMcpExtensionRegistration(): boolean {

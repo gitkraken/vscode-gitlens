@@ -1040,18 +1040,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private onStorageChanged(e: StorageChangeEvent) {
 		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
-			void this.onMcpBannerChanged();
+			this.onMcpBannerChanged();
 		}
 	}
 
-	private async onMcpBannerChanged() {
+	private onMcpBannerChanged() {
 		if (!this.host.visible) return;
 
-		void this.host.notify(DidChangeMcpBanner, await this.getMcpBannerCollapsed());
+		void this.host.notify(DidChangeMcpBanner, this.getMcpBannerCollapsed());
 	}
 
-	private async getMcpBannerCollapsed() {
-		return !(await isMcpBannerEnabled(this.container));
+	private getMcpBannerCollapsed() {
+		return !isMcpBannerEnabled(this.container);
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -2792,7 +2792,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
-			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 		};
 	}
 

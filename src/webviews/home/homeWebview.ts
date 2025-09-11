@@ -246,7 +246,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private onStorageChanged(e: StorageChangeEvent) {
 		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
-			void this.onMcpBannerChanged();
+			this.onMcpBannerChanged();
 		}
 	}
 
@@ -802,8 +802,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('feb2025AmaBanner') ?? false;
 	}
 
-	private async getMcpBannerCollapsed() {
-		return !(await isMcpBannerEnabled(this.container, true));
+	private getMcpBannerCollapsed() {
+		return !isMcpBannerEnabled(this.container, true);
 	}
 
 	private getMcpCanAutoRegister() {
@@ -901,7 +901,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
-			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
 		};
 	}
@@ -1136,11 +1136,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeAiAllAccessBanner, await this.getAiAllAccessBannerCollapsed());
 	}
 
-	private async onMcpBannerChanged() {
+	private onMcpBannerChanged() {
 		if (!this.host.visible) return;
 
 		void this.host.notify(DidChangeMcpBanner, {
-			mcpBannerCollapsed: await this.getMcpBannerCollapsed(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
 		});
 	}
