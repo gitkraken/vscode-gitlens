@@ -1541,7 +1541,10 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					await executeCommand(command, { source: 'deeplink' });
+					const detail = this._context.params?.get('source');
+					const source = detail != null ? { source: 'deeplink', detail: detail } : { source: 'deeplink' };
+
+					await executeCommand(command, source);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}

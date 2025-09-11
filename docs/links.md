@@ -261,7 +261,7 @@ Used to run a GitLens command.
 
 #### Format
 
-_{prefix}/command/{command}_
+_{prefix}/command/{command}(?source={source})_
 
 #### References
 
@@ -285,6 +285,8 @@ _{prefix}/command/{command}_
   - _walkthrough_ - Runs the `GitLens: Get Started` command.
 
   - _worktrees_ - Runs the `GitLens: Show Worktrees View` command.
+
+- _{source}_ is an optional parameter representing the `source.detail` for the command's telemetry.
 
 #### Example Usage
 
