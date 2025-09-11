@@ -240,7 +240,6 @@ export const bannerStyles = css`
 		--button-foreground: var(--gl-banner-text-color);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
 		--button-padding: var(--gl-banner-button-padding);
-		font-size: 1.2em;
 	}
 
 	.banner--gradient-purple .banner__button--primary {
@@ -248,7 +247,6 @@ export const bannerStyles = css`
 		justify-self: center;
 		white-space: nowrap;
 		--button-padding: var(--gl-banner-button-padding);
-		font-size: 1.2em;
 	}
 
 	.banner__button--secondary {
