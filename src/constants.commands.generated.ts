@@ -691,6 +691,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.ai.generateCommitMessage'
 	| 'gitlens.ai.generateRebase'
 	| 'gitlens.ai.mcp.install'
+	| 'gitlens.ai.mcp.reinstall'
 	| 'gitlens.ai.switchProvider'
 	| 'gitlens.applyPatchFromClipboard'
 	| 'gitlens.associateIssueWithBranch'

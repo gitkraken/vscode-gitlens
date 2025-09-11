@@ -6318,6 +6318,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.mcp.reinstall",
+				"title": "Re-Install GitKraken MCP Server",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.rebaseOntoCommit:graph",
 				"title": "AI Rebase Current Branch onto Commit (Preview)...",
 				"icon": "$(sparkle)",
@@ -11093,7 +11098,11 @@
 				},
 				{
 					"command": "gitlens.ai.mcp.install",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && !gitlens:gk:cli:installed"
+				},
+				{
+					"command": "gitlens.ai.mcp.reinstall",
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && gitlens:gk:cli:installed"
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:graph",

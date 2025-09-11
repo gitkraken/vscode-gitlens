@@ -10,6 +10,7 @@ import {
 } from '../../../../plus/gk/utils/-webview/mcp.utils';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
+import { setContext } from '../../../../system/-webview/context';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode';
 import { openUrl } from '../../../../system/-webview/vscode/uris';
 import { gate } from '../../../../system/decorators/gate';
@@ -61,14 +62,17 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		this.onConfigurationChanged();
 
+		const cliInstall = this.container.storage.get('gk:cli:install');
 		if (mcpExtensionRegistrationAllowed()) {
-			const cliInstall = this.container.storage.get('gk:cli:install');
 			if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
 				setTimeout(
 					() => this.installCLI(true, 'gk-cli-integration'),
 					10000 + Math.floor(Math.random() * 20000),
 				);
 			}
+		}
+		if (cliInstall?.status === 'completed') {
+			void setContext('gitlens:gk:cli:installed', true);
 		}
 	}
 
@@ -108,7 +112,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 	@gate()
 	@log({ exit: true })
-	private async setupMCP(source?: Sources): Promise<void> {
+	private async setupMCP(source?: Sources, force = false): Promise<void> {
 		const scope = getLogScope();
 
 		await this.container.storage.store('mcp:banner:dismissed', true);
@@ -159,7 +163,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							cliVersion: installedVersion,
 							cliPath: installedPath,
 							status,
-						} = await this.installCLI(false, source);
+						} = await this.installCLI(false, source, force);
 						if (status === 'unsupported') {
 							throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform);
 						} else if (status === 'attempted') {
@@ -334,34 +338,39 @@ export class GkCliIntegrationProvider implements Disposable {
 	private async installCLI(
 		autoInstall?: boolean,
 		source?: Sources,
+		force = false,
 	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
 		const scope = getLogScope();
 
 		const cliInstall = this.container.storage.get('gk:cli:install');
-		let cliInstallAttempts = cliInstall?.attempts ?? 0;
+		let cliInstallAttempts = force ? 0 : (cliInstall?.attempts ?? 0);
 		let cliInstallStatus = cliInstall?.status ?? 'attempted';
 		let cliVersion = cliInstall?.version;
 		let cliPath = this.container.storage.get('gk:cli:path');
 		const platform = getPlatform();
 
-		if (cliInstallStatus === 'completed') {
-			if (cliPath == null) {
-				cliInstallStatus = 'attempted';
-				cliVersion = undefined;
-			} else {
-				cliVersion = cliInstall?.version;
-				try {
-					await workspace.fs.stat(Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk'));
-					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
-				} catch {
+		if (!force) {
+			if (cliInstallStatus === 'completed') {
+				if (cliPath == null) {
 					cliInstallStatus = 'attempted';
 					cliVersion = undefined;
+				} else {
+					cliVersion = cliInstall?.version;
+					try {
+						await workspace.fs.stat(
+							Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk'),
+						);
+						return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
+					} catch {
+						cliInstallStatus = 'attempted';
+						cliVersion = undefined;
+					}
 				}
+			} else if (cliInstallStatus === 'unsupported') {
+				return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
+			} else if (autoInstall && cliInstallStatus === 'attempted' && cliInstallAttempts >= 5) {
+				return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 			}
-		} else if (cliInstallStatus === 'unsupported') {
-			return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
-		} else if (autoInstall && cliInstallStatus === 'attempted' && cliInstallAttempts >= 5) {
-			return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 		}
 
 		try {
@@ -587,6 +596,7 @@ export class GkCliIntegrationProvider implements Disposable {
 							version: cliVersion,
 						})
 						.catch();
+					void setContext('gitlens:gk:cli:installed', true);
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent('cli/install/succeeded', {
 							autoInstall: autoInstall ?? false,
@@ -674,7 +684,10 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private registerCommands(): Disposable[] {
-		return [registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.setupMCP(src?.source))];
+		return [
+			registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.setupMCP(src?.source)),
+			registerCommand('gitlens.ai.mcp.reinstall', (src?: Source) => this.setupMCP(src?.source, true)),
+		];
 	}
 }
 

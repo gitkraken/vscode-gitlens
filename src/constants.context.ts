@@ -13,6 +13,7 @@ export type ContextKeys = {
 	'gitlens:disabled': boolean;
 	'gitlens:disabledToggleCodeLens': boolean;
 	'gitlens:enabled': boolean;
+	'gitlens:gk:cli:installed': boolean;
 	'gitlens:gk:hasOrganizations': boolean;
 	'gitlens:gk:organization:ai:enabled': boolean;
 	'gitlens:gk:organization:ai:enforceProviders': boolean;
