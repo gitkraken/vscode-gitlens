@@ -174,6 +174,9 @@ export class IntegrationService implements Disposable {
 			if (cloudIntegrationTypes.length > 0) {
 				query += `&provider=${cloudIntegrationTypes.join(',')}`;
 			}
+			if (cloudIntegrationTypes.length > 1) {
+				query += '&flow=expanded';
+			}
 		}
 
 		const baseQuery = query;
