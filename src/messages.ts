@@ -2,9 +2,11 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { urls } from './constants';
+import type { Source } from './constants.telemetry';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
+import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils';
 import { executeCommand, executeCoreCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
 import { openUrl } from './system/-webview/vscode/uris';
@@ -262,6 +264,43 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 
 	if (result === releaseNotes) {
 		void openUrl(urls.releaseNotes);
+	}
+}
+
+export async function showMcpMessage(current: string): Promise<void> {
+	const isAutoInstallable = mcpExtensionRegistrationAllowed();
+	const confirm = { title: 'OK', isCloseAffordance: true };
+	const learnMore = { title: 'Learn More' };
+	const install = { title: 'Complete MCP Setup' };
+
+	let result: MessageItem | undefined;
+	if (isAutoInstallable) {
+		result = await showMessage(
+			'info',
+			`GitLens ${current} here with MCP! GitKraken MCP is now active in Copilot chat. Ask Copilot to "start work on issue PROJ-123" or "create a PR for my commits" to see Git workflows powered by AI.`,
+			undefined,
+			null,
+			learnMore,
+			confirm,
+		);
+	} else {
+		result = await showMessage(
+			'info',
+			`GitLens ${current} with MCP is almost ready! Complete MCP setup to ask your AI chat to start work on issues, create PRs, and manage Git workflows seamlessly.`,
+			undefined,
+			null,
+			install,
+			learnMore,
+			confirm,
+		);
+	}
+
+	if (result === install) {
+		void executeCommand<Source>('gitlens.ai.mcp.install', { source: 'mcp-welcome-message' });
+	}
+
+	if (result === learnMore) {
+		void openUrl(urls.helpCenterMCP);
 	}
 }
 

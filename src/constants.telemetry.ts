@@ -1230,6 +1230,7 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
+	| 'mcp-welcome-message'
 	| 'merge-target'
 	| 'notification'
 	| 'patchDetails'
