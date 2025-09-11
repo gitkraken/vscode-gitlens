@@ -111,6 +111,10 @@ export function isLightTheme(theme: ColorTheme): boolean {
 	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
 }
 
+export function isHostVSCode(hostAppName: string | undefined): boolean {
+	return hostAppName === 'code' || hostAppName === 'code-insiders' || hostAppName === 'code-exploration';
+}
+
 export async function openWalkthrough(
 	extensionId: string,
 	walkthroughId: string,
