@@ -1,12 +1,11 @@
 import type { Event } from 'vscode';
-import { Disposable, EventEmitter } from 'vscode';
+import { Disposable, env, EventEmitter } from 'vscode';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { WalkthroughContextKeys } from '../constants.walkthroughs';
 import type { Container } from '../container';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
 import { setContext } from '../system/-webview/context';
-import { isCursor } from '../system/-webview/cursor';
 import { wait } from '../system/promise';
 import type { UsageChangeEvent } from './usageTracker';
 
@@ -324,6 +323,7 @@ export class WalkthroughStateProvider implements Disposable {
 	}
 }
 
+const walkthroughsUnsupportedByApp = ['Cursor', 'Qoder', 'Trae', 'Void'];
 export function isWalkthroughSupported(): boolean {
-	return !isCursor();
+	return !walkthroughsUnsupportedByApp.includes(env.appName);
 }
