@@ -389,12 +389,16 @@ interface GitCommandsConfig {
 interface GitKrakenConfig {
 	readonly activeOrganizationId: string | null;
 	readonly cli: GitKrakenCliConfig;
+	readonly mcp: GitKrakenMcpConfig;
 }
 
 interface GitKrakenCliConfig {
 	readonly integration: {
 		readonly enabled: boolean;
 	};
+}
+
+interface GitKrakenMcpConfig {
 	readonly autoInstall: {
 		readonly enabled: boolean;
 	};

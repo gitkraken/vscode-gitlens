@@ -4111,15 +4111,12 @@
 							"experimental"
 						]
 					},
-					"gitlens.gitkraken.cli.autoInstall.enabled": {
+					"gitlens.gitkraken.mcp.autoInstall.enabled": {
 						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to automatically install the GitKraken CLI",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically install the GitKraken MCP",
 						"scope": "window",
-						"order": 40,
-						"tags": [
-							"experimental"
-						]
+						"order": 40
 					},
 					"gitlens.terminal.overrideGitEditor": {
 						"type": "boolean",
