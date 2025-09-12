@@ -26,7 +26,7 @@ import {
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
-import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
+import { updateHunkAssignments } from '../../../../plus/composer/utils';
 import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
@@ -1256,9 +1256,7 @@ export class ComposerApp extends LitElement {
 	private finishAndCommit() {
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
-			hunks: this.hunksWithAssignments,
 			baseCommit: this.state.baseCommit,
-			safetyState: this.state.safetyState,
 		});
 	}
 
@@ -1273,7 +1271,6 @@ export class ComposerApp extends LitElement {
 	private handleReloadComposer() {
 		this.resetHistory();
 		this._ipc.sendCommand(ReloadComposerCommand, {
-			repoPath: this.state.safetyState.repoPath,
 			mode: this.state.mode,
 		});
 	}
@@ -1466,11 +1463,8 @@ export class ComposerApp extends LitElement {
 		this.saveToHistory();
 
 		this._ipc.sendCommand(GenerateCommitsCommand, {
-			hunks: hunksToGenerate,
-			// In preview mode, send empty commits array to overwrite existing commits
-			// In interactive mode, send existing commits to preserve them
+			hunkIndices: hunksToGenerate.map(hunk => hunk.index),
 			commits: this.isPreviewMode ? [] : this.state.commits,
-			hunkMap: this.state.hunkMap,
 			baseCommit: this.state.baseCommit,
 			customInstructions: customInstructions || undefined,
 		});
@@ -1485,15 +1479,9 @@ export class ComposerApp extends LitElement {
 			return;
 		}
 
-		// Create combined diff for the commit
-		const { patch } = createCombinedDiffForCommit(commit, this.hunksWithAssignments);
-		if (!patch) {
-			return;
-		}
-
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
-			diff: patch,
+			commitHunkIndices: commit.hunkIndices,
 			overwriteExistingMessage: commit.message.trim() !== '',
 		});
 	}
