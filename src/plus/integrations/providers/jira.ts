@@ -272,15 +272,15 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return results;
 	}
 
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		session: AuthenticationSession,
 		resource: JiraOrganizationDescriptor,
-		id: string,
+		{ key }: { id: string; key: string },
 	): Promise<IssueOrPullRequest | undefined> {
 		const api = await this.getProvidersApi();
 		const issue = await api.getIssue(
 			this.id,
-			{ resourceId: resource.id, number: id },
+			{ resourceId: resource.id, number: key },
 			{ accessToken: session.accessToken },
 		);
 		return issue != null ? toIssueShape(issue, this) : undefined;

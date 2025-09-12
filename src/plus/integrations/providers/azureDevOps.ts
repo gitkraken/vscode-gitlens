@@ -259,10 +259,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		return Promise.resolve(undefined);
 	}
 
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		repo: AzureRepositoryDescriptor,
-		id: string,
+		{ id }: { id: string; key: string },
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
 		return (await this.container.azure)?.getIssueOrPullRequest(this, accessToken, repo.owner, repo.name, id, {

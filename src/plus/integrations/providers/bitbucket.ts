@@ -87,10 +87,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 		return Promise.resolve(undefined);
 	}
 
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
-		id: string,
+		{ id }: { id: string; key: string },
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
 		return (await this.container.bitbucket)?.getIssueOrPullRequest(
