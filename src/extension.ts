@@ -61,7 +61,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 							env.appName
 						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
 							env.language
-						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.machineId}|${
+						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 							env.sessionId
 						})`,
 					);
