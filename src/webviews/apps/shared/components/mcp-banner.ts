@@ -52,14 +52,14 @@ export class GlMcpBanner extends LitElement {
 		}
 
 		if (this.canAutoRegister) {
-			const bodyHtml = `GitKraken MCP is now active in Copilot chat. Ask Copilot to "start work on issue PROJ-123" or "create a PR for my commits" to see Git workflows powered by AI. <a href="${urls.helpCenterMCP}">Learn more</a>`;
+			const bodyHtml = `GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions. <a href="${urls.helpCenterMCP}">Learn more</a>`;
 
 			return html`
 				<gl-banner
 					exportparts="base"
 					display="gradient-purple"
 					layout="${this.layout}"
-					banner-title="GitKraken MCP for GitLens is Here!"
+					banner-title="GitKraken MCP Bundled with GitLens"
 					body="${bodyHtml}"
 					dismissible
 					dismiss-href="${createCommandLink('gitlens.storage.store', {
@@ -70,7 +70,7 @@ export class GlMcpBanner extends LitElement {
 			`;
 		}
 
-		const bodyHtml = `Leverage Git and Integration information from GitLens in AI chat. <a href="${urls.helpCenterMCP}">Learn more</a>`;
+		const bodyHtml = `Leverage Git and your integrations (issues, PRs, etc) to provide context and perform actions in AI chat. <a href="${urls.helpCenterMCP}">Learn more</a>`;
 
 		return html`
 			<gl-banner

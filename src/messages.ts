@@ -251,9 +251,9 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(
 		'info',
-		`Upgraded to GitLens ${majorVersion}${
+		`GitLens upgraded to ${majorVersion}${
 			majorVersion === '17'
-				? ' with all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
+				? ' with the all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
 				: " — see what's new."
 		}`,
 		undefined,
@@ -267,17 +267,17 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	}
 }
 
-export async function showMcpMessage(current: string): Promise<void> {
+export async function showMcpMessage(_current: string): Promise<void> {
 	const isAutoInstallable = mcpExtensionRegistrationAllowed();
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const learnMore = { title: 'Learn More' };
-	const install = { title: 'Complete MCP Setup' };
+	const install = { title: 'Install GitKraken MCP' };
 
 	let result: MessageItem | undefined;
 	if (isAutoInstallable) {
 		result = await showMessage(
 			'info',
-			`GitLens ${current} here with MCP! GitKraken MCP is now active in Copilot chat. Ask Copilot to "start work on issue PROJ-123" or "create a PR for my commits" to see Git workflows powered by AI.`,
+			`GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions.`,
 			undefined,
 			null,
 			learnMore,
@@ -286,7 +286,7 @@ export async function showMcpMessage(current: string): Promise<void> {
 	} else {
 		result = await showMessage(
 			'info',
-			`GitLens ${current} with MCP is almost ready! Complete MCP setup to ask your AI chat to start work on issues, create PRs, and manage Git workflows seamlessly.`,
+			`Allow GitLens to add the GitKraken MCP into your AI chat, leveraging Git and your integrations (issues, PRs, etc) to provide context and perform actions. Saving you time and context switching.`,
 			undefined,
 			null,
 			install,
