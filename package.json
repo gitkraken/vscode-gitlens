@@ -11105,11 +11105,11 @@
 				},
 				{
 					"command": "gitlens.ai.mcp.install",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && !gitlens:gk:cli:installed"
+					"when": "!gitlens:untrusted && !gitlens:gk:cli:installed"
 				},
 				{
 					"command": "gitlens.ai.mcp.reinstall",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && gitlens:gk:cli:installed"
+					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:graph",
