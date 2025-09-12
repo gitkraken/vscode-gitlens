@@ -6,6 +6,7 @@ import { getPlatform } from '@env/platform';
 import type { Source, TelemetryEventData, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
+import { getMachineId } from '../system/-webview/machine';
 
 export interface TelemetryContext {
 	env: string;
@@ -99,7 +100,7 @@ export class TelemetryService implements Disposable {
 				env: container.env,
 				extensionId: container.id,
 				extensionVersion: container.version,
-				machineId: env.machineId,
+				machineId: getMachineId(),
 				sessionId: env.sessionId,
 				language: env.language,
 				platform: getPlatform(),
