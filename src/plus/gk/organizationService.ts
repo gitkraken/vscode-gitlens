@@ -2,6 +2,7 @@ import { Disposable, window } from 'vscode';
 import type { Container } from '../../container';
 import { setContext } from '../../system/-webview/context';
 import { gate } from '../../system/decorators/gate';
+import { log } from '../../system/decorators/log';
 import { once } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
@@ -44,6 +45,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
+	@log<OrganizationService['getOrganizations']>({ args: { 0: o => `force=${o?.force}, userId=${o?.userId}` } })
 	async getOrganizations(options?: {
 		force?: boolean;
 		accessToken?: string;
@@ -179,6 +181,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
+	@log()
 	async getMembers(id?: string | undefined, options?: { force?: boolean }): Promise<OrganizationMember[]> {
 		if (id == null) {
 			id = await this.getActiveOrganizationId();
@@ -209,10 +212,12 @@ export class OrganizationService implements Disposable {
 		return this._organizationMembers.get(id) ?? [];
 	}
 
+	@log()
 	async getMemberById(id: string, organizationId: string): Promise<OrganizationMember | undefined> {
 		return (await this.getMembers(organizationId)).find(m => m.id === id);
 	}
 
+	@log()
 	async getMembersByIds(ids: string[], organizationId: string): Promise<OrganizationMember[]> {
 		return (await this.getMembers(organizationId)).filter(m => ids.includes(m.id));
 	}
@@ -223,6 +228,7 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
+	@log()
 	async getOrganizationSettings(
 		orgId: string | undefined,
 		options?: { force?: boolean },

@@ -789,11 +789,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log({
-		args: {
-			1: _contents => '<contents>',
-		},
-	})
+	@log<GitHubGitProvider['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	async getDiffForFileContents(
 		_uri: GitUri,
 		_ref: string,
