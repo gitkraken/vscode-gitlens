@@ -394,6 +394,14 @@ async function showWhatsNew(
 }
 
 function showMcp(version: string, previousVersion: string | undefined): void {
-	if (previousVersion != null && satisfies(fromString(previousVersion), '>= 17.5')) return;
+	if (
+		previousVersion == null ||
+		version === previousVersion ||
+		compare(version, previousVersion) !== 1 ||
+		satisfies(fromString(previousVersion), '>= 17.5')
+	) {
+		return;
+	}
+
 	void showMcpMessage(version);
 }
