@@ -1819,6 +1819,8 @@ function flattenSubscriptionFeaturePreviews(previews: FeaturePreview[]): Subscri
 
 function getTrackingContextFromSource(source: Source | undefined): TrackingContext | undefined {
 	switch (source?.source) {
+		case 'deeplink':
+			return source.detail === 'mcp' ? 'mcp' : undefined;
 		case 'graph':
 			return 'graph';
 		case 'launchpad':

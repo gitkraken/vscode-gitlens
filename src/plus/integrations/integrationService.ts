@@ -12,7 +12,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
-import { sourceToContext } from '../../constants.telemetry';
+import { detailToContext, sourceToContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { Account } from '../../git/models/author';
 import type { IssueShape } from '../../git/models/issue';
@@ -155,6 +155,12 @@ export class IntegrationService implements Disposable {
 
 		if (source?.source != null && sourceToContext[source.source] != null) {
 			query += `&context=${sourceToContext[source.source]}`;
+		} else if (
+			source?.detail != null &&
+			typeof source.detail === 'string' &&
+			detailToContext[source.detail] != null
+		) {
+			query += `&context=${detailToContext[source.detail]}`;
 		}
 
 		if (integrationIds != null) {

@@ -1200,10 +1200,10 @@ export type TelemetryEventsFromWebviewApp = {
 };
 
 export type LoginContext = 'start_trial';
-export type ConnectIntegrationContext = 'launchpad';
+export type ConnectIntegrationContext = 'launchpad' | 'mcp';
 export type Context = LoginContext | ConnectIntegrationContext;
 /** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
-export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';
+export type TrackingContext = 'graph' | 'launchpad' | 'mcp' | 'visual_file_history' | 'worktrees';
 
 export type Sources =
 	| 'account'
@@ -1230,6 +1230,7 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
+	| 'mcp'
 	| 'mcp-welcome-message'
 	| 'merge-target'
 	| 'notification'
@@ -1258,6 +1259,10 @@ export type Source = {
 
 export const sourceToContext: { [source in Sources]?: Context } = {
 	launchpad: 'launchpad',
+};
+
+export const detailToContext: { [detail in string]?: Context } = {
+	mcp: 'mcp',
 };
 
 export type TrackedUsage = {
