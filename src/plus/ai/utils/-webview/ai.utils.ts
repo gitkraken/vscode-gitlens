@@ -189,15 +189,15 @@ export function getOrgAIConfig(): OrgAIConfig {
 	};
 }
 
-export function getOrgAIProviderOfType(type: AIProviders, orgAiConfig?: OrgAIConfig): OrgAIProvider {
-	orgAiConfig ??= getOrgAIConfig();
-	if (!orgAiConfig.aiEnabled) return { type: type, enabled: false };
-	if (!orgAiConfig.enforceAiProviders) return { type: type, enabled: true };
-	return orgAiConfig.aiProviders[type] ?? { type: type, enabled: false };
+export function getOrgAIProviderOfType(type: AIProviders, orgAIConfig?: OrgAIConfig): OrgAIProvider {
+	orgAIConfig ??= getOrgAIConfig();
+	if (!orgAIConfig.aiEnabled) return { type: type, enabled: false };
+	if (!orgAIConfig.enforceAiProviders) return { type: type, enabled: true };
+	return orgAIConfig.aiProviders[type] ?? { type: type, enabled: false };
 }
 
-export function isProviderEnabledByOrg(type: AIProviders, orgAiConfig?: OrgAIConfig): boolean {
-	return getOrgAIProviderOfType(type, orgAiConfig).enabled;
+export function isProviderEnabledByOrg(type: AIProviders, orgAIConfig?: OrgAIConfig): boolean {
+	return getOrgAIProviderOfType(type, orgAIConfig).enabled;
 }
 
 /**

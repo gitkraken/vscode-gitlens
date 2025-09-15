@@ -327,6 +327,38 @@ export class AIProviderService implements Disposable {
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
 
+	private async getBestFallbackModel(): Promise<AIModel | undefined> {
+		let model: AIModel | undefined;
+		let models: readonly AIModel[];
+
+		const orgAIConfig = getOrgAIConfig();
+		// First, use Copilot GPT 4.1 or first model
+		if (isProviderEnabledByOrg('vscode', orgAIConfig)) {
+			try {
+				models = await this.getModels('vscode');
+				if (models.length) {
+					model = models.find(m => m.id === 'copilot:gpt-4.1') ?? models[0];
+					if (model != null) return model;
+				}
+			} catch {}
+		}
+
+		// Second, use the GitKraken AI default or first model
+		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
+			try {
+				const subscription = await this.container.subscription.getSubscription();
+				if (subscription.account?.verified) {
+					models = await this.getModels('gitkraken');
+
+					model = models.find(m => m.default) ?? models[0];
+					if (model != null) return model;
+				}
+			} catch {}
+		}
+
+		return model;
+	}
+
 	async getModel(options?: { force?: boolean; silent?: boolean }, source?: Source): Promise<AIModel | undefined> {
 		const cfg = this.getConfiguredModel();
 		if (!options?.force && cfg?.provider != null && cfg?.model != null) {
@@ -334,50 +366,53 @@ export class AIProviderService implements Disposable {
 			if (model != null) return model;
 		}
 
-		if (options?.silent) return undefined;
-
-		let chosenProviderId: AIProviders | undefined;
 		let chosenModel: AIModel | undefined;
-		const orgAiConf = getOrgAIConfig();
+		let chosenProviderId: AIProviders | undefined;
+		const fallbackModel = lazy(() => this.getBestFallbackModel());
 
-		if (!options?.force) {
-			const vsCodeModels = await this.getModels('vscode');
-			if (isProviderEnabledByOrg('vscode', orgAiConf) && vsCodeModels.length !== 0) {
-				chosenProviderId = 'vscode';
-			} else if (
-				isProviderEnabledByOrg('gitkraken', orgAiConf) &&
-				(await this.container.subscription.getSubscription()).account?.verified
-			) {
-				chosenProviderId = 'gitkraken';
-				const gitkrakenModels = await this.getModels('gitkraken');
-				chosenModel = gitkrakenModels.find(m => m.default);
+		if (!options?.silent) {
+			if (!options?.force) {
+				chosenModel = await fallbackModel.value;
+				chosenProviderId = chosenModel?.provider.id;
 			}
-		}
 
-		while (true) {
-			chosenProviderId ??= (await showAIProviderPicker(this.container, cfg))?.provider;
-			if (chosenProviderId == null) return;
-
-			const provider = supportedAIProviders.get(chosenProviderId);
-			if (provider == null) return;
-
-			if (!(await this.ensureProviderConfigured(provider, false))) return;
-
-			if (chosenModel == null) {
-				const result = await showAIModelPicker(this.container, chosenProviderId, cfg);
-				if (result == null || (isDirective(result) && result !== Directive.Back)) return;
-				if (result === Directive.Back) {
-					chosenProviderId = undefined;
-					continue;
+			while (true) {
+				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg))?.provider;
+				if (chosenProviderId == null) {
+					chosenModel = undefined;
+					break;
 				}
 
-				chosenModel = result.model;
-			}
+				const provider = supportedAIProviders.get(chosenProviderId);
+				if (provider == null) {
+					chosenModel = undefined;
+					break;
+				}
 
-			break;
+				if (!(await this.ensureProviderConfigured(provider, false))) {
+					chosenModel = undefined;
+				}
+
+				if (chosenModel == null) {
+					const result = await showAIModelPicker(this.container, chosenProviderId, cfg);
+					if (result == null || (isDirective(result) && result !== Directive.Back)) {
+						chosenModel = undefined;
+						break;
+					}
+					if (result === Directive.Back) {
+						chosenProviderId = undefined;
+						continue;
+					}
+
+					chosenModel = result.model;
+				}
+
+				break;
+			}
 		}
 
-		const model = await this.getOrUpdateModel(chosenModel);
+		chosenModel ??= await fallbackModel.value;
+		const model = chosenModel == null ? undefined : await this.getOrUpdateModel(chosenModel);
 
 		this.container.telemetry.sendEvent(
 			'ai/switchModel',
@@ -391,7 +426,9 @@ export class AIProviderService implements Disposable {
 			source,
 		);
 
-		void (await showConfirmAIProviderToS(this.container.storage));
+		if (model != null) {
+			void (await showConfirmAIProviderToS(this.container.storage));
+		}
 		return model;
 	}
 
