@@ -6316,7 +6316,7 @@
 			},
 			{
 				"command": "gitlens.ai.mcp.reinstall",
-				"title": "Re-Install GitKraken MCP Server",
+				"title": "Reinstall GitKraken MCP Server",
 				"category": "GitLens"
 			},
 			{

@@ -316,7 +316,7 @@
 			"commandPalette": "!gitlens:untrusted && !gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.mcp.reinstall": {
-			"label": "Re-Install GitKraken MCP Server",
+			"label": "Reinstall GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.rebaseOntoCommit:graph": {
