@@ -830,6 +830,24 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			if (result && result !== 'cancelled') {
+				if (result.commits.length === 0) {
+					this._context.operations.generateCommits.errorCount++;
+					this._context.errors.operation.count++;
+					this.sendTelemetryEvent(
+						params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
+						{
+							...eventData,
+							'failure.reason': 'error',
+							'failure.error.message': 'no commits generated',
+						},
+					);
+					await this.host.notify(DidErrorAIOperationNotification, {
+						operation: 'generate commits',
+						error: 'No commits generated',
+					});
+					return;
+				}
+
 				// Transform AI result back to ComposerCommit format
 				const newCommits = result.commits.map((commit, index) => ({
 					id: `ai-commit-${index}`,
