@@ -22,10 +22,9 @@ export function supportsMcpExtensionRegistration(): boolean {
 }
 
 export function mcpExtensionRegistrationAllowed(): boolean {
-	// TODO: Remove experimental setting for production release
 	return (
 		configuration.get('ai.enabled') &&
-		configuration.get('gitkraken.mcp.autoInstall.enabled') &&
+		configuration.get('gitkraken.mcp.autoEnabled') &&
 		supportsMcpExtensionRegistration()
 	);
 }

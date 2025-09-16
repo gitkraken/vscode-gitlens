@@ -4,10 +4,7 @@ import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window,
 import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
-import {
-	mcpExtensionRegistrationAllowed,
-	supportsMcpExtensionRegistration,
-} from '../../../../plus/gk/utils/-webview/mcp.utils';
+import { mcpExtensionRegistrationAllowed } from '../../../../plus/gk/utils/-webview/mcp.utils';
 import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { setContext } from '../../../../system/-webview/context';
@@ -230,7 +227,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			// If MCP extension registration is supported, don't proceed with manual setup
-			if (supportsMcpExtensionRegistration()) {
+			if (mcpExtensionRegistrationAllowed()) {
 				setLogScopeExit(scope, 'supports provider-based MCP registration');
 				return;
 			}

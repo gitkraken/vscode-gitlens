@@ -4111,10 +4111,10 @@
 							"experimental"
 						]
 					},
-					"gitlens.gitkraken.mcp.autoInstall.enabled": {
+					"gitlens.gitkraken.mcp.autoEnabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to automatically install the GitKraken MCP",
+						"markdownDescription": "Specifies whether to automatically install and enable the GitKraken MCP. This only applies to VS Code 1.101 and later.",
 						"scope": "window",
 						"order": 40
 					},

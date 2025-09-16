@@ -399,9 +399,7 @@ interface GitKrakenCliConfig {
 }
 
 interface GitKrakenMcpConfig {
-	readonly autoInstall: {
-		readonly enabled: boolean;
-	};
+	readonly autoEnabled: boolean;
 }
 
 export interface GraphConfig {
