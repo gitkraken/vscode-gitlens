@@ -1,6 +1,8 @@
 import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { urls } from '../../../../constants';
+import type { StoredGkCLIInstallInfo } from '../../../../constants.storage';
 import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
@@ -9,7 +11,7 @@ import { registerCommand } from '../../../../system/-webview/command';
 import { configuration } from '../../../../system/-webview/configuration';
 import { setContext } from '../../../../system/-webview/context';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode';
-import { openUrl } from '../../../../system/-webview/vscode/uris';
+import { exists, openUrl } from '../../../../system/-webview/vscode/uris';
 import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -33,6 +35,18 @@ const enum CLIInstallErrorReason {
 	CoreInstall,
 }
 
+const enum McpSetupErrorReason {
+	WebUnsupported,
+	VSCodeVersionUnsupported,
+	CLIUnsupportedPlatform,
+	CLILocalInstallFailed,
+	CLIUnknownError,
+	InstallationFailed,
+	UnsupportedHost,
+	UnsupportedClient,
+	UnexpectedOutput,
+}
+
 export interface CliCommandRequest {
 	cwd?: string;
 	args?: string[];
@@ -45,6 +59,8 @@ const CLIProxyMCPInstallOutputs = {
 	notASupportedClient: /is not a supported MCP client/i,
 	installedSuccessfully: /GitKraken MCP Server Successfully Installed!/i,
 } as const;
+
+const maxAutoInstallAttempts = 5;
 
 export class GkCliIntegrationProvider implements Disposable {
 	private readonly _disposable: Disposable;
@@ -59,18 +75,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		this.onConfigurationChanged();
 
-		const cliInstall = this.container.storage.get('gk:cli:install');
-		if (mcpExtensionRegistrationAllowed()) {
-			if (!cliInstall || (cliInstall.status === 'attempted' && cliInstall.attempts < 5)) {
-				setTimeout(
-					() => this.installCLI(true, 'gk-cli-integration'),
-					10000 + Math.floor(Math.random() * 20000),
-				);
-			}
-		}
-		if (cliInstall?.status === 'completed') {
-			void setContext('gitlens:gk:cli:installed', true);
-		}
+		this.ensureAutoInstall();
 	}
 
 	dispose(): void {
@@ -107,147 +112,179 @@ export class GkCliIntegrationProvider implements Disposable {
 		this._runningDisposable = undefined;
 	}
 
+	private ensureAutoInstall() {
+		const cliInstall = this.container.storage.get('gk:cli:install');
+		if (cliInstall?.status === 'completed') {
+			void setContext('gitlens:gk:cli:installed', true);
+			return;
+		}
+
+		if (!mcpExtensionRegistrationAllowed() || reachedMaxAttempts(cliInstall)) {
+			return;
+		}
+
+		// Setup MCP, but handle errors silently
+		void this.setupMCPCore('gk-cli-integration', false, true).catch(() => {});
+	}
+
 	@gate()
 	@log({ exit: true })
 	private async setupMCP(source?: Sources, force = false): Promise<void> {
-		const scope = getLogScope();
-
 		await this.container.storage.store('mcp:banner:dismissed', true);
 
+		try {
+			const result = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: 'Setting up the GitKraken MCP...',
+					cancellable: false,
+				},
+				async () => {
+					return this.setupMCPCore(source, force);
+				},
+			);
+
+			if (result.requiresUserCompletion) {
+				await openUrl(result.url);
+			}
+
+			if (result.usingExtensionRegistration && force === false) {
+				const learnMore = { title: 'Learn More' };
+				const confirm = { title: 'OK', isCloseAffordance: true };
+				const userResult = await window.showInformationMessage(
+					'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions.',
+					learnMore,
+					confirm,
+				);
+				if (userResult === learnMore) {
+					void openUrl(urls.helpCenterMCP);
+				}
+			}
+		} catch (ex) {
+			if (ex instanceof McpSetupError) {
+				switch (ex.reason) {
+					case McpSetupErrorReason.WebUnsupported:
+					case McpSetupErrorReason.VSCodeVersionUnsupported:
+						void window.showWarningMessage(ex.message);
+						break;
+					case McpSetupErrorReason.InstallationFailed:
+					case McpSetupErrorReason.CLIUnsupportedPlatform:
+					case McpSetupErrorReason.CLILocalInstallFailed:
+					case McpSetupErrorReason.CLIUnknownError:
+						void window.showErrorMessage(ex.message);
+						break;
+					case McpSetupErrorReason.UnsupportedHost:
+					case McpSetupErrorReason.UnsupportedClient:
+					case McpSetupErrorReason.UnexpectedOutput:
+						void showManualMcpSetupPrompt(ex.message);
+						break;
+					default:
+						void window.showErrorMessage(ex.message);
+						break;
+				}
+			} else {
+				void window.showErrorMessage(
+					`Unable to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+				);
+			}
+		}
+	}
+
+	@log({ exit: true })
+	private async setupMCPCore(
+		source?: Sources,
+		force = false,
+		autoInstall = false,
+	): Promise<{
+		cliVersion?: string;
+		requiresUserCompletion?: boolean;
+		usingExtensionRegistration?: boolean;
+		url?: string;
+	}> {
+		const scope = getLogScope();
 		const commandSource = source ?? 'commandPalette';
-		let cliVersion: string | undefined;
+
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('mcp/setup/started', { source: commandSource });
 		}
 
-		if (isWeb) {
-			setLogScopeExit(scope, 'GitKraken MCP setup is not supported on the web');
-			void window.showWarningMessage('GitKraken MCP setup is not supported on the web.');
-			if (this.container.telemetry.enabled) {
-				this.container.telemetry.sendEvent('mcp/setup/failed', {
-					reason: 'web environment unsupported',
-					source: commandSource,
-				});
-			}
-			return;
-		}
-
-		const hostAppName = await getHostAppName();
-
 		try {
-			if (isHostVSCode(hostAppName) && compare(codeVersion, '1.102') < 0) {
-				void window.showWarningMessage('GitKraken MCP setup requires VS Code 1.102 or later.');
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/failed', {
-						reason: 'unsupported vscode version',
-						source: commandSource,
-					});
-				}
-				return;
-			}
-
-			let cliVersion: string | undefined;
-			let cliPath: string | undefined;
-			try {
-				await window.withProgress(
-					{
-						location: ProgressLocation.Notification,
-						title: 'Setting up the GitKraken MCP...',
-						cancellable: false,
-					},
-					async () => {
-						const {
-							cliVersion: installedVersion,
-							cliPath: installedPath,
-							status,
-						} = await this.installCLI(false, source, force);
-						if (status === 'unsupported') {
-							throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform);
-						} else if (status === 'attempted') {
-							throw new CLIInstallError(CLIInstallErrorReason.CoreInstall);
-						}
-						cliVersion = installedVersion;
-						cliPath = installedPath;
-					},
+			if (isWeb) {
+				setLogScopeExit(scope, 'GitKraken MCP setup is not supported on the web');
+				throw new McpSetupError(
+					McpSetupErrorReason.WebUnsupported,
+					'GitKraken MCP setup is not supported on the web.',
+					'web environment unsupported',
+					commandSource,
 				);
-			} catch (ex) {
-				let failureReason = 'unknown error';
-				if (ex instanceof CLIInstallError) {
-					switch (ex.reason) {
-						case CLIInstallErrorReason.UnsupportedPlatform:
-							void window.showErrorMessage('GitKraken MCP setup is not supported on this platform.');
-							failureReason = 'unsupported platform';
-							break;
-						case CLIInstallErrorReason.ProxyUrlFetch:
-						case CLIInstallErrorReason.ProxyUrlFormat:
-						case CLIInstallErrorReason.ProxyFetch:
-						case CLIInstallErrorReason.ProxyDownload:
-						case CLIInstallErrorReason.ProxyExtract:
-						case CLIInstallErrorReason.CoreDirectory:
-						case CLIInstallErrorReason.CoreInstall:
-							void window.showErrorMessage(
-								'Unable to locally install the GitKraken MCP server. Please try again.',
-							);
-							failureReason = 'local installation failed';
-							break;
-						default:
-							void window.showErrorMessage(
-								`Unable to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error.'}`,
-							);
-							break;
-					}
-				}
-
-				Logger.error(ex, scope, `Error during MCP installation: ${ex}`);
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/failed', {
-						reason: failureReason,
-						'error.message': ex instanceof Error ? ex.message : 'Unknown error',
-						source: commandSource,
-					});
-				}
-				return;
 			}
+
+			const hostAppName = await getHostAppName();
+			const usingExtensionRegistration = mcpExtensionRegistrationAllowed();
+
+			if (!usingExtensionRegistration && isHostVSCode(hostAppName) && compare(codeVersion, '1.102') < 0) {
+				throw new McpSetupError(
+					McpSetupErrorReason.VSCodeVersionUnsupported,
+					'GitKraken MCP setup requires VS Code 1.102 or later.',
+					'unsupported vscode version',
+					commandSource,
+				);
+			}
+
+			const {
+				cliVersion: installedVersion,
+				cliPath: installedPath,
+				status,
+			} = await this.installCLI(autoInstall, source, force);
+
+			if (status === 'unsupported') {
+				throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform);
+			} else if (status === 'attempted') {
+				throw new CLIInstallError(CLIInstallErrorReason.CoreInstall);
+			}
+
+			const cliVersion = installedVersion;
+			const cliPath = installedPath;
 
 			if (cliPath == null) {
 				setLogScopeExit(scope, undefined, 'GitKraken MCP setup failed; installation failed');
+				throw new McpSetupError(
+					McpSetupErrorReason.InstallationFailed,
+					'Unable to setup the GitKraken MCP: installation failed. Please try again.',
+					'unknown error',
+					commandSource,
+					cliVersion,
+					'Unknown error',
+				);
+			}
+
+			// If MCP extension registration is supported, don't proceed with manual setup
+			if (usingExtensionRegistration) {
+				setLogScopeExit(scope, 'supports provider-based MCP registration');
+				// Send success telemetry
 				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/failed', {
-						reason: 'unknown error',
-						'error.message': 'Unknown error',
+					this.container.telemetry.sendEvent('mcp/setup/completed', {
+						requiresUserCompletion: false,
 						source: commandSource,
 						'cli.version': cliVersion,
 					});
 				}
-
-				void window.showErrorMessage(
-					'Unable to setup the GitKraken MCP: installation failed. Please try again.',
-				);
-				return;
-			}
-
-			// If MCP extension registration is supported, don't proceed with manual setup
-			if (mcpExtensionRegistrationAllowed()) {
-				setLogScopeExit(scope, 'supports provider-based MCP registration');
-				return;
+				return {
+					cliVersion: cliVersion,
+					usingExtensionRegistration: true,
+				};
 			}
 
 			const mcpInstallAppName = toMcpInstallProvider(hostAppName);
 			if (mcpInstallAppName == null) {
 				setLogScopeExit(scope, undefined, `GitKraken MCP setup failed; unsupported host: ${hostAppName}`);
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/failed', {
-						reason: 'no app name',
-						source: commandSource,
-						'cli.version': cliVersion,
-					});
-				}
-
-				void showManualMcpSetupPrompt(
+				throw new McpSetupError(
+					McpSetupErrorReason.UnsupportedHost,
 					'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You may be able to configure it by adding the GitKraken MCP to your configuration manually.',
+					'no app name',
+					commandSource,
+					cliVersion,
 				);
-
-				return;
 			}
 
 			let output = await runCLICommand(
@@ -259,6 +296,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 			output = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
 			if (CLIProxyMCPInstallOutputs.installedSuccessfully.test(output)) {
+				// Send success telemetry
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent('mcp/setup/completed', {
 						requiresUserCompletion: false,
@@ -266,22 +304,19 @@ export class GkCliIntegrationProvider implements Disposable {
 						'cli.version': cliVersion,
 					});
 				}
-				return;
+				return {
+					cliVersion: cliVersion,
+				};
 			} else if (CLIProxyMCPInstallOutputs.notASupportedClient.test(output)) {
 				setLogScopeExit(scope, undefined, `GitKraken MCP setup failed; unsupported host: ${hostAppName}`);
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/failed', {
-						reason: 'unsupported app',
-						'error.message': `Not a supported MCP client: ${hostAppName}`,
-						source: commandSource,
-						'cli.version': cliVersion,
-					});
-				}
-
-				void showManualMcpSetupPrompt(
+				throw new McpSetupError(
+					McpSetupErrorReason.UnsupportedClient,
 					'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You should be able to configure it by adding the GitKraken MCP to your configuration manually.',
+					'unsupported app',
+					commandSource,
+					cliVersion,
+					`Not a supported MCP client: ${hostAppName}`,
 				);
-				return;
 			}
 
 			// Check if the output is a valid url. If so, run it
@@ -290,22 +325,16 @@ export class GkCliIntegrationProvider implements Disposable {
 			} catch {
 				setLogScopeExit(scope, undefined, `GitKraken MCP setup failed; unexpected output from mcp install`);
 				Logger.error(undefined, scope, `Unexpected output from mcp install command: ${output}`);
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/failed', {
-						reason: 'unexpected output from mcp install command',
-						'error.message': `Unexpected output from mcp install command: ${output}`,
-						source: commandSource,
-						'cli.version': cliVersion,
-					});
-				}
-
-				void showManualMcpSetupPrompt(
+				throw new McpSetupError(
+					McpSetupErrorReason.UnexpectedOutput,
 					'Unable to setup the GitKraken MCP. If this issue persists, please try adding the GitKraken MCP to your configuration manually.',
+					'unexpected output from mcp install command',
+					commandSource,
+					cliVersion,
+					`Unexpected output from mcp install command: ${output}`,
 				);
-				return;
 			}
 
-			await openUrl(output);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/completed', {
 					requiresUserCompletion: true,
@@ -313,20 +342,73 @@ export class GkCliIntegrationProvider implements Disposable {
 					'cli.version': cliVersion,
 				});
 			}
+			return {
+				cliVersion: cliVersion,
+				requiresUserCompletion: true,
+				url: output,
+			};
 		} catch (ex) {
 			Logger.error(ex, scope, `Error during MCP installation: ${ex}`);
+
+			let telemetryReason: string;
+			let telemetryErrorMessage: string | undefined;
+			let cliVersionForTelemetry: string | undefined;
+			let errorToThrow: Error;
+
+			// Normalize errors
+			if (ex instanceof McpSetupError) {
+				errorToThrow = ex;
+				telemetryReason = ex.telemetryReason;
+				cliVersionForTelemetry = ex.cliVersion;
+				if (ex.telemetryMessage) {
+					telemetryErrorMessage = ex.telemetryMessage;
+				}
+			} else if (ex instanceof CLIInstallError) {
+				let reason: McpSetupErrorReason;
+				let message: string;
+
+				switch (ex.reason) {
+					case CLIInstallErrorReason.UnsupportedPlatform:
+						reason = McpSetupErrorReason.CLIUnsupportedPlatform;
+						message = 'GitKraken MCP setup is not supported on this platform.';
+						telemetryReason = 'unsupported platform';
+						break;
+					case CLIInstallErrorReason.ProxyUrlFetch:
+					case CLIInstallErrorReason.ProxyUrlFormat:
+					case CLIInstallErrorReason.ProxyFetch:
+					case CLIInstallErrorReason.ProxyDownload:
+					case CLIInstallErrorReason.ProxyExtract:
+					case CLIInstallErrorReason.CoreDirectory:
+					case CLIInstallErrorReason.CoreInstall:
+						reason = McpSetupErrorReason.CLILocalInstallFailed;
+						message = 'Unable to locally install the GitKraken MCP server. Please try again.';
+						telemetryReason = 'local installation failed';
+						break;
+					default:
+						reason = McpSetupErrorReason.CLIUnknownError;
+						message = 'Unable to setup the GitKraken MCP: Unknown error.';
+						telemetryReason = 'unknown error';
+						break;
+				}
+
+				errorToThrow = new McpSetupError(reason, message, telemetryReason, commandSource);
+			} else {
+				errorToThrow = ex instanceof Error ? ex : new Error('Unknown error');
+				telemetryReason = 'unknown error';
+			}
+
+			// Send failure telemetry
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/setup/failed', {
-					reason: 'unknown error',
-					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+					reason: telemetryReason ?? 'unknown error',
+					'error.message': telemetryErrorMessage ?? 'Unknown error',
 					source: commandSource,
-					'cli.version': cliVersion,
+					'cli.version': cliVersionForTelemetry,
 				});
 			}
 
-			void window.showErrorMessage(
-				`Unable to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
-			);
+			// Now throw the error
+			throw errorToThrow;
 		}
 	}
 
@@ -348,24 +430,18 @@ export class GkCliIntegrationProvider implements Disposable {
 
 		if (!force) {
 			if (cliInstallStatus === 'completed') {
-				if (cliPath == null) {
-					cliInstallStatus = 'attempted';
-					cliVersion = undefined;
-				} else {
+				if (cliPath != null) {
 					cliVersion = cliInstall?.version;
-					try {
-						await workspace.fs.stat(
-							Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk'),
-						);
+					if (await exists(Uri.joinPath(Uri.file(cliPath), platform === 'windows' ? 'gk.exe' : 'gk'))) {
 						return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
-					} catch {
-						cliInstallStatus = 'attempted';
-						cliVersion = undefined;
 					}
 				}
+
+				cliInstallStatus = 'attempted';
+				cliVersion = undefined;
 			} else if (cliInstallStatus === 'unsupported') {
 				return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
-			} else if (autoInstall && cliInstallStatus === 'attempted' && cliInstallAttempts >= 5) {
+			} else if (autoInstall && reachedMaxAttempts({ status: cliInstallStatus, attempts: cliInstallAttempts })) {
 				return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 			}
 		}
@@ -688,6 +764,10 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 }
 
+function reachedMaxAttempts(cliInstall?: StoredGkCLIInstallInfo): boolean {
+	return cliInstall?.status === 'attempted' && cliInstall.attempts >= maxAutoInstallAttempts;
+}
+
 class CLIInstallError extends Error {
 	readonly original?: Error;
 	readonly reason: CLIInstallErrorReason;
@@ -741,5 +821,30 @@ class CLIInstallError extends Error {
 		}
 
 		return message;
+	}
+}
+
+class McpSetupError extends Error {
+	readonly reason: McpSetupErrorReason;
+	readonly telemetryReason: string;
+	readonly source: string;
+	readonly cliVersion?: string;
+	readonly telemetryMessage?: string;
+
+	constructor(
+		reason: McpSetupErrorReason,
+		message: string,
+		telemetryReason: string,
+		source: string,
+		cliVersion?: string,
+		telemetryMessage?: string,
+	) {
+		super(message);
+		this.reason = reason;
+		this.telemetryReason = telemetryReason;
+		this.source = source;
+		this.cliVersion = cliVersion;
+		this.telemetryMessage = telemetryMessage;
+		Error.captureStackTrace?.(this, McpSetupError);
 	}
 }
