@@ -14,6 +14,7 @@ import {
 	ChooseRepositoryCommand,
 	ClearAIOperationErrorCommand,
 	CloseComposerCommand,
+	DidGenerateCommitsNotification,
 	DismissOnboardingCommand,
 	FinishAndCommitCommand,
 	GenerateCommitMessageCommand,
@@ -345,7 +346,8 @@ export class ComposerApp extends LitElement {
 	@consume({ context: stateContext, subscribe: true })
 	state!: State;
 
-	@consume({ context: ipcContext })
+	@consume<HostIpc>({ context: ipcContext, subscribe: true })
+	@state()
 	private _ipc!: HostIpc;
 
 	// Internal history management
@@ -441,6 +443,19 @@ export class ComposerApp extends LitElement {
 		if (this.state.commits.length > 0) {
 			this.selectCommit(this.state.commits[0].id);
 		}
+	}
+
+	// TODO: Move this to the composer app host, along with a bunch of other IPC handling that should be at that level (reload, cancellations, etc.)
+	override connectedCallback() {
+		super.connectedCallback?.();
+
+		this._ipc.onReceiveMessage(msg => {
+			switch (true) {
+				case DidGenerateCommitsNotification.is(msg):
+					this.compositionSummarySelected = true;
+					break;
+			}
+		});
 	}
 
 	override disconnectedCallback() {
@@ -1358,7 +1373,6 @@ export class ComposerApp extends LitElement {
 		this.selectedCommitId = null;
 		this.selectedCommitIds = new Set();
 		this.selectedUnassignedSection = null;
-		this.compositionSummarySelected = true;
 
 		this.generateCommitsWithAI(e.detail?.customInstructions);
 	}
