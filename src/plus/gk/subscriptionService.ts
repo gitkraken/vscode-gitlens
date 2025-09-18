@@ -587,6 +587,7 @@ export class SubscriptionService implements Disposable {
 		});
 		const loggedIn = Boolean(session);
 		if (loggedIn) {
+			void executeCommand('gitlens.ai.mcp.authCLI');
 			void this.showPlanMessage(options?.source);
 		}
 		return loggedIn;

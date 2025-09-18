@@ -20,6 +20,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
 import type { RemoteProviderId } from '../../git/remotes/remoteProvider';
+import { executeCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { gate } from '../../system/decorators/gate';
@@ -124,6 +125,10 @@ export class IntegrationService implements Disposable {
 		}
 
 		let account = (await this.container.subscription.getSubscription()).account;
+		if (account != null) {
+			void executeCommand('gitlens.ai.mcp.authCLI');
+		}
+
 		const connectedIntegrations = new Set<string>();
 		if (integrationIds?.length) {
 			if (connect?.skipIfConnected && !connect?.skipPreSync) {

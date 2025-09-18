@@ -760,6 +760,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		return [
 			registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.setupMCP(src?.source)),
 			registerCommand('gitlens.ai.mcp.reinstall', (src?: Source) => this.setupMCP(src?.source, true)),
+			registerCommand('gitlens.ai.mcp.authCLI', () => this.authCLI()),
 		];
 	}
 }

@@ -127,6 +127,7 @@ type InternalGlCommands =
 	| 'gitlens.ai.explainWip:editor'
 	| 'gitlens.ai.feedback.helpful'
 	| 'gitlens.ai.feedback.unhelpful'
+	| 'gitlens.ai.mcp.authCLI'
 	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
 	| 'gitlens.diffWithPrevious:codelens'
