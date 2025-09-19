@@ -413,6 +413,7 @@ export class AIProviderService implements Disposable {
 
 		chosenModel ??= await fallbackModel.value;
 		const model = chosenModel == null ? undefined : await this.getOrUpdateModel(chosenModel);
+		if (options?.silent) return model;
 
 		this.container.telemetry.sendEvent(
 			'ai/switchModel',
