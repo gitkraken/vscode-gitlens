@@ -25,7 +25,9 @@ import type {
 	ComposerContext,
 	ComposerGenerateCommitMessageEventData,
 	ComposerGenerateCommitsEventData,
+	ComposerHunk,
 	ComposerLoadedErrorData,
+	ComposerSafetyState,
 	ComposerTelemetryEvent,
 	FinishAndCommitParams,
 	GenerateCommitMessageParams,
@@ -78,6 +80,7 @@ import {
 import type { ComposerWebviewShowingArgs } from './registration';
 import {
 	convertToComposerDiffInfo,
+	createCombinedDiffForCommit,
 	createHunksFromDiffs,
 	createSafetyState,
 	getWorkingTreeDiffs,
@@ -98,6 +101,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private _repositorySubscription?: Disposable;
 	private _currentRepository?: Repository;
 
+	// Hunk map and safety state
+	private _hunks: ComposerHunk[] = [];
+	private _safetyState: ComposerSafetyState;
+
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
 	private _context: ComposerContext;
 
@@ -111,6 +118,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
 		);
 		this._context = { ...baseContext };
+		this._safetyState = {
+			repoPath: '',
+			headSha: '',
+			hashes: {
+				staged: null,
+				unstaged: null,
+				unified: null,
+			},
+		};
 	}
 
 	dispose(): void {
@@ -308,7 +324,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		// Allow composer to open with no changes - we'll handle this in the UI
 		const hasChanges = Boolean(staged?.contents || unstaged?.contents);
 
-		const { hunkMap, hunks } = createHunksFromDiffs(staged?.contents, unstaged?.contents);
+		const hunks = createHunksFromDiffs(staged?.contents, unstaged?.contents);
+		this._hunks = hunks;
 
 		const baseCommit = getSettledValue(commitResult);
 		if (baseCommit == null) {
@@ -359,6 +376,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		// Create safety state snapshot for validation
 		const safetyState = await createSafetyState(repo, diffs, baseCommit.sha);
+		this._safetyState = safetyState;
 
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel(
@@ -395,7 +413,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		return {
 			...this.initialState,
 			hunks: hunks,
-			hunkMap: hunkMap,
 			baseCommit: {
 				sha: baseCommit.sha,
 				message: baseCommit.message ?? '',
@@ -403,7 +420,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				branchName: currentBranch.name,
 			},
 			commits: commits,
-			safetyState: safetyState,
 			aiEnabled: aiEnabled,
 			ai: {
 				model: aiModel,
@@ -533,9 +549,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			await this.host.notify(DidReloadComposerNotification, {
 				hunks: composerData.hunks,
 				commits: composerData.commits,
-				hunkMap: composerData.hunkMap,
 				baseCommit: composerData.baseCommit,
-				safetyState: composerData.safetyState,
 				loadingError: composerData.loadingError,
 				hasChanges: composerData.hasChanges,
 				repositoryState: composerData.repositoryState,
@@ -788,14 +802,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			await this.host.notify(DidStartGeneratingNotification, undefined);
 
 			// Transform the data for the AI service
-			const hunks = params.hunks.map(hunk => ({
-				index: hunk.index,
-				fileName: hunk.fileName,
-				diffHeader: hunk.diffHeader || `diff --git a/${hunk.fileName} b/${hunk.fileName}`,
-				hunkHeader: hunk.hunkHeader,
-				content: hunk.content,
-				source: hunk.source,
-			}));
+			const hunks = [];
+			for (const index of params.hunkIndices) {
+				hunks.push({ ...this._hunks.find(m => m.index === index)!, assigned: true });
+			}
 
 			const existingCommits = params.commits.map(commit => ({
 				id: commit.id,
@@ -808,7 +818,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			const result = await this.container.ai.generateCommits(
 				hunks,
 				existingCommits,
-				params.hunkMap,
+				this._hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitsCancellation.token,
@@ -942,9 +952,28 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Notify webview that commit message generation is starting
 			await this.host.notify(DidStartGeneratingCommitMessageNotification, { commitId: params.commitId });
 
+			// Create combined diff for the commit
+			const { patch } = createCombinedDiffForCommit(
+				this._hunks.filter(h => params.commitHunkIndices.includes(h.index)),
+			);
+			if (!patch) {
+				this._context.operations.generateCommitMessage.errorCount++;
+				this._context.errors.operation.count++;
+				// Send error notification for failure (not cancellation)
+				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+					...eventData,
+					'failure.reason': 'error',
+					'failure.error.message': 'Failed to create diff for commit',
+				});
+				await this.host.notify(DidErrorAIOperationNotification, {
+					operation: 'generate commit message',
+					error: 'Failed to create diff for commit',
+				});
+			}
+
 			// Call the AI service to generate commit message
 			const result = await this.container.ai.generateCommitMessage(
-				params.diff,
+				patch,
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitMessageCancellation.token,
@@ -1032,7 +1061,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			await this.host.notify(DidStartCommittingNotification, undefined);
 
 			// Get the specific repository from the safety state
-			const repo = this.container.git.getRepository(params.safetyState.repoPath);
+			const repo = this.container.git.getRepository(this._safetyState.repoPath);
 			if (!repo) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
@@ -1049,13 +1078,18 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				return;
 			}
 
-			// Extract hunk sources for smart validation
-			const hunksBeingCommitted = params.hunks.filter(hunk =>
+			const commitHunkIndices = params.commits.flatMap(c => c.hunkIndices);
+			const hunks: ComposerHunk[] = [];
+			for (const hunk of commitHunkIndices) {
+				hunks.push({ ...this._hunks.find(m => m.index === hunk)!, assigned: true });
+			}
+
+			const hunksBeingCommitted = hunks.filter(hunk =>
 				params.commits.some(c => c.hunkIndices.includes(hunk.index)),
 			);
 
 			// Validate repository safety state before proceeding
-			const validation = await validateSafetyState(repo, params.safetyState, hunksBeingCommitted);
+			const validation = await validateSafetyState(repo, this._safetyState, hunksBeingCommitted);
 			if (!validation.isValid) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
@@ -1073,8 +1107,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				return;
 			}
 
-			// Convert composer data to ComposerDiffInfo format
-			const diffInfo = convertToComposerDiffInfo(params.commits, params.hunks);
+			const diffInfo = convertToComposerDiffInfo(params.commits, hunks);
 			const svc = this.container.git.getRepositoryService(repo.path);
 			if (!svc) {
 				this._context.errors.operation.count++;
@@ -1120,7 +1153,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (
 				!validateResultingDiff(
-					params.safetyState,
+					this._safetyState,
 					await sha256(resultingDiff),
 					this._context.diff.unstagedIncluded,
 				)
