@@ -91,7 +91,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	private notifySetupCompleted(cliVersion?: string | undefined) {
 		if (!this.container.telemetry.enabled) return;
 
-		this.container.telemetry.sendEvent('mcp/setup/completed', {
+		this.container.telemetry.sendEvent('mcp/registration/completed', {
 			requiresUserCompletion: false,
 			source: 'gk-mcp-provider',
 			'cli.version': cliVersion,
@@ -101,7 +101,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	private notifySetupFailed(reason: string, message?: string | undefined, cliVersion?: string | undefined) {
 		if (!this.container.telemetry.enabled) return;
 
-		this.container.telemetry.sendEvent('mcp/setup/failed', {
+		this.container.telemetry.sendEvent('mcp/registration/failed', {
 			reason: reason,
 			'error.message': message,
 			source: 'gk-mcp-provider',

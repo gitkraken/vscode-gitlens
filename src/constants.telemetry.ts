@@ -251,6 +251,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'mcp/setup/completed': MCPSetupCompletedEvent;
 	/** Sent when GitKraken MCP setup fails */
 	'mcp/setup/failed': MCPSetupFailedEvent;
+	/** Sent when GitKraken MCP registration is completed */
+	'mcp/registration/completed': MCPSetupCompletedEvent;
+	/** Sent when GitKraken MCP registration fails */
+	'mcp/registration/failed': MCPSetupFailedEvent;
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
