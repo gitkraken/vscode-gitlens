@@ -71,7 +71,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		try {
 			const configuration = JSON.parse(output) as { name: string; type: string; command: string; args: string[] };
 
-			this.notifySetupCompleted(cliInstall.version);
+			this.notifyRegistrationCompleted(cliInstall.version);
 
 			return {
 				name: configuration.name,
@@ -82,23 +82,19 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			};
 		} catch (ex) {
 			Logger.error(`Error getting MCP configuration: ${ex}`);
-			this.notifySetupFailed('Error getting MCP configuration', undefined, cliInstall.version);
+			this.notifyRegistrationFailed('Error getting MCP configuration', undefined, cliInstall.version);
 		}
 
 		return undefined;
 	}
 
-	private notifySetupCompleted(cliVersion?: string | undefined) {
+	private notifyRegistrationCompleted(_cliVersion?: string | undefined) {
 		if (!this.container.telemetry.enabled) return;
 
-		this.container.telemetry.sendEvent('mcp/registration/completed', {
-			requiresUserCompletion: false,
-			source: 'gk-mcp-provider',
-			'cli.version': cliVersion,
-		});
+		this.container.telemetry.setGlobalAttribute('gk.mcp.registrationCompleted', true);
 	}
 
-	private notifySetupFailed(reason: string, message?: string | undefined, cliVersion?: string | undefined) {
+	private notifyRegistrationFailed(reason: string, message?: string | undefined, cliVersion?: string | undefined) {
 		if (!this.container.telemetry.enabled) return;
 
 		this.container.telemetry.sendEvent('mcp/registration/failed', {

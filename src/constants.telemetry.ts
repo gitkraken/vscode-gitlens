@@ -36,6 +36,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	upgradedFrom: string | undefined;
 	'folders.count': number;
 	'folders.schemes': string;
+	'gk.mcp.registrationCompleted': boolean;
 	'providers.count': number;
 	'providers.ids': string;
 	'repositories.count': number;
@@ -251,8 +252,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'mcp/setup/completed': MCPSetupCompletedEvent;
 	/** Sent when GitKraken MCP setup fails */
 	'mcp/setup/failed': MCPSetupFailedEvent;
-	/** Sent when GitKraken MCP registration is completed */
-	'mcp/registration/completed': MCPSetupCompletedEvent;
 	/** Sent when GitKraken MCP registration fails */
 	'mcp/registration/failed': MCPSetupFailedEvent;
 

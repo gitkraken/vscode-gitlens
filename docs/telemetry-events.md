@@ -33,6 +33,7 @@
   'global.enabled': boolean,
   'global.folders.count': number,
   'global.folders.schemes': string,
+  'global.gk.mcp.registrationCompleted': boolean,
   'global.install': boolean,
   'global.prerelease': boolean,
   'global.providers.count': number,
@@ -2761,18 +2762,6 @@ void
   'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
-}
-```
-
-### mcp/registration/completed
-
-> Sent when GitKraken MCP registration is completed
-
-```typescript
-{
-  'cli.version': string,
-  'requiresUserCompletion': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
