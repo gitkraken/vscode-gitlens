@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.5.0] - 2025-09-23
+
 ### Added
 
 - Adds the GitKraken MCP for Git and integration enhanced AI chat workflows — [learn more](https://help.gitkraken.com/mcp/mcp-getting-started/)
@@ -6348,7 +6350,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...HEAD
+[17.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.1...gitkraken:v17.5.0
 [17.4.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.0...gitkraken:v17.4.1
 [17.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.4...gitkraken:v17.4.0
 [17.3.4]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.3...gitkraken:v17.3.4
