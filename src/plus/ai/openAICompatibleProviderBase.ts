@@ -5,7 +5,7 @@ import { fetch } from '@env/fetch';
 import type { Role } from '../../@types/vsls';
 import type { AIProviders } from '../../constants.ai';
 import type { Container } from '../../container';
-import { AIError, AIErrorReason, CancellationError } from '../../errors';
+import { AIError, AIErrorReason, CancellationError, isCancellationError } from '../../errors';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
@@ -38,7 +38,14 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 	protected abstract readonly config: { keyUrl?: string; keyValidator?: RegExp };
 
 	async configured(silent: boolean): Promise<boolean> {
-		return (await this.getApiKey(silent)) != null;
+		try {
+			const apiKey = await this.getApiKey(silent);
+			return apiKey != null;
+		} catch (ex) {
+			if (isCancellationError(ex)) return false;
+
+			throw ex;
+		}
 	}
 
 	async getApiKey(silent: boolean): Promise<string | undefined> {
