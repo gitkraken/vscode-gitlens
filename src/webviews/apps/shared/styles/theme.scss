@@ -70,12 +70,15 @@
 
 	--color-alert-infoBackground: var(--vscode-inputValidation-infoBackground);
 	--color-alert-infoBorder: var(--vscode-inputValidation-infoBorder);
+	--color-alert-infoForeground: var(--vscode-inputValidation-infoForeground, var(--color-alert-foreground));
 
 	--color-alert-warningBackground: var(--vscode-inputValidation-warningBackground);
 	--color-alert-warningBorder: var(--vscode-inputValidation-warningBorder);
+	--color-alert-warningForeground: var(--vscode-inputValidation-warningForeground, var(--color-alert-foreground));
 
 	--color-alert-errorBackground: var(--vscode-inputValidation-errorBackground);
 	--color-alert-errorBorder: var(--vscode-inputValidation-errorBorder);
+	--color-alert-errorForeground: var(--vscode-inputValidation-errorForeground, var(--color-alert-foreground));
 
 	--color-alert-neutralBorder: var(--vscode-input-foreground);
 
