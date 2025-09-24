@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Cursor theme color issues with alerts and feature gates ([#4608](https://github.com/gitkraken/vscode-gitlens/issues/4608))
+- Fixes MCP installation completed message not showing after running the _Reinstall GitKraken MCP Server_ command
+
 ## [17.5.0] - 2025-09-23
 
 ### Added
