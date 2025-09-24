@@ -1420,7 +1420,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffForFile(uri, ref1, ref2);
 	}
 
-	@log<GitProviderService['getDiffForFileContents']>({ args: { 1: '<contents>' } })
+	@log<GitProviderService['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	/**
 	 * Returns a file diff between a commit and the specified contents
 	 * @param uri Uri of the file to diff

@@ -1,5 +1,6 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs';
 import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch';
 import type { GitDiffFileStats } from '../../git/models/diff';
@@ -34,6 +35,8 @@ export interface State extends WebviewState {
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	aiAllAccessBannerCollapsed: boolean;
+	mcpBannerCollapsed: boolean;
+	mcpCanAutoRegister: boolean;
 	hasAnyIntegrationConnected: boolean;
 	integrations: IntegrationState[];
 	ai: { model: AIModel | undefined };
@@ -44,6 +47,7 @@ export interface State extends WebviewState {
 		doneCount: number;
 		allCount: number;
 		progress: number;
+		state: Record<WalkthroughContextKeys, boolean>;
 	};
 	previewEnabled: boolean;
 	newInstall: boolean;
@@ -250,6 +254,11 @@ export const CollapseSectionCommand = new IpcCommand<CollapseSectionParams>(scop
 export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthrough/dismiss');
 
 export const DidChangeAiAllAccessBanner = new IpcNotification<boolean>(scope, 'ai/allAccess/didChange');
+export interface DidChangeMcpBannerParams {
+	mcpBannerCollapsed: boolean;
+	mcpCanAutoRegister: boolean;
+}
+export const DidChangeMcpBanner = new IpcNotification<DidChangeMcpBannerParams>(scope, 'mcp/didChange');
 export const DismissAiAllAccessBannerCommand = new IpcCommand<void>(scope, 'ai/allAccess/dismiss');
 
 export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
@@ -302,6 +311,7 @@ export interface DidChangeProgressParams {
 	progress: number;
 	doneCount: number;
 	allCount: number;
+	state: Record<WalkthroughContextKeys, boolean>;
 }
 export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgressParams>(
 	scope,

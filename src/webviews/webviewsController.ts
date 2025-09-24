@@ -179,7 +179,9 @@ export class WebviewsController implements Disposable {
 							if (token.isCancellationRequested) return;
 						}
 
-						Logger.debug(scope, 'Resolving view');
+						const instanceId = uuid();
+
+						Logger.debug(scope, `Resolving view (${instanceId})`);
 
 						webviewView.webview.options = {
 							enableCommandUris: true,
@@ -194,7 +196,7 @@ export class WebviewsController implements Disposable {
 							this.container,
 							this._commandRegistrar,
 							descriptor,
-							uuid(),
+							instanceId,
 							webviewView,
 							resolveProvider,
 						);
@@ -204,7 +206,7 @@ export class WebviewsController implements Disposable {
 
 						disposables.push(
 							controller.onDidDispose(() => {
-								Logger.debug(scope, 'Disposing view');
+								Logger.debug(scope, `Disposing view (${instanceId})`);
 
 								registration.pendingShowArgs = undefined;
 								registration.controller = undefined;
@@ -218,8 +220,12 @@ export class WebviewsController implements Disposable {
 							args = [{ state: context.state }];
 						}
 
-						Logger.debug(scope, 'Showing view');
-						await controller.show(true, options, ...(args ?? []));
+						Logger.debug(scope, `Showing view (${instanceId})`);
+						try {
+							await controller.show(true, options, ...(args ?? []));
+						} catch (ex) {
+							Logger.error(ex, scope, `Failed to show view (${instanceId})`);
+						}
 					},
 				},
 				descriptor.webviewHostOptions != null ? { webviewOptions: descriptor.webviewHostOptions } : undefined,
@@ -366,10 +372,18 @@ export class WebviewsController implements Disposable {
 				);
 
 				Logger.debug(scope, `Showing panel (${controller.instanceId})`);
-				await controller.show(true, options, ...args);
+				try {
+					await controller.show(true, options, ...args);
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to show panel (${controller.instanceId})`);
+				}
 			} else {
 				Logger.debug(scope, `Showing existing panel (${controller.instanceId})`);
-				await controller.show(false, options, ...args);
+				try {
+					await controller.show(false, options, ...args);
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to show existing panel (${controller.instanceId})`);
+				}
 			}
 		}
 

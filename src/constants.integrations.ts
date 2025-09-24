@@ -16,6 +16,7 @@ export enum GitSelfManagedHostIntegrationId {
 
 export enum IssuesCloudHostIntegrationId {
 	Jira = 'jira',
+	Linear = 'linear',
 	Trello = 'trello',
 }
 
@@ -30,7 +31,10 @@ export type IssuesHostIntegrationIds = IssuesCloudHostIntegrationId;
 
 export type IntegrationIds = GitHostIntegrationIds | IssuesHostIntegrationIds;
 
-export const supportedOrderedCloudIssuesIntegrationIds = [IssuesCloudHostIntegrationId.Jira];
+export const supportedOrderedCloudIssuesIntegrationIds = [
+	IssuesCloudHostIntegrationId.Jira,
+	IssuesCloudHostIntegrationId.Linear,
+];
 export const supportedOrderedCloudIntegrationIds = [
 	GitCloudHostIntegrationId.GitHub,
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -41,6 +45,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	GitCloudHostIntegrationId.Bitbucket,
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 	IssuesCloudHostIntegrationId.Jira,
+	IssuesCloudHostIntegrationId.Linear,
 ];
 
 export const integrationIds = [
@@ -55,6 +60,7 @@ export const integrationIds = [
 	GitSelfManagedHostIntegrationId.GitHubEnterprise,
 	GitSelfManagedHostIntegrationId.GitLabSelfHosted,
 	IssuesCloudHostIntegrationId.Jira,
+	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
 ];
 
@@ -139,6 +145,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		id: IssuesCloudHostIntegrationId.Jira,
 		name: 'Jira',
 		icon: 'gl-provider-jira',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Linear,
+		name: 'Linear',
+		icon: 'gl-provider-linear',
 		supports: ['issues'],
 		requiresPro: true,
 	},

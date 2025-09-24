@@ -874,6 +874,13 @@ button:not([disabled]),
 		}
 	}
 
+	&--issue-linear {
+		&::before {
+			font-family: 'glicons';
+			@include iconUtils.glicon('provider-linear');
+		}
+	}
+
 	&--issue-azureDevops {
 		&::before {
 			font-family: codicon;

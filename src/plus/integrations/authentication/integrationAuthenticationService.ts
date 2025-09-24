@@ -148,6 +148,11 @@ export class IntegrationAuthenticationService implements Disposable {
 						await import(/* webpackChunkName: "integrations" */ './jira')
 					).JiraAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
+				case IssuesCloudHostIntegrationId.Linear:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './linear')
+					).LinearAuthenticationProvider(this.container, this, this.configuredIntegrationService);
+					break;
 				default:
 					provider = new BuiltInAuthenticationProvider(
 						this.container,

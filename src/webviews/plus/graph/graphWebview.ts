@@ -106,6 +106,7 @@ import {
 import { createReference } from '../../../git/utils/reference.utils';
 import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
+import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
@@ -119,6 +120,7 @@ import {
 } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import type { StorageChangeEvent } from '../../../system/-webview/storage';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
 import { openUrl } from '../../../system/-webview/vscode/uris';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
@@ -202,6 +204,7 @@ import {
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
@@ -331,6 +334,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
@@ -1032,6 +1036,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._etagSubscription = e.etag;
 		void this.notifyDidChangeSubscription();
+	}
+
+	private onStorageChanged(e: StorageChangeEvent) {
+		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+			this.onMcpBannerChanged();
+		}
+	}
+
+	private onMcpBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeMcpBanner, this.getMcpBannerCollapsed());
+	}
+
+	private getMcpBannerCollapsed() {
+		return !isMcpBannerEnabled(this.container);
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -2772,6 +2792,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 		};
 	}
 

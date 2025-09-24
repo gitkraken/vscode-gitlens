@@ -25,27 +25,32 @@ export interface GKLicense {
 	readonly organizationId: string | undefined;
 	readonly reactivationCount?: number;
 	readonly nextOptInDate?: string;
+	readonly hasPaymentSource?: boolean;
 }
 
 export type GKLicenseType =
+	| 'gitlens-edu'
 	| 'gitlens-pro'
 	| 'gitlens-advanced'
 	| 'gitlens-teams'
 	| 'gitlens-hosted-enterprise'
 	| 'gitlens-self-hosted-enterprise'
 	| 'gitlens-standalone-enterprise'
+	| 'bundle-edu'
 	| 'bundle-pro'
 	| 'bundle-advanced'
 	| 'bundle-teams'
 	| 'bundle-hosted-enterprise'
 	| 'bundle-self-hosted-enterprise'
 	| 'bundle-standalone-enterprise'
+	| 'gitkraken_v1-edu'
 	| 'gitkraken_v1-pro'
 	| 'gitkraken_v1-advanced'
 	| 'gitkraken_v1-teams'
 	| 'gitkraken_v1-hosted-enterprise'
 	| 'gitkraken_v1-self-hosted-enterprise'
 	| 'gitkraken_v1-standalone-enterprise'
+	| 'gitkraken-v1-edu'
 	| 'gitkraken-v1-pro'
 	| 'gitkraken-v1-advanced'
 	| 'gitkraken-v1-teams'

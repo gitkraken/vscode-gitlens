@@ -23,6 +23,7 @@ import {
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
 } from '../../messages';
+import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
@@ -65,6 +66,13 @@ export class ServerConnection implements Disposable {
 				: 'gitlens-vsc';
 	}
 
+	@debug<ServerConnection['fetch']>({
+		args: {
+			0: u => (typeof u === 'string' ? u : 'href' in u ? u.href : 'url' in u ? u.url : 'unknown'),
+			1: false,
+			2: false,
+		},
+	})
 	async fetch(url: RequestInfo, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		const scope = getLogScope();
 
@@ -102,10 +110,12 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
+	@debug({ args: { 1: false, 2: false } })
 	async fetchGkApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
 		return this.gkFetch(this.urls.getGkApiUrl(path), init, options);
 	}
 
+	@debug({ args: { 1: false, 2: false } })
 	async fetchGkConfig(path: string, init?: RequestInit, options?: FetchOptions): Promise<Response> {
 		return this.fetch(this.urls.getGkConfigUrl(path), init, options);
 	}

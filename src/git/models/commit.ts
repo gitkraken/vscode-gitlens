@@ -551,7 +551,6 @@ export class GitCommit implements GitRevisionReference {
 		if (this.isUncommitted) return undefined;
 
 		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
-		if (remote?.provider == null) return undefined;
 
 		// TODO@eamodio should we cache these? Seems like we would use more memory than it's worth
 		// async function getCore(this: GitCommit): Promise<Map<string, EnrichedAutolink> | undefined> {

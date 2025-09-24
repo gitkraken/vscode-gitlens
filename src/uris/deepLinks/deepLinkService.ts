@@ -1541,7 +1541,10 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					await executeCommand(command, { source: 'deeplink' });
+					const detail = this._context.params?.get('source');
+					const source = detail != null ? { source: 'deeplink', detail: detail } : { source: 'deeplink' };
+
+					await executeCommand(command, source);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
@@ -1586,6 +1589,8 @@ export class DeepLinkService implements Disposable {
 						return id;
 					});
 
+					const source = this._context.params?.get('source');
+
 					// If any of the ids are not supported, throw an error
 					if (
 						integrationIds &&
@@ -1598,6 +1603,7 @@ export class DeepLinkService implements Disposable {
 
 					await this.container.integrations.connectCloudIntegrations(
 						integrationIds ? { integrationIds: integrationIds } : undefined,
+						source != null ? { source: 'deeplink', detail: source } : { source: 'deeplink' },
 					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;

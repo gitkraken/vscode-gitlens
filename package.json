@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "17.4.1",
+	"version": "17.5.0",
 	"engines": {
 		"node": ">= 22.12.0",
 		"pnpm": ">= 10.0.0",
@@ -67,6 +67,12 @@
 		}
 	},
 	"contributes": {
+		"mcpServerDefinitionProviders": [
+			{
+				"id": "gitlens.gkMcpProvider",
+				"label": "GitKraken (bundled with GitLens)"
+			}
+		],
 		"configuration": [
 			{
 				"id": "current-line-blame",
@@ -4105,6 +4111,13 @@
 							"experimental"
 						]
 					},
+					"gitlens.gitkraken.mcp.autoEnabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically install and enable the GitKraken MCP. This only applies to VS Code 1.101 and later.",
+						"scope": "window",
+						"order": 40
+					},
 					"gitlens.terminal.overrideGitEditor": {
 						"type": "boolean",
 						"default": true,
@@ -6290,6 +6303,16 @@
 				"title": "Rebase with AI (Preview)...",
 				"category": "GitLens",
 				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.mcp.install",
+				"title": "Install GitKraken MCP Server",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.ai.mcp.reinstall",
+				"title": "Reinstall GitKraken MCP Server",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.rebaseOntoCommit:graph",
@@ -10961,6 +10984,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f146"
 				}
+			},
+			"gitlens-provider-linear": {
+				"description": "provider-linear icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f147"
+				}
 			}
 		},
 		"menus": {
@@ -11060,6 +11090,14 @@
 				{
 					"command": "gitlens.ai.generateRebase",
 					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.mcp.install",
+					"when": "!gitlens:untrusted && !gitlens:gk:cli:installed"
+				},
+				{
+					"command": "gitlens.ai.mcp.reinstall",
+					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:graph",
@@ -24963,7 +25001,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.8",
-		"@gitkraken/provider-apis": "0.29.6",
+		"@gitkraken/provider-apis": "0.29.7",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
 		"@lit-labs/signals": "0.1.3",

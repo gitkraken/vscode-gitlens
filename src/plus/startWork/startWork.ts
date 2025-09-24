@@ -106,6 +106,7 @@ export const supportedStartWorkIntegrations = [
 	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	GitCloudHostIntegrationId.Bitbucket,
 	IssuesCloudHostIntegrationId.Jira,
+	IssuesCloudHostIntegrationId.Linear,
 ];
 export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 const instanceCounter = getScopedCounter();

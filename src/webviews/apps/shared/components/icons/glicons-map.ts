@@ -70,4 +70,5 @@ export const iconMap = Object.freeze({
 	'worktree': '\\f144',
 	'worktree-filled': '\\f145',
 	'repository-cloud': '\\f146',
+	'provider-linear': '\\f147',
 });

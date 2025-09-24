@@ -17,6 +17,7 @@ import {
 	supportedOrderedCloudIntegrationIds,
 } from '../../constants.integrations';
 import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { revealBranch } from '../../git/actions/branch';
@@ -50,6 +51,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
+import { isMcpBannerEnabled, mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils';
 import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
@@ -67,6 +69,7 @@ import {
 } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
+import type { StorageChangeEvent } from '../../system/-webview/storage';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces';
 import { debug, log } from '../../system/decorators/log';
@@ -109,6 +112,7 @@ import {
 	DidChangeAiAllAccessBanner,
 	DidChangeIntegrationsConnections,
 	DidChangeLaunchpad,
+	DidChangeMcpBanner,
 	DidChangeOrgSettings,
 	DidChangeOverviewFilter,
 	DidChangeOverviewRepository,
@@ -175,10 +179,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.integrations.onDidChange(this.onIntegrationsChanged, this),
-			this.container.walkthrough?.onDidChangeProgress(this.onWalkthroughProgressChanged, this) ?? emptyDisposable,
+			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 		);
 	}
 
@@ -237,6 +242,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private onAIModelChanged(_e: AIModelChangeEvent) {
 		void this.notifyDidChangeIntegrations();
+	}
+
+	private onStorageChanged(e: StorageChangeEvent) {
+		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+			this.onMcpBannerChanged();
+		}
 	}
 
 	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
@@ -770,9 +781,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getWalkthroughDismissed() {
-		return (
-			this.container.walkthrough == null || (this.container.storage.get('home:walkthrough:dismissed') ?? false)
-		);
+		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
 	}
 
 	private getPreviewCollapsed() {
@@ -791,6 +800,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
 		return this.container.storage.get('home:sections:collapsed')?.includes('feb2025AmaBanner') ?? false;
+	}
+
+	private getMcpBannerCollapsed() {
+		return !isMcpBannerEnabled(this.container, true);
+	}
+
+	private getMcpCanAutoRegister() {
+		return mcpExtensionRegistrationAllowed();
 	}
 
 	private getIntegrationBannerCollapsed() {
@@ -879,18 +896,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			integrations: integrations,
 			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
-			walkthroughSupported: this.container.walkthrough != null,
-			walkthroughProgress:
-				!this.getWalkthroughDismissed() && this.container.walkthrough != null
-					? {
-							allCount: this.container.walkthrough.walkthroughSize,
-							doneCount: this.container.walkthrough.doneCount,
-							progress: this.container.walkthrough.progress,
-						}
-					: undefined,
+			walkthroughSupported: this.container.walkthrough.isWalkthroughSupported,
+			walkthroughProgress: this.getWalkthroughProgress(),
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
+			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
 		};
 	}
 
@@ -1124,6 +1136,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeAiAllAccessBanner, await this.getAiAllAccessBannerCollapsed());
 	}
 
+	private onMcpBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeMcpBanner, {
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
+			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
+		});
+	}
+
 	private getSelectedRepository() {
 		if (this._repositorySubscription == null) {
 			this.selectRepository();
@@ -1282,14 +1303,25 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this._notifyDidChangeRepositoriesDebounced();
 	}
 
-	private notifyDidChangeProgress() {
-		if (this.container.walkthrough == null) return;
+	private getWalkthroughProgress(): State['walkthroughProgress'] {
+		if (this.getWalkthroughDismissed()) return undefined;
 
-		void this.host.notify(DidChangeWalkthroughProgress, {
+		const walkthroughState = this.container.walkthrough.getState();
+		const state: Record<string, boolean> = Object.fromEntries(walkthroughState);
+
+		return {
 			allCount: this.container.walkthrough.walkthroughSize,
 			doneCount: this.container.walkthrough.doneCount,
 			progress: this.container.walkthrough.progress,
-		});
+			state: state as Record<WalkthroughContextKeys, boolean>,
+		};
+	}
+
+	private notifyDidChangeProgress() {
+		const state = this.getWalkthroughProgress();
+		if (state == null) return;
+
+		void this.host.notify(DidChangeWalkthroughProgress, state);
 	}
 
 	private notifyDidChangeConfig() {
@@ -1776,7 +1808,12 @@ function enrichOverviewBranchesCore(
 			issues =>
 				issues?.map(
 					i =>
-						({ id: i.id, title: i.title, state: i.state, url: i.url }) satisfies NonNullable<IssuesInfo>[0],
+						({
+							id: i.number || i.id,
+							title: i.title,
+							state: i.state,
+							url: i.url,
+						}) satisfies NonNullable<IssuesInfo>[0],
 				) ?? [],
 		);
 

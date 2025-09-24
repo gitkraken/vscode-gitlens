@@ -78,7 +78,7 @@ Used to open a (remote) branch in GitLens. Once the branch's repository is opene
 
 #### Format
 
-_{prefix}/r/{repoId}/b/{branchName}?{baseQuery}(&action={action})_
+_{prefix}/r/{repoId}/b/{branchName}?{baseQuery}(&action={action})(&prId={prId})(&prTitle={prTitle})(&prBaseRef={prBaseRef})(&prHeadRef={prHeadRef})_
 
 #### References
 
@@ -92,6 +92,16 @@ _{prefix}/r/{repoId}/b/{branchName}?{baseQuery}(&action={action})_
   - _switch-to-and-suggest-pr_: Does everything that the _switch-to-pr_ action does, but also opens the form to submit a new code suggestion.
 
   - _switch-to-pr-worktree_: Does everything that the _switch-to-pr_ action does, but always chooses to open the branch in a worktree, creating a new one if needed and creating a new local branch if needed. For creating the local branch and worktree, default options are chosen. The worktree is then opened in a new window.
+
+  - _delete-branch_: Delete the branch after confirmation.
+
+- _{prId}_ is an optional parameter representing the Pull Request ID when the branch is associated with a specific pull request.
+
+- _{prTitle}_ is an optional parameter representing the Pull Request title when the branch is associated with a specific pull request.
+
+- _{prBaseRef}_ is an optional parameter representing the base commit SHA of the Pull Request when the branch is associated with a specific pull request.
+
+- _{prHeadRef}_ is an optional parameter representing the head commit SHA of the Pull Request when the branch is associated with a specific pull request.
 
 #### Example Usage
 
@@ -141,13 +151,15 @@ Used to open a comparison between two references in the _Search & Compare_ view.
 
 #### Format
 
-_{prefix}/r/{repoId}/compare/{ref1}[..|...]{ref2}?{baseQuery}(&prRepoUrl={prRepoUrl})_
+_{prefix}/r/{repoId}/compare/{ref1}[..|...]{ref2}?{baseQuery}(&prRepoUrl={prRepoUrl})(&prId={prId})_
 
 #### References
 
 - _{ref1}_ and _{ref2}_ are the two refs to compare, in reverse order i.e. GitLens will compare _{ref2}_ to _{ref1}_ in the _Search & Compare_ view. These refs can be a branch name, tag name, or commit SHA. A blank ref means “working tree”. Both refs cannot be blank.
 
 - _{prRepoUrl}_ is an optional parameter, generally used for Pull Request comparisons, representing the pull URL of the git remote that represents the head commit of the Pull Request. It is formatted similar to _{remoteUrl}_, so see Common References section above to learn how to format it.
+
+- _{prId}_ is an optional parameter representing the Pull Request ID when the comparison is related to a specific pull request.
 
 #### Example Usage
 
@@ -261,7 +273,7 @@ Used to run a GitLens command.
 
 #### Format
 
-_{prefix}/command/{command}_
+_{prefix}/command/{command}(?source={source})_
 
 #### References
 
@@ -274,6 +286,8 @@ _{prefix}/command/{command}_
 
   - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
 
+  - _install-mcp_ - Runs the `GitLens: Install MCP` command.
+
   - _login_ - Runs the `GitLens: Sign In to GitKraken...` command.
 
   - _signup_ - Runs the `GitLens: Sign Up for GitKraken...` command.
@@ -283,6 +297,8 @@ _{prefix}/command/{command}_
   - _walkthrough_ - Runs the `GitLens: Get Started` command.
 
   - _worktrees_ - Runs the `GitLens: Show Worktrees View` command.
+
+- _{source}_ is an optional parameter representing the `source.detail` for the command's telemetry.
 
 #### Example Usage
 
@@ -306,6 +322,7 @@ _{prefix}/integrations/connect(&integration={integration})_
   - _bitbucket_ - Connects the Bitbucket integration.
   - _azuredevOps_ - Connects the Azure DevOps integration.
   - _jira_ - Connects the Jira integration.
+  - _linear_ - Connects the Linear integration.
   - _trello_ - Connects the Trello integration.
   - _github-enterprise_ - Connects the GitHub Enterprise integration.
   - _gitlab-self-hosted_ - Connects the GitLab Self-Hosted integration.

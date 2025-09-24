@@ -19,6 +19,9 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	Linear,
+	LinearOrganization,
+	LinearTeam,
 	NumberedPageInput,
 	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
@@ -74,6 +77,8 @@ export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
+export type ProviderLinearTeam = LinearTeam;
+export type ProviderLinearOrganization = LinearOrganization;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -280,6 +285,11 @@ export type GetIssuesForReposFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
 
+export type GetIssuesForCurrentUserFn = (
+	input: PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+
 export type GetIssuesForRepoFn = (
 	input: GetIssuesForRepoInput & PagingInput,
 	options?: EnterpriseOptions,
@@ -309,6 +319,8 @@ export type GetCurrentUserForResourceFn = (
 ) => Promise<{ data: ProviderAccount }>;
 
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
+export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
+export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
@@ -355,7 +367,7 @@ export type GetIssuesForResourceForCurrentUserFn = (
 ) => Promise<{ data: ProviderIssue[] }>;
 
 export interface ProviderInfo extends ProviderMetadata {
-	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Trello | AzureDevOps;
+	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Linear | Trello | AzureDevOps;
 	getRepoFn?: GetRepoFn;
 	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
@@ -364,12 +376,15 @@ export interface ProviderInfo extends ProviderMetadata {
 	getPullRequestsForAzureProjectsFn?: GetPullRequestsForAzureProjectsFn;
 	getIssueFn?: GetIssueFn;
 	getIssuesForReposFn?: GetIssuesForReposFn;
+	getIssuesForCurrentUserFn?: GetIssuesForCurrentUserFn;
 	getIssuesForRepoFn?: GetIssuesForRepoFn;
 	getIssuesForAzureProjectFn?: GetIssuesForAzureProjectFn;
 	getCurrentUserFn?: GetCurrentUserFn;
 	getCurrentUserForInstanceFn?: GetCurrentUserForInstanceFn;
 	getCurrentUserForResourceFn?: GetCurrentUserForResourceFn;
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
+	getLinearOrganizationFn?: GetLinearOrganizationFn;
+	getLinearTeamsForCurrentUserFn?: GetLinearTeamsForCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForUserFn?: GetBitbucketResourcesForUserFn;
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
@@ -601,6 +616,14 @@ export const providersMetadata: ProvidersMetadata = {
 			'read:project-version:jira',
 		],
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+	},
+	[IssuesCloudHostIntegrationId.Linear]: {
+		domain: 'linear.app',
+		id: IssuesCloudHostIntegrationId.Linear,
+		name: 'Linear',
+		type: 'issues',
+		iconKey: IssuesCloudHostIntegrationId.Linear,
+		scopes: [],
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',
@@ -1040,6 +1063,7 @@ export function fromProviderIssue(
 						resourceName: issue.project.namespace,
 					}
 				: undefined,
+		issue.number,
 	);
 }
 

@@ -83,8 +83,12 @@ export type GlobalStorage = {
 	// Value based on `currentOnboardingVersion` in composer's protocol
 	'composer:onboarding:dismissed': string;
 	'composer:onboarding:stepReached': number;
+	'gk:cli:install': StoredGkCLIInstallInfo;
+	'gk:cli:corePath': string;
+	'gk:cli:path': string;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
+	'mcp:banner:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
@@ -114,6 +118,12 @@ export type GlobalStorage = {
 } & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
 	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
 } & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
+
+export interface StoredGkCLIInstallInfo {
+	status: 'attempted' | 'unsupported' | 'completed';
+	attempts: number;
+	version?: string;
+}
 
 export type StoredIntegrationConfigurations = Record<
 	IntegrationIds,

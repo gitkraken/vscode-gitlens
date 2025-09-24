@@ -14,6 +14,7 @@ import {
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
@@ -455,6 +456,10 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 
 				case DidChangeOrgSettings.is(msg):
 					this.updateState({ orgSettings: msg.params.orgSettings });
+					break;
+
+				case DidChangeMcpBanner.is(msg):
+					this.updateState({ mcpBannerCollapsed: msg.params });
 					break;
 
 				case DidChangeWorkingTreeNotification.is(msg):

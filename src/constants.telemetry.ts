@@ -5,12 +5,12 @@ import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
 import type { AIActionType } from './plus/ai/models/model';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription';
 import type { Flatten } from './system/object';
-import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol';
 
@@ -36,6 +36,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	upgradedFrom: string | undefined;
 	'folders.count': number;
 	'folders.schemes': string;
+	'gk.mcp.registrationCompleted': boolean;
 	'providers.count': number;
 	'providers.ids': string;
 	'repositories.count': number;
@@ -78,6 +79,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when user opts in to AI All Access */
 	'aiAllAccess/optedIn': void;
+
+	/** Sent when a CLI install attempt is started */
+	'cli/install/started': CLIInstallStartedEvent;
+	/** Sent when a CLI install attempt succeeds */
+	'cli/install/succeeded': CLIInstallSucceededEvent;
+	/** Sent when a CLI install attempt fails */
+	'cli/install/failed': CLIInstallFailedEvent;
 
 	/** Sent when connecting to one or more cloud-based integrations */
 	'cloudIntegrations/connecting': CloudIntegrationsConnectingEvent;
@@ -237,6 +245,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'launchpad/indicator/firstLoad': void;
 	/** Sent when a launchpad operation is taking longer than a set timeout to complete */
 	'launchpad/operation/slow': LaunchpadOperationSlowEvent;
+
+	/** Sent when GitKraken MCP setup is started */
+	'mcp/setup/started': MCPSetupStartedEvent;
+	/** Sent when GitKraken MCP setup is completed */
+	'mcp/setup/completed': MCPSetupCompletedEvent;
+	/** Sent when GitKraken MCP setup fails */
+	'mcp/setup/failed': MCPSetupFailedEvent;
+	/** Sent when GitKraken MCP registration fails */
+	'mcp/registration/failed': MCPSetupFailedEvent;
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
@@ -470,6 +487,43 @@ export interface AIFeedbackEvent extends AIEventDataBase {
 	'unhelpful.reasons'?: string;
 	/** Custom feedback provided (if any) */
 	'unhelpful.custom'?: string;
+}
+
+export interface CLIInstallStartedEvent {
+	source?: Sources;
+	autoInstall: boolean;
+	attempts: number;
+}
+
+export interface CLIInstallSucceededEvent {
+	autoInstall: boolean;
+	attempts: number;
+	source?: Sources;
+	version?: string;
+}
+
+export interface CLIInstallFailedEvent {
+	autoInstall: boolean;
+	attempts: number;
+	'error.message'?: string;
+	source?: Sources;
+}
+
+export interface MCPSetupStartedEvent {
+	source: Sources;
+}
+
+export interface MCPSetupCompletedEvent {
+	source: Sources;
+	'cli.version'?: string;
+	requiresUserCompletion: boolean;
+}
+
+export interface MCPSetupFailedEvent {
+	source: Sources;
+	reason: string;
+	'cli.version'?: string;
+	'error.message'?: string;
 }
 
 interface CloudIntegrationsConnectingEvent {
@@ -1081,6 +1135,7 @@ interface UsageTrackEvent {
 
 interface WalkthroughEvent {
 	step?: WalkthroughSteps;
+	usingFallbackUrl?: boolean;
 }
 
 type WalkthroughActionNames =
@@ -1148,10 +1203,10 @@ export type TelemetryEventsFromWebviewApp = {
 };
 
 export type LoginContext = 'start_trial';
-export type ConnectIntegrationContext = 'launchpad';
+export type ConnectIntegrationContext = 'launchpad' | 'mcp';
 export type Context = LoginContext | ConnectIntegrationContext;
 /** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
-export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';
+export type TrackingContext = 'graph' | 'launchpad' | 'mcp' | 'visual_file_history' | 'worktrees';
 
 export type Sources =
 	| 'account'
@@ -1168,6 +1223,8 @@ export type Sources =
 	| 'editor:hover'
 	| 'feature-badge'
 	| 'feature-gate'
+	| 'gk-cli-integration'
+	| 'gk-mcp-provider'
 	| 'graph'
 	| 'home'
 	| 'inspect'
@@ -1176,6 +1233,8 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
+	| 'mcp'
+	| 'mcp-welcome-message'
 	| 'merge-target'
 	| 'notification'
 	| 'patchDetails'
@@ -1203,6 +1262,10 @@ export type Source = {
 
 export const sourceToContext: { [source in Sources]?: Context } = {
 	launchpad: 'launchpad',
+};
+
+export const detailToContext: { [detail in string]?: Context } = {
+	mcp: 'mcp',
 };
 
 export type TrackedUsage = {

@@ -64,5 +64,6 @@
   "repository": 61763,
   "worktree": 61764,
   "worktree-filled": 61765,
-  "repository-cloud": 61766
+  "repository-cloud": 61766,
+  "provider-linear": 61767
 }

@@ -215,7 +215,6 @@ export async function detailsMessage(
 
 	const cfg = configuration.get('hovers');
 	const enhancedAutolinks =
-		remote?.provider != null &&
 		options?.autolinks !== false &&
 		(options?.autolinks || cfg.autolinks.enabled) &&
 		cfg.autolinks.enhanced &&
