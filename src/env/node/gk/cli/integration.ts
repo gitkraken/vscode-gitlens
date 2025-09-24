@@ -148,7 +148,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				await openUrl(result.url);
 			}
 
-			if (result.usingExtensionRegistration && force === false) {
+			if (result.usingExtensionRegistration) {
 				const learnMore = { title: 'Learn More' };
 				const confirm = { title: 'OK', isCloseAffordance: true };
 				const userResult = await window.showInformationMessage(
