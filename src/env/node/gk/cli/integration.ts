@@ -31,7 +31,7 @@ const enum CLIInstallErrorReason {
 	ProxyDownload,
 	ProxyExtract,
 	ProxyFetch,
-	CoreDirectory,
+	GlobalStorageDirectory,
 	CoreInstall,
 }
 
@@ -378,8 +378,8 @@ export class GkCliIntegrationProvider implements Disposable {
 					case CLIInstallErrorReason.ProxyFetch:
 					case CLIInstallErrorReason.ProxyDownload:
 					case CLIInstallErrorReason.ProxyExtract:
-					case CLIInstallErrorReason.CoreDirectory:
 					case CLIInstallErrorReason.CoreInstall:
+					case CLIInstallErrorReason.GlobalStorageDirectory:
 						reason = McpSetupErrorReason.CLILocalInstallFailed;
 						message = 'Unable to locally install the GitKraken MCP server. Please try again.';
 						telemetryReason = 'local installation failed';
@@ -593,7 +593,7 @@ export class GkCliIntegrationProvider implements Disposable {
 					await workspace.fs.createDirectory(globalStoragePath);
 				} catch (ex) {
 					throw new CLIInstallError(
-						CLIInstallErrorReason.CoreDirectory,
+						CLIInstallErrorReason.GlobalStorageDirectory,
 						ex instanceof Error ? ex : undefined,
 						ex instanceof Error ? ex.message : undefined,
 					);
@@ -657,7 +657,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						directoryPath = directory[1];
 						void this.container.storage.store('gk:cli:corePath', directoryPath).catch();
 					} else {
-						throw new CLIInstallError(CLIInstallErrorReason.CoreDirectory);
+						throw new Error(`Failed to find core directory in install output: ${coreInstallOutput}`);
 					}
 
 					Logger.log('CLI install completed.');
@@ -806,11 +806,11 @@ class CLIInstallError extends Error {
 			case CLIInstallErrorReason.ProxyFetch:
 				message = 'Failed to fetch proxy';
 				break;
-			case CLIInstallErrorReason.CoreDirectory:
-				message = 'Failed to find core directory in proxy output';
-				break;
 			case CLIInstallErrorReason.CoreInstall:
 				message = 'Failed to install core';
+				break;
+			case CLIInstallErrorReason.GlobalStorageDirectory:
+				message = 'Failed to create global storage directory';
 				break;
 			default:
 				message = 'An unknown error occurred';
