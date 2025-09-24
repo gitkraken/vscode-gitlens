@@ -351,7 +351,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			Logger.error(ex, scope, `Error during MCP installation: ${ex}`);
 
 			let telemetryReason: string;
-			let telemetryErrorMessage: string | undefined;
+			let telemetryErrorMessage: string | undefined = ex.message;
 			let cliVersionForTelemetry: string | undefined;
 			let errorToThrow: Error;
 
