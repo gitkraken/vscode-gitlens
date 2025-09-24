@@ -1,4 +1,5 @@
 import type { Config } from '../../config';
+import type { IssuesCloudHostIntegrationId } from '../../constants.integrations';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcNotification, IpcRequest } from '../protocol';
 
@@ -12,6 +13,7 @@ export interface State extends WebviewState {
 	scopes: ['user' | 'workspace', string][];
 	hasAccount: boolean;
 	hasConnectedJira: boolean;
+	hasConnectedLinear: boolean;
 }
 
 // REQUESTS
@@ -43,10 +45,9 @@ export interface DidChangeAccountParams {
 }
 export const DidChangeAccountNotification = new IpcNotification<DidChangeAccountParams>(scope, 'didChangeAccount');
 
-export interface DidChangeConnectedJiraParams {
-	hasConnectedJira: boolean;
+export interface DidChangeIssueIntegrationConnectedParams {
+	integrationId: IssuesCloudHostIntegrationId;
+	connected: boolean;
 }
-export const DidChangeConnectedJiraNotification = new IpcNotification<DidChangeConnectedJiraParams>(
-	scope,
-	'didChangeConnectedJira',
-);
+export const DidChangeIssueIntegrationConnectedNotification =
+	new IpcNotification<DidChangeIssueIntegrationConnectedParams>(scope, 'didChangeIssueIntegrationConnected');
