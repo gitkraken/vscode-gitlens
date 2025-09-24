@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.5.1] - 2025-09-24
+
 ### Fixed
 
 - Fixes Cursor theme color issues with alerts and feature gates ([#4608](https://github.com/gitkraken/vscode-gitlens/issues/4608))
@@ -6355,7 +6357,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.1...HEAD
+[17.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...gitkraken:v17.5.1
 [17.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.1...gitkraken:v17.5.0
 [17.4.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.0...gitkraken:v17.4.1
 [17.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.4...gitkraken:v17.4.0
