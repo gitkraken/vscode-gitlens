@@ -33,6 +33,7 @@ tests/**
 .prettierrc
 .vscode-test.mjs
 .yarnrc
+AGENTS.md
 BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
