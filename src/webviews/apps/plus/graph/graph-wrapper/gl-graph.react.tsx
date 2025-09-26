@@ -132,6 +132,7 @@ const createIconElements = (): Record<ExternalIconKeys | 'undefined-icon', React
 		'issue-gitlabSelfHosted',
 		'issue-jiraCloud',
 		'issue-jiraServer',
+		'issue-linear',
 		'issue-azureDevops',
 		'issue-bitbucket',
 		'undefined-icon',
