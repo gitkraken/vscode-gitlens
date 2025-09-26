@@ -39,7 +39,12 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 
 		try {
 			const repoPath = (
-				await getBestRepositoryOrShowPicker(uri, editor, 'Open Folder Changes with Branch or Tag')
+				await getBestRepositoryOrShowPicker(
+					this.container,
+					uri,
+					editor,
+					'Open Folder Changes with Branch or Tag',
+				)
 			)?.path;
 			if (!repoPath) return;
 

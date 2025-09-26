@@ -3,7 +3,7 @@ import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import type { GitCommitStats } from './commit';
 
 export function isContributor(contributor: unknown): contributor is GitContributor {

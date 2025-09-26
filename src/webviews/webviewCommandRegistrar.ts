@@ -37,9 +37,10 @@ export class WebviewCommandRegistrar implements Disposable {
 							return;
 						}
 
-						const key = context.webviewInstance
-							? `${context.webview}:${context.webviewInstance}`
-							: context.webview;
+						const key =
+							context.webviewInstance && instanceId
+								? `${context.webview}:${context.webviewInstance}`
+								: context.webview;
 
 						const handler = handlers.get(key);
 						if (handler == null) {

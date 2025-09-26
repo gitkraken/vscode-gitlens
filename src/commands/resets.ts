@@ -12,7 +12,7 @@ const resetTypes = [
 	'ai',
 	'ai:confirmations',
 	'avatars',
-	'homeSections',
+	'banners',
 	'integrations',
 	'previews',
 	'promoOptIns',
@@ -49,9 +49,9 @@ export class ResetCommand extends GlCommandBase {
 				item: 'avatars',
 			},
 			{
-				label: 'Home Sections...',
-				detail: 'Clears dismissed home view banners and sections',
-				item: 'homeSections',
+				label: 'Banners...',
+				detail: 'Resets dismissed banners/notices',
+				item: 'banners',
 			},
 			{
 				label: 'Integrations (Authentication)...',
@@ -137,6 +137,10 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset the avatar cache?';
 				confirm.title = 'Reset Avatars';
 				break;
+			case 'banners':
+				confirmationMessage = 'Are you sure you want to reset all dismissed banners/notices?';
+				confirm.title = 'Reset Banners';
+				break;
 			case 'integrations':
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
 				confirm.title = 'Reset Integrations';
@@ -169,6 +173,10 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset the stored data for the current workspace?';
 				confirm.title = 'Reset Workspace Storage';
 				break;
+			default: {
+				const _exhaustiveCheck: never = pick.item;
+				break;
+			}
 		}
 
 		if (confirmationMessage != null) {
@@ -206,9 +214,14 @@ export class ResetCommand extends GlCommandBase {
 				resetAvatarCache('all');
 				break;
 
-			case 'homeSections':
+			case 'banners':
 				await this.container.storage.delete('home:sections:collapsed');
 				await this.container.storage.delete('home:walkthrough:dismissed');
+				await this.container.storage.delete('mcp:banner:dismissed');
+
+				// Deprecated keys
+				await this.container.storage.delete('home:banners:dismissed');
+				await this.container.storage.delete('home:sections:dismissed');
 				break;
 
 			case 'integrations':

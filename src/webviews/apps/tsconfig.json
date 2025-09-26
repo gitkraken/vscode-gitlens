@@ -21,8 +21,10 @@
 		"../../constants.*.ts",
 		"../../env/browser/**/*",
 		"../../features.ts",
+		"../../git/parsers/diffParser.ts",
 		"../../system/**/*.ts",
-		"../../**/webview/**/*"
+		"../../**/webview/**/*",
+		"../plus/composer/utils.ts"
 	],
 	"exclude": ["src/**/__tests__/**/*", "src/**/-webview/**/*"]
 }

@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { IntegrationIds } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { IssueShape } from '../../../git/models/issue';
 import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import { getLogScope } from '../../../system/logger.scope';
 import type { ProviderAuthenticationSession } from '../authentication/models';

@@ -1,52 +1,60 @@
 import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import { Container } from '../container';
+import { GlyphChars } from '../constants';
+import type { Container } from '../container';
 import type { Repository } from '../git/models/repository';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { map } from '../system/iterable';
-import { CommandQuickPickItem } from './items/common';
+import type { QuickPickResult } from './items/common';
+import { createQuickPickSeparator } from './items/common';
+import type { DirectiveQuickPickItem } from './items/directive';
+import { isDirectiveQuickPickItem } from './items/directive';
 import type { RepositoryQuickPickItem } from './items/gitWizard';
 import { createRepositoryQuickPickItem } from './items/gitWizard';
 
 export async function getBestRepositoryOrShowPicker(
+	container: Container,
 	uri: Uri | undefined,
 	editor: TextEditor | undefined,
 	title: string,
 	placeholder?: string,
-	options?: { filter?: (r: Repository) => Promise<boolean> },
+	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
 ): Promise<Repository | undefined> {
-	let repository = Container.instance.git.getBestRepository(uri, editor);
-
-	if (repository != null && options?.filter != null) {
-		if (!(await options.filter(repository))) {
-			repository = undefined;
-		}
-	}
-	if (repository != null) return repository;
-
-	const pick = await showRepositoryPicker(title, placeholder, undefined, options);
-	if (pick instanceof CommandQuickPickItem) {
-		await pick.execute();
-		return undefined;
-	}
-
-	return pick;
+	return getRepositoryOrShowPickerCore(
+		container,
+		container.git.getBestRepository(uri, editor),
+		title,
+		placeholder,
+		options,
+	);
 }
 
 export async function getRepositoryOrShowPicker(
+	container: Container,
 	title: string,
 	placeholder?: string,
 	uri?: Uri,
-	options?: { filter?: (r: Repository) => Promise<boolean> },
+	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
 ): Promise<Repository | undefined> {
-	let repository;
-	if (uri == null) {
-		repository = Container.instance.git.highlander;
-	} else {
-		repository = await Container.instance.git.getOrOpenRepository(uri);
-	}
+	return getRepositoryOrShowPickerCore(
+		container,
+		uri == null ? container.git.highlander : await container.git.getOrOpenRepository(uri),
+		title,
+		placeholder,
+		options,
+	);
+}
 
+async function getRepositoryOrShowPickerCore(
+	container: Container,
+	repository: Repository | undefined,
+	title: string,
+	placeholder?: string,
+	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
+): Promise<Repository | undefined> {
 	if (repository != null && options?.filter != null) {
 		if (!(await options.filter(repository))) {
 			repository = undefined;
@@ -54,58 +62,88 @@ export async function getRepositoryOrShowPicker(
 	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title, placeholder, undefined, options);
-	if (pick instanceof CommandQuickPickItem) {
-		void (await pick.execute());
-		return undefined;
-	}
-
-	return pick;
+	const result = await showRepositoryPicker2(container, title, placeholder, undefined, {
+		autoPick: true,
+		...options,
+	});
+	return result?.value;
 }
 
 export async function showRepositoryPicker(
+	container: Container,
 	title: string | undefined,
 	placeholder?: string,
-	repositories?: Repository[],
-	options?: { filter?: (r: Repository) => Promise<boolean>; picked?: Repository },
+	repositories?: readonly Repository[],
+	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean>; picked?: Repository },
 ): Promise<Repository | undefined> {
-	repositories ??= Container.instance.git.openRepositories;
+	const result = await showRepositoryPicker2(container, title, placeholder, repositories, options);
+	return result?.value;
+}
 
-	let items: RepositoryQuickPickItem[];
-	if (options?.filter == null) {
-		items = await Promise.all<Promise<RepositoryQuickPickItem>>(
-			map(repositories ?? Container.instance.git.openRepositories, r =>
-				createRepositoryQuickPickItem(r, r === options?.picked, { branch: true, status: true }),
-			),
-		);
-	} else {
+export async function showRepositoryPicker2(
+	container: Container,
+	title: string | undefined,
+	placeholder?: string,
+	repositories?: readonly Repository[],
+	options?: {
+		additionalItem?: DirectiveQuickPickItem;
+		autoPick?: boolean;
+		excludeWorktrees?: boolean;
+		filter?: (r: Repository) => Promise<boolean>;
+		picked?: Repository;
+	},
+): Promise<QuickPickResult<Repository>> {
+	let repos: Iterable<Repository> = (repositories ??= container.git.openRepositories);
+
+	if (options?.filter != null) {
 		const { filter } = options;
-		items = filterMap(
-			await Promise.allSettled(
-				map(Container.instance.git.openRepositories, async r =>
-					(await filter(r))
-						? createRepositoryQuickPickItem(r, r === options?.picked, { branch: true, status: true })
-						: undefined,
-				),
-			),
+		repos = filterMap(
+			await Promise.allSettled(map(repositories, async r => ((await filter(r)) ? r : undefined))),
 			r => (r.status === 'fulfilled' ? r.value : undefined),
 		);
 	}
 
-	if (items.length === 0) return undefined;
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
+	}
 
-	const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
+	const items = await Promise.all<Promise<DirectiveQuickPickItem | RepositoryQuickPickItem>>(
+		map(repos, r =>
+			createRepositoryQuickPickItem(r, r === options?.picked, {
+				branch: true,
+				indent: !grouped.has(r),
+				status: true,
+			}),
+		),
+	);
+	if (!items.length) return { value: undefined };
+
+	if (options?.additionalItem != null) {
+		items.unshift(options.additionalItem, createQuickPickSeparator());
+	} else if (options?.autoPick && items.length === 1) {
+		return { value: (items[0] as RepositoryQuickPickItem).item };
+	}
+
+	const quickpick = window.createQuickPick<DirectiveQuickPickItem | RepositoryQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 	const disposables: Disposable[] = [];
 
 	try {
-		const pick = await new Promise<RepositoryQuickPickItem | undefined>(resolve => {
+		const pick = await new Promise<QuickPickResult<Repository>>(resolve => {
 			disposables.push(
-				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidHide(() => resolve({ value: undefined })),
 				quickpick.onDidAccept(() => {
-					if (quickpick.activeItems.length !== 0) {
-						resolve(quickpick.activeItems[0]);
+					if (!quickpick.activeItems.length) return;
+
+					const [item] = quickpick.activeItems;
+					if (isDirectiveQuickPickItem(item)) {
+						resolve({ directive: item.directive });
+					} else {
+						resolve({ value: item?.item });
 					}
 				}),
 			);
@@ -115,11 +153,12 @@ export async function showRepositoryPicker(
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;
+			quickpick.activeItems = items.filter(i => i.picked);
 
 			quickpick.show();
 		});
 
-		return pick?.item;
+		return pick;
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
@@ -127,50 +166,52 @@ export async function showRepositoryPicker(
 }
 
 export async function showRepositoriesPicker(
+	container: Container,
 	title: string | undefined,
 	placeholder?: string,
 	repositories?: Repository[],
-): Promise<readonly Repository[]>;
-export async function showRepositoriesPicker(
+	options?: {
+		excludeWorktrees?: boolean;
+		filter?: (r: Repository) => Promise<boolean>;
+		picked?: readonly Repository[];
+	},
+): Promise<readonly Repository[]> {
+	const result = await showRepositoriesPicker2(container, title, placeholder, repositories, options);
+	return result?.value ?? [];
+}
+
+export async function showRepositoriesPicker2(
+	container: Container,
 	title: string | undefined,
 	placeholder?: string,
-	options?: { filter?: (r: Repository) => Promise<boolean> },
-): Promise<readonly Repository[]>;
-export async function showRepositoriesPicker(
-	title: string | undefined,
-	placeholder: string = 'Choose a repository',
-	repositoriesOrOptions?: Repository[] | { filter?: (r: Repository) => Promise<boolean> },
-): Promise<readonly Repository[]> {
-	if (
-		repositoriesOrOptions != null &&
-		!Array.isArray(repositoriesOrOptions) &&
-		repositoriesOrOptions.filter == null
-	) {
-		repositoriesOrOptions = undefined;
-	}
+	repositories?: readonly Repository[],
+	options?: {
+		excludeWorktrees?: boolean;
+		filter?: (r: Repository) => Promise<boolean>;
+		picked?: readonly Repository[];
+	},
+): Promise<QuickPickResult<Repository[]>> {
+	let repos: Iterable<Repository> = (repositories ??= container.git.openRepositories);
 
-	let items: RepositoryQuickPickItem[];
-	if (repositoriesOrOptions == null || Array.isArray(repositoriesOrOptions)) {
-		items = await Promise.all<Promise<RepositoryQuickPickItem>>(
-			map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
-				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
-			),
-		);
-	} else {
-		const { filter } = repositoriesOrOptions;
-		items = filterMap(
-			await Promise.allSettled(
-				map(Container.instance.git.openRepositories, async r =>
-					(await filter!(r))
-						? createRepositoryQuickPickItem(r, undefined, { branch: true, status: true })
-						: undefined,
-				),
-			),
+	if (options?.filter != null) {
+		const { filter } = options;
+		repos = filterMap(
+			await Promise.allSettled(map(repositories, async r => ((await filter(r)) ? r : undefined))),
 			r => (r.status === 'fulfilled' ? r.value : undefined),
 		);
 	}
 
-	if (items.length === 0) return [];
+	const grouped = await groupRepositories(repos);
+	if (options?.excludeWorktrees) {
+		repos = sortRepositories([...grouped.keys()]);
+	} else {
+		repos = sortRepositoriesGrouped(grouped);
+	}
+
+	const items = await Promise.all<Promise<RepositoryQuickPickItem>>(
+		map(repos, r => createRepositoryQuickPickItem(r, options?.picked?.includes(r), { branch: true, status: true })),
+	);
+	if (!items.length) return { value: undefined };
 
 	const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
@@ -178,10 +219,10 @@ export async function showRepositoriesPicker(
 	const disposables: Disposable[] = [];
 
 	try {
-		const picks = await new Promise<readonly RepositoryQuickPickItem[] | undefined>(resolve => {
+		const pick = await new Promise<QuickPickResult<Repository[]>>(resolve => {
 			disposables.push(
-				quickpick.onDidHide(() => resolve(undefined)),
-				quickpick.onDidAccept(() => resolve(quickpick.selectedItems)),
+				quickpick.onDidHide(() => resolve({ value: undefined })),
+				quickpick.onDidAccept(() => resolve({ value: quickpick.selectedItems.map(i => i.item) })),
 			);
 
 			quickpick.title = title;
@@ -191,16 +232,37 @@ export async function showRepositoriesPicker(
 			quickpick.items = items;
 			quickpick.canSelectMany = true;
 
+			const picked = items.filter(i => i.picked);
 			// Select all the repositories by default
-			quickpick.selectedItems = items;
+			quickpick.selectedItems = picked.length ? picked : items;
 
 			quickpick.show();
 		});
-		if (picks == null) return [];
 
-		return picks.map(p => p.item);
+		return pick;
 	} finally {
 		quickpick.dispose();
 		disposables.forEach(d => void d.dispose());
 	}
+}
+
+export async function getRepositoryPickerTitleAndPlaceholder(
+	repositories: Repository[],
+	action: string,
+	context?: string,
+): Promise<{ title: string; placeholder: string }> {
+	let hasWorktrees = false;
+	for (const r of repositories) {
+		if (await r.isWorktree()) {
+			hasWorktrees = true;
+			break;
+		}
+	}
+
+	const title = context
+		? `${action} ${hasWorktrees ? 'Repository or Worktree' : 'Repository'} ${GlyphChars.Dot} ${context}`
+		: action;
+	const placeholder = `Select a ${hasWorktrees ? 'repository or worktree' : 'repository'} to ${action.toLowerCase()} to`;
+
+	return { title: title, placeholder: placeholder };
 }

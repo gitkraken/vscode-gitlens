@@ -197,6 +197,18 @@ export function getDeferredPromiseIfPending<T>(deferred: Deferred<T> | undefined
 	return deferred?.pending ? deferred.promise : undefined;
 }
 
+export type MaybePromiseArr<T> = (Promise<T | undefined> | T | undefined)[];
+
+export async function nonnullSettled<T>(arr: MaybePromiseArr<T>): Promise<T[]> {
+	const all = await Promise.allSettled(arr);
+	return all.map(r => getSettledValue(r)).filter(v => v != null);
+}
+
+export async function flatSettled<T>(arr: MaybePromiseArr<(T | undefined)[]>): Promise<T[]> {
+	const all = await nonnullSettled(arr);
+	return all.flat().filter(v => v != null);
+}
+
 export function getSettledValue<T>(promise: PromiseSettledResult<T> | undefined): T | undefined;
 export function getSettledValue<T>(
 	promise: PromiseSettledResult<T> | undefined,

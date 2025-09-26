@@ -5,14 +5,17 @@ import type { IntegrationIds } from '../constants.integrations';
 import { IssuesCloudHostIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
-import type { RemoteProviderId } from '../git/remotes/remoteProvider';
+import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
 import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService';
 import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { Integration } from '../plus/integrations/models/integration';
 import { IntegrationBase } from '../plus/integrations/models/integration';
 import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration';
-import { convertRemoteProviderIdToIntegrationId } from '../plus/integrations/utils/-webview/integration.utils';
+import {
+	convertRemoteProviderIdToIntegrationId,
+	getIntegrationIdForRemote,
+} from '../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../system/-webview/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
@@ -175,8 +178,11 @@ export class AutolinksProvider implements Disposable {
 	}
 
 	getAutolinkEnrichableId(autolink: Autolink): string {
+		// TODO: this should return linking key for all types of providers: such as TST-123 or #89 or PR 89 (or a pair: key+id).
+		// Each provider should form whatever ID they need in their specific getIssueOrPullRequest() method.
 		switch (autolink.provider?.id) {
 			case IssuesCloudHostIntegrationId.Jira:
+			case IssuesCloudHostIntegrationId.Linear:
 				return `${autolink.prefix}${autolink.id}`;
 			default:
 				return autolink.id;
@@ -227,7 +233,8 @@ export class AutolinksProvider implements Disposable {
 						: // TODO: Tighten the typing on ProviderReference to be specific to a remote provider, and then have a separate "integration" property (on autolinks and elsewhere)
 							// that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
 							// Either way, this converting/casting hackery needs to go away.
-							convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId);
+							(getIntegrationIdForRemote(link.provider as RemoteProvider) ??
+							convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId));
 				if (integrationId == null) {
 					// Fall back to the old logic assuming that integration id might be saved as provider id.
 					// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826

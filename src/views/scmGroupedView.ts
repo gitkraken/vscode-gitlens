@@ -34,6 +34,10 @@ export class ScmGroupedView implements Disposable {
 	private _cleared: Deferred<void> | undefined;
 	private _clearLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 	private readonly _disposable: Disposable;
+	private _lastSelectedByView = new Map<
+		GroupableTreeViewTypes,
+		{ node: ViewNode; parents: ViewNode[] | undefined; expanded: boolean }
+	>();
 	private _loaded: Deferred<void> | undefined;
 	private _onDidChangeTreeData: EventEmitter<ViewNode | undefined> | undefined;
 	private _tree: TreeView<ViewNode> | undefined;
@@ -53,7 +57,8 @@ export class ScmGroupedView implements Disposable {
 	}
 
 	private onReady() {
-		this._view = this.setView(this.views.lastSelectedScmGroupedView!);
+		// Since we don't want the view to open on every load, prevent revealing it
+		this._view = this.setView(this.views.lastSelectedScmGroupedView!, { focus: false, preventReveal: true });
 	}
 
 	get view(): TreeViewByType[GroupableTreeViewTypes] | undefined {
@@ -62,6 +67,26 @@ export class ScmGroupedView implements Disposable {
 
 	async clearView<T extends GroupableTreeViewTypes>(type: T): Promise<void> {
 		if (this._view == null || this._view.type === type) return;
+
+		// Save current selection before switching views
+		const node: ViewNode | undefined = this._view.selection?.[0];
+		if (node != null) {
+			const parents: ViewNode[] = [];
+
+			let parent: ViewNode | undefined = node;
+			while (true) {
+				parent = parent.getParent();
+				if (parent == null) break;
+
+				parents.unshift(parent);
+			}
+
+			this._lastSelectedByView.set(this._view.type, {
+				node: node,
+				parents: parents,
+				expanded: this._view.isNodeExpanded(node),
+			});
+		}
 
 		void setContext('gitlens:views:scm:grouped:loading', true);
 		clearTimeout(this._clearLoadingTimer);
@@ -102,23 +127,60 @@ export class ScmGroupedView implements Disposable {
 		}
 	}
 
-	setView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean): TreeViewByType[T] {
+	setView<T extends GroupableTreeViewTypes>(
+		type: T,
+		options?: { focus?: boolean; preventReveal?: boolean },
+	): TreeViewByType[T] {
 		if (!this.views.scmGroupedViews?.has(type)) {
 			type = this.views.scmGroupedViews?.size ? (first(this.views.scmGroupedViews) as T) : undefined!;
 		}
 
 		void setContext('gitlens:views:scm:grouped:loading', true);
 		clearTimeout(this._clearLoadingTimer);
+
+		const wasVisible = this._tree?.visible ?? false;
 		this.resetTree();
 
 		this._loaded?.cancel();
 		this._loaded = defer<void>();
 		void this._loaded.promise.then(
-			() => {
+			async () => {
 				this._loaded = undefined;
 
-				if (focus) {
-					setTimeout(() => void this._view?.show({ preserveFocus: false }), 50);
+				const view = this._view;
+				if (view != null) {
+					if (!options?.preventReveal && !view.visible) {
+						await view.show({ preserveFocus: !options?.focus });
+					}
+
+					let selection = this._lastSelectedByView.get(type);
+
+					setTimeout(async () => {
+						if (selection == null && view.selection?.length) {
+							selection = { node: view.selection[0], parents: undefined, expanded: false };
+						}
+						if (selection == null) {
+							if (options?.focus) {
+								await view.show({ preserveFocus: false });
+							}
+							return;
+						}
+
+						const { node, parents, expanded } = selection;
+						if (parents == null) {
+							await view.revealDeep(node, {
+								expand: expanded,
+								focus: options?.focus ?? false,
+								select: true,
+							});
+						} else {
+							await view.revealDeep(node, parents, {
+								expand: expanded,
+								focus: options?.focus ?? false,
+								select: true,
+							});
+						}
+					}, 50);
 				}
 
 				this._clearLoadingTimer = setTimeout(
@@ -139,6 +201,10 @@ export class ScmGroupedView implements Disposable {
 		}
 
 		this.views.lastSelectedScmGroupedView = type;
+
+		if (!options?.preventReveal && !wasVisible) {
+			void this._view.show({ preserveFocus: !options?.focus });
+		}
 
 		return this._view as TreeViewByType[T];
 	}

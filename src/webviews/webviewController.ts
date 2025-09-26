@@ -1,5 +1,6 @@
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import { base64 } from '@env/base64';
 import { getNonce } from '@env/crypto';
 import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
@@ -94,7 +95,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor<ID>,
-		instanceId: string | undefined,
+		instanceId: string,
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
@@ -110,7 +111,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewViewDescriptor<ID>,
-		instanceId: string | undefined,
+		instanceId: string,
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
@@ -126,7 +127,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: GetWebviewDescriptor<ID>,
-		instanceId: string | undefined,
+		instanceId: string,
 		parent: GetWebviewParent<ID>,
 		resolveProvider: (
 			container: Container,
@@ -173,7 +174,7 @@ export class WebviewController<
 		private readonly container: Container,
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
 		private readonly descriptor: GetWebviewDescriptor<ID>,
-		public readonly instanceId: string | undefined,
+		public readonly instanceId: string,
 		public readonly parent: GetWebviewParent<ID>,
 		resolveProvider: (
 			container: Container,
@@ -227,6 +228,9 @@ export class WebviewController<
 		this.provider?.onFocusChanged?.(false);
 		this.provider?.onVisibilityChanged?.(false);
 
+		const context = this.provider.getTelemetryContext?.() ?? this.getTelemetryContext();
+		this.container.telemetry.sendEvent(`${this.descriptor.type}/closed`, context);
+
 		this._ready = false;
 
 		this._onDidDispose.fire();
@@ -237,7 +241,14 @@ export class WebviewController<
 		command: WebviewCommands | WebviewViewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
-		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
+		return this._commandRegistrar.registerCommand(
+			this.provider,
+			this.id,
+			// We should be able to remove this in the future and always use the instanceId, but we need to do more testing to make sure each webview command always comes with the instanceId
+			this.descriptor.allowMultipleInstances ? this.instanceId : undefined,
+			command,
+			callback,
+		);
 	}
 
 	private _initializing: Promise<void> | undefined;
@@ -862,7 +873,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 				case 'body':
 					return body ?? '';
 				case 'state':
-					return bootstrap != null ? JSON.stringify(bootstrap).replace(/"/g, '&quot;') : '';
+					return bootstrap != null ? base64(JSON.stringify(bootstrap)) : '';
 				case 'endOfBody':
 					return `${
 						bootstrap != null

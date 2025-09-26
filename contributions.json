@@ -11,14 +11,14 @@
 					{
 						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 						"group": "4_gitlens",
-						"order": 1
+						"order": 3
 					}
 				],
 				"scm/title": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 						"group": "2_gitlens",
-						"order": 1
+						"order": 10
 					}
 				]
 			}
@@ -34,8 +34,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions_4",
-						"order": 100
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -47,8 +47,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_ai",
-						"order": 1
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -64,8 +64,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 1
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -77,8 +77,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_explore",
-						"order": 1
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -94,8 +94,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 1
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -107,8 +107,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_explore",
-						"order": 1
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -124,8 +124,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens",
-						"order": 2
+						"group": "1_gitlens_ai",
+						"order": 10
 					}
 				]
 			}
@@ -138,7 +138,7 @@
 					{
 						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "3_gitlens_ai",
-						"order": 1
+						"order": 10
 					}
 				]
 			}
@@ -150,6 +150,11 @@
 				"editor/title": [
 					{
 						"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 1
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
 						"group": "navigation",
 						"order": 1
 					}
@@ -165,6 +170,11 @@
 						"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 1
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+						"group": "navigation",
+						"order": 1
 					}
 				]
 			}
@@ -176,6 +186,11 @@
 				"editor/title": [
 					{
 						"when": "resourceScheme == gitlens-ai-markdown && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
+						"group": "navigation",
+						"order": 2
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
 						"group": "navigation",
 						"order": 2
 					}
@@ -191,6 +206,11 @@
 						"when": "resourceScheme == gitlens-ai-markdown && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && activeCustomEditorId == vscode.markdown.preview.editor",
 						"group": "navigation",
 						"order": 2
+					},
+					{
+						"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
+						"group": "navigation",
+						"order": 1
 					}
 				]
 			}
@@ -224,8 +244,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 100
+						"group": "1_gitlens_ai",
+						"order": 5
 					}
 				]
 			}
@@ -237,8 +257,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 100
+						"group": "1_gitlens_ai",
+						"order": 5
 					}
 				]
 			}
@@ -270,12 +290,14 @@
 						"order": 2
 					}
 				],
-				"scm/title": [
+				"gitlens/scm/title/ai": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage",
-						"group": "navigation",
-						"order": -3
-					},
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens",
+						"order": 1
+					}
+				],
+				"scm/title": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "2_gitlens",
@@ -284,41 +306,18 @@
 				]
 			}
 		},
-		"gitlens.ai.generateCommits": {
-			"label": "Generate Commits with AI (Preview)...",
-			"icon": "$(sparkle)",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-		},
-		"gitlens.ai.generateCommits:graph": {
-			"label": "Generate Commits with AI (Preview)",
-			"icon": "$(sparkle)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens",
-						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.ai.generateCommits:views": {
-			"label": "Generate Commits with AI (Preview)",
-			"icon": "$(sparkle)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_ai",
-						"order": 1
-					}
-				]
-			}
-		},
 		"gitlens.ai.generateRebase": {
 			"label": "Rebase with AI (Preview)...",
 			"icon": "$(sparkle)",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.ai.mcp.install": {
+			"label": "Install GitKraken MCP Server",
+			"commandPalette": "!gitlens:untrusted && !gitlens:gk:cli:installed"
+		},
+		"gitlens.ai.mcp.reinstall": {
+			"label": "Reinstall GitKraken MCP Server",
+			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.rebaseOntoCommit:graph": {
 			"label": "AI Rebase Current Branch onto Commit (Preview)...",
@@ -356,8 +355,20 @@
 			}
 		},
 		"gitlens.ai.switchProvider": {
-			"label": "Switch AI Provider/Model",
+			"label": "Switch AI Provider/Model...",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.ai.switchProvider:scm": {
+			"label": "Switch GitLens AI Provider/Model...",
+			"menus": {
+				"gitlens/scm/title/ai": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled",
+						"group": "9_gitlens",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.ai.undoGenerateRebase": {
 			"label": "Undo AI Generated Changes (Preview)...",
@@ -407,6 +418,34 @@
 			"label": "Change Branch Merge Target",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.changeUpstream:graph": {
+			"label": "Change Upstream...",
+			"icon": "$(link)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions_2",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.changeUpstream:views": {
+			"label": "Change Upstream...",
+			"icon": "$(link)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions_2",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.clearFileAnnotations": {
 			"label": "Clear File Annotations",
 			"icon": "$(gitlens-gitlens-filled)",
@@ -455,6 +494,91 @@
 			"label": "Compare Working Tree with...",
 			"icon": "$(compare-changes)",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.composeCommits": {
+			"label": "Compose Commits (Preview)...",
+			"icon": "$(sparkle)",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted"
+		},
+		"gitlens.composeCommits:graph": {
+			"label": "Compose Commits (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.composeCommits:scm": {
+			"label": "Compose Commits (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"git.commit": [
+					{
+						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "4_gitlens",
+						"order": 1
+					}
+				],
+				"gitlens/scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens",
+						"order": 1
+					}
+				],
+				"gitlens/scm/title/ai": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"scm/resourceGroup/context": [
+					{
+						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_modification_gitlens",
+						"order": 1
+					}
+				],
+				"scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.composeCommits:views": {
+			"label": "Compose Commits (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+						"group": "3_gitlens_ai",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.composer.refresh": {
+			"label": "Refresh",
+			"icon": "$(refresh)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.composer",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
 		},
 		"gitlens.computingFileAnnotations": {
 			"label": "Computing File Annotations...",
@@ -689,12 +813,27 @@
 		},
 		"gitlens.copyPatchToClipboard": {
 			"label": "Copy Changes (Patch)",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.copyPatchToClipboard:graph": {
+			"label": "Copy Changes (Patch)",
 			"menus": {
-				"git.commit": [
+				"webview/context": [
 					{
-						"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
-						"group": "4_gitlens",
+						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "7_cutcopypaste",
+						"order": 97
+					}
+				]
+			}
+		},
+		"gitlens.copyPatchToClipboard:scm": {
+			"label": "Copy Changes (Patch)",
+			"menus": {
+				"git.changes": [
+					{
+						"when": "gitlens:enabled && scmProvider == git",
+						"group": "gitlens",
 						"order": 3
 					}
 				],
@@ -718,14 +857,12 @@
 						"group": "7_cutcopypaste",
 						"order": 97
 					}
-				],
-				"scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepository.patch",
-						"group": "2_z_gitlens",
-						"order": 2
-					}
-				],
+				]
+			}
+		},
+		"gitlens.copyPatchToClipboard:views": {
+			"label": "Copy Changes (Patch)",
+			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
@@ -741,13 +878,6 @@
 						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
-					}
-				],
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "7_cutcopypaste",
-						"order": 97
 					}
 				]
 			}
@@ -1208,7 +1338,12 @@
 			"label": "Open Changes with Next Revision",
 			"icon": "$(gitlens-next-commit)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.diffWithNext:editor/title": {
+			"label": "Open Changes with Next Revision",
+			"icon": "$(gitlens-next-commit)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
@@ -1217,7 +1352,12 @@
 						"order": 99
 					}
 				]
-			},
+			}
+		},
+		"gitlens.diffWithNext:key": {
+			"label": "Open Changes with Next Revision",
+			"icon": "$(gitlens-next-commit)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
 			"keybindings": [
 				{
 					"key": "alt+.",
@@ -1233,16 +1373,12 @@
 		"gitlens.diffWithPrevious": {
 			"label": "Open Changes with Previous Revision",
 			"icon": "$(gitlens-prev-commit)",
-			"commandPalette": "resource in gitlens:tabs:tracked",
+			"commandPalette": "resource in gitlens:tabs:tracked"
+		},
+		"gitlens.diffWithPrevious:editor": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
 			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-						"group": "navigation",
-						"order": 97,
-						"alt": "gitlens.diffWithRevision"
-					}
-				],
 				"gitlens/editor/changes": [
 					{
 						"group": "1_gitlens",
@@ -1254,7 +1390,27 @@
 						"group": "2_gitlens",
 						"order": 1
 					}
-				],
+				]
+			}
+		},
+		"gitlens.diffWithPrevious:editor/title": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+						"group": "navigation",
+						"order": 97,
+						"alt": "gitlens.diffWithRevision"
+					}
+				]
+			}
+		},
+		"gitlens.diffWithPrevious:explorer": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
+			"menus": {
 				"gitlens/explorer/changes": [
 					{
 						"when": "!explorerResourceIsFolder",
@@ -1262,7 +1418,11 @@
 						"order": 1
 					}
 				]
-			},
+			}
+		},
+		"gitlens.diffWithPrevious:key": {
+			"label": "Open Changes with Previous Revision",
+			"icon": "$(gitlens-prev-commit)",
 			"keybindings": [
 				{
 					"key": "alt+,",
@@ -1355,15 +1515,12 @@
 		"gitlens.diffWithWorking": {
 			"label": "Open Changes with Working File",
 			"icon": "$(gitlens-compare-ref-working)",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.diffWithWorking:editor": {
+			"label": "Open Changes with Working File",
+			"icon": "$(gitlens-compare-ref-working)",
 			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-						"group": "navigation",
-						"order": -99
-					}
-				],
 				"gitlens/editor/changes": [
 					{
 						"when": "resourceScheme == gitlens",
@@ -1378,7 +1535,24 @@
 						"order": 2
 					}
 				]
-			},
+			}
+		},
+		"gitlens.diffWithWorking:editor/title": {
+			"label": "Open Changes with Working File",
+			"icon": "$(gitlens-compare-ref-working)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
+		},
+		"gitlens.diffWithWorking:key": {
+			"label": "Open Changes with Working File",
+			"icon": "$(gitlens-compare-ref-working)",
 			"keybindings": [
 				{
 					"key": "ctrl+shift+g shift+.",
@@ -1574,6 +1748,10 @@
 		},
 		"gitlens.gitCommands.branch.rename": {
 			"label": "Git Rename Branch...",
+			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.gitCommands.branch.upstream": {
+			"label": "Git Change Branch Upstream...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.gitCommands.checkout": {
@@ -1946,7 +2124,7 @@
 					{
 						"when": "webviewItem == gitlens:wip && !listMultiSelection",
 						"group": "1_gitlens",
-						"order": 1
+						"order": 3
 					}
 				]
 			}
@@ -3474,7 +3652,12 @@
 			"label": "Open File at Revision",
 			"icon": "$(gitlens-open-revision)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor"
+		},
+		"gitlens.openRevisionFile:editor/title": {
+			"label": "Open File at Revision",
+			"icon": "$(gitlens-open-revision)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
@@ -3492,7 +3675,11 @@
 		"gitlens.openWorkingFile": {
 			"label": "Open File",
 			"icon": "$(go-to-file)",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.openWorkingFile:editor/context": {
+			"label": "Open File",
+			"icon": "$(go-to-file)",
 			"menus": {
 				"editor/context": [
 					{
@@ -3500,7 +3687,13 @@
 						"group": "1_z_gitlens",
 						"order": 0
 					}
-				],
+				]
+			}
+		},
+		"gitlens.openWorkingFile:editor/title": {
+			"label": "Open File",
+			"icon": "$(go-to-file)",
+			"menus": {
 				"editor/title": [
 					{
 						"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
@@ -3756,6 +3949,40 @@
 			"label": "Reset Views Layout",
 			"commandPalette": true
 		},
+		"gitlens.restore.file:views": {
+			"label": "Restore Changes (Checkout)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "8_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.restorePrevious.file:views": {
+			"label": "Restore Previous Changes",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 4
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "8_gitlens_actions",
+						"order": 4
+					}
+				]
+			}
+		},
 		"gitlens.revealCommitInView": {
 			"label": "Reveal Commit in Side Bar",
 			"commandPalette": "resource in gitlens:tabs:blameable",
@@ -3776,14 +4003,42 @@
 				]
 			}
 		},
+		"gitlens.setUpstream:graph": {
+			"label": "Set Upstream...",
+			"icon": "$(link)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions_2",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.setUpstream:views": {
+			"label": "Set Upstream...",
+			"icon": "$(link)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions_2",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.shareAsCloudPatch": {
 			"label": "Share as Cloud Patch...",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 			"menus": {
-				"git.commit": [
+				"git.changes": [
 					{
-						"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
-						"group": "4_gitlens",
+						"when": "gitlens:enabled && scmProvider == git",
+						"group": "gitlens",
 						"order": 5
 					}
 				],
@@ -3799,13 +4054,6 @@
 						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmGroup.patch",
 						"group": "7_cutcopypaste",
 						"order": 98
-					}
-				],
-				"scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepository.patch",
-						"group": "2_z_gitlens",
-						"order": 3
 					}
 				]
 			}
@@ -3836,7 +4084,7 @@
 					{
 						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection",
 						"group": "3_gitlens_explore",
-						"order": 2
+						"order": 1
 					},
 					{
 						"when": "viewItem =~ /gitlens:repository\\b/ && !listMultiSelection",
@@ -3880,6 +4128,13 @@
 			"icon": "$(gitlens-graph)",
 			"commandPalette": "gitlens:enabled",
 			"menus": {
+				"gitlens/scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "8_gitlens",
+						"order": 1
+					}
+				],
 				"gitlens/views/grouped/commits": [
 					{
 						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:plus:disabled",
@@ -3889,7 +4144,7 @@
 				],
 				"scm/sourceControl": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scm.graph && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scm.graph",
 						"group": "6_gitlens",
 						"order": 1
 					}
@@ -3915,22 +4170,12 @@
 					{
 						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:plus:disabled",
 						"group": "3_gitlens_explore",
-						"order": 1
+						"order": 2
 					},
 					{
 						"when": "viewItem == gitlens:views:commits && !gitlens:plus:disabled",
 						"group": "inline",
 						"order": 11
-					},
-					{
-						"when": "viewItem == gitlens:views:commits && !gitlens:plus:disabled",
-						"group": "inline",
-						"order": 11
-					},
-					{
-						"when": "viewItem == gitlens:views:commits && !gitlens:plus:disabled",
-						"group": "8_gitlens_toggles",
-						"order": 0
 					},
 					{
 						"when": "viewItem == gitlens:views:commits && !gitlens:plus:disabled",
@@ -4179,20 +4424,32 @@
 			"label": "Show Revision Commit",
 			"icon": "$(gitlens-commit-horizontal)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
+		},
+		"gitlens.showQuickRevisionDetails:editor": {
+			"label": "Show Revision Commit",
+			"icon": "$(gitlens-commit-horizontal)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
+			"menus": {
+				"gitlens/editor/context/changes": [
+					{
+						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled",
+						"group": "3_gitlens_1",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.showQuickRevisionDetails:editor/title": {
+			"label": "Show Revision Commit",
+			"icon": "$(gitlens-commit-horizontal)",
+			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
 						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 						"group": "navigation",
 						"order": 98
-					}
-				],
-				"gitlens/editor/context/changes": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled",
-						"group": "3_gitlens_1",
-						"order": 1
 					}
 				]
 			}
@@ -5252,16 +5509,12 @@
 		"gitlens.toggleFileBlame": {
 			"label": "Toggle File Blame",
 			"icon": "$(gitlens-gitlens)",
-			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.blame.toggleMode == window",
+			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.blame.toggleMode == window"
+		},
+		"gitlens.toggleFileBlame:editor": {
+			"label": "Toggle File Blame",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
-						"group": "navigation",
-						"order": 100,
-						"alt": "gitlens.toggleFileHeatmap"
-					}
-				],
 				"gitlens/editor/annotations": [
 					{
 						"when": "resource in gitlens:tabs:blameable",
@@ -5269,7 +5522,25 @@
 						"order": 1
 					}
 				]
-			},
+			}
+		},
+		"gitlens.toggleFileBlame:editor/title": {
+			"label": "Toggle File Blame",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
+						"group": "navigation",
+						"order": 100,
+						"alt": "gitlens.toggleFileHeatmap:editor/title"
+					}
+				]
+			}
+		},
+		"gitlens.toggleFileBlame:key": {
+			"label": "Toggle File Blame",
+			"icon": "$(gitlens-gitlens)",
 			"keybindings": [
 				{
 					"key": "alt+b",
@@ -5285,21 +5556,31 @@
 		"gitlens.toggleFileChanges": {
 			"label": "Toggle File Changes",
 			"icon": "$(gitlens-gitlens)",
-			"commandPalette": "(resource in gitlens:tabs:blameable  || config.gitlens.changes.toggleMode == window) && !gitlens:hasVirtualFolders",
+			"commandPalette": "(resource in gitlens:tabs:blameable  || config.gitlens.changes.toggleMode == window) && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.toggleFileChanges:editor": {
+			"label": "Toggle File Changes",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"gitlens/editor/annotations": [
+					{
+						"when": "resource in gitlens:tabs:blameable && !gitlens:hasVirtualFolders",
+						"group": "2_gitlens",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.toggleFileChanges:editor/title": {
+			"label": "Toggle File Changes",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
 				"editor/title": [
 					{
 						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:hasVirtualFolders && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes",
 						"group": "navigation",
 						"order": 100,
-						"alt": "gitlens.toggleFileBlame"
-					}
-				],
-				"gitlens/editor/annotations": [
-					{
-						"when": "resource in gitlens:tabs:blameable && !gitlens:hasVirtualFolders",
-						"group": "2_gitlens",
-						"order": 3
+						"alt": "gitlens.toggleFileBlame:editor/title"
 					}
 				]
 			}
@@ -5311,7 +5592,24 @@
 		"gitlens.toggleFileHeatmap": {
 			"label": "Toggle File Heatmap",
 			"icon": "$(gitlens-gitlens)",
-			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.heatmap.toggleMode == window",
+			"commandPalette": "resource in gitlens:tabs:blameable || config.gitlens.heatmap.toggleMode == window"
+		},
+		"gitlens.toggleFileHeatmap:editor": {
+			"label": "Toggle File Heatmap",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"gitlens/editor/annotations": [
+					{
+						"when": "resource in gitlens:tabs:blameable && !isInDiffEditor",
+						"group": "2_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.toggleFileHeatmap:editor/title": {
+			"label": "Toggle File Heatmap",
+			"icon": "$(gitlens-gitlens)",
 			"menus": {
 				"editor/title": [
 					{
@@ -5319,13 +5617,6 @@
 						"group": "navigation",
 						"order": 100,
 						"alt": "gitlens.toggleFileBlame"
-					}
-				],
-				"gitlens/editor/annotations": [
-					{
-						"when": "resource in gitlens:tabs:blameable && !isInDiffEditor",
-						"group": "2_gitlens",
-						"order": 2
 					}
 				]
 			}
@@ -11828,24 +12119,6 @@
 				]
 			}
 		},
-		"gitlens.views.restore": {
-			"label": "Restore (Checkout)",
-			"icon": "$(gitlens-switch)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 3
-					},
-					{
-						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "8_gitlens_actions",
-						"order": 3
-					}
-				]
-			}
-		},
 		"gitlens.views.revealRepositoryInExplorer": {
 			"label": "Reveal in File Explorer",
 			"menus": {
@@ -16005,6 +16278,78 @@
 					}
 				]
 			}
+		},
+		"gitlens.visualizeHistory.repo:scm": {
+			"label": "Visualize Repository History",
+			"icon": "$(graph-scatter)",
+			"menus": {
+				"gitlens/scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "8_gitlens",
+						"order": 2
+					}
+				],
+				"scm/sourceControl": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scm.visualHistory",
+						"group": "6_gitlens",
+						"order": 1
+					}
+				],
+				"scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepositoryInline.visualHistory",
+						"group": "navigation",
+						"order": 0
+					},
+					{
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepository.visualHistory",
+						"group": "2_z_gitlens",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.visualizeHistory.repo:views": {
+			"label": "Visualize Repository History",
+			"icon": "$(graph-scatter)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !gitlens:plus:disabled",
+						"group": "inline",
+						"order": 99
+					},
+					{
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:plus:disabled",
+						"group": "3_gitlens_explore",
+						"order": 3
+					},
+					{
+						"when": "viewItem == gitlens:views:commits && !gitlens:plus:disabled",
+						"group": "inline",
+						"order": 10
+					},
+					{
+						"when": "viewItem == gitlens:views:commits && !gitlens:plus:disabled",
+						"group": "8_gitlens_toggles",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.commits && !gitlens:plus:disabled",
+						"group": "navigation",
+						"order": 10
+					},
+					{
+						"when": "view == gitlens.views.commits && !gitlens:plus:disabled",
+						"group": "8_gitlens_toggles",
+						"order": 1
+					}
+				]
+			}
 		}
 	},
 	"submenus": {
@@ -16420,6 +16765,32 @@
 					{
 						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.scmItem.remote",
 						"group": "navigation"
+					}
+				]
+			}
+		},
+		"gitlens/scm/title": {
+			"label": "GitLens",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && (!gitlens:gk:organization:ai:enabled || !config.gitlens.ai.enabled)",
+						"group": "navigation",
+						"order": -3
+					}
+				]
+			}
+		},
+		"gitlens/scm/title/ai": {
+			"label": "GitLens",
+			"icon": "$(sparkle)",
+			"menus": {
+				"scm/title": [
+					{
+						"when": "scmProvider == git && gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "navigation",
+						"order": -3
 					}
 				]
 			}

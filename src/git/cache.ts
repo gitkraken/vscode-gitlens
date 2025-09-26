@@ -4,6 +4,7 @@ import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import type { PromiseCache } from '../system/promiseCache';
+import { PromiseMap } from '../system/promiseCache';
 import { PathTrie } from '../system/trie';
 import type { CachedGitTypes, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
@@ -59,22 +60,20 @@ export class GitCache implements Disposable {
 		return this._useCaching;
 	}
 
-	private _bestRemotesCache: Map<RepoPath, Promise<GitRemote<RemoteProvider>[]>> | undefined;
-	get bestRemotes(): Map<RepoPath, Promise<GitRemote<RemoteProvider>[]>> {
-		return (this._bestRemotesCache ??= new Map<RepoPath, Promise<GitRemote<RemoteProvider>[]>>());
+	private _bestRemotesCache: PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> | undefined;
+	get bestRemotes(): PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> {
+		return (this._bestRemotesCache ??= new PromiseMap<RepoPath, GitRemote<RemoteProvider>[]>());
 	}
 
-	private _branchCache: Map<RepoPath, Promise<GitBranch | undefined>> | undefined;
-	get branch(): Map<RepoPath, Promise<GitBranch | undefined>> | undefined {
-		return this.useCaching
-			? (this._branchCache ??= new Map<RepoPath, Promise<GitBranch | undefined>>())
-			: undefined;
+	private _branchCache: PromiseMap<RepoPath, GitBranch | undefined> | undefined;
+	get branch(): PromiseMap<RepoPath, GitBranch | undefined> | undefined {
+		return this.useCaching ? (this._branchCache ??= new PromiseMap<RepoPath, GitBranch | undefined>()) : undefined;
 	}
 
-	private _branchesCache: Map<RepoPath, Promise<PagedResult<GitBranch>>> | undefined;
-	get branches(): Map<RepoPath, Promise<PagedResult<GitBranch>>> | undefined {
+	private _branchesCache: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
+	get branches(): PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined {
 		return this.useCaching
-			? (this._branchesCache ??= new Map<RepoPath, Promise<PagedResult<GitBranch>>>())
+			? (this._branchesCache ??= new PromiseMap<RepoPath, PagedResult<GitBranch>>())
 			: undefined;
 	}
 
@@ -92,23 +91,23 @@ export class GitCache implements Disposable {
 			: undefined;
 	}
 
-	private _defaultBranchNameCache: Map<RepoPath, Map<string, Promise<string | undefined>>> | undefined;
-	get defaultBranchName(): Map<RepoPath, Map<string, Promise<string | undefined>>> | undefined {
+	private _defaultBranchNameCache: Map<RepoPath, PromiseMap<string, string | undefined>> | undefined;
+	get defaultBranchName(): Map<RepoPath, PromiseMap<string, string | undefined>> | undefined {
 		return this.useCaching
-			? (this._defaultBranchNameCache ??= new Map<RepoPath, Map<string, Promise<string | undefined>>>())
+			? (this._defaultBranchNameCache ??= new Map<RepoPath, PromiseMap<string, string | undefined>>())
 			: undefined;
 	}
 
-	private _pausedOperationStatusCache: Map<RepoPath, Promise<GitPausedOperationStatus | undefined>> | undefined;
-	get pausedOperationStatus(): Map<RepoPath, Promise<GitPausedOperationStatus | undefined>> | undefined {
+	private _pausedOperationStatusCache: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
+	get pausedOperationStatus(): PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined {
 		return this.useCaching
-			? (this._pausedOperationStatusCache ??= new Map<RepoPath, Promise<GitPausedOperationStatus | undefined>>())
+			? (this._pausedOperationStatusCache ??= new PromiseMap<RepoPath, GitPausedOperationStatus | undefined>())
 			: undefined;
 	}
 
-	private _remotesCache: Map<RepoPath, Promise<GitRemote[]>> | undefined;
-	get remotes(): Map<RepoPath, Promise<GitRemote[]>> | undefined {
-		return this.useCaching ? (this._remotesCache ??= new Map<RepoPath, Promise<GitRemote[]>>()) : undefined;
+	private _remotesCache: PromiseMap<RepoPath, GitRemote[]> | undefined;
+	get remotes(): PromiseMap<RepoPath, GitRemote[]> | undefined {
+		return this.useCaching ? (this._remotesCache ??= new PromiseMap<RepoPath, GitRemote[]>()) : undefined;
 	}
 
 	private _repoInfoCache: Map<RepoPath, RepositoryInfo> | undefined;
@@ -116,14 +115,14 @@ export class GitCache implements Disposable {
 		return (this._repoInfoCache ??= new Map<RepoPath, RepositoryInfo>());
 	}
 
-	private _stashesCache: Map<RepoPath, Promise<GitStash>> | undefined;
-	get stashes(): Map<RepoPath, Promise<GitStash>> | undefined {
-		return this.useCaching ? (this._stashesCache ??= new Map<RepoPath, Promise<GitStash>>()) : undefined;
+	private _stashesCache: PromiseMap<RepoPath, GitStash> | undefined;
+	get stashes(): PromiseMap<RepoPath, GitStash> | undefined {
+		return this.useCaching ? (this._stashesCache ??= new PromiseMap<RepoPath, GitStash>()) : undefined;
 	}
 
-	private _tagsCache: Map<RepoPath, Promise<PagedResult<GitTag>>> | undefined;
-	get tags(): Map<RepoPath, Promise<PagedResult<GitTag>>> | undefined {
-		return this.useCaching ? (this._tagsCache ??= new Map<RepoPath, Promise<PagedResult<GitTag>>>()) : undefined;
+	private _tagsCache: PromiseMap<RepoPath, PagedResult<GitTag>> | undefined;
+	get tags(): PromiseMap<RepoPath, PagedResult<GitTag>> | undefined {
+		return this.useCaching ? (this._tagsCache ??= new PromiseMap<RepoPath, PagedResult<GitTag>>()) : undefined;
 	}
 
 	private _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
@@ -131,14 +130,16 @@ export class GitCache implements Disposable {
 		return this._trackedPaths;
 	}
 
-	private _worktreesCache: Map<RepoPath, Promise<GitWorktree[]>> | undefined;
-	get worktrees(): Map<RepoPath, Promise<GitWorktree[]>> | undefined {
-		return this.useCaching ? (this._worktreesCache ??= new Map<RepoPath, Promise<GitWorktree[]>>()) : undefined;
+	private _worktreesCache: PromiseMap<RepoPath, GitWorktree[]> | undefined;
+	get worktrees(): PromiseMap<RepoPath, GitWorktree[]> | undefined {
+		return this.useCaching ? (this._worktreesCache ??= new PromiseMap<RepoPath, GitWorktree[]>()) : undefined;
 	}
 
 	@log({ singleLine: true })
 	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
-		const cachesToClear = new Set<Map<string, unknown> | PathTrie<unknown> | undefined>();
+		const cachesToClear = new Set<
+			Map<string, unknown> | PromiseMap<string, unknown> | PathTrie<unknown> | undefined
+		>();
 
 		if (!types.length || types.includes('branches')) {
 			cachesToClear.add(this._branchCache);

@@ -50,6 +50,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const repoPath = (
 			await getBestRepositoryOrShowPicker(
+				this.container,
 				gitUri,
 				editor,
 				args?.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',

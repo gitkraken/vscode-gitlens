@@ -6,7 +6,7 @@ import type { GitLog } from '../../git/models/log';
 import type { GitTagReference } from '../../git/models/reference';
 import type { GitTag } from '../../git/models/tag';
 import { shortenRevision } from '../../git/utils/revision.utils';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pad } from '../../system/string';

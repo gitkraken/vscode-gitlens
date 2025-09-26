@@ -39,16 +39,18 @@ import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiMode
 import { Directive, isDirective } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
 import type { Storage } from '../../system/-webview/storage';
+import { log } from '../../system/decorators/log';
 import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
 import type { Lazy } from '../../system/lazy';
 import { lazy } from '../../system/lazy';
 import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import type { Deferred } from '../../system/promise';
 import { getSettledValue, getSettledValues } from '../../system/promise';
 import { PromiseCache } from '../../system/promiseCache';
 import type { Serialized } from '../../system/serialize';
+import { dedent } from '../../system/string';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
 import { isAiAllAccessPromotionActive } from '../gk/utils/-webview/promo.utils';
@@ -68,60 +70,16 @@ import type {
 	PromptTemplateId,
 	PromptTemplateType,
 } from './models/promptTemplates';
-import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
+import type { AIChatMessage, AIDeferredRequestResult, AIProvider, AIRequestResult } from './models/provider';
 import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
-
-/**
- * Removes common leading whitespace from each line in a template string.
- * This allows you to write indented template strings but have them trimmed in the result.
- *
- * @param template The template string to dedent
- * @returns The dedented string
- *
- * @example
- * ```typescript
- * const str = dedent(`
- *     Hello
- *     World
- *     Test
- * `);
- * // Result: "Hello\nWorld\nTest"
- * ```
- */
-function dedent(template: string): string {
-	const lines = template.split('\n');
-
-	// Remove leading and trailing empty lines
-	while (lines.length > 0 && lines[0].trim() === '') {
-		lines.shift();
-	}
-	while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-		lines.pop();
-	}
-
-	if (lines.length === 0) return '';
-
-	// Find the minimum indentation (excluding empty lines)
-	const nonEmptyLines = lines.filter(line => line.trim() !== '');
-	if (nonEmptyLines.length === 0) return '';
-
-	const minIndent = Math.min(
-		...nonEmptyLines.map(line => {
-			const match = line.match(/^(\s*)/);
-			return match ? match[1].length : 0;
-		}),
-	);
-
-	// Remove the common indentation from all lines
-	return lines.map(line => line.slice(minIndent)).join('\n');
-}
 
 export interface AIResult {
 	readonly id: string;
 	readonly type: AIActionType;
-	readonly feature: string;
+
 	readonly content: string;
+	readonly feature: string;
 	readonly model: AIModel;
 	readonly usage?: {
 		readonly promptTokens?: number;
@@ -132,6 +90,14 @@ export interface AIResult {
 	};
 }
 
+export type AIDeferredResult<T extends AIResult> = {
+	readonly type: AIActionType;
+	readonly feature: string;
+	readonly model: AIModel;
+
+	readonly promise: Promise<T | 'cancelled' | undefined>;
+};
+
 export interface AIResultContext extends Serialized<Omit<AIResult, 'content'>, string> {}
 
 export interface AISummarizeResult extends AIResult {
@@ -141,6 +107,10 @@ export interface AISummarizeResult extends AIResult {
 export interface AIRebaseResult extends AIResult {
 	readonly diff: string;
 	readonly hunkMap: { index: number; hunkHeader: string }[];
+	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];
+}
+
+export interface AIGenerateCommitsResult {
 	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];
 }
 
@@ -161,7 +131,8 @@ export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
 }
 
-export type AIExplainSource = Source & { type: TelemetryEvents['ai/explain']['changeType'] };
+export type AISourceContext<T> = Source & { context: T };
+export type AIExplainSourceContext = AISourceContext<{ type: TelemetryEvents['ai/explain']['changeType'] }>;
 
 // Order matters for sorting the picker
 const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>([
@@ -287,7 +258,8 @@ export class AIProviderService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _model: AIModel | undefined;
 	private readonly _promptTemplates = new PromiseCache<PromptTemplateId, PromptTemplate | undefined>({
-		createTTL: 12 * 60 * 60 * 1000, // 12 hours
+		createTTL: 12 * 60 * 60 * 1000, // 12 hours,
+		expireOnError: false,
 	});
 	private _provider: AIProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
@@ -355,6 +327,38 @@ export class AIProviderService implements Disposable {
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
 
+	private async getBestFallbackModel(): Promise<AIModel | undefined> {
+		let model: AIModel | undefined;
+		let models: readonly AIModel[];
+
+		const orgAIConfig = getOrgAIConfig();
+		// First, use Copilot GPT 4.1 or first model
+		if (isProviderEnabledByOrg('vscode', orgAIConfig)) {
+			try {
+				models = await this.getModels('vscode');
+				if (models.length) {
+					model = models.find(m => m.id === 'copilot:gpt-4.1') ?? models[0];
+					if (model != null) return model;
+				}
+			} catch {}
+		}
+
+		// Second, use the GitKraken AI default or first model
+		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
+			try {
+				const subscription = await this.container.subscription.getSubscription();
+				if (subscription.account?.verified) {
+					models = await this.getModels('gitkraken');
+
+					model = models.find(m => m.default) ?? models[0];
+					if (model != null) return model;
+				}
+			} catch {}
+		}
+
+		return model;
+	}
+
 	async getModel(options?: { force?: boolean; silent?: boolean }, source?: Source): Promise<AIModel | undefined> {
 		const cfg = this.getConfiguredModel();
 		if (!options?.force && cfg?.provider != null && cfg?.model != null) {
@@ -362,50 +366,54 @@ export class AIProviderService implements Disposable {
 			if (model != null) return model;
 		}
 
-		if (options?.silent) return undefined;
-
-		let chosenProviderId: AIProviders | undefined;
 		let chosenModel: AIModel | undefined;
-		const orgAiConf = getOrgAIConfig();
+		let chosenProviderId: AIProviders | undefined;
+		const fallbackModel = lazy(() => this.getBestFallbackModel());
 
-		if (!options?.force) {
-			const vsCodeModels = await this.getModels('vscode');
-			if (isProviderEnabledByOrg('vscode', orgAiConf) && vsCodeModels.length !== 0) {
-				chosenProviderId = 'vscode';
-			} else if (
-				isProviderEnabledByOrg('gitkraken', orgAiConf) &&
-				(await this.container.subscription.getSubscription()).account?.verified
-			) {
-				chosenProviderId = 'gitkraken';
-				const gitkrakenModels = await this.getModels('gitkraken');
-				chosenModel = gitkrakenModels.find(m => m.default);
+		if (!options?.silent) {
+			if (!options?.force) {
+				chosenModel = await fallbackModel.value;
+				chosenProviderId = chosenModel?.provider.id;
 			}
-		}
 
-		while (true) {
-			chosenProviderId ??= (await showAIProviderPicker(this.container, cfg))?.provider;
-			if (chosenProviderId == null) return;
-
-			const provider = supportedAIProviders.get(chosenProviderId);
-			if (provider == null) return;
-
-			if (!(await this.ensureProviderConfigured(provider, false))) return;
-
-			if (chosenModel == null) {
-				const result = await showAIModelPicker(this.container, chosenProviderId, cfg);
-				if (result == null || (isDirective(result) && result !== Directive.Back)) return;
-				if (result === Directive.Back) {
-					chosenProviderId = undefined;
-					continue;
+			while (true) {
+				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg))?.provider;
+				if (chosenProviderId == null) {
+					chosenModel = undefined;
+					break;
 				}
 
-				chosenModel = result.model;
-			}
+				const provider = supportedAIProviders.get(chosenProviderId);
+				if (provider == null) {
+					chosenModel = undefined;
+					break;
+				}
 
-			break;
+				if (!(await this.ensureProviderConfigured(provider, false))) {
+					chosenModel = undefined;
+				}
+
+				if (chosenModel == null) {
+					const result = await showAIModelPicker(this.container, chosenProviderId, cfg);
+					if (result == null || (isDirective(result) && result !== Directive.Back)) {
+						chosenModel = undefined;
+						break;
+					}
+					if (result === Directive.Back) {
+						chosenProviderId = undefined;
+						continue;
+					}
+
+					chosenModel = result.model;
+				}
+
+				break;
+			}
 		}
 
-		const model = await this.getOrUpdateModel(chosenModel);
+		chosenModel ??= await fallbackModel.value;
+		const model = chosenModel == null ? undefined : await this.getOrUpdateModel(chosenModel);
+		if (options?.silent) return model;
 
 		this.container.telemetry.sendEvent(
 			'ai/switchModel',
@@ -419,7 +427,9 @@ export class AIProviderService implements Disposable {
 			source,
 		);
 
-		void (await showConfirmAIProviderToS(this.container.storage));
+		if (model != null) {
+			void (await showConfirmAIProviderToS(this.container.storage));
+		}
 		return model;
 	}
 
@@ -562,11 +572,12 @@ export class AIProviderService implements Disposable {
 		return true;
 	}
 
+	@log({ args: false })
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
-		sourceContext: AIExplainSource,
+		sourceContext: AIExplainSourceContext,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AISummarizeResult | 'cancelled' | undefined> {
+	): Promise<AIDeferredResult<AISummarizeResult> | 'cancelled' | undefined> {
 		const svc = this.container.git.getRepositoryService(commitOrRevision.repoPath);
 		return this.explainChanges(
 			async cancellation => {
@@ -593,16 +604,17 @@ export class AIProviderService implements Disposable {
 		);
 	}
 
+	@log({ args: false })
 	async explainChanges(
 		promptContext:
 			| PromptTemplateContext<'explain-changes'>
 			| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'explain-changes'>>),
-		sourceContext: AIExplainSource,
+		sourceContext: AIExplainSourceContext,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AISummarizeResult | 'cancelled' | undefined> {
-		const { type, ...source } = sourceContext;
+	): Promise<AIDeferredResult<AISummarizeResult> | 'cancelled' | undefined> {
+		const { context, ...source } = sourceContext;
 
-		const result = await this.sendRequest(
+		const deferredResult = await this.sendRequestWithDeferredResult(
 			'explain-changes',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				if (typeof promptContext === 'function') {
@@ -635,7 +647,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/explain',
 				data: {
 					type: 'change',
-					changeType: type,
+					changeType: context.type,
 					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
@@ -645,18 +657,32 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result === 'cancelled'
-			? result
-			: result != null
-				? {
-						...result,
-						type: 'explain-changes',
-						feature: `explain-${type}`,
-						parsed: parseSummarizeResult(result.content),
-					}
-				: undefined;
+
+		if (deferredResult === 'cancelled') return deferredResult;
+		if (deferredResult == null) return undefined;
+
+		const promise: Promise<AISummarizeResult | 'cancelled' | undefined> = deferredResult.promise.then(result =>
+			result === 'cancelled'
+				? result
+				: result != null
+					? {
+							...result,
+							type: 'explain-changes',
+							feature: `explain-${context?.type}`,
+							parsed: parseSummarizeResult(result.content),
+						}
+					: undefined,
+		);
+
+		return {
+			...deferredResult,
+			type: 'explain-changes',
+			feature: `explain-${context.type}`,
+			promise: promise,
+		};
 	}
 
+	@log({ args: false })
 	async generateCommitMessage(
 		changesOrRepo: string | string[] | Repository,
 		source: Source,
@@ -718,6 +744,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateCreatePullRequest(
 		repo: Repository,
 		baseRef: string,
@@ -787,9 +814,10 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateCreateDraft(
 		changesOrRepo: string | string[] | Repository,
-		sourceContext: Source & { type: AIGenerateCreateDraftEventData['draftType'] },
+		sourceContext: AISourceContext<{ type: AIGenerateCreateDraftEventData['draftType'] }>,
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -798,7 +826,7 @@ export class AIProviderService implements Disposable {
 			codeSuggestion?: boolean;
 		},
 	): Promise<AISummarizeResult | 'cancelled' | undefined> {
-		const { type, ...source } = sourceContext;
+		const { context, ...source } = sourceContext;
 
 		const result = await this.sendRequest(
 			options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
@@ -839,7 +867,7 @@ export class AIProviderService implements Disposable {
 				key: 'ai/generate',
 				data: {
 					type: 'draftMessage',
-					draftType: type,
+					draftType: context?.type,
 					id: undefined,
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
@@ -863,6 +891,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateStashMessage(
 		changesOrRepo: string | string[] | Repository,
 		source: Source,
@@ -924,6 +953,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateChangelog(
 		changes: Lazy<Promise<AIGenerateChangelogChanges>>,
 		source: Source,
@@ -974,6 +1004,7 @@ export class AIProviderService implements Disposable {
 				: undefined;
 	}
 
+	@log({ args: false })
 	async generateSearchQuery(
 		search: { query: string; context: string | undefined },
 		source: Source,
@@ -1034,6 +1065,7 @@ export class AIProviderService implements Disposable {
 	 * The method will retry up to 3 times, providing specific feedback to the AI
 	 * about what was wrong with the previous response.
 	 */
+	@log({ args: false })
 	async generateRebase(
 		repo: Repository,
 		baseRef: string,
@@ -1097,6 +1129,7 @@ export class AIProviderService implements Disposable {
 		};
 	}
 
+	@log({ args: false })
 	private async sendRebaseRequestWithRetry(
 		repo: Repository,
 		baseRef: string,
@@ -1122,7 +1155,7 @@ export class AIProviderService implements Disposable {
 			return firstAttemptResult;
 		}
 
-		conversationMessages = firstAttemptResult.conversationMessages;
+		conversationMessages = [...firstAttemptResult.conversationMessages];
 		let rq = firstAttemptResult.response;
 
 		while (attempt < maxAttempts) {
@@ -1186,6 +1219,7 @@ export class AIProviderService implements Disposable {
 		return undefined;
 	}
 
+	@log({ args: false })
 	private async sendRebaseFirstAttempt(
 		repo: Repository,
 		baseRef: string,
@@ -1199,7 +1233,11 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 			generateCommits?: boolean;
 		},
-	): Promise<{ response: AIRequestResult; conversationMessages: AIChatMessage[] } | 'cancelled' | undefined> {
+	): Promise<
+		| { readonly response: AIRequestResult; readonly conversationMessages: readonly AIChatMessage[] }
+		| 'cancelled'
+		| undefined
+	> {
 		let storedPrompt = '';
 		const rq = await this.sendRequest(
 			'generate-rebase',
@@ -1324,11 +1362,7 @@ export class AIProviderService implements Disposable {
 					]
 				`);
 
-			return {
-				isValid: false,
-				errorMessage: errorMessage,
-				retryPrompt: retryPrompt,
-			};
+			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 		}
 
 		// Validate the structure and hunk assignments
@@ -1384,11 +1418,7 @@ export class AIProviderService implements Disposable {
 						Don't include any preceeding or succeeding text or markup, such as "Here are the commits:" or "Here is a valid JSON array of commits:".
 					`);
 
-				return {
-					isValid: false,
-					errorMessage: errorMessage,
-					retryPrompt: retryPrompt,
-				};
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 			}
 
 			// If validation passes, return the commits
@@ -1414,14 +1444,55 @@ export class AIProviderService implements Disposable {
 					]
 				`);
 
-			return {
-				isValid: false,
-				errorMessage: errorMessage,
-				retryPrompt: retryPrompt,
-			};
+			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 		}
 	}
 
+	@log({ args: false })
+	private async sendRequestWithDeferredResult<T extends AIActionType>(
+		action: T,
+		getMessages: (
+			model: AIModel,
+			reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+			cancellation: CancellationToken,
+			maxCodeCharacters: number,
+			retries: number,
+		) => Promise<AIChatMessage[]>,
+		getProgressTitle: (model: AIModel) => string,
+		source: Source,
+		getTelemetryInfo: (model: AIModel) => {
+			key: 'ai/generate' | 'ai/explain';
+			data: TelemetryEvents['ai/generate' | 'ai/explain'];
+		},
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			progress?: ProgressOptions;
+		},
+	): Promise<AIDeferredRequestResult<AIRequestResult> | 'cancelled' | undefined> {
+		if (!(await this.ensureFeatureAccess(action, source))) {
+			return 'cancelled';
+		}
+		const model = await this.getModel(undefined, source);
+		if (model == null || options?.cancellation?.isCancellationRequested) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		const promise = this.sendRequestWithModel(
+			model,
+			action,
+			getMessages,
+			getProgressTitle,
+			source,
+			getTelemetryInfo,
+			options,
+		);
+		return { model: model, promise: promise };
+	}
+
+	@log({ args: false })
 	private async sendRequest<T extends AIActionType>(
 		action: T,
 		getMessages: (
@@ -1449,12 +1520,65 @@ export class AIProviderService implements Disposable {
 		}
 
 		const model = await this.getModel(undefined, source);
+		if (model == null || options?.cancellation?.isCancellationRequested) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		return this.sendRequestWithModel(
+			model,
+			action,
+			getMessages,
+			getProgressTitle,
+			source,
+			getTelemetryInfo,
+			options,
+		);
+	}
+
+	@log({ args: false })
+	private async sendRequestWithModel<T extends AIActionType>(
+		model: AIModel | undefined,
+		action: T,
+		getMessages: (
+			model: AIModel,
+			reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+			cancellation: CancellationToken,
+			maxCodeCharacters: number,
+			retries: number,
+		) => Promise<AIChatMessage[]>,
+		getProgressTitle: (model: AIModel) => string,
+		source: Source,
+		getTelemetryInfo: (model: AIModel) => {
+			key: 'ai/generate' | 'ai/explain';
+			data: TelemetryEvents['ai/generate' | 'ai/explain'];
+		},
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			progress?: ProgressOptions;
+		},
+	): Promise<AIRequestResult | 'cancelled' | undefined> {
+		const scope = getLogScope();
+
+		if (!(await this.ensureFeatureAccess(action, source))) {
+			setLogScopeExit(scope, undefined, 'cancelled: no feature access');
+			return 'cancelled';
+		}
+
 		if (options?.cancellation?.isCancellationRequested) {
+			setLogScopeExit(scope, undefined, 'cancelled: user cancelled');
 			options?.generating?.cancel();
 			return 'cancelled';
 		}
 
 		if (model == null || options?.cancellation?.isCancellationRequested) {
+			setLogScopeExit(
+				scope,
+				model ? `model: ${model.provider.id}/${model.id}` : undefined,
+				model == null ? 'cancelled: no model set' : 'cancelled: user cancelled',
+			);
 			options?.generating?.cancel();
 			return undefined;
 		}
@@ -1474,6 +1598,12 @@ export class AIProviderService implements Disposable {
 
 		const confirmed = await showConfirmAIProviderToS(this.container.storage);
 		if (!confirmed || cancellation.isCancellationRequested) {
+			setLogScopeExit(
+				scope,
+				`model: ${model.provider.id}/${model.id}`,
+
+				cancellation.isCancellationRequested ? 'cancelled: user cancelled' : 'cancelled: user declined ToS',
+			);
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{
@@ -1491,6 +1621,7 @@ export class AIProviderService implements Disposable {
 		const apiKey = await this._provider!.getApiKey(false);
 
 		if (cancellation.isCancellationRequested) {
+			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'cancelled: user cancelled');
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' },
@@ -1502,6 +1633,7 @@ export class AIProviderService implements Disposable {
 		}
 
 		if (apiKey == null) {
+			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'failed: Not authorized');
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, failed: true, 'failed.reason': 'error', 'failed.error': 'Not authorized' },
@@ -1543,6 +1675,8 @@ export class AIProviderService implements Disposable {
 			telementry.data['usage.limits.used'] = result?.usage?.limits?.used;
 			telementry.data['usage.limits.limit'] = result?.usage?.limits?.limit;
 			telementry.data['usage.limits.resetsOn'] = result?.usage?.limits?.resetsOn?.toISOString();
+
+			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}, id: ${result?.id}`);
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, duration: Date.now() - start, id: result?.id },
@@ -1556,6 +1690,7 @@ export class AIProviderService implements Disposable {
 			return result;
 		} catch (ex) {
 			if (ex instanceof CancellationError) {
+				setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'cancelled: user cancelled');
 				this.container.telemetry.sendEvent(
 					telementry.key,
 					{
@@ -1570,6 +1705,13 @@ export class AIProviderService implements Disposable {
 				return 'cancelled';
 			}
 			if (ex instanceof AIError) {
+				setLogScopeExit(
+					scope,
+					`model: ${model.provider.id}/${model.id}`,
+					// eslint-disable-next-line @typescript-eslint/no-base-to-string
+					`failed: ${String(ex)} (${String(ex.original)})`,
+				);
+
 				this.container.telemetry.sendEvent(
 					telementry.key,
 					{
@@ -1711,6 +1853,11 @@ export class AIProviderService implements Disposable {
 				return undefined;
 			}
 
+			setLogScopeExit(
+				scope,
+				`model: ${model.provider.id}/${model.id}`,
+				`failed: ${String(ex)}${ex.original ? ` (${String(ex.original)})` : ''}`,
+			);
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{
@@ -1739,7 +1886,7 @@ export class AIProviderService implements Disposable {
 			let diff = await changesOrRepo.git.diff.getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
 				diff = await changesOrRepo.git.diff.getDiff?.(uncommitted);
-				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
+				if (!diff?.contents) throw new AINoRequestDataError('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
 
@@ -1821,7 +1968,7 @@ export class AIProviderService implements Disposable {
 					variables: result.data.variables as (keyof PromptTemplateContext<T>)[],
 				} satisfies PromptTemplate<T>;
 			} catch (ex) {
-				cancellable.cancel();
+				cancellable.cancelled();
 				if (!(ex instanceof AuthenticationRequiredError)) {
 					debugger;
 					Logger.error(ex, scope, String(ex));
@@ -1983,6 +2130,360 @@ export class AIProviderService implements Disposable {
 			}
 		}
 	}
+
+	/**
+	 * Generates commits using AI to organize existing hunks into logical commits.
+	 * Similar to generateRebase but works with existing hunks instead of generating a diff.
+	 *
+	 * This method includes automatic retry logic that validates the AI response and
+	 * continues the conversation if the response has issues like:
+	 * - Missing hunks that were in the original hunk map
+	 * - Extra hunks that weren't in the original hunk map
+	 * - Duplicate hunks used multiple times
+	 *
+	 * The method will retry up to 3 times, providing specific feedback to the AI
+	 * about what was wrong with the previous response.
+	 */
+	async generateCommits(
+		hunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+		hunkMap: { index: number; hunkHeader: string }[],
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+			customInstructions?: string;
+		},
+	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
+		// Use retry logic similar to generateRebase
+		const result = await this.sendCommitsRequestWithRetry(hunks, existingCommits, hunkMap, source, options);
+		if (result === 'cancelled' || result == null) return result;
+
+		return result;
+	}
+
+	private async sendCommitsRequestWithRetry(
+		hunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+		hunkMap: { index: number; hunkHeader: string }[],
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+			customInstructions?: string;
+		},
+	): Promise<AIGenerateCommitsResult | 'cancelled' | undefined> {
+		let conversationMessages: AIChatMessage[] = [];
+		let attempt = 0;
+		const maxAttempts = 4;
+
+		// First attempt - send initial request
+		const firstAttemptResult = await this.sendCommitsFirstAttempt(hunks, existingCommits, hunkMap, source, options);
+
+		if (firstAttemptResult === 'cancelled' || firstAttemptResult == null) {
+			return firstAttemptResult;
+		}
+
+		let rq = firstAttemptResult.response;
+		conversationMessages = [...firstAttemptResult.conversationMessages];
+
+		while (attempt < maxAttempts) {
+			const validationResult = this.validateCommitsResponse(rq, hunks, existingCommits);
+			if (validationResult.isValid) {
+				return { commits: validationResult.commits };
+			}
+
+			Logger.warn(
+				undefined,
+				'AIProviderService',
+				'sendCommitsRequestWithRetry',
+				`Validation failed on attempt ${attempt + 1}: ${validationResult.errorMessage}`,
+			);
+
+			// If this was the last attempt, throw the error
+			if (attempt === maxAttempts - 1) {
+				throw new Error(validationResult.errorMessage);
+			}
+
+			// Prepare retry message for conversation
+			conversationMessages.push(
+				{ role: 'assistant', content: rq.content },
+				{ role: 'user', content: validationResult.retryPrompt },
+			);
+
+			attempt++;
+
+			// Send retry request
+			const currentAttempt = attempt;
+			const retryResult = await this.sendRequest(
+				'generate-commits',
+				async () => Promise.resolve(conversationMessages),
+				m => `Generating commits with ${m.name}... (attempt ${currentAttempt + 1})`,
+				source,
+				m => ({
+					key: 'ai/generate',
+					data: {
+						type: 'commits',
+						id: undefined,
+						'model.id': m.id,
+						'model.provider.id': m.provider.id,
+						'model.provider.name': m.provider.name,
+						'retry.count': currentAttempt,
+					},
+				}),
+				options,
+			);
+
+			if (retryResult === 'cancelled' || retryResult == null) {
+				return retryResult;
+			}
+
+			rq = retryResult;
+		}
+
+		return undefined;
+	}
+
+	private async sendCommitsFirstAttempt(
+		hunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+		hunkMap: { index: number; hunkHeader: string }[],
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+			customInstructions?: string;
+		},
+	): Promise<{ response: AIRequestResult; conversationMessages: AIChatMessage[] } | 'cancelled' | undefined> {
+		let storedPrompt = '';
+		const rq = await this.sendRequest(
+			'generate-commits',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				// Prepare the data for the AI prompt
+				const hunksJson = JSON.stringify(hunks);
+				const existingCommitsJson = JSON.stringify(existingCommits);
+				const hunkMapJson = JSON.stringify(hunkMap);
+
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				let customInstructions: string | undefined = undefined;
+				const customInstructionsConfig = configuration.get('ai.generateCommits.customInstructions');
+				if (customInstructionsConfig) {
+					customInstructions = `${customInstructionsConfig}${options?.customInstructions ? `\nAnd here is additional guidance for this session:\n${options.customInstructions}` : ''}`;
+				} else {
+					customInstructions = options?.customInstructions;
+				}
+
+				const { prompt } = await this.getPrompt(
+					'generate-commits',
+					model,
+					{
+						hunks: hunksJson,
+						existingCommits: existingCommitsJson,
+						hunkMap: hunkMapJson,
+						instructions: customInstructions,
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				// Store the prompt for later use in conversation messages
+				storedPrompt = prompt;
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				return messages;
+			},
+			m => `Generating commits with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'commits',
+					id: undefined,
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+
+		if (rq === 'cancelled') return rq;
+
+		if (rq == null) return undefined;
+
+		return {
+			response: rq,
+			conversationMessages: [{ role: 'user', content: storedPrompt }],
+		};
+	}
+
+	private validateCommitsResponse(
+		rq: AIRequestResult,
+		inputHunks: {
+			index: number;
+			fileName: string;
+			diffHeader: string;
+			hunkHeader: string;
+			content: string;
+			source: string;
+		}[],
+		existingCommits: { id: string; message: string; aiExplanation?: string; hunkIndices: number[] }[],
+	):
+		| {
+				isValid: true;
+				commits: {
+					readonly message: string;
+					readonly explanation: string;
+					readonly hunks: { hunk: number }[];
+				}[];
+		  }
+		| { isValid: false; errorMessage: string; retryPrompt: string } {
+		try {
+			const rqContent = parseOutputResult(rq.content);
+
+			// Parse the JSON response
+			const commits: {
+				readonly message: string;
+				readonly explanation: string;
+				readonly hunks: { hunk: number }[];
+			}[] = JSON.parse(rqContent);
+
+			if (!Array.isArray(commits)) {
+				throw new Error('Commits result is not an array');
+			}
+
+			// Collect all hunk indices used in the commits
+			const usedHunkIndices = new Set<number>();
+			const duplicateHunks: number[] = [];
+
+			for (const commit of commits) {
+				if (!commit.hunks || !Array.isArray(commit.hunks)) {
+					throw new Error('Invalid commit structure: missing or invalid hunks array');
+				}
+
+				for (const hunkRef of commit.hunks) {
+					const hunkIndex = hunkRef.hunk;
+					if (usedHunkIndices.has(hunkIndex)) {
+						duplicateHunks.push(hunkIndex);
+					}
+					usedHunkIndices.add(hunkIndex);
+				}
+			}
+
+			// Check for duplicate hunks
+			if (duplicateHunks.length > 0) {
+				const errorMessage = `Duplicate hunks found: ${duplicateHunks.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response uses some hunks multiple times. Each hunk can only be used once across all commits.
+
+					Duplicate hunks: ${duplicateHunks.join(', ')}
+
+					Please provide a corrected response where each hunk is used only once.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// Check for missing hunks
+			const inputHunkIndices = new Set(inputHunks.map(h => h.index));
+			const previouslyAssignedHunkIndices = new Set(existingCommits.flatMap(c => c.hunkIndices));
+			const unassignedHunkIndices = new Set(
+				[...inputHunkIndices].filter(i => !previouslyAssignedHunkIndices.has(i)),
+			);
+			const illegallyAssignedHunkIndices = Array.from(usedHunkIndices).filter(i => !inputHunkIndices.has(i));
+			const missingHunkIndices = Array.from(unassignedHunkIndices).filter(i => !usedHunkIndices.has(i));
+			const extraHunkIndices = Array.from(usedHunkIndices).filter(index => !inputHunkIndices.has(index));
+
+			// Check for missing hunks
+			if (missingHunkIndices.length > 0) {
+				const errorMessage = `Missing hunks: ${missingHunkIndices.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response is missing some hunks that were in the original input. All hunks must be included in the commits.
+
+					Missing hunks: ${missingHunkIndices.join(', ')}
+
+					Please provide a corrected response that includes all hunks.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// Check for extra hunks
+			if (extraHunkIndices.length > 0) {
+				const errorMessage = `Extra hunks found: ${extraHunkIndices.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response includes hunks that were not in the original input. Only use the hunks that were provided.
+
+					Extra hunks: ${extraHunkIndices.join(', ')}
+
+					Please provide a corrected response that only uses the provided hunks.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// Check for illegally assigned hunks
+			if (illegallyAssignedHunkIndices.length > 0) {
+				const errorMessage = `Illegally assigned hunks: ${illegallyAssignedHunkIndices.join(', ')}`;
+				const retryPrompt = dedent(`
+					Your previous response includes hunks that are already assigned to existing commits. Do not reassign hunks that are already assigned.
+
+					Illegally assigned hunks: ${illegallyAssignedHunkIndices.join(', ')}
+
+					Please provide a corrected response that does not reassign existing hunks.
+				`);
+				return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+			}
+
+			// If validation passes, return the commits
+			return { isValid: true, commits: commits };
+		} catch {
+			// Handle any errors during hunk validation (e.g., malformed commit structure)
+			const errorMessage = 'Invalid response from the AI model';
+			const retryPrompt = dedent(`
+				Your previous response has an invalid commit structure. Ensure each commit has "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
+
+				Please provide the valid JSON structure below inside a <output> tag and include no other text:
+				<output>
+				[
+					{
+						"message": "[commit message here]",
+						"explanation": "[detailed explanation of changes here]",
+						"hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
+					}
+				]
+				</output>
+
+				Text in [] brackets above should be replaced with your own text, not including the brackets. Return only the <output> tag and no other text.
+			`);
+			return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
+		}
+	}
 }
 
 async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
@@ -2012,6 +2513,10 @@ async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 	}
 
 	return false;
+}
+
+function parseOutputResult(result: string): string {
+	return result.match(/<output>([\s\S]*?)(?:<\/output>|$)/)?.[1]?.trim() ?? '';
 }
 
 function parseSummarizeResult(result: string): NonNullable<AISummarizeResult['parsed']> {

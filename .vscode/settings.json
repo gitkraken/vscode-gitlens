@@ -48,5 +48,6 @@
 		"**/dist": true
 	},
 	"typescript.preferences.importModuleSpecifier": "project-relative",
-	"typescript.tsdk": "node_modules/typescript/lib"
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"chat.useAgentsMdFile": true
 }

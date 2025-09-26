@@ -5,12 +5,12 @@ import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
 import type { AIActionType } from './plus/ai/models/model';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription';
 import type { Flatten } from './system/object';
-import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol';
 
@@ -36,6 +36,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	upgradedFrom: string | undefined;
 	'folders.count': number;
 	'folders.schemes': string;
+	'gk.mcp.registrationCompleted': boolean;
 	'providers.count': number;
 	'providers.ids': string;
 	'repositories.count': number;
@@ -51,7 +52,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	'workspace.isTrusted': boolean;
 }
 
-export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownEvents {
+export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownEvents, WebviewClosedEvents {
 	/** Sent when account validation fails */
 	'account/validation/failed': AccountValidationFailedEvent;
 
@@ -78,6 +79,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when user opts in to AI All Access */
 	'aiAllAccess/optedIn': void;
+
+	/** Sent when a CLI install attempt is started */
+	'cli/install/started': CLIInstallStartedEvent;
+	/** Sent when a CLI install attempt succeeds */
+	'cli/install/succeeded': CLIInstallSucceededEvent;
+	/** Sent when a CLI install attempt fails */
+	'cli/install/failed': CLIInstallFailedEvent;
 
 	/** Sent when connecting to one or more cloud-based integrations */
 	'cloudIntegrations/connecting': CloudIntegrationsConnectingEvent;
@@ -128,6 +136,39 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'commitDetails/shown': CommitDetailsShownEvent;
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
 	'commitDetails/mode/changed': CommitDetailsModeChangedEvent;
+
+	/** Sent when the Commit Composer is first loaded with repo data */
+	'composer/loaded': ComposerEvent;
+	/** Sent when the Commit Composer is reloaded */
+	'composer/reloaded': ComposerEvent;
+	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */
+	'composer/action/includedUnstagedChanges': ComposerEvent;
+	/** Sent when the user uses auto-compose in the Commit Composer */
+	'composer/action/compose': ComposerEvent;
+	/** Sent when the user fails an auto-compose operation in the Commit Composer */
+	'composer/action/compose/failed': ComposerEvent;
+	/** Sent when the user uses recompose in the Commit Composer */
+	'composer/action/recompose': ComposerEvent;
+	/** Sent when the user fails a recompose operation in the Commit Composer */
+	'composer/action/recompose/failed': ComposerEvent;
+	/** Sent when the user uses generate commit message in the Commit Composer */
+	'composer/action/generateCommitMessage': ComposerEvent;
+	/** Sent when the user fails a generate commit message operation in the Commit Composer */
+	'composer/action/generateCommitMessage/failed': ComposerEvent;
+	/** Sent when the user changes the AI model in the Commit Composer */
+	'composer/action/changeAiModel': ComposerEvent;
+	/** Sent when the user finishes and commits in the Commit Composer */
+	'composer/action/finishAndCommit': ComposerEvent;
+	/** Sent when the user fails to finish and commit in the Commit Composer */
+	'composer/action/finishAndCommit/failed': ComposerEvent;
+	/** Sent when the user uses the undo button in the Commit Composer */
+	'composer/action/undo': ComposerEvent;
+	/** Sent when the user uses the reset button in the Commit Composer */
+	'composer/action/reset': ComposerEvent;
+	/** Sent when the user is warned that the working directory has changed in the Commit Composer */
+	'composer/warning/workingDirectoryChanged': ComposerEvent;
+	/** Sent when the user is warned that the index has changed in the Commit Composer */
+	'composer/warning/indexChanged': ComposerEvent;
 
 	/** Sent when the Commit Graph is shown */
 	'graph/shown': GraphShownEvent;
@@ -204,6 +245,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'launchpad/indicator/firstLoad': void;
 	/** Sent when a launchpad operation is taking longer than a set timeout to complete */
 	'launchpad/operation/slow': LaunchpadOperationSlowEvent;
+
+	/** Sent when GitKraken MCP setup is started */
+	'mcp/setup/started': MCPSetupStartedEvent;
+	/** Sent when GitKraken MCP setup is completed */
+	'mcp/setup/completed': MCPSetupCompletedEvent;
+	/** Sent when GitKraken MCP setup fails */
+	'mcp/setup/failed': MCPSetupFailedEvent;
+	/** Sent when GitKraken MCP registration fails */
+	'mcp/registration/failed': MCPSetupFailedEvent;
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
@@ -307,6 +357,11 @@ type WebviewShownEvents = {
 	>}/shown`]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
+type WebviewClosedEvents = {
+	[K in `${WebviewTypes | WebviewViewTypes}/closed`]: WebviewContextEventData &
+		Record<`context.${string}`, string | number | boolean | undefined>;
+};
+
 type ConfigEventData = {
 	[K in `config.${string}`]: string | number | boolean | null;
 };
@@ -343,6 +398,8 @@ interface AIEventDataBase {
 }
 
 interface AIEventDataSendBase extends AIEventDataBase {
+	correlationId?: string;
+
 	'retry.count': number;
 	duration?: number;
 	'input.length'?: number;
@@ -387,6 +444,10 @@ export interface AIGenerateRebaseEventData extends AIEventDataSendBase {
 	type: 'rebase';
 }
 
+export interface AIGenerateCommitsEventData extends AIEventDataSendBase {
+	type: 'commits';
+}
+
 export interface AIGenerateSearchQueryEventData extends AIEventDataSendBase {
 	type: 'searchQuery';
 }
@@ -401,6 +462,7 @@ type AIGenerateEvent =
 	| AIGenerateCreateDraftEventData
 	| AIGenerateCreatePullRequestEventData
 	| AIGenerateRebaseEventData
+	| AIGenerateCommitsEventData
 	| AIGenerateSearchQueryEventData
 	| AIGenerateStashMessageEventData;
 
@@ -425,6 +487,43 @@ export interface AIFeedbackEvent extends AIEventDataBase {
 	'unhelpful.reasons'?: string;
 	/** Custom feedback provided (if any) */
 	'unhelpful.custom'?: string;
+}
+
+export interface CLIInstallStartedEvent {
+	source?: Sources;
+	autoInstall: boolean;
+	attempts: number;
+}
+
+export interface CLIInstallSucceededEvent {
+	autoInstall: boolean;
+	attempts: number;
+	source?: Sources;
+	version?: string;
+}
+
+export interface CLIInstallFailedEvent {
+	autoInstall: boolean;
+	attempts: number;
+	'error.message'?: string;
+	source?: Sources;
+}
+
+export interface MCPSetupStartedEvent {
+	source: Sources;
+}
+
+export interface MCPSetupCompletedEvent {
+	source: Sources;
+	'cli.version'?: string;
+	requiresUserCompletion: boolean;
+}
+
+export interface MCPSetupFailedEvent {
+	source: Sources;
+	reason: string;
+	'cli.version'?: string;
+	'error.message'?: string;
 }
 
 interface CloudIntegrationsConnectingEvent {
@@ -665,6 +764,79 @@ type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Co
 
 export type InspectTelemetryContext = InspectContextEventData;
 export type InspectShownTelemetryContext = InspectShownEventData;
+
+export type ComposerTelemetryContext = ComposerContextEventData;
+type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
+type ComposerContextSessionData = {
+	'context.session.start': string;
+	'context.session.duration': number | undefined;
+};
+type ComposerContextDiffData = {
+	'context.diff.files.count': number;
+	'context.diff.hunks.count': number;
+	'context.diff.lines.count': number;
+	'context.diff.staged.exists': boolean;
+	'context.diff.unstaged.exists': boolean;
+	'context.diff.unstaged.included': boolean;
+};
+type ComposerContextCommitsData = {
+	'context.commits.initialCount': number;
+	'context.commits.autoComposedCount': number | undefined;
+	'context.commits.composedCount': number | undefined;
+	'context.commits.finalCount': number | undefined;
+};
+type ComposerContextOnboardingData = {
+	'context.onboarding.dismissed': boolean;
+	'context.onboarding.stepReached': number | undefined;
+};
+type ComposerContextAIData = {
+	'context.ai.enabled.org': boolean;
+	'context.ai.enabled.config': boolean;
+	'context.ai.model.id': string | undefined;
+	'context.ai.model.name': string | undefined;
+	'context.ai.model.provider.id': AIProviders | undefined;
+	'context.ai.model.temperature': number | undefined;
+	'context.ai.model.maxTokens.input': number | undefined;
+	'context.ai.model.maxTokens.output': number | undefined;
+	'context.ai.model.default': boolean | undefined;
+	'context.ai.model.hidden': boolean | undefined;
+};
+type ComposerContextOperationData = {
+	'context.operations.generateCommits.count': number;
+	'context.operations.generateCommits.cancelled.count': number;
+	'context.operations.generateCommits.error.count': number;
+	'context.operations.generateCommits.feedback.upvote.count': number;
+	'context.operations.generateCommits.feedback.downvote.count': number;
+	'context.operations.generateCommitMessage.count': number;
+	'context.operations.generateCommitMessage.cancelled.count': number;
+	'context.operations.generateCommitMessage.error.count': number;
+	'context.operations.finishAndCommit.error.count': number;
+	'context.operations.undo.count': number;
+	'context.operations.redo.count': number;
+	'context.operations.reset.count': number;
+};
+type ComposerContextWarningsData = {
+	'context.warnings.workingDirectoryChanged': boolean;
+	'context.warnings.indexChanged': boolean;
+};
+type ComposerContextErrorsData = {
+	'context.errors.safety.count': number;
+	'context.errors.operation.count': number;
+};
+
+type ComposerSessionContextEventData = ComposerContextSessionData &
+	ComposerContextDiffData &
+	ComposerContextCommitsData &
+	ComposerContextOnboardingData &
+	ComposerContextAIData &
+	ComposerContextOperationData &
+	ComposerContextWarningsData &
+	ComposerContextErrorsData & {
+		'context.source': Sources | undefined;
+		'context.mode': 'experimental' | 'preview';
+	};
+
+type ComposerEvent = ComposerContextEventData;
 
 interface LaunchpadEventDataBase {
 	/** @order 1 */
@@ -963,6 +1135,7 @@ interface UsageTrackEvent {
 
 interface WalkthroughEvent {
 	step?: WalkthroughSteps;
+	usingFallbackUrl?: boolean;
 }
 
 type WalkthroughActionNames =
@@ -1023,29 +1196,35 @@ export type TelemetryEventsFromWebviewApp = {
 				? GraphTelemetryContext
 				: K extends `timeline/${string}`
 					? TimelineTelemetryContext
-					: WebviewTelemetryContext)
+					: K extends `composer/${string}`
+						? ComposerTelemetryContext
+						: WebviewTelemetryContext)
 	>;
 };
 
 export type LoginContext = 'start_trial';
-export type ConnectIntegrationContext = 'launchpad';
+export type ConnectIntegrationContext = 'launchpad' | 'mcp';
 export type Context = LoginContext | ConnectIntegrationContext;
 /** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
-export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';
+export type TrackingContext = 'graph' | 'launchpad' | 'mcp' | 'visual_file_history' | 'worktrees';
 
 export type Sources =
 	| 'account'
 	| 'ai'
 	| 'ai:markdown-preview'
+	| 'ai:markdown-editor'
 	| 'ai:picker'
 	| 'associateIssueWithBranch'
 	| 'cloud-patches'
 	| 'code-suggest'
 	| 'commandPalette'
+	| 'composer'
 	| 'deeplink'
 	| 'editor:hover'
 	| 'feature-badge'
 	| 'feature-gate'
+	| 'gk-cli-integration'
+	| 'gk-mcp-provider'
 	| 'graph'
 	| 'home'
 	| 'inspect'
@@ -1054,6 +1233,8 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
+	| 'mcp'
+	| 'mcp-welcome-message'
 	| 'merge-target'
 	| 'notification'
 	| 'patchDetails'
@@ -1061,6 +1242,7 @@ export type Sources =
 	| 'quick-wizard'
 	| 'rebaseEditor'
 	| 'remoteProvider'
+	| 'scm'
 	| 'scm-input'
 	| 'settings'
 	| 'startWork'
@@ -1074,11 +1256,16 @@ export type Sources =
 
 export type Source = {
 	source: Sources;
+	correlationId?: string;
 	detail?: string | TelemetryEventData;
 };
 
 export const sourceToContext: { [source in Sources]?: Context } = {
 	launchpad: 'launchpad',
+};
+
+export const detailToContext: { [detail in string]?: Context } = {
+	mcp: 'mcp',
 };
 
 export type TrackedUsage = {

@@ -32,7 +32,7 @@ import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
 import { openUrl } from '../../system/-webview/vscode/uris';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, groupByMap, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
@@ -136,6 +136,7 @@ export const supportedLaunchpadIntegrations: (GitCloudHostIntegrationId | CloudG
 	GitCloudHostIntegrationId.GitLab,
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	GitCloudHostIntegrationId.Bitbucket,
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 ];

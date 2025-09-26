@@ -18,7 +18,7 @@ import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { createCommand, executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
 import type { UsageChangeEvent } from '../telemetry/usageTracker';
@@ -135,7 +135,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
-			const repositories = this.view.container.git.openRepositories;
+			const repositories = await this.view.getFilteredRepositories();
 			if (!repositories.length) {
 				this.view.message = 'No commits could be found.';
 
@@ -453,7 +453,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		}
 
 		if (filter) {
-			repo ??= await getRepositoryOrShowPicker('Filter Commits', 'Choose a repository');
+			repo ??= await getRepositoryOrShowPicker(this.container, 'Filter Commits', 'Choose a repository');
 			if (repo == null) return;
 
 			let authors = this.state.filterCommits.get(repo.id);

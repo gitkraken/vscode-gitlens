@@ -27,6 +27,12 @@ export interface AIRequestResult {
 	};
 }
 
+export type AIDeferredRequestResult<T extends AIRequestResult> = {
+	readonly model: AIModel;
+
+	readonly promise: Promise<T | 'cancelled' | undefined>;
+};
+
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
 	readonly id: Provider;
 	readonly name: string;

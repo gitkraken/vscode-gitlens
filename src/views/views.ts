@@ -100,10 +100,6 @@ export class Views implements Disposable {
 		return this._scmGroupedViews;
 	}
 
-	private _lastSelectedByView = new Map<
-		GroupableTreeViewTypes,
-		{ node: ViewNode; parents: ViewNode[]; expanded: boolean }
-	>();
 	private _welcomeDismissed = false;
 
 	constructor(
@@ -504,48 +500,8 @@ export class Views implements Disposable {
 
 	private async setScmGroupedView<T extends GroupableTreeViewTypes>(type: T, focus?: boolean) {
 		if (this._scmGroupedView != null) {
-			// Save current selection before switching views
-			let { view } = this._scmGroupedView;
-			if (view) {
-				const node: ViewNode | undefined = view.selection?.[0];
-				if (node != null) {
-					const parents: ViewNode[] = [];
-
-					let parent: ViewNode | undefined = node;
-					while (true) {
-						parent = parent.getParent();
-						if (parent == null) break;
-
-						parents.unshift(parent);
-					}
-
-					this._lastSelectedByView.set(view.type, {
-						node: node,
-						parents: parents,
-						expanded: view.isNodeExpanded(node),
-					});
-				}
-			}
-
 			await this._scmGroupedView.clearView(type);
-			view = this._scmGroupedView.setView(type, focus);
-
-			// Restore the last selection for this view type (if any)
-			if (view) {
-				if (!view.visible) {
-					await view.show({ preserveFocus: !focus });
-				}
-
-				const selection = this._lastSelectedByView.get(type);
-				if (selection != null) {
-					setTimeout(async () => {
-						const { node, parents, expanded } = selection;
-						await view.revealDeep(node, parents, { expand: expanded, focus: focus ?? false, select: true });
-					}, 1);
-				}
-			}
-
-			return view;
+			return this._scmGroupedView.setView(type, { focus: focus });
 		}
 
 		if (!this.scmGroupedViews?.has(type)) {

@@ -12,7 +12,7 @@ import { getHighlanderProviders } from '../../git/utils/remote.utils';
 import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace';
 import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace';
 import { findLastIndex } from '../../system/array';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';

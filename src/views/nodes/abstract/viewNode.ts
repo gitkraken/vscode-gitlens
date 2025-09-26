@@ -27,7 +27,7 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../../plus/workspaces/models/localWorkspace';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug, logName } from '../../../system/decorators/log';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';

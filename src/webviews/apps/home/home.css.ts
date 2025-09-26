@@ -182,16 +182,25 @@ export const alertStyles = css`
 		display: none;
 	}
 	.alert--info {
+		--color-alert-foreground: var(--color-alert-infoForeground);
 		background-color: var(--color-alert-infoBackground);
 		border-left-color: var(--color-alert-infoBorder);
 	}
 	.alert--warning {
+		--color-alert-foreground: var(--color-alert-warningForeground);
 		background-color: var(--color-alert-warningBackground);
 		border-left-color: var(--color-alert-warningBorder);
 	}
 	.alert--danger {
+		--color-alert-foreground: var(--color-alert-errorForeground);
 		background-color: var(--color-alert-errorBackground);
 		border-left-color: var(--color-alert-errorBorder);
+	}
+	.alert a:not(:hover) {
+		color: color-mix(in srgb, var(--color-alert-foreground) 50%, var(--vscode-textLink-foreground));
+	}
+	.alert a:hover {
+		color: color-mix(in srgb, var(--color-alert-foreground) 50%, var(--vscode-textLink-activeForeground));
 	}
 `;
 

@@ -60,5 +60,10 @@
   "launchpad-view": 61759,
   "launchpad-view-filled": 61760,
   "merge-target": 61761,
-  "history-view-filled": 61762
+  "history-view-filled": 61762,
+  "repository": 61763,
+  "worktree": 61764,
+  "worktree-filled": 61765,
+  "repository-cloud": 61766,
+  "provider-linear": 61767
 }

@@ -12,7 +12,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
-import { sourceToContext } from '../../constants.telemetry';
+import { detailToContext, sourceToContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { Account } from '../../git/models/author';
 import type { IssueShape } from '../../git/models/issue';
@@ -20,9 +20,10 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
 import type { RemoteProviderId } from '../../git/remotes/remoteProvider';
+import { executeCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { openUrl } from '../../system/-webview/vscode/uris';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
 import { filterMap, flatten, join } from '../../system/iterable';
@@ -124,6 +125,10 @@ export class IntegrationService implements Disposable {
 		}
 
 		let account = (await this.container.subscription.getSubscription()).account;
+		if (account != null) {
+			void executeCommand('gitlens.ai.mcp.authCLI');
+		}
+
 		const connectedIntegrations = new Set<string>();
 		if (integrationIds?.length) {
 			if (connect?.skipIfConnected && !connect?.skipPreSync) {
@@ -155,6 +160,12 @@ export class IntegrationService implements Disposable {
 
 		if (source?.source != null && sourceToContext[source.source] != null) {
 			query += `&context=${sourceToContext[source.source]}`;
+		} else if (
+			source?.detail != null &&
+			typeof source.detail === 'string' &&
+			detailToContext[source.detail] != null
+		) {
+			query += `&context=${detailToContext[source.detail]}`;
 		}
 
 		if (integrationIds != null) {
@@ -173,6 +184,9 @@ export class IntegrationService implements Disposable {
 			}
 			if (cloudIntegrationTypes.length > 0) {
 				query += `&provider=${cloudIntegrationTypes.join(',')}`;
+			}
+			if (cloudIntegrationTypes.length > 1) {
+				query += '&flow=expanded';
 			}
 		}
 
@@ -486,6 +500,46 @@ export class IntegrationService implements Disposable {
 					) as GitHostIntegration as IntegrationById<T>;
 					break;
 
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+					if (domain == null) {
+						integration = this.findCachedById(id);
+						// return immediately in order to not to cache it after the "switch" block:
+						if (integration != null) return integration;
+
+						const configured = this.getConfiguredLite(GitSelfManagedHostIntegrationId.AzureDevOpsServer);
+						if (configured.length) {
+							const { domain: configuredDomain } = configured[0];
+							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
+
+							integration = new (
+								await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
+							).AzureDevOpsServerIntegration(
+								this.container,
+								this.authenticationService,
+								this.getProvidersApi.bind(this),
+								this._onDidChangeIntegrationConnection,
+								configuredDomain,
+							) as GitHostIntegration as IntegrationById<T>;
+
+							// assign domain because it's part of caching key:
+							domain = configuredDomain;
+							break;
+						}
+
+						return undefined;
+					}
+
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
+					).AzureDevOpsServerIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+						domain,
+					) as GitHostIntegration as IntegrationById<T>;
+					break;
+
 				case IssuesCloudHostIntegrationId.Jira:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/jira')
@@ -497,6 +551,16 @@ export class IntegrationService implements Disposable {
 					) as IssuesIntegration as IntegrationById<T>;
 					break;
 
+				case IssuesCloudHostIntegrationId.Linear:
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/linear')
+					).LinearIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as IssuesIntegration as IntegrationById<T>;
+					break;
 				default:
 					throw new Error(`Integration with '${id}' is not supported`);
 			}

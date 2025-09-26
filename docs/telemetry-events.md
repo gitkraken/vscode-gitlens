@@ -33,6 +33,7 @@
   'global.enabled': boolean,
   'global.folders.count': number,
   'global.folders.schemes': string,
+  'global.gk.mcp.registrationCompleted': boolean,
   'global.install': boolean,
   'global.prerelease': boolean,
   'global.providers.count': number,
@@ -50,7 +51,7 @@
   'global.subscription.actual.bundle': boolean,
   'global.subscription.actual.cancelled': boolean,
   'global.subscription.actual.expiresOn': string,
-  'global.subscription.actual.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'global.subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'global.subscription.actual.nextTrialOptInDate': string,
   'global.subscription.actual.organizationId': string,
   'global.subscription.actual.startedOn': string,
@@ -58,7 +59,7 @@
   'global.subscription.effective.bundle': boolean,
   'global.subscription.effective.cancelled': boolean,
   'global.subscription.effective.expiresOn': string,
-  'global.subscription.effective.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'global.subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'global.subscription.effective.nextTrialOptInDate': string,
   'global.subscription.effective.organizationId': string,
   'global.subscription.effective.startedOn': string,
@@ -115,6 +116,7 @@
   'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -153,7 +155,7 @@
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'explain-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-rebase' | 'generate-searchQuery',
+  'type': 'explain-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-rebase' | 'generate-commits' | 'generate-searchQuery',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -175,6 +177,7 @@
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -206,6 +209,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -237,6 +241,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'draftType': 'stash' | 'patch' | 'suggested_pr_change',
   'duration': number,
   'failed': boolean,
@@ -269,6 +274,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -300,6 +306,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -331,6 +338,39 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
+  'duration': number,
+  'failed': boolean,
+  'failed.cancelled.reason': 'large-prompt',
+  'failed.error': string,
+  'failed.error.detail': string,
+  'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
+  'id': string,
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
+  'type': 'commits',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
+}
+```
+
+or
+
+```typescript
+{
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -362,6 +402,7 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  'correlationId': string,
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
@@ -530,6 +571,44 @@ void
 }
 ```
 
+### cli/install/failed
+
+> Sent when a CLI install attempt fails
+
+```typescript
+{
+  'attempts': number,
+  'autoInstall': boolean,
+  'error.message': string,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
+### cli/install/started
+
+> Sent when a CLI install attempt is started
+
+```typescript
+{
+  'attempts': number,
+  'autoInstall': boolean,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
+### cli/install/succeeded
+
+> Sent when a CLI install attempt succeeds
+
+```typescript
+{
+  'attempts': number,
+  'autoInstall': boolean,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'version': string
+}
+```
+
 ### cloudIntegrations/connected
 
 > Sent when connected to one or more cloud-based integrations from gkdev
@@ -590,7 +669,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello'
 }
 ```
 
@@ -601,7 +680,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello'
 }
 ```
 
@@ -612,7 +691,7 @@ void
 ```typescript
 {
   'issueProvider.key': string,
-  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello'
 }
 ```
 
@@ -623,7 +702,7 @@ void
 ```typescript
 {
   'issueProvider.key': string,
-  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'issueProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello'
 }
 ```
 
@@ -657,7 +736,7 @@ or when connection refresh is skipped due to being a non-cloud session
 
 ```typescript
 {
-  'integration.id': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello'
+  'integration.id': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello'
 }
 ```
 
@@ -750,6 +829,18 @@ or
 }
 ```
 
+### commitDetails/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### commitDetails/mode/changed
 
 > Sent when the user changes the selected tab (mode) on the Graph Details view
@@ -766,7 +857,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -785,7 +876,7 @@ or
   'context.pinned': boolean,
   'context.type': 'stash' | 'commit',
   'context.uncommitted': boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -798,7 +889,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -831,7 +922,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -858,12 +949,931 @@ or
   'context.pinned': boolean,
   'context.type': 'stash' | 'commit',
   'context.uncommitted': boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'duration': number,
   'loading': boolean
+}
+```
+
+### composer/action/changeAiModel
+
+> Sent when the user changes the AI model in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/compose
+
+> Sent when the user uses auto-compose in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/compose/failed
+
+> Sent when the user fails an auto-compose operation in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/finishAndCommit
+
+> Sent when the user finishes and commits in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/finishAndCommit/failed
+
+> Sent when the user fails to finish and commit in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/generateCommitMessage
+
+> Sent when the user uses generate commit message in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/generateCommitMessage/failed
+
+> Sent when the user fails a generate commit message operation in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/includedUnstagedChanges
+
+> Sent when the user adds unstaged changes to draft commits in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/recompose
+
+> Sent when the user uses recompose in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/recompose/failed
+
+> Sent when the user fails a recompose operation in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/reset
+
+> Sent when the user uses the reset button in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/undo
+
+> Sent when the user uses the undo button in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/loaded
+
+> Sent when the Commit Composer is first loaded with repo data
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/reloaded
+
+> Sent when the Commit Composer is reloaded
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/showAborted
+
+```typescript
+{
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
+### composer/shown
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
+### composer/warning/indexChanged
+
+> Sent when the user is warned that the index has changed in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/warning/workingDirectoryChanged
+
+> Sent when the user is warned that the working directory has changed in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
 }
 ```
 
@@ -878,7 +1888,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -897,7 +1907,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -916,7 +1926,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -936,7 +1946,19 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -958,7 +1980,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -987,7 +2009,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1007,7 +2029,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1025,7 +2047,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1048,7 +2070,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1067,7 +2089,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1087,7 +2109,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1107,7 +2129,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1125,7 +2147,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1176,12 +2198,24 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'duration': number,
   'loading': boolean
+}
+```
+
+### graphDetails/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
 }
 ```
 
@@ -1201,7 +2235,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1220,7 +2254,7 @@ or
   'context.pinned': boolean,
   'context.type': 'stash' | 'commit',
   'context.uncommitted': boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1233,7 +2267,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1266,7 +2300,7 @@ or
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1293,7 +2327,7 @@ or
   'context.pinned': boolean,
   'context.type': 'stash' | 'commit',
   'context.uncommitted': boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1308,6 +2342,18 @@ or
 
 ```typescript
 void
+```
+
+### home/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
 ```
 
 ### home/command
@@ -1352,7 +2398,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1366,7 +2412,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1391,7 +2437,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'soft-open' | 'open' | 'code-suggest' | 'merge' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
+  'action': 'soft-open' | 'code-suggest' | 'open' | 'merge' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -1719,6 +2765,54 @@ void
 }
 ```
 
+### mcp/registration/failed
+
+> Sent when GitKraken MCP registration fails
+
+```typescript
+{
+  'cli.version': string,
+  'error.message': string,
+  'reason': string,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
+### mcp/setup/completed
+
+> Sent when GitKraken MCP setup is completed
+
+```typescript
+{
+  'cli.version': string,
+  'requiresUserCompletion': boolean,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
+### mcp/setup/failed
+
+> Sent when GitKraken MCP setup fails
+
+```typescript
+{
+  'cli.version': string,
+  'error.message': string,
+  'reason': string,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
+### mcp/setup/started
+
+> Sent when GitKraken MCP setup is started
+
+```typescript
+{
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
 ### openReviewMode
 
 > Sent when a PR review was started in the inspect overview
@@ -1731,7 +2825,19 @@ void
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
   // Provided for compatibility with other GK surfaces
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'ai' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm-input' | 'startWork' | 'trial-indicator' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
+### patchDetails/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
 }
 ```
 
@@ -1739,7 +2845,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1753,7 +2859,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1800,7 +2906,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello',
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello',
   // @deprecated: true
   'remoteProviders.key': string
 }
@@ -1813,7 +2919,7 @@ void
 ```typescript
 {
   'hostingProvider.key': string,
-  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'jira' | 'trello',
+  'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'bitbucket-server' | 'github-enterprise' | 'cloud-github-enterprise' | 'gitlab-self-hosted' | 'cloud-gitlab-self-hosted' | 'azure-devops-server' | 'jira' | 'linear' | 'trello',
   // @deprecated: true
   'remoteProviders.key': string
 }
@@ -1880,11 +2986,23 @@ void
 }
 ```
 
+### settings/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### settings/showAborted
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1898,7 +3016,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2018,7 +3136,7 @@ void
   'subscription.actual.bundle': boolean,
   'subscription.actual.cancelled': boolean,
   'subscription.actual.expiresOn': string,
-  'subscription.actual.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'subscription.actual.nextTrialOptInDate': string,
   'subscription.actual.organizationId': string,
   'subscription.actual.startedOn': string,
@@ -2026,7 +3144,7 @@ void
   'subscription.effective.bundle': boolean,
   'subscription.effective.cancelled': boolean,
   'subscription.effective.expiresOn': string,
-  'subscription.effective.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'subscription.effective.nextTrialOptInDate': string,
   'subscription.effective.organizationId': string,
   'subscription.effective.startedOn': string,
@@ -2105,7 +3223,7 @@ or
   'previous.subscription.actual.bundle': boolean,
   'previous.subscription.actual.cancelled': boolean,
   'previous.subscription.actual.expiresOn': string,
-  'previous.subscription.actual.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'previous.subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'previous.subscription.actual.nextTrialOptInDate': string,
   'previous.subscription.actual.organizationId': string,
   'previous.subscription.actual.startedOn': string,
@@ -2113,7 +3231,7 @@ or
   'previous.subscription.effective.bundle': boolean,
   'previous.subscription.effective.cancelled': boolean,
   'previous.subscription.effective.expiresOn': string,
-  'previous.subscription.effective.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'previous.subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'previous.subscription.effective.nextTrialOptInDate': string,
   'previous.subscription.effective.organizationId': string,
   'previous.subscription.effective.startedOn': string,
@@ -2121,7 +3239,7 @@ or
   'subscription.actual.bundle': boolean,
   'subscription.actual.cancelled': boolean,
   'subscription.actual.expiresOn': string,
-  'subscription.actual.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'subscription.actual.nextTrialOptInDate': string,
   'subscription.actual.organizationId': string,
   'subscription.actual.startedOn': string,
@@ -2129,7 +3247,7 @@ or
   'subscription.effective.bundle': boolean,
   'subscription.effective.cancelled': boolean,
   'subscription.effective.expiresOn': string,
-  'subscription.effective.id': 'community' | 'community-with-account' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
   'subscription.effective.nextTrialOptInDate': string,
   'subscription.effective.organizationId': string,
   'subscription.effective.startedOn': string,
@@ -2159,13 +3277,25 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'scope.hasBase': boolean,
   'scope.hasHead': boolean,
   'scope.type': 'file' | 'folder' | 'repo'
+}
+```
+
+### timeline/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'view' | 'editor',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
 }
 ```
 
@@ -2181,7 +3311,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2200,7 +3330,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2222,7 +3352,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2241,7 +3371,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2252,7 +3382,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2275,7 +3405,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'editor' | 'view',
+  'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2291,7 +3421,7 @@ or
 ```typescript
 {
   'usage.count': number,
-  'usage.key': 'rebaseEditor:shown' | 'graphWebview:shown' | 'patchDetailsWebview:shown' | 'settingsWebview:shown' | 'timelineWebview:shown' | 'graphView:shown' | 'patchDetailsView:shown' | 'timelineView:shown' | 'commitDetailsView:shown' | 'graphDetailsView:shown' | 'homeView:shown' | 'pullRequestView:shown' | 'commitsView:shown' | 'stashesView:shown' | 'tagsView:shown' | 'launchpadView:shown' | 'worktreesView:shown' | 'branchesView:shown' | 'contributorsView:shown' | 'draftsView:shown' | 'fileHistoryView:shown' | 'scm.groupedView:shown' | 'lineHistoryView:shown' | 'remotesView:shown' | 'repositoriesView:shown' | 'searchAndCompareView:shown' | 'workspacesView:shown' | 'command:gitlens.key.alt+,:executed' | 'command:gitlens.key.alt+.:executed' | 'command:gitlens.key.alt+enter:executed' | 'command:gitlens.key.alt+left:executed' | 'command:gitlens.key.alt+right:executed' | 'command:gitlens.key.ctrl+enter:executed' | 'command:gitlens.key.ctrl+left:executed' | 'command:gitlens.key.ctrl+right:executed' | 'command:gitlens.key.escape:executed' | 'command:gitlens.key.left:executed' | 'command:gitlens.key.right:executed' | 'command:gitlens.addAuthors:executed' | 'command:gitlens.ai.explainBranch:executed' | 'command:gitlens.ai.explainCommit:executed' | 'command:gitlens.ai.explainStash:executed' | 'command:gitlens.ai.explainWip:executed' | 'command:gitlens.ai.generateChangelog:executed' | 'command:gitlens.ai.generateCommitMessage:executed' | 'command:gitlens.ai.generateCommits:executed' | 'command:gitlens.ai.generateRebase:executed' | 'command:gitlens.ai.switchProvider:executed' | 'command:gitlens.applyPatchFromClipboard:executed' | 'command:gitlens.associateIssueWithBranch:executed' | 'command:gitlens.browseRepoAtRevision:executed' | 'command:gitlens.browseRepoAtRevisionInNewWindow:executed' | 'command:gitlens.browseRepoBeforeRevision:executed' | 'command:gitlens.browseRepoBeforeRevisionInNewWindow:executed' | 'command:gitlens.changeBranchMergeTarget:executed' | 'command:gitlens.clearFileAnnotations:executed' | 'command:gitlens.closeUnchangedFiles:executed' | 'command:gitlens.compareHeadWith:executed' | 'command:gitlens.compareWith:executed' | 'command:gitlens.compareWorkingWith:executed' | 'command:gitlens.connectRemoteProvider:executed' | 'command:gitlens.copyCurrentBranch:executed' | 'command:gitlens.copyDeepLinkToRepo:executed' | 'command:gitlens.copyMessageToClipboard:executed' | 'command:gitlens.copyPatchToClipboard:executed' | 'command:gitlens.copyRelativePathToClipboard:executed' | 'command:gitlens.copyRemoteCommitUrl:executed' | 'command:gitlens.copyRemoteFileUrlFrom:executed' | 'command:gitlens.copyRemoteFileUrlToClipboard:executed' | 'command:gitlens.copyShaToClipboard:executed' | 'command:gitlens.copyWorkingChangesToWorktree:executed' | 'command:gitlens.createCloudPatch:executed' | 'command:gitlens.createPatch:executed' | 'command:gitlens.createPullRequestOnRemote:executed' | 'command:gitlens.diffDirectory:executed' | 'command:gitlens.diffDirectoryWithHead:executed' | 'command:gitlens.diffFolderWithRevision:executed' | 'command:gitlens.diffFolderWithRevisionFrom:executed' | 'command:gitlens.diffLineWithPrevious:executed' | 'command:gitlens.diffLineWithWorking:executed' | 'command:gitlens.diffWithNext:executed' | 'command:gitlens.diffWithPrevious:executed' | 'command:gitlens.diffWithRevision:executed' | 'command:gitlens.diffWithRevisionFrom:executed' | 'command:gitlens.diffWithWorking:executed' | 'command:gitlens.disableDebugLogging:executed' | 'command:gitlens.disableRebaseEditor:executed' | 'command:gitlens.disconnectRemoteProvider:executed' | 'command:gitlens.enableDebugLogging:executed' | 'command:gitlens.enableRebaseEditor:executed' | 'command:gitlens.externalDiff:executed' | 'command:gitlens.externalDiffAll:executed' | 'command:gitlens.fetchRepositories:executed' | 'command:gitlens.getStarted:executed' | 'command:gitlens.gitCommands:executed' | 'command:gitlens.gitCommands.branch:executed' | 'command:gitlens.gitCommands.branch.create:executed' | 'command:gitlens.gitCommands.branch.delete:executed' | 'command:gitlens.gitCommands.branch.prune:executed' | 'command:gitlens.gitCommands.branch.rename:executed' | 'command:gitlens.gitCommands.checkout:executed' | 'command:gitlens.gitCommands.cherryPick:executed' | 'command:gitlens.gitCommands.history:executed' | 'command:gitlens.gitCommands.merge:executed' | 'command:gitlens.gitCommands.rebase:executed' | 'command:gitlens.gitCommands.remote:executed' | 'command:gitlens.gitCommands.remote.add:executed' | 'command:gitlens.gitCommands.remote.prune:executed' | 'command:gitlens.gitCommands.remote.remove:executed' | 'command:gitlens.gitCommands.reset:executed' | 'command:gitlens.gitCommands.revert:executed' | 'command:gitlens.gitCommands.show:executed' | 'command:gitlens.gitCommands.stash:executed' | 'command:gitlens.gitCommands.stash.drop:executed' | 'command:gitlens.gitCommands.stash.list:executed' | 'command:gitlens.gitCommands.stash.pop:executed' | 'command:gitlens.gitCommands.stash.push:executed' | 'command:gitlens.gitCommands.stash.rename:executed' | 'command:gitlens.gitCommands.status:executed' | 'command:gitlens.gitCommands.switch:executed' | 'command:gitlens.gitCommands.tag:executed' | 'command:gitlens.gitCommands.tag.create:executed' | 'command:gitlens.gitCommands.tag.delete:executed' | 'command:gitlens.gitCommands.worktree:executed' | 'command:gitlens.gitCommands.worktree.create:executed' | 'command:gitlens.gitCommands.worktree.delete:executed' | 'command:gitlens.gitCommands.worktree.open:executed' | 'command:gitlens.gk.switchOrganization:executed' | 'command:gitlens.graph.split:executed' | 'command:gitlens.graph.switchToEditorLayout:executed' | 'command:gitlens.graph.switchToPanelLayout:executed' | 'command:gitlens.launchpad.indicator.toggle:executed' | 'command:gitlens.openAssociatedPullRequestOnRemote:executed' | 'command:gitlens.openBlamePriorToChange:executed' | 'command:gitlens.openBranchOnRemote:executed' | 'command:gitlens.openBranchesOnRemote:executed' | 'command:gitlens.openChangedFiles:executed' | 'command:gitlens.openCommitOnRemote:executed' | 'command:gitlens.openCurrentBranchOnRemote:executed' | 'command:gitlens.openFileFromRemote:executed' | 'command:gitlens.openFileHistory:executed' | 'command:gitlens.openFileOnRemote:executed' | 'command:gitlens.openFileOnRemoteFrom:executed' | 'command:gitlens.openFileRevision:executed' | 'command:gitlens.openFileRevisionFrom:executed' | 'command:gitlens.openOnlyChangedFiles:executed' | 'command:gitlens.openPatch:executed' | 'command:gitlens.openRepoOnRemote:executed' | 'command:gitlens.openRevisionFile:executed' | 'command:gitlens.openRevisionFromRemote:executed' | 'command:gitlens.openWorkingFile:executed' | 'command:gitlens.pastePatchFromClipboard:executed' | 'command:gitlens.plus.cloudIntegrations.manage:executed' | 'command:gitlens.plus.hide:executed' | 'command:gitlens.plus.login:executed' | 'command:gitlens.plus.logout:executed' | 'command:gitlens.plus.manage:executed' | 'command:gitlens.plus.reactivateProTrial:executed' | 'command:gitlens.plus.referFriend:executed' | 'command:gitlens.plus.refreshRepositoryAccess:executed' | 'command:gitlens.plus.restore:executed' | 'command:gitlens.plus.signUp:executed' | 'command:gitlens.plus.simulateSubscription:executed' | 'command:gitlens.plus.upgrade:executed' | 'command:gitlens.pullRepositories:executed' | 'command:gitlens.pushRepositories:executed' | 'command:gitlens.quickOpenFileHistory:executed' | 'command:gitlens.reset:executed' | 'command:gitlens.resetViewsLayout:executed' | 'command:gitlens.revealCommitInView:executed' | 'command:gitlens.shareAsCloudPatch:executed' | 'command:gitlens.showAccountView:executed' | 'command:gitlens.showBranchesView:executed' | 'command:gitlens.showCommitDetailsView:executed' | 'command:gitlens.showCommitInView:executed' | 'command:gitlens.showCommitSearch:executed' | 'command:gitlens.showCommitsInView:executed' | 'command:gitlens.showCommitsView:executed' | 'command:gitlens.showContributorsView:executed' | 'command:gitlens.showDraftsView:executed' | 'command:gitlens.showFileHistoryView:executed' | 'command:gitlens.showGraph:executed' | 'command:gitlens.showGraphPage:executed' | 'command:gitlens.showGraphView:executed' | 'command:gitlens.showHomeView:executed' | 'command:gitlens.showLastQuickPick:executed' | 'command:gitlens.showLaunchpad:executed' | 'command:gitlens.showLaunchpadView:executed' | 'command:gitlens.showLineCommitInView:executed' | 'command:gitlens.showLineHistoryView:executed' | 'command:gitlens.showPatchDetailsPage:executed' | 'command:gitlens.showQuickBranchHistory:executed' | 'command:gitlens.showQuickCommitFileDetails:executed' | 'command:gitlens.showQuickFileHistory:executed' | 'command:gitlens.showQuickRepoHistory:executed' | 'command:gitlens.showQuickRepoStatus:executed' | 'command:gitlens.showQuickRevisionDetails:executed' | 'command:gitlens.showQuickStashList:executed' | 'command:gitlens.showRemotesView:executed' | 'command:gitlens.showRepositoriesView:executed' | 'command:gitlens.showSearchAndCompareView:executed' | 'command:gitlens.showSettingsPage:executed' | 'command:gitlens.showSettingsPage!autolinks:executed' | 'command:gitlens.showStashesView:executed' | 'command:gitlens.showTagsView:executed' | 'command:gitlens.showTimelinePage:executed' | 'command:gitlens.showTimelineView:executed' | 'command:gitlens.showWorkspacesView:executed' | 'command:gitlens.showWorktreesView:executed' | 'command:gitlens.startWork:executed' | 'command:gitlens.stashSave:executed' | 'command:gitlens.stashSave.staged:scm:executed' | 'command:gitlens.stashSave.unstaged:scm:executed' | 'command:gitlens.stashSave:scm:executed' | 'command:gitlens.stashesApply:executed' | 'command:gitlens.switchMode:executed' | 'command:gitlens.timeline.split:executed' | 'command:gitlens.toggleCodeLens:executed' | 'command:gitlens.toggleFileBlame:executed' | 'command:gitlens.toggleFileChanges:executed' | 'command:gitlens.toggleFileHeatmap:executed' | 'command:gitlens.toggleGraph:executed' | 'command:gitlens.toggleLineBlame:executed' | 'command:gitlens.toggleMaximizedGraph:executed' | 'command:gitlens.toggleReviewMode:executed' | 'command:gitlens.toggleZenMode:executed' | 'command:gitlens.views.workspaces.create:executed' | 'command:gitlens.visualizeHistory.file:executed' | 'command:gitlens.ai.explainBranch:graph:executed' | 'command:gitlens.ai.explainBranch:views:executed' | 'command:gitlens.ai.explainCommit:graph:executed' | 'command:gitlens.ai.explainCommit:views:executed' | 'command:gitlens.ai.explainStash:graph:executed' | 'command:gitlens.ai.explainStash:views:executed' | 'command:gitlens.ai.explainWip:graph:executed' | 'command:gitlens.ai.explainWip:views:executed' | 'command:gitlens.ai.feedback.helpful:executed' | 'command:gitlens.ai.feedback.helpful.chosen:executed' | 'command:gitlens.ai.feedback.unhelpful:executed' | 'command:gitlens.ai.feedback.unhelpful.chosen:executed' | 'command:gitlens.ai.generateChangelog:views:executed' | 'command:gitlens.ai.generateChangelogFrom:graph:executed' | 'command:gitlens.ai.generateChangelogFrom:views:executed' | 'command:gitlens.ai.generateCommitMessage:graph:executed' | 'command:gitlens.ai.generateCommitMessage:scm:executed' | 'command:gitlens.ai.generateCommits:graph:executed' | 'command:gitlens.ai.generateCommits:views:executed' | 'command:gitlens.ai.rebaseOntoCommit:graph:executed' | 'command:gitlens.ai.rebaseOntoCommit:views:executed' | 'command:gitlens.ai.undoGenerateRebase:executed' | 'command:gitlens.annotations.nextChange:executed' | 'command:gitlens.annotations.previousChange:executed' | 'command:gitlens.computingFileAnnotations:executed' | 'command:gitlens.copyDeepLinkToBranch:executed' | 'command:gitlens.copyDeepLinkToCommit:executed' | 'command:gitlens.copyDeepLinkToComparison:executed' | 'command:gitlens.copyDeepLinkToFile:executed' | 'command:gitlens.copyDeepLinkToFileAtRevision:executed' | 'command:gitlens.copyDeepLinkToLines:executed' | 'command:gitlens.copyDeepLinkToTag:executed' | 'command:gitlens.copyDeepLinkToWorkspace:executed' | 'command:gitlens.copyRemoteBranchUrl:executed' | 'command:gitlens.copyRemoteBranchesUrl:executed' | 'command:gitlens.copyRemoteComparisonUrl:executed' | 'command:gitlens.copyRemoteFileUrlWithoutRange:executed' | 'command:gitlens.copyRemotePullRequestUrl:executed' | 'command:gitlens.copyRemoteRepositoryUrl:executed' | 'command:gitlens.copyWorkingChangesToWorktree:views:executed' | 'command:gitlens.ghpr.views.openOrCreateWorktree:executed' | 'command:gitlens.graph.addAuthor:executed' | 'command:gitlens.graph.associateIssueWithBranch:executed' | 'command:gitlens.graph.cherryPick:executed' | 'command:gitlens.graph.cherryPick.multi:executed' | 'command:gitlens.graph.columnAuthorOff:executed' | 'command:gitlens.graph.columnAuthorOn:executed' | 'command:gitlens.graph.columnChangesOff:executed' | 'command:gitlens.graph.columnChangesOn:executed' | 'command:gitlens.graph.columnDateTimeOff:executed' | 'command:gitlens.graph.columnDateTimeOn:executed' | 'command:gitlens.graph.columnGraphCompact:executed' | 'command:gitlens.graph.columnGraphDefault:executed' | 'command:gitlens.graph.columnGraphOff:executed' | 'command:gitlens.graph.columnGraphOn:executed' | 'command:gitlens.graph.columnMessageOff:executed' | 'command:gitlens.graph.columnMessageOn:executed' | 'command:gitlens.graph.columnRefOff:executed' | 'command:gitlens.graph.columnRefOn:executed' | 'command:gitlens.graph.columnShaOff:executed' | 'command:gitlens.graph.columnShaOn:executed' | 'command:gitlens.graph.commitViaSCM:executed' | 'command:gitlens.graph.compareAncestryWithWorking:executed' | 'command:gitlens.graph.compareBranchWithHead:executed' | 'command:gitlens.graph.compareSelectedCommits.multi:executed' | 'command:gitlens.graph.compareWithHead:executed' | 'command:gitlens.graph.compareWithMergeBase:executed' | 'command:gitlens.graph.compareWithUpstream:executed' | 'command:gitlens.graph.compareWithWorking:executed' | 'command:gitlens.graph.copy:executed' | 'command:gitlens.graph.copyDeepLinkToBranch:executed' | 'command:gitlens.graph.copyDeepLinkToCommit:executed' | 'command:gitlens.graph.copyDeepLinkToRepo:executed' | 'command:gitlens.graph.copyDeepLinkToTag:executed' | 'command:gitlens.graph.copyMessage:executed' | 'command:gitlens.graph.copyRemoteBranchUrl:executed' | 'command:gitlens.graph.copyRemoteCommitUrl:executed' | 'command:gitlens.graph.copyRemoteCommitUrl.multi:executed' | 'command:gitlens.graph.copySha:executed' | 'command:gitlens.graph.copyWorkingChangesToWorktree:executed' | 'command:gitlens.graph.createBranch:executed' | 'command:gitlens.graph.createCloudPatch:executed' | 'command:gitlens.graph.createPatch:executed' | 'command:gitlens.graph.createPullRequest:executed' | 'command:gitlens.graph.createTag:executed' | 'command:gitlens.graph.createWorktree:executed' | 'command:gitlens.graph.deleteBranch:executed' | 'command:gitlens.graph.deleteTag:executed' | 'command:gitlens.graph.fetch:executed' | 'command:gitlens.graph.hideLocalBranch:executed' | 'command:gitlens.graph.hideRefGroup:executed' | 'command:gitlens.graph.hideRemote:executed' | 'command:gitlens.graph.hideRemoteBranch:executed' | 'command:gitlens.graph.hideTag:executed' | 'command:gitlens.graph.mergeBranchInto:executed' | 'command:gitlens.graph.openBranchOnRemote:executed' | 'command:gitlens.graph.openChangedFileDiffs:executed' | 'command:gitlens.graph.openChangedFileDiffsIndividually:executed' | 'command:gitlens.graph.openChangedFileDiffsWithMergeBase:executed' | 'command:gitlens.graph.openChangedFileDiffsWithWorking:executed' | 'command:gitlens.graph.openChangedFileDiffsWithWorkingIndividually:executed' | 'command:gitlens.graph.openChangedFileRevisions:executed' | 'command:gitlens.graph.openChangedFiles:executed' | 'command:gitlens.graph.openCommitOnRemote:executed' | 'command:gitlens.graph.openCommitOnRemote.multi:executed' | 'command:gitlens.graph.openInWorktree:executed' | 'command:gitlens.graph.openOnlyChangedFiles:executed' | 'command:gitlens.graph.openPullRequest:executed' | 'command:gitlens.graph.openPullRequestChanges:executed' | 'command:gitlens.graph.openPullRequestComparison:executed' | 'command:gitlens.graph.openPullRequestOnRemote:executed' | 'command:gitlens.graph.openWorktree:executed' | 'command:gitlens.graph.openWorktreeInNewWindow:executed' | 'command:gitlens.graph.publishBranch:executed' | 'command:gitlens.graph.pull:executed' | 'command:gitlens.graph.push:executed' | 'command:gitlens.graph.pushWithForce:executed' | 'command:gitlens.graph.rebaseOntoBranch:executed' | 'command:gitlens.graph.rebaseOntoCommit:executed' | 'command:gitlens.graph.rebaseOntoUpstream:executed' | 'command:gitlens.graph.refresh:executed' | 'command:gitlens.graph.renameBranch:executed' | 'command:gitlens.graph.resetColumnsCompact:executed' | 'command:gitlens.graph.resetColumnsDefault:executed' | 'command:gitlens.graph.resetCommit:executed' | 'command:gitlens.graph.resetToCommit:executed' | 'command:gitlens.graph.resetToTag:executed' | 'command:gitlens.graph.resetToTip:executed' | 'command:gitlens.graph.revert:executed' | 'command:gitlens.graph.scrollMarkerLocalBranchOff:executed' | 'command:gitlens.graph.scrollMarkerLocalBranchOn:executed' | 'command:gitlens.graph.scrollMarkerPullRequestOff:executed' | 'command:gitlens.graph.scrollMarkerPullRequestOn:executed' | 'command:gitlens.graph.scrollMarkerRemoteBranchOff:executed' | 'command:gitlens.graph.scrollMarkerRemoteBranchOn:executed' | 'command:gitlens.graph.scrollMarkerStashOff:executed' | 'command:gitlens.graph.scrollMarkerStashOn:executed' | 'command:gitlens.graph.scrollMarkerTagOff:executed' | 'command:gitlens.graph.scrollMarkerTagOn:executed' | 'command:gitlens.graph.shareAsCloudPatch:executed' | 'command:gitlens.graph.showInDetailsView:executed' | 'command:gitlens.graph.switchToAnotherBranch:executed' | 'command:gitlens.graph.switchToBranch:executed' | 'command:gitlens.graph.switchToCommit:executed' | 'command:gitlens.graph.switchToTag:executed' | 'command:gitlens.graph.undoCommit:executed' | 'command:gitlens.inviteToLiveShare:executed' | 'command:gitlens.openCloudPatch:executed' | 'command:gitlens.openComparisonOnRemote:executed' | 'command:gitlens.openFolderHistory:executed' | 'command:gitlens.openPullRequestOnRemote:executed' | 'command:gitlens.plus.cloudIntegrations.connect:executed' | 'command:gitlens.regenerateMarkdownDocument:executed' | 'command:gitlens.showInCommitGraph:executed' | 'command:gitlens.showInCommitGraphView:executed' | 'command:gitlens.showInDetailsView:executed' | 'command:gitlens.showQuickCommitDetails:executed' | 'command:gitlens.showSettingsPage!branches-view:executed' | 'command:gitlens.showSettingsPage!commit-graph:executed' | 'command:gitlens.showSettingsPage!commits-view:executed' | 'command:gitlens.showSettingsPage!contributors-view:executed' | 'command:gitlens.showSettingsPage!file-annotations:executed' | 'command:gitlens.showSettingsPage!file-history-view:executed' | 'command:gitlens.showSettingsPage!line-history-view:executed' | 'command:gitlens.showSettingsPage!remotes-view:executed' | 'command:gitlens.showSettingsPage!repositories-view:executed' | 'command:gitlens.showSettingsPage!search-compare-view:executed' | 'command:gitlens.showSettingsPage!stashes-view:executed' | 'command:gitlens.showSettingsPage!tags-view:executed' | 'command:gitlens.showSettingsPage!views:executed' | 'command:gitlens.showSettingsPage!worktrees-view:executed' | 'command:gitlens.star.branch.multi:views:executed' | 'command:gitlens.star.branch:graph:executed' | 'command:gitlens.star.branch:views:executed' | 'command:gitlens.star.repository.multi:views:executed' | 'command:gitlens.star.repository:views:executed' | 'command:gitlens.stashApply:graph:executed' | 'command:gitlens.stashApply:views:executed' | 'command:gitlens.stashDelete.multi:views:executed' | 'command:gitlens.stashDelete:graph:executed' | 'command:gitlens.stashDelete:views:executed' | 'command:gitlens.stashRename:graph:executed' | 'command:gitlens.stashRename:views:executed' | 'command:gitlens.stashSave.files:scm:executed' | 'command:gitlens.stashSave.files:views:executed' | 'command:gitlens.stashSave:graph:executed' | 'command:gitlens.stashSave:views:executed' | 'command:gitlens.stashesApply:views:executed' | 'command:gitlens.timeline.refresh:executed' | 'command:gitlens.toggleFileChangesOnly:executed' | 'command:gitlens.toggleFileHeatmapInDiffLeft:executed' | 'command:gitlens.toggleFileHeatmapInDiffRight:executed' | 'command:gitlens.unstar.branch.multi:views:executed' | 'command:gitlens.unstar.branch:graph:executed' | 'command:gitlens.unstar.branch:views:executed' | 'command:gitlens.unstar.repository.multi:views:executed' | 'command:gitlens.unstar.repository:views:executed' | 'command:gitlens.views.abortPausedOperation:executed' | 'command:gitlens.views.addAuthor:executed' | 'command:gitlens.views.addAuthor.multi:executed' | 'command:gitlens.views.addAuthors:executed' | 'command:gitlens.views.addPullRequestRemote:executed' | 'command:gitlens.views.addRemote:executed' | 'command:gitlens.views.applyChanges:executed' | 'command:gitlens.views.associateIssueWithBranch:executed' | 'command:gitlens.views.branches.attach:executed' | 'command:gitlens.views.branches.copy:executed' | 'command:gitlens.views.branches.refresh:executed' | 'command:gitlens.views.branches.setFilesLayoutToAuto:executed' | 'command:gitlens.views.branches.setFilesLayoutToList:executed' | 'command:gitlens.views.branches.setFilesLayoutToTree:executed' | 'command:gitlens.views.branches.setLayoutToList:executed' | 'command:gitlens.views.branches.setLayoutToTree:executed' | 'command:gitlens.views.branches.setShowAvatarsOff:executed' | 'command:gitlens.views.branches.setShowAvatarsOn:executed' | 'command:gitlens.views.branches.setShowBranchComparisonOff:executed' | 'command:gitlens.views.branches.setShowBranchComparisonOn:executed' | 'command:gitlens.views.branches.setShowBranchPullRequestOff:executed' | 'command:gitlens.views.branches.setShowBranchPullRequestOn:executed' | 'command:gitlens.views.branches.setShowRemoteBranchesOff:executed' | 'command:gitlens.views.branches.setShowRemoteBranchesOn:executed' | 'command:gitlens.views.branches.setShowStashesOff:executed' | 'command:gitlens.views.branches.setShowStashesOn:executed' | 'command:gitlens.views.branches.viewOptionsTitle:executed' | 'command:gitlens.views.browseRepoAtRevision:executed' | 'command:gitlens.views.browseRepoAtRevisionInNewWindow:executed' | 'command:gitlens.views.browseRepoBeforeRevision:executed' | 'command:gitlens.views.browseRepoBeforeRevisionInNewWindow:executed' | 'command:gitlens.views.cherryPick:executed' | 'command:gitlens.views.cherryPick.multi:executed' | 'command:gitlens.views.clearComparison:executed' | 'command:gitlens.views.clearReviewed:executed' | 'command:gitlens.views.closeRepository:executed' | 'command:gitlens.views.collapseNode:executed' | 'command:gitlens.views.commitDetails.refresh:executed' | 'command:gitlens.views.commits.attach:executed' | 'command:gitlens.views.commits.copy:executed' | 'command:gitlens.views.commits.refresh:executed' | 'command:gitlens.views.commits.setCommitsFilterAuthors:executed' | 'command:gitlens.views.commits.setCommitsFilterOff:executed' | 'command:gitlens.views.commits.setFilesLayoutToAuto:executed' | 'command:gitlens.views.commits.setFilesLayoutToList:executed' | 'command:gitlens.views.commits.setFilesLayoutToTree:executed' | 'command:gitlens.views.commits.setShowAvatarsOff:executed' | 'command:gitlens.views.commits.setShowAvatarsOn:executed' | 'command:gitlens.views.commits.setShowBranchComparisonOff:executed' | 'command:gitlens.views.commits.setShowBranchComparisonOn:executed' | 'command:gitlens.views.commits.setShowBranchPullRequestOff:executed' | 'command:gitlens.views.commits.setShowBranchPullRequestOn:executed' | 'command:gitlens.views.commits.setShowMergeCommitsOff:executed' | 'command:gitlens.views.commits.setShowMergeCommitsOn:executed' | 'command:gitlens.views.commits.setShowStashesOff:executed' | 'command:gitlens.views.commits.setShowStashesOn:executed' | 'command:gitlens.views.commits.viewOptionsTitle:executed' | 'command:gitlens.views.compareAncestryWithWorking:executed' | 'command:gitlens.views.compareBranchWithHead:executed' | 'command:gitlens.views.compareFileWithSelected:executed' | 'command:gitlens.views.compareWithHead:executed' | 'command:gitlens.views.compareWithMergeBase:executed' | 'command:gitlens.views.compareWithSelected:executed' | 'command:gitlens.views.compareWithUpstream:executed' | 'command:gitlens.views.compareWithWorking:executed' | 'command:gitlens.views.continuePausedOperation:executed' | 'command:gitlens.views.contributors.attach:executed' | 'command:gitlens.views.contributors.copy:executed' | 'command:gitlens.views.contributors.refresh:executed' | 'command:gitlens.views.contributors.setFilesLayoutToAuto:executed' | 'command:gitlens.views.contributors.setFilesLayoutToList:executed' | 'command:gitlens.views.contributors.setFilesLayoutToTree:executed' | 'command:gitlens.views.contributors.setShowAllBranchesOff:executed' | 'command:gitlens.views.contributors.setShowAllBranchesOn:executed' | 'command:gitlens.views.contributors.setShowAvatarsOff:executed' | 'command:gitlens.views.contributors.setShowAvatarsOn:executed' | 'command:gitlens.views.contributors.setShowMergeCommitsOff:executed' | 'command:gitlens.views.contributors.setShowMergeCommitsOn:executed' | 'command:gitlens.views.contributors.setShowStatisticsOff:executed' | 'command:gitlens.views.contributors.setShowStatisticsOn:executed' | 'command:gitlens.views.contributors.viewOptionsTitle:executed' | 'command:gitlens.views.copy:executed' | 'command:gitlens.views.copyAsMarkdown:executed' | 'command:gitlens.views.copyRemoteCommitUrl:executed' | 'command:gitlens.views.copyRemoteCommitUrl.multi:executed' | 'command:gitlens.views.copyUrl:executed' | 'command:gitlens.views.copyUrl.multi:executed' | 'command:gitlens.views.createBranch:executed' | 'command:gitlens.views.createPullRequest:executed' | 'command:gitlens.views.createTag:executed' | 'command:gitlens.views.createWorktree:executed' | 'command:gitlens.views.deleteBranch:executed' | 'command:gitlens.views.deleteBranch.multi:executed' | 'command:gitlens.views.deleteTag:executed' | 'command:gitlens.views.deleteTag.multi:executed' | 'command:gitlens.views.deleteWorktree:executed' | 'command:gitlens.views.deleteWorktree.multi:executed' | 'command:gitlens.views.dismissNode:executed' | 'command:gitlens.views.draft.open:executed' | 'command:gitlens.views.draft.openOnWeb:executed' | 'command:gitlens.views.drafts.copy:executed' | 'command:gitlens.views.drafts.create:executed' | 'command:gitlens.views.drafts.delete:executed' | 'command:gitlens.views.drafts.info:executed' | 'command:gitlens.views.drafts.refresh:executed' | 'command:gitlens.views.drafts.setShowAvatarsOff:executed' | 'command:gitlens.views.drafts.setShowAvatarsOn:executed' | 'command:gitlens.views.editNode:executed' | 'command:gitlens.views.expandNode:executed' | 'command:gitlens.views.fetch:executed' | 'command:gitlens.views.fileHistory.attach:executed' | 'command:gitlens.views.fileHistory.changeBase:executed' | 'command:gitlens.views.fileHistory.copy:executed' | 'command:gitlens.views.fileHistory.refresh:executed' | 'command:gitlens.views.fileHistory.setCursorFollowingOff:executed' | 'command:gitlens.views.fileHistory.setCursorFollowingOn:executed' | 'command:gitlens.views.fileHistory.setEditorFollowingOff:executed' | 'command:gitlens.views.fileHistory.setEditorFollowingOn:executed' | 'command:gitlens.views.fileHistory.setModeCommits:executed' | 'command:gitlens.views.fileHistory.setModeContributors:executed' | 'command:gitlens.views.fileHistory.setRenameFollowingOff:executed' | 'command:gitlens.views.fileHistory.setRenameFollowingOn:executed' | 'command:gitlens.views.fileHistory.setShowAllBranchesOff:executed' | 'command:gitlens.views.fileHistory.setShowAllBranchesOn:executed' | 'command:gitlens.views.fileHistory.setShowAvatarsOff:executed' | 'command:gitlens.views.fileHistory.setShowAvatarsOn:executed' | 'command:gitlens.views.fileHistory.setShowMergeCommitsOff:executed' | 'command:gitlens.views.fileHistory.setShowMergeCommitsOn:executed' | 'command:gitlens.views.fileHistory.viewOptionsTitle:executed' | 'command:gitlens.views.graph.openInTab:executed' | 'command:gitlens.views.graph.refresh:executed' | 'command:gitlens.views.graphDetails.refresh:executed' | 'command:gitlens.views.highlightChanges:executed' | 'command:gitlens.views.highlightRevisionChanges:executed' | 'command:gitlens.views.home.disablePreview:executed' | 'command:gitlens.views.home.discussions:executed' | 'command:gitlens.views.home.enablePreview:executed' | 'command:gitlens.views.home.help:executed' | 'command:gitlens.views.home.info:executed' | 'command:gitlens.views.home.issues:executed' | 'command:gitlens.views.home.previewFeedback:executed' | 'command:gitlens.views.home.refresh:executed' | 'command:gitlens.views.home.whatsNew:executed' | 'command:gitlens.views.launchpad.attach:executed' | 'command:gitlens.views.launchpad.copy:executed' | 'command:gitlens.views.launchpad.info:executed' | 'command:gitlens.views.launchpad.refresh:executed' | 'command:gitlens.views.launchpad.setFilesLayoutToAuto:executed' | 'command:gitlens.views.launchpad.setFilesLayoutToList:executed' | 'command:gitlens.views.launchpad.setFilesLayoutToTree:executed' | 'command:gitlens.views.launchpad.setShowAvatarsOff:executed' | 'command:gitlens.views.launchpad.setShowAvatarsOn:executed' | 'command:gitlens.views.launchpad.viewOptionsTitle:executed' | 'command:gitlens.views.lineHistory.changeBase:executed' | 'command:gitlens.views.lineHistory.copy:executed' | 'command:gitlens.views.lineHistory.refresh:executed' | 'command:gitlens.views.lineHistory.setEditorFollowingOff:executed' | 'command:gitlens.views.lineHistory.setEditorFollowingOn:executed' | 'command:gitlens.views.lineHistory.setShowAvatarsOff:executed' | 'command:gitlens.views.lineHistory.setShowAvatarsOn:executed' | 'command:gitlens.views.loadAllChildren:executed' | 'command:gitlens.views.loadMoreChildren:executed' | 'command:gitlens.views.mergeBranchInto:executed' | 'command:gitlens.views.mergeChangesWithWorking:executed' | 'command:gitlens.views.openBranchOnRemote:executed' | 'command:gitlens.views.openBranchOnRemote.multi:executed' | 'command:gitlens.views.openChangedFileDiffs:executed' | 'command:gitlens.views.openChangedFileDiffsIndividually:executed' | 'command:gitlens.views.openChangedFileDiffsWithMergeBase:executed' | 'command:gitlens.views.openChangedFileDiffsWithWorking:executed' | 'command:gitlens.views.openChangedFileDiffsWithWorkingIndividually:executed' | 'command:gitlens.views.openChangedFileRevisions:executed' | 'command:gitlens.views.openChangedFiles:executed' | 'command:gitlens.views.openChanges:executed' | 'command:gitlens.views.openChangesWithMergeBase:executed' | 'command:gitlens.views.openChangesWithWorking:executed' | 'command:gitlens.views.openCommitOnRemote:executed' | 'command:gitlens.views.openCommitOnRemote.multi:executed' | 'command:gitlens.views.openDirectoryDiff:executed' | 'command:gitlens.views.openDirectoryDiffWithWorking:executed' | 'command:gitlens.views.openFile:executed' | 'command:gitlens.views.openFileRevision:executed' | 'command:gitlens.views.openInIntegratedTerminal:executed' | 'command:gitlens.views.openInTerminal:executed' | 'command:gitlens.views.openInWorktree:executed' | 'command:gitlens.views.openOnlyChangedFiles:executed' | 'command:gitlens.views.openPausedOperationInRebaseEditor:executed' | 'command:gitlens.views.openPreviousChangesWithWorking:executed' | 'command:gitlens.views.openPullRequest:executed' | 'command:gitlens.views.openPullRequestChanges:executed' | 'command:gitlens.views.openPullRequestComparison:executed' | 'command:gitlens.views.openUrl:executed' | 'command:gitlens.views.openUrl.multi:executed' | 'command:gitlens.views.openWorktree:executed' | 'command:gitlens.views.openWorktreeInNewWindow:executed' | 'command:gitlens.views.openWorktreeInNewWindow.multi:executed' | 'command:gitlens.views.patchDetails.close:executed' | 'command:gitlens.views.patchDetails.refresh:executed' | 'command:gitlens.views.pruneRemote:executed' | 'command:gitlens.views.publishBranch:executed' | 'command:gitlens.views.publishRepository:executed' | 'command:gitlens.views.pull:executed' | 'command:gitlens.views.pullRequest.close:executed' | 'command:gitlens.views.pullRequest.copy:executed' | 'command:gitlens.views.pullRequest.refresh:executed' | 'command:gitlens.views.pullRequest.setFilesLayoutToAuto:executed' | 'command:gitlens.views.pullRequest.setFilesLayoutToList:executed' | 'command:gitlens.views.pullRequest.setFilesLayoutToTree:executed' | 'command:gitlens.views.pullRequest.setShowAvatarsOff:executed' | 'command:gitlens.views.pullRequest.setShowAvatarsOn:executed' | 'command:gitlens.views.push:executed' | 'command:gitlens.views.pushToCommit:executed' | 'command:gitlens.views.pushWithForce:executed' | 'command:gitlens.views.rebaseOntoBranch:executed' | 'command:gitlens.views.rebaseOntoCommit:executed' | 'command:gitlens.views.rebaseOntoUpstream:executed' | 'command:gitlens.views.refreshNode:executed' | 'command:gitlens.views.remotes.attach:executed' | 'command:gitlens.views.remotes.copy:executed' | 'command:gitlens.views.remotes.refresh:executed' | 'command:gitlens.views.remotes.setFilesLayoutToAuto:executed' | 'command:gitlens.views.remotes.setFilesLayoutToList:executed' | 'command:gitlens.views.remotes.setFilesLayoutToTree:executed' | 'command:gitlens.views.remotes.setLayoutToList:executed' | 'command:gitlens.views.remotes.setLayoutToTree:executed' | 'command:gitlens.views.remotes.setShowAvatarsOff:executed' | 'command:gitlens.views.remotes.setShowAvatarsOn:executed' | 'command:gitlens.views.remotes.setShowBranchPullRequestOff:executed' | 'command:gitlens.views.remotes.setShowBranchPullRequestOn:executed' | 'command:gitlens.views.remotes.viewOptionsTitle:executed' | 'command:gitlens.views.removeRemote:executed' | 'command:gitlens.views.renameBranch:executed' | 'command:gitlens.views.repositories.attach:executed' | 'command:gitlens.views.repositories.copy:executed' | 'command:gitlens.views.repositories.refresh:executed' | 'command:gitlens.views.repositories.setAutoRefreshToOff:executed' | 'command:gitlens.views.repositories.setAutoRefreshToOn:executed' | 'command:gitlens.views.repositories.setBranchesLayoutToList:executed' | 'command:gitlens.views.repositories.setBranchesLayoutToTree:executed' | 'command:gitlens.views.repositories.setBranchesShowBranchComparisonOff:executed' | 'command:gitlens.views.repositories.setBranchesShowBranchComparisonOn:executed' | 'command:gitlens.views.repositories.setBranchesShowStashesOff:executed' | 'command:gitlens.views.repositories.setBranchesShowStashesOn:executed' | 'command:gitlens.views.repositories.setFilesLayoutToAuto:executed' | 'command:gitlens.views.repositories.setFilesLayoutToList:executed' | 'command:gitlens.views.repositories.setFilesLayoutToTree:executed' | 'command:gitlens.views.repositories.setShowAvatarsOff:executed' | 'command:gitlens.views.repositories.setShowAvatarsOn:executed' | 'command:gitlens.views.repositories.setShowSectionBranchComparisonOff:executed' | 'command:gitlens.views.repositories.setShowSectionBranchComparisonOn:executed' | 'command:gitlens.views.repositories.setShowSectionBranchesOff:executed' | 'command:gitlens.views.repositories.setShowSectionBranchesOn:executed' | 'command:gitlens.views.repositories.setShowSectionCommitsOff:executed' | 'command:gitlens.views.repositories.setShowSectionCommitsOn:executed' | 'command:gitlens.views.repositories.setShowSectionContributorsOff:executed' | 'command:gitlens.views.repositories.setShowSectionContributorsOn:executed' | 'command:gitlens.views.repositories.setShowSectionOff:executed' | 'command:gitlens.views.repositories.setShowSectionRemotesOff:executed' | 'command:gitlens.views.repositories.setShowSectionRemotesOn:executed' | 'command:gitlens.views.repositories.setShowSectionStashesOff:executed' | 'command:gitlens.views.repositories.setShowSectionStashesOn:executed' | 'command:gitlens.views.repositories.setShowSectionTagsOff:executed' | 'command:gitlens.views.repositories.setShowSectionTagsOn:executed' | 'command:gitlens.views.repositories.setShowSectionUpstreamStatusOff:executed' | 'command:gitlens.views.repositories.setShowSectionUpstreamStatusOn:executed' | 'command:gitlens.views.repositories.setShowSectionWorktreesOff:executed' | 'command:gitlens.views.repositories.setShowSectionWorktreesOn:executed' | 'command:gitlens.views.repositories.viewOptionsTitle:executed' | 'command:gitlens.views.resetCommit:executed' | 'command:gitlens.views.resetToCommit:executed' | 'command:gitlens.views.resetToTip:executed' | 'command:gitlens.views.restore:executed' | 'command:gitlens.views.revealRepositoryInExplorer:executed' | 'command:gitlens.views.revealWorktreeInExplorer:executed' | 'command:gitlens.views.revert:executed' | 'command:gitlens.views.scm.grouped.attachAll:executed' | 'command:gitlens.views.scm.grouped.branches:executed' | 'command:gitlens.views.scm.grouped.branches.attach:executed' | 'command:gitlens.views.scm.grouped.branches.detach:executed' | 'command:gitlens.views.scm.grouped.branches.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.branches.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.branches.visibility.show:executed' | 'command:gitlens.views.scm.grouped.commits:executed' | 'command:gitlens.views.scm.grouped.commits.attach:executed' | 'command:gitlens.views.scm.grouped.commits.detach:executed' | 'command:gitlens.views.scm.grouped.commits.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.commits.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.commits.visibility.show:executed' | 'command:gitlens.views.scm.grouped.contributors:executed' | 'command:gitlens.views.scm.grouped.contributors.attach:executed' | 'command:gitlens.views.scm.grouped.contributors.detach:executed' | 'command:gitlens.views.scm.grouped.contributors.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.contributors.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.contributors.visibility.show:executed' | 'command:gitlens.views.scm.grouped.detachAll:executed' | 'command:gitlens.views.scm.grouped.fileHistory:executed' | 'command:gitlens.views.scm.grouped.fileHistory.attach:executed' | 'command:gitlens.views.scm.grouped.fileHistory.detach:executed' | 'command:gitlens.views.scm.grouped.fileHistory.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.fileHistory.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.fileHistory.visibility.show:executed' | 'command:gitlens.views.scm.grouped.launchpad:executed' | 'command:gitlens.views.scm.grouped.launchpad.attach:executed' | 'command:gitlens.views.scm.grouped.launchpad.detach:executed' | 'command:gitlens.views.scm.grouped.launchpad.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.launchpad.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.launchpad.visibility.show:executed' | 'command:gitlens.views.scm.grouped.refresh:executed' | 'command:gitlens.views.scm.grouped.remotes:executed' | 'command:gitlens.views.scm.grouped.remotes.attach:executed' | 'command:gitlens.views.scm.grouped.remotes.detach:executed' | 'command:gitlens.views.scm.grouped.remotes.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.remotes.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.remotes.visibility.show:executed' | 'command:gitlens.views.scm.grouped.repositories:executed' | 'command:gitlens.views.scm.grouped.repositories.attach:executed' | 'command:gitlens.views.scm.grouped.repositories.detach:executed' | 'command:gitlens.views.scm.grouped.repositories.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.repositories.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.repositories.visibility.show:executed' | 'command:gitlens.views.scm.grouped.resetAll:executed' | 'command:gitlens.views.scm.grouped.searchAndCompare:executed' | 'command:gitlens.views.scm.grouped.searchAndCompare.attach:executed' | 'command:gitlens.views.scm.grouped.searchAndCompare.detach:executed' | 'command:gitlens.views.scm.grouped.searchAndCompare.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.searchAndCompare.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.searchAndCompare.visibility.show:executed' | 'command:gitlens.views.scm.grouped.stashes:executed' | 'command:gitlens.views.scm.grouped.stashes.attach:executed' | 'command:gitlens.views.scm.grouped.stashes.detach:executed' | 'command:gitlens.views.scm.grouped.stashes.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.stashes.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.stashes.visibility.show:executed' | 'command:gitlens.views.scm.grouped.tags:executed' | 'command:gitlens.views.scm.grouped.tags.attach:executed' | 'command:gitlens.views.scm.grouped.tags.detach:executed' | 'command:gitlens.views.scm.grouped.tags.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.tags.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.tags.visibility.show:executed' | 'command:gitlens.views.scm.grouped.worktrees:executed' | 'command:gitlens.views.scm.grouped.worktrees.attach:executed' | 'command:gitlens.views.scm.grouped.worktrees.detach:executed' | 'command:gitlens.views.scm.grouped.worktrees.setAsDefault:executed' | 'command:gitlens.views.scm.grouped.worktrees.visibility.hide:executed' | 'command:gitlens.views.scm.grouped.worktrees.visibility.show:executed' | 'command:gitlens.views.searchAndCompare.attach:executed' | 'command:gitlens.views.searchAndCompare.clear:executed' | 'command:gitlens.views.searchAndCompare.copy:executed' | 'command:gitlens.views.searchAndCompare.refresh:executed' | 'command:gitlens.views.searchAndCompare.searchCommits:executed' | 'command:gitlens.views.searchAndCompare.selectForCompare:executed' | 'command:gitlens.views.searchAndCompare.setFilesLayoutToAuto:executed' | 'command:gitlens.views.searchAndCompare.setFilesLayoutToList:executed' | 'command:gitlens.views.searchAndCompare.setFilesLayoutToTree:executed' | 'command:gitlens.views.searchAndCompare.setShowAvatarsOff:executed' | 'command:gitlens.views.searchAndCompare.setShowAvatarsOn:executed' | 'command:gitlens.views.searchAndCompare.swapComparison:executed' | 'command:gitlens.views.searchAndCompare.viewOptionsTitle:executed' | 'command:gitlens.views.selectFileForCompare:executed' | 'command:gitlens.views.selectForCompare:executed' | 'command:gitlens.views.setAsDefault:executed' | 'command:gitlens.views.setBranchComparisonToBranch:executed' | 'command:gitlens.views.setBranchComparisonToWorking:executed' | 'command:gitlens.views.setContributorsStatisticsOff:executed' | 'command:gitlens.views.setContributorsStatisticsOn:executed' | 'command:gitlens.views.setResultsCommitsFilterAuthors:executed' | 'command:gitlens.views.setResultsCommitsFilterOff:executed' | 'command:gitlens.views.setResultsFilesFilterOff:executed' | 'command:gitlens.views.setResultsFilesFilterOnLeft:executed' | 'command:gitlens.views.setResultsFilesFilterOnRight:executed' | 'command:gitlens.views.setShowRelativeDateMarkersOff:executed' | 'command:gitlens.views.setShowRelativeDateMarkersOn:executed' | 'command:gitlens.views.skipPausedOperation:executed' | 'command:gitlens.views.stageDirectory:executed' | 'command:gitlens.views.stageFile:executed' | 'command:gitlens.views.stashes.attach:executed' | 'command:gitlens.views.stashes.copy:executed' | 'command:gitlens.views.stashes.refresh:executed' | 'command:gitlens.views.stashes.setFilesLayoutToAuto:executed' | 'command:gitlens.views.stashes.setFilesLayoutToList:executed' | 'command:gitlens.views.stashes.setFilesLayoutToTree:executed' | 'command:gitlens.views.stashes.viewOptionsTitle:executed' | 'command:gitlens.views.switchToAnotherBranch:executed' | 'command:gitlens.views.switchToBranch:executed' | 'command:gitlens.views.switchToCommit:executed' | 'command:gitlens.views.switchToTag:executed' | 'command:gitlens.views.tags.attach:executed' | 'command:gitlens.views.tags.copy:executed' | 'command:gitlens.views.tags.refresh:executed' | 'command:gitlens.views.tags.setFilesLayoutToAuto:executed' | 'command:gitlens.views.tags.setFilesLayoutToList:executed' | 'command:gitlens.views.tags.setFilesLayoutToTree:executed' | 'command:gitlens.views.tags.setLayoutToList:executed' | 'command:gitlens.views.tags.setLayoutToTree:executed' | 'command:gitlens.views.tags.setShowAvatarsOff:executed' | 'command:gitlens.views.tags.setShowAvatarsOn:executed' | 'command:gitlens.views.tags.viewOptionsTitle:executed' | 'command:gitlens.views.timeline.refresh:executed' | 'command:gitlens.views.title.createBranch:executed' | 'command:gitlens.views.title.createTag:executed' | 'command:gitlens.views.title.createWorktree:executed' | 'command:gitlens.views.undoCommit:executed' | 'command:gitlens.views.unsetAsDefault:executed' | 'command:gitlens.views.unstageDirectory:executed' | 'command:gitlens.views.unstageFile:executed' | 'command:gitlens.views.workspaces.addRepos:executed' | 'command:gitlens.views.workspaces.addReposFromLinked:executed' | 'command:gitlens.views.workspaces.changeAutoAddSetting:executed' | 'command:gitlens.views.workspaces.convert:executed' | 'command:gitlens.views.workspaces.copy:executed' | 'command:gitlens.views.workspaces.createLocal:executed' | 'command:gitlens.views.workspaces.delete:executed' | 'command:gitlens.views.workspaces.info:executed' | 'command:gitlens.views.workspaces.locateAllRepos:executed' | 'command:gitlens.views.workspaces.openLocal:executed' | 'command:gitlens.views.workspaces.openLocalNewWindow:executed' | 'command:gitlens.views.workspaces.refresh:executed' | 'command:gitlens.views.workspaces.repo.addToWindow:executed' | 'command:gitlens.views.workspaces.repo.locate:executed' | 'command:gitlens.views.workspaces.repo.open:executed' | 'command:gitlens.views.workspaces.repo.openInNewWindow:executed' | 'command:gitlens.views.workspaces.repo.remove:executed' | 'command:gitlens.views.worktrees.attach:executed' | 'command:gitlens.views.worktrees.copy:executed' | 'command:gitlens.views.worktrees.refresh:executed' | 'command:gitlens.views.worktrees.setFilesLayoutToAuto:executed' | 'command:gitlens.views.worktrees.setFilesLayoutToList:executed' | 'command:gitlens.views.worktrees.setFilesLayoutToTree:executed' | 'command:gitlens.views.worktrees.setLayoutToList:executed' | 'command:gitlens.views.worktrees.setLayoutToTree:executed' | 'command:gitlens.views.worktrees.setShowAvatarsOff:executed' | 'command:gitlens.views.worktrees.setShowAvatarsOn:executed' | 'command:gitlens.views.worktrees.setShowBranchComparisonOff:executed' | 'command:gitlens.views.worktrees.setShowBranchComparisonOn:executed' | 'command:gitlens.views.worktrees.setShowBranchPullRequestOff:executed' | 'command:gitlens.views.worktrees.setShowBranchPullRequestOn:executed' | 'command:gitlens.views.worktrees.setShowStashesOff:executed' | 'command:gitlens.views.worktrees.setShowStashesOn:executed' | 'command:gitlens.views.worktrees.viewOptionsTitle:executed' | 'command:gitlens.visualizeHistory.file:editor:executed' | 'command:gitlens.visualizeHistory.file:explorer:executed' | 'command:gitlens.visualizeHistory.file:scm:executed' | 'command:gitlens.visualizeHistory.file:views:executed' | 'command:gitlens.visualizeHistory.folder:explorer:executed' | 'command:gitlens.visualizeHistory.folder:scm:executed' | `command:gitlens.action.${string}:executed` | 'command:gitlens.diffWith:executed' | 'command:gitlens.ai.explainCommit:editor:executed' | 'command:gitlens.ai.explainWip:editor:executed' | 'command:gitlens.openOnRemote:executed' | 'command:gitlens.openWalkthrough:executed' | 'command:gitlens.refreshHover:executed' | 'command:gitlens.visualizeHistory:executed' | 'command:gitlens.graph.abortPausedOperation:executed' | 'command:gitlens.graph.continuePausedOperation:executed' | 'command:gitlens.graph.openRebaseEditor:executed' | 'command:gitlens.graph.skipPausedOperation:executed' | 'command:gitlens.visualizeHistory.repo:graph:executed' | 'command:gitlens.ai.explainWip:home:executed' | 'command:gitlens.ai.explainBranch:home:executed' | 'command:gitlens.ai.generateCommits:home:executed' | 'command:gitlens.home.changeBranchMergeTarget:executed' | 'command:gitlens.home.deleteBranchOrWorktree:executed' | 'command:gitlens.home.pushBranch:executed' | 'command:gitlens.home.openMergeTargetComparison:executed' | 'command:gitlens.home.openPullRequestChanges:executed' | 'command:gitlens.home.openPullRequestComparison:executed' | 'command:gitlens.home.openPullRequestOnRemote:executed' | 'command:gitlens.home.openPullRequestDetails:executed' | 'command:gitlens.home.createPullRequest:executed' | 'command:gitlens.home.openWorktree:executed' | 'command:gitlens.home.switchToBranch:executed' | 'command:gitlens.home.fetch:executed' | 'command:gitlens.home.openInGraph:executed' | 'command:gitlens.openInView.branch:home:executed' | 'command:gitlens.home.createBranch:executed' | 'command:gitlens.home.mergeIntoCurrent:executed' | 'command:gitlens.home.rebaseCurrentOnto:executed' | 'command:gitlens.home.startWork:executed' | 'command:gitlens.home.createCloudPatch:executed' | 'command:gitlens.home.skipPausedOperation:executed' | 'command:gitlens.home.continuePausedOperation:executed' | 'command:gitlens.home.abortPausedOperation:executed' | 'command:gitlens.home.openRebaseEditor:executed' | 'command:gitlens.home.enableAi:executed' | 'command:gitlens.visualizeHistory.repo:home:executed' | 'command:gitlens.visualizeHistory.branch:home:executed' | 'command:gitlens.views.home.account.resync:executed' | 'command:gitlens.views.home.ai.allAccess.dismiss:executed' | 'command:gitlens.views.home.publishBranch:executed' | 'command:gitlens.views.home.pull:executed' | 'command:gitlens.views.home.push:executed' | 'command:gitlens.launchpad.indicator.action:executed' | 'command:gitlens.plus.aiAllAccess.optIn:executed' | 'command:gitlens.plus.continueFeaturePreview:executed' | 'command:gitlens.plus.resendVerification:executed' | 'command:gitlens.plus.showPlans:executed' | 'command:gitlens.plus.validate:executed' | 'command:gitlens.views.scm.grouped.welcome.dismiss:executed' | 'command:gitlens.views.scm.grouped.welcome.restore:executed' | 'command:gitlens.views.searchAndCompare.compareWithSelected:executed' | 'command:gitlens.views.timeline.openInTab:executed' | 'command:gitlens.walkthrough.connectIntegrations:executed' | 'command:gitlens.walkthrough.enableAiSetting:executed' | 'command:gitlens.walkthrough.gitlensInspect:executed' | 'command:gitlens.walkthrough.openAcceleratePrReviews:executed' | 'command:gitlens.walkthrough.openAiCustomInstructionsSettings:executed' | 'command:gitlens.walkthrough.openAiSettings:executed' | 'command:gitlens.walkthrough.openCommunityVsPro:executed' | 'command:gitlens.walkthrough.openHelpCenter:executed' | 'command:gitlens.walkthrough.openHomeViewVideo:executed' | 'command:gitlens.walkthrough.openInteractiveCodeHistory:executed' | 'command:gitlens.walkthrough.openLearnAboutAiFeatures:executed' | 'command:gitlens.walkthrough.openStartIntegrations:executed' | 'command:gitlens.walkthrough.openStreamlineCollaboration:executed' | 'command:gitlens.walkthrough.openWalkthrough:executed' | 'command:gitlens.walkthrough.plus.signUp:executed' | 'command:gitlens.walkthrough.plus.upgrade:executed' | 'command:gitlens.walkthrough.plus.reactivate:executed' | 'command:gitlens.walkthrough.showAutolinks:executed' | 'command:gitlens.walkthrough.showDraftsView:executed' | 'command:gitlens.walkthrough.showGraph:executed' | 'command:gitlens.walkthrough.showHomeView:executed' | 'command:gitlens.walkthrough.showLaunchpad:executed' | 'command:gitlens.walkthrough.switchAIProvider:executed' | 'command:gitlens.walkthrough.worktree.create:executed' | 'command:gitlens.walkthrough.openDevExPlatform:executed' | 'command:gitlens.generateCommitMessage:executed' | 'command:gitlens.scm.generateCommitMessage:executed' | 'command:gitlens.scm.ai.generateCommitMessage:executed' | 'command:gitlens.switchAIModel:executed' | 'command:gitlens.diffHeadWith:executed' | 'command:gitlens.diffWorkingWith:executed' | 'command:gitlens.openBranchesInRemote:executed' | 'command:gitlens.openBranchInRemote:executed' | 'command:gitlens.openCommitInRemote:executed' | 'command:gitlens.openFileInRemote:executed' | 'command:gitlens.openInRemote:executed' | 'command:gitlens.openRepoInRemote:executed' | 'command:gitlens.showFileHistoryInView:executed' | 'home:walkthrough:dismissed'
+  'usage.key': string /* TrackedUsageKeys */
 }
 ```
 
@@ -2301,7 +3431,8 @@ or
 
 ```typescript
 {
-  'step': 'welcome-in-trial' | 'welcome-paid' | 'welcome-in-trial-expired-eligible' | 'welcome-in-trial-expired' | 'get-started-community' | 'visualize-code-history' | 'accelerate-pr-reviews' | 'streamline-collaboration' | 'improve-workflows-with-integrations'
+  'step': 'welcome-in-trial' | 'welcome-paid' | 'welcome-in-trial-expired-eligible' | 'welcome-in-trial-expired' | 'get-started-community' | 'visualize-code-history' | 'accelerate-pr-reviews' | 'streamline-collaboration' | 'improve-workflows-with-integrations',
+  'usingFallbackUrl': boolean
 }
 ```
 

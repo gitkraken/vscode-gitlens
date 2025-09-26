@@ -2,7 +2,7 @@ import type { Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { ProviderNotSupportedError } from '../errors';
 import type { Features } from '../features';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { groupByFilterMap } from '../system/iterable';
 import { getSettledValue } from '../system/promise';

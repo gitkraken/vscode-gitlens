@@ -18,7 +18,12 @@ import { isRepository } from './git/models/repository';
 import { isTag } from './git/models/tag';
 import { getBranchNameWithoutRemote } from './git/utils/branch.utils';
 import { setAbbreviatedShaLength } from './git/utils/revision.utils';
-import { showDebugLoggingWarningMessage, showPreReleaseExpiredErrorMessage, showWhatsNewMessage } from './messages';
+import {
+	showDebugLoggingWarningMessage,
+	showMcpMessage,
+	showPreReleaseExpiredErrorMessage,
+	showWhatsNewMessage,
+} from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { executeCommand, registerCommands } from './system/-webview/command';
 import { configuration, Configuration } from './system/-webview/configuration';
@@ -56,7 +61,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 							env.appName
 						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
 							env.language
-						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.machineId}|${
+						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 							env.sessionId
 						})`,
 					);
@@ -200,6 +205,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
+		showMcp(gitlensVersion, previousVersion);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
@@ -385,4 +391,17 @@ async function showWhatsNew(
 			container.context.subscriptions.push(disposable);
 		}
 	}
+}
+
+function showMcp(version: string, previousVersion: string | undefined): void {
+	if (
+		previousVersion == null ||
+		version === previousVersion ||
+		compare(version, previousVersion) !== 1 ||
+		satisfies(fromString(previousVersion), '>= 17.5')
+	) {
+		return;
+	}
+
+	void showMcpMessage(version);
 }

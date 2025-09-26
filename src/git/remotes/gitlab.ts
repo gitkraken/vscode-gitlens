@@ -13,7 +13,7 @@ import type { GitLabRepositoryDescriptor } from '../../plus/integrations/provide
 import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';

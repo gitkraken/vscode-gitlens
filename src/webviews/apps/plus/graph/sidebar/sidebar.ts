@@ -1,15 +1,15 @@
 import { consume } from '@lit/context';
 import { Task } from '@lit/task';
+import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import type { State } from '../../../../plus/graph/protocol';
 import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry';
-import { stateContext } from '../context';
+import { graphStateContext } from '../stateProvider';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 
@@ -31,7 +31,7 @@ const icons: Icon[] = [
 type Counts = Record<IconTypes, number | undefined>;
 
 @customElement('gl-graph-sidebar')
-export class GlGraphSideBar extends LitElement {
+export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
 		.sidebar {
 			box-sizing: border-box;
@@ -85,8 +85,8 @@ export class GlGraphSideBar extends LitElement {
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
 
-	@consume({ context: stateContext, subscribe: true })
-	private readonly _state!: State;
+	@consume({ context: graphStateContext, subscribe: true })
+	private readonly _state!: typeof graphStateContext.__context__;
 
 	private _disposable: Disposable | undefined;
 	private _countsTask = new Task(this, {

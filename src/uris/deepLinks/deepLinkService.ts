@@ -1,6 +1,8 @@
 import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
+import { fromBase64ToString } from '@env/base64';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
+import { isIntegrationId, isSupportedCloudIntegrationId } from '../../constants.integrations';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
@@ -29,7 +31,6 @@ import { debug } from '../../system/decorators/log';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { maybeUri, normalizePath } from '../../system/path';
-import { fromBase64 } from '../../system/string';
 import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
@@ -166,7 +167,14 @@ export class DeepLinkService implements Disposable {
 				await this.container.git.isDiscoveringRepositories;
 			}
 
-			if (!link.type || (!link.mainId && !link.remoteUrl && !link.repoPath && !link.targetId)) {
+			if (
+				!link.type ||
+				(link.type !== DeepLinkType.Integrations &&
+					!link.mainId &&
+					!link.remoteUrl &&
+					!link.repoPath &&
+					!link.targetId)
+			) {
 				void window.showErrorMessage('Unable to resolve link');
 				Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
 				return;
@@ -178,7 +186,12 @@ export class DeepLinkService implements Disposable {
 				return;
 			}
 
-			if (link.type !== DeepLinkType.Repository && link.targetId == null && link.mainId == null) {
+			if (
+				link.type !== DeepLinkType.Repository &&
+				link.type !== DeepLinkType.Integrations &&
+				link.targetId == null &&
+				link.mainId == null
+			) {
 				void window.showErrorMessage('Unable to resolve link');
 				Logger.warn(`Unable to resolve link - no main/target id provided: ${uri.toString()}`);
 				return;
@@ -716,6 +729,9 @@ export class DeepLinkService implements Disposable {
 						case DeepLinkType.Command:
 							action = DeepLinkServiceAction.LinkIsCommandType;
 							break;
+						case DeepLinkType.Integrations:
+							action = DeepLinkServiceAction.LinkIsIntegrationsType;
+							break;
 						default:
 							action = DeepLinkServiceAction.LinkIsRepoType;
 							break;
@@ -1236,7 +1252,7 @@ export class DeepLinkService implements Disposable {
 					const type = this._context.params?.get('type');
 					let prEntityId = this._context.params?.get('prEntityId') ?? undefined;
 					if (prEntityId != null) {
-						prEntityId = fromBase64(prEntityId).toString();
+						prEntityId = fromBase64ToString(prEntityId);
 					}
 
 					void (await executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {
@@ -1525,7 +1541,10 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					await executeCommand(command, { source: 'deeplink' });
+					const detail = this._context.params?.get('source');
+					const source = detail != null ? { source: 'deeplink', detail: detail } : { source: 'deeplink' };
+
+					await executeCommand(command, source);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
@@ -1561,6 +1580,35 @@ export class DeepLinkService implements Disposable {
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
+				case DeepLinkServiceState.ConnectCloudIntegrations: {
+					// integration ids will come through on the query string i.e. id=github&id=gitlab
+					const integrationIds = this._context.params?.getAll('id')?.map(id => {
+						if (id === 'github-enterprise' || id === 'gitlab-self-hosted') {
+							return `cloud-${id}`;
+						}
+						return id;
+					});
+
+					const source = this._context.params?.get('source');
+
+					// If any of the ids are not supported, throw an error
+					if (
+						integrationIds &&
+						!integrationIds.every(id => isIntegrationId(id) && isSupportedCloudIntegrationId(id))
+					) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Invalid integration id provided.';
+						break;
+					}
+
+					await this.container.integrations.connectCloudIntegrations(
+						integrationIds ? { integrationIds: integrationIds } : undefined,
+						source != null ? { source: 'deeplink', detail: source } : { source: 'deeplink' },
+					);
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+
 				default: {
 					action = DeepLinkServiceAction.DeepLinkErrored;
 					message = 'Unknown state.';

@@ -202,7 +202,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 	override getCommand(): Command | undefined {
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-			'gitlens.diffWithPrevious',
+			'gitlens.diffWithPrevious:views',
 			'Open Changes with Previous Revision',
 			undefined,
 			{
@@ -269,7 +269,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.supportsIntegration()) {
+		if (!remote || remote?.supportsIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
 				this.getAssociatedPullRequest(this.commit, remote),

@@ -25,7 +25,16 @@ export interface DiffWithPreviousCommandArgs {
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.diffWithPrevious');
+		super([
+			'gitlens.diffWithPrevious',
+			'gitlens.diffWithPrevious:codelens',
+			'gitlens.diffWithPrevious:command',
+			'gitlens.diffWithPrevious:editor',
+			'gitlens.diffWithPrevious:editor/title',
+			'gitlens.diffWithPrevious:explorer',
+			'gitlens.diffWithPrevious:key',
+			'gitlens.diffWithPrevious:views',
+		]);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs): Promise<void> {

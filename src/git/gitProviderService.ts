@@ -27,7 +27,7 @@ import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { getBestPath } from '../system/-webview/path';
 import { joinUnique } from '../system/array';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';
@@ -1420,7 +1420,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffForFile(uri, ref1, ref2);
 	}
 
-	@log<GitProviderService['getDiffForFileContents']>({ args: { 1: '<contents>' } })
+	@log<GitProviderService['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	/**
 	 * Returns a file diff between a commit and the specified contents
 	 * @param uri Uri of the file to diff
@@ -1529,129 +1529,143 @@ export class GitProviderService implements Disposable {
 		if (pathOrUri == null) return undefined;
 
 		const scope = getLogScope();
+		try {
+			let uri: Uri;
+			if (typeof pathOrUri === 'string') {
+				if (!pathOrUri) return undefined;
 
-		let uri: Uri;
-		if (typeof pathOrUri === 'string') {
-			if (!pathOrUri) return undefined;
-
-			uri = this.getAbsoluteUri(pathOrUri);
-		} else {
-			uri = pathOrUri;
-		}
-
-		const path = getBestPath(uri);
-		let repository: Repository | undefined = this.getRepository(uri);
-
-		if (repository == null && this._discoveringRepositories?.pending) {
-			await this._discoveringRepositories.promise;
-			repository = this.getRepository(uri);
-		}
-
-		let isDirectory: boolean | undefined;
-
-		const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
-		if (!detectNested) {
-			if (repository != null) return repository;
-		} else if (!options?.force) {
-			// Check if we've seen this path before
-			if (this._searchedRepositoryPaths.has(path)) {
-				Logger.debug(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
-				return repository;
+				uri = this.getAbsoluteUri(pathOrUri);
+			} else {
+				uri = pathOrUri;
 			}
 
-			const stats = await workspace.fs.stat(uri);
-			// If the uri isn't a directory, go up one level
-			if ((stats.type & FileType.Directory) !== FileType.Directory) {
-				// Check if we've seen it's parent before, since a file can't be a nested repository
-				if (this._searchedRepositoryPaths.hasParent(path)) {
-					Logger.debug(
-						scope,
-						`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
-					);
+			const path = getBestPath(uri);
+			let repository: Repository | undefined = this.getRepository(uri);
+
+			if (repository == null && this._discoveringRepositories?.pending) {
+				await this._discoveringRepositories.promise;
+				repository = this.getRepository(uri);
+			}
+
+			let isDirectory: boolean | undefined;
+
+			const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
+			if (!detectNested) {
+				if (repository != null) return repository;
+			} else if (!options?.force) {
+				// Check if we've seen this path before
+				if (this._searchedRepositoryPaths.has(path)) {
+					Logger.debug(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
 					return repository;
 				}
 
-				uri = Uri.joinPath(uri, '..');
-				isDirectory = true;
-			} else {
-				isDirectory = true;
-			}
-		}
+				try {
+					const stats = await workspace.fs.stat(uri);
+					// If the uri isn't a directory, go up one level
+					if ((stats.type & FileType.Directory) !== FileType.Directory) {
+						// Check if we've seen it's parent before, since a file can't be a nested repository
+						if (this._searchedRepositoryPaths.hasParent(path)) {
+							Logger.debug(
+								scope,
+								`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
+							);
+							return repository;
+						}
 
-		const key = asRepoComparisonKey(uri);
-		let promise = this._pendingRepositories.get(key);
-		if (promise == null) {
-			async function findRepository(this: GitProviderService): Promise<Repository | undefined> {
-				const { provider } = this.getProvider(uri);
-				const repoUri = await provider.findRepositoryUri(uri, isDirectory);
-
-				this._searchedRepositoryPaths.set(path);
-
-				if (repoUri == null) return undefined;
-
-				let root: Repository | undefined;
-				if (this._repositories.count) {
-					repository = this._repositories.get(repoUri);
-					if (repository != null) return repository;
-
-					// If this new repo is inside one of our known roots and we we don't already know about, add it
-					root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
-				}
-
-				const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
-
-				let closed =
-					options?.closeOnOpen ??
-					(autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors');
-				// If we are trying to open a file inside the .git folder, then treat the repository as closed, unless explicitly requested it to be open
-				// This avoids showing the root repo in worktrees during certain operations (e.g. rebase) and vice-versa
-				if (!closed && options?.closeOnOpen !== false && !isDirectory && uri.path.includes('/.git/')) {
-					closed = true;
-				}
-
-				Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
-				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
-
-				const added: Repository[] = [];
-
-				for (const repository of repositories) {
-					this._repositories.add(repository);
-					if (!repository.closed) {
-						added.push(repository);
+						uri = Uri.joinPath(uri, '..');
+						isDirectory = true;
+					} else {
+						isDirectory = true;
 					}
-				}
-
-				this._pendingRepositories.delete(key);
-
-				this.updateContext();
-
-				if (added.length) {
-					this._etag = Date.now();
-					queueMicrotask(() => {
-						void this.storeRepositoriesLocation(added);
-						// Send a notification that the repositories changed
-						this.fireRepositoriesChanged(added);
-					});
-				}
-
-				repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);
-				return repository;
+				} catch {}
 			}
 
-			promise = findRepository.call(this);
-			this._pendingRepositories.set(key, promise);
-		}
+			const key = asRepoComparisonKey(uri);
+			let promise = this._pendingRepositories.get(key);
+			if (promise == null) {
+				async function findRepository(this: GitProviderService): Promise<Repository | undefined> {
+					const { provider } = this.getProvider(uri);
+					const repoUri = await provider.findRepositoryUri(uri, isDirectory);
 
-		return promise;
+					this._searchedRepositoryPaths.set(path);
+
+					if (repoUri == null) return undefined;
+
+					let root: Repository | undefined;
+					if (this._repositories.count) {
+						repository = this._repositories.get(repoUri);
+						if (repository != null) return repository;
+
+						// If this new repo is inside one of our known roots and we we don't already know about, add it
+						root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
+					}
+
+					const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
+
+					let closed =
+						options?.closeOnOpen ??
+						(autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors');
+					// If we are trying to open a file inside the .git folder, then treat the repository as closed, unless explicitly requested it to be open
+					// This avoids showing the root repo in worktrees during certain operations (e.g. rebase) and vice-versa
+					if (!closed && options?.closeOnOpen !== false && !isDirectory && uri.path.includes('/.git/')) {
+						closed = true;
+					}
+
+					Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
+					const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
+
+					const added: Repository[] = [];
+
+					for (const repository of repositories) {
+						this._repositories.add(repository);
+						if (!repository.closed) {
+							added.push(repository);
+						}
+					}
+
+					this._pendingRepositories.delete(key);
+
+					this.updateContext();
+
+					if (added.length) {
+						this._etag = Date.now();
+						queueMicrotask(() => {
+							void this.storeRepositoriesLocation(added);
+							// Send a notification that the repositories changed
+							this.fireRepositoriesChanged(added);
+						});
+					}
+
+					repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);
+					return repository;
+				}
+
+				promise = findRepository.call(this);
+				this._pendingRepositories.set(key, promise);
+			}
+
+			return await promise;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (ex instanceof ProviderNotFoundError) return undefined;
+
+			debugger;
+			throw ex;
+		}
 	}
 
 	@log()
 	async getOrOpenRepositoryForEditor(editor?: TextEditor): Promise<Repository | undefined> {
 		editor = editor ?? window.activeTextEditor;
-
 		if (editor == null) return this.highlander;
 
-		return this.getOrOpenRepository(editor.document.uri);
+		const scope = getLogScope();
+		try {
+			return await this.getOrOpenRepository(editor.document.uri);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
 	}
 
 	getRepository(uri: Uri): Repository | undefined;

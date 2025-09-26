@@ -10,7 +10,7 @@ import {
 	isUncommitted,
 	isUncommittedWithParentSuffix,
 } from '../../../../../git/utils/revision.utils';
-import { gate } from '../../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../../system/decorators/gate';
 import { log } from '../../../../../system/decorators/log';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 import { stripOrigin } from '../githubGitProvider';

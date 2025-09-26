@@ -273,6 +273,26 @@ export function sortRepositories(repositories: Repository[], options?: Repositor
 	}
 }
 
+export function sortRepositoriesGrouped(grouped: Map<Repository, Map<string, Repository>>): Repository[] {
+	const sorted = new Set<Repository>();
+
+	const repos = sortRepositories([...grouped.keys()]);
+	for (const repo of repos) {
+		sorted.add(repo);
+
+		// Get worktrees for this main repo and sort them
+		const worktrees = grouped.get(repo);
+		if (worktrees?.size) {
+			const sortedWorktrees = sortRepositories([...worktrees.values()]);
+			for (const worktree of sortedWorktrees) {
+				sorted.add(worktree);
+			}
+		}
+	}
+
+	return [...sorted];
+}
+
 export interface TagSortOptions {
 	orderBy?: TagSorting;
 }

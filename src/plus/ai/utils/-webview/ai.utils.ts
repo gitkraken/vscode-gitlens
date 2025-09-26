@@ -47,6 +47,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Pull Request Details (Preview)';
 		case 'generate-rebase':
 			return 'Generate Rebase (Preview)';
+		case 'generate-commits':
+			return 'Generate Commits (Preview)';
 		case 'generate-searchQuery':
 			return 'Generate Search Query (Preview)';
 	}
@@ -137,10 +139,13 @@ export async function getOrPromptApiKey(
 	return apiKey;
 }
 
-export function getValidatedTemperature(modelTemperature?: number | null): number | undefined {
+export function getValidatedTemperature(model: AIModel, modelTemperature?: number | null): number | undefined {
 	if (modelTemperature === null) return undefined;
-	if (modelTemperature != null) return modelTemperature;
-	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+	// GPT5 doesn't support anything but the default temperature
+	if (model.id.startsWith('gpt-5')) return undefined;
+
+	modelTemperature ??= Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+	return modelTemperature;
 }
 
 export async function showLargePromptWarning(estimatedTokens: number, threshold: number): Promise<boolean> {
@@ -184,15 +189,15 @@ export function getOrgAIConfig(): OrgAIConfig {
 	};
 }
 
-export function getOrgAIProviderOfType(type: AIProviders, orgAiConfig?: OrgAIConfig): OrgAIProvider {
-	orgAiConfig ??= getOrgAIConfig();
-	if (!orgAiConfig.aiEnabled) return { type: type, enabled: false };
-	if (!orgAiConfig.enforceAiProviders) return { type: type, enabled: true };
-	return orgAiConfig.aiProviders[type] ?? { type: type, enabled: false };
+export function getOrgAIProviderOfType(type: AIProviders, orgAIConfig?: OrgAIConfig): OrgAIProvider {
+	orgAIConfig ??= getOrgAIConfig();
+	if (!orgAIConfig.aiEnabled) return { type: type, enabled: false };
+	if (!orgAIConfig.enforceAiProviders) return { type: type, enabled: true };
+	return orgAIConfig.aiProviders[type] ?? { type: type, enabled: false };
 }
 
-export function isProviderEnabledByOrg(type: AIProviders, orgAiConfig?: OrgAIConfig): boolean {
-	return getOrgAIProviderOfType(type, orgAiConfig).enabled;
+export function isProviderEnabledByOrg(type: AIProviders, orgAIConfig?: OrgAIConfig): boolean {
+	return getOrgAIProviderOfType(type, orgAIConfig).enabled;
 }
 
 /**
@@ -282,17 +287,31 @@ export function getAIResultContext(result: AIResult): AIResultContext {
 	};
 }
 
-export function extractAIResultContext(uri: Uri | undefined): AIResultContext | undefined {
-	if (uri?.scheme !== Schemes.GitLensAIMarkdown) return undefined;
+export function extractAIResultContext(container: Container, uri: Uri | undefined): AIResultContext | undefined {
+	if (uri?.scheme === Schemes.GitLensAIMarkdown) {
+		const { authority } = uri;
+		if (!authority) return undefined;
 
-	const { authority } = uri;
-	if (!authority) return undefined;
+		try {
+			const context: AIResultContext | undefined = container.aiFeedback.getMarkdownDocument(uri.toString());
+			if (context) return context;
 
-	try {
-		const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
-		return metadata.context;
-	} catch (ex) {
-		Logger.error(ex, 'extractResultContext');
-		return undefined;
+			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
+			return metadata.context;
+		} catch (ex) {
+			Logger.error(ex, 'extractResultContext');
+			return undefined;
+		}
 	}
+
+	// Check for untitled documents with stored changelog feedback context
+	if (uri?.scheme === 'untitled') {
+		try {
+			return container.aiFeedback.getChangelogDocument(uri.toString());
+		} catch {
+			return undefined;
+		}
+	}
+
+	return undefined;
 }

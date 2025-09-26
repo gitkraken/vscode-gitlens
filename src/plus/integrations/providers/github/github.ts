@@ -5,6 +5,7 @@ import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/typ
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
+import { base64 } from '@env/base64';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
@@ -45,7 +46,6 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import { base64 } from '../../../../system/string';
 import type { Version } from '../../../../system/version';
 import { fromString, satisfies } from '../../../../system/version';
 import type {

@@ -164,7 +164,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);
 		}
-		repo ??= await getRepositoryOrShowPicker(title);
+		repo ??= await getRepositoryOrShowPicker(this.container, title);
 		if (repo == null) return;
 
 		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
@@ -203,12 +203,19 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 @command()
 export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, 'gitlens.copyPatchToClipboard');
+		super(container, [
+			'gitlens.copyPatchToClipboard',
+			'gitlens.copyPatchToClipboard:scm',
+			'gitlens.copyPatchToClipboard:views',
+		]);
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Copy as Patch', args);
-		if (diff == null) return;
+		if (!diff?.contents) {
+			void window.showWarningMessage('No changes found to copy');
+			return;
+		}
 
 		await env.clipboard.writeText(diff.contents);
 		void window.showInformationMessage(
@@ -225,7 +232,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 
 	async execute(): Promise<void> {
 		const patch = await env.clipboard.readText();
-		let repo = this.container.git.highlander;
+		let repo = this.container.git.getBestRepositoryOrFirst();
 
 		// Make sure it looks like a valid patch
 		const valid = patch.length ? await repo?.git.patch?.validatePatch(patch) : false;
@@ -234,7 +241,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 			return;
 		}
 
-		repo ??= await getRepositoryOrShowPicker('Apply Copied Patch');
+		repo ??= await getRepositoryOrShowPicker(this.container, 'Apply Copied Patch');
 		if (repo == null) return;
 
 		try {

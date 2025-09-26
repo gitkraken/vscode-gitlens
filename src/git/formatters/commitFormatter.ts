@@ -454,7 +454,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands += `${separator}[$(sparkle) Explain](${ExplainWipCommand.createMarkdownCommandLink({
 					repoPath: this._item.repoPath,
 					staged: undefined,
-					source: { source: 'editor:hover', type: 'wip' },
+					source: { source: 'editor:hover', context: { type: 'wip' } },
 				})} "Explain Changes")`;
 			}
 
@@ -516,7 +516,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			commands += `${separator}[$(sparkle) Explain](${ExplainCommitCommand.createMarkdownCommandLink({
 				repoPath: this._item.repoPath,
 				rev: this._item.sha,
-				source: { source: 'editor:hover', type: isStash(this._item) ? 'stash' : 'commit' },
+				source: { source: 'editor:hover', context: { type: isStash(this._item) ? 'stash' : 'commit' } },
 			})} "Explain Changes")`;
 		}
 

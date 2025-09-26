@@ -33,9 +33,12 @@ const { DefinePlugin, optimize, WebpackError } = webpack;
 const require = createRequire(import.meta.url);
 
 const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
-const eslintWorker = {
-	max: cores,
-	filesPerWorker: 100,
+const eslintWorker = { max: cores, filesPerWorker: 100 };
+/** @type import('@eamodio/eslint-lite-webpack-plugin').ESLintLitePluginOptions['eslintOptions'] */
+const eslintOptions = {
+	cache: true,
+	cacheStrategy: 'content',
+	// concurrency: 'auto',
 };
 
 const useNpm = Boolean(process.env.GL_USE_NPM);
@@ -165,9 +168,8 @@ function getExtensionConfig(target, mode, env) {
 				files: path.join(__dirname, 'src', '**', '*.ts'),
 				worker: eslintWorker,
 				eslintOptions: {
-					cache: true,
+					...eslintOptions,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
-					cacheStrategy: 'content',
 				},
 			}),
 		);
@@ -333,6 +335,7 @@ function getWebviewsConfigs(mode, env) {
 		getWebviewConfig(
 			{
 				commitDetails: { entry: './commitDetails/commitDetails.ts' },
+				composer: { entry: './plus/composer/composer.ts', plus: true },
 				graph: { entry: './plus/graph/graph.ts', plus: true },
 				home: { entry: './home/home.ts' },
 				rebase: { entry: './rebase/rebase.ts' },
@@ -406,9 +409,8 @@ function getWebviewsCommonConfig(mode, env) {
 				files: path.join(basePath, '**', '*.ts?(x)'),
 				worker: eslintWorker,
 				eslintOptions: {
-					cache: true,
+					...eslintOptions,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
-					cacheStrategy: 'content',
 				},
 			}),
 		);

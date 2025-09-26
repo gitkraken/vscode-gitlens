@@ -40,7 +40,7 @@ import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quick
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
@@ -832,11 +832,18 @@ export class PatchDetailsWebviewProvider
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			if (commit == null) throw new Error('Unable to find commit');
 
-			const result = await this.container.ai.explainCommit(
+			const deferredResult = await this.container.ai.explainCommit(
 				commit,
-				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
+				{ source: 'patchDetails', context: { type: `draft-${this._context.draft.type}` } },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
+			if (deferredResult === 'cancelled') throw new Error('Operation was canceled');
+
+			if (deferredResult == null) throw new Error('Error retrieving content');
+
+			const { promise } = deferredResult;
+
+			const result = await promise;
 			if (result === 'cancelled') throw new Error('Operation was canceled');
 
 			if (result == null) throw new Error('Error retrieving content');
@@ -878,7 +885,7 @@ export class PatchDetailsWebviewProvider
 
 			const result = await this.container.ai.generateCreateDraft(
 				repo,
-				{ source: 'patchDetails', type: 'patch' },
+				{ source: 'patchDetails', context: { type: 'patch' } },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
 			if (result === 'cancelled') throw new Error('Operation was canceled');

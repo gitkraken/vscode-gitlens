@@ -65,7 +65,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 					break;
 			}
 
-			const repoPath = (await getBestRepositoryOrShowPicker(uri, editor, title))?.path;
+			const repoPath = (await getBestRepositoryOrShowPicker(this.container, uri, editor, title))?.path;
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {

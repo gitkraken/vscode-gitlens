@@ -298,7 +298,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					state.repo = context.repos[0];
 				} else {
-					const result = yield* pickRepositoryStep(state, context);
+					const result = yield* pickRepositoryStep(state, context, { excludeWorktrees: true });
 					if (result === StepResultBreak) continue;
 
 					state.repo = result;

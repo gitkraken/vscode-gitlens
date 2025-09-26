@@ -103,31 +103,32 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			' Please install a more recent version of Git and try again.',
 		);
 
-		let worktrees = this.cache.worktrees?.get(repoPath);
+		const worktrees = this.cache.worktrees?.getOrCreate(repoPath, async () => {
+			const [dataResult, branchesResult] = await Promise.allSettled([
+				this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
+				this.provider.branches.getBranches(repoPath, undefined, cancellation),
+			]);
+
+			return parseGitWorktrees(
+				this.container,
+				getSettledValue(dataResult)?.stdout,
+				repoPath,
+				getSettledValue(branchesResult)?.values ?? [],
+			);
+		});
+
 		if (worktrees == null) {
-			async function load(this: WorktreesGitSubProvider) {
-				try {
-					const [dataResult, branchesResult] = await Promise.allSettled([
-						this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
-						this.provider.branches.getBranches(repoPath, undefined, cancellation),
-					]);
+			const [dataResult, branchesResult] = await Promise.allSettled([
+				this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
+				this.provider.branches.getBranches(repoPath, undefined, cancellation),
+			]);
 
-					return parseGitWorktrees(
-						this.container,
-						getSettledValue(dataResult)?.stdout,
-						repoPath,
-						getSettledValue(branchesResult)?.values ?? [],
-					);
-				} catch (ex) {
-					this.cache.worktrees?.delete(repoPath);
-
-					throw ex;
-				}
-			}
-
-			worktrees = load.call(this);
-
-			this.cache.worktrees?.set(repoPath, worktrees);
+			return parseGitWorktrees(
+				this.container,
+				getSettledValue(dataResult)?.stdout,
+				repoPath,
+				getSettledValue(branchesResult)?.values ?? [],
+			);
 		}
 
 		return worktrees;

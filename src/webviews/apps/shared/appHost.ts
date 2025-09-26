@@ -2,6 +2,7 @@ import { provide } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
+import { fromBase64ToString } from '@env/base64';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
@@ -55,8 +56,8 @@ export abstract class GlAppHost<
 	@provide({ context: telemetryContext })
 	protected _telemetry!: TelemetryContext;
 
-	@property({ type: Object, noAccessor: true })
-	private bootstrap!: State;
+	@property({ type: String, noAccessor: true })
+	private bootstrap!: string;
 	protected onThemeUpdated?(e: ThemeChangeEvent): void;
 
 	get state(): State {
@@ -83,7 +84,7 @@ export abstract class GlAppHost<
 		this._ipc = new HostIpc(this.name);
 		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
-		const state = this.bootstrap;
+		const state: State = JSON.parse(fromBase64ToString(this.bootstrap));
 		this.bootstrap = undefined!;
 		this._ipc.replaceIpcPromisesWithPromises(state);
 		this.onPersistState?.(state);

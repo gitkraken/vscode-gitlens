@@ -34,6 +34,7 @@ export abstract class RepositoriesSubscribeableNode<
 		return Disposable.from(
 			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
 			weakEvent(this.view.container.subscription.onDidChange, this.onSubscriptionChanged, this),
+			weakEvent(this.view.onDidChangeRepositoryFilter, this.onViewRepositoryFilterChanged, this),
 		);
 	}
 
@@ -45,5 +46,9 @@ export abstract class RepositoriesSubscribeableNode<
 		if (e.current.plan !== e.previous.plan) {
 			void this.triggerChange(true);
 		}
+	}
+
+	private onViewRepositoryFilterChanged() {
+		void this.triggerChange(true);
 	}
 }

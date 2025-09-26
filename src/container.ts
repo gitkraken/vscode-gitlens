@@ -2,6 +2,7 @@ import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } fr
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
 	getGkCliIntegrationProvider,
+	getMcpProviders,
 	getSharedGKStorageLocationProvider,
 	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
@@ -54,12 +55,13 @@ import { executeCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
 import { Keyboard } from './system/-webview/keyboard';
 import type { Storage } from './system/-webview/storage';
-import { memoize } from './system/decorators/-webview/memoize';
 import { log } from './system/decorators/log';
+import { memoize } from './system/decorators/memoize';
 import { Logger } from './system/logger';
+import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
-import { isWalkthroughSupported, WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
+import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/documentTracker';
 import { LineTracker } from './trackers/lineTracker';
@@ -68,6 +70,7 @@ import { UriService } from './uris/uriService';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { Views } from './views/views';
 import { VslsController } from './vsls/vsls';
+import { registerComposerWebviewCommands, registerComposerWebviewPanel } from './webviews/plus/composer/registration';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration';
 import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration';
 import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from './webviews/plus/timeline/registration';
@@ -205,9 +208,7 @@ export class Container {
 		);
 		this._disposables.push((this._uri = new UriService(this)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
-		if (isWalkthroughSupported()) {
-			this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
-		}
+		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
@@ -239,9 +240,13 @@ export class Container {
 		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
 		this._disposables.push(new GraphStatusBarController(this));
 
+		const composerPanels = registerComposerWebviewPanel(webviews);
+		this._disposables.push(composerPanels);
+		this._disposables.push(registerComposerWebviewCommands(this, composerPanels));
+
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);
-		this._disposables.push(registerTimelineWebviewCommands(timelinePanels));
+		this._disposables.push(registerTimelineWebviewCommands(this, timelinePanels));
 
 		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
 
@@ -315,6 +320,7 @@ export class Container {
 
 		this._ready = true;
 		await this.registerGitProviders();
+		await this.registerMcpProviders();
 		queueMicrotask(() => this._onReady.fire());
 	}
 
@@ -327,6 +333,14 @@ export class Container {
 
 		// Don't wait here otherwise will we deadlock in certain places
 		void this._git.registrationComplete();
+	}
+
+	@log()
+	private async registerMcpProviders(): Promise<void> {
+		const mcpProviders = await getMcpProviders(this);
+		if (mcpProviders != null) {
+			this._disposables.push(...mcpProviders);
+		}
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -363,6 +377,14 @@ export class Container {
 			this._disposables.push((this._ai = new AIProviderService(this, this._connection)));
 		}
 		return this._ai;
+	}
+
+	private _aiFeedback: AIFeedbackProvider | undefined;
+	get aiFeedback(): AIFeedbackProvider {
+		if (this._aiFeedback == null) {
+			this._disposables.push((this._aiFeedback = new AIFeedbackProvider()));
+		}
+		return this._aiFeedback;
 	}
 
 	private _autolinks: AutolinksProvider | undefined;
@@ -715,8 +737,8 @@ export class Container {
 		return this._usage;
 	}
 
-	private readonly _walkthrough: WalkthroughStateProvider | undefined;
-	get walkthrough(): WalkthroughStateProvider | undefined {
+	private readonly _walkthrough: WalkthroughStateProvider;
+	get walkthrough(): WalkthroughStateProvider {
 		return this._walkthrough;
 	}
 
@@ -762,13 +784,13 @@ export class Container {
 			let command: GlCommands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
-					command = 'gitlens.toggleFileBlame';
+					command = 'gitlens.toggleFileBlame:mode';
 					break;
 				case 'changes':
-					command = 'gitlens.toggleFileChanges';
+					command = 'gitlens.toggleFileChanges:mode';
 					break;
 				case 'heatmap':
-					command = 'gitlens.toggleFileHeatmap';
+					command = 'gitlens.toggleFileHeatmap:mode';
 					break;
 			}
 

@@ -30,6 +30,7 @@ export const bannerStyles = css`
 		border-radius: var(--gl-banner-border-radius);
 		position: relative;
 		overflow: hidden;
+		container-type: inline-size;
 	}
 
 	/* Solid display mode - same as card background */
@@ -89,6 +90,35 @@ export const bannerStyles = css`
 			);
 	}
 
+	/* Gradient purple display mode - matches the auto-composer container styling */
+	.banner--gradient-purple {
+		border: 1px solid var(--vscode-panel-border);
+		border-radius: 6px;
+		background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+	}
+
+	.banner--gradient-purple .banner__title {
+		font-size: 1.3rem;
+		color: var(--vscode-foreground);
+		font-weight: normal;
+	}
+
+	.banner--gradient-purple .banner__body {
+		font-size: 1.2rem;
+		color: var(--vscode-descriptionForeground);
+		line-height: 1.4;
+	}
+
+	.banner--gradient-purple .banner__body a {
+		color: var(--vscode-textLink-foreground);
+		text-decoration: none;
+	}
+
+	.banner--gradient-purple .banner__body a:hover {
+		color: var(--vscode-textLink-activeForeground);
+		text-decoration: underline;
+	}
+
 	.banner__content {
 		display: flex;
 		flex-direction: column;
@@ -97,11 +127,92 @@ export const bannerStyles = css`
 		text-align: center;
 	}
 
+	/* Responsive layout */
+	.banner--responsive .banner__content {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		text-align: left;
+		gap: var(--gl-banner-gap);
+	}
+
+	.banner--responsive .banner__text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.banner--responsive .banner__title,
+	.banner--responsive .banner__body {
+		text-align: left;
+	}
+
+	/* < 500px: Stack vertically with full-width buttons */
+	.banner--responsive .banner__buttons {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+		margin-top: 0.8rem;
+		width: 100%;
+	}
+
+	.banner--responsive .banner__button {
+		grid-column: unset;
+		justify-self: unset;
+		width: 100% !important;
+		min-width: 100% !important;
+		max-width: 100% !important;
+		justify-content: center;
+		flex: 1;
+	}
+
+	/* >= 500px: Three-group horizontal layout */
+	@container (min-width: 500px) {
+		.banner--responsive .banner__content {
+			flex-direction: row;
+			align-items: center;
+			gap: 1.6rem;
+		}
+
+		/* Group 1: Text content (left-aligned) */
+		.banner--responsive .banner__text {
+			flex: 1;
+			min-width: 0;
+			align-self: center;
+		}
+
+		/* Group 2: Buttons (content-sized) */
+		.banner--responsive .banner__buttons {
+			display: flex;
+			flex-direction: column;
+			gap: 0.8rem;
+			margin-top: 0;
+			width: auto;
+			flex-shrink: 0;
+			align-self: center;
+		}
+
+		.banner--responsive .banner__button {
+			width: auto;
+			white-space: nowrap;
+		}
+
+		/* Group 3: Dismiss button (to the right of buttons) */
+		.banner--responsive .banner__dismiss {
+			position: static !important;
+			top: auto !important;
+			right: auto !important;
+			align-self: center;
+			flex-shrink: 0;
+		}
+	}
+
 	.banner__title {
 		font-size: 1.2em;
 		font-weight: bold;
 		color: var(--gl-banner-text-color);
 		margin: 0;
+		text-wrap: pretty;
 	}
 
 	.banner__body {
@@ -109,6 +220,7 @@ export const bannerStyles = css`
 		color: var(--gl-banner-text-color);
 		margin: 0;
 		line-height: 1.4;
+		text-wrap: pretty;
 	}
 
 	.banner__buttons {
@@ -120,7 +232,7 @@ export const bannerStyles = css`
 		width: 100%;
 	}
 
-	.banner__button--primary {
+	.banner:not(.banner--gradient-purple) .banner__button--primary {
 		grid-column: 2;
 		justify-self: center;
 		white-space: nowrap;
@@ -128,7 +240,13 @@ export const bannerStyles = css`
 		--button-foreground: var(--gl-banner-text-color);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
 		--button-padding: var(--gl-banner-button-padding);
-		font-size: 1.2em;
+	}
+
+	.banner--gradient-purple .banner__button--primary {
+		grid-column: 2;
+		justify-self: center;
+		white-space: nowrap;
+		--button-padding: var(--gl-banner-button-padding);
 	}
 
 	.banner__button--secondary {
@@ -144,6 +262,26 @@ export const bannerStyles = css`
 	.banner__buttons:has(.banner__button--primary):not(:has(.banner__button--secondary)) .banner__button--primary {
 		grid-column: 1 / -1;
 		justify-self: center;
+	}
+
+	/* Dismiss button */
+	.banner__dismiss {
+		position: absolute;
+		top: 0.8rem;
+		right: 0.8rem;
+		--button-background: transparent;
+		--button-foreground: var(--gl-banner-dim-text-color);
+		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 15%, transparent);
+		--button-padding: 0.4rem;
+		z-index: 1;
+	}
+
+	/* Responsive layout dismiss button */
+	.banner--responsive .banner__dismiss {
+		/* < 500px: Upper right corner (default positioning) */
+		position: absolute;
+		top: 0.8rem;
+		right: 0.8rem;
 	}
 
 	/* Theme-specific adjustments */
@@ -164,15 +302,17 @@ export const bannerStyles = css`
 		--gl-banner-text-color: #000;
 	}
 
-	:host-context(.vscode-dark) .banner__button--primary,
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .banner__button--primary {
+	:host-context(.vscode-dark) .banner:not(.banner--gradient-purple) .banner__button--primary,
+	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light))
+		.banner:not(.banner--gradient-purple)
+		.banner__button--primary {
 		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
 		--button-foreground: #fff;
 	}
 
-	:host-context(.vscode-light) .banner__button--primary,
-	:host-context(.vscode-high-contrast-light) .banner__button--primary {
+	:host-context(.vscode-light) .banner:not(.banner--gradient-purple) .banner__button--primary,
+	:host-context(.vscode-high-contrast-light) .banner:not(.banner--gradient-purple) .banner__button--primary {
 		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 8%, #fff 25%);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 15%, #fff 35%);
 		--button-foreground: #000;

@@ -373,6 +373,7 @@ export async function createRepositoryQuickPickItem(
 		branch?: boolean;
 		buttons?: QuickInputButton[];
 		fetched?: boolean;
+		indent?: boolean;
 		status?: boolean;
 	},
 ): Promise<RepositoryQuickPickItem> {
@@ -388,7 +389,7 @@ export async function createRepositoryQuickPickItem(
 
 	if (options?.status && repoStatus != null) {
 		let workingStatus = '';
-		if (repoStatus.files.length !== 0) {
+		if (repoStatus.files.length) {
 			workingStatus = repoStatus.getFormattedDiffStatus({
 				compact: true,
 				prefix: pad(GlyphChars.Dot, 2, 2),
@@ -413,12 +414,20 @@ export async function createRepositoryQuickPickItem(
 		}
 	}
 
+	const isWorktree = await repository.isWorktree();
+	const codiconName = isWorktree
+		? 'gitlens-worktree'
+		: repository.virtual
+			? 'gitlens-repository-cloud'
+			: 'gitlens-repository';
+
 	const item: RepositoryQuickPickItem = {
-		label: repository.name,
+		label: options?.indent ? `$(${codiconName}) ${GlyphChars.Space}${repository.name}` : repository.name,
 		description: description,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
+		iconPath: new ThemeIcon(options?.indent ? 'blank' : codiconName),
 		item: repository,
 		repoPath: repository.path,
 	};

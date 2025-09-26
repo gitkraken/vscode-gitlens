@@ -41,7 +41,12 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		try {
-			const repo = await getBestRepositoryOrShowPicker(uri, editor, `Open Folder Changes with Revision`);
+			const repo = await getBestRepositoryOrShowPicker(
+				this.container,
+				uri,
+				editor,
+				`Open Folder Changes with Revision`,
+			);
 			if (repo == null) return;
 
 			const log = repo.git.commits
