@@ -69,6 +69,9 @@ export class GitStatusFile implements GitFile {
 				case 'M':
 					this.indexStatus = GitFileIndexStatus.Modified;
 					break;
+				case 'T':
+					this.indexStatus = GitFileIndexStatus.TypeChanged;
+					break;
 				case 'R':
 					this.indexStatus = GitFileIndexStatus.Renamed;
 					break;
