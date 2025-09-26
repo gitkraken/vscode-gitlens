@@ -12,7 +12,7 @@ import type { ExplainStashCommandArgs } from '../../../commands/explainStash';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
-import type { GenerateCommitsCommandArgs, GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
+import type { GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
 import type { InspectCommandArgs } from '../../../commands/inspect';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
@@ -106,11 +106,12 @@ import {
 import { createReference } from '../../../git/utils/reference.utils';
 import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
+import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
-import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -119,6 +120,7 @@ import {
 } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import type { StorageChangeEvent } from '../../../system/-webview/storage';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
 import { openUrl } from '../../../system/-webview/vscode/uris';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
@@ -142,6 +144,7 @@ import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../prot
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
 import { isSerializedState } from '../../webviewsController';
+import type { ComposerCommandArgs } from '../composer/registration';
 import type { TimelineCommandArgs } from '../timeline/registration';
 import {
 	formatRepositories,
@@ -201,6 +204,7 @@ import {
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
@@ -330,6 +334,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
@@ -339,7 +344,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (this._etag === this.container.git.etag) return;
 					}
 
-					void this.host.refresh(true);
+					this.updateState();
 				}
 			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
@@ -525,6 +530,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote),
 			this.host.registerWebviewCommand('gitlens.graph.renameBranch', this.renameBranch),
 			this.host.registerWebviewCommand('gitlens.graph.associateIssueWithBranch', this.associateIssueWithBranch),
+			this.host.registerWebviewCommand('gitlens.changeUpstream:graph', this.changeUpstreamBranch),
+			this.host.registerWebviewCommand('gitlens.setUpstream:graph', this.changeUpstreamBranch),
 
 			this.host.registerWebviewCommand('gitlens.graph.switchToBranch', this.switchTo),
 
@@ -663,6 +670,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.shareAsCloudPatch', this.shareAsCloudPatch),
 			this.host.registerWebviewCommand('gitlens.graph.createPatch', this.shareAsCloudPatch),
 			this.host.registerWebviewCommand('gitlens.graph.createCloudPatch', this.shareAsCloudPatch),
+			this.host.registerWebviewCommand('gitlens.copyPatchToClipboard:graph', this.copyPatchToClipboard),
 
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
 			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
@@ -710,7 +718,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
-			this.host.registerWebviewCommand('gitlens.ai.generateCommits:graph', this.generateCommits),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.composeCommits:graph', item =>
+				this.composeCommits(item),
+			),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
@@ -1026,6 +1036,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._etagSubscription = e.etag;
 		void this.notifyDidChangeSubscription();
+	}
+
+	private onStorageChanged(e: StorageChangeEvent) {
+		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+			this.onMcpBannerChanged();
+		}
+	}
+
+	private onMcpBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeMcpBanner, this.getMcpBannerCollapsed());
+	}
+
+	private getMcpBannerCollapsed() {
+		return !isMcpBannerEnabled(this.container);
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -1696,18 +1722,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async onChooseRepository() {
-		// Ensure that the current repository is always last
-		const repositories = this.container.git.openRepositories.sort(
-			(a, b) =>
-				(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
-				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-				a.index - b.index,
-		);
+		// // Ensure that the current repository is always last
+		// const repositories = this.container.git.openRepositories.sort(
+		// 	(a, b) =>
+		// 		(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
+		// 		(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+		// 		a.index - b.index,
+		// );
 
+		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			this.container.git.openRepositories,
+			'Switch',
+			this.repository?.name,
+		);
 		const pick = await showRepositoryPicker(
-			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
-			'Choose a repository to switch to',
-			repositories,
+			this.container,
+			title,
+			placeholder,
+			this.container.git.openRepositories,
+			{ picked: this.repository },
 		);
 		if (pick == null) return;
 
@@ -2759,6 +2792,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 		};
 	}
 
@@ -3446,6 +3480,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private async copyPatchToClipboard(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision') ?? this.getGraphItemRef(item, 'stash');
+		if (ref == null) return Promise.resolve();
+
+		const { summary: title, body: description } = splitCommitMessage(ref.message);
+		return executeCommand<CreatePatchCommandArgs, void>('gitlens.copyPatchToClipboard', {
+			from: `${ref.ref}^`,
+			to: ref.ref,
+			repoPath: ref.repoPath,
+			title: title,
+			description: description,
+		});
+	}
+
+	@log()
 	private resetCommit(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
@@ -3815,6 +3864,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private changeUpstreamBranch(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item, 'branch')) return Promise.resolve();
+		const { ref } = item.webviewItemValue;
+		return BranchActions.changeUpstream(ref.repoPath, ref);
+	}
+
+	@log()
 	private compareWorkingWith(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
@@ -3849,7 +3905,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: ref.repoPath,
 			ref: ref.ref,
-			source: { source: 'graph', type: 'branch' },
+			source: { source: 'graph', context: { type: 'branch' } },
 		});
 	}
 	@log()
@@ -3860,7 +3916,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 			repoPath: ref.repoPath,
 			rev: ref.ref,
-			source: { source: 'graph', type: 'commit' },
+			source: { source: 'graph', context: { type: 'commit' } },
 		});
 	}
 
@@ -3872,7 +3928,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainStashCommandArgs>('gitlens.ai.explainStash', {
 			repoPath: ref.repoPath,
 			rev: ref.ref,
-			source: { source: 'graph', type: 'stash' },
+			source: { source: 'graph', context: { type: 'stash' } },
 		});
 	}
 
@@ -3883,7 +3939,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: ref.repoPath,
-			source: { source: 'graph', type: 'wip' },
+			source: { source: 'graph', context: { type: 'wip' } },
 		});
 	}
 
@@ -4066,13 +4122,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async generateCommits(item?: GraphItemContext) {
+	private async composeCommits(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 
-			await executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
+			await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
 				repoPath: ref.repoPath,
-				source: { source: 'graph' },
+				source: 'graph',
 			});
 		}
 		return Promise.resolve();

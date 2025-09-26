@@ -50,7 +50,7 @@ import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { setContext } from '../../../../system/-webview/context';
 import { relative } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
@@ -789,11 +789,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log({
-		args: {
-			1: _contents => '<contents>',
-		},
-	})
+	@log<GitHubGitProvider['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	async getDiffForFileContents(
 		_uri: GitUri,
 		_ref: string,

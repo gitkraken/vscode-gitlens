@@ -16,7 +16,7 @@ import {
 	isUncommittedWithParentSuffix,
 } from '../../../../git/utils/revision.utils';
 import { splitPath } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { first } from '../../../../system/iterable';
 import type { Git } from '../git';

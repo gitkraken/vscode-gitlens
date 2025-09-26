@@ -950,6 +950,15 @@ export class ViewCommands implements Disposable {
 		return BranchActions.rename(node.repoPath, node.branch);
 	}
 
+	@command('gitlens.changeUpstream:views')
+	@command('gitlens.setUpstream:views')
+	@log()
+	private changeUpstreamBranch(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		return BranchActions.changeUpstream(node.repoPath, node.branch);
+	}
+
 	@command('gitlens.views.resetCommit')
 	@log()
 	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
@@ -984,12 +993,20 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
-	@command('gitlens.views.restore')
+	@command('gitlens.restore.file:views')
 	@log()
-	private restore(node: ViewRefFileNode) {
+	private restoreFile(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		return CommitActions.restoreFile(node.file, node.ref);
+	}
+
+	@command('gitlens.restorePrevious.file:views')
+	@log()
+	private restorePreviousFile(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		return CommitActions.restoreFile(node.file, node.ref, true);
 	}
 
 	@command('gitlens.views.revealRepositoryInExplorer')
@@ -1403,7 +1420,11 @@ export class ViewCommands implements Disposable {
 			case 'gitlens.diffWithPrevious' satisfies GlCommands: {
 				const [, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
 				args.showOptions!.preview = false;
-				void executeEditorCommand<DiffWithPreviousCommandArgs>(command.command, undefined, args);
+				void executeEditorCommand<DiffWithPreviousCommandArgs>(
+					'gitlens.diffWithPrevious:views',
+					undefined,
+					args,
+				);
 				break;
 			}
 			default:
@@ -1529,7 +1550,7 @@ export class ViewCommands implements Disposable {
 	@log()
 	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('status-file')) {
-			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.uri,
 				showOptions: {
 					preserveFocus: true,
@@ -1539,7 +1560,7 @@ export class ViewCommands implements Disposable {
 		}
 
 		if (node.is('conflict-file')) {
-			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.baseUri,
 				showOptions: {
 					preserveFocus: true,
@@ -1551,7 +1572,7 @@ export class ViewCommands implements Disposable {
 		if (node.is('file-commit') && node.commit.file?.hasConflicts) {
 			const baseUri = await node.getConflictBaseUri();
 			if (baseUri != null) {
-				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
+				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 					uri: baseUri,
 					showOptions: {
 						preserveFocus: true,

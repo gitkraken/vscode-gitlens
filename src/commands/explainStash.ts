@@ -30,7 +30,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? context.node.commit.repoPath;
 			args.rev = args.rev ?? context.node.commit.sha;
-			args.source = args.source ?? { source: 'view', type: 'stash' };
+			args.source = args.source ?? { source: 'view', context: { type: 'stash' } };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -69,7 +69,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'stash',
+					context: { type: 'stash' },
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining stash...' },
@@ -79,11 +79,12 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			if (result === 'cancelled') return;
 
 			if (result == null) {
-				void showGenericErrorMessage('No changes found to explain for stash');
+				void showGenericErrorMessage('Unable to explain stash');
 				return;
 			}
 
-			this.openDocument(result, `/explain/stash/${commit.ref}/${result.model.id}`, {
+			const { promise, model } = result;
+			this.openDocument(promise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
 				header: { title: 'Stash Summary', subtitle: commit.message || commit.ref },
 				command: {
 					label: 'Explain Stash Changes',

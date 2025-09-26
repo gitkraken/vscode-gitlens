@@ -6,16 +6,102 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.5.1] - 2025-09-24
+
+### Fixed
+
+- Fixes Cursor theme color issues with alerts and feature gates ([#4608](https://github.com/gitkraken/vscode-gitlens/issues/4608))
+- Fixes MCP installation completed message not showing after running the _Reinstall GitKraken MCP Server_ command
+
+## [17.5.0] - 2025-09-23
+
 ### Added
 
+- Adds the GitKraken MCP for Git and integration enhanced AI chat workflows — [learn more](https://help.gitkraken.com/mcp/mcp-getting-started/)
+  - Leverage Git and your integrations (issues, PRs, etc) to provide context and perform actions in AI chat
+- Adds rich Linear integration with autolinks, start work, Launchpad, and more ([#4543](https://github.com/gitkraken/vscode-gitlens/issues/4543), [#4579](https://github.com/gitkraken/vscode-gitlens/issues/4579))
+- Adds support for the [GitKraken Student plan](https://www.gitkraken.com/github-student-developer-pack-bundle)
+
+### Changed
+
+- Improves AI provider/model fallback handling for better reliability
+
+### Fixed
+
+- Fixes connection flow when multiple integrations need to be connected
+
+## [17.4.1] - 2025-08-26
+
+### Fixed
+
+- Fixes Commit Composer view loading issues and improves performance for rendering large diffs
+
+## [17.4.0] - 2025-08-21
+
+### Added
+
+- Adds new [_Commit Composer_ view experience](https://github.com/gitkraken/vscode-gitlens/discussions/4530 'Learn more') — the next evolution of the [initial Commit Composer preview](https://github.com/gitkraken/vscode-gitlens/discussions/4408)
+  - Transforms the automatic commit process into a comprehensive drafting and review experience
+  - Adds ability to preview changes before committing and iterate by regenerating individual messages or entire commit compositions
+  - Adds support for switching between different AI models during composition
+  - Adds custom instruction support to guide AI output to match team conventions and preferences
+  - Adds integrated diff review for each proposed commit, and manual editing capabilities for any commit message or approach
+  - Adds manual commit composition support (no AI provider required for basic functionality)
+  - Adds _Compose Commits (Preview)_ commands accessible from multiple locations: _Home_ view, _Commit Graph_ WIP row, Inspect/Graph Details views, SCM view, and Command Palette
+- Adds updated AI model support for GitLens' AI features
+  - Adds GPT-5 family (GPT-5, GPT-5 Mini, GPT-5 Nano), and Claude 4.1 Opus models
+- Add Azure DevOps Server integration support ([#4478](https://github.com/gitkraken/vscode-gitlens/issues/4478))
 - Adds expanded and improved branch favoriting ([#4497](https://github.com/gitkraken/vscode-gitlens/issues/4497))
   - Adds a new "Favorited Branches" option to the branches visibility dropdown on the _Commit Graph_
   - Adds _Add to Favorites_ or _Remove from Favorites_ context menu items to branches in the _Commit Graph_
   - Adds _Add to Favorites_ or _Remove from Favorites_ context menu items to worktrees in the views
+- Adds 👍 "Helpful" and 👎 "Unhelpful" feedback buttons to AI-generated Changelog ([#4449](https://github.com/gitkraken/vscode-gitlens/issues/4449))
+- Adds ability to set or change the upstream branch for branches in the _Commit Graph_ and other GitLens views ([#4498](https://github.com/gitkraken/vscode-gitlens/issues/4498))
+  - Adds new _Set Upstream..._ and _Change Upstream..._ context menu items to branches in the _Commit Graph_ and other GitLens views
+  - Adds a new _upstream_ sub-command to the _branch_ Git Command Palette
+- Adds new default topological selection mode to the _Commit Graph_
+  - Updates `gitlens.graph.multiselect` setting to default to `topological`; set to `true` to allow selecting multiple commits without restriction
+- Adds ability to switch between open repositories on the _Visual History_
+- Adds _Visualize Repository History_ commands to the SCM menus
+- Adds _Restore Previous Changes_ command to files in the views ([#4542](https://github.com/gitkraken/vscode-gitlens/issues/4542))
 
 ### Changed
 
 - Changes branch favoriting to apply to both local and remote branch pairs ([#4497](https://github.com/gitkraken/vscode-gitlens/issues/4497))
+- Improves experience by opening an explain summary document before summary content is generated ([#4328](https://github.com/gitkraken/vscode-gitlens/issues/4328))
+- Improves login handling when user copies authentication URL instead of opening it
+- Improves Inspect/Details view button overload ([#4488](https://github.com/gitkraken/vscode-gitlens/issues/4488))
+
+### Fixed
+
+- Fixes _Copy Changes (Patch)_ command not working from the _Commit Graph_
+- Fixes issues with handling token limits when using Copilot models ([#4529](https://github.com/gitkraken/vscode-gitlens/issues/4529))
+- Fixes continuous refreshing when gitkraken.dev cannot renew an expired session ([#4324](https://github.com/gitkraken/vscode-gitlens/issues/4324))
+- Fixes some _Commit Graph_ issues because of reference to previous state context ([#4513](https://github.com/gitkraken/vscode-gitlens/issues/4513))
+- Fixes 'generate-rebase' feedback submissions having undefined "type" ([#4502](https://github.com/gitkraken/vscode-gitlens/issues/4502))
+
+## [17.3.4] - 2025-08-11
+
+### Added
+
+- Improves the experience when using multiple repositories or worktrees within a single workspace
+  - Adds a new header row to GitLens views to allow for repository/worktree filtering -- allows switching between showing all repos/worktrees in a tree (current behavior) or focusing on a single repository or worktree
+  - Adds new icons to more easily differentiate between repositories and worktrees quick picks and views
+  - Improves the repository quick pick by visually grouping repositories and worktrees
+  - Reduces the churn during worktree discovery when the new `git.detectWorktrees` VS Code setting is enabled
+    - Avoids flashing/blanking out of the _Commit Graph_ during the same worktree discovery
+
+### Fixed
+
+- Fixes a caching issue when certain Git commands fail causing no data to be displayed until cache expires or the window is reloaded
+- Fixes some edge case issues with navigating to the previous line change in the editor
+- Fixes an issue when using the _Paste Copied Changes (Patch)_ with multiple repositories or worktrees opened
+
+## [17.3.3] - 2025-07-28
+
+### Fixed
+
+- Fixes Commit Graph elements referencing previous state context ([#4513](https://github.com/gitkraken/vscode-gitlens/issues/4513))
 
 ## [17.3.2] - 2025-07-22
 
@@ -6271,7 +6357,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.1...HEAD
+[17.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...gitkraken:v17.5.1
+[17.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.1...gitkraken:v17.5.0
+[17.4.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.0...gitkraken:v17.4.1
+[17.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.4...gitkraken:v17.4.0
+[17.3.4]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.3...gitkraken:v17.3.4
+[17.3.3]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.2...gitkraken:v17.3.3
 [17.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.1...gitkraken:v17.3.2
 [17.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.3.0...gitkraken:v17.3.1
 [17.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.2.2...gitkraken:v17.3.0

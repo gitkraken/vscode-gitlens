@@ -1,4 +1,4 @@
-import { convertRemoteProviderIdToIntegrationId } from '../../../plus/integrations/utils/-webview/integration.utils';
+import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { formatDate, fromNow } from '../../../system/date';
 import { map } from '../../../system/iterable';
@@ -27,8 +27,10 @@ export function formatLastFetched(lastFetched: number, short: boolean = true): s
 	}
 	return formatDate(date, format);
 }
-export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Map<string, Repository>>> {
-	const repos = new Map<string, Repository>(repositories.map(r => [r.id, r]));
+export async function groupRepositories(
+	repositories: Iterable<Repository>,
+): Promise<Map<Repository, Map<string, Repository>>> {
+	const repos = new Map<string, Repository>(map(repositories, r => [r.id, r]));
 
 	// Group worktree repos under the common repo when the common repo is also in the list
 	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();
@@ -78,13 +80,16 @@ export async function toRepositoryShapeWithProvider(
 			icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
 			integration: remote.supportsIntegration()
 				? {
-						id: convertRemoteProviderIdToIntegrationId(remote.provider.id)!,
+						id: getIntegrationIdForRemote(remote.provider)!,
 						connected: remote.maybeIntegrationConnected ?? false,
 					}
 				: undefined,
 			supportedFeatures: remote.provider.supportedFeatures,
 			url: await remote.provider.url({ type: RemoteResourceType.Repo }),
 		};
+		if (provider.integration?.id == null) {
+			provider.integration = undefined;
+		}
 	}
 
 	return { ...toRepositoryShape(repo), provider: provider };

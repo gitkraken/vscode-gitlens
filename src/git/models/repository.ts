@@ -14,9 +14,9 @@ import { configuration } from '../../system/-webview/configuration';
 import { UriSet } from '../../system/-webview/uriMap';
 import { exists } from '../../system/-webview/vscode/uris';
 import { getScopedCounter } from '../../system/counter';
-import { gate } from '../../system/decorators/-webview/gate';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { filter, groupByMap, join, map, min, some } from '../../system/iterable';
@@ -556,6 +556,11 @@ export class Repository implements Disposable {
 		}
 
 		return this._lastFetched ?? 0;
+	}
+
+	@log({ exit: true })
+	async isWorktree(): Promise<boolean> {
+		return (await this.getCommonRepositoryUri()) != null;
 	}
 
 	@log()

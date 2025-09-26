@@ -36,6 +36,7 @@ import {
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import { Directive } from '../../../quickpicks/items/directive';
 import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../../quickpicks/referencePicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker';
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
@@ -319,7 +320,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				break;
 
 			case UpdateScopeCommand.is(e):
-				this.onMessageUpdateScope(e);
+				void this.onMessageUpdateScope(e);
 				break;
 		}
 	}
@@ -480,10 +481,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	private onMessageUpdateScope(e: IpcMessage<UpdateScopeParams>) {
+	private async onMessageUpdateScope(e: IpcMessage<UpdateScopeParams>) {
 		if (e.params.scope == null) return;
 
-		const repo = this.container.git.getRepository(e.params.scope.uri);
+		let repo = this.container.git.getRepository(e.params.scope.uri);
 		if (repo == null) return;
 
 		const scope = deserializeTimelineScope(e.params.scope);
@@ -498,6 +499,26 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			scope.type = type;
 			if (type === 'repo') {
 				scope.uri = repo.uri;
+			}
+		} else if (type === 'repo' && scope.type === 'repo') {
+			const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+				this.container.git.openRepositories,
+				'Switch',
+				repo?.name,
+			);
+			const result = await showRepositoryPicker2(
+				this.container,
+				title,
+				placeholder,
+				this.container.git.openRepositories,
+				{ picked: repo },
+			);
+			if (result.value != null && !areUrisEqual(result.value.uri, scope.uri)) {
+				repo = result.value;
+				changed = true;
+				scope.uri = result.value.uri;
+				scope.head = undefined;
+				scope.base = undefined;
 			}
 		}
 
@@ -655,6 +676,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				config: config,
 				scope: undefined,
 				repository: undefined,
+				repositories: { count: 0, openCount: 0 },
 				access: access,
 			};
 		}
@@ -683,6 +705,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			config: config,
 			scope: serializeTimelineScope(scope as Required<TimelineScope>, relativePath),
 			repository: repository,
+			repositories: {
+				count: this.container.git.repositoryCount,
+				openCount: this.container.git.openRepositoryCount,
+			},
 			access: access,
 		};
 	}

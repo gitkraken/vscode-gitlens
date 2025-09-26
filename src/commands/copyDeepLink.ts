@@ -100,7 +100,12 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 
 			type = DeepLinkType.Repository;
 			repoPath = (
-				await getBestRepositoryOrShowPicker(gitUri, editor, `Copy Link to ${deepLinkTypeToString(type)}`)
+				await getBestRepositoryOrShowPicker(
+					this.container,
+					gitUri,
+					editor,
+					`Copy Link to ${deepLinkTypeToString(type)}`,
+				)
 			)?.path;
 		} else if (typeof args.refOrRepoPath === 'string') {
 			type = args.compareRef == null ? DeepLinkType.Repository : DeepLinkType.Comparison;

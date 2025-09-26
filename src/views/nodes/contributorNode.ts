@@ -7,7 +7,7 @@ import type { GitContributor } from '../../git/models/contributor';
 import type { GitLog } from '../../git/models/log';
 import { configuration } from '../../system/-webview/configuration';
 import { formatNumeric } from '../../system/date';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';

@@ -8,8 +8,6 @@ import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 import { getNumericFormat } from './date';
 
-export { fromBase64, base64 } from '@env/base64';
-
 export function capitalize(s: string): string {
 	return `${s[0].toLocaleUpperCase()}${s.slice(1)}`;
 }
@@ -23,6 +21,51 @@ export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
 	const result = compareCollator.compare(a, b);
 	// Intl.Collator.compare isn't guaranteed to always return 1 or -1 on all platforms so normalize it
 	return result === 0 ? 0 : result > 0 ? 1 : -1;
+}
+
+/**
+ * Removes common leading whitespace from each line in a template string.
+ * This allows you to write indented template strings but have them trimmed in the result.
+ *
+ * @param template The template string to dedent
+ * @returns The dedented string
+ *
+ * @example
+ * ```typescript
+ * const str = dedent(`
+ *     Hello
+ *     World
+ *     Test
+ * `);
+ * // Result: "Hello\nWorld\nTest"
+ * ```
+ */
+export function dedent(template: string): string {
+	const lines = template.split('\n');
+
+	// Remove leading and trailing empty lines
+	while (lines.length > 0 && lines[0].trim() === '') {
+		lines.shift();
+	}
+	while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+		lines.pop();
+	}
+
+	if (lines.length === 0) return '';
+
+	// Find the minimum indentation (excluding empty lines)
+	const nonEmptyLines = lines.filter(line => line.trim() !== '');
+	if (nonEmptyLines.length === 0) return '';
+
+	const minIndent = Math.min(
+		...nonEmptyLines.map(line => {
+			const match = line.match(/^(\s*)/);
+			return match ? match[1].length : 0;
+		}),
+	);
+
+	// Remove the common indentation from all lines
+	return lines.map(line => line.slice(minIndent)).join('\n');
 }
 
 export function equalsIgnoreCase(a: string | null | undefined, b: string | null | undefined): boolean {

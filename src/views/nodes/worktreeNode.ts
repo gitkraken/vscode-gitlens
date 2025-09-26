@@ -14,7 +14,7 @@ import { getHighlanderProviderName } from '../../git/utils/remote.utils';
 import { shortenRevision } from '../../git/utils/revision.utils';
 import { getContext } from '../../system/-webview/context';
 import { getBestPath } from '../../system/-webview/path';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { Logger } from '../../system/logger';

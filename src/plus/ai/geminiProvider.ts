@@ -7,10 +7,30 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
+		id: 'gemini-2.5-pro',
+		name: 'Gemini 2.5 Pro',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+	},
+	{
+		id: 'gemini-2.5-flash',
+		name: 'Gemini 2.5 Flash',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+		default: true,
+	},
+	{
+		id: 'gemini-2.5-flash-lite',
+		name: 'Gemini 2.5 Flash-Lite',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-2.5-flash-preview-05-20',
 		name: 'Gemini 2.5 Flash (Preview)',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.5-flash-preview-04-17',
@@ -24,6 +44,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.5 Pro (Preview)',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.5-pro-preview-03-25',
@@ -44,7 +65,6 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.0 Flash',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
-		default: true,
 	},
 	{
 		id: 'gemini-2.0-flash-001',
@@ -78,18 +98,21 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.0 Pro (Experimental)',
 		maxTokens: { input: 2097152, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.0-flash-thinking-exp-01-21',
 		name: 'Gemini 2.0 Flash Thinking (Experimental)',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.0-flash-exp',
 		name: 'Gemini 2.0 Flash (Experimental)',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-exp-1206',

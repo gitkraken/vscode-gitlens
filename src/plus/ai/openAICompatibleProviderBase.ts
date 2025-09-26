@@ -130,7 +130,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				max_completion_tokens: model.maxTokens.output
 					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
 					: modelOptions?.outputTokens,
-				temperature: getValidatedTemperature(modelOptions?.temperature ?? model.temperature),
+				temperature: getValidatedTemperature(model, modelOptions?.temperature ?? model.temperature),
 			};
 
 			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);

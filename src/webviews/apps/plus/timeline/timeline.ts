@@ -195,14 +195,14 @@ export class GlTimelineApp extends GlAppHost<State> {
 
 		return html`<gl-breadcrumb-item
 			collapsibleState="${this.state.scope?.relativePath ? 'collapsed' : 'expanded'}"
-			icon="repo"
+			icon="gl-repository"
 			shrink="10000000"
 			type="repo"
 		>
 			<gl-repo-button-group
 				aria-label="Visualize Repository History"
 				.connectIcon=${false}
-				.hasMultipleRepositories=${false /* TODO support repositories switching */}
+				.hasMultipleRepositories=${this.state.repositories.openCount > 1}
 				.icon=${false}
 				.repository=${repo}
 				.source=${{ source: 'timeline' } as const}

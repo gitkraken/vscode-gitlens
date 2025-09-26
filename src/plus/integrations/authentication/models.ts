@@ -44,12 +44,14 @@ export interface CloudIntegrationConnection {
 
 export type CloudIntegrationType =
 	| 'jira'
+	| 'linear'
 	| 'trello'
 	| 'gitlab'
 	| 'github'
 	| 'bitbucket'
 	| 'bitbucketServer'
 	| 'azure'
+	| 'azureDevopsServer'
 	| 'githubEnterprise'
 	| 'gitlabSelfHosted';
 
@@ -69,6 +71,7 @@ export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudI
 
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } = {
 	jira: IssuesCloudHostIntegrationId.Jira,
+	linear: IssuesCloudHostIntegrationId.Linear,
 	trello: IssuesCloudHostIntegrationId.Trello,
 	gitlab: GitCloudHostIntegrationId.GitLab,
 	github: GitCloudHostIntegrationId.GitHub,
@@ -77,15 +80,18 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } 
 	bitbucket: GitCloudHostIntegrationId.Bitbucket,
 	bitbucketServer: GitSelfManagedHostIntegrationId.BitbucketServer,
 	azure: GitCloudHostIntegrationId.AzureDevOps,
+	azureDevopsServer: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 };
 
 export const toCloudIntegrationType: { [key in IntegrationIds]: CloudIntegrationType | undefined } = {
 	[IssuesCloudHostIntegrationId.Jira]: 'jira',
+	[IssuesCloudHostIntegrationId.Linear]: 'linear',
 	[IssuesCloudHostIntegrationId.Trello]: 'trello',
 	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
 	[GitCloudHostIntegrationId.GitHub]: 'github',
 	[GitCloudHostIntegrationId.Bitbucket]: 'bitbucket',
 	[GitCloudHostIntegrationId.AzureDevOps]: 'azure',
+	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: 'azureDevopsServer',
 	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: 'bitbucketServer',

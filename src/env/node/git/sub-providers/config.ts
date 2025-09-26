@@ -8,7 +8,7 @@ import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitConfigSubProvider, GitDir } from '../../../../git/gitProvider';
 import type { GitUser } from '../../../../git/models/user';
 import { getBestPath } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';

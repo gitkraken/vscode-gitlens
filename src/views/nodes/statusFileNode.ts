@@ -208,7 +208,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	override getCommand(): Command | undefined {
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this._files.length === 1) {
 			return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-				'gitlens.diffWithPrevious',
+				'gitlens.diffWithPrevious:views',
 				'Open Changes with Previous Revision',
 				undefined,
 				{

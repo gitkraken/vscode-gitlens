@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?3614d4fae1d1a9c07c67436aad657680") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?d3b316716ee1329763a193a20834cd0a") format("woff2");
 	}
 </style>
 */
@@ -244,4 +244,19 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-history-view-filled:before {
 	content: '\f142';
+}
+.glicon-repository:before {
+	content: '\f143';
+}
+.glicon-worktree:before {
+	content: '\f144';
+}
+.glicon-worktree-filled:before {
+	content: '\f145';
+}
+.glicon-repository-cloud:before {
+	content: '\f146';
+}
+.glicon-provider-linear:before {
+	content: '\f147';
 }

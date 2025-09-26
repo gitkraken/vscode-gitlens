@@ -55,12 +55,21 @@ interface StashMessagePromptTemplateContext {
 	instructions?: string;
 }
 
+interface GenerateCommitsPromptTemplateContext {
+	hunks: string;
+	existingCommits: string;
+	hunkMap: string;
+	context?: string;
+	instructions?: string;
+}
+
 export type PromptTemplateType =
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
 	| 'generate-rebase'
+	| 'generate-commits'
 	| 'generate-searchQuery'
 	| 'explain-changes';
 
@@ -81,6 +90,8 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? ChangelogPromptTemplateContext
 	: T extends 'generate-rebase'
 	? RebasePromptTemplateContext
+	: T extends 'generate-commits'
+	? GenerateCommitsPromptTemplateContext
 	: T extends 'generate-searchQuery'
 	? SearchQueryPromptTemplateContext
 	: T extends 'explain-changes'

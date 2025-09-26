@@ -21,6 +21,19 @@ export function getSubscriptionFromCheckIn(
 	paidLicenses = paidLicenses.filter(
 		license => license[1].latestStatus !== 'expired' && license[1].latestStatus !== 'cancelled',
 	);
+
+	// if there are any paid licenses with status of in_trial, move them to effectiveLicenses
+	for (let i = 0; i < paidLicenses.length; i++) {
+		const [, license] = paidLicenses[i];
+		if (
+			(license.latestStatus === 'in_trial' || license.latestStatus === 'trial') &&
+			license.hasPaymentSource !== true
+		) {
+			effectiveLicenses.push(paidLicenses.splice(i, 1)[0]);
+			i--;
+		}
+	}
+
 	if (paidLicenses.length > 1) {
 		paidLicenses.sort(
 			(a, b) =>
@@ -152,6 +165,11 @@ export function getSubscriptionFromCheckIn(
 }
 function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPlanIds {
 	switch (licenseType) {
+		case 'gitlens-edu':
+		case 'bundle-edu':
+		case 'gitkraken_v1-edu':
+		case 'gitkraken-v1-edu':
+			return 'student';
 		case 'gitlens-pro':
 		case 'bundle-pro':
 		case 'gitkraken_v1-pro':

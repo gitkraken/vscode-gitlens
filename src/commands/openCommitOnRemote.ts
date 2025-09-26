@@ -71,6 +71,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 		const repoPath = (
 			await getBestRepositoryOrShowPicker(
+				this.container,
 				gitUri,
 				editor,
 				args?.clipboard ? 'Copy Remote Commit URL' : 'Open Commit On Remote',

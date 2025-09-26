@@ -100,14 +100,22 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 							outputTokens: model.maxTokens.output
 								? Math.min(options.modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
 								: options.modelOptions?.outputTokens,
-							temperature: getValidatedTemperature(model.temperature),
+							temperature: getValidatedTemperature(model, model.temperature),
 						},
 					},
 					options.cancellation,
 				);
 
+				if (options.cancellation.isCancellationRequested) {
+					throw new CancellationError();
+				}
+
 				let message = '';
 				for await (const fragment of rsp.text) {
+					if (options.cancellation.isCancellationRequested) {
+						throw new CancellationError();
+					}
+
 					message += fragment;
 				}
 
@@ -129,16 +137,20 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 				if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 					message += `\n${ex.cause.message}`;
+				}
 
-					if (ex.cause.message.includes('exceeds token limit')) {
-						if (retries++ < 2) {
-							maxInputTokens -= 500 * retries;
-							continue;
-						}
+				if (message.includes('exceeds token limit')) {
+					if (++retries <= 3) {
+						// Reduce by 10%, then 25%, then 50% on retries 1, 2, 3 respectively
+						const reductionPercents = [0, 0.1, 0.25, 0.5] as const;
+						const reduction = reductionPercents[retries] ?? 0.5;
 
-						Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
-						throw new AIError(AIErrorReason.RequestTooLarge, ex);
+						maxInputTokens -= Math.min(5000 * retries, maxInputTokens * reduction);
+						continue;
 					}
+
+					Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+					throw new AIError(AIErrorReason.RequestTooLarge, ex);
 				}
 
 				Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);

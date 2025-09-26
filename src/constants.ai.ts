@@ -23,7 +23,7 @@ export type SupportedAIModels = `${Exclude<AIProviders, AIPrimaryProviders>}:${s
 
 export const gitKrakenProviderDescriptor: AIProviderDescriptor<'gitkraken'> = {
 	id: 'gitkraken',
-	name: 'GitKraken AI (Preview)',
+	name: 'GitKraken AI',
 	primary: true,
 	requiresAccount: true,
 	requiresUserKey: false,

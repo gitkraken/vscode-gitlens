@@ -5,6 +5,7 @@ import type { Organization } from './organization';
 export type SubscriptionPlanIds =
 	| 'community'
 	| 'community-with-account'
+	| 'student'
 	| 'pro'
 	| 'advanced'
 	| 'teams' /* the old name for Business; do not change */

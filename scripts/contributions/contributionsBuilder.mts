@@ -32,6 +32,7 @@ export const menuLocations: MenuLocations[] = [
 	'explorer/context',
 	'extension/context',
 	'git.commit',
+	'git.changes',
 	'menuBar/edit/copy',
 	'scm/title',
 	'scm/sourceControl',

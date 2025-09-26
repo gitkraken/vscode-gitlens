@@ -615,7 +615,7 @@ function applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAut
 	commit: GitCommit | undefined,
 ): T {
 	lens.command = createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-		'gitlens.diffWithPrevious',
+		'gitlens.diffWithPrevious:codelens',
 		title,
 		undefined,
 		{
@@ -763,7 +763,7 @@ function applyToggleFileBlameCommand<T extends GitRecentChangeCodeLens | GitAuth
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>('gitlens.toggleFileBlame', title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.toggleFileBlame:codelens', title, lens.uri!.toFileUri());
 	return lens;
 }
 
@@ -774,7 +774,7 @@ function applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAu
 	only?: boolean,
 ): T {
 	lens.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-		'gitlens.toggleFileChanges',
+		'gitlens.toggleFileChanges:codelens',
 		title,
 		lens.uri!.toFileUri(),
 		{
@@ -789,7 +789,7 @@ function applyToggleFileHeatmapCommand<T extends GitRecentChangeCodeLens | GitAu
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>('gitlens.toggleFileHeatmap', title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.toggleFileHeatmap:codelens', title, lens.uri!.toFileUri());
 	return lens;
 }
 

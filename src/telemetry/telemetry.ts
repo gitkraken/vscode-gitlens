@@ -232,6 +232,9 @@ function addSourceAttributes(
 
 	data ??= {};
 	data['source.name'] = source.source;
+	if (source.correlationId != null) {
+		data['source.correlationId'] = source.correlationId;
+	}
 	if (source.detail != null) {
 		if (typeof source.detail === 'string') {
 			data['source.detail'] = source.detail;

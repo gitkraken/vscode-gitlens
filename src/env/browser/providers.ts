@@ -1,3 +1,4 @@
+import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
 import type { GitCommandOptions } from '../../git/commandOptions';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
@@ -41,4 +42,8 @@ export function getSupportedWorkspacesStorageProvider(
 
 export function getGkCliIntegrationProvider(_container: Container): undefined {
 	return undefined;
+}
+
+export function getMcpProviders(_container: Container): Promise<Disposable[] | undefined> {
+	return Promise.resolve(undefined);
 }

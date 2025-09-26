@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import { shortenRevision } from '../utils/revision.utils';
 
 export interface GitReflog {

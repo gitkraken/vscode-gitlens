@@ -2,9 +2,11 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { urls } from './constants';
+import type { Source } from './constants.telemetry';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
+import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils';
 import { executeCommand, executeCoreCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
 import { openUrl } from './system/-webview/vscode/uris';
@@ -249,9 +251,9 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(
 		'info',
-		`Upgraded to GitLens ${majorVersion}${
+		`GitLens upgraded to ${majorVersion}${
 			majorVersion === '17'
-				? ' with all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
+				? ' with the all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
 				: " — see what's new."
 		}`,
 		undefined,
@@ -262,6 +264,43 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 
 	if (result === releaseNotes) {
 		void openUrl(urls.releaseNotes);
+	}
+}
+
+export async function showMcpMessage(_current: string): Promise<void> {
+	const isAutoInstallable = mcpExtensionRegistrationAllowed();
+	const confirm = { title: 'OK', isCloseAffordance: true };
+	const learnMore = { title: 'Learn More' };
+	const install = { title: 'Install GitKraken MCP' };
+
+	let result: MessageItem | undefined;
+	if (isAutoInstallable) {
+		result = await showMessage(
+			'info',
+			`GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions.`,
+			undefined,
+			null,
+			learnMore,
+			confirm,
+		);
+	} else {
+		result = await showMessage(
+			'info',
+			`Allow GitLens to add the GitKraken MCP into your AI chat, leveraging Git and your integrations (issues, PRs, etc) to provide context and perform actions. Saving you time and context switching.`,
+			undefined,
+			null,
+			install,
+			learnMore,
+			confirm,
+		);
+	}
+
+	if (result === install) {
+		void executeCommand<Source>('gitlens.ai.mcp.install', { source: 'mcp-welcome-message' });
+	}
+
+	if (result === learnMore) {
+		void openUrl(urls.helpCenterMCP);
 	}
 }
 

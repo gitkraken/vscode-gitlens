@@ -69,16 +69,20 @@ export class GlFeatureGate extends LitElement {
 
 			:host-context(body[data-placement='editor']) section,
 			:host([appearance='alert']) section {
-				--section-foreground: var(--color-alert-foreground);
+				--section-foreground: var(--color-alert-infoForeground);
 				--section-background: var(--color-alert-infoBackground);
 				--section-border-color: var(--color-alert-infoBorder);
 
 				--link-decoration-default: underline;
-				--link-foreground: var(--vscode-foreground);
+				--link-foreground: color-mix(in srgb, var(--section-foreground) 50%, var(--textLink-foreground));
 				/* --link-foreground-active: var(--vscode-foreground); */
 
 				/* --link-foreground: var(--vscode-textLink-foreground); */
-				--link-foreground-active: var(--vscode-textLink-activeForeground);
+				--link-foreground-active: color-mix(
+					in srgb,
+					var(--section-foreground) 50%,
+					var(--vscode-textLink-activeForeground)
+				);
 
 				border-radius: 0.3rem;
 				max-width: 600px;

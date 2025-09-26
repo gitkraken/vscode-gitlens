@@ -3,7 +3,7 @@ import type { AIProviders } from './constants.ai';
 import type { IntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
-import type { GroupableTreeViewTypes } from './constants.views';
+import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
 import type { GitRevisionRangeNotation } from './git/models/revision';
@@ -80,8 +80,15 @@ export type GlobalStorage = {
 	preVersion: string;
 	'product:config': Stored<StoredProductConfig>;
 	'confirm:draft:storage': boolean;
+	// Value based on `currentOnboardingVersion` in composer's protocol
+	'composer:onboarding:dismissed': string;
+	'composer:onboarding:stepReached': number;
+	'gk:cli:install': StoredGkCLIInstallInfo;
+	'gk:cli:corePath': string;
+	'gk:cli:path': string;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
+	'mcp:banner:dismissed': boolean;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
@@ -111,6 +118,12 @@ export type GlobalStorage = {
 } & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
 	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
 } & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
+
+export interface StoredGkCLIInstallInfo {
+	status: 'attempted' | 'unsupported' | 'completed';
+	attempts: number;
+	version?: string;
+}
 
 export type StoredIntegrationConfigurations = Record<
 	IntegrationIds,
@@ -169,6 +182,8 @@ export type WorkspaceStorage = {
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
 } & {
 	[key in IntegrationConnectedKey]: boolean;
+} & {
+	[key in `views:${TreeViewTypes}:repositoryFilter`]: string[] | undefined;
 };
 
 export interface Stored<T, SchemaVersion extends number = 1> {

@@ -11,6 +11,7 @@ images/icons/template/mapping.json
 images/icons/template/sass-map.hbs
 images/icons/template/styles.hbs
 src/emojis.generated.ts
+src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts
 src/webviews/apps/shared/components/icons/codicons-map.ts
 src/webviews/apps/shared/components/icons/glicons-map.ts
 src/webviews/apps/shared/styles/icons/codicons-map.scss

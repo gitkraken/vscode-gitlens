@@ -11,12 +11,13 @@ import type {
 const orderedPlans: SubscriptionPlanIds[] = [
 	'community',
 	'community-with-account',
+	'student',
 	'pro',
 	'advanced',
 	'teams',
 	'enterprise',
 ];
-const orderedPaidPlans: PaidSubscriptionPlanIds[] = ['pro', 'advanced', 'teams', 'enterprise'];
+const orderedPaidPlans: PaidSubscriptionPlanIds[] = ['student', 'pro', 'advanced', 'teams', 'enterprise'];
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
 export const AiAllAccessOptInPathPrefix = 'ai-all-access-opt-in';
 
@@ -47,7 +48,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 				return SubscriptionState.TrialExpired;
 			}
-
+			case 'student':
 			case 'pro':
 			case 'advanced':
 			case 'teams':
@@ -72,6 +73,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 			return SubscriptionState.TrialExpired;
 		}
 
+		case 'student':
 		case 'pro':
 		case 'advanced':
 		case 'teams':
@@ -113,8 +115,10 @@ export function getSubscriptionPlan(
 /** Gets the plan name for the given plan id */
 export function getSubscriptionPlanName(
 	id: SubscriptionPlanIds,
-): 'Community' | 'Pro' | 'Advanced' | 'Business' | 'Enterprise' {
+): 'Community' | 'Student' | 'Pro' | 'Advanced' | 'Business' | 'Enterprise' {
 	switch (id) {
+		case 'student':
+			return 'Student';
 		case 'pro':
 			return 'Pro';
 		case 'advanced':
@@ -133,8 +137,12 @@ export function getSubscriptionPlanOrder(id: SubscriptionPlanIds | undefined): n
 }
 
 /** Only for gk.dev `planType` query param */
-export function getSubscriptionPlanType(id: SubscriptionPlanIds): 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
+export function getSubscriptionPlanType(
+	id: SubscriptionPlanIds,
+): 'STUDENT' | 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
 	switch (id) {
+		case 'student':
+			return 'STUDENT';
 		case 'advanced':
 			return 'ADVANCED';
 		case 'teams':
@@ -155,12 +163,12 @@ export function getSubscriptionProductPlanName(id: SubscriptionPlanIds): string 
 export function getSubscriptionProductPlanNameFromState(
 	state: SubscriptionState,
 	planId?: SubscriptionPlanIds,
-	_effectivePlanId?: SubscriptionPlanIds,
+	effectivePlanId?: SubscriptionPlanIds,
 ): string {
 	switch (state) {
 		case SubscriptionState.Community:
 		case SubscriptionState.Trial:
-			return `${getSubscriptionProductPlanName('pro')} Trial`;
+			return `${effectivePlanId === 'student' ? getSubscriptionProductPlanName('student') : getSubscriptionProductPlanName('pro')} Trial`;
 		// return `${getSubscriptionProductPlanName(
 		// 	_effectivePlanId != null &&
 		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? 'pro') > 0

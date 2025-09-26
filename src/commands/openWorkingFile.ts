@@ -20,7 +20,12 @@ export interface OpenWorkingFileCommandArgs {
 @command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.openWorkingFile');
+		super([
+			'gitlens.openWorkingFile',
+			'gitlens.openWorkingFile:command',
+			'gitlens.openWorkingFile:editor/context',
+			'gitlens.openWorkingFile:editor/title',
+		]);
 	}
 
 	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs): Promise<void> {

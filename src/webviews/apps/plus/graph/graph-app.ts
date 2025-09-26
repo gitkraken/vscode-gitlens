@@ -24,6 +24,7 @@ import './graph-wrapper/graph-wrapper';
 import './hover/graphHover';
 import './minimap/minimap-container';
 import './sidebar/sidebar';
+import '../../shared/components/mcp-banner';
 
 @customElement('gl-graph-app')
 export class GraphApp extends SignalWatcher(LitElement) {

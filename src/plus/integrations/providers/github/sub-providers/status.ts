@@ -2,7 +2,7 @@ import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitStatusSubProvider } from '../../../../../git/gitProvider';
 import { GitStatus } from '../../../../../git/models/status';
-import { gate } from '../../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../../system/decorators/gate';
 import { log } from '../../../../../system/decorators/log';
 import { HeadType } from '../../../../remotehub';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';

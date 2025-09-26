@@ -57,6 +57,7 @@ export interface WebviewStateProvier<State, SerializedState, ShowingArgs extends
 
 export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
 	readonly id: ID;
+	readonly instanceId: string;
 
 	readonly originalTitle: string;
 	title: string;

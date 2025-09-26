@@ -1,7 +1,8 @@
 import { Disposable, Uri, ViewColumn } from 'vscode';
+import type { Container } from '../../../container';
 import { registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
-import { getScmResourceFolderUri, isScmResourceState } from '../../../system/-webview/scm';
+import { getScmResourceFolderUri, isScm, isScmResourceState } from '../../../system/-webview/scm';
 import { isViewFileNode, isViewNode } from '../../../views/nodes/utils/-webview/node.utils';
 import type { WebviewPanelsProxy, WebviewsController, WebviewViewProxy } from '../../webviewsController';
 import type { State, TimelineScope } from './protocol';
@@ -61,6 +62,7 @@ export function registerTimelineWebviewView(
 }
 
 export function registerTimelineWebviewCommands<T>(
+	container: Container,
 	panels: WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, T>,
 ): Disposable {
 	function show(scope?: TimelineScope | undefined): Promise<void> {
@@ -101,6 +103,23 @@ export function registerTimelineWebviewCommands<T>(
 		registerCommand('gitlens.visualizeHistory.folder:scm', (...args: unknown[]) => {
 			const uri = getScmResourceFolderUri(args);
 			return show(uri ? { type: 'folder', uri: uri } : undefined);
+		}),
+
+		registerCommand('gitlens.visualizeHistory.repo:scm', (...args: unknown[]) => {
+			const uri = isScm(args[0]) ? args[0].rootUri : container.git.getBestRepositoryOrFirst()?.uri;
+			return show(uri ? { type: 'repo', uri: uri } : undefined);
+		}),
+		registerCommand('gitlens.visualizeHistory.repo:views', (...args: unknown[]) => {
+			const [arg] = args;
+
+			let uri;
+			if (isViewNode(arg, 'repo-folder')) {
+				uri = arg.uri;
+			} else {
+				uri = container.git.getBestRepositoryOrFirst()?.uri;
+			}
+
+			return show(uri ? { type: 'repo', uri: uri } : undefined);
 		}),
 
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),

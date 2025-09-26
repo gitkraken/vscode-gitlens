@@ -2,17 +2,18 @@ import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { Features } from './features';
 import type { OrgAIProviders } from './plus/gk/models/organization';
 import type { PromoKeys } from './plus/gk/models/promo';
 import type { SubscriptionPlanIds } from './plus/gk/models/subscription';
-import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
 export type ContextKeys = {
 	'gitlens:debugging': boolean;
 	'gitlens:disabled': boolean;
 	'gitlens:disabledToggleCodeLens': boolean;
 	'gitlens:enabled': boolean;
+	'gitlens:gk:cli:installed': boolean;
 	'gitlens:gk:hasOrganizations': boolean;
 	'gitlens:gk:organization:ai:enabled': boolean;
 	'gitlens:gk:organization:ai:enforceProviders': boolean;
@@ -39,6 +40,7 @@ export type ContextKeys = {
 	'gitlens:schemes:trackable': string[];
 	'gitlens:tabs:ai:helpful': Uri[];
 	'gitlens:tabs:ai:unhelpful': Uri[];
+	'gitlens:tabs:ai:changelog': Uri[];
 	'gitlens:tabs:annotated': Uri[];
 	'gitlens:tabs:annotated:computing': Uri[];
 	'gitlens:tabs:blameable': Uri[];

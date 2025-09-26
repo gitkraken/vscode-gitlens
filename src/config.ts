@@ -212,6 +212,11 @@ export interface AdvancedConfig {
 
 interface AIConfig {
 	readonly enabled: boolean;
+	readonly experimental: {
+		readonly composer: {
+			readonly enabled: boolean;
+		};
+	};
 	readonly azure: {
 		readonly url: string | null;
 	};
@@ -228,6 +233,9 @@ interface AIConfig {
 	readonly generateCommitMessage: {
 		readonly customInstructions: string;
 		readonly enabled: boolean;
+	};
+	readonly generateCommits: {
+		readonly customInstructions: string;
 	};
 	readonly generateStashMessage: {
 		readonly customInstructions: string;
@@ -381,12 +389,17 @@ interface GitCommandsConfig {
 interface GitKrakenConfig {
 	readonly activeOrganizationId: string | null;
 	readonly cli: GitKrakenCliConfig;
+	readonly mcp: GitKrakenMcpConfig;
 }
 
 interface GitKrakenCliConfig {
 	readonly integration: {
 		readonly enabled: boolean;
 	};
+}
+
+interface GitKrakenMcpConfig {
+	readonly autoEnabled: boolean;
 }
 
 export interface GraphConfig {
@@ -558,6 +571,7 @@ export interface MenuConfig {
 		| false
 		| {
 				readonly graph: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmRepositoryInline:
 		| false
@@ -565,14 +579,15 @@ export interface MenuConfig {
 				readonly generateCommitMessage: boolean;
 				readonly graph: boolean;
 				readonly stash: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmRepository:
 		| false
 		| {
 				readonly authors: boolean;
 				readonly generateCommitMessage: boolean;
-				readonly patch: boolean;
 				readonly graph: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmGroupInline:
 		| false

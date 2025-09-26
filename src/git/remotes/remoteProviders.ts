@@ -92,6 +92,8 @@ const cloudProviderCreatorsMap: Record<
 		path: string,
 		scheme: string | undefined,
 	) => new BitbucketServerRemote(container, domain, path, cleanProtocol(scheme)),
+	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: (container: Container, domain: string, path: string) =>
+		new AzureDevOpsRemote(container, domain, path),
 };
 
 const dirtyProtocolPattern = /(\w+)\W*/;
