@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 13.0.0-vnext.8
-        version: 13.0.0-vnext.8(@types/react@19.0.12)(react@19.0.0)
+        specifier: 13.0.0-vnext.9
+        version: 13.0.0-vnext.9(@types/react@19.0.12)(react@19.0.0)
       '@gitkraken/provider-apis':
         specifier: 0.29.7
         version: 0.29.7(encoding@0.1.13)
@@ -652,8 +652,8 @@ packages:
   '@github/catalyst@1.7.0':
     resolution: {integrity: sha512-qOAxrDdRZz9+v4y2WoAfh11rpRY/x4FRofPNmJyZFzAjubtzE3sCa/tAycWWufmQGoYiwwzL/qJBBgyg7avxPw==}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.8':
-    resolution: {integrity: sha512-XNvHZ/3W3YhoXKWXZzVxQiON9x/bmQ/op9BSYqKFMn3QenDK+9TLJOsoSSVVz4Kz/0Lh4nXRoOpLh/MRxaF3bA==}
+  '@gitkraken/gitkraken-components@13.0.0-vnext.9':
+    resolution: {integrity: sha512-PvwOVrCk27aRG/J/Khx1EuipDfpULmmCi2YnKCQSFESY+uo12I2e7RIA4EPJ516/PaeQUvo6Zgps7Jjz0SOiRw==}
     peerDependencies:
       react: 19.0.0
 
@@ -6543,7 +6543,7 @@ snapshots:
 
   '@github/catalyst@1.7.0': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.8(@types/react@19.0.12)(react@19.0.0)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.9(@types/react@19.0.12)(react@19.0.0)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       classnames: 2.5.1
