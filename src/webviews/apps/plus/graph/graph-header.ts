@@ -116,7 +116,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		graphHeaderControlStyles,
 		progressStyles,
 		css`
-			.mcp-tooltip a {
+			.mcp-tooltip::part(body) {
+				--max-width: 320px;
+			}
+
+			.mcp-tooltip__content a {
 				color: var(--vscode-textLink-foreground);
 			}
 
@@ -722,19 +726,20 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						${when(
 							!(this.graphState.state.mcpBannerCollapsed ?? true),
 							() => html`
-								<gl-tooltip placement="bottom">
+								<gl-popover class="mcp-tooltip" placement="bottom" trigger="click focus hover">
 									<a
 										class="action-button action-button--mcp"
 										href=${createCommandLink('gitlens.ai.mcp.install', { source: 'graph' })}
+										slot="anchor"
 									>
 										<code-icon class="action-button__icon" icon="mcp"></code-icon>
 									</a>
-									<span class="mcp-tooltip" slot="content">
+									<div class="mcp-tooltip__content" slot="content">
 										<strong>Install GitKraken MCP for GitLens</strong> <br />
 										Leverage Git and Integration information from GitLens in AI chat.
 										<a href="https://help.gitkraken.com/mcp/mcp-getting-started">Learn more</a>
-									</span>
-								</gl-tooltip>
+									</div>
+								</gl-popover>
 							`,
 						)}
 						<gl-tooltip placement="bottom">
