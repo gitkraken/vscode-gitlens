@@ -1,6 +1,7 @@
 (
   set -e
   pnpm run pretty:check
+  pnpm run lint
   pnpm run test
 );
 EXIT_CODE=$?;
