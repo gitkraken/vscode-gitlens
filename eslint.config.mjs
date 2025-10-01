@@ -282,6 +282,11 @@ export default ts.config(
 			],
 
 			// TypeScript rules
+
+			// @typescript-eslint/await-thenable is disabled because Promise.allSettled/all with mixed thenable/non-thenable arrays
+			// is a valid pattern used throughout the codebase for handling mixed sync/async operations safely.
+			// The new stricter rule would require unnecessary complexity to separate sync/async values before Promise aggregation.
+			'@typescript-eslint/await-thenable': 'off',
 			'@typescript-eslint/consistent-type-assertions': [
 				'error',
 				{ assertionStyle: 'as', objectLiteralTypeAssertions: 'allow-as-parameter' },
