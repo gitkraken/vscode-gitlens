@@ -320,7 +320,7 @@ _{prefix}/integrations/connect(&integration={integration})_
   - _github_ - Connects the GitHub integration.
   - _gitlab_ - Connects the GitLab integration.
   - _bitbucket_ - Connects the Bitbucket integration.
-  - _azuredevOps_ - Connects the Azure DevOps integration.
+  - _azureDevOps_ - Connects the Azure DevOps integration.
   - _jira_ - Connects the Jira integration.
   - _linear_ - Connects the Linear integration.
   - _trello_ - Connects the Trello integration.
