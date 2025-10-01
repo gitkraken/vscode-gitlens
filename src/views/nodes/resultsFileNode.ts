@@ -132,12 +132,11 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 			if (this.direction === 'behind') {
 				lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
 				rhsUri = this.uri;
+			} else if (this.direction == null) {
+				lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref1, true);
+				rhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, false);
 			} else {
-				if (this.direction == null) {
-					lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref1, true);
-				} else {
-					lhsUri = this.uri;
-				}
+				lhsUri = this.uri;
 				rhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
 			}
 		} else {

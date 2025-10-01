@@ -146,8 +146,7 @@ export class DiffWithCommand extends GlCommandBase {
 			let lhsSuffix = shortenRevision(lhsResolved.revision);
 			if (lhsResolved.sha === deletedOrMissing) {
 				lhsSuffix = args.fromComparison ? `Missing${!lhsSuffix ? '' : ` in ${lhsSuffix}`}` : '';
-			}
-			if (lhs == null && !rhsResolved.sha) {
+			} else if (lhs == null && !rhsResolved.sha) {
 				if (rhs != null) {
 					lhsSuffix = !lhsSuffix ? '' : `Not in ${lhsSuffix}`;
 					rhsSuffix = '';
