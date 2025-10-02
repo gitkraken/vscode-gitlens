@@ -394,7 +394,6 @@ export class BranchNode
 			useBaseNameOnly: !(this.view.config.branches?.layout !== 'tree' || this.compacted || this.avoidCompacting),
 			worktree: this.worktree,
 			worktreesByBranch: this.context.worktreesByBranch,
-			isRecomposable: Boolean(this.mergeBase),
 		});
 
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
@@ -520,7 +519,6 @@ export async function getBranchNodeParts(
 		useBaseNameOnly: boolean;
 		worktree?: GitWorktree;
 		worktreesByBranch?: Map<string, GitWorktree>;
-		isRecomposable?: boolean;
 	},
 ): Promise<{
 	label: string;
@@ -718,10 +716,6 @@ export async function getBranchNodeParts(
 		iconPath = getRemoteIconPath(container, remote, { avatars: options?.avatars });
 	} else {
 		iconPath = getBranchIconPath(container, branch);
-	}
-
-	if (options?.isRecomposable) {
-		contextValue += '+recomposable';
 	}
 
 	return {
