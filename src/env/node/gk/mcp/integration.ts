@@ -1,6 +1,3 @@
-import { homedir } from 'os';
-import { join } from 'path';
-import { env as processEnv } from 'process';
 import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
 import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition, Uri, workspace } from 'vscode';
 import type { Container } from '../../../../container';
@@ -10,7 +7,6 @@ import { debug, log } from '../../../../system/decorators/log';
 import type { Deferrable } from '../../../../system/function/debounce';
 import { debounce } from '../../../../system/function/debounce';
 import { Logger } from '../../../../system/logger';
-import { getPlatform } from '../../platform';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils';
 
 const CLIProxyMCPConfigOutputs = {
@@ -100,7 +96,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		}
 
 		// Clean up any duplicate manual installations before registering the bundled version
-		await this.removeDuplicateManualMcpConfigurations(appName);
+		await this.removeDuplicateManualMcpConfigurations();
 
 		let output = await runCLICommand(['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`], {
 			cwd: cliPath,
@@ -128,22 +124,21 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	}
 
 	@debug()
-	private async removeDuplicateManualMcpConfigurations(appName: string): Promise<void> {
+	private async removeDuplicateManualMcpConfigurations(): Promise<void> {
 		try {
-			const settingsPath = this.getUserSettingsPath(appName);
-			if (settingsPath == null) {
-				Logger.debug(`Unable to determine settings path for ${appName}`);
-				return;
-			}
-
-			const settingsUri = Uri.file(settingsPath);
+			// Use globalStorageUri to locate the User folder where settings.json is stored
+			// globalStorageUri points to: .../[AppName]/User/globalStorage/eamodio.gitlens
+			// Going up 2 levels gets us to: .../[AppName]/User/
+			const globalStorageUri = this.container.context.globalStorageUri;
+			const userFolderUri = Uri.joinPath(globalStorageUri, '..', '..');
+			const settingsUri = Uri.joinPath(userFolderUri, 'settings.json');
 			
 			// Check if settings file exists
 			try {
 				await workspace.fs.stat(settingsUri);
 			} catch {
 				// Settings file doesn't exist, nothing to clean up
-				Logger.debug(`Settings file does not exist: ${settingsPath}`);
+				Logger.debug(`Settings file does not exist: ${settingsUri.fsPath}`);
 				return;
 			}
 
@@ -190,82 +185,17 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			const updatedSettingsText = JSON.stringify(settings, null, '\t');
 			await workspace.fs.writeFile(settingsUri, new TextEncoder().encode(updatedSettingsText));
 
-			Logger.log(`Removed ${removedCount} duplicate manual MCP configuration(s) from ${settingsPath}`);
+			Logger.log(`Removed ${removedCount} duplicate manual MCP configuration(s) from ${settingsUri.fsPath}`);
 
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('mcp/uninstall/duplicate', {
-					app: appName,
+					app: settingsUri.fsPath,
 					source: 'gk-mcp-provider',
 				});
 			}
 		} catch (ex) {
 			// Log error but don't fail the overall process
 			Logger.error(`Error removing duplicate MCP configurations: ${ex}`);
-		}
-	}
-
-	private getUserSettingsPath(appName: string): string | null {
-		const platform = getPlatform();
-		const home = homedir();
-		const appData = processEnv.APPDATA || join(home, 'AppData', 'Roaming');
-
-		switch (appName) {
-			case 'vscode':
-				switch (platform) {
-					case 'windows':
-						return join(appData, 'Code', 'User', 'settings.json');
-					case 'macOS':
-						return join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
-					default: // linux
-						return join(home, '.config', 'Code', 'User', 'settings.json');
-				}
-			case 'vscode-insiders':
-				switch (platform) {
-					case 'windows':
-						return join(appData, 'Code - Insiders', 'User', 'settings.json');
-					case 'macOS':
-						return join(home, 'Library', 'Application Support', 'Code - Insiders', 'User', 'settings.json');
-					default: // linux
-						return join(home, '.config', 'Code - Insiders', 'User', 'settings.json');
-				}
-			case 'vscode-exploration':
-				switch (platform) {
-					case 'windows':
-						return join(appData, 'Code - Exploration', 'User', 'settings.json');
-					case 'macOS':
-						return join(home, 'Library', 'Application Support', 'Code - Exploration', 'User', 'settings.json');
-					default: // linux
-						return join(home, '.config', 'Code - Exploration', 'User', 'settings.json');
-				}
-			case 'cursor':
-				switch (platform) {
-					case 'windows':
-						return join(appData, 'Cursor', 'User', 'settings.json');
-					case 'macOS':
-						return join(home, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json');
-					default: // linux
-						return join(home, '.config', 'Cursor', 'User', 'settings.json');
-				}
-			case 'windsurf':
-				switch (platform) {
-					case 'windows':
-						return join(appData, 'Windsurf', 'User', 'settings.json');
-					case 'macOS':
-						return join(home, 'Library', 'Application Support', 'Windsurf', 'User', 'settings.json');
-					default: // linux
-						return join(home, '.config', 'Windsurf', 'User', 'settings.json');
-				}
-			case 'codium':
-				switch (platform) {
-					case 'windows':
-						return join(appData, 'VSCodium', 'User', 'settings.json');
-					case 'macOS':
-						return join(home, 'Library', 'Application Support', 'VSCodium', 'User', 'settings.json');
-					default: // linux
-						return join(home, '.config', 'VSCodium', 'User', 'settings.json');
-				}
-			default:
-				return null;
 		}
 	}
 
