@@ -244,7 +244,7 @@ export type GitResult<T extends string | Buffer | unknown> = {
 
 export class Git implements Disposable {
 	private readonly _disposable: Disposable;
-	/** Map of running git commands -- avoids running duplicate overlaping commands */
+	/** Map of running git commands -- avoids running duplicate overlapping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
 
 	constructor(container: Container) {

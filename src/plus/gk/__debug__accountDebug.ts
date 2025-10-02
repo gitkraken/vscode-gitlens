@@ -209,7 +209,7 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'enterprise' },
 				},
-				// TODO: Update this subscription state once we have a "paid expired" state availale
+				// TODO: Update this subscription state once we have a "paid expired" state available
 				{
 					label: 'Paid (Expired)',
 					description: 'Community, account',

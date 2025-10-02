@@ -18,7 +18,7 @@ export interface AsyncTask<T> {
  * Here the debouncer returns a promise that awaits task for completion.
  * Also we can let tasks know if they are cancelled by passing a cancellation token.
  *
- * Despite being able to accept synchronous tasks, we always return a promise here. It's implemeted this way for simplicity.
+ * Despite being able to accept synchronous tasks, we always return a promise here. It's implemented this way for simplicity.
  */
 export function createAsyncDebouncer<T>(
 	delay: number,
@@ -97,7 +97,7 @@ export function createAsyncDebouncer<T>(
 		} catch (e) {
 			if (cancellation.token.isCancellationRequested) {
 				// The current execution has been cancelled so we don't want to reject the main promise,
-				// because that's expected that it can be fullfilled by the next task.
+				// because that's expected that it can be fulfilled by the next task.
 				// (If the whole task is cancelled, the main promise will be rejected in the cancel() method)
 				if (curDeferred !== deferred && deferred.pending) {
 					// Unlikely we get here, but if the local `deferred` is different from the main one, then we cancel it to not let the clients hang.
