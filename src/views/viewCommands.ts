@@ -927,45 +927,6 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.ai.aiRebaseBranch:views')
-	@log()
-	private async aiRebaseBranch(node: BranchNode) {
-		const mergeBase = node.is('branch') && node.mergeBase;
-		if (!mergeBase) {
-			return Promise.resolve();
-		}
-
-		await executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
-			repoPath: node.repoPath,
-			head: node.ref,
-			base: createReference(mergeBase.branch, node.repoPath, {
-				refType: 'branch',
-				name: mergeBase.branch,
-				remote: mergeBase.remote,
-			}),
-			source: { source: 'view', detail: 'branch' },
-		});
-	}
-
-	@command('gitlens.ai.aiRebaseUnpushed:views')
-	@log()
-	private async aiRebaseUnpushed(node: BranchNode) {
-		if (!node.is('branch') || !node.branch.upstream) {
-			return Promise.resolve();
-		}
-
-		await executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
-			repoPath: node.repoPath,
-			head: node.ref,
-			base: createReference(node.branch.upstream.name, node.repoPath, {
-				refType: 'branch',
-				name: node.branch.upstream.name,
-				remote: true,
-			}),
-			source: { source: 'view', detail: 'branch' },
-		});
-	}
-
 	@command('gitlens.ai.explainUnpushed:views')
 	@log()
 	private async explainUnpushed(node: BranchNode) {
