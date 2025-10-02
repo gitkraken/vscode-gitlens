@@ -95,6 +95,9 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			return undefined;
 		}
 
+		// Clean up any duplicate manual installations before registering the bundled version
+		await this.uninstallManualMcpIfExists(appName, cliPath);
+
 		let output = await runCLICommand(['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`], {
 			cwd: cliPath,
 		});
@@ -118,6 +121,36 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		}
 
 		return undefined;
+	}
+
+	@debug()
+	private async uninstallManualMcpIfExists(appName: string, cliPath: string): Promise<void> {
+		try {
+			// Check if a manual MCP installation exists by attempting to uninstall it
+			// The uninstall command will only succeed if there's an existing manual installation
+			const output = await runCLICommand(
+				['mcp', 'uninstall', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
+				{
+					cwd: cliPath,
+				},
+			);
+
+			// If uninstall succeeded, log and send telemetry
+			if (output.trim().length > 0) {
+				Logger.log(`Uninstalled duplicate manual MCP installation for ${appName}`);
+
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent('mcp/uninstall/duplicate', {
+						app: appName,
+						source: 'gk-mcp-provider',
+					});
+				}
+			}
+		} catch (ex) {
+			// If uninstall fails, it likely means no manual installation exists
+			// Log the error at debug level but don't fail the overall process
+			Logger.debug(`No manual MCP installation to uninstall for ${appName}: ${ex}`);
+		}
 	}
 
 	private onRegistrationCompleted(_cliVersion?: string | undefined) {
