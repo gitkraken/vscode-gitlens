@@ -1194,13 +1194,29 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			const sourceSvc = this.container.git.getRepositoryService(state.source?.uri ?? state.repo.uri);
 
 			if (!state.changes.contents || !state.changes.baseSha) {
+				let untrackedPaths: string[] | undefined;
+				if (state.changes.type !== 'index') {
+					// stage any untracked files
+					const status = await sourceSvc.status.getStatus();
+					untrackedPaths = status?.untrackedChanges.map(f => f.path);
+					if (untrackedPaths?.length) {
+						try {
+							await sourceSvc.staging?.stageFiles(untrackedPaths);
+						} catch {}
+					}
+				}
+
 				const diff = await sourceSvc.diff.getDiff?.(
 					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
 					'HEAD',
-					{
-						includeUntracked: state.changes.type !== 'index',
-					},
 				);
+
+				if (untrackedPaths?.length) {
+					try {
+						await sourceSvc.staging?.unstageFiles(untrackedPaths);
+					} catch {}
+				}
+
 				if (!diff?.contents) {
 					void window.showErrorMessage(`No changes to copy`);
 
