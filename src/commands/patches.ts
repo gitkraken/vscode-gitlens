@@ -167,10 +167,26 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		repo ??= await getRepositoryOrShowPicker(this.container, title);
 		if (repo == null) return;
 
-		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
-			includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
-			uris: args?.uris,
-		});
+		let untrackedPaths: string[] | undefined;
+		try {
+			if (args?.to === uncommitted) {
+				const status = await repo.git.status?.getStatus();
+
+				untrackedPaths = status?.untrackedChanges.map(f => f.path);
+
+				if (untrackedPaths?.length) {
+					await repo.git.staging?.stageFiles(untrackedPaths);
+				}
+			}
+
+			return await repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
+				uris: args?.uris,
+			});
+		} finally {
+			if (untrackedPaths?.length) {
+				await repo.git.staging?.unstageFiles(untrackedPaths);
+			}
+		}
 	}
 
 	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;
