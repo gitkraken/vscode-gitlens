@@ -234,6 +234,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		} else {
 			urlPromises.push(this.url(resource));
 		}
+		// eslint-disable-next-line @typescript-eslint/await-thenable
 		const urls: string[] = (await Promise.allSettled(urlPromises))
 			.map(r => getSettledValue(r))
 			.filter(r => r != null);

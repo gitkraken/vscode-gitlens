@@ -1708,7 +1708,6 @@ export class AIProviderService implements Disposable {
 				setLogScopeExit(
 					scope,
 					`model: ${model.provider.id}/${model.id}`,
-					// eslint-disable-next-line @typescript-eslint/no-base-to-string
 					`failed: ${String(ex)} (${String(ex.original)})`,
 				);
 
@@ -1718,7 +1717,6 @@ export class AIProviderService implements Disposable {
 						...telementry.data,
 						duration: Date.now() - start,
 						failed: true,
-						// eslint-disable-next-line @typescript-eslint/no-base-to-string
 						'failed.error': String(ex),
 						'failed.error.detail': String(ex.original),
 					},

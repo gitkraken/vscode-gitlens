@@ -81,8 +81,8 @@ export class LineHistoryNode
 			this.getLog(selection),
 			sha == null || isUncommitted(sha)
 				? this.editorContents
-					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
-					: await this.view.container.git.getBlameForRange(this.uri, selection)
+					? this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
+					: this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			svc.getBranchesAndTagsTipsLookup(this.branch?.name),
 			range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
