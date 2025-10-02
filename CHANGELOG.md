@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes Git diff of a renamed file is shown as a new file ([#4246](https://github.com/gitkraken/vscode-gitlens/issues/4246))
+- Fixes typos ([#4345](https://github.com/gitkraken/vscode-gitlens/issues/4345) &mdash; thanks to [PR #4346](https://github.com/gitkraken/vscode-gitlens/pull/4346) by Noritaka Kobayashi ([@noritaka1166](https://github.com/noritaka1166)))
 
 ## [17.5.1] - 2025-09-24
 
