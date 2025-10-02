@@ -1,5 +1,8 @@
+import { homedir } from 'os';
+import { join } from 'path';
+import { env as processEnv } from 'process';
 import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
-import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
+import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition, Uri, workspace } from 'vscode';
 import type { Container } from '../../../../container';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage';
 import { getHostAppName } from '../../../../system/-webview/vscode';
@@ -7,6 +10,7 @@ import { debug, log } from '../../../../system/decorators/log';
 import type { Deferrable } from '../../../../system/function/debounce';
 import { debounce } from '../../../../system/function/debounce';
 import { Logger } from '../../../../system/logger';
+import { getPlatform } from '../../platform';
 import { runCLICommand, toMcpInstallProvider } from '../cli/utils';
 
 const CLIProxyMCPConfigOutputs = {
@@ -96,7 +100,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		}
 
 		// Clean up any duplicate manual installations before registering the bundled version
-		await this.uninstallManualMcpIfExists(appName, cliPath);
+		await this.removeDuplicateManualMcpConfigurations(appName);
 
 		let output = await runCLICommand(['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`], {
 			cwd: cliPath,
@@ -124,33 +128,182 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	}
 
 	@debug()
-	private async uninstallManualMcpIfExists(appName: string, cliPath: string): Promise<void> {
+	private async removeDuplicateManualMcpConfigurations(appName: string): Promise<void> {
 		try {
-			// Check if a manual MCP installation exists by attempting to uninstall it
-			// The uninstall command will only succeed if there's an existing manual installation
-			const output = await runCLICommand(
-				['mcp', 'uninstall', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
-				{
-					cwd: cliPath,
-				},
-			);
+			const settingsPath = this.getUserSettingsPath(appName);
+			if (settingsPath == null) {
+				Logger.debug(`Unable to determine settings path for ${appName}`);
+				return;
+			}
 
-			// If uninstall succeeded, log and send telemetry
-			if (output.trim().length > 0) {
-				Logger.log(`Uninstalled duplicate manual MCP installation for ${appName}`);
+			const settingsUri = Uri.file(settingsPath);
+			
+			// Check if settings file exists
+			try {
+				await workspace.fs.stat(settingsUri);
+			} catch {
+				// Settings file doesn't exist, nothing to clean up
+				Logger.debug(`Settings file does not exist: ${settingsPath}`);
+				return;
+			}
 
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/uninstall/duplicate', {
-						app: appName,
-						source: 'gk-mcp-provider',
-					});
+			// Read and parse settings file
+			const settingsBytes = await workspace.fs.readFile(settingsUri);
+			const settingsText = new TextDecoder().decode(settingsBytes);
+			
+			// Parse JSON with comments support (VS Code settings.json allows comments)
+			const settings = this.parseJsonWithComments(settingsText);
+			
+			// Check for MCP server configurations
+			const mcpServersKey = 'languageModels.chat.mcpServers';
+			if (!settings[mcpServersKey] || typeof settings[mcpServersKey] !== 'object') {
+				Logger.debug('No MCP server configurations found');
+				return;
+			}
+
+			const mcpServers = settings[mcpServersKey] as Record<string, unknown>;
+			let removedCount = 0;
+			const serversToRemove: string[] = [];
+
+			// Look for GitKraken MCP servers that were manually installed
+			// These typically have names like "gitkraken" or "GitKraken" and contain
+			// the GK CLI executable path
+			for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+				if (this.isGitKrakenMcpServer(serverName, serverConfig)) {
+					serversToRemove.push(serverName);
+					Logger.log(`Found duplicate manual MCP configuration: ${serverName}`);
 				}
 			}
+
+			// Remove the servers
+			for (const serverName of serversToRemove) {
+				mcpServers[serverName] = undefined;
+				removedCount++;
+			}
+
+			if (removedCount === 0) {
+				Logger.debug('No duplicate manual MCP configurations found');
+				return;
+			}
+
+			// Save updated settings
+			const updatedSettingsText = JSON.stringify(settings, null, '\t');
+			await workspace.fs.writeFile(settingsUri, new TextEncoder().encode(updatedSettingsText));
+
+			Logger.log(`Removed ${removedCount} duplicate manual MCP configuration(s) from ${settingsPath}`);
+
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('mcp/uninstall/duplicate', {
+					app: appName,
+					source: 'gk-mcp-provider',
+				});
+			}
 		} catch (ex) {
-			// If uninstall fails, it likely means no manual installation exists
-			// Log the error at debug level but don't fail the overall process
-			Logger.debug(`No manual MCP installation to uninstall for ${appName}: ${ex}`);
+			// Log error but don't fail the overall process
+			Logger.error(`Error removing duplicate MCP configurations: ${ex}`);
 		}
+	}
+
+	private getUserSettingsPath(appName: string): string | null {
+		const platform = getPlatform();
+		const home = homedir();
+		const appData = processEnv.APPDATA || join(home, 'AppData', 'Roaming');
+
+		switch (appName) {
+			case 'vscode':
+				switch (platform) {
+					case 'windows':
+						return join(appData, 'Code', 'User', 'settings.json');
+					case 'macOS':
+						return join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
+					default: // linux
+						return join(home, '.config', 'Code', 'User', 'settings.json');
+				}
+			case 'vscode-insiders':
+				switch (platform) {
+					case 'windows':
+						return join(appData, 'Code - Insiders', 'User', 'settings.json');
+					case 'macOS':
+						return join(home, 'Library', 'Application Support', 'Code - Insiders', 'User', 'settings.json');
+					default: // linux
+						return join(home, '.config', 'Code - Insiders', 'User', 'settings.json');
+				}
+			case 'vscode-exploration':
+				switch (platform) {
+					case 'windows':
+						return join(appData, 'Code - Exploration', 'User', 'settings.json');
+					case 'macOS':
+						return join(home, 'Library', 'Application Support', 'Code - Exploration', 'User', 'settings.json');
+					default: // linux
+						return join(home, '.config', 'Code - Exploration', 'User', 'settings.json');
+				}
+			case 'cursor':
+				switch (platform) {
+					case 'windows':
+						return join(appData, 'Cursor', 'User', 'settings.json');
+					case 'macOS':
+						return join(home, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json');
+					default: // linux
+						return join(home, '.config', 'Cursor', 'User', 'settings.json');
+				}
+			case 'windsurf':
+				switch (platform) {
+					case 'windows':
+						return join(appData, 'Windsurf', 'User', 'settings.json');
+					case 'macOS':
+						return join(home, 'Library', 'Application Support', 'Windsurf', 'User', 'settings.json');
+					default: // linux
+						return join(home, '.config', 'Windsurf', 'User', 'settings.json');
+				}
+			case 'codium':
+				switch (platform) {
+					case 'windows':
+						return join(appData, 'VSCodium', 'User', 'settings.json');
+					case 'macOS':
+						return join(home, 'Library', 'Application Support', 'VSCodium', 'User', 'settings.json');
+					default: // linux
+						return join(home, '.config', 'VSCodium', 'User', 'settings.json');
+				}
+			default:
+				return null;
+		}
+	}
+
+	private parseJsonWithComments(text: string): Record<string, unknown> {
+		// Simple JSON comment remover - removes // and /* */ comments
+		// This is a simplified version; VS Code uses jsonc-parser for full support
+		const withoutComments = text
+			.replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
+			.replace(/\/\/.*/g, ''); // Remove // comments
+
+		return JSON.parse(withoutComments) as Record<string, unknown>;
+	}
+
+	private isGitKrakenMcpServer(serverName: string, serverConfig: unknown): boolean {
+		// Check if this is a GitKraken MCP server by looking for:
+		// 1. Server name matches GitKraken variants
+		// 2. Command contains 'gk' executable
+		// 3. Args contain '--source=gitlens' or scheme parameter
+		
+		const nameMatches = /^git[_-]?kraken$/i.test(serverName);
+		
+		if (typeof serverConfig !== 'object' || serverConfig == null) {
+			return false;
+		}
+
+		const config = serverConfig as Record<string, unknown>;
+		const command = typeof config.command === 'string' ? config.command : '';
+		const args = Array.isArray(config.args) ? config.args : [];
+		
+		// Check if command contains gk executable
+		const commandMatches = command.includes('/gk') || command.includes('\\gk') || command.endsWith('gk.exe');
+		
+		// Check if args contain source=gitlens
+		const argsMatch = args.some((arg: unknown) => 
+			typeof arg === 'string' && arg.includes('--source=gitlens')
+		);
+
+		return nameMatches && commandMatches && argsMatch;
 	}
 
 	private onRegistrationCompleted(_cliVersion?: string | undefined) {
