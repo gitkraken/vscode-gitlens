@@ -33,7 +33,7 @@ export class ActionNav extends LitElement {
 	private handleSlotChange(_e: Event) {
 		this._slotSubscriptionsDisposer?.();
 
-		if (this.actionNodes.length < 2) return;
+		if (this.actionNodes.length < 1) return;
 
 		const handleKeydown = this.handleKeydown.bind(this);
 		const size = `${this.actionNodes.length}`;
@@ -41,7 +41,9 @@ export class ActionNav extends LitElement {
 			element.setAttribute('aria-posinset', `${i + 1}`);
 			element.setAttribute('aria-setsize', size);
 			element.setAttribute('tabindex', i === 0 ? '0' : '-1');
-			element.addEventListener('keydown', handleKeydown, false);
+			if (this.actionNodes.length >= 2) {
+				element.addEventListener('keydown', handleKeydown, false);
+			}
 			return {
 				dispose: () => {
 					element?.removeEventListener('keydown', handleKeydown, false);
@@ -55,9 +57,17 @@ export class ActionNav extends LitElement {
 	}
 
 	private handleKeydown(e: KeyboardEvent) {
-		if (!e.target || this.actionNodes == null || this.actionNodes.length < 2) return;
+		if (!e.target || this.actionNodes == null) return;
 		const target = e.target as HTMLElement;
 		const posinset = parseInt(target.getAttribute('aria-posinset') ?? '0', 10);
+
+		// Only handle arrow keys, not Tab
+		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+			return;
+		}
+
+		// Handle arrow key navigation between action buttons
+		if (this.actionNodes.length < 2) return;
 
 		let $next: HTMLElement | null = null;
 		if (e.key === 'ArrowLeft') {
@@ -70,6 +80,8 @@ export class ActionNav extends LitElement {
 		if ($next == null || $next === target) {
 			return;
 		}
+		e.preventDefault();
+		e.stopPropagation();
 		target.setAttribute('tabindex', '-1');
 		$next.setAttribute('tabindex', '0');
 		$next.focus();
