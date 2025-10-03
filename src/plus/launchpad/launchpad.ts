@@ -63,6 +63,7 @@ import {
 } from './launchpadProvider';
 import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad';
+import type { ChatAction, ChatIssueContext } from '../../ai/chat/types';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -402,6 +403,21 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					case 'open-in-graph':
 						void this.container.launchpad.openInGraph(state.item);
 						break;
+					case 'chat-explain':
+						void this.sendLaunchpadItemToChatWithAction(state.item, 'explain-issue');
+						break;
+					case 'chat-create-branch':
+						void this.sendLaunchpadItemToChatWithAction(state.item, 'create-branch');
+						break;
+					case 'chat-create-worktree':
+						void this.sendLaunchpadItemToChatWithAction(state.item, 'create-worktree');
+						break;
+					case 'chat-review-changes':
+						void this.sendLaunchpadItemToChatWithAction(state.item, 'review-changes');
+						break;
+					case 'chat-suggest-implementation':
+						void this.sendLaunchpadItemToChatWithAction(state.item, 'suggest-implementation');
+						break;
 				}
 			} else {
 				switch (state.action?.action) {
@@ -416,6 +432,31 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
+	}
+
+	private async sendLaunchpadItemToChatWithAction(item: LaunchpadItem, action: ChatAction): Promise<void> {
+		const repository = item.openRepository?.repo;
+
+		const context: ChatIssueContext = {
+			item: item,
+			repository,
+			source: 'launchpad',
+			metadata: {
+				worktree: action === 'create-worktree',
+				integration: item.provider.name,
+			},
+		};
+
+		await this.container.chatService.sendContextualPrompt({
+			context,
+			action,
+			config: {
+				includeMcpTools: true,
+				includeRepoContext: true,
+				includeFileContext: action === 'review-changes' || action === 'explain-issue',
+			},
+			source: 'launchpad',
+		});
 	}
 
 	private *pickLaunchpadItemStep(
@@ -1083,6 +1124,61 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							createQuickPickItemOfT(
 								{
 									label: 'Open in Commit Graph',
+								},
+								action,
+							),
+						);
+						break;
+					case 'chat-explain':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: '$(comment-discussion) Explain in AI Chat',
+									detail: 'Get AI assistance to understand this pull request',
+								},
+								action,
+							),
+						);
+						break;
+					case 'chat-create-branch':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: '$(git-branch) Create Branch & Chat',
+									detail: 'Create a branch and get AI guidance',
+								},
+								action,
+							),
+						);
+						break;
+					case 'chat-create-worktree':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: '$(folder-opened) Create Worktree & Chat',
+									detail: 'Create a worktree and get AI guidance',
+								},
+								action,
+							),
+						);
+						break;
+					case 'chat-review-changes':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: '$(checklist) Review Changes with AI',
+									detail: 'Get AI assistance to review the changes',
+								},
+								action,
+							),
+						);
+						break;
+					case 'chat-suggest-implementation':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: '$(lightbulb) Get Implementation Suggestions',
+									detail: 'Get AI suggestions for implementation approach',
 								},
 								action,
 							),

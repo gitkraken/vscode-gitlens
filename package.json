@@ -73,6 +73,52 @@
 				"label": "GitKraken (bundled with GitLens)"
 			}
 		],
+		"chatParticipants": [
+			{
+				"id": "gitlens",
+				"name": "GitLens",
+				"fullName": "GitLens Git Assistant",
+				"description": "Get help with Git operations, issues, and pull requests using GitKraken MCP tools",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "explain",
+						"description": "Explain an issue or pull request"
+					},
+					{
+						"name": "branch",
+						"description": "Create a branch for an issue or pull request"
+					},
+					{
+						"name": "worktree",
+						"description": "Create a worktree for an issue or pull request"
+					},
+					{
+						"name": "review",
+						"description": "Review changes in a pull request"
+					},
+					{
+						"name": "implement",
+						"description": "Get implementation suggestions"
+					},
+					{
+						"name": "test",
+						"description": "Create tests for an issue or pull request"
+					}
+				],
+				"disambiguation": [
+					{
+						"category": "git",
+						"description": "Git operations and repository management",
+						"examples": [
+							"Create a branch for issue #123",
+							"Explain this pull request",
+							"Review the changes in this PR"
+						]
+					}
+				]
+			}
+		],
 		"configuration": [
 			{
 				"id": "current-line-blame",

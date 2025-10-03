@@ -121,6 +121,15 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.worktree.create'
 	| 'gitlens.walkthrough.openDevExPlatform';
 
+type InternalChatCommands =
+	| 'gitlens.sendToChat'
+	| 'gitlens.sendContextualPromptToChat'
+	| 'gitlens.createBranchAndChat'
+	| 'gitlens.createWorktreeAndChat'
+	| 'gitlens.explainIssueAndChat'
+	| 'gitlens.suggestImplementationAndChat'
+	| 'gitlens.reviewChangesAndChat';
+
 type InternalGlCommands =
 	| `gitlens.action.${string}`
 	| 'gitlens.ai.explainCommit:editor'
@@ -161,7 +170,8 @@ type InternalGlCommands =
 	| InternalScmGroupedViewCommands
 	| InternalSearchAndCompareViewCommands
 	| InternalTimelineWebviewViewCommands
-	| InternalWalkthroughCommands;
+	| InternalWalkthroughCommands
+	| InternalChatCommands;
 
 export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;
 export type GlPaletteCommands = ContributedPaletteCommands;
