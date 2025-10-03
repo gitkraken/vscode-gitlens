@@ -86,6 +86,9 @@ export class CommitItem extends LitElement {
 	@property({ type: Boolean })
 	first = false;
 
+	@property({ type: Boolean })
+	last = false;
+
 	override connectedCallback() {
 		super.connectedCallback?.();
 		// Set the data attribute for sortable access
@@ -120,7 +123,7 @@ export class CommitItem extends LitElement {
 			<div
 				class="composer-item commit-item ${this.selected ? ' is-selected' : ''}${this.multiSelected
 					? ' multi-selected'
-					: ''}${this.first ? ' is-first' : ''}"
+					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}"
 				tabindex="0"
 				@click=${this.handleClick}
 				@keydown=${this.handleClick}

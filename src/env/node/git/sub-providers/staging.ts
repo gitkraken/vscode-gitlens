@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import type { Uri } from 'vscode';
 import type { Container } from '../../../../container';
+import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '../../../../git/gitProvider';
 import { splitPath } from '../../../../system/-webview/path';
 import { log } from '../../../../system/decorators/log';
@@ -18,7 +19,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	) {}
 
 	@log()
-	async createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex> {
+	async createTemporaryIndex(repoPath: string, base: string | undefined): Promise<DisposableTemporaryGitIndex> {
 		// Create a temporary index file
 		const tempDir = await fs.mkdtemp(joinPaths(tmpdir(), 'gl-'));
 		const tempIndex = joinPaths(tempDir, 'index');
@@ -37,24 +38,27 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			const env = { GIT_INDEX_FILE: tempIndex };
 
 			// Create the temp index file from a base ref/sha
+			if (base) {
+				// Get the tree of the base
+				const newIndexResult = await this.git.exec(
+					{ cwd: repoPath, env: env },
+					'ls-tree',
+					'-z',
+					'-r',
+					'--full-name',
+					base,
+				);
 
-			// Get the tree of the base
-			const newIndexResult = await this.git.exec(
-				{ cwd: repoPath, env: env },
-				'ls-tree',
-				'-z',
-				'-r',
-				'--full-name',
-				base,
-			);
-
-			// Write the tree to our temp index
-			await this.git.exec(
-				{ cwd: repoPath, env: env, stdin: newIndexResult.stdout },
-				'update-index',
-				'-z',
-				'--index-info',
-			);
+				if (newIndexResult.stdout.trim()) {
+					// Write the tree to our temp index
+					await this.git.exec(
+						{ cwd: repoPath, env: env, stdin: newIndexResult.stdout },
+						'update-index',
+						'-z',
+						'--index-info',
+					);
+				}
+			}
 
 			return mixinAsyncDisposable({ path: tempIndex, env: { GIT_INDEX_FILE: tempIndex } }, dispose);
 		} catch (ex) {
