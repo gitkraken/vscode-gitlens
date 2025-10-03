@@ -78,11 +78,15 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	}
 
 	@log()
-	async stageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void> {
+	async stageFiles(
+		repoPath: string,
+		pathOrUri: string[] | Uri[],
+		options?: { intentToAdd?: boolean },
+	): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath },
 			'add',
-			'-A',
+			options?.intentToAdd ? '-N' : '-A',
 			'--',
 			...pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
 		);
