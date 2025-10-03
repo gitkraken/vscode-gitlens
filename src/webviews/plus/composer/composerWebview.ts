@@ -10,6 +10,7 @@ import type {
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { rootSha } from '../../../git/models/revision';
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
@@ -311,30 +312,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		const { hunkMap, hunks } = createHunksFromDiffs(staged?.contents, unstaged?.contents);
 
 		const baseCommit = getSettledValue(commitResult);
-		if (baseCommit == null) {
-			const errorMessage = 'No base commit found to compose from.';
-			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {
-				'failure.reason': 'error',
-				'failure.error.message': errorMessage,
-			});
-			return {
-				...this.initialState,
-				loadingError: errorMessage,
-			};
-		}
-
 		const currentBranch = getSettledValue(branchResult);
-		if (currentBranch == null) {
-			const errorMessage = 'No current branch found to compose from.';
-			this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {
-				'failure.reason': 'error',
-				'failure.error.message': errorMessage,
-			});
-			return {
-				...this.initialState,
-				loadingError: errorMessage,
-			};
-		}
 
 		// Create initial commit with empty message (user will add message later)
 		const hasStagedChanges = Boolean(staged?.contents);
@@ -358,7 +336,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 
 		// Create safety state snapshot for validation
-		const safetyState = await createSafetyState(repo, diffs, baseCommit.sha);
+		const safetyState = await createSafetyState(repo, diffs, baseCommit?.sha);
 
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel(
@@ -396,12 +374,14 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			...this.initialState,
 			hunks: hunks,
 			hunkMap: hunkMap,
-			baseCommit: {
-				sha: baseCommit.sha,
-				message: baseCommit.message ?? '',
-				repoName: repo.name,
-				branchName: currentBranch.name,
-			},
+			baseCommit: baseCommit
+				? {
+						sha: baseCommit.sha,
+						message: baseCommit.message ?? '',
+						repoName: repo.name,
+						branchName: currentBranch?.name ?? 'main',
+					}
+				: null,
 			commits: commits,
 			safetyState: safetyState,
 			aiEnabled: aiEnabled,
@@ -1087,8 +1067,23 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error(errorMessage);
 			}
 
+			if (params.baseCommit?.sha == null) {
+				const initialCommitSha = await svc.patch?.createEmptyInitialCommit();
+				if (initialCommitSha == null) {
+					// error base we don't have an initial commit
+					this._context.errors.operation.count++;
+					this._context.operations.finishAndCommit.errorCount++;
+					const errorMessage = 'Could not create base commit';
+					this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+						'failure.reason': 'error',
+						'failure.error.message': errorMessage,
+					});
+					throw new Error(errorMessage);
+				}
+			}
+
 			// Create unreachable commits from patches
-			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit.sha, diffInfo);
+			const shas = await repo.git.patch?.createUnreachableCommitsFromPatches(params.baseCommit?.sha, diffInfo);
 
 			if (!shas?.length) {
 				this._context.errors.operation.count++;
@@ -1101,9 +1096,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				throw new Error(errorMessage);
 			}
 
+			const baseRef = params.baseCommit?.sha ?? ((await repo.git.commits.getCommit('HEAD')) ? 'HEAD' : rootSha);
 			const resultingDiff = (
-				await repo.git.diff.getDiff?.(shas[shas.length - 1], params.baseCommit.sha, {
-					notation: '...',
+				await repo.git.diff.getDiff?.(shas[shas.length - 1], baseRef, {
+					notation: params.baseCommit?.sha ? '...' : undefined,
 				})
 			)?.contents;
 
