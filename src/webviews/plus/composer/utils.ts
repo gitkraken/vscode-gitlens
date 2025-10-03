@@ -4,7 +4,7 @@ import type { Repository } from '../../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
 import { parseGitDiff } from '../../../git/parsers/diffParser';
 import { getSettledValue } from '../../../system/promise';
-import type { ComposerCommit, ComposerHunk, ComposerHunkMap, ComposerSafetyState } from './protocol';
+import type { ComposerCommit, ComposerHunk, ComposerSafetyState } from './protocol';
 
 export function getHunksForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): ComposerHunk[] {
 	return hunks.filter(hunk => commit.hunkIndices.includes(hunk.index));
@@ -82,22 +82,17 @@ export function getFileChanges(hunks: ComposerHunk[]): { additions: number; dele
 	);
 }
 
-export function createCombinedDiffForCommit(
-	commit: ComposerCommit,
-	hunks: ComposerHunk[],
-): { patch: string; filePatches: Map<string, string[]> } {
-	// Get hunks for this commit
-	const commitHunks = commit.hunkIndices
-		.map(index => hunks.find(hunk => hunk.index === index))
-		.filter((hunk): hunk is ComposerHunk => hunk !== undefined);
-
-	if (commitHunks.length === 0) {
+export function createCombinedDiffForCommit(hunks: ComposerHunk[]): {
+	patch: string;
+	filePatches: Map<string, string[]>;
+} {
+	if (hunks.length === 0) {
 		return { patch: '', filePatches: new Map() };
 	}
 
 	// Group hunks by file (diffHeader)
 	const filePatches = new Map<string, string[]>();
-	for (const hunk of commitHunks) {
+	for (const hunk of hunks) {
 		const diffHeader = hunk.diffHeader || `diff --git a/${hunk.fileName} b/${hunk.fileName}`;
 
 		let array = filePatches.get(diffHeader);
@@ -137,7 +132,7 @@ export function convertToComposerDiffInfo(
 	hunks: ComposerHunk[],
 ): Array<{ message: string; explanation?: string; filePatches: Map<string, string[]>; patch: string }> {
 	return commits.map(commit => {
-		const { patch, filePatches } = createCombinedDiffForCommit(commit, hunks);
+		const { patch, filePatches } = createCombinedDiffForCommit(getHunksForCommit(commit, hunks));
 
 		return {
 			message: commit.message,
@@ -174,34 +169,27 @@ export function generateComposerMarkdown(
 	return markdown;
 }
 
-export function createHunksFromDiffs(
-	stagedDiffContent?: string,
-	unstagedDiffContent?: string,
-): { hunkMap: ComposerHunkMap[]; hunks: ComposerHunk[] } {
-	const allHunkMaps: ComposerHunkMap[] = [];
+export function createHunksFromDiffs(stagedDiffContent?: string, unstagedDiffContent?: string): ComposerHunk[] {
 	const allHunks: ComposerHunk[] = [];
 
 	let count = 0;
-	let hunkMap: ComposerHunkMap[] = [];
 	let hunks: ComposerHunk[] = [];
 
 	if (stagedDiffContent) {
 		const stagedDiff = parseGitDiff(stagedDiffContent);
-		({ hunkMap, hunks, count } = convertDiffToComposerHunks(stagedDiff, 'staged', count));
+		({ hunks, count } = convertDiffToComposerHunks(stagedDiff, 'staged', count));
 
-		allHunkMaps.push(...hunkMap);
 		allHunks.push(...hunks);
 	}
 
 	if (unstagedDiffContent) {
 		const unstagedDiff = parseGitDiff(unstagedDiffContent);
-		({ hunkMap, hunks, count } = convertDiffToComposerHunks(unstagedDiff, 'unstaged', count));
+		({ hunks, count } = convertDiffToComposerHunks(unstagedDiff, 'unstaged', count));
 
-		allHunkMaps.push(...hunkMap);
 		allHunks.push(...hunks);
 	}
 
-	return { hunkMap: allHunkMaps, hunks: allHunks };
+	return allHunks;
 }
 
 /** Converts @type {ParsedGitDiff} output to @type {ComposerHunk}'s */
@@ -209,8 +197,7 @@ function convertDiffToComposerHunks(
 	diff: ParsedGitDiff,
 	source: 'staged' | 'unstaged',
 	startingCount: number,
-): { hunkMap: ComposerHunkMap[]; hunks: ComposerHunk[]; count: number } {
-	const hunkMap: ComposerHunkMap[] = [];
+): { hunks: ComposerHunk[]; count: number } {
 	const hunks: ComposerHunk[] = [];
 	let counter = startingCount;
 
@@ -238,8 +225,6 @@ function convertDiffToComposerHunks(
 				content = file.header.split('\n').slice(1).join('\n'); // Skip the diff --git line
 			}
 
-			hunkMap.push({ index: hunkIndex, hunkHeader: hunkHeader });
-
 			const composerHunk: ComposerHunk = {
 				index: hunkIndex,
 				fileName: file.path,
@@ -259,8 +244,6 @@ function convertDiffToComposerHunks(
 			// Handle files with actual content hunks
 			for (const hunk of file.hunks) {
 				const hunkIndex = ++counter;
-
-				hunkMap.push({ index: hunkIndex, hunkHeader: hunk.header });
 
 				// Calculate additions and deletions from the hunk content
 				const { additions, deletions } = calculateHunkStats(hunk.content);
@@ -284,7 +267,7 @@ function convertDiffToComposerHunks(
 		}
 	}
 
-	return { hunkMap: hunkMap, hunks: hunks, count: counter };
+	return { hunks: hunks, count: counter };
 }
 
 function calculateHunkStats(content: string): { additions: number; deletions: number } {

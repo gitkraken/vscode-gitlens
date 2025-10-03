@@ -8,12 +8,15 @@ export const scope: IpcScope = 'composer';
 
 export const currentOnboardingVersion = '1.0.0'; // Update this when onboarding changes
 
-export interface ComposerHunk {
-	index: number; // Unique hunk index (1-based to match hunkMap)
-	fileName: string;
+export interface ComposerHunk extends ComposerHunkBase {
 	diffHeader: string; // Git diff header (e.g., "diff --git a/file.ts b/file.ts")
 	hunkHeader: string; // Hunk header (e.g., "@@ -1,5 +1,7 @@") or "rename" for rename hunks
 	content: string; // The actual diff content (lines starting with +, -, or space) or rename info
+}
+
+export interface ComposerHunkBase {
+	index: number; // Unique hunk index (1-based to match hunkMap)
+	fileName: string;
 	additions: number;
 	deletions: number;
 	source: 'staged' | 'unstaged' | 'commits' | string; // commit SHA or source type
@@ -31,11 +34,6 @@ export interface ComposerCommit {
 }
 
 // Remove callbacks - use IPC instead
-
-export interface ComposerHunkMap {
-	index: number;
-	hunkHeader: string;
-}
 
 export interface ComposerBaseCommit {
 	sha: string;
@@ -65,11 +63,9 @@ export interface ComposerSafetyState {
 export interface State extends WebviewState {
 	// data model
 	hunks: ComposerHunk[];
-	hunkMap: ComposerHunkMap[];
 
 	commits: ComposerCommit[];
 	baseCommit: ComposerBaseCommit;
-	safetyState: ComposerSafetyState;
 
 	// UI state
 	selectedCommitId: string | null;
@@ -118,21 +114,11 @@ export interface State extends WebviewState {
 export const initialState: Omit<State, keyof WebviewState> = {
 	hunks: [],
 	commits: [],
-	hunkMap: [],
 	baseCommit: {
 		sha: '',
 		message: '',
 		repoName: '',
 		branchName: '',
-	},
-	safetyState: {
-		repoPath: '',
-		headSha: '',
-		hashes: {
-			staged: null,
-			unstaged: null,
-			unified: null,
-		},
 	},
 	selectedCommitId: null,
 	selectedCommitIds: new Set<string>(),
@@ -404,7 +390,6 @@ export const OnRedoCommand = new IpcCommand<void>(ipcScope, 'onRedo');
 export const OnResetCommand = new IpcCommand<void>(ipcScope, 'onReset');
 
 // Notifications sent from host to webview
-export const DidChangeNotification = new IpcNotification<DidChangeComposerDataParams>(ipcScope, 'didChange');
 export const DidStartGeneratingNotification = new IpcNotification<void>(ipcScope, 'didStartGenerating');
 export const DidStartGeneratingCommitMessageNotification = new IpcNotification<{ commitId: string }>(
 	ipcScope,
@@ -450,9 +435,8 @@ export const DidChangeAiModelNotification = new IpcNotification<DidChangeAiModel
 
 // Parameters for IPC messages
 export interface GenerateCommitsParams {
-	hunks: ComposerHunk[];
+	hunkIndices: number[];
 	commits: ComposerCommit[];
-	hunkMap: ComposerHunkMap[];
 	baseCommit: ComposerBaseCommit;
 	customInstructions?: string;
 	isRecompose?: boolean;
@@ -460,28 +444,19 @@ export interface GenerateCommitsParams {
 
 export interface GenerateCommitMessageParams {
 	commitId: string;
-	diff: string;
+	commitHunkIndices: number[];
 	overwriteExistingMessage?: boolean;
 }
 
 export interface FinishAndCommitParams {
 	commits: ComposerCommit[];
-	hunks: ComposerHunk[];
 	baseCommit: ComposerBaseCommit;
-	safetyState: ComposerSafetyState;
 }
 
 export interface ReloadComposerParams {
 	repoPath?: string;
 	mode?: 'experimental' | 'preview';
 	source?: Sources;
-}
-
-export interface DidChangeComposerDataParams {
-	hunks: ComposerHunk[];
-	commits: ComposerCommit[];
-	hunkMap: ComposerHunkMap[];
-	baseCommit: ComposerBaseCommit;
 }
 
 export interface DidGenerateCommitsParams {
@@ -509,9 +484,7 @@ export interface DidSafetyErrorParams {
 export interface DidReloadComposerParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
-	hunkMap: ComposerHunkMap[];
 	baseCommit: ComposerBaseCommit;
-	safetyState: ComposerSafetyState;
 	loadingError: string | null;
 	hasChanges: boolean;
 	repositoryState?: {
