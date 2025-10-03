@@ -1582,6 +1582,7 @@ export class ComposerApp extends LitElement {
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
+					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
 					.hasChanges=${this.state.hasChanges}

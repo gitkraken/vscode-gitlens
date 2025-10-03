@@ -177,7 +177,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	@log<PatchGitSubProvider['createUnreachableCommitsFromPatches']>({ args: { 2: p => p.length } })
 	async createUnreachableCommitsFromPatches(
 		repoPath: string,
-		base: string,
+		base: string | undefined,
 		patches: { message: string; patch: string }[],
 	): Promise<string[]> {
 		// Create a temporary index file
@@ -198,7 +198,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	private async createUnreachableCommitForPatchCore(
 		env: Record<string, any>,
 		repoPath: string,
-		base: string,
+		base: string | undefined,
 		message: string,
 		patch: string,
 	): Promise<string> {
@@ -222,7 +222,14 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			const tree = result.stdout.trim();
 
 			// Create new commit from the tree
-			result = await this.git.exec({ cwd: repoPath, env: env }, 'commit-tree', tree, '-p', base, '-m', message);
+			result = await this.git.exec(
+				{ cwd: repoPath, env: env },
+				'commit-tree',
+				tree,
+				...(base ? ['-p', base] : []),
+				'-m',
+				message,
+			);
 			const sha = result.stdout.trim();
 
 			return sha;
@@ -232,6 +239,16 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 			throw ex;
 		}
+	}
+
+	async createEmptyInitialCommit(repoPath: string): Promise<string> {
+		const emptyTree = await this.git.exec({ cwd: repoPath }, 'hash-object', '-t', 'tree', '/dev/null');
+		const result = await this.git.exec({ cwd: repoPath }, 'commit-tree', emptyTree.stdout.trim(), '-m', 'temp');
+		// create ref/heaads/main and point to it
+		await this.git.exec({ cwd: repoPath }, 'update-ref', 'refs/heads/main', result.stdout.trim());
+		// point HEAD to the branch
+		await this.git.exec({ cwd: repoPath }, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+		return result.stdout.trim();
 	}
 
 	@log({ args: { 1: false } })

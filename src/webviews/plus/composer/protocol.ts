@@ -44,7 +44,7 @@ export interface ComposerBaseCommit {
 
 export interface ComposerSafetyState {
 	repoPath: string;
-	headSha: string;
+	headSha: string | null;
 	// branchName: string;
 	// branchRefSha: string;
 	// worktreeName: string;
@@ -65,7 +65,7 @@ export interface State extends WebviewState {
 	hunks: ComposerHunk[];
 
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 
 	// UI state
 	selectedCommitId: string | null;
@@ -114,12 +114,7 @@ export interface State extends WebviewState {
 export const initialState: Omit<State, keyof WebviewState> = {
 	hunks: [],
 	commits: [],
-	baseCommit: {
-		sha: '',
-		message: '',
-		repoName: '',
-		branchName: '',
-	},
+	baseCommit: null,
 	selectedCommitId: null,
 	selectedCommitIds: new Set<string>(),
 	selectedUnassignedSection: null,
@@ -347,7 +342,7 @@ export interface GenerateWithAIParams {
 export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 }
 
 // IPC Commands and Notifications
@@ -437,7 +432,7 @@ export const DidChangeAiModelNotification = new IpcNotification<DidChangeAiModel
 export interface GenerateCommitsParams {
 	hunkIndices: number[];
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 	customInstructions?: string;
 	isRecompose?: boolean;
 }
@@ -450,7 +445,7 @@ export interface GenerateCommitMessageParams {
 
 export interface FinishAndCommitParams {
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 }
 
 export interface ReloadComposerParams {
@@ -484,7 +479,7 @@ export interface DidSafetyErrorParams {
 export interface DidReloadComposerParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 	loadingError: string | null;
 	hasChanges: boolean;
 	repositoryState?: {

@@ -318,15 +318,11 @@ export async function getWorkingTreeDiffs(repo: Repository): Promise<WorkingTree
 export async function createSafetyState(
 	repo: Repository,
 	diffs: WorkingTreeDiffs,
-	headSha: string,
+	headSha?: string,
 ): Promise<ComposerSafetyState> {
-	if (!headSha) {
-		throw new Error('Cannot create safety state: no HEAD commit found');
-	}
-
 	return {
 		repoPath: repo.path,
-		headSha: headSha,
+		headSha: headSha ?? null,
 		hashes: {
 			staged: diffs.staged?.contents ? await sha256(diffs.staged.contents) : null,
 			unstaged: diffs.unstaged?.contents ? await sha256(diffs.unstaged.contents) : null,
@@ -355,7 +351,7 @@ export async function validateSafetyState(
 
 		// 2. Check HEAD SHA
 		const currentHeadCommit = await repo.git.commits.getCommit('HEAD');
-		const currentHeadSha = currentHeadCommit?.sha ?? 'unknown';
+		const currentHeadSha = currentHeadCommit?.sha ?? null;
 		if (currentHeadSha !== safetyState.headSha) {
 			errors.push(`HEAD commit changed from "${safetyState.headSha}" to "${currentHeadSha}"`);
 		}
