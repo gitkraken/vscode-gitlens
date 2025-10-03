@@ -360,6 +360,7 @@ export async function validateSafetyState(
 	repo: Repository,
 	safetyState: ComposerSafetyState,
 	hunksBeingCommitted?: ComposerHunk[],
+	workingTreeDiffs?: WorkingTreeDiffs,
 ): Promise<{ isValid: boolean; errors: string[] }> {
 	const errors: string[] = [];
 
@@ -378,7 +379,7 @@ export async function validateSafetyState(
 
 		// 2. Smart diff validation - only check diffs for sources being committed
 		if (hunksBeingCommitted?.length) {
-			const { staged, unstaged /*, unified*/ } = await getWorkingTreeDiffs(repo);
+			const { staged, unstaged /*, unified*/ } = workingTreeDiffs ?? (await getWorkingTreeDiffs(repo));
 
 			const hashes = {
 				staged: staged?.contents ? await sha256(staged.contents) : null,
