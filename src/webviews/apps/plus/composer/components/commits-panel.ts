@@ -363,6 +363,9 @@ export class CommitsPanel extends LitElement {
 	baseCommit: ComposerBaseCommit | null = null;
 
 	@property({ type: String })
+	repoName: string | null = null;
+
+	@property({ type: String })
 	customInstructions: string = '';
 
 	@property({ type: Boolean })
@@ -1220,13 +1223,19 @@ export class CommitsPanel extends LitElement {
 
 							<!-- Base commit (informational only) -->
 							<div class="composer-item is-base">
-								<div class="composer-item__commit"></div>
+								<div class="composer-item__commit${this.baseCommit ? '' : ' is-empty'}"></div>
 								<div class="composer-item__content">
-									<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
+									<div
+										class="composer-item__header${this.baseCommit == null ? ' is-placeholder' : ''}"
+									>
+										${this.baseCommit?.message || 'No commits yet'}
+									</div>
 									<div class="composer-item__body">
-										<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
-										<span>/</span>
-										<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
+										<span class="repo-name">${this.repoName || 'Repository'}</span>
+										${this.baseCommit?.branchName
+											? html`<span>/</span
+													><span class="branch-name">${this.baseCommit.branchName}</span>`
+											: ''}
 									</div>
 								</div>
 							</div>
@@ -1279,6 +1288,7 @@ export class CommitsPanel extends LitElement {
 											.multiSelected=${this.selectedCommitIds.has(commit.id)}
 											.isPreviewMode=${this.isPreviewMode}
 											?first=${i === 0}
+											?last=${i === this.commits.length - 1 && !this.baseCommit}
 											@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e)}
 											@keydown=${(e: KeyboardEvent) => this.dispatchCommitSelect(commit.id, e)}
 										></gl-commit-item>
@@ -1289,13 +1299,17 @@ export class CommitsPanel extends LitElement {
 
 						<!-- Base commit (informational only) -->
 						<div class="composer-item is-base">
-							<div class="composer-item__commit"></div>
+							<div class="composer-item__commit${this.baseCommit ? '' : ' is-empty'}"></div>
 							<div class="composer-item__content">
-								<div class="composer-item__header">${this.baseCommit?.message || 'HEAD'}</div>
+								<div class="composer-item__header${this.baseCommit == null ? ' is-placeholder' : ''}">
+									${this.baseCommit?.message || 'No commits yet'}
+								</div>
 								<div class="composer-item__body">
-									<span class="repo-name">${this.baseCommit?.repoName || 'Repository'}</span>
-									<span>/</span>
-									<span class="branch-name">${this.baseCommit?.branchName || 'main'}</span>
+									<span class="repo-name">${this.repoName || 'Repository'}</span>
+									${this.baseCommit?.branchName
+										? html`<span>/</span
+												><span class="branch-name">${this.baseCommit.branchName}</span>`
+										: ''}
 								</div>
 							</div>
 						</div>

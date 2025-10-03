@@ -148,6 +148,10 @@ export const composerItemCommitStyles = css`
 		height: 50%;
 	}
 
+	.composer-item.is-last .composer-item__commit::before {
+		display: none;
+	}
+
 	.composer-item__commit::after {
 		content: '';
 		position: absolute;
@@ -167,6 +171,11 @@ export const composerItemCommitStyles = css`
 	}
 	.composer-item.is-base .composer-item__commit::before {
 		border-left-style: solid;
+	}
+
+	.composer-item__commit.is-empty::before,
+	.composer-item__commit.is-empty::after {
+		display: none;
 	}
 `;
 

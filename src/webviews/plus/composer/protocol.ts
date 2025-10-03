@@ -46,7 +46,7 @@ export interface ComposerBaseCommit {
 
 export interface ComposerSafetyState {
 	repoPath: string;
-	headSha: string;
+	headSha: string | null;
 	// branchName: string;
 	// branchRefSha: string;
 	// worktreeName: string;
@@ -68,7 +68,7 @@ export interface State extends WebviewState {
 	hunkMap: ComposerHunkMap[];
 
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 	safetyState: ComposerSafetyState;
 
 	// UI state
@@ -119,15 +119,10 @@ export const initialState: Omit<State, keyof WebviewState> = {
 	hunks: [],
 	commits: [],
 	hunkMap: [],
-	baseCommit: {
-		sha: '',
-		message: '',
-		repoName: '',
-		branchName: '',
-	},
+	baseCommit: null,
 	safetyState: {
 		repoPath: '',
-		headSha: '',
+		headSha: null,
 		hashes: {
 			staged: null,
 			unstaged: null,
@@ -361,7 +356,7 @@ export interface GenerateWithAIParams {
 export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 }
 
 // IPC Commands and Notifications
@@ -453,7 +448,7 @@ export interface GenerateCommitsParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 	customInstructions?: string;
 	isRecompose?: boolean;
 }
@@ -467,7 +462,7 @@ export interface GenerateCommitMessageParams {
 export interface FinishAndCommitParams {
 	commits: ComposerCommit[];
 	hunks: ComposerHunk[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 	safetyState: ComposerSafetyState;
 }
 
@@ -481,7 +476,7 @@ export interface DidChangeComposerDataParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 }
 
 export interface DidGenerateCommitsParams {
@@ -510,7 +505,7 @@ export interface DidReloadComposerParams {
 	hunks: ComposerHunk[];
 	commits: ComposerCommit[];
 	hunkMap: ComposerHunkMap[];
-	baseCommit: ComposerBaseCommit;
+	baseCommit: ComposerBaseCommit | null;
 	safetyState: ComposerSafetyState;
 	loadingError: string | null;
 	hasChanges: boolean;
