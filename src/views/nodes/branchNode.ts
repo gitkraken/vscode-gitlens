@@ -82,6 +82,7 @@ export class BranchNode
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
 		options?: Partial<Options>,
+		public readonly mergeBase?: { commit: string; branch: string; remote: boolean },
 	) {
 		super('branch', uri, view, parent);
 

@@ -10,6 +10,8 @@ export type ContributedCommands =
 	| 'gitlens.ai.explainCommit:views'
 	| 'gitlens.ai.explainStash:graph'
 	| 'gitlens.ai.explainStash:views'
+	| 'gitlens.ai.explainUnpushed:graph'
+	| 'gitlens.ai.explainUnpushed:views'
 	| 'gitlens.ai.explainWip:graph'
 	| 'gitlens.ai.explainWip:views'
 	| 'gitlens.ai.feedback.helpful'
