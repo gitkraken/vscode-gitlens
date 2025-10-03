@@ -78,6 +78,7 @@ import {
 	ReloadComposerCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
+import type { WorkingTreeDiffs } from './utils';
 import {
 	convertToComposerDiffInfo,
 	createCombinedDiffForCommit,
@@ -107,6 +108,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
 	private _context: ComposerContext;
+
+	// Flag to ignore index change tracking for when we need to stage untracked files
+	private _ignoreIndexChange = false;
 
 	constructor(
 		protected readonly container: Container,
@@ -299,12 +303,29 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		source?: Sources,
 		isReload?: boolean,
 	): Promise<State> {
+		// Stop repo change subscription so we can deal with untracked files
+		this._repositorySubscription?.dispose();
+		const status = await repo.git.status?.getStatus();
+		const untrackedPaths = status?.untrackedChanges.map(f => f.path);
+		if (untrackedPaths?.length) {
+			try {
+				await repo.git.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
+				this._ignoreIndexChange = true;
+			} catch {}
+		}
+
 		const [diffsResult, commitResult, branchResult] = await Promise.allSettled([
 			// Handle baseCommit - could be string (old format) or ComposerBaseCommit (new format)
 			getWorkingTreeDiffs(repo),
 			repo.git.commits.getCommit('HEAD'),
 			repo.git.branches.getBranch(),
 		]);
+
+		if (untrackedPaths?.length) {
+			try {
+				await repo.git.staging?.unstageFiles(untrackedPaths);
+			} catch {}
+		}
 
 		const diffs = getSettledValue(diffsResult)!;
 
@@ -755,9 +776,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onRepositoryChanged(e: RepositoryChangeEvent): Promise<void> {
 		if (e.repository.id !== this._currentRepository?.id) return;
-
+		const ignoreIndexChange = this._ignoreIndexChange;
+		this._ignoreIndexChange = false;
 		// Only care about index changes (staged/unstaged changes)
-		if (!e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+		if (
+			!e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any) ||
+			(ignoreIndexChange && e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Exclusive))
+		) {
 			return;
 		}
 
@@ -1089,7 +1114,26 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			);
 
 			// Validate repository safety state before proceeding
-			const validation = await validateSafetyState(repo, this._safetyState, hunksBeingCommitted);
+			// Stop repo change subscription so we can deal with untracked files
+			let workingTreeDiffs: WorkingTreeDiffs | undefined;
+			if (this._context.diff.unstagedIncluded) {
+				this._repositorySubscription?.dispose();
+				const status = await repo.git.status?.getStatus();
+				const untrackedPaths = status?.untrackedChanges.map(f => f.path);
+				if (untrackedPaths?.length) {
+					try {
+						workingTreeDiffs = await getWorkingTreeDiffs(repo);
+						await repo.git.staging?.stageFiles(untrackedPaths);
+					} catch {}
+				}
+			}
+
+			const validation = await validateSafetyState(
+				repo,
+				this._safetyState,
+				hunksBeingCommitted,
+				workingTreeDiffs,
+			);
 			if (!validation.isValid) {
 				// Clear loading state and show safety error
 				await this.host.notify(DidFinishCommittingNotification, undefined);
@@ -1197,7 +1241,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				if (
 					stashCommit &&
 					stashCommit.ref !== previousStashCommit?.ref &&
-					stashCommit.message === stashMessage
+					stashCommit.message?.includes(stashMessage)
 				) {
 					stashedSuccessfully = true;
 				}
