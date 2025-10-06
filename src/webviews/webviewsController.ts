@@ -10,7 +10,7 @@ import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { GlCommands } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
-import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
+import type { WebviewIds, WebviewTypeFromId, WebviewViewIds, WebviewViewTypeFromId } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCoreCommand, registerCommand } from '../system/-webview/command';
@@ -28,9 +28,9 @@ export interface WebviewPanelDescriptor<ID extends WebviewIds> {
 	readonly fileName: string;
 	readonly iconPath: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypes}`;
+	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypeFromId<ID>}`;
 	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewTypes;
+	readonly type: WebviewTypeFromId<ID>;
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;
@@ -88,9 +88,9 @@ export interface WebviewViewDescriptor<ID extends WebviewViewIds = WebviewViewId
 	id: ID;
 	readonly fileName: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypes}`;
+	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypeFromId<ID>}`;
 	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewViewTypes;
+	readonly type: WebviewViewTypeFromId<ID>;
 	readonly plusFeature: boolean;
 	readonly webviewOptions?: WebviewOptions;
 	readonly webviewHostOptions?: {

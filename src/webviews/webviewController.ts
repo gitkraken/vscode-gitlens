@@ -5,7 +5,14 @@ import { base64 } from '@env/base64';
 import { getNonce } from '@env/crypto';
 import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
-import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
+import type {
+	CustomEditorTypes,
+	WebviewIds,
+	WebviewOrWebviewViewTypeFromId,
+	WebviewTypes,
+	WebviewViewIds,
+	WebviewViewTypes,
+} from '../constants.views';
 import type { Container } from '../container';
 import { isCancellationError } from '../errors';
 import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils';
@@ -151,6 +158,10 @@ export class WebviewController<
 	}
 
 	readonly id: ID;
+
+	get type(): WebviewOrWebviewViewTypeFromId<ID> {
+		return this.descriptor.type as WebviewOrWebviewViewTypeFromId<ID>;
+	}
 
 	private _ready: boolean = false;
 	get ready(): boolean {
