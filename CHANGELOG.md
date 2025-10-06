@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Git diff of a renamed file is shown as a new file ([#4246](https://github.com/gitkraken/vscode-gitlens/issues/4246))
 - Fixes typos ([#4345](https://github.com/gitkraken/vscode-gitlens/issues/4345) &mdash; thanks to [PR #4346](https://github.com/gitkraken/vscode-gitlens/pull/4346) by Noritaka Kobayashi ([@noritaka1166](https://github.com/noritaka1166)))
 - Fixes issue where the _Commit Graph_ hover would not hide when going from the hover to the graph background (not another row)
+- Fixes _Commit Composer_ rendering performance when working changes contain large file diffs ([#4661](https://github.com/gitkraken/vscode-gitlens/issues/4661))
 
 ## [17.5.1] - 2025-09-24
 
