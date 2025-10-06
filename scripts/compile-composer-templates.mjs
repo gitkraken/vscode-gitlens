@@ -3,6 +3,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 let Hogan;
@@ -20,7 +21,7 @@ try {
 }
 Hogan = (Hogan && Hogan.default) || Hogan;
 
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\//, '')), '..');
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const srcPath = path.join(repoRoot, 'src/webviews/apps/plus/composer/components/diff/diff-templates.ts');
 const outPath = path.join(repoRoot, 'src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts');
 

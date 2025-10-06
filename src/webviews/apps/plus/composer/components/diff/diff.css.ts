@@ -783,4 +783,25 @@ export const diffStyles = css`
 	.d2h-file-wrapper[open] .file-icon--closed {
 		display: none;
 	}
+
+	/* .d2h-file-name-wrapper {
+		width: min-content;
+	} */
+
+	.d2h-file-name-wrapper .d2h-tag {
+		margin-left: auto;
+	}
+
+	.d2h-file-stats {
+		margin-left: 0;
+	}
+
+	commit-stats {
+		margin-inline: 0.4rem;
+		gap: 0.8rem;
+	}
+
+	commit-stats::part(stat-modified) {
+		display: none;
+	}
 `;

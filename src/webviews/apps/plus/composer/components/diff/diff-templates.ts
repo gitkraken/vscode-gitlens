@@ -12,6 +12,7 @@ export const lineByLineFileTemplate = `<details open id="{{fileHtmlId}}" class="
       <code-icon class="file-icon--open" icon="chevron-down"></code-icon>
       <code-icon class="file-icon--closed" icon="chevron-right"></code-icon>
       {{{filePath}}}
+      <commit-stats added="{{file.addedLines}}" removed="{{file.deletedLines}}"></commit-stats>
     </summary>
     <div class="d2h-file-diff scrollable">
         <div class="d2h-code-wrapper">
@@ -30,6 +31,7 @@ export const sideBySideFileTemplate = `<details id="{{fileHtmlId}}" class="d2h-f
       <code-icon class="file-icon--open" icon="chevron-down"></code-icon>
       <code-icon class="file-icon--closed" icon="chevron-right"></code-icon>
       {{{filePath}}}
+      <commit-stats added="{{file.addedLines}}" removed="{{file.deletedLines}}"></commit-stats>
     </summary>
     <div class="d2h-files-diff">
         <div class="d2h-file-side-diff">

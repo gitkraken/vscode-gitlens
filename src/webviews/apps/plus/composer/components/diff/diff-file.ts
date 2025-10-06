@@ -11,6 +11,7 @@ import { boxSizingBase, scrollableBase } from '../../../../shared/components/sty
 import { compiledComposerTemplates } from './diff-templates.compiled';
 import { diff2htmlStyles, diffStyles, hljsStyles } from './diff.css';
 import '../../../../shared/components/code-icon';
+import '../../../../shared/components/commit/commit-stats';
 
 @customElement('gl-diff-file')
 export class GlDiffFile extends LitElement {

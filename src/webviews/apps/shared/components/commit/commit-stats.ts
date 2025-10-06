@@ -75,7 +75,7 @@ export class CommitStats extends LitElement {
 			return nothing;
 		}
 
-		return html`<span class="stat ${key}" aria-label="${count} ${key}"
+		return html`<span part="stat-${key}" class="stat ${key}" aria-label="${count} ${key}"
 			><span class="label">${this.renderSymbol(value)}${count}</span></span
 		>`;
 	}
