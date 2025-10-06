@@ -1,4 +1,3 @@
-import { Badge, defineGkElement } from '@gitkraken/shared-web-components';
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -132,12 +131,6 @@ export class GlCommitDetailsApp extends GlAppHost<Serialized<State>> {
 			working: wip.changes?.files.length ?? 0,
 			status: status,
 		};
-	}
-
-	constructor() {
-		super();
-
-		defineGkElement(Badge);
 	}
 
 	override connectedCallback(): void {
