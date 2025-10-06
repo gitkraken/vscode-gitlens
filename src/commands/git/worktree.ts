@@ -14,6 +14,7 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
+import type { GitDiff } from '../../git/models/diff';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
@@ -37,6 +38,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { isDescendant } from '../../system/-webview/path';
 import { revealInFileExplorer } from '../../system/-webview/vscode';
 import { getWorkspaceFriendlyPath, openWorkspace } from '../../system/-webview/vscode/workspaces';
+import { Logger } from '../../system/logger';
 import { basename } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';
@@ -1194,27 +1196,41 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			const sourceSvc = this.container.git.getRepositoryService(state.source?.uri ?? state.repo.uri);
 
 			if (!state.changes.contents || !state.changes.baseSha) {
+				let diff: GitDiff | undefined;
 				let untrackedPaths: string[] | undefined;
-				if (state.changes.type !== 'index') {
-					// stage any untracked files
-					const status = await sourceSvc.status.getStatus();
-					untrackedPaths = status?.untrackedChanges.map(f => f.path);
+				try {
+					if (state.changes.type !== 'index') {
+						// stage any untracked files to include them in the diff
+						const status = await sourceSvc.status.getStatus();
+
+						untrackedPaths = status?.untrackedChanges.map(f => f.path);
+						if (untrackedPaths?.length) {
+							try {
+								await sourceSvc.staging?.stageFiles(untrackedPaths);
+							} catch (ex) {
+								Logger.error(
+									ex,
+									`Failed to stage (${untrackedPaths.length}) untracked files for copying changes`,
+								);
+							}
+						}
+					}
+
+					diff = await sourceSvc.diff.getDiff?.(
+						state.changes.type === 'index' ? uncommittedStaged : uncommitted,
+						'HEAD',
+					);
+				} finally {
 					if (untrackedPaths?.length) {
 						try {
-							await sourceSvc.staging?.stageFiles(untrackedPaths);
-						} catch {}
+							await sourceSvc.staging?.unstageFiles(untrackedPaths);
+						} catch (ex) {
+							Logger.error(
+								ex,
+								`Failed to unstage (${untrackedPaths.length}) untracked files for copying changes`,
+							);
+						}
 					}
-				}
-
-				const diff = await sourceSvc.diff.getDiff?.(
-					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
-					'HEAD',
-				);
-
-				if (untrackedPaths?.length) {
-					try {
-						await sourceSvc.staging?.unstageFiles(untrackedPaths);
-					} catch {}
 				}
 
 				if (!diff?.contents) {
