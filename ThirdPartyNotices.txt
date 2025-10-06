@@ -23,19 +23,20 @@ This project incorporates components from the projects listed below.
 18. billboard.js version 3.17.0 (https://github.com/naver/billboard.js)
 19. diff2html version 3.4.52 (https://github.com/rtfpessoa/diff2html)
 20. driver.js version 1.3.6 (https://github.com/kamranahmedse/driver.js)
-21. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-22. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-23. lit version 3.3.1 (https://github.com/lit/lit)
-24. marked version 16.3.0 (https://github.com/markedjs/marked)
-25. microsoft/vscode (https://github.com/microsoft/vscode)
-26. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-27. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-28. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-29. react-dom version 19.0.0 (https://github.com/facebook/react)
-30. react version 19.0.0 (https://github.com/facebook/react)
-31. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-32. slug version 11.0.0 (https://github.com/Trott/slug)
-33. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
+21. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
+22. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+23. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+24. lit version 3.3.1 (https://github.com/lit/lit)
+25. marked version 16.3.0 (https://github.com/markedjs/marked)
+26. microsoft/vscode (https://github.com/microsoft/vscode)
+27. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+28. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+29. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+30. react-dom version 19.0.0 (https://github.com/facebook/react)
+31. react version 19.0.0 (https://github.com/facebook/react)
+32. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+33. slug version 11.0.0 (https://github.com/Trott/slug)
+34. sortablejs version 1.15.6 (https://github.com/SortableJS/Sortable)
 
 %% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1846,6 +1847,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 =========================================
 END OF  driver.js NOTICES AND INFORMATION
+
+%% fflate NOTICES AND INFORMATION BEGIN HERE
+=========================================
+MIT License
+
+Copyright (c) 2023 Arjun Barrett
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+=========================================
+END OF  fflate NOTICES AND INFORMATION
 
 %% https-proxy-agent NOTICES AND INFORMATION BEGIN HERE
 =========================================
