@@ -1419,7 +1419,8 @@ export class ViewCommands implements Disposable {
 				void executeCommand<DiffWithCommandArgs>(command.command, args);
 				break;
 			}
-			case 'gitlens.diffWithPrevious' satisfies GlCommands: {
+			case 'gitlens.diffWithPrevious' satisfies GlCommands:
+			case 'gitlens.diffWithPrevious:views' satisfies GlCommands: {
 				const [, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
 				args.showOptions!.preview = false;
 				void executeEditorCommand<DiffWithPreviousCommandArgs>(
