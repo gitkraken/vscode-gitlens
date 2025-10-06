@@ -65,7 +65,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		if (config == null) return [];
 
 		const serverDefinition = new McpStdioServerDefinition(
-			`${config.name} (bundled with GitLens)`,
+			config.name,
 			config.command,
 			config.args,
 			{},
