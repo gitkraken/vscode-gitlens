@@ -17,12 +17,11 @@ import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { compare } from '../../../../system/version';
-import { run } from '../../git/shell';
 import { getPlatform, isWeb } from '../../platform';
 import { CliCommandHandlers } from './commands';
 import type { IpcServer } from './ipcServer';
 import { createIpcServer } from './ipcServer';
-import { runCLICommand, showManualMcpSetupPrompt, toMcpInstallProvider } from './utils';
+import { extractZipFile, runCLICommand, showManualMcpSetupPrompt, toMcpInstallProvider } from './utils';
 
 const enum CLIInstallErrorReason {
 	UnsupportedPlatform,
@@ -611,28 +610,14 @@ export class GkCliIntegrationProvider implements Disposable {
 				}
 
 				try {
-					// Use the run function to extract the installer file from the installer zip
-					if (platform === 'windows') {
-						// On Windows, use PowerShell to extract the zip file.
-						// Force overwrite if the file already exists with -Force
-						await run(
-							'powershell.exe',
-							[
-								'-Command',
-								`Expand-Archive -Path "${cliProxyZipFilePath.fsPath}" -DestinationPath "${globalStoragePath.fsPath}" -Force`,
-							],
-							'utf8',
-						);
-					} else {
-						// On Unix-like systems, use the unzip command to extract the zip file, forcing overwrite with -o
-						await run('unzip', ['-o', cliProxyZipFilePath.fsPath, '-d', globalStoragePath.fsPath], 'utf8');
-					}
+					// Extract only the gk binary from the zip file using the fflate library (cross-platform)
+					const expectedBinary = platform === 'windows' ? 'gk.exe' : 'gk';
+					await extractZipFile(cliProxyZipFilePath.fsPath, globalStoragePath.fsPath, {
+						filter: filename => filename === expectedBinary || filename.endsWith(`/${expectedBinary}`),
+					});
 
 					// Check using stat to make sure the newly extracted file exists.
-					cliExtractedProxyFilePath = Uri.joinPath(
-						globalStoragePath,
-						platform === 'windows' ? 'gk.exe' : 'gk',
-					);
+					cliExtractedProxyFilePath = Uri.joinPath(globalStoragePath, expectedBinary);
 
 					// This will throw if the file doesn't exist
 					await workspace.fs.stat(cliExtractedProxyFilePath);
