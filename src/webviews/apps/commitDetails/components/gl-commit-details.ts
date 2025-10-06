@@ -8,7 +8,8 @@ import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullReque
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import { createCommandLink } from '../../../../system/commands';
 import type { IpcSerialized } from '../../../../system/ipcSerialize';
-import type { State as _State } from '../../../commitDetails/protocol';
+import { serializeWebviewItemContext } from '../../../../system/webview';
+import type { State as _State, DetailsItemContext, DetailsItemTypedContext } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import { uncommittedSha } from '../commitDetails';
@@ -466,11 +467,36 @@ export class GlCommitDetails extends GlDetailsBase {
 				action: 'file-open-on-remote',
 			});
 		}
-		actions.push({
-			icon: 'ellipsis',
-			label: 'Show more actions',
-			action: 'file-more-actions',
-		});
 		return actions;
+	}
+
+	override getFileContextData(file: File): string | undefined {
+		if (!this.state?.commit) return undefined;
+
+		// Build webviewItem with modifiers matching view context values
+		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished]
+		const commit = this.state.commit;
+		const isStash = commit.stashNumber != null;
+
+		let webviewItem: DetailsItemContext['webviewItem'];
+		if (isStash) {
+			webviewItem = 'gitlens:file+stashed';
+		} else {
+			webviewItem = 'gitlens:file+committed';
+		}
+
+		const context: DetailsItemTypedContext = {
+			webviewItem: webviewItem,
+			webviewItemValue: {
+				type: 'file',
+				path: file.path,
+				repoPath: commit.repoPath,
+				sha: commit.sha,
+				stashNumber: commit.stashNumber,
+				status: file.status,
+			},
+		};
+
+		return serializeWebviewItemContext(context);
 	}
 }

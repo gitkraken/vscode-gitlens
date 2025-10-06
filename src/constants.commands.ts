@@ -245,9 +245,32 @@ export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = Extract
 	TreeViewCommandsByViewType<T>
 >;
 
-export type WebviewCommands =
-	| FilterCommands<`gitlens.${WebviewTypes}`, GlCommands>
-	| FilterCommands<'gitlens.', GlCommands, `:${WebviewTypes}`>;
-export type WebviewViewCommands =
-	| FilterCommands<`gitlens.views.${WebviewViewTypes}`, GlCommands>
-	| FilterCommands<'gitlens.views.', GlCommands, `:${WebviewViewTypes}`>;
+export type WebviewCommands<T extends WebviewTypes = WebviewTypes> =
+	| FilterCommands<`gitlens.${T}`, GlCommands>
+	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
+export type WebviewViewCommands<T extends WebviewViewTypes = WebviewViewTypes> =
+	| FilterCommands<`gitlens.views.${T}`, GlCommands>
+	| FilterCommands<'gitlens.views.', GlCommands, `:${T}`>
+	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
+
+/**
+ * Extracts all possible prefixes (before the colon) from a union of commands.
+ * Example: 'gitlens.foo:graph' | 'gitlens.bar:timeline' -> 'gitlens.foo' | 'gitlens.bar'
+ */
+type ExtractCommandPrefix<
+	T extends GlCommands,
+	U extends WebviewTypes | WebviewViewTypes,
+> = T extends `${infer Prefix}:${U}` ? `${Prefix}:` : never;
+
+type WebviewCommandPrefixes<T extends WebviewTypes = WebviewTypes> = ExtractCommandPrefix<WebviewCommands<T>, T>;
+export type WebviewCommandsOrCommandsWithSuffix<T extends WebviewTypes = WebviewTypes> =
+	| WebviewCommands<T>
+	| WebviewCommandPrefixes<T>;
+
+type WebviewViewCommandPrefixes<T extends WebviewViewTypes = WebviewViewTypes> = ExtractCommandPrefix<
+	WebviewViewCommands<T>,
+	T
+>;
+export type WebviewViewCommandsOrCommandsWithSuffix<T extends WebviewViewTypes = WebviewViewTypes> =
+	| WebviewViewCommands<T>
+	| WebviewViewCommandPrefixes<T>;

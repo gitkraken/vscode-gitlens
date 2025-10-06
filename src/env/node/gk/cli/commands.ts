@@ -8,9 +8,10 @@ import { executeCommand } from '../../../../system/-webview/command';
 import { createCommandDecorator } from '../../../../system/decorators/command';
 import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration';
 
+type CliCommand = 'cherry-pick' | 'compare' | 'graph' | 'merge' | 'rebase';
 type CliCommandHandler = (request: CliCommandRequest, repo?: Repository | undefined) => Promise<CliCommandResponse>;
 
-const { command, getCommands } = createCommandDecorator<CliCommandHandler>();
+const { command, getCommands } = createCommandDecorator<CliCommand, CliCommandHandler>();
 
 export class CliCommandHandlers implements Disposable {
 	constructor(
