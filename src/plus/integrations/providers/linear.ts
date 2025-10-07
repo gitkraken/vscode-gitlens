@@ -213,10 +213,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	protected override async getProviderLinkedIssueOrPullRequest(
 		session: ProviderAuthenticationSession,
 		resource: ResourceDescriptor,
-		{ id }: { id: string; key: string },
+		{ key }: { id: string; key: string },
 		_type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		const issue = await this.getRawProviderIssue(session, resource, id);
+		const issue = await this.getRawProviderIssue(session, resource, key);
 		const autolinkableIssue: ProviderIssue | undefined = issue && {
 			...issue,
 			url: this.getIssueAutolinkLikeUrl(issue),
