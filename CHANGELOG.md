@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.6.0] - 2025-10-07
+
 ### Added
 
 - Adds support for Claude Sonnet 4.5 for GitLens' AI features
@@ -6381,7 +6383,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.0...HEAD
+[17.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.1...gitkraken:v17.6.0
 [17.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...gitkraken:v17.5.1
 [17.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.1...gitkraken:v17.5.0
 [17.4.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.0...gitkraken:v17.4.1
