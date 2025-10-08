@@ -6191,12 +6191,12 @@
 			},
 			{
 				"command": "gitlens.ai.aiRebaseBranch:graph",
-				"title": "AI Recompose branch commits (Preview)...",
+				"title": "AI Recompose Branch Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.aiRebaseUnpushed:graph",
-				"title": "AI Recompose unpushed commits (Preview)...",
+				"title": "AI Recompose Unpushed Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{

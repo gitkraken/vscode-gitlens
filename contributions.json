@@ -24,7 +24,7 @@
 			}
 		},
 		"gitlens.ai.aiRebaseBranch:graph": {
-			"label": "AI Recompose branch commits (Preview)...",
+			"label": "AI Recompose Branch Commits (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
@@ -37,7 +37,7 @@
 			}
 		},
 		"gitlens.ai.aiRebaseUnpushed:graph": {
-			"label": "AI Recompose unpushed commits (Preview)...",
+			"label": "AI Recompose Unpushed Commits (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
