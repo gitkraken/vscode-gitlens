@@ -30,7 +30,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
-import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
+import { getBranchMergeBaseAndCommonCommit, isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
 import {
@@ -347,6 +347,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 							branch = branchMap.get(tip);
 							branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+
+							// Check if branch has commits that can be recomposed and get merge base
+							const mergeBaseResult =
+								branch && (await getBranchMergeBaseAndCommonCommit(this.container, branch));
+							const isRecomposable = Boolean(mergeBaseResult && mergeBaseResult.commit !== branch?.sha);
+							const mergeBase = isRecomposable ? mergeBaseResult : undefined;
+
 							context = {
 								webviewItem: `gitlens:branch${head ? '+current' : ''}${
 									branch?.upstream != null ? '+tracking' : ''
@@ -358,7 +365,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 											: ''
 								}${branch?.starred ? '+starred' : ''}${branch?.upstream?.state.ahead ? '+ahead' : ''}${
 									branch?.upstream?.state.behind ? '+behind' : ''
-								}`,
+								}${mergeBase?.commit ? '+recomposable' : ''}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: createReference(tip, repoPath, {
@@ -368,6 +375,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 										remote: false,
 										upstream: branch?.upstream,
 									}),
+									mergeBase: mergeBase && {
+										...mergeBase,
+										remote: branchMap.get(mergeBase?.branch)?.remote ?? false,
+									},
 								},
 							};
 

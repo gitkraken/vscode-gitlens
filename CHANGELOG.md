@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds AI powered operations for a branch: "Explain Unpushed Changed". They are added to the _Commit Graph_ and views context menu for branches ([#4443](https://github.com/gitkraken/vscode-gitlens/issues/4443))
+- Adds AI powered operations for a branch: "Recompose branch commits", "Recompose unpushed commits", "Explain Unpushed Changed". They are added to the _Commit Graph_ and views context menu for branches ([#4443](https://github.com/gitkraken/vscode-gitlens/issues/4443))
 
 ## [17.6.0] - 2025-10-07
 
