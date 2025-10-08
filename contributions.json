@@ -23,6 +23,32 @@
 				]
 			}
 		},
+		"gitlens.ai.aiRebaseBranch:graph": {
+			"label": "AI Recompose branch commits (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				]
+			}
+		},
+		"gitlens.ai.aiRebaseUnpushed:graph": {
+			"label": "AI Recompose unpushed commits (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions",
+						"order": 7
+					}
+				]
+			}
+		},
 		"gitlens.ai.explainBranch": {
 			"label": "Explain Branch Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
