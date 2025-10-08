@@ -83,7 +83,12 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 }
 
 export function getSubscriptionNextPaidPlanId(subscription: Optional<Subscription, 'state'>): PaidSubscriptionPlanIds {
-	const next = orderedPaidPlans.indexOf(subscription.plan.actual.id as PaidSubscriptionPlanIds) + 1;
+	let next = orderedPaidPlans.indexOf(subscription.plan.actual.id as PaidSubscriptionPlanIds) + 1;
+	// Skip the student plan since we cannot determine if the user is student-eligible or not
+	if (next === 0) {
+		next++;
+	}
+
 	if (next >= orderedPaidPlans.length) return 'enterprise'; // Not sure what to do here
 
 	return orderedPaidPlans[next] ?? 'pro';
