@@ -2,6 +2,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { Repository } from '../../git/models/repository';
+import { getBranchMergeBaseAndCommonCommit } from '../../git/utils/-webview/branch.utils';
 import { getOpenedWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
 import { getLocalBranchUpstreamNames } from '../../git/utils/branch.utils';
 import { makeHierarchical } from '../../system/array';
@@ -65,10 +66,21 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 				localUpstreamNames = await getLocalBranchUpstreamNames(branches);
 			}
 
+			// Create a map of branch names to their remote status for efficient lookup
+			const branchRemoteMap = new Map<string, boolean>();
+			for await (const branch of branches.values()) {
+				branchRemoteMap.set(branch.name, branch.remote);
+			}
+
 			const branchNodes: BranchNode[] = [];
 
 			for await (const branch of branches.values()) {
 				if (branch.remote && localUpstreamNames?.has(branch.name)) continue;
+
+				const mergeBaseResult =
+					branch && (await getBranchMergeBaseAndCommonCommit(this.view.container, branch));
+				const isRecomposable = Boolean(mergeBaseResult && mergeBaseResult.commit !== branch?.sha);
+				const mergeBase = isRecomposable ? mergeBaseResult : undefined;
 
 				branchNodes.push(
 					new BranchNode(
@@ -84,6 +96,10 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 									? this.view.config.branches.showBranchComparison
 									: this.view.config.showBranchComparison,
 							showStashes: this.view.config.showStashes,
+						},
+						mergeBase && {
+							...mergeBase,
+							remote: branchRemoteMap.get(mergeBase.branch) ?? false,
 						},
 					),
 				);

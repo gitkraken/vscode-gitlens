@@ -5,7 +5,9 @@ export type ContributedCommands =
 	| ContributedKeybindingCommands
 	| ContributedPaletteCommands
 	| 'gitlens.ai.aiRebaseBranch:graph'
+	| 'gitlens.ai.aiRebaseBranch:views'
 	| 'gitlens.ai.aiRebaseUnpushed:graph'
+	| 'gitlens.ai.aiRebaseUnpushed:views'
 	| 'gitlens.ai.explainBranch:graph'
 	| 'gitlens.ai.explainBranch:views'
 	| 'gitlens.ai.explainCommit:graph'

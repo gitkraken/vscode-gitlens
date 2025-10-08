@@ -6195,7 +6195,17 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.ai.aiRebaseBranch:views",
+				"title": "AI Recompose Branch Commits (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.ai.aiRebaseUnpushed:graph",
+				"title": "AI Recompose Unpushed Commits (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.aiRebaseUnpushed:views",
 				"title": "AI Recompose Unpushed Commits (Preview)",
 				"icon": "$(sparkle)"
 			},
@@ -11029,7 +11039,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.ai.aiRebaseBranch:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.ai.aiRebaseUnpushed:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.aiRebaseUnpushed:views",
 					"when": "false"
 				},
 				{
@@ -17427,6 +17445,16 @@
 					"command": "gitlens.views.fetch",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.ai.aiRebaseBranch:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+recomposable\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.ai.aiRebaseUnpushed:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions@7"
 				},
 				{
 					"command": "gitlens.views.mergeBranchInto",
