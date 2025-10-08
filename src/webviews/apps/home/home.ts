@@ -29,7 +29,6 @@ import './components/ama-banner';
 import './components/integration-banner';
 import './components/preview-banner';
 import '../shared/components/mcp-banner';
-import './components/promo-banner';
 import './components/repo-alerts';
 import '../shared/components/banner/banner';
 

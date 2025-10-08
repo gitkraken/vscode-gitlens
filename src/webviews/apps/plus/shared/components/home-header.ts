@@ -6,11 +6,11 @@ import type { GlAccountChip } from './account-chip';
 import './account-chip';
 import './integrations-chip';
 import '../../../home/components/onboarding';
+import '../../../home/components/promo-banner';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
-import '../../../shared/components/promo';
 // import '../../../shared/components/snow';
 
 @customElement('gl-home-header')
