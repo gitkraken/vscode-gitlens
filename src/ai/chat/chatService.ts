@@ -1,17 +1,22 @@
-import type { CancellationToken, Disposable } from 'vscode';
-import { commands, chat, version, Uri } from 'vscode';
+import type { CancellationToken, ChatFollowup, ChatFollowupProvider, Disposable, ProviderResult } from 'vscode';
+import { chat, commands, Uri, version } from 'vscode';
+import type { ChatViewOpenOptions } from '../../@types/vscode.chat';
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
+import { ChatPromptBuilder } from './promptBuilder';
 import type {
 	ChatAction,
-	ChatIssueContext,
 	ChatIntegrationCommandArgs,
+	ChatIssueContext,
 	ChatPromptConfig,
-	SendToChatCommandArgs,
 	GitLensChatResult,
+	SendToChatCommandArgs,
 } from './types';
-import { ChatPromptBuilder } from './promptBuilder';
+
+export function openChat(args: string | ChatViewOpenOptions): Thenable<void> {
+	return commands.executeCommand('workbench.action.chat.open', args);
+}
 
 // Check if VS Code version supports Chat API (introduced in 1.99.0)
 function supportsChatAPI(): boolean {
@@ -22,7 +27,7 @@ function supportsChatAPI(): boolean {
 /**
  * Service for managing AI chat integration in GitLens
  */
-export class ChatService implements Disposable {
+export class ChatService implements Disposable, ChatFollowupProvider {
 	private readonly _disposable: Disposable;
 	private readonly _promptBuilder: ChatPromptBuilder;
 
@@ -57,11 +62,12 @@ export class ChatService implements Disposable {
 			if (args.participant) {
 				// Send to specific participant
 				await commands.executeCommand('workbench.action.chat.open', {
-					query: `@${args.participant} ${args.prompt}`,
-				});
+					query: `@${args.participant} ${args.query}`,
+					isPartialQuery: true,
+				} as ChatViewOpenOptions);
 			} else {
 				// Send to general chat
-				await commands.executeCommand('workbench.action.chat.open', args.prompt);
+				await commands.executeCommand('workbench.action.chat.open', args.query);
 			}
 		} catch (error) {
 			Logger.error('ChatService.sendToChat', error);
@@ -88,10 +94,10 @@ export class ChatService implements Disposable {
 				...args.config,
 			};
 
-			const result = await this._promptBuilder.generatePrompt(args.context, args.action, config);
+			const result = this._promptBuilder.generatePrompt(args.context, args.action, config);
 
 			await this.sendToChat({
-				prompt: result.prompt,
+				query: result.prompt,
 				source: args.source,
 				participant: 'gitlens',
 			});
@@ -116,7 +122,7 @@ export class ChatService implements Disposable {
 
 		participant.iconPath = Uri.file(this.container.context.asAbsolutePath('images/gitlens-icon.png'));
 		participant.followupProvider = {
-			provideFollowups: async (result, context, token) => {
+			provideFollowups: (result, context, token) => {
 				// Return basic follow-up suggestions
 				return [
 					{
@@ -141,7 +147,7 @@ export class ChatService implements Disposable {
 	/**
 	 * Handle chat requests to the GitLens participant
 	 */
-	private async handleChatRequest(
+	private handleChatRequest(
 		request: any,
 		context: any,
 		stream: any,
@@ -163,12 +169,12 @@ export class ChatService implements Disposable {
 		} catch (error) {
 			Logger.error('ChatService.handleChatRequest', error);
 			stream.markdown(`❌ **Error:** ${error.message}`);
-			return {
+			return Promise.resolve({
 				metadata: {
 					command: request.command,
 					source: 'chat-participant',
 				},
-			};
+			});
 		}
 	}
 
@@ -195,7 +201,7 @@ export class ChatService implements Disposable {
 			stream.markdown(`❌ **Unknown command:** /${command}`);
 			return {
 				metadata: {
-					command,
+					command: command,
 					source: 'chat-participant',
 				},
 			};
@@ -227,13 +233,13 @@ export class ChatService implements Disposable {
 			});
 		}
 
-		return {
+		return Promise.resolve({
 			metadata: {
-				command,
-				action,
+				command: command,
+				action: action,
 				source: 'chat-participant',
 			},
-		};
+		});
 	}
 
 	/**
@@ -282,18 +288,22 @@ export class ChatService implements Disposable {
 			arguments: [],
 		});
 
-		return {
+		return Promise.resolve({
 			metadata: {
 				source: 'chat-participant',
 			},
-		};
+		});
 	}
 
 	/**
 	 * Provide follow-up suggestions
 	 */
-	private async provideFollowups(result: GitLensChatResult, context: any, token: CancellationToken): Promise<any[]> {
-		const followups: any[] = [];
+	provideFollowups(
+		result: GitLensChatResult,
+		context: any,
+		token: CancellationToken,
+	): ProviderResult<ChatFollowup[]> {
+		const followups: ChatFollowup[] = [];
 
 		if (result.metadata.action) {
 			switch (result.metadata.action) {

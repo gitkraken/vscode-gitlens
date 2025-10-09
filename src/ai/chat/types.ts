@@ -1,8 +1,10 @@
-import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
+import type { ChatResult } from 'vscode';
+import type { ChatViewOpenOptions } from '../../@types/vscode.chat';
+import type { Sources } from '../../constants.telemetry';
 import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
-import type { Sources } from '../../constants.telemetry';
+import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
 
 /**
  * Represents the context for an AI chat prompt related to issues or PRs
@@ -142,12 +144,7 @@ export interface ChatIntegrationCommandArgs {
 /**
  * Arguments for sending content to chat
  */
-export interface SendToChatCommandArgs {
-	/**
-	 * The prompt to send
-	 */
-	prompt: string;
-
+export interface SendToChatCommandArgs extends ChatViewOpenOptions {
 	/**
 	 * Source of the request
 	 */
@@ -162,7 +159,7 @@ export interface SendToChatCommandArgs {
 /**
  * GitLens chat participant result metadata
  */
-export interface GitLensChatResult {
+export interface GitLensChatResult extends ChatResult {
 	metadata: {
 		command?: string;
 		action?: ChatAction;
@@ -200,7 +197,7 @@ export interface McpToolReference {
 /**
  * Available MCP tools for different contexts
  */
-export const MCP_TOOLS: Record<string, McpToolReference> = {
+export const mcpTools: Record<string, McpToolReference> = {
 	git_branch: {
 		name: 'git_branch',
 		description: 'Create, list, or manage Git branches',
