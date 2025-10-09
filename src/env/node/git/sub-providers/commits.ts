@@ -49,11 +49,12 @@ import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../.
 import { isUserMatch } from '../../../../git/utils/user.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
-import { log } from '../../../../system/decorators/log';
+import { debug, log } from '../../../../system/decorators/log';
 import { filterMap, first, join, last, some } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
+import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { Git, GitResult } from '../git';
@@ -380,6 +381,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return this.getLogCore(repoPath, rev, options, cancellation);
 	}
 
+	@debug({ args: { 2: false, 3: false, 4: false }, exit: true })
 	private async getLogCore(
 		repoPath: string,
 		rev?: string | undefined,
@@ -1326,6 +1328,9 @@ async function parseCommits(
 	if (resultOrStream instanceof Promise) {
 		const result = await resultOrStream;
 
+		const scope = getLogScope();
+		using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+
 		if (stashes?.size) {
 			const allowFilteredFiles = searchFilters?.files ?? false;
 			const stashesOnly = searchFilters?.type === 'stash';
@@ -1366,6 +1371,8 @@ async function parseCommits(
 				commits.set(c.sha, createCommit(container, c, repoPath, pathspec, currentUser));
 			}
 		}
+
+		sw?.stop({ suffix: ` created ${count} commits` });
 
 		return { commits: commits, count: count, countStashChildCommits: countStashChildCommits };
 	}

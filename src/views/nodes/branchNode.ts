@@ -13,7 +13,7 @@ import { isStash } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
+import type { Repository, RepositoryChangeEvent } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getBranchAheadRange, getBranchMergeTargetName } from '../../git/utils/-webview/branch.utils';
@@ -780,9 +780,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 		const interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
-				this.repo != null
-					? weakEvent(this.repo.onDidChange, () => this.view.triggerNodeChange(this), this)
-					: emptyDisposable,
+				this.repo != null ? weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this) : emptyDisposable,
 				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
 					if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
@@ -795,5 +793,10 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 		}
 
 		return undefined;
+	}
+
+	@debug<CommitsCurrentBranchNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	private onRepositoryChanged(_e: RepositoryChangeEvent) {
+		this.view.triggerNodeChange(this);
 	}
 }
