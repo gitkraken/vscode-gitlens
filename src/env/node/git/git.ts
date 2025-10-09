@@ -34,6 +34,7 @@ import {
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
+import { rootSha } from '../../../git/models/revision';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { getCancellationTokenId } from '../../../system/-webview/cancellation';
@@ -68,9 +69,6 @@ export const gitConfigsStatus = ['-c', 'color.status=false'] as const;
 export const maxGitCliLength = 30000;
 
 const textDecoder = new TextDecoder('utf8');
-
-// This is a root sha of all git repo's if using sha1
-const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
 	alreadyCheckedOut: /already checked out/i,
