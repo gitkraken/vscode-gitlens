@@ -426,11 +426,6 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeSortable() {
-		// Don't initialize sortable in AI preview mode
-		if (this.isPreviewMode) {
-			return;
-		}
-
 		const commitsContainer = this.shadowRoot?.querySelector('.commits-only');
 		if (commitsContainer) {
 			this.commitsSortable = Sortable.create(commitsContainer as HTMLElement, {
