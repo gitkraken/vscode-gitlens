@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds AI powered operations for a branch: "Explain Unpushed Changed". They are added to the _Commit Graph_ and views context menu for branches ([#4443](https://github.com/gitkraken/vscode-gitlens/issues/4443))
+
 ### Fixed
 
 - Fixes eyebrow banner not appearing for GitLens Community on Home ([#4670](https://github.com/gitkraken/vscode-gitlens/issues/4670))
