@@ -1,5 +1,6 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
+import type { ChatAction, ChatIssueContext } from '../../ai/chat/types';
 import { getAvatarUri } from '../../avatars';
 import type {
 	AsyncStepResultGenerator,
@@ -63,7 +64,6 @@ import {
 } from './launchpadProvider';
 import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad';
-import type { ChatAction, ChatIssueContext } from '../../ai/chat/types';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -439,7 +439,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 		const context: ChatIssueContext = {
 			item: item,
-			repository,
+			repository: repository,
 			source: 'launchpad',
 			metadata: {
 				worktree: action === 'create-worktree',
@@ -448,8 +448,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		};
 
 		await this.container.chatService.sendContextualPrompt({
-			context,
-			action,
+			context: context,
+			action: action,
 			config: {
 				includeMcpTools: true,
 				includeRepoContext: true,

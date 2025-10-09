@@ -1,7 +1,7 @@
 import type { Container } from '../../container';
-import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
-import { isPullRequest } from '../../git/models/pullRequest';
 import { isIssue } from '../../git/models/issue';
+import { isPullRequest } from '../../git/models/pullRequest';
+import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
 import type {
 	ChatAction,
 	ChatIssueContext,
@@ -10,13 +10,13 @@ import type {
 	ChatPromptTemplate,
 	McpToolReference,
 } from './types';
-import { MCP_TOOLS } from './types';
+import { mcpTools } from './types';
 
 /**
  * Type guard to check if an item is a LaunchpadItem
  */
-function isLaunchpadItem(item: any): item is LaunchpadItem {
-	return item && typeof item === 'object' && 'underlyingPullRequest' in item;
+function isLaunchpadItem(item: unknown): item is LaunchpadItem {
+	return Boolean(item && typeof item === 'object' && 'underlyingPullRequest' in item);
 }
 
 /**
@@ -28,32 +28,28 @@ export class ChatPromptBuilder {
 	/**
 	 * Generate a chat prompt for the given context and action
 	 */
-	async generatePrompt(
-		context: ChatIssueContext,
-		action: ChatAction,
-		config: ChatPromptConfig = {},
-	): Promise<ChatPromptResult> {
+	generatePrompt(context: ChatIssueContext, action: ChatAction, config: ChatPromptConfig = {}): ChatPromptResult {
 		const template = this.getTemplateForAction(action);
-		const variables = await this.buildTemplateVariables(context, config);
+		const variables = this.buildTemplateVariables(context, config);
 		const mcpTools = this.getMcpToolsForAction(action, config.includeMcpTools);
 
 		let prompt = this.processTemplate(template.template, variables);
 
 		// Add MCP tool references if requested
 		if (config.includeMcpTools && mcpTools.length > 0) {
-			prompt += '\n\n' + this.buildMcpToolsSection(mcpTools);
+			prompt += `\n\n${this.buildMcpToolsSection(mcpTools)}`;
 		}
 
 		// Add custom instructions if provided
 		if (config.customInstructions) {
-			prompt += '\n\n' + config.customInstructions;
+			prompt += `\n\n${config.customInstructions}`;
 		}
 
 		return {
-			prompt,
+			prompt: prompt,
 			followUps: template.followUps,
 			mcpTools: mcpTools.map(tool => tool.name),
-			context,
+			context: context,
 		};
 	}
 
@@ -303,10 +299,7 @@ You can examine the codebase to understand the scope and complexity.
 	/**
 	 * Build template variables from the context
 	 */
-	private async buildTemplateVariables(
-		context: ChatIssueContext,
-		config: ChatPromptConfig,
-	): Promise<Record<string, any>> {
+	private buildTemplateVariables(context: ChatIssueContext, config: ChatPromptConfig): Record<string, any> {
 		const { item, repository, metadata } = context;
 
 		let title: string;
@@ -343,11 +336,11 @@ You can examine the codebase to understand the scope and complexity.
 		}
 
 		const variables: Record<string, any> = {
-			title,
-			id,
-			url,
-			itemType,
-			description,
+			title: title,
+			id: id,
+			url: url,
+			itemType: itemType,
+			description: description,
 			repository: repository?.name,
 			worktree: metadata?.worktree,
 			mcpToolsAvailable: config.includeMcpTools,
@@ -364,7 +357,7 @@ You can examine the codebase to understand the scope and complexity.
 		if (!includeMcp) return [];
 
 		const template = this.getTemplateForAction(action);
-		return (template.mcpTools || []).map(toolName => MCP_TOOLS[toolName]).filter(Boolean);
+		return (template.mcpTools || []).map(toolName => mcpTools[toolName]).filter(Boolean);
 	}
 
 	/**
@@ -380,6 +373,7 @@ You can examine the codebase to understand the scope and complexity.
 
 		// Handle conditional sections {{#variable}}...{{/variable}}
 		result = result.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, key, content) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 			return variables[key] ? content : '';
 		});
 

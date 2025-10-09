@@ -1,10 +1,7 @@
+import { GlCommandBase } from '../../commands/commandBase';
 import type { Container } from '../../container';
 import { command } from '../../system/-webview/command';
-import { GlCommandBase } from '../../commands/commandBase';
-import type {
-	ChatIntegrationCommandArgs,
-	SendToChatCommandArgs
-} from './types';
+import type { ChatIntegrationCommandArgs, SendToChatCommandArgs } from './types';
 
 /**
  * Command to send a prompt to AI chat
@@ -16,7 +13,7 @@ export class SendToChatCommand extends GlCommandBase {
 	}
 
 	async execute(args?: SendToChatCommandArgs): Promise<void> {
-		if (!args?.prompt) {
+		if (!args?.query) {
 			throw new Error('Prompt is required for sendToChat command');
 		}
 
@@ -62,8 +59,8 @@ export class CreateBranchAndChatCommand extends GlCommandBase {
 			config: {
 				...args.config,
 				includeMcpTools: true,
-				includeRepoContext: true
-			}
+				includeRepoContext: true,
+			},
 		};
 
 		return this.container.chatService.sendContextualPrompt(chatArgs);
@@ -90,8 +87,8 @@ export class CreateWorktreeAndChatCommand extends GlCommandBase {
 			config: {
 				...args.config,
 				includeMcpTools: true,
-				includeRepoContext: true
-			}
+				includeRepoContext: true,
+			},
 		};
 
 		return this.container.chatService.sendContextualPrompt(chatArgs);
@@ -119,8 +116,8 @@ export class ExplainIssueAndChatCommand extends GlCommandBase {
 				...args.config,
 				includeMcpTools: true,
 				includeRepoContext: true,
-				includeFileContext: true
-			}
+				includeFileContext: true,
+			},
 		};
 
 		return this.container.chatService.sendContextualPrompt(chatArgs);
@@ -148,8 +145,8 @@ export class SuggestImplementationAndChatCommand extends GlCommandBase {
 				...args.config,
 				includeMcpTools: true,
 				includeRepoContext: true,
-				includeFileContext: true
-			}
+				includeFileContext: true,
+			},
 		};
 
 		return this.container.chatService.sendContextualPrompt(chatArgs);
@@ -177,8 +174,8 @@ export class ReviewChangesAndChatCommand extends GlCommandBase {
 				...args.config,
 				includeMcpTools: true,
 				includeRepoContext: true,
-				includeFileContext: true
-			}
+				includeFileContext: true,
+			},
 		};
 
 		return this.container.chatService.sendContextualPrompt(chatArgs);

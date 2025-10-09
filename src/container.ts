@@ -8,6 +8,7 @@ import {
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
 } from '@env/providers';
+import { ChatService } from './ai/chat/chatService';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
@@ -77,7 +78,6 @@ import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from '.
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
 import { WebviewsController } from './webviews/webviewsController';
-import { ChatService } from './ai/chat/chatService';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
