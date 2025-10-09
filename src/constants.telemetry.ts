@@ -254,6 +254,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'mcp/setup/failed': MCPSetupFailedEvent;
 	/** Sent when GitKraken MCP registration fails */
 	'mcp/registration/failed': MCPSetupFailedEvent;
+	/** Sent when a duplicate manual MCP installation is uninstalled */
+	'mcp/uninstall/duplicate': MCPUninstallDuplicateEvent;
 
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
@@ -524,6 +526,11 @@ export interface MCPSetupFailedEvent {
 	reason: string;
 	'cli.version'?: string;
 	'error.message'?: string;
+}
+
+export interface MCPUninstallDuplicateEvent {
+	app: string;
+	source: Sources;
 }
 
 interface CloudIntegrationsConnectingEvent {
