@@ -2,7 +2,6 @@ import slug from 'slug';
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Uri } from 'vscode';
 import { md5 } from '@env/crypto';
-import type { ChatAction, ChatIssueContext } from '../../ai/chat/types';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations';
 import type {
 	AsyncStepResultGenerator,
@@ -55,6 +54,8 @@ import { openUrl } from '../../system/-webview/vscode/uris';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
+import type { ChatAction, ChatIssueContext } from '../chat/models/chat';
+import { supportsChatAPI } from '../chat/utils/-webview/chat.utils';
 import { getIssueOwner } from '../integrations/providers/utils';
 
 export type StartWorkItem = {
@@ -72,7 +73,7 @@ interface Context {
 
 interface State {
 	item?: StartWorkItem;
-	chatAction?: 'create-branch' | 'create-worktree' | 'explain-issue' | 'skip';
+	chatAction?: 'create-branch' | 'create-worktree' | 'explain-issue';
 }
 
 type StartWorkStepState<T extends State = State> = RequireSome<StepState<T>, 'item'>;
@@ -269,7 +270,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			assertsStartWorkStepState(state);
 
 			// Add chat integration step after issue selection
-			if (state.counter < 2 || state.chatAction == null) {
+			if (supportsChatAPI() && (state.counter < 2 || state.chatAction == null)) {
 				const result = yield* this.pickChatActionStep(state, context);
 				if (result === StepResultBreak) continue;
 				state.chatAction = result;
@@ -298,30 +299,33 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 	private async *pickChatActionStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<'create-branch' | 'create-worktree' | 'explain-issue' | 'skip'> {
-		const items: QuickPickItem[] = [
-			{
-				label: '$(comment-discussion) Send to AI Chat',
-				description: 'Get AI assistance with this issue',
-				detail: 'Open AI Chat with contextual prompts and MCP tool integration',
-				picked: true,
-			},
-			{
-				label: '$(git-branch) Create Branch & Chat',
-				description: 'Create a branch and get AI guidance',
-				detail: 'Create a new branch and send contextual prompt to AI Chat',
-			},
-			{
-				label: '$(folder-opened) Create Worktree & Chat',
-				description: 'Create a worktree and get AI guidance',
-				detail: 'Create a new worktree and send contextual prompt to AI Chat',
-			},
-			{
-				label: '$(arrow-right) Continue without AI Chat',
-				description: 'Proceed with standard workflow',
-				detail: 'Skip AI Chat integration and continue with branch creation',
-			},
-		];
+	): AsyncStepResultGenerator<'create-branch' | 'create-worktree' | 'explain-issue' | undefined> {
+		const aiChat = {
+			label: '$(comment-discussion) Send to AI Chat',
+			description: 'Get AI assistance with this issue',
+			detail: 'Open AI Chat with contextual prompts and MCP tool integration',
+			picked: true,
+		};
+
+		const branchAndAiChat = {
+			label: '$(git-branch) Create Branch & Chat',
+			description: 'Create a branch and get AI guidance',
+			detail: 'Create a new branch and send contextual prompt to AI Chat',
+		};
+
+		const createWorktreeAndAiChat = {
+			label: '$(folder-opened) Create Worktree & Chat',
+			description: 'Create a worktree and get AI guidance',
+			detail: 'Create a new worktree and send contextual prompt to AI Chat',
+		};
+
+		const noAiChat = {
+			label: '$(arrow-right) Continue without AI Chat',
+			description: 'Proceed with standard workflow',
+			detail: 'Skip AI Chat integration and continue with branch creation',
+		};
+
+		const items: QuickPickItem[] = [aiChat, branchAndAiChat, createWorktreeAndAiChat, noAiChat];
 
 		const step = createPickStep<QuickPickItem>({
 			title: context.title,
@@ -333,21 +337,21 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
 
 		const selectedItem = selection[0];
-		switch (selectedItem.label) {
-			case '$(comment-discussion) Send to AI Chat':
+		switch (selectedItem) {
+			case aiChat:
 				// Send explain-issue prompt to chat
 				await this.sendIssueToChatWithAction(state.item!, 'explain-issue');
 				return 'explain-issue';
-			case '$(git-branch) Create Branch & Chat':
+			case branchAndAiChat:
 				// Send create-branch prompt to chat
 				await this.sendIssueToChatWithAction(state.item!, 'create-branch');
 				return 'create-branch';
-			case '$(folder-opened) Create Worktree & Chat':
+			case createWorktreeAndAiChat:
 				// Send create-worktree prompt to chat
 				await this.sendIssueToChatWithAction(state.item!, 'create-worktree');
 				return 'create-worktree';
 			default:
-				return 'skip';
+				return undefined;
 		}
 	}
 
@@ -363,7 +367,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			},
 		};
 
-		await this.container.chatService.sendContextualPrompt({
+		await this.container.chat.sendContextualPrompt({
 			context: context,
 			action: action,
 			config: {

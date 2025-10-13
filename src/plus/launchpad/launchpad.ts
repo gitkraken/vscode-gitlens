@@ -1,6 +1,5 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
-import type { ChatAction, ChatIssueContext } from '../../ai/chat/types';
 import { getAvatarUri } from '../../avatars';
 import type {
 	AsyncStepResultGenerator,
@@ -54,6 +53,7 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
+import type { ChatAction, ChatIssueContext } from '../chat/models/chat';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
 import {
@@ -447,7 +447,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			},
 		};
 
-		await this.container.chatService.sendContextualPrompt({
+		await this.container.chat.sendContextualPrompt({
 			context: context,
 			action: action,
 			config: {
