@@ -1,6 +1,7 @@
 import './commands/addAuthors';
 import './commands/aiFeedback';
 import './commands/browseRepoAtRevision';
+import './commands/chat';
 import './commands/closeUnchangedFiles';
 import './commands/cloudIntegrations';
 import './commands/compareWith';
@@ -80,4 +81,3 @@ import './commands/toggleCodeLens';
 import './commands/toggleFileAnnotations';
 import './commands/toggleLineBlame';
 import './commands/walkthroughs';
-import './ai/chat/commands';

@@ -1,7 +1,7 @@
-import { GlCommandBase } from '../../commands/commandBase';
-import type { Container } from '../../container';
-import { command } from '../../system/-webview/command';
-import type { ChatIntegrationCommandArgs, SendToChatCommandArgs } from './types';
+import type { Container } from '../container';
+import type { ChatIntegrationCommandArgs, SendToChatCommandArgs } from '../plus/chat/models/chat';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 /**
  * Command to send a prompt to AI chat
@@ -17,7 +17,7 @@ export class SendToChatCommand extends GlCommandBase {
 			throw new Error('Prompt is required for sendToChat command');
 		}
 
-		return this.container.chatService.sendToChat(args);
+		return this.container.chat.sendToChat(args);
 	}
 }
 
@@ -35,7 +35,7 @@ export class SendContextualPromptToChatCommand extends GlCommandBase {
 			throw new Error('Context and action are required for sendContextualPromptToChat command');
 		}
 
-		return this.container.chatService.sendContextualPrompt(args);
+		return this.container.chat.sendContextualPrompt(args);
 	}
 }
 
@@ -63,7 +63,7 @@ export class CreateBranchAndChatCommand extends GlCommandBase {
 			},
 		};
 
-		return this.container.chatService.sendContextualPrompt(chatArgs);
+		return this.container.chat.sendContextualPrompt(chatArgs);
 	}
 }
 
@@ -91,7 +91,7 @@ export class CreateWorktreeAndChatCommand extends GlCommandBase {
 			},
 		};
 
-		return this.container.chatService.sendContextualPrompt(chatArgs);
+		return this.container.chat.sendContextualPrompt(chatArgs);
 	}
 }
 
@@ -120,7 +120,7 @@ export class ExplainIssueAndChatCommand extends GlCommandBase {
 			},
 		};
 
-		return this.container.chatService.sendContextualPrompt(chatArgs);
+		return this.container.chat.sendContextualPrompt(chatArgs);
 	}
 }
 
@@ -149,7 +149,7 @@ export class SuggestImplementationAndChatCommand extends GlCommandBase {
 			},
 		};
 
-		return this.container.chatService.sendContextualPrompt(chatArgs);
+		return this.container.chat.sendContextualPrompt(chatArgs);
 	}
 }
 
@@ -178,6 +178,6 @@ export class ReviewChangesAndChatCommand extends GlCommandBase {
 			},
 		};
 
-		return this.container.chatService.sendContextualPrompt(chatArgs);
+		return this.container.chat.sendContextualPrompt(chatArgs);
 	}
 }

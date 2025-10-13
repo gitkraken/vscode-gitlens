@@ -76,7 +76,7 @@
 		"chatParticipants": [
 			{
 				"id": "gitlens",
-				"name": "GitLens",
+				"name": "gitlens",
 				"fullName": "GitLens Git Assistant",
 				"description": "Get help with Git operations, issues, and pull requests using GitKraken MCP tools",
 				"isSticky": true,
@@ -100,6 +100,10 @@
 					{
 						"name": "implement",
 						"description": "Get implementation suggestions"
+					},
+					{
+						"name": "start-work",
+						"description": "Start work on an issue"
 					},
 					{
 						"name": "test",

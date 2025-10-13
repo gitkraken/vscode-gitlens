@@ -1,10 +1,9 @@
 import type { CancellationToken, ChatFollowup, ChatFollowupProvider, Disposable, ProviderResult } from 'vscode';
-import { chat, commands, Uri, version } from 'vscode';
+import { chat, Uri } from 'vscode';
 import type { ChatViewOpenOptions } from '../../@types/vscode.chat';
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
-import { ChatPromptBuilder } from './promptBuilder';
 import type {
 	ChatAction,
 	ChatIntegrationCommandArgs,
@@ -12,17 +11,9 @@ import type {
 	ChatPromptConfig,
 	GitLensChatResult,
 	SendToChatCommandArgs,
-} from './types';
-
-export function openChat(args: string | ChatViewOpenOptions): Thenable<void> {
-	return commands.executeCommand('workbench.action.chat.open', args);
-}
-
-// Check if VS Code version supports Chat API (introduced in 1.99.0)
-function supportsChatAPI(): boolean {
-	const [major, minor] = version.split('.').map(Number);
-	return major > 1 || (major === 1 && minor >= 99);
-}
+} from './models/chat';
+import { openChat, supportsChatAPI } from './utils/-webview/chat.utils';
+import { ChatPromptBuilder } from './utils/-webview/prompt.utils';
 
 /**
  * Service for managing AI chat integration in GitLens
@@ -61,13 +52,13 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 		try {
 			if (args.participant) {
 				// Send to specific participant
-				await commands.executeCommand('workbench.action.chat.open', {
+				await openChat({
 					query: `@${args.participant} ${args.query}`,
 					isPartialQuery: true,
 				} as ChatViewOpenOptions);
 			} else {
 				// Send to general chat
-				await commands.executeCommand('workbench.action.chat.open', args.query);
+				await openChat(args.query);
 			}
 		} catch (error) {
 			Logger.error('ChatService.sendToChat', error);
@@ -99,7 +90,6 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 			await this.sendToChat({
 				query: result.prompt,
 				source: args.source,
-				participant: 'gitlens',
 			});
 		} catch (error) {
 			Logger.error('ChatService.sendContextualPrompt', error);
@@ -194,6 +184,7 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 			review: 'review-changes',
 			implement: 'suggest-implementation',
 			test: 'create-tests',
+			'start-work': 'start-work',
 		};
 
 		const action = actionMap[command];

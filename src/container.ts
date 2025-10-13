@@ -9,7 +9,6 @@ import {
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers';
-import { ChatService } from './ai/chat/chatService';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
@@ -29,6 +28,7 @@ import { GitProviderService } from './git/gitProviderService';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider';
 import { LineHoverController } from './hovers/lineHoverController';
 import { AIProviderService } from './plus/ai/aiProviderService';
+import { ChatService } from './plus/chat/chatService';
 import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { OrganizationService } from './plus/gk/organizationService';
@@ -263,6 +263,9 @@ export class Container {
 		const patchDetailsPanels = registerPatchDetailsWebviewPanel(webviews);
 		this._disposables.push(patchDetailsPanels);
 
+		this._chat = new ChatService(this);
+		this._disposables.push(this._chat);
+
 		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
 		}
@@ -383,13 +386,9 @@ export class Container {
 		return this._ai;
 	}
 
-	private _chatService: ChatService | undefined;
-	get chatService(): ChatService {
-		if (this._chatService == null) {
-			this._chatService = new ChatService(this);
-			this._disposables.push(this._chatService);
-		}
-		return this._chatService;
+	private _chat: ChatService;
+	get chat(): ChatService {
+		return this._chat;
 	}
 
 	private _aiFeedback: AIFeedbackProvider | undefined;
