@@ -395,6 +395,7 @@ async function showWhatsNew(
 
 function showMcp(version: string, previousVersion: string | undefined): void {
 	if (
+		isWeb ||
 		previousVersion == null ||
 		version === previousVersion ||
 		compare(version, previousVersion) !== 1 ||

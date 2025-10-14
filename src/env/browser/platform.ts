@@ -1,6 +1,7 @@
 import type { Platform } from '../node/platform';
 
 export const isWeb = true;
+export const isOffline = false;
 
 const _platform = (navigator as any)?.userAgentData?.platform;
 const _userAgent = navigator.userAgent;
