@@ -136,9 +136,7 @@ export class ComposerStateProvider implements StateProvider<State> {
 						...this._state,
 						hunks: msg.params.hunks,
 						commits: msg.params.commits,
-						hunkMap: msg.params.hunkMap,
 						baseCommit: msg.params.baseCommit,
-						safetyState: msg.params.safetyState,
 						loadingError: msg.params.loadingError,
 						hasChanges: msg.params.hasChanges,
 						safetyError: null, // Clear any existing safety errors
