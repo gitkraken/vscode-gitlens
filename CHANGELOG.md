@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes MCP extension registration not working on Kiro ([#4691](https://github.com/gitkraken/vscode-gitlens/issues/4691))
+
 ## [17.6.1] - 2025-10-08
 
 ### Fixed

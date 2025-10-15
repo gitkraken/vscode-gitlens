@@ -1,4 +1,4 @@
-import { lm, version } from 'vscode';
+import { env, lm, version } from 'vscode';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -13,8 +13,9 @@ export function isMcpBannerEnabled(container: Container, showAutoRegistration = 
 	return !container.storage.get('mcp:banner:dismissed', false);
 }
 
+const supportedApps = ['Visual Studio Code', 'Visual Studio Code - Insiders', 'Visual Studio Code - Exploration'];
 export function supportsMcpExtensionRegistration(): boolean {
-	if (isWeb) {
+	if (isWeb || !supportedApps.includes(env.appName)) {
 		return false;
 	}
 
