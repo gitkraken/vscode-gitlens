@@ -18,6 +18,7 @@ import { ruleStyles } from '../../shared/components/vscode.css';
 import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
+import '../../../shared/components/overlays/popover';
 import './commit-item';
 
 @customElement('gl-commits-panel')
@@ -285,7 +286,15 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.auto-compose__instructions-info {
-				--gl-tooltip-max-width: 37rem;
+				--max-width: 37rem;
+
+				a:has(.inline-code) {
+					text-decoration: none;
+					white-space: nowrap;
+				}
+				.inline-code code-icon {
+					vertical-align: middle;
+				}
 			}
 			.auto-compose__instructions-input {
 				width: 100%;
@@ -1059,9 +1068,11 @@ export class CommitsPanel extends LitElement {
 						@input=${this.handleCustomInstructionsChange}
 						?disabled=${disabled}
 					></textarea>
-					<gl-button ?disabled=${disabled} appearance="toolbar" class="auto-compose__instructions-info">
-						<code-icon icon="info"></code-icon>
-						<div slot="tooltip">
+					<gl-popover placement="bottom" trigger="click focus" class="auto-compose__instructions-info">
+						<gl-button slot="anchor" appearance="toolbar">
+							<code-icon icon="info"></code-icon>
+						</gl-button>
+						<div slot="content">
 							Providing additional instructions can help steer the AI composition for this session.
 							<br /><br />
 							Potential instructions include:
@@ -1073,9 +1084,15 @@ export class CommitsPanel extends LitElement {
 							<hr />
 							You can also specify custom instructions that apply to all composer sessions with the
 							following setting:
-							<code class="inline-code">gitlens.ai.generateCommits.customInstructions</code>
+							<a
+								href=${`command:workbench.action.openSettings?%22@id:gitlens.ai.generateCommits.customInstructions%22`}
+								><code class="inline-code"
+									><code-icon icon="gear" size="10"></code-icon>
+									gitlens.ai.generateCommits.customInstructions</code
+								></a
+							>
 						</div>
-					</gl-button>
+					</gl-popover>
 				</div>
 
 				<!-- Auto-Compose button -->
