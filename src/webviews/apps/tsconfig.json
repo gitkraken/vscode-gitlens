@@ -12,6 +12,7 @@
 	// Keep in sync with `src/eslint.config.mjs`
 	"include": [
 		"**/*",
+		"../plus/composer/utils.ts",
 		"../**/protocol.ts",
 		"../../**/models/**/*.ts",
 		"../../**/utils/**/*.ts",
@@ -23,8 +24,7 @@
 		"../../features.ts",
 		"../../git/parsers/diffParser.ts",
 		"../../system/**/*.ts",
-		"../../**/webview/**/*",
-		"../plus/composer/utils.ts"
+		"../../**/webview/**/*"
 	],
 	"exclude": ["src/**/__tests__/**/*", "src/**/-webview/**/*"]
 }
