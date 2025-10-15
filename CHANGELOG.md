@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes the minimum VS Code version to 1.95.0 ([#4691](https://github.com/gitkraken/vscode-gitlens/issues/4691))
+
 ### Fixed
 
 - Fixes MCP extension registration not working on Kiro ([#4691](https://github.com/gitkraken/vscode-gitlens/issues/4691))

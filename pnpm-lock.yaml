@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@types/vscode': 1.92.0
+  '@types/vscode': 1.95.0
   esbuild: 0.25.10
   https-proxy-agent: 5.0.1
   iconv-lite: 0.6.3
@@ -170,8 +170,8 @@ importers:
         specifier: 1.15.8
         version: 1.15.8
       '@types/vscode':
-        specifier: 1.92.0
-        version: 1.92.0
+        specifier: 1.95.0
+        version: 1.95.0
       '@typescript-eslint/parser':
         specifier: 8.45.0
         version: 8.45.0(eslint@9.36.0(jiti@2.4.0))(typescript@5.9.2)
@@ -1637,8 +1637,8 @@ packages:
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
 
-  '@types/vscode@1.92.0':
-    resolution: {integrity: sha512-DcZoCj17RXlzB4XJ7IfKdPTcTGDLYvTOcTNkvtjXWF+K2TlKzHHkBEXNWQRpBIXixNEUgx39cQeTFunY0E2msw==}
+  '@types/vscode@1.95.0':
+    resolution: {integrity: sha512-0LBD8TEiNbet3NvWsmn59zLzOFu/txSlGxnv5yAFHCrhG9WvAnR3IvfHzMOs2aeWqgvNjq9pO99IUw8d3n+unw==}
 
   '@types/warning@3.0.3':
     resolution: {integrity: sha512-D1XC7WK8K+zZEveUPY+cf4+kgauk8N4eHr/XIHXGlGYkHLud6hK9lYfZk1ry1TNh798cZUCgb6MqGEG8DkJt6Q==}
@@ -7515,7 +7515,7 @@ snapshots:
 
   '@types/trusted-types@2.0.7': {}
 
-  '@types/vscode@1.92.0': {}
+  '@types/vscode@1.95.0': {}
 
   '@types/warning@3.0.3': {}
 
