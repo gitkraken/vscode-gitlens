@@ -121,11 +121,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 
 		// Reset the attempts count if GitLens extension version has changed
-		if (
-			reachedMaxAttempts(cliInstall) &&
-			this.container.version !== this.container.previousVersion &&
-			satisfies(fromString(this.container.version), '>= 17.6')
-		) {
+		if (reachedMaxAttempts(cliInstall) && this.container.version !== this.container.previousVersion) {
 			void this.container.storage.store('gk:cli:install', undefined);
 		}
 
