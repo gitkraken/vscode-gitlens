@@ -9,6 +9,7 @@ import { isVirtualUri } from '../system/-webview/vscode/uris';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { basename, normalizePath } from '../system/path';
+import type { UriComponents } from '../system/uri';
 import { areUrisEqual } from '../system/uri';
 import type { RevisionUriData } from './gitProvider';
 import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
@@ -24,20 +25,12 @@ export interface GitCommitish {
 	sha?: string;
 }
 
-interface UriComponents {
-	scheme?: string;
-	authority?: string;
-	path?: string;
-	query?: string;
-	fragment?: string;
-}
-
 interface UriEx {
 	new (): Uri;
 	new (scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
 	// Use this ctor, because vscode doesn't validate it
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
-	new (components: UriComponents): Uri;
+	new (components: Partial<UriComponents>): Uri;
 }
 
 export class GitUri extends (Uri as any as UriEx) {

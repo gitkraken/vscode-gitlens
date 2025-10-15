@@ -87,6 +87,9 @@ export abstract class GlAppHost<
 		const state: State = JSON.parse(fromBase64ToString(this.bootstrap));
 		this.bootstrap = undefined!;
 		this._ipc.replaceIpcPromisesWithPromises(state);
+
+		this._logger.log(`bootstrap duration=${Date.now() - state.timestamp}ms`);
+
 		this.onPersistState?.(state);
 
 		const themeEvent = computeThemeColors();

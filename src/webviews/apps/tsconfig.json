@@ -12,6 +12,7 @@
 	// Keep in sync with `src/eslint.config.mjs`
 	"include": [
 		"**/*",
+		"../ipc.ts",
 		"../plus/composer/utils.ts",
 		"../**/protocol.ts",
 		"../../**/models/**/*.ts",

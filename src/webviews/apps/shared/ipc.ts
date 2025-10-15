@@ -2,11 +2,12 @@
 import { getScopedCounter } from '../../../system/counter';
 import { debug, logName } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
-import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
+import { getLogScope, getNewLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
 import { maybeStopWatch } from '../../../system/stopwatch';
+import { isIpcPromise } from '../../ipc';
 import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol';
-import { ipcPromiseSettled, isIpcPromise } from '../../protocol';
+import { IpcPromiseSettled } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable, Event } from './events';
 import { Emitter } from './events';
@@ -52,22 +53,26 @@ export class HostIpc implements Disposable {
 		this._disposable.dispose();
 	}
 
-	@debug<HostIpc['onMessageReceived']>({ args: { 0: e => `${e.data.id}, method=${e.data.method}` } })
+	@debug<HostIpc['onMessageReceived']>({ args: { 0: e => `${e.data.id}|${e.data.method}` } })
 	private onMessageReceived(e: MessageEvent) {
 		const scope = getLogScope();
 
 		const msg = e.data as IpcMessage;
-		if (msg.packed && msg.params instanceof Uint8Array) {
-			const sw = maybeStopWatch(getNewLogScope(` deserializing msg=${e.data.method}`, scope), {
-				log: false,
-				logLevel: 'debug',
-			});
+		const sw = maybeStopWatch(getNewLogScope(`(e=${msg.id}|${msg.method})`, scope), {
+			log: false,
+			logLevel: 'debug',
+		});
+
+		if (msg.compressed && msg.params instanceof Uint8Array) {
 			this._textDecoder ??= new TextDecoder();
 			msg.params = JSON.parse(this._textDecoder.decode(msg.params));
-			sw?.stop();
+			sw?.restart({ message: `\u2022 decoded (${msg.compressed}) serialized params` });
 		}
 
 		this.replaceIpcPromisesWithPromises(msg.params);
+		sw?.stop({ message: `\u2022 replaced ipc tagged types with params` });
+
+		setLogScopeExit(scope, ` \u2022 ipc (host -> webview) duration=${Date.now() - msg.timestamp}ms`);
 
 		// If we have a completionId, then this is a response to a request and it should be handled directly
 		if (msg.completionId != null) {
@@ -86,7 +91,7 @@ export class HostIpc implements Disposable {
 		for (const key in data) {
 			const value = (data as Record<string, unknown>)[key];
 			if (isIpcPromise(value)) {
-				(data as Record<string, unknown>)[key] = this.getResponsePromise(value.method, value.id);
+				(data as Record<string, unknown>)[key] = this.getResponsePromise(value.value.method, value.value.id);
 			} else {
 				this.replaceIpcPromisesWithPromises(value);
 			}
@@ -105,6 +110,8 @@ export class HostIpc implements Disposable {
 			scope: commandType.scope,
 			method: commandType.method,
 			params: params,
+			compressed: false,
+			timestamp: Date.now(),
 		} satisfies IpcMessage<IpcCallParamsType<T>>);
 	}
 
@@ -122,6 +129,8 @@ export class HostIpc implements Disposable {
 			scope: requestType.scope,
 			method: requestType.method,
 			params: params,
+			compressed: false,
+			timestamp: Date.now(),
 			completionId: id,
 		} satisfies IpcMessage<IpcCallParamsType<T>>);
 		return promise;
@@ -150,7 +159,7 @@ export class HostIpc implements Disposable {
 			this._pendingHandlers.set(queueKey, msg => {
 				dispose.call(this);
 
-				if (msg.method === ipcPromiseSettled.method) {
+				if (msg.method === IpcPromiseSettled.method) {
 					const params = msg.params as PromiseSettledResult<unknown>;
 					if (params.status === 'rejected') {
 						queueMicrotask(() => reject(new Error(params.reason)));
