@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.6.1] - 2025-10-08
+
 ### Fixed
 
 - Fixes eyebrow banner not appearing for GitLens Community on Home ([#4670](https://github.com/gitkraken/vscode-gitlens/issues/4670))
@@ -6387,7 +6389,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.1...HEAD
+[17.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.0...gitkraken:v17.6.1
 [17.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.1...gitkraken:v17.6.0
 [17.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...gitkraken:v17.5.1
 [17.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.4.1...gitkraken:v17.5.0
