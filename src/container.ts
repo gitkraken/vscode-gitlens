@@ -190,6 +190,7 @@ export class Container {
 		this._context = context;
 		this._prerelease = prerelease;
 		this._version = version;
+		this._previousVersion = previousVersion;
 		this.ensureModeApplied();
 
 		this._disposables = [
@@ -745,6 +746,11 @@ export class Container {
 	private readonly _version: string;
 	get version(): string {
 		return this._version;
+	}
+
+	private readonly _previousVersion: string | undefined;
+	get previousVersion(): string | undefined {
+		return this._previousVersion;
 	}
 
 	private readonly _views: Views;

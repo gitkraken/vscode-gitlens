@@ -16,8 +16,8 @@ import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import { compare } from '../../../../system/version';
-import { getPlatform, isWeb } from '../../platform';
+import { compare, fromString, satisfies } from '../../../../system/version';
+import { getPlatform, isOffline, isWeb } from '../../platform';
 import { CliCommandHandlers } from './commands';
 import type { IpcServer } from './ipcServer';
 import { createIpcServer } from './ipcServer';
@@ -32,6 +32,7 @@ const enum CLIInstallErrorReason {
 	ProxyFetch,
 	GlobalStorageDirectory,
 	CoreInstall,
+	Offline,
 }
 
 const enum McpSetupErrorReason {
@@ -44,6 +45,7 @@ const enum McpSetupErrorReason {
 	UnsupportedHost,
 	UnsupportedClient,
 	UnexpectedOutput,
+	Offline,
 }
 
 export interface CliCommandRequest {
@@ -118,6 +120,15 @@ export class GkCliIntegrationProvider implements Disposable {
 			return;
 		}
 
+		// Reset the attempts count if GitLens extension version has changed
+		if (
+			reachedMaxAttempts(cliInstall) &&
+			this.container.version !== this.container.previousVersion &&
+			satisfies(fromString(this.container.version), '>= 17.6')
+		) {
+			void this.container.storage.store('gk:cli:install', undefined);
+		}
+
 		if (!mcpExtensionRegistrationAllowed() || reachedMaxAttempts(cliInstall)) {
 			return;
 		}
@@ -164,6 +175,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				switch (ex.reason) {
 					case McpSetupErrorReason.WebUnsupported:
 					case McpSetupErrorReason.VSCodeVersionUnsupported:
+					case McpSetupErrorReason.Offline:
 						void window.showWarningMessage(ex.message);
 						break;
 					case McpSetupErrorReason.InstallationFailed:
@@ -383,6 +395,12 @@ export class GkCliIntegrationProvider implements Disposable {
 						message = 'Unable to locally install the GitKraken MCP server. Please try again.';
 						telemetryReason = 'local installation failed';
 						break;
+					case CLIInstallErrorReason.Offline:
+						reason = McpSetupErrorReason.Offline;
+						message =
+							'Unable to setup the GitKraken MCP server when offline. Please try again when you are online.';
+						telemetryReason = 'offline';
+						break;
 					default:
 						reason = McpSetupErrorReason.CLIUnknownError;
 						message = 'Unable to setup the GitKraken MCP: Unknown error.';
@@ -446,6 +464,21 @@ export class GkCliIntegrationProvider implements Disposable {
 		}
 
 		try {
+			if (isWeb) {
+				void this.container.storage
+					.store('gk:cli:install', {
+						status: 'unsupported',
+						attempts: cliInstallAttempts,
+					})
+					.catch();
+
+				throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, 'web');
+			}
+
+			if (isOffline) {
+				throw new CLIInstallError(CLIInstallErrorReason.Offline);
+			}
+
 			cliInstallAttempts += 1;
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent('cli/install/started', {
@@ -460,17 +493,6 @@ export class GkCliIntegrationProvider implements Disposable {
 					attempts: cliInstallAttempts,
 				})
 				.catch();
-
-			if (isWeb) {
-				void this.container.storage
-					.store('gk:cli:install', {
-						status: 'unsupported',
-						attempts: cliInstallAttempts,
-					})
-					.catch();
-
-				throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, 'web');
-			}
 
 			// Map platform names for the API and get architecture
 			let platformName: string;
@@ -796,6 +818,9 @@ class CLIInstallError extends Error {
 				break;
 			case CLIInstallErrorReason.GlobalStorageDirectory:
 				message = 'Failed to create global storage directory';
+				break;
+			case CLIInstallErrorReason.Offline:
+				message = 'Offline';
 				break;
 			default:
 				message = 'An unknown error occurred';
