@@ -16,7 +16,7 @@ import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import { compare, fromString, satisfies } from '../../../../system/version';
+import { compare } from '../../../../system/version';
 import { getPlatform, isOffline, isWeb } from '../../platform';
 import { CliCommandHandlers } from './commands';
 import type { IpcServer } from './ipcServer';
