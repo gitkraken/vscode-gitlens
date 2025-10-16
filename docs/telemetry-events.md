@@ -2813,6 +2813,17 @@ void
 }
 ```
 
+### mcp/uninstall/duplicate
+
+> Sent when a duplicate manual MCP installation is uninstalled
+
+```typescript
+{
+  'app': string,
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'startWork' | 'trial-indicator' | 'view' | 'walkthrough' | 'whatsnew' | 'worktrees'
+}
+```
+
 ### openReviewMode
 
 > Sent when a PR review was started in the inspect overview
