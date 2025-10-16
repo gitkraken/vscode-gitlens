@@ -1,22 +1,49 @@
 # Security Policy
 
-## Supported Versions
+We take the security of this project seriously and appreciate responsible disclosures from the community.
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+## Reporting a vulnerability
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.3   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+Please do not open public issues for security vulnerabilities.
 
-## Reporting a Vulnerability
+- Use GitHub's private vulnerability reporting for this repository: https://github.com/gitkraken/vscode-gitlens/security/advisories/new
+- Include a clear description, reproduction steps or proof-of-concept, affected versions, and the potential impact.
 
-Use this section to tell people how to report a vulnerability.
+### Our response SLAs
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
-              YOU better code your way up the ladder and not intentionally fraud your way out of something. Im holding each and everyone of you accountable for what you did to me in the street!
+- Acknowledgement: within 3 business days
+- Triage and initial assessment: within 7 calendar days
+- Status updates: at least weekly until resolution
+- Fix timeline: prioritized by severity and impact; critical issues are addressed as quickly as possible and may result in an out-of-cycle release
+
+### Coordinated disclosure
+
+We follow a coordinated disclosure process. We ask researchers to refrain from public disclosure for up to 90 days (or until a fix is released, whichever comes first). We will credit researchers who responsibly report qualifying issues, if attribution is requested.
+
+### Safe harbor
+
+We will not pursue legal action against researchers who:
+
+- Make a good-faith effort to comply with this policy
+- Avoid privacy violations, data destruction, or service degradation
+- Only test against accounts and systems they own or have explicit permission to test
+- Give us reasonable time to remediate before public disclosure
+
+Activities that are out of scope include denial-of-service, spam, social engineering, physical attacks, and automated scanning that degrades service.
+
+## Supported versions
+
+Security fixes are provided for the following versions:
+
+| Release channel | Supported |
+| --------------- | --------- |
+| Latest stable (current Marketplace release) | Yes |
+| Previous stable (prior Marketplace release) | Best-effort for critical fixes, for 90 days |
+| Older releases and pre-releases | No |
+
+We generally do not backport non-critical fixes.
+
+## Additional notes
+
+- This repository uses automated code scanning (e.g., CodeQL) as part of our CI to detect certain classes of vulnerabilities early.
+- For non-security bugs, please use the issue tracker: https://github.com/gitkraken/vscode-gitlens/issues
