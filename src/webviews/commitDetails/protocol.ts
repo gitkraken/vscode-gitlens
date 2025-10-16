@@ -9,7 +9,6 @@ import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
 import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
 import type { DateTimeFormat } from '../../system/date';
-import type { Serialized } from '../../system/serialize';
 import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
@@ -36,6 +35,12 @@ export interface CommitDetails extends CommitSummary {
 	autolinks?: Autolink[];
 	files?: readonly GitFileChangeShape[];
 	stats?: GitCommitStats;
+
+	enriched?: Promise<{
+		formattedMessage: string;
+		associatedPullRequest: PullRequestShape | undefined;
+		autolinkedIssues: IssueOrPullRequest[];
+	}>;
 }
 
 export interface Preferences {
@@ -73,7 +78,7 @@ export interface Wip {
 	repositoryCount: number;
 	branch?: GitBranchShape;
 	pullRequest?: PullRequestShape;
-	codeSuggestions?: Serialized<Draft>[];
+	codeSuggestions?: Omit<Draft, 'changesets'>[];
 	repo: {
 		uri: string;
 		name: string;
@@ -99,7 +104,6 @@ export interface State extends WebviewState {
 		ai: boolean;
 		drafts: boolean;
 	};
-	includeRichContent?: boolean;
 
 	commit?: CommitDetails;
 	autolinksEnabled: boolean;
@@ -223,14 +227,14 @@ export const GenerateRequest = new IpcRequest<void, DidGenerateParams>(scope, 'g
 // NOTIFICATIONS
 
 export interface DidChangeParams {
-	state: Serialized<State>;
+	state: State;
 }
 export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
-export type DidChangeWipStateParams = Pick<Serialized<State>, 'wip' | 'inReview'>;
+export type DidChangeWipStateParams = Pick<State, 'wip' | 'inReview'>;
 export const DidChangeWipStateNotification = new IpcNotification<DidChangeWipStateParams>(scope, 'didChange/wip');
 
-export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
+export type DidChangeOrgSettings = Pick<State, 'orgSettings'>;
 export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrgSettings>(
 	scope,
 	'org/settings/didChange',

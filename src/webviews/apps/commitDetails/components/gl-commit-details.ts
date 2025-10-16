@@ -7,8 +7,8 @@ import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/c
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import { createCommandLink } from '../../../../system/commands';
-import type { Serialized } from '../../../../system/serialize';
-import type { State } from '../../../commitDetails/protocol';
+import type { IpcSerialized } from '../../../../system/ipcSerialize';
+import type { State as _State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import { uncommittedSha } from '../commitDetails';
@@ -25,6 +25,7 @@ import '../../shared/components/markdown/markdown';
 import '../../shared/components/panes/pane-group';
 import '../../shared/components/rich/issue-pull-request';
 
+type State = IpcSerialized<_State>;
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
@@ -36,7 +37,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	override readonly tab = 'commit';
 
 	@property({ type: Object })
-	state?: Serialized<State>;
+	state?: State;
 
 	@state()
 	get isStash(): boolean {
@@ -53,6 +54,36 @@ export class GlCommitDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	private _commit: State['commit'];
+	get commit(): State['commit'] {
+		return this._commit;
+	}
+	// @property({ type: Object })
+	set commit(value: State['commit']) {
+		this._commit = value;
+		this.enrichedPromise = value?.enriched;
+	}
+
+	@state()
+	private _enriched!: Awaited<NonNullable<State['commit']>['enriched']>;
+	get enriched(): Awaited<NonNullable<State['commit']>['enriched']> {
+		return this._enriched;
+	}
+
+	private _enrichedPromise!: NonNullable<State['commit']>['enriched'];
+	get enrichedPromise(): NonNullable<State['commit']>['enriched'] {
+		return this._enrichedPromise;
+	}
+	set enrichedPromise(value: NonNullable<State['commit']>['enriched']) {
+		if (this._enrichedPromise === value) return;
+
+		this._enrichedPromise = value;
+		void this._enrichedPromise?.then(
+			r => (this._enriched = r),
+			() => (this._enriched = undefined),
+		);
+	}
 
 	get navigation() {
 		if (this.state?.navigationStack == null) {
@@ -85,6 +116,10 @@ export class GlCommitDetails extends GlDetailsBase {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="commit-explanation"]')?.scrollIntoView();
+		}
+
+		if (changedProperties.has('state')) {
+			this.commit = this.state?.commit;
 		}
 	}
 
@@ -145,7 +180,8 @@ export class GlCommitDetails extends GlDetailsBase {
 		const details = this.state?.commit;
 		if (details == null) return undefined;
 
-		const message = details.message;
+		// Use formatted message from promise if available, otherwise use basic message
+		const message = this._enriched?.formattedMessage ?? details.message;
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
@@ -185,7 +221,7 @@ export class GlCommitDetails extends GlDetailsBase {
 							!this.isStash,
 							() => html`
 								<gl-commit-date
-									date=${details.author.date}
+									.date=${details.author.date}
 									.dateFormat="${this.preferences?.dateFormat}"
 									.dateStyle="${this.preferences?.dateStyle}"
 									.actionLabel="${details.sha === uncommittedSha ? 'Modified' : 'Committed'}"
@@ -203,9 +239,9 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		const deduped = new Map<
 			string,
-			| { type: 'autolink'; value: Serialized<Autolink> }
-			| { type: 'issue'; value: Serialized<IssueOrPullRequest> }
-			| { type: 'pr'; value: Serialized<PullRequestShape> }
+			| { type: 'autolink'; value: Autolink }
+			| { type: 'issue'; value: IssueOrPullRequest }
+			| { type: 'pr'; value: PullRequestShape }
 		>();
 
 		const autolinkIdsByUrl = new Map<string, string>();
@@ -217,8 +253,10 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
-		if (this.state?.autolinkedIssues != null) {
-			for (const issue of this.state.autolinkedIssues) {
+		// Use resolved enriched autolinks from promise
+		const enrichedAutolinks = this._enriched?.autolinkedIssues ?? this.state?.autolinkedIssues;
+		if (enrichedAutolinks != null) {
+			for (const issue of enrichedAutolinks) {
 				if (issue.url != null) {
 					const autoLinkId = autolinkIdsByUrl.get(issue.url);
 					if (autoLinkId != null) {
@@ -229,19 +267,21 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
-		if (this.state?.pullRequest != null) {
-			if (this.state.pullRequest.url != null) {
-				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
+		// Use resolved pull request from promise
+		const pullRequest = this._enriched?.associatedPullRequest ?? this.state?.pullRequest;
+		if (pullRequest != null) {
+			if (pullRequest.url != null) {
+				const autoLinkId = autolinkIdsByUrl.get(pullRequest.url);
 				if (autoLinkId != null) {
 					deduped.delete(autoLinkId);
 				}
 			}
-			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
+			deduped.set(pullRequest.id, { type: 'pr', value: pullRequest });
 		}
 
-		const autolinks: Serialized<Autolink>[] = [];
-		const issues: Serialized<IssueOrPullRequest>[] = [];
-		const prs: Serialized<PullRequestShape>[] = [];
+		const autolinks: Autolink[] = [];
+		const issues: IssueOrPullRequest[] = [];
+		const prs: PullRequestShape[] = [];
 
 		for (const item of deduped.values()) {
 			switch (item.type) {

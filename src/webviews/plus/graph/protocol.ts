@@ -383,7 +383,7 @@ export const DidChangeRepoConnectionNotification = new IpcNotification<DidChange
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true, 'utf8');
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
 export interface DidChangeGraphConfigurationParams {
 	config: GraphComponentConfig;
@@ -467,12 +467,7 @@ export interface DidChangeRowsParams {
 	searchResults?: GraphSearchResults;
 	selectedRows?: GraphSelectedRows;
 }
-export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(
-	scope,
-	'rows/didChange',
-	undefined,
-	'utf8',
-);
+export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(scope, 'rows/didChange');
 
 export interface DidChangeRowsStatsParams {
 	rowsStats: Record<string, GraphRowStats>;
