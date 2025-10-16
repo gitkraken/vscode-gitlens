@@ -322,9 +322,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		]);
 
 		if (untrackedPaths?.length) {
-			try {
-				await repo.git.staging?.unstageFiles(untrackedPaths);
-			} catch {}
+			await repo.git.staging?.unstageFiles(untrackedPaths).catch();
 		}
 
 		const diffs = getSettledValue(diffsResult)!;
