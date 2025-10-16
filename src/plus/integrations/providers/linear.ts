@@ -210,14 +210,18 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		}
 		return issues;
 	}
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		session: ProviderAuthenticationSession,
 		resource: ResourceDescriptor,
-		id: string,
+		{ key }: { id: string; key: string },
 		_type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		const issue = await this.getRawProviderIssue(session, resource, id);
-		return issue && toIssueShape(issue, this);
+		const issue = await this.getRawProviderIssue(session, resource, key);
+		const autolinkableIssue: ProviderIssue | undefined = issue && {
+			...issue,
+			url: this.getIssueAutolinkLikeUrl(issue),
+		};
+		return autolinkableIssue && toIssueShape(autolinkableIssue, this);
 	}
 	protected override async getProviderIssue(
 		session: ProviderAuthenticationSession,
@@ -258,5 +262,14 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			Logger.error(ex, 'getProviderIssue');
 			return undefined;
 		}
+	}
+	private getIssueAutolinkLikeUrl(issue: ProviderIssue): string | null {
+		const url = issue.url;
+		if (url == null) return null;
+		const lastSegment = url.split('/').pop();
+		if (!lastSegment || issue.number === lastSegment) {
+			return url;
+		}
+		return url.substring(0, url.length - lastSegment.length - 1);
 	}
 }

@@ -1,9 +1,10 @@
-import { tmpdir } from 'os';
+import { networkInterfaces, tmpdir } from 'os';
 import { join } from 'path';
 import { platform } from 'process';
 import { env, UIKind } from 'vscode';
 
 export const isWeb = env.uiKind === UIKind.Web;
+export const isOffline = Object.values(networkInterfaces()).every(iface => iface?.every(addr => addr.internal));
 
 export const isLinux = platform === 'linux';
 export const isMac = platform === 'darwin';

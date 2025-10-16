@@ -383,7 +383,7 @@ export const DidChangeRepoConnectionNotification = new IpcNotification<DidChange
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true, true);
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true, 'utf8');
 
 export interface DidChangeGraphConfigurationParams {
 	config: GraphComponentConfig;
@@ -471,7 +471,7 @@ export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams
 	scope,
 	'rows/didChange',
 	undefined,
-	true,
+	'utf8',
 );
 
 export interface DidChangeRowsStatsParams {

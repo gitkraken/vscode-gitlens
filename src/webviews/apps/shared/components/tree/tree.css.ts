@@ -1,7 +1,15 @@
 import { css } from 'lit';
 import { elementBase } from '../styles/lit/base.css';
 
-export const treeStyles = [elementBase, css``];
+export const treeStyles = [
+	elementBase,
+	css`
+		:host {
+			display: block;
+			height: 100%;
+		}
+	`,
+];
 
 export const treeItemStyles = [
 	elementBase,
@@ -11,7 +19,6 @@ export const treeItemStyles = [
 			--tree-connector-size: var(--gitlens-tree-indent, 1.6rem);
 			box-sizing: border-box;
 			padding-left: var(--gitlens-gutter-width);
-			/* padding-right: var(--gitlens-scrollbar-gutter-width); */
 			padding-right: 0.5rem;
 			padding-top: 0.1rem;
 			padding-bottom: 0.1rem;
@@ -25,14 +32,9 @@ export const treeItemStyles = [
 			font-size: var(--vscode-font-size);
 			color: var(--gitlens-tree-foreground, var(--vscode-foreground));
 
-			content-visibility: auto;
-			contain-intrinsic-size: auto 2.2rem;
 			cursor: pointer;
-		}
-
-		:host(:hover),
-		:host(:focus-within) {
-			content-visibility: visible;
+			/* Reduced containment to allow tooltips to escape */
+			contain: layout;
 		}
 
 		:host([aria-hidden='true']) {
@@ -45,6 +47,24 @@ export const treeItemStyles = [
 		}
 
 		:host([aria-selected='true']) {
+			color: var(--vscode-list-inactiveSelectionForeground);
+			background-color: var(--vscode-list-inactiveSelectionBackground);
+		}
+
+		/* Focused state - when the item is the active descendant in the tree */
+		:host([focused]) {
+			outline: 1px solid var(--vscode-list-focusOutline);
+			outline-offset: -0.1rem;
+		}
+
+		:host([aria-selected='true'][focused]) {
+			color: var(--vscode-list-activeSelectionForeground);
+			background-color: var(--vscode-list-activeSelectionBackground);
+		}
+
+		/* Inactive focus state - when the item would be focused but container doesn't have focus */
+		/* In VS Code, inactive focus shows the selection background without the outline */
+		:host([focused-inactive]) {
 			color: var(--vscode-list-inactiveSelectionForeground);
 			background-color: var(--vscode-list-inactiveSelectionBackground);
 		}
@@ -79,13 +99,6 @@ export const treeItemStyles = [
 			cursor: pointer;
 			min-width: 0;
 		}
-
-		/* FIXME: remove, this is for debugging
-		.item:focus {
-			outline: 1px solid var(--vscode-list-focusOutline);
-			outline-offset: -0.1rem;
-		}
- 		*/
 		.icon {
 			display: inline-block;
 			width: 1.6rem;
@@ -134,8 +147,16 @@ export const treeItemStyles = [
 			opacity: 0.4;
 		}
 
+		@media (prefers-reduced-motion: reduce) {
+			.node--connector::before {
+				transition: none;
+			}
+		}
+
 		:host-context([guides='always']) .node--connector::before,
 		:host-context([guides='onHover']:focus-within) .node--connector::before,
+		:host-context([guides='onHover'][focused]) .node--connector::before,
+		:host-context([guides='onHover'][focused-inactive]) .node--connector::before,
 		:host-context([guides='onHover']:hover) .node--connector::before {
 			border-color: var(--vscode-tree-indentGuidesStroke);
 		}
@@ -149,7 +170,7 @@ export const treeItemStyles = [
 		}
 
 		.text {
-			line-height: 1.6rem;
+			line-height: 1.8rem;
 			overflow: hidden;
 			white-space: nowrap;
 			text-align: left;
@@ -175,11 +196,16 @@ export const treeItemStyles = [
 			color: var(--vscode-icon-foreground);
 		}
 
-		:host(:focus-within) .actions {
+		:host(:focus-within) .actions,
+		:host([focused]) .actions {
 			color: var(--vscode-list-activeSelectionIconForeground);
 		}
 
-		:host(:not(:hover):not(:focus-within)) .actions {
+		:host([focused-inactive]) .actions {
+			color: var(--vscode-list-inactiveSelectionIconForeground, var(--vscode-icon-foreground));
+		}
+
+		:host(:not(:hover):not(:focus-within):not([focused]):not([focused-inactive])) .actions {
 			display: none;
 		}
 
@@ -193,7 +219,6 @@ export const treeItemStyles = [
 			background: var(--vscode-checkbox-background);
 			border: 1px solid var(--vscode-checkbox-border);
 			border-radius: 0.3rem;
-			// overflow: hidden;
 			margin-right: 0.6rem;
 		}
 
@@ -239,6 +264,42 @@ export const treeItemStyles = [
 		slot[name='decorations'] {
 			display: inline-block;
 			margin-left: 0.4rem;
+		}
+
+		/* High Contrast Mode Support */
+		@media (forced-colors: active) {
+			:host {
+				forced-color-adjust: none;
+			}
+
+			:host([focused]) {
+				outline: 2px solid CanvasText;
+				outline-offset: -2px;
+			}
+
+			:host([aria-selected='true']) {
+				background-color: Highlight;
+				color: HighlightText;
+			}
+
+			:host([aria-selected='true'][focused]) {
+				outline: 2px solid CanvasText;
+				outline-offset: -2px;
+			}
+
+			.checkbox {
+				border: 1px solid CanvasText;
+			}
+
+			.checkbox:has(:checked) {
+				background-color: Highlight;
+				border-color: CanvasText;
+			}
+
+			.node--connector::before {
+				border-color: CanvasText;
+				opacity: 1;
+			}
 		}
 	`,
 ];

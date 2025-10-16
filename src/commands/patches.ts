@@ -167,10 +167,34 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		repo ??= await getRepositoryOrShowPicker(this.container, title);
 		if (repo == null) return;
 
-		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
-			includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
-			uris: args?.uris,
-		});
+		let untrackedPaths: string[] | undefined;
+		try {
+			if (args?.to === uncommitted) {
+				// stage any untracked files to include them in the diff
+				const status = await repo.git.status?.getStatus();
+
+				untrackedPaths = status?.untrackedChanges.map(f => f.path);
+				if (untrackedPaths?.length) {
+					try {
+						await repo.git.staging?.stageFiles(untrackedPaths);
+					} catch (ex) {
+						Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for patch`);
+					}
+				}
+			}
+
+			return await repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
+				uris: args?.uris,
+			});
+		} finally {
+			if (untrackedPaths?.length) {
+				try {
+					await repo.git.staging?.unstageFiles(untrackedPaths);
+				} catch (ex) {
+					Logger.error(ex, `Failed to unstage (${untrackedPaths.length}) untracked files for patch`);
+				}
+			}
+		}
 	}
 
 	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;

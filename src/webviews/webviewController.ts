@@ -19,13 +19,14 @@ import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.s
 import { pauseOnCancelOrTimeout } from '../system/promise';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch';
 import type { WebviewContext } from '../system/webview';
+import type { IpcPromise } from './ipc';
+import { isIpcPromise } from './ipc';
 import type {
 	IpcCallMessageType,
 	IpcCallParamsType,
 	IpcCallResponseParamsType,
 	IpcMessage,
 	IpcNotification,
-	IpcPromise,
 	IpcRequest,
 	WebviewFocusChangedParams,
 	WebviewState,
@@ -36,8 +37,7 @@ import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	ExecuteCommand,
-	ipcPromiseSettled,
-	isIpcPromise,
+	IpcPromiseSettled,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
@@ -479,6 +479,9 @@ export class WebviewController<
 	private async onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
+		const scope = getLogScope();
+		setLogScopeExit(scope, ` \u2022 ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
+
 		switch (true) {
 			case WebviewReadyCommand.is(e):
 				this._ready = true;
@@ -606,7 +609,10 @@ export class WebviewController<
 		return this._webRootUri;
 	}
 
+	@debug({ args: false })
 	private async getHtml(webview: Webview): Promise<string> {
+		const scope = getLogScope();
+
 		const webRootUri = this.getWebRootUri();
 		const uri = Uri.joinPath(webRootUri, this.descriptor.fileName);
 
@@ -618,7 +624,9 @@ export class WebviewController<
 			this.provider.includeEndOfBody?.(),
 		]);
 
+		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
 		this.replacePromisesWithIpcPromises(bootstrap);
+		sw?.stop({ message: `\u2022 replaced tagged ipc types in bootstrap` });
 
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
@@ -646,34 +654,37 @@ export class WebviewController<
 		params: IpcCallParamsType<T>,
 		completionId?: string,
 	): Promise<boolean> {
+		const id = this.nextIpcId();
+		const timestamp = Date.now();
+
+		const scope = getNewLogScope(`${getLoggableName(this)}.notify(${id}|${notificationType.method})`, true);
+		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+
 		this.replacePromisesWithIpcPromises(params);
 
-		let packed;
-		if (notificationType.pack && params != null) {
-			const sw = maybeStopWatch(
-				getNewLogScope(`${getLoggableName(this)}.notify serializing msg=${notificationType.method}`, true),
-				{
-					log: false,
-					logLevel: 'debug',
-				},
-			);
-			packed = utf8TextEncoder.encode(JSON.stringify(params));
-			sw?.stop();
+		sw?.restart({ message: `\u2022 replaced tagged ipc types in params` });
+
+		let bytes: Uint8Array | undefined;
+		let compression: IpcMessage['compressed'] = false;
+		if (notificationType.compressed && params != null) {
+			bytes = utf8TextEncoder.encode(JSON.stringify(params));
+			compression = 'utf8';
 		}
 
 		const msg: IpcMessage<IpcCallParamsType<T> | Uint8Array> = {
-			id: this.nextIpcId(),
+			id: id,
 			scope: notificationType.scope,
 			method: notificationType.method,
-			params: packed ?? params,
-			packed: packed != null,
+			params: bytes ?? params,
+			compressed: compression,
+			timestamp: timestamp,
 			completionId: completionId,
 		};
 
 		const success = await this.postMessage(msg);
 		if (success) {
 			this._pendingIpcNotifications.clear();
-		} else if (notificationType === ipcPromiseSettled) {
+		} else if (notificationType === IpcPromiseSettled) {
 			this._pendingIpcPromiseNotifications.add({ msg: msg, timestamp: Date.now() });
 		} else {
 			this.addPendingIpcNotificationCore(notificationType, msg);
@@ -703,14 +714,14 @@ export class WebviewController<
 							debugger;
 							return;
 						}
-						return this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id);
+						return this.notify(IpcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.value.id);
 					},
 					(ex: unknown) => {
 						if (cancellation?.isCancellationRequested) {
 							debugger;
 							return;
 						}
-						return this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id);
+						return this.notify(IpcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.value.id);
 					},
 				);
 			}
@@ -728,13 +739,15 @@ export class WebviewController<
 				const ipcPromise: IpcPromise = {
 					__ipc: 'promise',
 					__promise: value,
-					id: this.nextIpcId(),
-					method: ipcPromiseSettled.method,
+					value: {
+						id: this.nextIpcId(),
+						method: IpcPromiseSettled.method,
+					},
 				};
 				(data as Record<string, unknown>)[key] = ipcPromise;
 				pendingPromises.push(ipcPromise);
 			} else if (isIpcPromise(value)) {
-				value.id = this.nextIpcId();
+				value.value.id = this.nextIpcId();
 				pendingPromises.push(value);
 			} else {
 				this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
@@ -744,8 +757,7 @@ export class WebviewController<
 
 	@sequentialize()
 	@debug<WebviewController<ID, State>['postMessage']>({
-		args: false,
-		enter: m => `(${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''})`,
+		args: { 0: m => `${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''}` },
 	})
 	private async postMessage(message: IpcMessage): Promise<boolean> {
 		if (!this._ready) return Promise.resolve(false);
@@ -859,7 +871,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	root: string,
 	webRoot: string,
 	placement: 'editor' | 'view',
-	bootstrap?: SerializedState,
+	bootstrap?: SerializedState | string,
 	head?: string,
 	body?: string,
 	endOfBody?: string,

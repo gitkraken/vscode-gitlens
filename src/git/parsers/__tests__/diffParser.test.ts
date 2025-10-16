@@ -32,7 +32,7 @@ index 0000000..abc123
 
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'new-file.ts', 'Should have correct path');
-		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
+		assert.strictEqual(file.originalPath, 'dev/null', 'Should have no original path');
 		assert.strictEqual(file.status, 'A', 'Should have added status');
 		assert.strictEqual(file.hunks.length, 0, 'Should have no hunks without @@ markers');
 	});

@@ -2,7 +2,6 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import { GlyphChars } from '../constants';
 import type { IntegrationIds } from '../constants.integrations';
-import { IssuesCloudHostIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider';
@@ -121,7 +120,7 @@ export class AutolinksProvider implements Disposable {
 			}
 		}
 
-		if (promises.length === 0) return;
+		if (!promises.length) return;
 
 		await Promise.allSettled(promises);
 	}
@@ -145,7 +144,7 @@ export class AutolinksProvider implements Disposable {
 	}
 
 	private async getRefSets(remote?: GitRemote, forBranch?: boolean) {
-		return this._refsetCache.get(remote?.remoteKey, async () => {
+		return this._refsetCache.get(`${remote?.remoteKey}${forBranch ? ':branch' : ''}`, async () => {
 			const refsets: RefSet[] = [];
 
 			await this.collectIntegrationAutolinks(forBranch ? undefined : remote, refsets);
@@ -159,34 +158,21 @@ export class AutolinksProvider implements Disposable {
 	/** @returns A sorted list of autolinks. the first match is the most relevant */
 	async getBranchAutolinks(branchName: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
 		const refsets = await this.getRefSets(remote, true);
-		if (refsets.length === 0) return emptyAutolinkMap;
+		if (!refsets.length) return emptyAutolinkMap;
 
 		return getBranchAutolinks(branchName, refsets);
 	}
 
-	@debug<AutolinksProvider['getAutolinks']>({
-		args: {
-			0: '<message>',
-			1: false,
-		},
-	})
+	@debug<AutolinksProvider['getAutolinks']>({ args: { 0: '<message>', 1: false } })
 	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
 		const refsets = await this.getRefSets(remote);
-		if (refsets.length === 0) return emptyAutolinkMap;
+		if (!refsets.length) return emptyAutolinkMap;
 
 		return getAutolinks(message, refsets);
 	}
 
-	getAutolinkEnrichableId(autolink: Autolink): string {
-		// TODO: this should return linking key for all types of providers: such as TST-123 or #89 or PR 89 (or a pair: key+id).
-		// Each provider should form whatever ID they need in their specific getIssueOrPullRequest() method.
-		switch (autolink.provider?.id) {
-			case IssuesCloudHostIntegrationId.Jira:
-			case IssuesCloudHostIntegrationId.Linear:
-				return `${autolink.prefix}${autolink.id}`;
-			default:
-				return autolink.id;
-		}
+	getAutolinkEnrichableId(autolink: Autolink): { id: string; key: string } {
+		return { id: autolink.id, key: `${autolink.prefix}${autolink.id}` };
 	}
 
 	async getEnrichedAutolinks(
@@ -211,7 +197,7 @@ export class AutolinksProvider implements Disposable {
 		if (typeof messageOrAutolinks === 'string') {
 			messageOrAutolinks = await this.getAutolinks(messageOrAutolinks, remote);
 		}
-		if (messageOrAutolinks.size === 0) return undefined;
+		if (!messageOrAutolinks.size) return undefined;
 
 		let integration = await remote?.getIntegration();
 		if (integration != null) {
@@ -258,15 +244,19 @@ export class AutolinksProvider implements Disposable {
 				integration != null &&
 				integrationId === integration.id &&
 				link.provider?.domain === integration.domain
-					? integration.getIssueOrPullRequest(
+					? integration.getLinkedIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,
 							this.getAutolinkEnrichableId(link),
 							{ type: link.type },
 						)
 					: link.descriptor != null
-						? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link), {
-								type: link.type,
-							})
+						? linkIntegration?.getLinkedIssueOrPullRequest(
+								link.descriptor,
+								this.getAutolinkEnrichableId(link),
+								{
+									type: link.type,
+								},
+							)
 						: undefined;
 			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
 		}
@@ -341,7 +331,7 @@ export class AutolinksProvider implements Disposable {
 			}
 		}
 
-		if (tokenMapping.size !== 0) {
+		if (tokenMapping.size) {
 			// eslint-disable-next-line no-control-regex
 			text = text.replace(/(\x00\d+\x00)/g, (_, t: string) => tokenMapping.get(t) ?? t);
 		}
@@ -390,10 +380,9 @@ export class AutolinksProvider implements Disposable {
 									if (issueResult?.value != null) {
 										if (issueResult.paused) {
 											if (footnotes != null && !prs?.has(num)) {
-												let name = ref.description?.replace(numRegex, num);
-												if (name == null) {
-													name = `Custom Autolink ${ref.prefix}${num}`;
-												}
+												const name =
+													ref.description?.replace(numRegex, num) ??
+													`Custom Autolink ${ref.prefix}${num}`;
 												footnoteIndex = footnotes.size + 1;
 												footnotes.set(
 													footnoteIndex,
@@ -428,10 +417,9 @@ export class AutolinksProvider implements Disposable {
 											)}`;
 										}
 									} else if (footnotes != null && !prs?.has(num)) {
-										let name = ref.description?.replace(numRegex, num);
-										if (name == null) {
-											name = `Custom Autolink ${ref.prefix}${num}`;
-										}
+										const name =
+											ref.description?.replace(numRegex, num) ??
+											`Custom Autolink ${ref.prefix}${num}`;
 										footnoteIndex = footnotes.size + 1;
 										footnotes.set(
 											footnoteIndex,
@@ -462,10 +450,9 @@ export class AutolinksProvider implements Disposable {
 									if (issueResult?.value != null) {
 										if (issueResult.paused) {
 											if (footnotes != null && !prs?.has(num)) {
-												let name = ref.description?.replace(numRegex, num);
-												if (name == null) {
-													name = `Custom Autolink ${ref.prefix}${num}`;
-												}
+												const name =
+													ref.description?.replace(numRegex, num) ??
+													`Custom Autolink ${ref.prefix}${num}`;
 												footnoteIndex = footnotes.size + 1;
 												footnotes.set(
 													footnoteIndex,
@@ -500,10 +487,9 @@ export class AutolinksProvider implements Disposable {
 											)}`;
 										}
 									} else if (footnotes != null && !prs?.has(num)) {
-										let name = ref.description?.replace(numRegex, num);
-										if (name == null) {
-											name = `Custom Autolink ${ref.prefix}${num}`;
-										}
+										const name =
+											ref.description?.replace(numRegex, num) ??
+											`Custom Autolink ${ref.prefix}${num}`;
 										footnoteIndex = footnotes.size + 1;
 										footnotes.set(
 											footnoteIndex,

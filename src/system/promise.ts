@@ -6,7 +6,7 @@ export type PromiseOrValue<T> = Promise<T> | T;
 export function any<T>(...promises: Promise<T>[]): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		let settled = false;
-		const onFullfilled = (r: T) => {
+		const onFulfilled = (r: T) => {
 			settled = true;
 			resolve(r);
 		};
@@ -31,7 +31,7 @@ export function any<T>(...promises: Promise<T>[]): Promise<T> {
 		};
 
 		for (const promise of promises) {
-			promise.then(onFullfilled, onRejected);
+			promise.then(onFulfilled, onRejected);
 		}
 	});
 }
@@ -200,6 +200,7 @@ export function getDeferredPromiseIfPending<T>(deferred: Deferred<T> | undefined
 export type MaybePromiseArr<T> = (Promise<T | undefined> | T | undefined)[];
 
 export async function nonnullSettled<T>(arr: MaybePromiseArr<T>): Promise<T[]> {
+	// eslint-disable-next-line @typescript-eslint/await-thenable
 	const all = await Promise.allSettled(arr);
 	return all.map(r => getSettledValue(r)).filter(v => v != null);
 }
@@ -450,6 +451,7 @@ export async function pauseOnCancelOrTimeoutMapTuple<Id, T, U extends unknown[]>
 	}
 
 	const results = await Promise.all(
+		// eslint-disable-next-line @typescript-eslint/await-thenable
 		map(source, ([id, [promise, ...rest]]) =>
 			promise == null
 				? ([id, [undefined, ...rest]] as const)

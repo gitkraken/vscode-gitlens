@@ -30,6 +30,8 @@ const filePatterns = {
 	webviewsApps: ['src/webviews/apps/**/*'],
 	webviewsShared: [
 		// Keep in sync with `src/webviews/apps/tsconfig.json`
+		'src/webviews/ipc.ts',
+		'src/webviews/plus/composer/utils.ts',
 		'src/webviews/**/protocol.ts',
 		'src/**/models/**/*.ts',
 		'src/**/utils/**/*.ts',
@@ -39,6 +41,7 @@ const filePatterns = {
 		'src/constants.*.ts',
 		'src/env/browser/**/*',
 		'src/features.ts',
+		'src/git/parsers/diffParser.ts',
 		'src/system/**/*.ts',
 		'**/webview/**/*',
 	],

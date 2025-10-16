@@ -83,10 +83,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		});
 	}
 
-	protected override async getProviderIssueOrPullRequest(
+	protected override async getProviderLinkedIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		repo: GitHubRepositoryDescriptor,
-		id: string,
+		{ id }: { id: string; key: string },
 	): Promise<IssueOrPullRequest | undefined> {
 		return (await this.container.github)?.getIssueOrPullRequest(
 			this,

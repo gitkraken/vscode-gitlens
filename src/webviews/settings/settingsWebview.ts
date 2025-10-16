@@ -10,10 +10,12 @@ import { GitFileChange } from '../../git/models/fileChange';
 import { GitFileIndexStatus } from '../../git/models/fileStatus';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
+import { isIssueCloudIntegrationId } from '../../plus/integrations/authentication/models';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration';
 import { configuration } from '../../system/-webview/configuration';
 import { map } from '../../system/iterable';
+import { getSettledValue } from '../../system/promise';
 import type { CustomConfigPath, IpcMessage } from '../protocol';
 import {
 	assertsConfigKeyValue,
@@ -25,7 +27,7 @@ import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { State } from './protocol';
 import {
 	DidChangeAccountNotification,
-	DidChangeConnectedJiraNotification,
+	DidChangeIssueIntegrationConnectedNotification,
 	DidOpenAnchorNotification,
 	GenerateConfigurationPreviewRequest,
 } from './protocol';
@@ -61,8 +63,12 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	private onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
-		if (e.key === 'jira') {
-			void this.host.notify(DidChangeConnectedJiraNotification, { hasConnectedJira: e.reason === 'connected' });
+		const key = e.key;
+		if (isIssueCloudIntegrationId(key)) {
+			void this.host.notify(DidChangeIssueIntegrationConnectedNotification, {
+				integrationId: key,
+				connected: e.reason === 'connected',
+			});
 		}
 	}
 
@@ -76,11 +82,21 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		return jira.maybeConnected ?? jira.isConnected();
 	}
 
+	async getLinearConnected(): Promise<boolean> {
+		const linear = await this.container.integrations.get(IssuesCloudHostIntegrationId.Linear);
+		if (linear == null) return false;
+		return linear.maybeConnected ?? linear.isConnected();
+	}
+
 	async includeBootstrap(): Promise<State> {
 		const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
 		if (workspace.workspaceFolders?.length) {
 			scopes.push(['workspace', 'Workspace']);
 		}
+
+		const [jiraConnected, linearConnected] = (
+			await Promise.allSettled([this.getJiraConnected(), this.getLinearConnected()])
+		).map(r => getSettledValue(r, false));
 
 		return {
 			...this.host.baseWebviewState,
@@ -91,7 +107,8 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 			scope: 'user',
 			scopes: scopes,
 			hasAccount: await this.getAccountState(),
-			hasConnectedJira: await this.getJiraConnected(),
+			hasConnectedJira: jiraConnected,
+			hasConnectedLinear: linearConnected,
 		};
 	}
 

@@ -69,6 +69,11 @@ export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudI
 	return getSupportedCloudIntegrationIds().includes(id as SupportedCloudIntegrationIds);
 }
 
+export function isIssueCloudIntegrationId(id: string): id is IssuesCloudHostIntegrationId {
+	const issueIds: string[] = Object.values(IssuesCloudHostIntegrationId);
+	return issueIds.includes(id);
+}
+
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } = {
 	jira: IssuesCloudHostIntegrationId.Jira,
 	linear: IssuesCloudHostIntegrationId.Linear,

@@ -62,7 +62,7 @@ function parseFileStatusAndMetadata(
 		} else if (binary) {
 			status = path !== originalPath ? GitFileIndexStatus.Renamed : GitFileIndexStatus.Modified;
 		} else if (modeChange && !hasHunks) {
-			status = GitFileIndexStatus.Modified;
+			status = GitFileIndexStatus.TypeChanged;
 		} else {
 			// Default logic based on path comparison
 			status = path !== originalPath ? GitFileIndexStatus.Renamed : GitFileIndexStatus.Modified;

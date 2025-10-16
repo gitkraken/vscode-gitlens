@@ -123,7 +123,9 @@ export class GlDiffFile extends LitElement {
 			.join('\n');
 
 		this.diffText = diffLines.trim();
-		const parsedDiff = parseDiff(this.diffText);
+		const parsedDiff = parseDiff(this.diffText, {
+			diffMaxChanges: 10000,
+		});
 		this.parsedDiff = parsedDiff;
 		const lineCount = this.diffFile?.blocks.reduce((p, c) => p + 1 + c.lines.length, 0) ?? -1;
 		this.style.setProperty('--d2h-intrinsic-line-count', lineCount > -1 ? `${lineCount}` : '50');

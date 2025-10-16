@@ -6,7 +6,7 @@ import type { Branded } from './brand';
 // prettier-ignore
 export type Serialized<T, TDate extends number | string = number> =
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	T extends Function | Error | Container
+	T extends Error |Function |  Container
 	? never
 	: T extends Date
 	? TDate

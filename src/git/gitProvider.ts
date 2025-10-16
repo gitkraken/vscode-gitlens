@@ -447,7 +447,7 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; includeUntracked?: boolean; notation?: GitRevisionRangeNotation; uris?: Uri[] },
+		options?: { context?: number; notation?: GitRevisionRangeNotation; uris?: Uri[] },
 		cancellation?: CancellationToken,
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(
@@ -652,9 +652,9 @@ export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 
 export interface GitStagingSubProvider {
 	createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex>;
-	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
-	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
-	stageDirectory(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
+	stageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void>;
+	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	unstageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void>;
 	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;

@@ -25,6 +25,7 @@ import {
 	AINoRequestDataError,
 	AuthenticationRequiredError,
 	CancellationError,
+	isCancellationError,
 } from '../../errors';
 import type { AIFeatures } from '../../features';
 import { isAdvancedFeature } from '../../features';
@@ -1477,7 +1478,7 @@ export class AIProviderService implements Disposable {
 		const model = await this.getModel(undefined, source);
 		if (model == null || options?.cancellation?.isCancellationRequested) {
 			options?.generating?.cancel();
-			return undefined;
+			return 'cancelled';
 		}
 
 		const promise = this.sendRequestWithModel(
@@ -1522,7 +1523,7 @@ export class AIProviderService implements Disposable {
 		const model = await this.getModel(undefined, source);
 		if (model == null || options?.cancellation?.isCancellationRequested) {
 			options?.generating?.cancel();
-			return undefined;
+			return 'cancelled';
 		}
 
 		return this.sendRequestWithModel(
@@ -1618,7 +1619,24 @@ export class AIProviderService implements Disposable {
 			return 'cancelled';
 		}
 
-		const apiKey = await this._provider!.getApiKey(false);
+		let apiKey: string | undefined;
+		try {
+			apiKey = await this._provider!.getApiKey(false);
+		} catch (ex) {
+			if (isCancellationError(ex)) {
+				setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'cancelled: user cancelled');
+				this.container.telemetry.sendEvent(
+					telementry.key,
+					{ ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' },
+					source,
+				);
+
+				options?.generating?.cancel();
+				return 'cancelled';
+			}
+
+			throw ex;
+		}
 
 		if (cancellation.isCancellationRequested) {
 			setLogScopeExit(scope, `model: ${model.provider.id}/${model.id}`, 'cancelled: user cancelled');
@@ -1708,7 +1726,6 @@ export class AIProviderService implements Disposable {
 				setLogScopeExit(
 					scope,
 					`model: ${model.provider.id}/${model.id}`,
-					// eslint-disable-next-line @typescript-eslint/no-base-to-string
 					`failed: ${String(ex)} (${String(ex.original)})`,
 				);
 
@@ -1718,7 +1735,6 @@ export class AIProviderService implements Disposable {
 						...telementry.data,
 						duration: Date.now() - start,
 						failed: true,
-						// eslint-disable-next-line @typescript-eslint/no-base-to-string
 						'failed.error': String(ex),
 						'failed.error.detail': String(ex.original),
 					},

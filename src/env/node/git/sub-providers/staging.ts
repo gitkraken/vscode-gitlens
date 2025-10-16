@@ -67,41 +67,33 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	}
 
 	@log()
-	async stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void> {
+	async stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath },
 			'add',
-			options?.intentToAdd ? '-N' : '-A',
+			'-A',
 			'--',
 			typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0],
 		);
 	}
 
 	@log()
-	async stageFiles(
-		repoPath: string,
-		pathOrUri: string[] | Uri[],
-		options?: { intentToAdd?: boolean },
-	): Promise<void> {
+	async stageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath },
 			'add',
-			options?.intentToAdd ? '-N' : '-A',
+			'-A',
 			'--',
 			...pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
 		);
 	}
 
 	@log()
-	async stageDirectory(
-		repoPath: string,
-		directoryOrUri: string | Uri,
-		options?: { intentToAdd?: boolean },
-	): Promise<void> {
+	async stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath },
 			'add',
-			options?.intentToAdd ? '-N' : '-A',
+			'-A',
 			'--',
 			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
 		);

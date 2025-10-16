@@ -27,7 +27,7 @@ import {
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
-import { createCombinedDiffForCommit, updateHunkAssignments } from '../../../../plus/composer/utils';
+import { updateHunkAssignments } from '../../../../plus/composer/utils';
 import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
@@ -402,7 +402,6 @@ export class ComposerApp extends LitElement {
 	@state()
 	private onboardingStepNumber: number = 0;
 
-	private commitsSortable?: Sortable;
 	private hunksSortable?: Sortable;
 	private isDragging = false;
 	private lastMouseEvent?: MouseEvent;
@@ -460,7 +459,6 @@ export class ComposerApp extends LitElement {
 
 	override disconnectedCallback() {
 		super.disconnectedCallback?.();
-		this.commitsSortable?.destroy();
 		this.hunksSortable?.destroy();
 		if (this.commitMessageDebounceTimer) {
 			clearTimeout(this.commitMessageDebounceTimer);
@@ -470,33 +468,6 @@ export class ComposerApp extends LitElement {
 	}
 
 	private initializeSortable() {
-		// Initialize commits sortable
-		const commitsContainer = this.shadowRoot?.querySelector('.commits-list');
-		if (commitsContainer) {
-			this.commitsSortable = Sortable.create(commitsContainer as HTMLElement, {
-				animation: 150,
-				ghostClass: 'sortable-ghost',
-				chosenClass: 'sortable-chosen',
-				dragClass: 'sortable-drag',
-				handle: '.drag-handle', // Only allow dragging by the handle
-				filter: '.new-commit-drop-zone',
-				onMove: evt => {
-					// Only allow moving within the commits list, not into drop zones
-					const target = evt.related;
-					return (
-						target.tagName.toLowerCase() === 'gl-commit-item' &&
-						!target.closest('.drop-zone') &&
-						!target.closest('.new-commit-drop-zone')
-					);
-				},
-				onEnd: evt => {
-					if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
-						this.reorderCommits(evt.oldIndex, evt.newIndex);
-					}
-				},
-			});
-		}
-
 		// Initialize hunks sortable (will be re-initialized when commit is selected)
 		this.initializeHunksSortable();
 
@@ -742,8 +713,6 @@ export class ComposerApp extends LitElement {
 	}
 
 	private reorderCommits(oldIndex: number, newIndex: number) {
-		if (!this.canReorderCommits) return;
-
 		this.saveToHistory();
 		const newCommits = [...this.state.commits];
 
@@ -1214,10 +1183,6 @@ export class ComposerApp extends LitElement {
 		return this.state?.mode === 'preview';
 	}
 
-	private get canReorderCommits(): boolean {
-		return !this.isPreviewMode;
-	}
-
 	private get canCombineCommits(): boolean {
 		return !this.isPreviewMode;
 	}
@@ -1271,9 +1236,7 @@ export class ComposerApp extends LitElement {
 	private finishAndCommit() {
 		this._ipc.sendCommand(FinishAndCommitCommand, {
 			commits: this.state.commits,
-			hunks: this.hunksWithAssignments,
 			baseCommit: this.state.baseCommit,
-			safetyState: this.state.safetyState,
 		});
 	}
 
@@ -1288,7 +1251,6 @@ export class ComposerApp extends LitElement {
 	private handleReloadComposer() {
 		this.resetHistory();
 		this._ipc.sendCommand(ReloadComposerCommand, {
-			repoPath: this.state.safetyState.repoPath,
 			mode: this.state.mode,
 		});
 	}
@@ -1480,11 +1442,8 @@ export class ComposerApp extends LitElement {
 		this.saveToHistory();
 
 		this._ipc.sendCommand(GenerateCommitsCommand, {
-			hunks: hunksToGenerate,
-			// In preview mode, send empty commits array to overwrite existing commits
-			// In interactive mode, send existing commits to preserve them
+			hunkIndices: hunksToGenerate.map(hunk => hunk.index),
 			commits: this.isPreviewMode ? [] : this.state.commits,
-			hunkMap: this.state.hunkMap,
 			baseCommit: this.state.baseCommit,
 			customInstructions: customInstructions || undefined,
 		});
@@ -1499,15 +1458,9 @@ export class ComposerApp extends LitElement {
 			return;
 		}
 
-		// Create combined diff for the commit
-		const { patch } = createCombinedDiffForCommit(commit, this.hunksWithAssignments);
-		if (!patch) {
-			return;
-		}
-
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
-			diff: patch,
+			commitHunkIndices: commit.hunkIndices,
 			overwriteExistingMessage: commit.message.trim() !== '',
 		});
 	}
@@ -1624,7 +1577,6 @@ export class ComposerApp extends LitElement {
 					.committing=${this.state.committing}
 					.aiEnabled=${this.aiEnabled}
 					.aiDisabledReason=${this.aiDisabledReason}
-					.canReorderCommits=${this.canReorderCommits}
 					.canCombineCommits=${this.canCombineCommits}
 					.canMoveHunks=${this.canMoveHunks}
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}

@@ -21,7 +21,7 @@ export class ActionItem extends LitElement {
 			width: 2rem;
 			height: 2rem;
 			border-radius: 0.5rem;
-			color: inherit;
+			color: var(--vscode-icon-foreground);
 			padding: 0.2rem;
 			vertical-align: text-bottom;
 			text-decoration: none;
@@ -32,7 +32,8 @@ export class ActionItem extends LitElement {
 			${focusOutline}
 		}
 
-		:host(:hover) {
+		:host(:hover),
+		:host(:focus-within) {
 			background-color: var(--vscode-toolbar-hoverBackground);
 		}
 
@@ -47,6 +48,11 @@ export class ActionItem extends LitElement {
 
 		a {
 			color: inherit;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			height: 100%;
 		}
 		a:focus {
 			outline: none;
@@ -147,12 +153,23 @@ export class ActionItem extends LitElement {
 					aria-label="${this.effectiveLabel ?? nothing}"
 					?disabled=${this.disabled}
 					href=${this.effectiveHref ?? nothing}
+					tabindex="0"
+					@keydown=${this.handleLinkKeydown}
 				>
 					<code-icon icon="${this.effectiveIcon}"></code-icon>
 				</a>
 			</gl-tooltip>
 		`;
 	}
+
+	private handleLinkKeydown = (e: KeyboardEvent) => {
+		// Handle Space and Enter for button-role links without href
+		if (!this.effectiveHref && (e.key === ' ' || e.key === 'Enter')) {
+			e.preventDefault();
+			// Trigger a click event
+			(e.target as HTMLElement).click();
+		}
+	};
 
 	override focus(options?: FocusOptions): void {
 		this.defaultFocusEl.focus(options);

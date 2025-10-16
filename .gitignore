@@ -1,3 +1,4 @@
+.claude
 .DS_Store
 .eslintcache*
 .vscode-clean/**
@@ -10,3 +11,4 @@ images/settings
 gitlens-*.vsix
 product.json
 tsconfig*.tsbuildinfo
+localdev*.instructions.md

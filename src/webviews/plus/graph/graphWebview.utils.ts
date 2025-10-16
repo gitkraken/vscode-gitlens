@@ -211,6 +211,8 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 
 		case IssuesCloudHostIntegrationId.Jira:
 			return 'jiraCloud';
+		case IssuesCloudHostIntegrationId.Linear:
+			return 'linear';
 
 		// case IssueIntegrationId.JiraServer:
 		// 	return 'jiraServer';

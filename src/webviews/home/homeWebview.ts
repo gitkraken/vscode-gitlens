@@ -1208,6 +1208,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				} satisfies IntegrationState;
 			});
 
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			const integrationsResults = await Promise.allSettled(promises);
 			const integrations: IntegrationState[] = [...filterMap(integrationsResults, r => getSettledValue(r))];
 

@@ -144,6 +144,7 @@ export class ViewCommands implements Disposable {
 		if (selection.length === 0) return;
 
 		const data = join(
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			filterMap(await Promise.allSettled(map(selection, n => n.toClipboard?.(type))), r =>
 				r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
 			),
@@ -167,6 +168,7 @@ export class ViewCommands implements Disposable {
 		if (!selection.length) return;
 
 		const urls = [
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			...filterMap(await Promise.allSettled(map(selection, n => n.getUrl?.())), r =>
 				r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
 			),
@@ -1417,7 +1419,8 @@ export class ViewCommands implements Disposable {
 				void executeCommand<DiffWithCommandArgs>(command.command, args);
 				break;
 			}
-			case 'gitlens.diffWithPrevious' satisfies GlCommands: {
+			case 'gitlens.diffWithPrevious' satisfies GlCommands:
+			case 'gitlens.diffWithPrevious:views' satisfies GlCommands: {
 				const [, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
 				args.showOptions!.preview = false;
 				void executeEditorCommand<DiffWithPreviousCommandArgs>(

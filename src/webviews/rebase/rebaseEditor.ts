@@ -513,6 +513,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			scope: DidChangeNotification.scope,
 			method: DidChangeNotification.method,
 			params: { state: state },
+			compressed: false,
+			timestamp: Date.now(),
 		});
 	}
 
