@@ -6,9 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Reduces view refresh frequency for showing last fetched time to improve performance and reduce overhead
+- Replaces OS-specific shell-based unzip with JS solution for better cross-platform support and reliability
+- Improves MCP checks and adds offline check ([#4687](https://github.com/gitkraken/vscode-gitlens/issues/4687))
+- Updates auto-compose instructions setting text to a link on _Commit Composer_
+
 ### Fixed
 
+- Fixes MCP registration from breaking VS Code chat ([#4701](https://github.com/gitkraken/vscode-gitlens/issues/4701))
 - Fixes MCP extension registration not working on Kiro ([#4691](https://github.com/gitkraken/vscode-gitlens/issues/4691))
+- Fixes intermittent issue with autolinks not showing up ([#4692](https://github.com/gitkraken/vscode-gitlens/issues/4692))
 
 ## [17.6.1] - 2025-10-08
 
