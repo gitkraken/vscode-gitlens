@@ -8,6 +8,20 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-haiku-4-5',
+		name: 'Claude 4.5 Haiku',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+		default: true,
+	},
+	{
+		id: 'claude-haiku-4-5-20251001',
+		name: 'Claude 4.5 Haiku',
+		maxTokens: { input: 204800, output: 32000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'claude-sonnet-4-5',
 		name: 'Claude 4.5 Sonnet',
 		maxTokens: { input: 204800, output: 64000 },
@@ -25,19 +39,20 @@ const models: AnthropicModel[] = [
 		name: 'Claude 4.1 Opus',
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
-		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-1-20250805',
 		name: 'Claude 4.1 Opus',
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-0',
 		name: 'Claude 4 Opus',
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-20250514',
@@ -64,6 +79,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3.7 Sonnet',
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-7-sonnet-20250219',
@@ -77,6 +93,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3.5 Sonnet',
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-5-sonnet-20241022',
@@ -97,7 +114,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3.5 Haiku',
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
-		default: true,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-5-haiku-20241022',
@@ -111,6 +128,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3 Opus',
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-opus-20240229',
@@ -138,6 +156,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3 Haiku',
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-haiku-20240307',
