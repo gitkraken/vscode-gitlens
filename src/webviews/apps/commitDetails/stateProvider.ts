@@ -1,6 +1,6 @@
 import { ContextProvider } from '@lit/context';
-import type { Serialized } from '../../../system/serialize';
-import type { State, UpdateablePreferences } from '../../commitDetails/protocol';
+import type { IpcSerialized } from '../../../system/ipcSerialize';
+import type { State as _State, UpdateablePreferences } from '../../commitDetails/protocol';
 import {
 	ChangeReviewModeCommand,
 	DidChangeDraftStateNotification,
@@ -14,15 +14,15 @@ import {
 import type { ReactiveElementHost, StateProvider } from '../shared/appHost';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
-import { assertsSerialized } from '../shared/ipc';
 import { stateContext } from './context';
 
-export class CommitDetailsStateProvider implements StateProvider<Serialized<State>> {
+type State = IpcSerialized<_State>;
+export class CommitDetailsStateProvider implements StateProvider<State> {
 	private readonly disposable: Disposable;
-	private readonly provider: ContextProvider<{ __context__: Serialized<State> }, ReactiveElementHost>;
+	private readonly provider: ContextProvider<{ __context__: State }, ReactiveElementHost>;
 
-	private _state: Serialized<State>;
-	get state(): Serialized<State> {
+	private _state: State;
+	get state(): State {
 		return this._state;
 	}
 
@@ -30,43 +30,20 @@ export class CommitDetailsStateProvider implements StateProvider<Serialized<Stat
 
 	constructor(
 		host: ReactiveElementHost,
-		state: Serialized<State>,
+		state: State,
 		private readonly _ipc: HostIpc,
 	) {
 		this._host = host;
 		this._state = state;
-		this.provider = new ContextProvider(host, { context: stateContext, initialValue: state });
+		this.provider = new ContextProvider(host, {
+			context: stateContext,
+			initialValue: state,
+		});
 
 		this.disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
-				// case DidChangeRichStateNotificationType.method:
-				// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
-				// 		if (this._state.selected == null) return;
-
-				// 		assertsSerialized<typeof params>(params);
-
-				// 		const newState = { ...this._state };
-				// 		if (params.formattedMessage != null) {
-				// 			newState.selected!.message = params.formattedMessage;
-				// 		}
-				// 		// if (params.pullRequest != null) {
-				// 		newState.pullRequest = params.pullRequest;
-				// 		// }
-				// 		// if (params.formattedMessage != null) {
-				// 		newState.autolinkedIssues = params.autolinkedIssues;
-				// 		// }
-
-				// 		this._state = newState;
-				// 		this.provider.setValue(this._state, true);
-
-				// 		this.renderRichContent();
-				// 	});
-				// 	break;
-
 				case DidChangeNotification.is(msg):
-					assertsSerialized<State>(msg.params.state);
-
-					this._state = { ...msg.params.state, timestamp: Date.now() };
+					this._state = { ...(msg.params.state as State), timestamp: Date.now() };
 					this.provider.setValue(this._state, true);
 					host.requestUpdate();
 					break;

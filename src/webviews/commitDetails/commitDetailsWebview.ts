@@ -1,5 +1,5 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
-import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
+import type { ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks';
 import { serializeAutolink } from '../../autolinks/utils/-webview/autolinks.utils';
@@ -37,6 +37,7 @@ import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
+import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils';
 import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils';
 import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils';
@@ -67,8 +68,6 @@ import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { MRU } from '../../system/mru';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import type { Serialized } from '../../system/serialize';
-import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
@@ -80,7 +79,6 @@ import { isSerializedState } from '../webviewsController';
 import type {
 	CommitDetails,
 	CreatePatchFromWipParams,
-	DidChangeWipStateParams,
 	DidExplainParams,
 	DidGenerateParams,
 	ExecuteFileActionParams,
@@ -159,7 +157,6 @@ interface Context {
 	commit: GitCommit | undefined;
 	autolinksEnabled: boolean;
 	experimentalComposerEnabled: boolean;
-	richStateLoaded: boolean;
 	formattedMessage: string | undefined;
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
 	pullRequest: PullRequest | undefined;
@@ -171,9 +168,7 @@ interface Context {
 	hasIntegrationsConnected: boolean | undefined;
 }
 
-export class CommitDetailsWebviewProvider
-	implements WebviewProvider<State, Serialized<State>, CommitDetailsWebviewShowingArgs>
-{
+export class CommitDetailsWebviewProvider implements WebviewProvider<State, State, CommitDetailsWebviewShowingArgs> {
 	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
@@ -202,7 +197,6 @@ export class CommitDetailsWebviewProvider
 			commit: undefined,
 			autolinksEnabled: configuration.get('views.commitDetails.autolinks.enabled'),
 			experimentalComposerEnabled: configuration.get('ai.experimental.composer.enabled', undefined, false),
-			richStateLoaded: false,
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
 			pullRequest: undefined,
@@ -268,7 +262,7 @@ export class CommitDetailsWebviewProvider
 	async onShowing(
 		_loading: boolean,
 		options?: WebviewShowOptions,
-		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
+		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, State>
 	): Promise<[boolean, InspectTelemetryContext]> {
 		const [arg] = args;
 		if ((arg as ShowWipArgs)?.type === 'wip') {
@@ -316,7 +310,7 @@ export class CommitDetailsWebviewProvider
 	): Promise<boolean> {
 		let data: Partial<CommitSelectedEvent['data']> | undefined;
 
-		if (isSerializedState<Serialized<State>>(arg)) {
+		if (isSerializedState<State>(arg)) {
 			const { commit: selected } = arg.state;
 			if (selected?.repoPath != null && selected?.sha != null) {
 				if (selected.stashNumber != null) {
@@ -390,7 +384,7 @@ export class CommitDetailsWebviewProvider
 		});
 	}
 
-	includeBootstrap(): Promise<Serialized<State>> {
+	includeBootstrap(): Promise<State> {
 		this._bootstraping = true;
 
 		this._context = { ...this._context, ...this._pendingContext };
@@ -1211,7 +1205,7 @@ export class CommitDetailsWebviewProvider
 	private _cancellationTokenSource: CancellationTokenSource | undefined = undefined;
 
 	@debug({ args: false })
-	protected async getState(current: Context): Promise<Serialized<State>> {
+	protected async getState(current: Context): Promise<State> {
 		if (this._cancellationTokenSource != null) {
 			this._cancellationTokenSource.cancel();
 			this._cancellationTokenSource = undefined;
@@ -1220,16 +1214,6 @@ export class CommitDetailsWebviewProvider
 		let details;
 		if (current.commit != null) {
 			details = await this.getDetailsModel(current.commit, current.formattedMessage);
-
-			if (!current.richStateLoaded) {
-				this._cancellationTokenSource = new CancellationTokenSource();
-
-				const cancellation = this._cancellationTokenSource.token;
-				setTimeout(() => {
-					if (cancellation.isCancellationRequested) return;
-					void this.updateRichState(current, cancellation);
-				}, 100);
-			}
 		}
 
 		const wip = current.wip;
@@ -1252,24 +1236,23 @@ export class CommitDetailsWebviewProvider
 			current.hasIntegrationsConnected = await this.getHasIntegrationsConnected();
 		}
 
-		const state = serialize<State>({
+		const state: State = {
 			...this.host.baseWebviewState,
 			mode: current.mode,
 			commit: details,
 			navigationStack: current.navigationStack,
 			pinned: current.pinned,
 			preferences: current.preferences,
-			includeRichContent: current.richStateLoaded,
 			autolinksEnabled: current.autolinksEnabled,
 			experimentalComposerEnabled: current.experimentalComposerEnabled,
-			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
-			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
+			autolinkedIssues: current.autolinkedIssues, //?.map(serializeIssueOrPullRequest),
+			pullRequest: current.pullRequest, // != null ? serializePullRequest(current.pullRequest) : undefined,
 			wip: serializeWipContext(wip),
 			orgSettings: current.orgSettings,
 			inReview: current.inReview,
 			hasAccount: current.hasAccount,
 			hasIntegrationsConnected: current.hasIntegrationsConnected,
-		});
+		};
 		return state;
 	}
 
@@ -1325,13 +1308,10 @@ export class CommitDetailsWebviewProvider
 			}
 
 			if (this._pendingContext == null) {
-				const success = await this.host.notify(
-					DidChangeWipStateNotification,
-					serialize({
-						wip: serializeWipContext(wip),
-						inReview: inReview,
-					}) as DidChangeWipStateParams,
-				);
+				const success = await this.host.notify(DidChangeWipStateNotification, {
+					wip: serializeWipContext(wip),
+					inReview: inReview,
+				});
 				if (success) {
 					this._context.wip = wip;
 					this._context.inReview = inReview;
@@ -1418,12 +1398,9 @@ export class CommitDetailsWebviewProvider
 			: [];
 
 		if (this._pendingContext == null) {
-			const success = await this.host.notify(
-				DidChangeWipStateNotification,
-				serialize({
-					wip: serializeWipContext(wip),
-				}) as DidChangeWipStateParams,
-			);
+			const success = await this.host.notify(DidChangeWipStateNotification, {
+				wip: serializeWipContext(wip),
+			});
 			if (success) {
 				this._context.wip = wip;
 				return;
@@ -1432,60 +1409,6 @@ export class CommitDetailsWebviewProvider
 
 		this.updatePendingContext({ wip: wip });
 		this.updateState(true);
-	}
-
-	@debug({ args: false })
-	private async updateRichState(current: Context, cancellation: CancellationToken): Promise<void> {
-		const { commit } = current;
-		if (commit == null) return;
-
-		const remote = await this.container.git
-			.getRepositoryService(commit.repoPath)
-			.remotes.getBestRemoteWithIntegration();
-
-		if (cancellation.isCancellationRequested) return;
-
-		const [enrichedAutolinksResult, prResult] =
-			remote?.provider != null && current.autolinksEnabled
-				? await Promise.allSettled([
-						configuration.get('views.commitDetails.autolinks.enhanced')
-							? pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote))
-							: undefined,
-						configuration.get('views.commitDetails.pullRequests.enabled')
-							? commit.getAssociatedPullRequest(remote)
-							: undefined,
-					])
-				: [];
-
-		if (cancellation.isCancellationRequested) return;
-
-		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
-		const pr = getSettledValue(prResult);
-
-		const formattedMessage = this.getFormattedMessage(commit, remote, enrichedAutolinks);
-
-		this.updatePendingContext({
-			autolinksEnabled: current.autolinksEnabled,
-			experimentalComposerEnabled: current.experimentalComposerEnabled,
-			richStateLoaded: true,
-			formattedMessage: formattedMessage,
-			autolinkedIssues:
-				enrichedAutolinks != null
-					? [...filterMap(enrichedAutolinks.values(), ([issueOrPullRequest]) => issueOrPullRequest?.value)]
-					: undefined,
-			pullRequest: pr,
-		});
-
-		this.updateState();
-
-		// return {
-		// 	formattedMessage: formattedMessage,
-		// 	pullRequest: pr,
-		// 	autolinkedIssues:
-		// 		autolinkedIssuesAndPullRequests != null
-		// 			? [...autolinkedIssuesAndPullRequests.values()].filter(<T>(i: T | undefined): i is T => i != null)
-		// 			: undefined,
-		// };
 	}
 
 	private _repositorySubscription: RepositorySubscription | undefined;
@@ -1540,11 +1463,6 @@ export class CommitDetailsWebviewProvider
 				commit: commit,
 				autolinksEnabled: configuration.get('views.commitDetails.autolinks.enabled'),
 				experimentalComposerEnabled: configuration.get('ai.experimental.composer.enabled', undefined, false),
-				richStateLoaded:
-					Boolean(commit?.isUncommitted) ||
-					(commit != null
-						? !getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(commit.repoPath)
-						: !getContext('gitlens:repos:withHostingIntegrationsConnected')),
 				formattedMessage: undefined,
 				autolinkedIssues: undefined,
 				pullRequest: undefined,
@@ -1694,10 +1612,7 @@ export class CommitDetailsWebviewProvider
 			return;
 		}
 
-		if (this._notifyDidChangeStateDebounced == null) {
-			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
-		}
-
+		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 500);
 		this._notifyDidChangeStateDebounced();
 	}
 
@@ -1795,10 +1710,7 @@ export class CommitDetailsWebviewProvider
 		commit = getSettledValue(commitResult, commit);
 		const avatarUri = getSettledValue(avatarUriResult);
 		const remote = getSettledValue(remoteResult);
-
-		if (formattedMessage == null) {
-			formattedMessage = this.getFormattedMessage(commit, remote);
-		}
+		formattedMessage ??= this.getFormattedMessage(commit, remote);
 
 		const autolinks =
 			commit.message != null ? await this.container.autolinks.getAutolinks(commit.message, remote) : undefined;
@@ -1815,6 +1727,49 @@ export class CommitDetailsWebviewProvider
 			files: commit.fileset?.files,
 			stats: commit.stats,
 			autolinks: autolinks != null ? [...map(autolinks.values(), serializeAutolink)] : undefined,
+
+			enriched: this.getEnrichedState(commit, remote),
+		};
+	}
+
+	@debug({ args: false })
+	private async getEnrichedState(
+		commit: GitCommit,
+		remote: GitRemote | undefined,
+	): Promise<NonNullable<Awaited<NonNullable<State['commit']>['enriched']>>> {
+		const [enrichedAutolinksResult, prResult] =
+			remote?.provider != null
+				? await Promise.allSettled([
+						configuration.get('views.commitDetails.autolinks.enabled') &&
+						configuration.get('views.commitDetails.autolinks.enhanced')
+							? pauseOnCancelOrTimeoutMapTuplePromise(
+									commit.getEnrichedAutolinks(remote as GitRemote<RemoteProvider>),
+								)
+							: undefined,
+						configuration.get('views.commitDetails.pullRequests.enabled')
+							? commit.getAssociatedPullRequest(remote as GitRemote<RemoteProvider>)
+							: undefined,
+					])
+				: [];
+
+		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
+		const pr = getSettledValue(prResult);
+
+		const issues =
+			enrichedAutolinks != null
+				? [
+						...filterMap(enrichedAutolinks.values(), ([issueOrPullRequest]) =>
+							issueOrPullRequest?.value != null
+								? serializeIssueOrPullRequest(issueOrPullRequest.value)
+								: undefined,
+						),
+					]
+				: [];
+
+		return {
+			formattedMessage: this.getFormattedMessage(commit, remote, enrichedAutolinks),
+			associatedPullRequest: pr != null ? serializePullRequest(pr) : undefined,
+			autolinkedIssues: issues,
 		};
 	}
 
@@ -2034,14 +1989,9 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 			// type: wip.repo.provider.name,
 		},
 		pullRequest: wip.pullRequest != null ? serializePullRequest(wip.pullRequest) : undefined,
-		codeSuggestions: wip.codeSuggestions?.map(draft => serializeDraft(draft)),
+		codeSuggestions: wip.codeSuggestions?.map(draft => ({
+			...draft,
+			changesets: undefined, // Inspect doesn't need changesets for the draft list
+		})),
 	};
-}
-
-function serializeDraft(draft: Draft): Serialized<Draft> {
-	// Inspect doesn't need changesets for the draft list
-	return serialize<Draft>({
-		...draft,
-		changesets: undefined,
-	});
 }
