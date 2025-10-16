@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.6.2] - 2025-10-16
+
 ### Changed
 
 - Reduces view refresh frequency for showing last fetched time to improve performance and reduce overhead
@@ -6402,7 +6404,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.2...HEAD
+[17.6.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.1...gitkraken:v17.6.2
 [17.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.0...gitkraken:v17.6.1
 [17.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.1...gitkraken:v17.6.0
 [17.5.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.5.0...gitkraken:v17.5.1
