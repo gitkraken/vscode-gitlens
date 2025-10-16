@@ -95,18 +95,24 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			return undefined;
 		}
 
-		let output = await runCLICommand(['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`], {
-			cwd: cliPath,
-		});
-		output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
-
 		try {
+			let output = await runCLICommand(
+				['mcp', 'config', appName, '--source=gitlens', `--scheme=${env.uriScheme}`],
+				{
+					cwd: cliPath,
+				},
+			);
+			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
+
 			const config: McpConfiguration = JSON.parse(output);
+			if (!config.type || !config.command || !Array.isArray(config.args)) {
+				throw new Error(`Invalid MCP configuration: missing required properties (${output})`);
+			}
 
 			this.onRegistrationCompleted(cliInstall.version);
 
 			return {
-				name: config.name,
+				name: config.name ?? 'GitKraken',
 				type: config.type,
 				command: config.command,
 				args: config.args,
@@ -114,7 +120,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 			};
 		} catch (ex) {
 			Logger.error(`Error getting MCP configuration: ${ex}`);
-			this.onRegistrationFailed('Error getting MCP configuration', undefined, cliInstall.version);
+			this.onRegistrationFailed('Error getting MCP configuration', String(ex), cliInstall.version);
 		}
 
 		return undefined;
