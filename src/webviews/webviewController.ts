@@ -1,3 +1,4 @@
+import { deflateSync, strFromU8, strToU8 } from 'fflate';
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { base64 } from '@env/base64';
@@ -14,13 +15,13 @@ import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { sequentialize } from '../system/decorators/serialize';
+import { serializeIpcData } from '../system/ipcSerialize';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { pauseOnCancelOrTimeout } from '../system/promise';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch';
 import type { WebviewContext } from '../system/webview';
 import type { IpcPromise } from './ipc';
-import { isIpcPromise } from './ipc';
 import type {
 	IpcCallMessageType,
 	IpcCallParamsType,
@@ -47,8 +48,6 @@ import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webview
 import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
 const ipcSequencer = getScopedCounter();
-const utf8TextDecoder = new TextDecoder('utf8');
-const utf8TextEncoder = new TextEncoder();
 
 type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
 	? WebviewPanelDescriptor<T>
@@ -625,11 +624,11 @@ export class WebviewController<
 		]);
 
 		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
-		this.replacePromisesWithIpcPromises(bootstrap);
-		sw?.stop({ message: `\u2022 replaced tagged ipc types in bootstrap` });
+		const serialized = this.serializeIpcData(bootstrap);
+		sw?.stop({ message: `\u2022 serialized bootstrap; length=${serialized.length}` });
 
 		const html = replaceWebviewHtmlTokens(
-			utf8TextDecoder.decode(bytes),
+			strFromU8(bytes),
 			this.id,
 			this.instanceId,
 			webview.cspSource,
@@ -637,7 +636,7 @@ export class WebviewController<
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
 			this.is('editor') ? 'editor' : 'view',
-			bootstrap,
+			serialized,
 			head,
 			body,
 			endOfBody,
@@ -660,22 +659,41 @@ export class WebviewController<
 		const scope = getNewLogScope(`${getLoggableName(this)}.notify(${id}|${notificationType.method})`, true);
 		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
 
-		this.replacePromisesWithIpcPromises(params);
+		const serializedParams = this.serializeIpcData(params);
 
-		sw?.restart({ message: `\u2022 replaced tagged ipc types in params` });
+		sw?.restart({ message: `\u2022 serialized params; length=${serializedParams.length}` });
 
 		let bytes: Uint8Array | undefined;
 		let compression: IpcMessage['compressed'] = false;
-		if (notificationType.compressed && params != null) {
-			bytes = utf8TextEncoder.encode(JSON.stringify(params));
+		if (serializedParams != null && serializedParams.length > 1024) {
+			bytes = strToU8(serializedParams);
 			compression = 'utf8';
+
+			const originalSize = bytes.byteLength;
+
+			try {
+				bytes = deflateSync(bytes, { level: 1 });
+				compression = 'deflate';
+
+				sw?.stop({
+					message: `\u2022 compressed (${compression}) serialized params (${Math.round((1 - bytes.byteLength / originalSize) * 100)}% reduction) ${originalSize} → ${bytes.byteLength} bytes`,
+				});
+			} catch (ex) {
+				debugger;
+				// Compression failed, keep uncompressed data
+				Logger.error(ex, scope, 'IPC deflate compression failed');
+				sw?.stop({
+					message: `\u2022 failed deflate compression, using uncompressed data`,
+					suffix: `failed`,
+				});
+			}
 		}
 
 		const msg: IpcMessage<IpcCallParamsType<T> | Uint8Array> = {
 			id: id,
 			scope: notificationType.scope,
 			method: notificationType.method,
-			params: bytes ?? params,
+			params: bytes ?? serializedParams,
 			compressed: compression,
 			timestamp: timestamp,
 			completionId: completionId,
@@ -700,59 +718,43 @@ export class WebviewController<
 		return this.notify(requestType.response, params, msg.completionId);
 	}
 
-	private replacePromisesWithIpcPromises(data: unknown) {
+	private serializeIpcData(data: unknown): string {
 		const pendingPromises: IpcPromise[] = [];
-		this.replacePromisesWithIpcPromisesCore(data, pendingPromises);
-		if (!pendingPromises.length) return;
+		const serialized = serializeIpcData(data, () => this.nextIpcId(), pendingPromises);
 
-		const cancellation = this.cancellation?.token;
-		queueMicrotask(() => {
-			for (const ipcPromise of pendingPromises) {
-				ipcPromise.__promise.then(
-					r => {
-						if (cancellation?.isCancellationRequested) {
-							debugger;
-							return;
-						}
-						return this.notify(IpcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.value.id);
-					},
-					(ex: unknown) => {
-						if (cancellation?.isCancellationRequested) {
-							debugger;
-							return;
-						}
-						return this.notify(IpcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.value.id);
-					},
-				);
-			}
-		});
-	}
-
-	private replacePromisesWithIpcPromisesCore(data: unknown, pendingPromises: IpcPromise[]) {
-		if (data == null || typeof data !== 'object') return;
-
-		for (const key in data) {
-			if (key === '__promise') continue;
-
-			const value = (data as Record<string, unknown>)[key];
-			if (value instanceof Promise) {
-				const ipcPromise: IpcPromise = {
-					__ipc: 'promise',
-					__promise: value,
-					value: {
-						id: this.nextIpcId(),
-						method: IpcPromiseSettled.method,
-					},
-				};
-				(data as Record<string, unknown>)[key] = ipcPromise;
-				pendingPromises.push(ipcPromise);
-			} else if (isIpcPromise(value)) {
-				value.value.id = this.nextIpcId();
-				pendingPromises.push(value);
-			} else {
-				this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
-			}
+		if (pendingPromises.length) {
+			const cancellation = this.cancellation?.token;
+			queueMicrotask(() => {
+				for (const ipcPromise of pendingPromises) {
+					ipcPromise.__promise.then(
+						r => {
+							if (cancellation?.isCancellationRequested) {
+								debugger;
+								return;
+							}
+							return this.notify(
+								IpcPromiseSettled,
+								{ status: 'fulfilled', value: r },
+								ipcPromise.value.id,
+							);
+						},
+						(ex: unknown) => {
+							if (cancellation?.isCancellationRequested) {
+								debugger;
+								return;
+							}
+							return this.notify(
+								IpcPromiseSettled,
+								{ status: 'rejected', reason: ex },
+								ipcPromise.value.id,
+							);
+						},
+					);
+				}
+			});
 		}
+
+		return serialized;
 	}
 
 	@sequentialize()
@@ -885,13 +887,15 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 				case 'body':
 					return body ?? '';
 				case 'state':
-					return bootstrap != null ? base64(JSON.stringify(bootstrap)) : '';
+					return bootstrap != null
+						? base64(typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap))
+						: '';
 				case 'endOfBody':
 					return `${
 						bootstrap != null
-							? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
-									bootstrap,
-								)};</script>`
+							? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${
+									typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap)
+								};</script>`
 							: ''
 					}${endOfBody ?? ''}`;
 				case 'webviewId':

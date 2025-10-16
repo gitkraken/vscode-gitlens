@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../config';
 import type { GlCommands } from '../../../constants.commands';
-import type { Serialized } from '../../../system/serialize';
+import type { IpcSerialized } from '../../../system/ipcSerialize';
 import { pluralize } from '../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol';
 import {
@@ -67,16 +67,16 @@ interface ExplainState {
 }
 
 @customElement('gl-commit-details-app')
-export class GlCommitDetailsApp extends GlAppHost<Serialized<State>> {
+export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
 
-	protected override createStateProvider(state: Serialized<State>, ipc: HostIpc): CommitDetailsStateProvider {
+	protected override createStateProvider(state: IpcSerialized<State>, ipc: HostIpc): CommitDetailsStateProvider {
 		return new CommitDetailsStateProvider(this, state, ipc);
 	}
 
-	protected override onPersistState(state: Serialized<State>): void {
+	protected override onPersistState(state: IpcSerialized<State>): void {
 		this._ipc.setPersistedState({ mode: state.mode, pinned: state.pinned, preferences: state.preferences });
 	}
 

@@ -25036,7 +25036,8 @@
 		"react-dom": "19.0.0",
 		"signal-utils": "0.21.1",
 		"slug": "11.0.0",
-		"sortablejs": "1.15.6"
+		"sortablejs": "1.15.6",
+		"vscode-uri": "3.1.0"
 	},
 	"devDependencies": {
 		"@custom-elements-manifest/analyzer": "0.10.10",
