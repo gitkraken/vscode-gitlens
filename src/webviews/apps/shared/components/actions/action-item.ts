@@ -53,9 +53,13 @@ export class ActionItem extends LitElement {
 			justify-content: center;
 			width: 100%;
 			height: 100%;
+			text-decoration: none;
 		}
 		a:focus {
 			outline: none;
+		}
+		a:is(:hover, :focus, :active) {
+			text-decoration: none;
 		}
 	`;
 
