@@ -94,6 +94,8 @@ type InternalSearchAndCompareViewCommands = 'gitlens.views.searchAndCompare.comp
 
 type InternalTimelineWebviewViewCommands = 'gitlens.views.timeline.openInTab';
 
+type InternalViewCommands = 'gitlens.views.loadMoreChildren';
+
 type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.connectIntegrations'
 	| 'gitlens.walkthrough.enableAiSetting'
@@ -128,6 +130,7 @@ type InternalGlCommands =
 	| 'gitlens.ai.feedback.helpful'
 	| 'gitlens.ai.feedback.unhelpful'
 	| 'gitlens.ai.mcp.authCLI'
+	| 'gitlens.ai.undoGenerateRebase'
 	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
 	| 'gitlens.diffWithPrevious:codelens'
@@ -135,12 +138,15 @@ type InternalGlCommands =
 	| 'gitlens.diffWithPrevious:views'
 	| 'gitlens.diffWithWorking:command'
 	| 'gitlens.diffWithWorking:views'
+	| 'gitlens.openCloudPatch'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.showComposerPage'
+	| 'gitlens.showInCommitGraphView'
+	| 'gitlens.showQuickCommitDetails'
 	| 'gitlens.storage.store'
 	| 'gitlens.toggleFileBlame:codelens'
 	| 'gitlens.toggleFileBlame:mode'
@@ -161,6 +167,7 @@ type InternalGlCommands =
 	| InternalScmGroupedViewCommands
 	| InternalSearchAndCompareViewCommands
 	| InternalTimelineWebviewViewCommands
+	| InternalViewCommands
 	| InternalWalkthroughCommands;
 
 export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;

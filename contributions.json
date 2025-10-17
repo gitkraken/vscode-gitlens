@@ -370,10 +370,6 @@
 				]
 			}
 		},
-		"gitlens.ai.undoGenerateRebase": {
-			"label": "Undo AI Generated Changes (Preview)...",
-			"icon": "$(discard)"
-		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
 			"icon": "$(arrow-down)"
@@ -3348,9 +3344,6 @@
 				]
 			}
 		},
-		"gitlens.openCloudPatch": {
-			"label": "Open Cloud Patch..."
-		},
 		"gitlens.openCommitOnRemote": {
 			"label": "Open Commit on Remote",
 			"icon": "$(globe)",
@@ -4241,10 +4234,6 @@
 				]
 			}
 		},
-		"gitlens.showInCommitGraphView": {
-			"label": "Open in Commit Graph",
-			"icon": "$(gitlens-graph)"
-		},
 		"gitlens.showInDetailsView": {
 			"label": "Inspect Details",
 			"icon": "$(eye)",
@@ -4344,7 +4333,8 @@
 			"commandPalette": "gitlens:enabled"
 		},
 		"gitlens.showQuickCommitDetails": {
-			"label": "Quick Show Commit"
+			"label": "Quick Show Commit",
+			"commandPalette": "resource in gitlens:tabs:blameable"
 		},
 		"gitlens.showQuickCommitFileDetails": {
 			"label": "Quick Show Line Commit",
@@ -4946,10 +4936,6 @@
 					}
 				]
 			}
-		},
-		"gitlens.showSettingsPage!views": {
-			"label": "Open Settings",
-			"icon": "$(gear)"
 		},
 		"gitlens.showSettingsPage!worktrees-view": {
 			"label": "Open View Settings",
@@ -5585,10 +5571,6 @@
 				]
 			}
 		},
-		"gitlens.toggleFileChangesOnly": {
-			"label": "Toggle File Changes",
-			"icon": "$(gitlens-gitlens)"
-		},
 		"gitlens.toggleFileHeatmap": {
 			"label": "Toggle File Heatmap",
 			"icon": "$(gitlens-gitlens)",
@@ -5849,11 +5831,6 @@
 					}
 				]
 			}
-		},
-		"gitlens.views.addPullRequestRemote": {
-			"label": "Add Pull Request Remote",
-			"icon": "$(add)",
-			"enablement": "!operationInProgress"
 		},
 		"gitlens.views.addRemote": {
 			"label": "Add Remote...",
@@ -9392,7 +9369,14 @@
 			}
 		},
 		"gitlens.views.launchpad.copy": {
-			"label": "Copy"
+			"label": "Copy",
+			"keybindings": [
+				{
+					"key": "ctrl+c",
+					"when": "focusedView == gitlens.views.launchpad",
+					"mac": "cmd+c"
+				}
+			]
 		},
 		"gitlens.views.launchpad.info": {
 			"label": "Learn about Launchpad...",
@@ -9792,9 +9776,6 @@
 					}
 				]
 			}
-		},
-		"gitlens.views.loadMoreChildren": {
-			"label": "Load More"
 		},
 		"gitlens.views.mergeBranchInto": {
 			"label": "Merge Branch into Current Branch...",

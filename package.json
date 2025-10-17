@@ -6341,11 +6341,6 @@
 				"title": "Switch GitLens AI Provider/Model..."
 			},
 			{
-				"command": "gitlens.ai.undoGenerateRebase",
-				"title": "Undo AI Generated Changes (Preview)...",
-				"icon": "$(discard)"
-			},
-			{
 				"command": "gitlens.annotations.nextChange",
 				"title": "Next Change",
 				"icon": "$(arrow-down)"
@@ -7532,10 +7527,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.openCloudPatch",
-				"title": "Open Cloud Patch..."
-			},
-			{
 				"command": "gitlens.openCommitOnRemote",
 				"title": "Open Commit on Remote",
 				"category": "GitLens",
@@ -7859,11 +7850,6 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
-				"command": "gitlens.showInCommitGraphView",
-				"title": "Open in Commit Graph",
-				"icon": "$(gitlens-graph)"
-			},
-			{
 				"command": "gitlens.showInDetailsView",
 				"title": "Inspect Details",
 				"icon": "$(eye)"
@@ -7908,7 +7894,8 @@
 			},
 			{
 				"command": "gitlens.showQuickCommitDetails",
-				"title": "Quick Show Commit"
+				"title": "Quick Show Commit",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",
@@ -8039,11 +8026,6 @@
 			{
 				"command": "gitlens.showSettingsPage!tags-view",
 				"title": "Open View Settings",
-				"icon": "$(gear)"
-			},
-			{
-				"command": "gitlens.showSettingsPage!views",
-				"title": "Open Settings",
 				"icon": "$(gear)"
 			},
 			{
@@ -8279,11 +8261,6 @@
 				"icon": "$(gitlens-gitlens)"
 			},
 			{
-				"command": "gitlens.toggleFileChangesOnly",
-				"title": "Toggle File Changes",
-				"icon": "$(gitlens-gitlens)"
-			},
-			{
 				"command": "gitlens.toggleFileHeatmap",
 				"title": "Toggle File Heatmap",
 				"category": "GitLens",
@@ -8380,12 +8357,6 @@
 				"command": "gitlens.views.addAuthors",
 				"title": "Add Co-authors...",
 				"icon": "$(person-add)"
-			},
-			{
-				"command": "gitlens.views.addPullRequestRemote",
-				"title": "Add Pull Request Remote",
-				"icon": "$(add)",
-				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.addRemote",
@@ -9139,10 +9110,6 @@
 				"command": "gitlens.views.loadAllChildren",
 				"title": "Load All",
 				"icon": "$(gitlens-expand)"
-			},
-			{
-				"command": "gitlens.views.loadMoreChildren",
-				"title": "Load More"
 			},
 			{
 				"command": "gitlens.views.mergeBranchInto",
@@ -11125,10 +11092,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.undoGenerateRebase",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.annotations.nextChange",
 					"when": "false"
 				},
@@ -12065,10 +12028,6 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.openCloudPatch",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.openCommitOnRemote",
 					"when": "gitlens:repos:withRemotes"
 				},
@@ -12289,10 +12248,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showInCommitGraphView",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.showInDetailsView",
 					"when": "false"
 				},
@@ -12326,7 +12281,7 @@
 				},
 				{
 					"command": "gitlens.showQuickCommitDetails",
-					"when": "false"
+					"when": "resource in gitlens:tabs:blameable"
 				},
 				{
 					"command": "gitlens.showQuickCommitFileDetails",
@@ -12418,10 +12373,6 @@
 				},
 				{
 					"command": "gitlens.showSettingsPage!tags-view",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.showSettingsPage!views",
 					"when": "false"
 				},
 				{
@@ -12589,10 +12540,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.toggleFileChangesOnly",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.toggleFileHeatmap",
 					"when": "resource in gitlens:tabs:blameable || config.gitlens.heatmap.toggleMode == window"
 				},
@@ -12666,10 +12613,6 @@
 				},
 				{
 					"command": "gitlens.views.addAuthors",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.addPullRequestRemote",
 					"when": "false"
 				},
 				{
@@ -13294,10 +13237,6 @@
 				},
 				{
 					"command": "gitlens.views.loadAllChildren",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.loadMoreChildren",
 					"when": "false"
 				},
 				{
@@ -24181,6 +24120,12 @@
 				"command": "gitlens.views.fileHistory.copy",
 				"key": "ctrl+c",
 				"when": "focusedView == gitlens.views.fileHistory",
+				"mac": "cmd+c"
+			},
+			{
+				"command": "gitlens.views.launchpad.copy",
+				"key": "ctrl+c",
+				"when": "focusedView == gitlens.views.launchpad",
 				"mac": "cmd+c"
 			},
 			{

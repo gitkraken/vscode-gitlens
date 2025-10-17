@@ -47,8 +47,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		}
 
 		if (context.type === 'viewItem') {
-			args = { ...args };
-			args.sha = context.node.uri.sha;
+			args = { ...args, sha: context.node.uri.sha };
 
 			if (isCommandContextViewNodeHasCommit(context)) {
 				args.commit = context.node.commit;
@@ -59,6 +58,8 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitCommandArgs): Promise<void> {
+		args = { ...args };
+
 		let gitUri;
 		let repoPath;
 		if (args?.commit == null) {
@@ -73,19 +74,14 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				repoPath = gitUri.repoPath!;
 			}
 		} else {
-			if (args.sha == null) {
-				args.sha = args.commit.sha;
-			}
+			args.sha ??= args.commit.sha;
 
 			gitUri = args.commit.getGitUri();
 			repoPath = args.commit.repoPath;
 
-			if (uri == null) {
-				uri = args.commit.file?.uri;
-			}
+			uri ??= args.commit.file?.uri;
 		}
 
-		args = { ...args };
 		if (args.sha == null) {
 			if (editor == null) return;
 
