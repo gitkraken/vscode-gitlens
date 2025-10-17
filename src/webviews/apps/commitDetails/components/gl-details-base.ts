@@ -152,13 +152,13 @@ export class GlDetailsBase extends LitElement {
 			}
 		}
 
-		if (staged.length === 0 && unstaged.length === 0) {
+		if (!staged.length && !unstaged.length) {
 			children.push(...this.createFileTreeModel(mode, files, isTree, compact));
 		} else {
 			if (staged.length) {
 				children.push({
 					label: 'Staged Changes',
-					path: '',
+					path: '/:staged:/',
 					level: 1, // isMulti ? 2 : 1,
 					branch: true,
 					checkable: false,
@@ -174,7 +174,7 @@ export class GlDetailsBase extends LitElement {
 			if (unstaged.length) {
 				children.push({
 					label: 'Unstaged Changes',
-					path: '',
+					path: '/:unstaged:/',
 					level: 1, // isMulti ? 2 : 1,
 					branch: true,
 					checkable: false,
