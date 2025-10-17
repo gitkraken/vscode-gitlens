@@ -534,9 +534,10 @@ export interface GitPatchSubProvider {
 	): Promise<GitCommit | undefined>;
 	createUnreachableCommitsFromPatches(
 		repoPath: string,
-		base: string,
+		base: string | undefined,
 		patches: { message: string; patch: string }[],
 	): Promise<string[]>;
+	createEmptyInitialCommit(repoPath: string): Promise<string>;
 
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
 }
@@ -651,7 +652,7 @@ export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 }
 
 export interface GitStagingSubProvider {
-	createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex>;
+	createTemporaryIndex(repoPath: string, base: string | undefined): Promise<DisposableTemporaryGitIndex>;
 	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
