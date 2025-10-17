@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { ContributionsJson } from './contributions/models';
 import { readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
@@ -96,7 +96,7 @@ export type ContributedOrphansOrInternalCommands = ${[...internalCommands]
 	const file = path.join(__dirname, 'src', 'constants.commands.generated.ts');
 	writeFileSync(file, contents, 'utf8');
 	// run prettier on the generated file
-	exec(`pnpm prettier --write ${file}`);
+	execFileSync('pnpm', ['prettier', '--write', file]);
 
 	console.log("Generated 'constants.commands.generated.ts' from contributions.json");
 }
