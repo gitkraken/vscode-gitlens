@@ -15,7 +15,7 @@ import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-we
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
 
-type IpcCompression = 'utf8' | false;
+type IpcCompression = 'deflate' | 'utf8' | false;
 export interface IpcMessage<T = unknown> {
 	id: string;
 	scope: IpcScope;
@@ -34,7 +34,6 @@ abstract class IpcCall<Params> {
 		public readonly scope: IpcScope,
 		method: string,
 		public readonly reset: boolean = false,
-		public readonly compressed: IpcCompression = false,
 	) {
 		this.method = `${scope}/${method}`;
 	}
@@ -61,15 +60,10 @@ export class IpcCommand<Params = void> extends IpcCall<Params> {}
 export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Params> {
 	public readonly response: IpcNotification<ResponseParams>;
 
-	constructor(scope: IpcScope, method: string, reset?: boolean, compressed?: IpcCompression) {
-		super(scope, method, reset, compressed);
+	constructor(scope: IpcScope, method: string, reset?: boolean) {
+		super(scope, method, reset);
 
-		this.response = new IpcNotification<ResponseParams>(
-			this.scope,
-			`${method}/completion`,
-			this.reset,
-			this.compressed,
-		);
+		this.response = new IpcNotification<ResponseParams>(this.scope, `${method}/completion`, this.reset);
 	}
 }
 

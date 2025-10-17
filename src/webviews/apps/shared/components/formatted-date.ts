@@ -12,7 +12,7 @@ export class FormattedDate extends LitElement {
 	@property({ attribute: 'date-style' })
 	dateStyle: 'relative' | 'absolute' = 'relative';
 
-	@property({ converter: dateConverter(), reflect: true })
+	@property({ converter: dateConverter(), reflect: true, attribute: false })
 	date = new Date();
 
 	@property()

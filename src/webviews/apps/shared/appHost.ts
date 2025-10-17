@@ -84,9 +84,8 @@ export abstract class GlAppHost<
 		this._ipc = new HostIpc(this.name);
 		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
-		const state: State = JSON.parse(fromBase64ToString(this.bootstrap));
+		const state = this._ipc.deserializeIpcData<State>(fromBase64ToString(this.bootstrap));
 		this.bootstrap = undefined!;
-		this._ipc.replaceIpcPromisesWithPromises(state);
 
 		this._logger.log(`bootstrap duration=${Date.now() - state.timestamp}ms`);
 
