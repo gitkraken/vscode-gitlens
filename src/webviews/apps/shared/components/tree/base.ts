@@ -87,5 +87,11 @@ export interface TreeItemCheckedDetail {
 	checked: boolean;
 }
 
+export interface TreeItemContextMenuDetail {
+	node: TreeItemBase;
+	context?: DraftPatchFileChange[];
+	event: MouseEvent;
+}
+
 // export function toStashTree(files: GitFileChangeShape[]): TreeModel {}
 // export function toWipTrees(files: GitFileChangeShape[]): TreeModel[] {}

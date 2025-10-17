@@ -2,7 +2,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { GlElement } from '../element';
-import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base';
+import type { TreeItemCheckedDetail, TreeItemContextMenuDetail, TreeItemSelectionDetail } from './base';
 import { treeItemStyles } from './tree.css';
 import '../actions/action-nav';
 import '../code-icon';
@@ -53,6 +53,9 @@ export class GlTreeItem extends GlElement {
 
 	@property({ type: Number })
 	override tabIndex = -1;
+
+	@property({ type: String, attribute: 'vscode-context' })
+	vscodeContext?: string;
 
 	// state
 	@state()
@@ -125,6 +128,16 @@ export class GlTreeItem extends GlElement {
 
 	override updated(changedProperties: Map<string, any>): void {
 		this.updateAttrs(changedProperties);
+
+		// Update vscode context attribute on the host element (not in shadow DOM)
+		// This allows VS Code's injected library to access it
+		if (changedProperties.has('vscodeContext')) {
+			if (this.vscodeContext) {
+				this.dataset.vscodeContext = this.vscodeContext;
+			} else {
+				delete this.dataset.vscodeContext;
+			}
+		}
 	}
 
 	private renderBranching() {
@@ -183,6 +196,7 @@ export class GlTreeItem extends GlElement {
 				tabindex=${this.tabIndex}
 				@click=${this.onButtonClick}
 				@dblclick=${this.onButtonDblClick}
+				@contextmenu=${this.onButtonContextMenu}
 			>
 				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
 				<span class="text">
@@ -244,6 +258,29 @@ export class GlTreeItem extends GlElement {
 		});
 	}
 
+	private onButtonContextMenu(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Create a new contextmenu event that can cross shadow DOM boundaries
+		const evt = new MouseEvent('contextmenu', {
+			bubbles: true,
+			composed: true, // This is key - allows event to cross shadow DOM boundaries
+			cancelable: true,
+			clientX: e.clientX,
+			clientY: e.clientY,
+			button: e.button,
+			buttons: e.buttons,
+			ctrlKey: e.ctrlKey,
+			shiftKey: e.shiftKey,
+			altKey: e.altKey,
+			metaKey: e.metaKey,
+		});
+
+		// Dispatch from the host element (outside shadow DOM)
+		this.dispatchEvent(evt);
+	}
+
 	private onCheckboxClick(e: Event) {
 		e.stopPropagation();
 	}
@@ -266,5 +303,6 @@ declare global {
 		'gl-tree-item-select': CustomEvent<undefined>;
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
+		'gl-tree-item-context-menu': CustomEvent<TreeItemContextMenuDetail>;
 	}
 }

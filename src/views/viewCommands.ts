@@ -51,7 +51,7 @@ import {
 	registerCommand,
 } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
+import { getContext, setContext } from '../system/-webview/context';
 import { revealInFileExplorer } from '../system/-webview/vscode';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors';
 import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors';
@@ -111,8 +111,8 @@ import type { WorktreeNode } from './nodes/worktreeNode';
 import type { WorktreesNode } from './nodes/worktreesNode';
 
 const { command, getCommands } = createCommandDecorator<
-	(...args: any[]) => unknown,
 	GlCommands,
+	(...args: any[]) => unknown,
 	{
 		multiselect?: boolean | 'sequential';
 		args?: (...args: unknown[]) => unknown[];
@@ -1318,36 +1318,31 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.compareFileWithSelected')
 	@log()
 	private compareFileWithSelected(node: ViewRefFileNode) {
-		if (this._selectedFile == null || !(node instanceof ViewRefFileNode) || node.ref == null) {
+		const selectedFile = getContext('gitlens:views:canCompare:file');
+		if (selectedFile == null || !(node instanceof ViewRefFileNode) || node.ref == null) {
 			return Promise.resolve();
 		}
 
-		if (this._selectedFile.repoPath !== node.repoPath) {
+		void setContext('gitlens:views:canCompare:file', undefined);
+
+		if (selectedFile.repoPath !== node.repoPath) {
 			this.selectFileForCompare(node);
 			return Promise.resolve();
 		}
 
-		const selected = this._selectedFile;
-
-		this._selectedFile = undefined;
-		void setContext('gitlens:views:canCompare:file', false);
-
-		return this.compareFileWith(selected.repoPath!, selected.uri!, selected.ref, node.uri, node.ref.ref);
+		return this.compareFileWith(selectedFile.repoPath, selectedFile.uri, selectedFile.ref, node.uri, node.ref.ref);
 	}
-
-	private _selectedFile: CompareSelectedInfo | undefined;
 
 	@command('gitlens.views.selectFileForCompare')
 	@log()
 	private selectFileForCompare(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode) || node.ref == null) return;
 
-		this._selectedFile = {
+		void setContext('gitlens:views:canCompare:file', {
 			ref: node.ref.ref,
 			repoPath: node.repoPath,
 			uri: node.uri,
-		};
-		void setContext('gitlens:views:canCompare:file', true);
+		});
 	}
 
 	@command('gitlens.views.openChangedFileDiffs', { args: (n, o) => [n, o] })
@@ -1828,12 +1823,6 @@ export class ViewCommands implements Disposable {
 
 		return WorktreeActions.copyChangesToWorktree('working-tree', node.worktree.repoPath, undefined, node.worktree);
 	}
-}
-
-interface CompareSelectedInfo {
-	ref: string;
-	repoPath: string | undefined;
-	uri?: Uri;
 }
 
 export function registerViewCommand(

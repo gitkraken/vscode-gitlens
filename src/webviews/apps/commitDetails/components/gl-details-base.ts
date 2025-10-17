@@ -314,6 +314,11 @@ export class GlDetailsBase extends LitElement {
 		return [];
 	}
 
+	protected getFileContextData(_file: File): string | undefined {
+		// To be overridden by subclasses
+		return undefined;
+	}
+
 	protected fileToTreeModel(
 		file: File,
 		options?: Partial<TreeItemBase>,
@@ -336,6 +341,7 @@ export class GlDetailsBase extends LitElement {
 			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,
 			context: [file],
 			actions: this.getFileActions(file, options),
+			contextData: this.getFileContextData(file),
 			// decorations: [{ type: 'text', label: file.status }],
 			...options,
 		};

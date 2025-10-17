@@ -101,6 +101,10 @@ export class GlTreeGenerator extends GlElement {
 		this.addEventListener('keydown', this.handleKeydown, { capture: true });
 		this.addEventListener('focusin', this.handleFocusIn, { capture: true });
 		this.addEventListener('focusout', this.handleFocusOut, { capture: true });
+
+		// Listen for contextmenu events from tree items and re-dispatch them
+		// so they can cross the shadow DOM boundary with the context data
+		this.addEventListener('contextmenu', this.handleContextMenu);
 	}
 
 	override disconnectedCallback(): void {
@@ -109,6 +113,7 @@ export class GlTreeGenerator extends GlElement {
 		this.removeEventListener('keydown', this.handleKeydown, { capture: true });
 		this.removeEventListener('focusin', this.handleFocusIn, { capture: true });
 		this.removeEventListener('focusout', this.handleFocusOut, { capture: true });
+		this.removeEventListener('contextmenu', this.handleContextMenu);
 
 		// Clean up type-ahead timer and reset state
 		if (this._typeAheadTimer) {
@@ -231,6 +236,7 @@ export class GlTreeGenerator extends GlElement {
 			.focused=${isFocused && this._containerHasFocus && !this._actionButtonHasFocus}
 			.focusedInactive=${isFocused && (!this._containerHasFocus || this._actionButtonHasFocus)}
 			.tabIndex=${-1}
+			.vscodeContext=${model.contextData as string | undefined}
 			@gl-tree-item-select=${() => this.onBeforeTreeItemSelected(model)}
 			@gl-tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
 			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
@@ -405,6 +411,51 @@ export class GlTreeGenerator extends GlElement {
 		if (leavingActionItem && !enteringActionItem) {
 			this._actionButtonHasFocus = false;
 		}
+	};
+
+	private handleContextMenu = (e: MouseEvent) => {
+		// Find the tree-item element that triggered the context menu
+		const path = e.composedPath();
+		const treeItem = path.find(el => (el as HTMLElement).tagName === 'GL-TREE-ITEM') as HTMLElement | undefined;
+
+		if (!treeItem) return;
+
+		// Get the context data from the tree-item
+		const contextData = treeItem.dataset.vscodeContext;
+
+		if (!contextData) return;
+
+		// Copy the context data to this element (tree-generator host)
+		// so VS Code's injected library can read it
+		this.dataset.vscodeContext = contextData;
+
+		// Re-dispatch the event from this element so it can cross the shadow DOM boundary
+		const evt = new MouseEvent('contextmenu', {
+			bubbles: true,
+			composed: true,
+			cancelable: true,
+			clientX: e.clientX,
+			clientY: e.clientY,
+			button: e.button,
+			buttons: e.buttons,
+			ctrlKey: e.ctrlKey,
+			shiftKey: e.shiftKey,
+			altKey: e.altKey,
+			metaKey: e.metaKey,
+		});
+
+		// Prevent the original event from bubbling
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Dispatch the new event
+		this.dispatchEvent(evt);
+
+		// Clean up the context data after a short delay
+		// (VS Code should have read it by then)
+		setTimeout(() => {
+			delete this.dataset.vscodeContext;
+		}, 100);
 	};
 
 	private handleKeydown = (e: KeyboardEvent) => {
