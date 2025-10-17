@@ -372,11 +372,29 @@
 		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
-			"icon": "$(arrow-down)"
+			"icon": "$(arrow-down)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
 		},
 		"gitlens.annotations.previousChange": {
 			"label": "Previous Change",
-			"icon": "$(arrow-up)"
+			"icon": "$(arrow-up)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
+						"group": "navigation",
+						"order": -100
+					}
+				]
+			}
 		},
 		"gitlens.applyPatchFromClipboard": {
 			"label": "Apply Copied Changes (Patch)",
@@ -449,7 +467,7 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated == computed || (resource in gitlens:tabs:annotated && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
+						"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || (resource in gitlens:tabs:annotated && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
 						"group": "navigation",
 						"order": 100
 					}
@@ -582,7 +600,7 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated == computing || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
+						"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
 						"group": "navigation",
 						"order": 100
 					}

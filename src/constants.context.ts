@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import type { FileAnnotationType } from './config';
 import type { AnnotationStatus, Keys } from './constants';
 import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
@@ -42,6 +43,7 @@ export type ContextKeys = {
 	'gitlens:tabs:ai:unhelpful': Uri[];
 	'gitlens:tabs:ai:changelog': Uri[];
 	'gitlens:tabs:annotated': Uri[];
+	'gitlens:tabs:annotated:changes': Uri[];
 	'gitlens:tabs:annotated:computing': Uri[];
 	'gitlens:tabs:blameable': Uri[];
 	'gitlens:tabs:tracked': Uri[];
@@ -63,7 +65,7 @@ export type ContextKeys = {
 	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
 	'gitlens:views:scm:grouped:welcome': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
-	'gitlens:window:annotated': AnnotationStatus;
+	'gitlens:window:annotated': AnnotationStatus | `${AnnotationStatus}:${FileAnnotationType}`;
 	'gitlens:walkthroughSupported': boolean;
 } & Record<`gitlens:action:${string}`, number> &
 	Record<`gitlens:feature:unsupported:${Features}`, boolean> &

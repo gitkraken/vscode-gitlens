@@ -26,6 +26,8 @@ export type ContributedCommands =
 	| 'gitlens.ai.rebaseOntoCommit:graph'
 	| 'gitlens.ai.rebaseOntoCommit:views'
 	| 'gitlens.ai.switchProvider:scm'
+	| 'gitlens.annotations.nextChange'
+	| 'gitlens.annotations.previousChange'
 	| 'gitlens.changeUpstream:graph'
 	| 'gitlens.changeUpstream:views'
 	| 'gitlens.clearFileAnnotations'
@@ -960,7 +962,5 @@ export type ContributedKeybindingCommands =
  * Either their contribution point is missing or are simply internal and should be removed at some point
  */
 export type ContributedOrphansOrInternalCommands =
-	| 'gitlens.annotations.nextChange'
-	| 'gitlens.annotations.previousChange'
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.plus.cloudIntegrations.connect';

@@ -334,10 +334,12 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private readonly _annotatedUris = new UriSet();
+	private readonly _annotatedChangesUris = new UriSet();
 	private readonly _computingUris = new UriSet();
 
 	async onProviderEditorStatusChanged(
 		editor: TextEditor | undefined,
+		annotationType: FileAnnotationType | undefined,
 		status: AnnotationStatus | undefined,
 	): Promise<void> {
 		if (editor == null) return;
@@ -346,10 +348,11 @@ export class FileAnnotationController implements Disposable {
 		let windowStatus;
 
 		if (this.isInWindowToggle()) {
-			windowStatus = status;
+			windowStatus = status ? (annotationType ? (`${status}:${annotationType}` as const) : status) : undefined;
 
 			changed = Boolean(this._annotatedUris.size || this._computingUris.size);
 			this._annotatedUris.clear();
+			this._annotatedChangesUris.clear();
 			this._computingUris.clear();
 		} else {
 			windowStatus = undefined;
@@ -373,11 +376,19 @@ export class FileAnnotationController implements Disposable {
 					if (provider == null) {
 						if (this._annotatedUris.has(uri)) {
 							this._annotatedUris.delete(uri);
+							this._annotatedChangesUris.delete(uri);
 							changed = true;
 						}
-					} else if (!this._annotatedUris.has(uri)) {
-						this._annotatedUris.add(uri);
-						changed = true;
+					} else {
+						if (!this._annotatedUris.has(uri)) {
+							this._annotatedUris.add(uri);
+							changed = true;
+						}
+
+						if (provider.annotationType === 'changes' && !this._annotatedChangesUris.has(uri)) {
+							this._annotatedChangesUris.add(uri);
+							changed = true;
+						}
 					}
 
 					if (this._computingUris.has(uri)) {
@@ -389,6 +400,7 @@ export class FileAnnotationController implements Disposable {
 				default:
 					if (this._annotatedUris.has(uri)) {
 						this._annotatedUris.delete(uri);
+						this._annotatedChangesUris.delete(uri);
 						changed = true;
 					}
 
@@ -406,6 +418,7 @@ export class FileAnnotationController implements Disposable {
 			setContext('gitlens:window:annotated', windowStatus),
 			setContext('gitlens:tabs:annotated:computing', [...this._computingUris]),
 			setContext('gitlens:tabs:annotated', [...this._annotatedUris]),
+			setContext('gitlens:tabs:annotated:changes', [...this._annotatedChangesUris]),
 		]);
 	}
 
@@ -463,12 +476,12 @@ export class FileAnnotationController implements Disposable {
 		const provider = await window.withProgress(
 			{ location: ProgressLocation.Window },
 			async (progress: Progress<{ message: string }>) => {
-				void this.onProviderEditorStatusChanged(editor, 'computing');
+				void this.onProviderEditorStatusChanged(editor, type, 'computing');
 
 				const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, context, progress);
 				void (await computingAnnotations);
 
-				void this.onProviderEditorStatusChanged(editor, 'computed');
+				void this.onProviderEditorStatusChanged(editor, type, 'computed');
 
 				return computingAnnotations;
 			},
@@ -574,7 +587,7 @@ export class FileAnnotationController implements Disposable {
 
 		if (!this._annotationProviders.size || key === getEditorCorrelationKey(this._editor)) {
 			if (this._editor != null) {
-				void this.onProviderEditorStatusChanged(this._editor, undefined);
+				void this.onProviderEditorStatusChanged(this._editor, undefined, undefined);
 			}
 
 			await this.detachKeyboardHook();
@@ -636,7 +649,7 @@ export class FileAnnotationController implements Disposable {
 				);
 				provider = new GutterBlameAnnotationProvider(
 					this.container,
-					e => this.onProviderEditorStatusChanged(e.editor, e.status),
+					e => this.onProviderEditorStatusChanged(e.editor, type, e.status),
 					editor,
 					trackedDocument,
 				);
@@ -648,7 +661,7 @@ export class FileAnnotationController implements Disposable {
 				);
 				provider = new GutterChangesAnnotationProvider(
 					this.container,
-					e => this.onProviderEditorStatusChanged(e.editor, e.status),
+					e => this.onProviderEditorStatusChanged(e.editor, type, e.status),
 					editor,
 					trackedDocument,
 				);
@@ -660,7 +673,7 @@ export class FileAnnotationController implements Disposable {
 				);
 				provider = new GutterHeatmapBlameAnnotationProvider(
 					this.container,
-					e => this.onProviderEditorStatusChanged(e.editor, e.status),
+					e => this.onProviderEditorStatusChanged(e.editor, type, e.status),
 					editor,
 					trackedDocument,
 				);
