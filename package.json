@@ -24105,19 +24105,19 @@
 			{
 				"command": "gitlens.views.branches.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.branches",
+				"when": "focusedView == gitlens.views.branches || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches)",
 				"mac": "cmd+c"
 			},
 			{
 				"command": "gitlens.views.commits.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.commits",
+				"when": "focusedView == gitlens.views.commits || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits)",
 				"mac": "cmd+c"
 			},
 			{
 				"command": "gitlens.views.contributors.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.contributors",
+				"when": "focusedView == gitlens.views.contributors || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors)",
 				"mac": "cmd+c"
 			},
 			{
@@ -24129,13 +24129,13 @@
 			{
 				"command": "gitlens.views.fileHistory.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.fileHistory",
+				"when": "focusedView == gitlens.views.fileHistory || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory)",
 				"mac": "cmd+c"
 			},
 			{
 				"command": "gitlens.views.launchpad.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.launchpad",
+				"when": "focusedView == gitlens.views.launchpad || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad)",
 				"mac": "cmd+c"
 			},
 			{
@@ -24153,13 +24153,13 @@
 			{
 				"command": "gitlens.views.remotes.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.remotes",
+				"when": "focusedView == gitlens.views.remotes || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes)",
 				"mac": "cmd+c"
 			},
 			{
 				"command": "gitlens.views.repositories.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.repositories",
+				"when": "focusedView == gitlens.views.repositories || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories)",
 				"mac": "cmd+c"
 			},
 			{
@@ -24215,19 +24215,19 @@
 			{
 				"command": "gitlens.views.searchAndCompare.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.searchAndCompare",
+				"when": "focusedView == gitlens.views.searchAndCompare || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare)",
 				"mac": "cmd+c"
 			},
 			{
 				"command": "gitlens.views.stashes.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.stashes",
+				"when": "focusedView == gitlens.views.stashes || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes)",
 				"mac": "cmd+c"
 			},
 			{
 				"command": "gitlens.views.tags.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.tags",
+				"when": "focusedView == gitlens.views.tags || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags)",
 				"mac": "cmd+c"
 			},
 			{
@@ -24239,7 +24239,7 @@
 			{
 				"command": "gitlens.views.worktrees.copy",
 				"key": "ctrl+c",
-				"when": "focusedView == gitlens.views.worktrees",
+				"when": "focusedView == gitlens.views.worktrees || (focusedView == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees)",
 				"mac": "cmd+c"
 			}
 		],
