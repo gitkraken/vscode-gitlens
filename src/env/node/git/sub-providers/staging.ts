@@ -2,7 +2,6 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import type { Uri } from 'vscode';
 import type { Container } from '../../../../container';
-import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '../../../../git/gitProvider';
 import { splitPath } from '../../../../system/-webview/path';
 import { log } from '../../../../system/decorators/log';
