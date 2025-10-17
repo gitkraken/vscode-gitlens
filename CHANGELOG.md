@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the option to open a file instead of showing a diff when clicking in _Search & Compare_ ([#1651](https://github.com/gitkraken/vscode-gitlens/issues/1651))
+
 ### Changed
 
 - Changes the minimum VS Code version to 1.95.0 ([#4691](https://github.com/gitkraken/vscode-gitlens/issues/4691))
