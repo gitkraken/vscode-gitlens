@@ -41,7 +41,7 @@ import {
 	IpcPromiseSettled,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
-	WebviewReadyCommand,
+	WebviewReadyRequest,
 } from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
@@ -482,8 +482,11 @@ export class WebviewController<
 		setLogScopeExit(scope, ` \u2022 ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
 
 		switch (true) {
-			case WebviewReadyCommand.is(e):
+			case WebviewReadyRequest.is(e):
 				this._ready = true;
+				void this.respond(WebviewReadyRequest, e, {
+					state: e.params.bootstrap ? this.provider.includeBootstrap?.(false) : undefined,
+				});
 				this.sendPendingIpcNotifications();
 				void this.provider.onReady?.();
 
@@ -617,7 +620,7 @@ export class WebviewController<
 
 		const [bytes, bootstrap, head, body, endOfBody] = await Promise.all([
 			workspace.fs.readFile(uri),
-			this.provider.includeBootstrap?.(),
+			this.provider.includeBootstrap?.(true),
 			this.provider.includeHead?.(),
 			this.provider.includeBody?.(),
 			this.provider.includeEndOfBody?.(),

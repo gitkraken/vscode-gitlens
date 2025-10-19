@@ -35,7 +35,7 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 		| Promise<[boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined]>;
 	registerCommands?(): Disposable[];
 
-	includeBootstrap?(): SerializedState | Promise<SerializedState>;
+	includeBootstrap?(deferrable?: boolean): SerializedState | Promise<SerializedState>;
 	includeHead?(): string | Promise<string>;
 	includeBody?(): string | Promise<string>;
 	includeEndOfBody?(): string | Promise<string>;

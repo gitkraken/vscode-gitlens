@@ -487,7 +487,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	includeBootstrap(): Promise<State> {
+	includeBootstrap(_deferrable?: boolean): Promise<State> {
 		return this.getState(true);
 	}
 
@@ -734,7 +734,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	onFocusChanged(focused: boolean): void {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
-		if (!focused || this.activeSelection == null || !this.container.views.commitDetails.visible) {
+		if (
+			!focused ||
+			this.activeSelection == null ||
+			(!this.container.views.commitDetails.visible && !this.container.views.graphDetails.visible)
+		) {
 			return;
 		}
 
@@ -901,10 +905,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		| undefined = undefined;
 
 	private showActiveSelectionDetails() {
-		if (this._showActiveSelectionDetailsDebounced == null) {
-			this._showActiveSelectionDetailsDebounced = debounce(this.showActiveSelectionDetailsCore.bind(this), 250);
-		}
-
+		this._showActiveSelectionDetailsDebounced ??= debounce(this.showActiveSelectionDetailsCore.bind(this), 250);
 		this._showActiveSelectionDetailsDebounced();
 	}
 
@@ -920,9 +921,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				preserveFocus: true,
 				preserveVisibility: this._showDetailsView === false,
 			},
-			{
-				source: this.host.id,
-			},
+			{ source: this.host.id },
 		);
 	}
 
@@ -1130,9 +1129,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						preserveFocus: e.preserveFocus,
 						preserveVisibility: false,
 					},
-					{
-						source: this.host.id,
-					},
+					{ source: this.host.id },
 				);
 
 				const details = this.host.is('editor')
@@ -1640,7 +1637,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return { search: e.search, results: undefined };
 		}
 
-		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
+		if (search?.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
 			if (this.repository == null) return { search: e.search, results: { error: 'No repository' } };
 
 			if (this.repository.etag !== this._etagRepository) {
@@ -1816,9 +1813,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					? this._showDetailsView === false
 					: this._showDetailsView !== 'selection',
 			},
-			{
-				source: this.host.id,
-			},
+			{ source: this.host.id },
 		);
 		this._firstSelection = false;
 	}

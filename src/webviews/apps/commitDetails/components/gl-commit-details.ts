@@ -59,7 +59,6 @@ export class GlCommitDetails extends GlDetailsBase {
 	get commit(): State['commit'] {
 		return this._commit;
 	}
-	// @property({ type: Object })
 	set commit(value: State['commit']) {
 		this._commit = value;
 		this.enrichedPromise = value?.enriched;

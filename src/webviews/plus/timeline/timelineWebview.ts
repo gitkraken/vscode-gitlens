@@ -223,7 +223,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return [true, { ...this.getTelemetryContext(), ...cfg }];
 	}
 
-	includeBootstrap(): Promise<State> {
+	includeBootstrap(_deferrable?: boolean): Promise<State> {
 		return this._cache.get('bootstrap', () => this.getState(this._context, false));
 	}
 

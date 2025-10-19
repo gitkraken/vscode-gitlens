@@ -15,7 +15,7 @@ import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	WebviewFocusChangedCommand,
-	WebviewReadyCommand,
+	WebviewReadyRequest,
 } from '../../protocol';
 import { ipcContext } from './contexts/ipc';
 import { loggerContext, LoggerContext } from './contexts/logger';
@@ -126,7 +126,7 @@ export abstract class App<
 					);
 				}
 
-				this.sendCommand(WebviewReadyCommand, undefined);
+				void this.sendRequest(WebviewReadyRequest, { bootstrap: false });
 
 				this.onInitialized?.();
 			} finally {
