@@ -445,7 +445,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	includeBootstrap(): Promise<State> {
+	includeBootstrap(_deferrable?: boolean): Promise<State> {
 		return this.getState();
 	}
 

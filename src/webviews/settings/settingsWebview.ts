@@ -88,7 +88,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		return linear.maybeConnected ?? linear.isConnected();
 	}
 
-	async includeBootstrap(): Promise<State> {
+	async includeBootstrap(_deferrable?: boolean): Promise<State> {
 		const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
 		if (workspace.workspaceFolders?.length) {
 			scopes.push(['workspace', 'Workspace']);

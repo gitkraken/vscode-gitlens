@@ -72,7 +72,6 @@ import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcCallMessageType, IpcMessage } from '../protocol';
-import { updatePendingContext } from '../webviewController';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import { isSerializedState } from '../webviewsController';
@@ -100,6 +99,7 @@ import {
 	DidChangeHasAccountNotification,
 	DidChangeIntegrationsNotification,
 	DidChangeNotification,
+	DidChangeOrgSettingsNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
 	ExecuteFileActionCommand,
@@ -169,11 +169,8 @@ interface Context {
 }
 
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, State, CommitDetailsWebviewShowingArgs> {
-	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
-	/** The context the webview should have */
-	private _pendingContext: Partial<Context> | undefined;
 	private readonly _disposable: Disposable;
 	private _pinned = false;
 	private _focused = false;
@@ -276,15 +273,15 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	private get inReview(): boolean {
-		return this._pendingContext?.inReview ?? this._context.inReview;
+		return this._context.inReview;
 	}
 
 	async onShowingWip(arg: ShowWipArgs, options?: WebviewShowOptions): Promise<boolean> {
-		this.updatePendingContext({ source: arg.source });
+		this._context.source = arg.source;
 		const shouldChangeReview = arg.inReview != null && this.inReview !== arg.inReview;
 		if (this.mode !== 'wip' || (arg.repository != null && this._context.wip?.repo !== arg.repository)) {
-			if (shouldChangeReview) {
-				this.updatePendingContext({ inReview: arg.inReview });
+			if (shouldChangeReview && arg.inReview != null) {
+				this._context.inReview = arg.inReview;
 			}
 			await this.setMode('wip', arg.repository);
 			if (shouldChangeReview && arg.inReview === true) {
@@ -384,12 +381,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		});
 	}
 
-	includeBootstrap(): Promise<State> {
-		this._bootstraping = true;
-
-		this._context = { ...this._context, ...this._pendingContext };
-		this._pendingContext = undefined;
-
+	includeBootstrap(deferrable?: boolean): Promise<State> {
+		if (deferrable) {
+			return Promise.resolve({
+				webviewId: this.host.id,
+				webviewInstanceId: this.host.instanceId,
+				timestamp: Date.now(),
+			} as State);
+		}
 		return this.getState(this._context);
 	}
 
@@ -825,7 +824,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 				this.container.git.getBestRepositoryOrFirst(uri != null ? Uri.parse(uri) : undefined),
 			);
 		} else {
-			const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
+			const commit = this.getBestCommitOrStash();
 			void this.updateCommit(commit, { immediate: false });
 		}
 	}
@@ -843,19 +842,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			this._skipNextRefreshOnVisibilityChange = false;
 		}
 
-		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
-		if (this._bootstraping) {
-			this._bootstraping = false;
-
-			if (this._pendingContext == null) return;
-
-			this.updateState();
-		} else {
-			if (!skipRefresh) {
-				this.onRefresh();
-			}
-			this.updateState(true);
+		if (!skipRefresh) {
+			this.onRefresh();
 		}
+		void this.notifyDidChangeState(true);
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -870,14 +860,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			configuration.changedCore(e, 'workbench.tree.renderIndentGuides') ||
 			configuration.changedCore(e, 'workbench.tree.indent')
 		) {
-			this.updatePendingContext({
-				preferences: {
-					...this._context.preferences,
-					...this._pendingContext?.preferences,
-					...this.getPreferences(),
-				},
-			});
-			this.updateState();
+			this._context.preferences = this.getPreferences();
+			void this.notifyDidChangeState();
 		}
 
 		if (
@@ -885,7 +869,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			configuration.changed(e, ['views.commitDetails.autolinks', 'views.commitDetails.pullRequests'])
 		) {
 			void this.updateCommit(this._context.commit, { force: true });
-			this.updateState();
 		}
 	}
 
@@ -898,8 +881,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const hasAccount = subscription.account != null;
 		if (this._context.hasAccount === hasAccount) return;
 
-		this._context.hasAccount = hasAccount;
-		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });
+		this.notifyDidChangeHasAccount(hasAccount);
 	}
 
 	async getHasAccount(force = false): Promise<boolean> {
@@ -915,9 +897,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const current = await this.getHasIntegrationsConnected(true);
 		if (previous === current) return;
 
-		void this.host.notify(DidChangeIntegrationsNotification, {
-			hasIntegrationsConnected: current,
-		});
+		this.notifyDidChangeIntegrations(current);
 	}
 
 	async getHasIntegrationsConnected(force = false): Promise<boolean> {
@@ -950,8 +930,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	private onContextChanged(key: keyof ContextKeys) {
 		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
-			this.updatePendingContext({ orgSettings: this.getOrgSettings() });
-			this.updateState();
+			this.notifyDidChangeOrgSettings();
 		}
 	}
 
@@ -1090,13 +1069,13 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private _wipSubscription: RepositorySubscription | undefined;
 
 	private get mode(): Mode {
-		return this._pendingContext?.mode ?? this._context.mode;
+		return this._context.mode;
 	}
 
 	private async setMode(mode: Mode, repository?: Repository): Promise<void> {
-		this.updatePendingContext({ mode: mode });
+		this._context.mode = mode;
 		if (mode === 'commit') {
-			this.updateState(true);
+			void this.notifyDidChangeState(true);
 		} else {
 			await this.updateWipState(repository ?? this.container.git.getBestRepositoryOrFirst());
 		}
@@ -1301,27 +1280,26 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			if (
 				this._shouldRefreshPullRequestDetails &&
 				wip.pullRequest != null &&
-				(this._context.source === 'launchpad' || this._pendingContext?.source === 'launchpad')
+				this._context.source === 'launchpad'
 			) {
 				void this.container.views.pullRequest.showPullRequest(wip.pullRequest, wip.branch ?? repository.path);
 				this._shouldRefreshPullRequestDetails = false;
 			}
 
-			if (this._pendingContext == null) {
-				const success = await this.host.notify(DidChangeWipStateNotification, {
-					wip: serializeWipContext(wip),
-					inReview: inReview,
-				});
-				if (success) {
-					this._context.wip = wip;
-					this._context.inReview = inReview;
-					return;
-				}
+			const success = await this.host.notify(DidChangeWipStateNotification, {
+				wip: serializeWipContext(wip),
+				inReview: inReview,
+			});
+			if (success) {
+				this._context.wip = wip;
+				this._context.inReview = inReview;
+				return;
 			}
 		}
 
-		this.updatePendingContext({ wip: wip, inReview: inReview });
-		this.updateState(true);
+		this._context.wip = wip;
+		this._context.inReview = inReview;
+		void this.notifyDidChangeState(true);
 	}
 
 	private async getWipBranchDetails(
@@ -1397,18 +1375,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			? await this.getCodeSuggestions(pullRequest!, repo)
 			: [];
 
-		if (this._pendingContext == null) {
-			const success = await this.host.notify(DidChangeWipStateNotification, {
-				wip: serializeWipContext(wip),
-			});
-			if (success) {
-				this._context.wip = wip;
-				return;
-			}
+		const success = await this.host.notify(DidChangeWipStateNotification, { wip: serializeWipContext(wip) });
+		if (success) {
+			this._context.wip = wip;
+			return;
 		}
 
-		this.updatePendingContext({ wip: wip });
-		this.updateState(true);
+		this._context.wip = wip;
+		void this.notifyDidChangeState(true);
 	}
 
 	private _repositorySubscription: RepositorySubscription | undefined;
@@ -1434,7 +1408,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			}
 		}
 
-		let wip = this._pendingContext?.wip ?? this._context.wip;
+		let wip = this._context.wip;
 
 		if (this._repositorySubscription != null) {
 			const { repo, subscription } = this._repositorySubscription;
@@ -1458,18 +1432,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			}
 		}
 
-		this.updatePendingContext(
-			{
-				commit: commit,
-				autolinksEnabled: configuration.get('views.commitDetails.autolinks.enabled'),
-				experimentalComposerEnabled: configuration.get('ai.experimental.composer.enabled', undefined, false),
-				formattedMessage: undefined,
-				autolinkedIssues: undefined,
-				pullRequest: undefined,
-				wip: wip,
-			},
-			options?.force,
+		this._context.commit = commit;
+		this._context.autolinksEnabled = configuration.get('views.commitDetails.autolinks.enabled');
+		this._context.experimentalComposerEnabled = configuration.get(
+			'ai.experimental.composer.enabled',
+			undefined,
+			false,
 		);
+		this._context.formattedMessage = undefined;
+		this._context.autolinkedIssues = undefined;
+		this._context.pullRequest = undefined;
+		this._context.wip = wip;
 
 		if (options?.pinned != null) {
 			this.updatePinned(options?.pinned);
@@ -1486,7 +1459,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 			this.updateNavigation();
 		}
-		this.updateState(options?.immediate ?? true);
+		this.notifyDidChangeCommit(options?.immediate ?? true);
 		this.updateTitle();
 	}
 
@@ -1543,8 +1516,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		this._pinned = pinned;
 		this.ensureTrackers();
 
-		this.updatePendingContext({ pinned: pinned });
-		this.updateState(immediate);
+		this._context.pinned = pinned;
+		this.notifyDidChangeCommit(immediate);
 	}
 
 	private updatePreferences(preferences: UpdateablePreferences) {
@@ -1560,7 +1533,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 		const changes: Preferences = {
 			...this._context.preferences,
-			...this._pendingContext?.preferences,
 		};
 
 		if (
@@ -1591,29 +1563,39 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			changes.files = preferences.files;
 		}
 
-		this.updatePendingContext({ preferences: changes });
-		this.updateState();
+		this._context.preferences = changes;
+		this.notifyDidChangeCommit();
 	}
 
-	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {
-		const [changed, pending] = updatePendingContext(this._context, this._pendingContext, context, force);
-		if (changed) {
-			this._pendingContext = pending;
-		}
+	private _notifyDidChangeCommitDebounced: Deferrable<() => void> | undefined = undefined;
 
-		return changed;
-	}
-
-	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
-
-	private updateState(immediate: boolean = false) {
+	private notifyDidChangeCommit(immediate: boolean = false) {
 		if (immediate) {
 			void this.notifyDidChangeState();
 			return;
 		}
 
-		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 500);
-		this._notifyDidChangeStateDebounced();
+		this._notifyDidChangeCommitDebounced ??= debounce(this.notifyDidChangeState.bind(this), 500);
+		this._notifyDidChangeCommitDebounced();
+	}
+
+	private notifyDidChangeOrgSettings() {
+		this._context.orgSettings = this.getOrgSettings();
+		void this.host.notify(DidChangeOrgSettingsNotification, {
+			orgSettings: this._context.orgSettings,
+		});
+	}
+
+	private notifyDidChangeHasAccount(hasAccount: boolean) {
+		this._context.hasAccount = hasAccount;
+		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });
+	}
+
+	private notifyDidChangeIntegrations(hasIntegrationsConnected: boolean) {
+		this._context.hasIntegrationsConnected = hasIntegrationsConnected;
+		void this.host.notify(DidChangeIntegrationsNotification, {
+			hasIntegrationsConnected: hasIntegrationsConnected,
+		});
 	}
 
 	private updateNavigation() {
@@ -1621,53 +1603,43 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		if (sha != null) {
 			sha = shortenRevision(sha);
 		}
-		this.updatePendingContext({
-			navigationStack: {
-				count: this._commitStack.count,
-				position: this._commitStack.position,
-				hint: sha,
-			},
-		});
-		this.updateState();
+		this._context.navigationStack = {
+			count: this._commitStack.count,
+			position: this._commitStack.position,
+			hint: sha,
+		};
+		this.notifyDidChangeCommit();
 	}
 
 	private async setInReview(inReview: boolean, source?: ShowWipArgs['source']) {
 		if (this.inReview === inReview) return;
 
-		if (this._pendingContext == null) {
-			const success = await this.host.notify(DidChangeDraftStateNotification, { inReview: inReview });
-			if (success) {
-				this._context.inReview = inReview;
+		const success = await this.host.notify(DidChangeDraftStateNotification, { inReview: inReview });
+		if (success) {
+			this._context.inReview = inReview;
+			if (inReview) {
+				void this.trackOpenReviewMode(source);
 			}
+			return;
 		}
 
-		this.updatePendingContext({ inReview: inReview });
-		this.updateState(true);
+		this._context.inReview = inReview;
+		void this.notifyDidChangeState(true);
 
 		if (inReview) {
 			void this.trackOpenReviewMode(source);
 		}
 	}
 
-	private async notifyDidChangeState(force: boolean = false) {
+	private async notifyDidChangeState(_force?: boolean) {
 		const scope = getLogScope();
 
-		this._notifyDidChangeStateDebounced?.cancel();
-		if (!force && this._pendingContext == null) return false;
-
-		let context: Context;
-		if (this._pendingContext != null) {
-			context = { ...this._context, ...this._pendingContext };
-			this._context = context;
-			this._pendingContext = undefined;
-		} else {
-			context = this._context;
-		}
+		this._notifyDidChangeCommitDebounced?.cancel();
 
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			try {
 				await this.host.notify(DidChangeNotification, {
-					state: await this.getState(context),
+					state: await this.getState(this._context),
 				});
 			} catch (ex) {
 				Logger.error(ex, scope);
@@ -1687,9 +1659,15 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			if (line != null) {
 				commit = lineTracker.getState(line)?.commit;
 			}
-		} else {
-			commit = this._pendingContext?.commit;
-			if (commit == null) {
+		}
+
+		if (commit == null) {
+			// For graphDetails, use source-specific cache to avoid stale data from other contexts
+			if (this.options.attachedTo === 'graph') {
+				const args = this.container.events.getCachedEventArgsBySource('commit:selected', 'gitlens.views.graph');
+				commit = args?.commit;
+			} else {
+				// For commitDetails, use the general cache (for backward compatibility)
 				const args = this.container.events.getCachedEventArgs('commit:selected');
 				commit = args?.commit;
 			}

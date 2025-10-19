@@ -212,7 +212,7 @@ export class PatchDetailsWebviewProvider
 		return [true, undefined];
 	}
 
-	includeBootstrap(): Promise<Serialized<State>> {
+	includeBootstrap(_deferrable?: boolean): Promise<Serialized<State>> {
 		return this.getState(this._context);
 	}
 
