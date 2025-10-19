@@ -15,6 +15,7 @@ import {
 import type { GlHomeHeader } from '../plus/shared/components/home-header';
 import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
+import type { LoggerContext } from '../shared/contexts/logger';
 import type { HostIpc } from '../shared/ipc';
 import type { GlAiAllAccessBanner } from './components/ai-all-access-banner';
 import { homeBaseStyles, homeStyles } from './home.css';
@@ -50,11 +51,11 @@ export class GlHomeApp extends GlAppHost<State> {
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
-	protected override createStateProvider(state: State, ipc: HostIpc): HomeStateProvider {
+	protected override createStateProvider(bootstrap: string, ipc: HostIpc, logger: LoggerContext): HomeStateProvider {
 		this.disposables.push((this._activeOverviewState = new ActiveOverviewState(ipc)));
 		this.disposables.push((this._inactiveOverviewState = new InactiveOverviewState(ipc)));
 
-		return new HomeStateProvider(this, state, ipc);
+		return new HomeStateProvider(this, bootstrap, ipc, logger);
 	}
 
 	override connectedCallback(): void {

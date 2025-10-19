@@ -2,7 +2,6 @@ import { provide } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import { fromBase64ToString } from '@env/base64';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
@@ -11,7 +10,6 @@ import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	WebviewFocusChangedCommand,
-	WebviewReadyCommand,
 } from '../../protocol';
 import { GlElement } from './components/element';
 import { ipcContext } from './contexts/ipc';
@@ -70,8 +68,7 @@ export abstract class GlAppHost<
 	private _sendWebviewFocusChangedCommandDebounced!: Deferrable<(params: WebviewFocusChangedParams) => void>;
 	protected _stateProvider!: Provider;
 
-	protected abstract createStateProvider(state: State, ipc: HostIpc): Provider;
-	protected onPersistState?(state: State): void;
+	protected abstract createStateProvider(bootstrap: string, ipc: HostIpc, logger: LoggerContext): Provider;
 	protected onWebviewFocusChanged?(focused: boolean): void;
 	protected onWebviewVisibilityChanged?(visible: boolean): void;
 
@@ -82,14 +79,11 @@ export abstract class GlAppHost<
 		this._logger.log('connected');
 
 		this._ipc = new HostIpc(this.name);
-		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
-		const state = this._ipc.deserializeIpcData<State>(fromBase64ToString(this.bootstrap));
+		const bootstrap = this.bootstrap;
 		this.bootstrap = undefined!;
 
-		this._logger.log(`bootstrap duration=${Date.now() - state.timestamp}ms`);
-
-		this.onPersistState?.(state);
+		this._stateProvider = this.createStateProvider(bootstrap, this._ipc, this._logger);
 
 		const themeEvent = computeThemeColors();
 		if (this.onThemeUpdated != null) {
@@ -99,7 +93,7 @@ export abstract class GlAppHost<
 		}
 
 		this.disposables.push(
-			(this._stateProvider = this.createStateProvider(state, this._ipc)),
+			this._stateProvider,
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidChangeWebviewFocusNotification.is(msg):

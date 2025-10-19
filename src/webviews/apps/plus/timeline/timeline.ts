@@ -19,6 +19,7 @@ import {
 import { GlAppHost } from '../../shared/appHost';
 import type { Checkbox } from '../../shared/components/checkbox/checkbox';
 import type { GlRefButton } from '../../shared/components/ref-button';
+import type { LoggerContext } from '../../shared/contexts/logger';
 import type { HostIpc } from '../../shared/ipc';
 import { linkStyles, ruleStyles } from '../shared/components/vscode.css';
 import type { CommitEventDetail, GlTimelineChart } from './components/chart';
@@ -51,12 +52,12 @@ export class GlTimelineApp extends GlAppHost<State> {
 	@query('#chart')
 	private _chart?: GlTimelineChart;
 
-	protected override createStateProvider(state: State, ipc: HostIpc): TimelineStateProvider {
-		return new TimelineStateProvider(this, state, ipc);
-	}
-
-	protected override onPersistState(state: State): void {
-		this._ipc.setPersistedState({ config: state.config, scope: state.scope });
+	protected override createStateProvider(
+		bootstrap: string,
+		ipc: HostIpc,
+		logger: LoggerContext,
+	): TimelineStateProvider {
+		return new TimelineStateProvider(this, bootstrap, ipc, logger);
 	}
 
 	override connectedCallback(): void {

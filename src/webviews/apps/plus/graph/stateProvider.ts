@@ -1,5 +1,4 @@
 import { ContextProvider, createContext } from '@lit/context';
-import type { ReactiveControllerHost } from 'lit';
 import type { SearchQuery } from '../../../../constants.search';
 import { debounce } from '../../../../system/function/debounce';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
@@ -30,14 +29,19 @@ import {
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 } from '../../../plus/graph/protocol';
+import type { IpcMessage, WebviewState } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
-import type { StateProvider } from '../../shared/appHost';
+import type { ReactiveElementHost } from '../../shared/appHost';
 import { signalObjectState, signalState } from '../../shared/components/signal-utils';
 import type { LoggerContext } from '../../shared/contexts/logger';
-import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
+import { StateProviderBase } from '../../shared/stateProviderBase';
 
-type ReactiveElementHost = Partial<ReactiveControllerHost> & HTMLElement;
+const BaseWebviewStateKeys = [
+	'timestamp',
+	'webviewId',
+	'webviewInstanceId',
+] as const satisfies readonly (keyof WebviewState)[] as readonly string[];
 
 interface AppState {
 	activeDay?: number;
@@ -63,27 +67,7 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 
 export const graphStateContext = createContext<GraphStateProvider>('graph-state-context');
 
-export class GraphStateProvider implements StateProvider<State>, State, AppState {
-	private readonly disposable: Disposable;
-	private readonly provider: ContextProvider<{ __context__: GraphStateProvider }, ReactiveElementHost>;
-
-	private readonly _state: State;
-	get state() {
-		return this._state;
-	}
-
-	get webviewId() {
-		return this._state.webviewId;
-	}
-
-	get webviewInstanceId() {
-		return this._state.webviewInstanceId;
-	}
-
-	get timestamp() {
-		return this._state.timestamp;
-	}
-
+export class GraphStateProvider extends StateProviderBase<State, typeof graphStateContext> {
 	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: number | undefined;
@@ -226,13 +210,231 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 		return this.loading || this.searching || this.rowsStatsLoading || false;
 	}
 
-	private updateState(partial: Partial<State>, silent?: boolean) {
+	constructor(
+		host: ReactiveElementHost,
+		bootstrap: string,
+		ipc: HostIpc,
+		logger: LoggerContext,
+		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
+	) {
+		super(host, bootstrap, ipc, logger);
+	}
+
+	protected override createContextProvider(
+		_state: State,
+	): ContextProvider<typeof graphStateContext, ReactiveElementHost> {
+		return new ContextProvider(this.host, { context: graphStateContext, initialValue: this });
+	}
+
+	protected override async initializeState(): Promise<void> {
+		await super.initializeState();
+
+		this.updateState(this._state, true);
+	}
+
+	protected onMessageReceived(msg: IpcMessage): void {
+		const scope = getLogScope();
+
+		const updates: Partial<State> = {};
+		switch (true) {
+			case DidChangeNotification.is(msg):
+				this.updateState(msg.params.state);
+				break;
+
+			case DidFetchNotification.is(msg):
+				this._state.lastFetched = msg.params.lastFetched;
+				this.updateState({ lastFetched: msg.params.lastFetched });
+				break;
+
+			case DidChangeAvatarsNotification.is(msg):
+				this.updateState({ avatars: msg.params.avatars });
+				break;
+			case DidStartFeaturePreviewNotification.is(msg):
+				this._state.featurePreview = msg.params.featurePreview;
+				this._state.allowed = msg.params.allowed;
+				this.updateState({
+					featurePreview: msg.params.featurePreview,
+					allowed: msg.params.allowed,
+				});
+				break;
+			case DidChangeBranchStateNotification.is(msg):
+				this.updateState({
+					branchState: msg.params.branchState,
+				});
+				break;
+
+			case DidChangeHostWindowFocusNotification.is(msg):
+				this.updateState({
+					windowFocused: msg.params.focused,
+				});
+				break;
+
+			case DidChangeColumnsNotification.is(msg):
+				this.updateState({
+					columns: msg.params.columns,
+					context: {
+						...this._state.context,
+						header: msg.params.context,
+						settings: msg.params.settingsContext,
+					},
+				});
+				break;
+
+			case DidChangeRefsVisibilityNotification.is(msg):
+				this.updateState({
+					branchesVisibility: msg.params.branchesVisibility,
+					excludeRefs: msg.params.excludeRefs,
+					excludeTypes: msg.params.excludeTypes,
+					includeOnlyRefs: msg.params.includeOnlyRefs,
+				});
+				break;
+
+			case DidChangeRefsMetadataNotification.is(msg):
+				this.updateState({
+					refsMetadata: msg.params.metadata,
+				});
+				break;
+
+			case DidChangeRowsNotification.is(msg): {
+				let rows;
+				if (msg.params.rows.length && msg.params.paging?.startingCursor != null && this._state.rows != null) {
+					const previousRows = this._state.rows;
+					const lastId = previousRows[previousRows.length - 1]?.sha;
+
+					let previousRowsLength = previousRows.length;
+					const newRowsLength = msg.params.rows.length;
+
+					this.logger.log(
+						scope,
+						`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
+					);
+
+					rows = [];
+					// Preallocate the array to avoid reallocations
+					rows.length = previousRowsLength + newRowsLength;
+
+					if (msg.params.paging.startingCursor !== lastId) {
+						this.logger.log(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);
+
+						let i = 0;
+						let row;
+						for (row of previousRows) {
+							rows[i++] = row;
+							if (row.sha === msg.params.paging.startingCursor) {
+								this.logger.log(scope, `found ${msg.params.paging.startingCursor} in existing rows`);
+
+								previousRowsLength = i;
+
+								if (previousRowsLength !== previousRows.length) {
+									// If we stopped before the end of the array, we need to trim it
+									rows.length = previousRowsLength + newRowsLength;
+								}
+
+								break;
+							}
+						}
+					} else {
+						for (let i = 0; i < previousRowsLength; i++) {
+							rows[i] = previousRows[i];
+						}
+					}
+
+					for (let i = 0; i < newRowsLength; i++) {
+						rows[previousRowsLength + i] = msg.params.rows[i];
+					}
+				} else {
+					this.logger.log(scope, `setting to ${msg.params.rows.length} rows`);
+
+					if (msg.params.rows.length === 0) {
+						rows = this._state.rows;
+					} else {
+						rows = msg.params.rows;
+					}
+				}
+
+				updates.avatars = msg.params.avatars;
+				updates.downstreams = msg.params.downstreams;
+				if (msg.params.refsMetadata !== undefined) {
+					updates.refsMetadata = msg.params.refsMetadata;
+				}
+				updates.rows = rows;
+				updates.paging = msg.params.paging;
+				if (msg.params.rowsStats != null) {
+					updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
+				}
+				updates.rowsStatsLoading = msg.params.rowsStatsLoading;
+				if (msg.params.searchResults != null) {
+					updates.searchResults = msg.params.searchResults;
+				}
+				if (msg.params.selectedRows != null) {
+					updates.selectedRows = msg.params.selectedRows;
+				}
+				updates.loading = false;
+				this.updateState(updates);
+				setLogScopeExit(scope, ` \u2022 rows=${this._state.rows?.length ?? 0}`);
+				break;
+			}
+			case DidChangeRowsStatsNotification.is(msg):
+				this.updateState({
+					rowsStats: { ...this._state.rowsStats, ...msg.params.rowsStats },
+					rowsStatsLoading: msg.params.rowsStatsLoading,
+				});
+				break;
+
+			case DidChangeScrollMarkersNotification.is(msg):
+				this.updateState({ context: { ...this._state.context, settings: msg.params.context } });
+				break;
+
+			case DidSearchNotification.is(msg):
+				if (msg.params.selectedRows != null) {
+					updates.selectedRows = msg.params.selectedRows;
+				}
+				updates.searchResults = msg.params.results;
+				this.updateState(updates);
+				break;
+
+			case DidChangeSelectionNotification.is(msg):
+				this.updateState({ selectedRows: msg.params.selection });
+				break;
+
+			case DidChangeGraphConfigurationNotification.is(msg):
+				this.updateState({ config: msg.params.config });
+				break;
+
+			case DidChangeSubscriptionNotification.is(msg):
+				this.updateState({
+					subscription: msg.params.subscription,
+					allowed: msg.params.allowed,
+				});
+				break;
+
+			case DidChangeOrgSettings.is(msg):
+				this.updateState({ orgSettings: msg.params.orgSettings });
+				break;
+
+			case DidChangeMcpBanner.is(msg):
+				this.updateState({ mcpBannerCollapsed: msg.params });
+				break;
+
+			case DidChangeWorkingTreeNotification.is(msg):
+				this.updateState({ workingTreeStats: msg.params.stats });
+				break;
+
+			case DidChangeRepoConnectionNotification.is(msg):
+				this.updateState({ repositories: msg.params.repositories });
+				break;
+		}
+	}
+
+	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
+
+	protected updateState(partial: Partial<State>, silent?: boolean) {
 		for (const key in partial) {
 			const value = partial[key as keyof State];
 			// @ts-expect-error key is a key of State
 			this._state[key] = value;
 
-			if (['timestamp', 'webviewId', 'webviewInstanceId'].includes(key)) continue;
+			if (BaseWebviewStateKeys.includes(key)) continue;
 
 			// Update corresponding accessors
 			switch (key) {
@@ -253,227 +455,5 @@ export class GraphStateProvider implements StateProvider<State>, State, AppState
 
 		this.options.onStateUpdate?.(partial);
 		this.fireProviderUpdate();
-	}
-
-	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
-
-	constructor(
-		host: ReactiveElementHost,
-		state: State,
-		private readonly _ipc: HostIpc,
-		private readonly _logger: LoggerContext,
-		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
-	) {
-		this._state = state;
-		this.provider = new ContextProvider(host, { context: graphStateContext, initialValue: this });
-		this.updateState(state, true);
-
-		this.disposable = this._ipc.onReceiveMessage(msg => {
-			const scope = getLogScope();
-
-			const updates: Partial<State> = {};
-			switch (true) {
-				case DidChangeNotification.is(msg):
-					this.updateState(msg.params.state);
-					break;
-
-				case DidFetchNotification.is(msg):
-					this._state.lastFetched = msg.params.lastFetched;
-					this.updateState({ lastFetched: msg.params.lastFetched });
-					break;
-
-				case DidChangeAvatarsNotification.is(msg):
-					this.updateState({ avatars: msg.params.avatars });
-					break;
-				case DidStartFeaturePreviewNotification.is(msg):
-					this._state.featurePreview = msg.params.featurePreview;
-					this._state.allowed = msg.params.allowed;
-					this.updateState({
-						featurePreview: msg.params.featurePreview,
-						allowed: msg.params.allowed,
-					});
-					break;
-				case DidChangeBranchStateNotification.is(msg):
-					this.updateState({
-						branchState: msg.params.branchState,
-					});
-					break;
-
-				case DidChangeHostWindowFocusNotification.is(msg):
-					this.updateState({
-						windowFocused: msg.params.focused,
-					});
-					break;
-
-				case DidChangeColumnsNotification.is(msg):
-					this.updateState({
-						columns: msg.params.columns,
-						context: {
-							...this._state.context,
-							header: msg.params.context,
-							settings: msg.params.settingsContext,
-						},
-					});
-					break;
-
-				case DidChangeRefsVisibilityNotification.is(msg):
-					this.updateState({
-						branchesVisibility: msg.params.branchesVisibility,
-						excludeRefs: msg.params.excludeRefs,
-						excludeTypes: msg.params.excludeTypes,
-						includeOnlyRefs: msg.params.includeOnlyRefs,
-					});
-					break;
-
-				case DidChangeRefsMetadataNotification.is(msg):
-					this.updateState({
-						refsMetadata: msg.params.metadata,
-					});
-					break;
-
-				case DidChangeRowsNotification.is(msg): {
-					let rows;
-					if (
-						msg.params.rows.length &&
-						msg.params.paging?.startingCursor != null &&
-						this._state.rows != null
-					) {
-						const previousRows = this._state.rows;
-						const lastId = previousRows[previousRows.length - 1]?.sha;
-
-						let previousRowsLength = previousRows.length;
-						const newRowsLength = msg.params.rows.length;
-
-						this._logger.log(
-							scope,
-							`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
-						);
-
-						rows = [];
-						// Preallocate the array to avoid reallocations
-						rows.length = previousRowsLength + newRowsLength;
-
-						if (msg.params.paging.startingCursor !== lastId) {
-							this._logger.log(
-								scope,
-								`searching for ${msg.params.paging.startingCursor} in existing rows`,
-							);
-
-							let i = 0;
-							let row;
-							for (row of previousRows) {
-								rows[i++] = row;
-								if (row.sha === msg.params.paging.startingCursor) {
-									this._logger.log(
-										scope,
-										`found ${msg.params.paging.startingCursor} in existing rows`,
-									);
-
-									previousRowsLength = i;
-
-									if (previousRowsLength !== previousRows.length) {
-										// If we stopped before the end of the array, we need to trim it
-										rows.length = previousRowsLength + newRowsLength;
-									}
-
-									break;
-								}
-							}
-						} else {
-							for (let i = 0; i < previousRowsLength; i++) {
-								rows[i] = previousRows[i];
-							}
-						}
-
-						for (let i = 0; i < newRowsLength; i++) {
-							rows[previousRowsLength + i] = msg.params.rows[i];
-						}
-					} else {
-						this._logger.log(scope, `setting to ${msg.params.rows.length} rows`);
-
-						if (msg.params.rows.length === 0) {
-							rows = this._state.rows;
-						} else {
-							rows = msg.params.rows;
-						}
-					}
-
-					updates.avatars = msg.params.avatars;
-					updates.downstreams = msg.params.downstreams;
-					if (msg.params.refsMetadata !== undefined) {
-						updates.refsMetadata = msg.params.refsMetadata;
-					}
-					updates.rows = rows;
-					updates.paging = msg.params.paging;
-					if (msg.params.rowsStats != null) {
-						updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
-					}
-					updates.rowsStatsLoading = msg.params.rowsStatsLoading;
-					if (msg.params.searchResults != null) {
-						updates.searchResults = msg.params.searchResults;
-					}
-					if (msg.params.selectedRows != null) {
-						updates.selectedRows = msg.params.selectedRows;
-					}
-					updates.loading = false;
-					this.updateState(updates);
-					setLogScopeExit(scope, ` \u2022 rows=${this._state.rows?.length ?? 0}`);
-					break;
-				}
-				case DidChangeRowsStatsNotification.is(msg):
-					this.updateState({
-						rowsStats: { ...this._state.rowsStats, ...msg.params.rowsStats },
-						rowsStatsLoading: msg.params.rowsStatsLoading,
-					});
-					break;
-
-				case DidChangeScrollMarkersNotification.is(msg):
-					this.updateState({ context: { ...this._state.context, settings: msg.params.context } });
-					break;
-
-				case DidSearchNotification.is(msg):
-					if (msg.params.selectedRows != null) {
-						updates.selectedRows = msg.params.selectedRows;
-					}
-					updates.searchResults = msg.params.results;
-					this.updateState(updates);
-					break;
-
-				case DidChangeSelectionNotification.is(msg):
-					this.updateState({ selectedRows: msg.params.selection });
-					break;
-
-				case DidChangeGraphConfigurationNotification.is(msg):
-					this.updateState({ config: msg.params.config });
-					break;
-
-				case DidChangeSubscriptionNotification.is(msg):
-					this.updateState({
-						subscription: msg.params.subscription,
-						allowed: msg.params.allowed,
-					});
-					break;
-
-				case DidChangeOrgSettings.is(msg):
-					this.updateState({ orgSettings: msg.params.orgSettings });
-					break;
-
-				case DidChangeMcpBanner.is(msg):
-					this.updateState({ mcpBannerCollapsed: msg.params });
-					break;
-
-				case DidChangeWorkingTreeNotification.is(msg):
-					this.updateState({ workingTreeStats: msg.params.stats });
-					break;
-
-				case DidChangeRepoConnectionNotification.is(msg):
-					this.updateState({ repositories: msg.params.repositories });
-					break;
-			}
-		});
-	}
-
-	dispose(): void {
-		this.disposable.dispose();
 	}
 }

@@ -72,9 +72,15 @@ export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Pa
  */
 export class IpcNotification<Params = void> extends IpcCall<Params> {}
 
-// COMMANDS
+// COMMANDS & REQUESTS
 
-export const WebviewReadyCommand = new IpcCommand('core', 'webview/ready');
+export interface WebviewReadyResponse {
+	state?: unknown | Promise<unknown>;
+}
+export const WebviewReadyRequest = new IpcRequest<{ bootstrap?: boolean }, WebviewReadyResponse>(
+	'core',
+	'webview/ready',
+);
 
 export interface WebviewFocusChangedParams {
 	focused: boolean;

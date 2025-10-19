@@ -33,8 +33,8 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		return html`<gl-graph-app></gl-graph-app>`;
 	}
 
-	protected override createStateProvider(state: State, ipc: HostIpc): GraphStateProvider {
-		return new GraphStateProvider(this, state, ipc, this._logger, {
+	protected override createStateProvider(bootstrap: string, ipc: HostIpc): GraphStateProvider {
+		return new GraphStateProvider(this, bootstrap, ipc, this._logger, {
 			onStateUpdate: partial => {
 				if ('rows' in partial) {
 					this.appElement.resetHover();
