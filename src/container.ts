@@ -7,6 +7,7 @@ import {
 	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
+	setTelemetryService,
 } from '@env/providers';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -200,6 +201,7 @@ export class Container {
 			(this._usage = new UsageTracker(this, storage)),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		];
+		setTelemetryService(this._telemetry);
 
 		this._urls = new UrlsProvider(this.env);
 		this._disposables.push((this._connection = new ServerConnection(this, this._urls)));

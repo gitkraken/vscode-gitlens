@@ -245,7 +245,7 @@ export class Git implements Disposable {
 	/** Map of running git commands -- avoids running duplicate overlapping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
 
-	constructor(container: Container) {
+	constructor(private readonly container: Container) {
 		this._disposable = container.events.on('git:cache:reset', e => {
 			// Ignore provider resets (e.g. it needs to be git specific)
 			if (e.data.types?.every(t => t === 'providers')) return;
@@ -347,6 +347,26 @@ export class Git implements Disposable {
 				exitCode: result.exitCode ?? 0,
 			};
 		} catch (ex) {
+			if (ex instanceof CancelledRunError) {
+				const duration = getDurationMilliseconds(start);
+				const timeout = runOpts.timeout ?? 0;
+				const reason =
+					timeout > 0 && duration >= timeout - 100
+						? 'timeout'
+						: cancellation?.isCancellationRequested
+							? 'cancellation'
+							: 'unknown';
+				Logger.warn(
+					`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} ABORTED after ${duration}ms (${reason})`,
+				);
+				this.container.telemetry.sendEvent('op/git/aborted', {
+					operation: gitCommand,
+					reason: reason,
+					duration: duration,
+					timeout: timeout,
+				});
+			}
+
 			if (errorHandling === GitErrorHandling.Ignore) {
 				if (ex instanceof RunError) {
 					return {

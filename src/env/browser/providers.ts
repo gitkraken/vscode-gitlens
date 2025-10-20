@@ -8,6 +8,7 @@ import type { RepositoryLocationProvider } from '../../git/location/repositorylo
 import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
+import type { TelemetryService } from '../../telemetry/telemetry';
 import type { GitResult } from '../node/git/git';
 
 export function git(
@@ -46,4 +47,13 @@ export function getGkCliIntegrationProvider(_container: Container): undefined {
 
 export function getMcpProviders(_container: Container): Promise<Disposable[] | undefined> {
 	return Promise.resolve(undefined);
+}
+
+let _telemetryService: TelemetryService | undefined;
+export function getTelementryService(): TelemetryService | undefined {
+	return _telemetryService;
+}
+
+export function setTelemetryService(service: TelemetryService): void {
+	_telemetryService = service;
 }

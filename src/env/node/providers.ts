@@ -8,6 +8,7 @@ import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkS
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
 import { configuration } from '../../system/-webview/configuration';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
+import type { TelemetryService } from '../../telemetry/telemetry';
 import type { GitResult } from './git/git';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
@@ -83,4 +84,13 @@ export async function getMcpProviders(
 	const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/integration');
 
 	return [new mcpModule.GkMcpProvider(container)];
+}
+
+let _telemetryService: TelemetryService | undefined;
+export function getTelementryService(): TelemetryService | undefined {
+	return _telemetryService;
+}
+
+export function setTelemetryService(service: TelemetryService): void {
+	_telemetryService = service;
 }

@@ -258,6 +258,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
 
+	'op/gate/deadlock': OperationGateDeadlockEvent;
+	'op/git/aborted': OperationGitAbortedEvent;
+
 	/** Sent when fetching the product config fails */
 	'productConfig/failed': ProductConfigFailedEvent;
 
@@ -942,6 +945,19 @@ interface OpenReviewModeEvent {
 	filesChanged: number;
 	/** Provided for compatibility with other GK surfaces */
 	source: Sources;
+}
+
+interface OperationGateDeadlockEvent {
+	key: string;
+	prop: string;
+	timeout: number;
+}
+
+interface OperationGitAbortedEvent {
+	operation: string;
+	duration: number;
+	timeout: number;
+	reason: 'timeout' | 'cancellation' | 'unknown';
 }
 
 interface ProductConfigFailedEvent {

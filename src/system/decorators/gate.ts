@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+import { getTelementryService } from '@env/providers';
+import { Logger } from '../logger';
 import { isPromise } from '../promise';
 import { resolveProp } from './resolver';
 
@@ -36,13 +38,12 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 				this[prop] = promise;
 				void promise.finally(() => (this[prop] = undefined));
 
-				// if (DEBUG) {
-				// 	const timeout = setTimeout(() => {
-				// 		console.debug(`[gate] ${key} took too long to resolve`, this, ...args);
-				// 		debugger;
-				// 	}, 60000);
-				// 	void promise.finally(() => clearTimeout(timeout));
-				// }
+				// Log if gate takes too long to resolve
+				const timeout = setTimeout(() => {
+					Logger.warn(`[gate] ${key} has been pending for 60+ seconds (possible deadlock)`, `prop=${prop}`);
+					getTelementryService()?.sendEvent('op/gate/deadlock', { key: key, prop: prop, timeout: 60000 });
+				}, 60000);
+				void promise.finally(() => clearTimeout(timeout));
 			}
 
 			return promise;

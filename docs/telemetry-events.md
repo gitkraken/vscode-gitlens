@@ -2813,6 +2813,27 @@ void
 }
 ```
 
+### op/gate/deadlock
+
+```typescript
+{
+  'key': string,
+  'prop': string,
+  'timeout': number
+}
+```
+
+### op/git/aborted
+
+```typescript
+{
+  'duration': number,
+  'operation': string,
+  'reason': 'unknown' | 'timeout' | 'cancellation',
+  'timeout': number
+}
+```
+
 ### openReviewMode
 
 > Sent when a PR review was started in the inspect overview
