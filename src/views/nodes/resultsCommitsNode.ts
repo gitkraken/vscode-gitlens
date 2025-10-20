@@ -9,6 +9,8 @@ import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService
 import { configuration } from '../../system/-webview/configuration';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
+import { getLoggableName, Logger } from '../../system/logger';
+import { getNewLogScope } from '../../system/logger.scope';
 import type { Deferred } from '../../system/promise';
 import { defer, pauseOnCancelOrTimeout } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
@@ -182,11 +184,24 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 						: TreeItemCollapsibleState.Collapsed;
 			} else {
 				queueMicrotask(async () => {
+					const scope = getNewLogScope(`${getLoggableName(this)}.getTreeItem`, true);
 					try {
-						await this._onChildrenCompleted?.promise;
+						if (this._onChildrenCompleted?.promise != null) {
+							const timeout = new Promise<void>(resolve => {
+								setTimeout(() => {
+									Logger.error(undefined, scope, 'onChildrenCompleted promise timed out after 30s');
+									resolve();
+								}, 30000); // 30 second timeout
+							});
+
+							await Promise.race([this._onChildrenCompleted.promise, timeout]);
+						}
+
 						void (await result.value);
 						this.view.triggerNodeChange(this.parent);
-					} catch {}
+					} catch (ex) {
+						Logger.error(ex, scope, 'Failed awaiting children completion');
+					}
 				});
 
 				// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
