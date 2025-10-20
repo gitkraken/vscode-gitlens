@@ -679,18 +679,22 @@ export class Repository implements Disposable {
 		);
 	}
 
+	@debug({ singleLine: true })
 	resume(): void {
 		if (!this._suspended) return;
 
+		const scope = getLogScope();
 		this._suspended = false;
 
 		// If we've come back into focus and we are dirty, fire the change events
 
 		if (this._pendingRepoChange != null) {
-			this._fireChangeDebounced!();
+			Logger.debug(scope, `Firing pending repo changes: ${this._pendingRepoChange.toString(true)}`);
+			this._fireChangeDebounced?.();
 		}
 
 		if (this._pendingFileSystemChange != null) {
+			Logger.debug(scope, `Firing pending file system changes`);
 			this._fireFileSystemChangeDebounced?.();
 		}
 	}
@@ -705,6 +709,7 @@ export class Repository implements Disposable {
 		return starred != null && starred[this.id] === true;
 	}
 
+	@log<Repository['star']>({ args: { 0: b => b?.name } })
 	star(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(true, branch);
 	}
@@ -743,6 +748,7 @@ export class Repository implements Disposable {
 		return rev != null ? this.git.getBestRevisionUri(path, rev) : undefined;
 	}
 
+	@log<Repository['unstar']>({ args: { 0: b => b?.name } })
 	unstar(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(false, branch);
 	}
@@ -771,6 +777,7 @@ export class Repository implements Disposable {
 		return this._etagFileSystem;
 	}
 
+	@debug({ singleLine: true })
 	suspend(): void {
 		this._suspended = true;
 	}
@@ -808,6 +815,7 @@ export class Repository implements Disposable {
 	private _fsWatchers = new Map<string, number>();
 	private _fsChangeDelay: number = defaultFileSystemChangeDelay;
 
+	@debug({ singleLine: true })
 	watchFileSystem(delay: number = defaultFileSystemChangeDelay): Disposable {
 		const id = uuid();
 		this._fsWatchers.set(id, delay);
@@ -867,7 +875,7 @@ export class Repository implements Disposable {
 		this.providerService.onRepositoryChanged(this, this._pendingRepoChange);
 
 		if (this._suspended) {
-			Logger.debug(scope, `queueing suspended ${this._pendingRepoChange.toString(true)}`);
+			Logger.debug(scope, `SUSPENDED: queueing ${this._pendingRepoChange.toString(true)}`);
 
 			return;
 		}

@@ -5,6 +5,7 @@ import type { GitUri } from '../../../git/gitUri';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import type { View } from '../../viewBase';
 import { CacheableChildrenViewNode } from './cacheableChildrenViewNode';
 import type { ViewNode } from './viewNode';
@@ -144,8 +145,20 @@ export abstract class SubscribeableViewNode<
 	@gate()
 	@debug()
 	async ensureSubscription(): Promise<void> {
+		const scope = getLogScope();
+
 		// We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
-		if (!this.canSubscribe || !this.view.visible || (canAutoRefreshView(this.view) && !this.view.autoRefresh)) {
+		const {
+			canSubscribe,
+			view: { visible: isVisible },
+		} = this;
+		const canAutoRefresh = canAutoRefreshView(this.view) && this.view.autoRefresh;
+
+		if (!canSubscribe || !isVisible || !canAutoRefresh) {
+			setLogScopeExit(
+				scope,
+				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, canAutoRefresh=${canAutoRefresh}`,
+			);
 			await this.unsubscribe();
 
 			return;
@@ -153,6 +166,11 @@ export abstract class SubscribeableViewNode<
 
 		// If we already have a subscription, just kick out
 		if (this.subscription != null) return;
+
+		setLogScopeExit(
+			scope,
+			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, canAutoRefresh=${canAutoRefresh}`,
+		);
 
 		this.subscription = Promise.resolve(this.subscribe());
 		void (await this.subscription);
