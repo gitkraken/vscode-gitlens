@@ -347,7 +347,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return status;
 	}
 
-	@gate<StatusGitSubProvider['abortPausedOperation']>(rp => rp ?? '')
+	@gate<StatusGitSubProvider['abortPausedOperation']>((rp, o) => `${rp ?? ''}:${o?.quit ?? false}`)
 	@log()
 	async abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void> {
 		const status = await this.getPausedOperationStatus(repoPath);
@@ -404,7 +404,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		}
 	}
 
-	@gate<StatusGitSubProvider['continuePausedOperation']>(rp => rp ?? '')
+	@gate<StatusGitSubProvider['continuePausedOperation']>((rp, o) => `${rp ?? ''}:${o?.skip ?? false}`)
 	@log()
 	async continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
 		const status = await this.getPausedOperationStatus(repoPath);
@@ -520,7 +520,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		}
 	}
 
-	@gate()
+	@gate<StatusGitSubProvider['getStatus']>(rp => rp ?? '')
 	@log()
 	async getStatus(repoPath: string | undefined, cancellation?: CancellationToken): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
@@ -573,7 +573,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return this.getStatusForPathCore(repoPath, pathOrUri, { ...options, exact: false }, cancellation);
 	}
 
-	@gate()
+	@gate<StatusGitSubProvider['getStatusForPathCore']>(rp => rp ?? '')
 	private async getStatusForPathCore(
 		repoPath: string,
 		pathOrUri: string | Uri,
