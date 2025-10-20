@@ -147,17 +147,17 @@ export abstract class SubscribeableViewNode<
 	async ensureSubscription(): Promise<void> {
 		const scope = getLogScope();
 
-		// We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
+		// We only need to subscribe if we are visible and if auto-refresh isn't disabled
 		const {
 			canSubscribe,
 			view: { visible: isVisible },
 		} = this;
-		const canAutoRefresh = canAutoRefreshView(this.view) && this.view.autoRefresh;
+		const autoRefreshDisabled = canAutoRefreshView(this.view) && !this.view.autoRefresh;
 
-		if (!canSubscribe || !isVisible || !canAutoRefresh) {
+		if (!canSubscribe || !isVisible || autoRefreshDisabled) {
 			setLogScopeExit(
 				scope,
-				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, canAutoRefresh=${canAutoRefresh}`,
+				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, autoRefreshDisabled=${autoRefreshDisabled}`,
 			);
 			await this.unsubscribe();
 
@@ -169,7 +169,7 @@ export abstract class SubscribeableViewNode<
 
 		setLogScopeExit(
 			scope,
-			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, canAutoRefresh=${canAutoRefresh}`,
+			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, autoRefreshDisabled=${autoRefreshDisabled}`,
 		);
 
 		this.subscription = Promise.resolve(this.subscribe());
