@@ -68,7 +68,7 @@ export class VslsGitProvider extends LocalGitProvider {
 			if (repositories == null || repositories.length === 0) return [];
 
 			return repositories.flatMap(r =>
-				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, undefined, r.closed),
+				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, r.closed),
 			);
 		} catch (ex) {
 			Logger.error(ex, scope);

@@ -1612,7 +1612,7 @@ export class GitProviderService implements Disposable {
 					}
 
 					Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
-					const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
+					const repositories = provider.openRepository(root?.folder, repoUri, false, closed);
 
 					const added: Repository[] = [];
 

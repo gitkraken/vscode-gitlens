@@ -429,13 +429,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@debug({ exit: true })
-	openRepository(
-		folder: WorkspaceFolder | undefined,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository[] {
+	openRepository(folder: WorkspaceFolder | undefined, uri: Uri, root: boolean, closed?: boolean): Repository[] {
 		if (!closed) {
 			void this.getOrOpenScmRepository(uri);
 		}
@@ -451,7 +445,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
 				root,
-				suspended ?? !window.state.focused,
 				closed,
 			),
 		];
@@ -470,7 +463,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					folder ?? workspace.getWorkspaceFolder(canonicalUri),
 					canonicalUri,
 					root,
-					suspended ?? !window.state.focused,
 					true,
 				),
 			);
@@ -640,7 +632,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
-			repositories.push(...this.openRepository(folder, uri, root, undefined, silent));
+			repositories.push(...this.openRepository(folder, uri, root, silent));
 		}
 
 		const uri = await this.findRepositoryUri(rootUri, true);

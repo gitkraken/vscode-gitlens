@@ -166,7 +166,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
 			if (workspaceUri == null) return [];
 
-			return this.openRepository(undefined, workspaceUri, true, undefined, options?.silent);
+			return this.openRepository(undefined, workspaceUri, true, options?.silent);
 		} catch (ex) {
 			if (ex.message.startsWith('No provider registered with')) {
 				Logger.error(
@@ -218,13 +218,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		void setContext('gitlens:hasVirtualFolders', this.container.git.hasOpenRepositories(this.descriptor.id));
 	}
 
-	openRepository(
-		folder: WorkspaceFolder | undefined,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository[] {
+	openRepository(folder: WorkspaceFolder | undefined, uri: Uri, root: boolean, closed?: boolean): Repository[] {
 		return [
 			new Repository(
 				this.container,
@@ -236,7 +230,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
 				root,
-				suspended ?? !window.state.focused,
 				closed,
 			),
 		];

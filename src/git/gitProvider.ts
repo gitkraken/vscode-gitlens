@@ -831,13 +831,7 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
 	): Promise<Repository[]>;
 	updateContext?(): void;
-	openRepository(
-		folder: WorkspaceFolder | undefined,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository[];
+	openRepository(folder: WorkspaceFolder | undefined, uri: Uri, root: boolean, closed?: boolean): Repository[];
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 
 	supports(feature: Features): Promise<boolean>;
