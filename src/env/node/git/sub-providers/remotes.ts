@@ -4,10 +4,9 @@ import type { GitCache } from '../../../../git/cache';
 import type { GitRemotesSubProvider } from '../../../../git/gitProvider';
 import type { GitRemote } from '../../../../git/models/remote';
 import { parseGitRemotes } from '../../../../git/parsers/remoteParser';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
+import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../git/remotes/remoteProviders';
 import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes';
 import { sortRemotes } from '../../../../git/utils/-webview/sorting';
-import { configuration } from '../../../../system/-webview/configuration';
 import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -36,8 +35,8 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 		const scope = getLogScope();
 
 		const remotesPromise = this.cache.remotes?.getOrCreate(repoPath, async cancellable => {
-			const providers = loadRemoteProviders(
-				configuration.get('remotes', this.container.git.getRepository(repoPath)?.folder?.uri ?? null),
+			const providers = loadRemoteProvidersFromConfig(
+				this.container.git.getRepository(repoPath)?.folder?.uri ?? null,
 				await this.container.integrations.getConfigured(),
 			);
 
