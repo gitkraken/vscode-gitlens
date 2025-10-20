@@ -5,7 +5,8 @@ import type { GitRemote } from '../git/models/remote';
 import type { CreatePullRequestRemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { GlCommandBase } from './commandBase';
@@ -66,6 +67,17 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 			filter: r => r.provider?.id === providerId,
 			sort: true,
 		})) as GitRemote<RemoteProvider>[];
+
+		if (args.base == null) {
+			const branch = await repo.git.branches.getBranch(args.compare);
+			if (branch != null) {
+				const mergeTargetResult = await getBranchMergeTargetName(this.container, branch);
+				if (!mergeTargetResult.paused && mergeTargetResult.value != null) {
+					// Strip the remote name from the branch name
+					args.base = getBranchNameWithoutRemote(mergeTargetResult.value);
+				}
+			}
+		}
 
 		const resource: CreatePullRequestRemoteResource = {
 			type: RemoteResourceType.CreatePullRequest,
