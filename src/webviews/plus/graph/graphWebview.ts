@@ -2766,7 +2766,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			allowed: this.isGraphAccessAllowed(access, featurePreview), //(access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
-			loading: deferRows,
+			loading: deferRows === true,
 			rowsStatsLoading: data?.rowsStatsDeferred?.isLoaded != null ? !data.rowsStatsDeferred.isLoaded() : false,
 			rows: data?.rows,
 			downstreams: data != null ? Object.fromEntries(data.downstreams) : undefined,
