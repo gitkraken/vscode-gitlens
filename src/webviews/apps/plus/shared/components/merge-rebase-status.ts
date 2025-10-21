@@ -15,6 +15,7 @@ export class GlMergeConflictWarning extends LitElement {
 	static override styles = [
 		css`
 			.status {
+				--action-item-foreground: #000;
 				box-sizing: border-box;
 				display: flex;
 				align-items: center;
@@ -29,6 +30,7 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			:host([conflicts]) .status {
+				--action-item-foreground: #fff;
 				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 				color: #fff;
 			}

@@ -21,7 +21,7 @@ export class ActionItem extends LitElement {
 			width: 2rem;
 			height: 2rem;
 			border-radius: 0.5rem;
-			color: var(--vscode-icon-foreground);
+			color: var(--action-item-foreground, var(--vscode-icon-foreground));
 			padding: 0.2rem;
 			vertical-align: text-bottom;
 			text-decoration: none;
