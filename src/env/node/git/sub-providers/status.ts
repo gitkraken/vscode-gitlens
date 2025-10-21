@@ -10,7 +10,7 @@ import {
 	PausedOperationContinueError,
 	PausedOperationContinueErrorReason,
 } from '../../../../git/errors';
-import type { GitStatusSubProvider } from '../../../../git/gitProvider';
+import type { GitStatusSubProvider, GitWorkingChangesState } from '../../../../git/gitProvider';
 import type {
 	GitCherryPickStatus,
 	GitMergeStatus,
@@ -623,11 +623,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			const unstaged = options?.unstaged ?? true;
 			if (staged || unstaged) {
 				const result = await this.git.exec(
-					{
-						cwd: repoPath,
-						cancellation: cancellation,
-						errors: GitErrorHandling.Ignore,
-					},
+					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 					'diff',
 					'--quiet',
 					staged && unstaged ? 'HEAD' : staged ? '--staged' : undefined,
@@ -670,10 +666,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	private async hasUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean> {
 		try {
 			const stream = this.git.stream(
-				{
-					cwd: repoPath,
-					cancellation: cancellation,
-				},
+				{ cwd: repoPath, cancellation: cancellation },
 				'ls-files',
 				'--others',
 				'--exclude-standard',
@@ -694,6 +687,55 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		}
 	}
 
+	@gate<StatusGitSubProvider['getWorkingChangesState']>(rp => rp ?? '')
+	@log()
+	async getWorkingChangesState(repoPath: string, cancellation?: CancellationToken): Promise<GitWorkingChangesState> {
+		const scope = getLogScope();
+
+		try {
+			const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
+				// Check for staged changes
+				this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					'diff',
+					'--quiet',
+					'--staged',
+				),
+				// Check for unstaged changes
+				this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					'diff',
+					'--quiet',
+				),
+				// Check for untracked files
+				this.hasUntrackedFiles(repoPath, cancellation),
+			]);
+
+			const result = {
+				staged: Boolean(stagedResult.status === 'fulfilled' && stagedResult.value.exitCode === 1),
+				unstaged: Boolean(unstagedResult.status === 'fulfilled' && unstagedResult.value.exitCode === 1),
+				untracked: untrackedResult.status === 'fulfilled' && untrackedResult.value === true,
+			};
+
+			setLogScopeExit(
+				scope,
+				result.staged || result.unstaged || result.untracked
+					? ` \u2022 has ${result.staged ? 'staged' : ''}${result.unstaged ? (result.staged ? ', unstaged' : 'unstaged ') : ''}${
+							result.untracked ? (result.staged || result.unstaged ? ', untracked' : 'untracked') : ''
+						} changes`
+					: ' \u2022 no working changes',
+			);
+
+			return result;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+			Logger.error(ex, scope);
+			setLogScopeExit(scope, ' \u2022 error checking for changes');
+			// Return all false on error for graceful degradation
+			return { staged: false, unstaged: false, untracked: false };
+		}
+	}
+
 	@gate<StatusGitSubProvider['getUntrackedFiles']>(rp => rp ?? '')
 	@log()
 	async getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<string[]> {
@@ -701,11 +743,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{
-					cwd: repoPath,
-					cancellation: cancellation,
-					errors: GitErrorHandling.Ignore,
-				},
+				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 				'ls-files',
 				'--others',
 				'--exclude-standard',

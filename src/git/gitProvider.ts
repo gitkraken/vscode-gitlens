@@ -680,6 +680,12 @@ export interface GitStashSubProvider {
 	saveSnapshot(repoPath: string, message?: string): Promise<void>;
 }
 
+export interface GitWorkingChangesState {
+	staged: boolean;
+	unstaged: boolean;
+	untracked: boolean;
+}
+
 export interface GitStatusSubProvider {
 	/**
 	 * Get the status of the repository
@@ -746,6 +752,14 @@ export interface GitStatusSubProvider {
 		},
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
+
+	/**
+	 * Get detailed information about all types of working changes in a single optimized call
+	 * @param repoPath The repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to an object with boolean flags for each change type
+	 */
+	getWorkingChangesState(repoPath: string, cancellation?: CancellationToken): Promise<GitWorkingChangesState>;
 
 	/**
 	 * Get all untracked files in the repository
