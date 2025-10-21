@@ -1,4 +1,6 @@
 import { sha256 } from '@env/crypto';
+import type { Container } from '../../../../container';
+import type { GitCommit } from '../../../../git/models/commit';
 import type { GitDiff, ParsedGitDiff } from '../../../../git/models/diff';
 import type { Repository } from '../../../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../../../git/models/revision';
@@ -195,7 +197,7 @@ export function createHunksFromDiffs(stagedDiffContent?: string, unstagedDiffCon
 /** Converts @type {ParsedGitDiff} output to @type {ComposerHunk}'s */
 function convertDiffToComposerHunks(
 	diff: ParsedGitDiff,
-	source: 'staged' | 'unstaged',
+	source: 'staged' | 'unstaged' | 'commits',
 	startingCount: number,
 ): { hunks: ComposerHunk[]; count: number } {
 	const hunks: ComposerHunk[] = [];
@@ -289,13 +291,27 @@ function calculateHunkStats(content: string): { additions: number; deletions: nu
 /* Validation Utils */
 
 /** Gets the current staged and unstaged diffs for safety validation */
-export interface WorkingTreeDiffs {
+export interface ComposerDiffs {
 	staged: GitDiff | undefined;
 	unstaged: GitDiff | undefined;
+	commits: GitDiff | undefined;
 	unified: GitDiff | undefined;
 }
 
-export async function getWorkingTreeDiffs(repo: Repository): Promise<WorkingTreeDiffs> {
+export async function getComposerDiffs(
+	repo: Repository,
+	commits?: { baseSha: string; headSha: string },
+): Promise<ComposerDiffs | undefined> {
+	if (commits) {
+		const commitDiffs = await calculateCombinedDiffBetweenCommits(repo, commits.baseSha, commits.headSha);
+
+		return {
+			staged: undefined,
+			unstaged: undefined,
+			commits: commitDiffs,
+			unified: commitDiffs,
+		};
+	}
 	const [stagedDiffResult, unstagedDiffResult, unifiedDiffResult] = await Promise.allSettled([
 		// Get staged diff (index vs HEAD)
 		repo.git.diff.getDiff?.(uncommittedStaged),
@@ -309,6 +325,7 @@ export async function getWorkingTreeDiffs(repo: Repository): Promise<WorkingTree
 		staged: getSettledValue(stagedDiffResult),
 		unstaged: getSettledValue(unstagedDiffResult),
 		unified: getSettledValue(unifiedDiffResult),
+		commits: undefined,
 	};
 }
 
@@ -317,16 +334,21 @@ export async function getWorkingTreeDiffs(repo: Repository): Promise<WorkingTree
  */
 export async function createSafetyState(
 	repo: Repository,
-	diffs: WorkingTreeDiffs,
+	diffs: ComposerDiffs,
+	baseSha?: string,
 	headSha?: string,
+	branchName?: string,
 ): Promise<ComposerSafetyState> {
 	return {
 		repoPath: repo.path,
 		headSha: headSha ?? null,
+		baseSha: baseSha ?? null,
+		branchName: branchName,
 		hashes: {
 			staged: diffs.staged?.contents ? await sha256(diffs.staged.contents) : null,
 			unstaged: diffs.unstaged?.contents ? await sha256(diffs.unstaged.contents) : null,
 			unified: diffs.unified?.contents ? await sha256(diffs.unified.contents) : null,
+			commits: diffs.commits?.contents ? await sha256(diffs.commits.contents) : null,
 		},
 	};
 }
@@ -339,7 +361,7 @@ export async function validateSafetyState(
 	repo: Repository,
 	safetyState: ComposerSafetyState,
 	hunksBeingCommitted?: ComposerHunk[],
-	workingTreeDiffs?: WorkingTreeDiffs,
+	diffs?: ComposerDiffs,
 ): Promise<{ isValid: boolean; errors: string[] }> {
 	const errors: string[] = [];
 
@@ -350,32 +372,65 @@ export async function validateSafetyState(
 		}
 
 		// 2. Check HEAD SHA
-		const currentHeadCommit = await repo.git.commits.getCommit('HEAD');
-		const currentHeadSha = currentHeadCommit?.sha ?? null;
-		if (currentHeadSha !== safetyState.headSha) {
-			errors.push(`HEAD commit changed from "${safetyState.headSha}" to "${currentHeadSha}"`);
+		if (safetyState.branchName) {
+			const branch = await repo.git.branches.getBranch(safetyState.branchName);
+			if (branch?.sha !== safetyState.headSha) {
+				errors.push(`HEAD commit changed from "${safetyState.headSha}" to "${branch?.sha}"`);
+			}
+		} else {
+			const currentHeadCommit = await repo.git.commits.getCommit('HEAD');
+			const currentHeadCommitSha = currentHeadCommit?.sha ?? null;
+			if (currentHeadCommitSha !== safetyState.baseSha) {
+				errors.push(`HEAD commit changed from "${safetyState.baseSha}" to "${currentHeadCommitSha}"`);
+			}
 		}
 
 		// 2. Smart diff validation - only check diffs for sources being committed
 		if (hunksBeingCommitted?.length) {
-			const { staged, unstaged /*, unified*/ } = workingTreeDiffs ?? (await getWorkingTreeDiffs(repo));
+			// Check if this is branch mode (has commits hash)
+			if (safetyState.hashes.commits) {
+				if (safetyState.baseSha === null) {
+					return { isValid: false, errors: ['Base commit is null'] };
+				}
 
-			const hashes = {
-				staged: staged?.contents ? await sha256(staged.contents) : null,
-				unstaged: unstaged?.contents ? await sha256(unstaged.contents) : null,
-				// unified: unified?.contents ? await sha256(unified.contents) : null,
-			};
+				if (safetyState.headSha === null) {
+					return { isValid: false, errors: ['Head commit is null'] };
+				}
 
-			// Check if any hunks from staged source are being committed
-			const hasStagedHunks = hunksBeingCommitted.some(h => h.source === 'staged');
-			if (hasStagedHunks && hashes.staged !== safetyState.hashes.staged) {
-				errors.push('Staged changes have been modified since composer opened');
-			}
+				const combinedDiff = await calculateCombinedDiffBetweenCommits(
+					repo,
+					safetyState.baseSha,
+					safetyState.headSha,
+				);
+				if (!combinedDiff?.contents) {
+					return { isValid: false, errors: ['Failed to calculate combined diff'] };
+				}
 
-			// Check if any hunks from unstaged source are being committed
-			const hasUnstagedHunks = hunksBeingCommitted.some(h => h.source === 'unstaged');
-			if (hasUnstagedHunks && hashes.unstaged !== safetyState.hashes.unstaged) {
-				errors.push('Unstaged changes have been modified since composer opened');
+				if ((await sha256(combinedDiff.contents)) !== safetyState.hashes.commits) {
+					errors.push('Branch changes have been modified since composer opened');
+				}
+			} else {
+				// Working directory mode: validate staged/unstaged changes
+				const { staged, unstaged /*, unified*/ } = diffs ??
+					(await getComposerDiffs(repo)) ?? { staged: undefined, unstaged: undefined, unified: undefined };
+
+				const hashes = {
+					staged: staged?.contents ? await sha256(staged.contents) : null,
+					unstaged: unstaged?.contents ? await sha256(unstaged.contents) : null,
+					// unified: unified?.contents ? await sha256(unified.contents) : null,
+				};
+
+				// Check if any hunks from staged source are being committed
+				const hasStagedHunks = hunksBeingCommitted.some(h => h.source === 'staged');
+				if (hasStagedHunks && hashes.staged !== safetyState.hashes.staged) {
+					errors.push('Staged changes have been modified since composer opened');
+				}
+
+				// Check if any hunks from unstaged source are being committed
+				const hasUnstagedHunks = hunksBeingCommitted.some(h => h.source === 'unstaged');
+				if (hasUnstagedHunks && hashes.unstaged !== safetyState.hashes.unstaged) {
+					errors.push('Unstaged changes have been modified since composer opened');
+				}
 			}
 		}
 
@@ -393,5 +448,151 @@ export function validateResultingDiff(
 	includeUnstagedChanges: boolean,
 ): boolean {
 	const { hashes } = safetyState;
+
+	if (hashes.commits) {
+		return diffHash === hashes.commits;
+	}
+
+	// Working directory mode: validate against staged/unified hash
 	return diffHash === (includeUnstagedChanges ? hashes.unified : hashes.staged);
+}
+
+/**
+ * Gets commits that are unique to a branch by finding the merge base and getting commits between branch head and merge base
+ */
+export async function getBranchCommits(
+	_container: Container,
+	repo: Repository,
+	branchName: string,
+	mergeTargetName?: string,
+): Promise<{ commits: GitCommit[]; baseCommit: { sha: string; message: string }; headCommitSha: string } | undefined> {
+	try {
+		// Get the branch
+		const branch = await repo.git.branches.getBranch(branchName);
+		if (!branch) {
+			return undefined;
+		}
+
+		// Get the merge target branch
+		let baseBranch;
+		if (mergeTargetName) {
+			baseBranch = await repo.git.branches.getBranch(mergeTargetName);
+		}
+
+		if (!baseBranch) {
+			return undefined;
+		}
+
+		// Get the merge base between the branch and its target
+		const mergeBase = await repo.git.refs.getMergeBase(branch.ref, baseBranch.ref);
+		if (!mergeBase) {
+			return undefined;
+		}
+		// Get the base commit from the merge base
+		const baseCommit = await repo.git.commits.getCommit(mergeBase);
+		if (!baseCommit) {
+			return undefined;
+		}
+
+		// Get commits between merge base and branch head (excluding merge base)
+		const log = await repo.git.commits.getLog(`${baseBranch.ref}..${branch.ref}`, { limit: 0 });
+		if (!log?.commits?.size) {
+			return undefined;
+		}
+
+		// Convert Map to Array and keep in reverse chronological order (newest first, then reverse to oldest first for processing)
+		const commits = Array.from(log.commits.values()).reverse();
+		const headCommit = commits[commits.length - 1];
+
+		return {
+			commits: commits,
+			baseCommit: {
+				sha: baseCommit.sha,
+				message: baseCommit.message ?? '',
+			},
+			headCommitSha: headCommit?.sha ?? branch.sha,
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Creates ComposerCommit array from existing branch commits, preserving order and mapping hunks correctly
+ */
+export async function createComposerCommitsFromGitCommits(
+	repo: Repository,
+	commits: GitCommit[],
+): Promise<{ commits: ComposerCommit[]; hunks: ComposerHunk[] } | undefined> {
+	try {
+		const composerCommits: ComposerCommit[] = [];
+		const allHunks: ComposerHunk[] = [];
+		let count = 0;
+
+		// Process commits in order (oldest first)
+		for (const commit of commits) {
+			// Get the diff for this commit
+			const diffService = repo.git.diff;
+			if (!diffService?.getDiff) {
+				continue;
+			}
+
+			const diff = await diffService.getDiff(commit.sha, `${commit.sha}~1`);
+			if (!diff?.contents) {
+				continue;
+			}
+
+			// Parse the diff to get hunks
+			const parsedDiff = parseGitDiff(diff.contents);
+			const commitHunkIndices: number[] = [];
+
+			const { hunks, count: newCount } = convertDiffToComposerHunks(parsedDiff, 'commits', count);
+			allHunks.push(...hunks);
+			count = newCount;
+			commitHunkIndices.push(...hunks.map(h => h.index));
+
+			// Create ComposerCommit
+			const composerCommit: ComposerCommit = {
+				id: commit.sha,
+				message: commit.message || '',
+				sha: commit.sha,
+				hunkIndices: commitHunkIndices,
+			};
+
+			composerCommits.push(composerCommit);
+		}
+
+		return {
+			commits: composerCommits,
+			hunks: allHunks,
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Calculates the combined diff from all branch commits for safety state validation
+ */
+export async function calculateCombinedDiffBetweenCommits(
+	repo: Repository,
+	baseCommitSha: string,
+	headCommitSha: string,
+): Promise<GitDiff | undefined> {
+	try {
+		const diffService = repo.git.diff;
+		if (!diffService?.getDiff) {
+			return undefined;
+		}
+
+		// Get the combined diff from base to head
+		const diff = await diffService.getDiff(headCommitSha, baseCommitSha);
+		if (!diff?.contents) {
+			return undefined;
+		}
+
+		return diff;
+	} catch {
+		return undefined;
+	}
 }

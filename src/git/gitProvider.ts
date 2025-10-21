@@ -591,6 +591,7 @@ export interface GitRefsSubProvider {
 		pathOrUri?: string | Uri,
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
+	updateReference(repoPath: string, ref: string, newRef: string, cancellation?: CancellationToken): Promise<void>;
 }
 
 export interface GitRemotesSubProvider {

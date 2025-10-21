@@ -369,6 +369,12 @@ export class CommitsPanel extends LitElement {
 	isPreviewMode: boolean = false;
 
 	@property({ type: Object })
+	recompose: { enabled: boolean; branchName?: string; locked: boolean } | null = null;
+
+	@property({ type: Boolean })
+	canReorderCommits: boolean = true;
+
+	@property({ type: Object })
 	baseCommit: ComposerBaseCommit | null = null;
 
 	@property({ type: String })
@@ -407,6 +413,22 @@ export class CommitsPanel extends LitElement {
 	@query('.finish-commit')
 	finishSection!: HTMLElement;
 
+	private get isRecomposeLocked(): boolean {
+		return this.recompose?.enabled === true && this.recompose.locked === true;
+	}
+
+	private get finishHeaderText(): string {
+		return this.recompose?.enabled && this.recompose.branchName
+			? `Recompose ${this.recompose.branchName}`
+			: 'Finish & Commit';
+	}
+
+	private get finishDescriptionText(): string {
+		return this.recompose?.enabled
+			? 'The branch will be updated with the new commit structure.'
+			: 'New commits will be added to your current branch.';
+	}
+
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
@@ -438,6 +460,11 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeSortable() {
+		// Don't initialize sortable if commit reordering is disabled
+		if (!this.canReorderCommits) {
+			return;
+		}
+
 		const commitsContainer = this.shadowRoot?.querySelector('.commits-only');
 		if (commitsContainer) {
 			this.commitsSortable = Sortable.create(commitsContainer as HTMLElement, {
@@ -460,8 +487,8 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeDropZones() {
-		// Don't initialize drop zones in AI preview mode
-		if (this.isPreviewMode) {
+		// Don't initialize drop zones in AI preview mode or when functionality is locked
+		if (this.isPreviewMode || !this.canReorderCommits) {
 			return;
 		}
 
@@ -482,8 +509,8 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private initializeCommitDropZones() {
-		// Don't initialize commit drop zones in AI preview mode
-		if (this.isPreviewMode) {
+		// Don't initialize commit drop zones in AI preview mode or when functionality is locked
+		if (this.isPreviewMode || !this.canReorderCommits) {
 			return;
 		}
 
@@ -1034,12 +1061,22 @@ export class CommitsPanel extends LitElement {
 		return html`
 			<div class="auto-compose${this.hasUsedAutoCompose ? ' is-used' : ''}">
 				${when(
-					!this.hasUsedAutoCompose,
+					!this.hasUsedAutoCompose && !this.isRecomposeLocked,
 					() => html`
 						<h4 class="auto-compose__header">Auto-Compose Commits with AI (Preview)</h4>
 						<p class="auto-compose__description">
 							Let AI organize your changes into well-formed commits with clear messages and descriptions
 							that help reviewers.
+						</p>
+					`,
+				)}
+				${when(
+					this.isRecomposeLocked,
+					() => html`
+						<h4 class="auto-compose__header">Recompose Commits with AI (Preview)</h4>
+						<p class="auto-compose__description">
+							Let AI reorganize work into logical commits with clear messages and descriptions that help
+							reviewers.
 						</p>
 					`,
 				)}
@@ -1111,7 +1148,7 @@ export class CommitsPanel extends LitElement {
 								></code-icon>
 								${this.generating
 									? 'Generating Commits...'
-									: this.hasUsedAutoCompose
+									: this.hasUsedAutoCompose || this.isRecomposeLocked
 										? 'Recompose Commits'
 										: 'Auto-Compose Commits'}
 							</gl-button>
@@ -1140,13 +1177,24 @@ export class CommitsPanel extends LitElement {
 		if (disabled) {
 			return html`
 				<div class="finish-commit">
-					<h3 class="finish-commit__header">Finish & Commit</h3>
-					<p class="finish-commit__description">New commits will be added to your current branch.</p>
+					<h3 class="finish-commit__header">${this.finishHeaderText}</h3>
+					<p class="finish-commit__description">${this.finishDescriptionText}</p>
 					<button-container layout="editor">
 						<gl-button full appearance="secondary" disabled>Create Commits</gl-button>
 					</button-container>
 					<button-container layout="editor" class="cancel-button-container">
 						<gl-button full appearance="secondary" disabled>Cancel</gl-button>
+					</button-container>
+				</div>
+			`;
+		}
+
+		// Special case for recompose locked mode - only show Cancel button
+		if (this.isRecomposeLocked) {
+			return html`
+				<div class="finish-commit">
+					<button-container layout="editor" class="cancel-button-container">
+						<gl-button full appearance="secondary" @click=${this.handleCancel}>Cancel</gl-button>
 					</button-container>
 				</div>
 			`;
@@ -1158,10 +1206,11 @@ export class CommitsPanel extends LitElement {
 				${when(
 					this.selectedCommitIds.size > 1 && !this.isPreviewMode,
 					() => html`
-						<h3 class="finish-commit__header">Finish & Commit</h3>
+						<h3 class="finish-commit__header">${this.finishHeaderText}</h3>
 						<p class="finish-commit__description">
-							New commits will be added to your current branch and a stash will be created with your
-							original changes.
+							${this.recompose?.enabled
+								? 'The branch will be updated with the new commit structure.'
+								: 'New commits will be added to your current branch.'}
 						</p>
 						<button-container layout="editor">
 							<gl-button
@@ -1180,11 +1229,9 @@ export class CommitsPanel extends LitElement {
 						</button-container>
 					`,
 					() => html`
-						<h3 class="finish-commit__header">Finish & Commit</h3>
+						<h3 class="finish-commit__header">${this.finishHeaderText}</h3>
 						<p class="finish-commit__description">
-							${this.isReadyToCommit
-								? 'New commits will be added to your current branch.'
-								: 'Commit the changes in this draft.'}
+							${this.isReadyToCommit ? this.finishDescriptionText : 'Commit the changes in this draft.'}
 						</p>
 
 						<!-- Single Create Commits button -->
@@ -1261,18 +1308,22 @@ export class CommitsPanel extends LitElement {
 		return html`
 			<div class="container scrollable">
 				<div class="working-section">
-					<!-- Auto-Compose container at top when not used yet -->
-					${when(!this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
+					<!-- Auto-Compose container at top when not used yet and not in recompose locked mode -->
+					${when(!this.hasUsedAutoCompose && !this.isRecomposeLocked, () =>
+						this.renderAutoComposeContainer(),
+					)}
 					<div class="commits-list">
-						${this.hasUsedAutoCompose
+						${this.hasUsedAutoCompose && !this.isRecomposeLocked
 							? this.renderCompositionSummarySection()
-							: this.renderUnassignedSection()}
+							: !this.isRecomposeLocked
+								? this.renderUnassignedSection()
+								: ''}
 
-						<h3 class="commits-header">Draft Commits</h3>
+						<h3 class="commits-header">${this.isRecomposeLocked ? 'Commits' : 'Draft Commits'}</h3>
 
 						<!-- Drop zone for creating new commits (only visible when dragging hunks in interactive mode) -->
 						${when(
-							!this.isPreviewMode && this.shouldShowNewCommitZone,
+							!this.isPreviewMode && this.canReorderCommits && this.shouldShowNewCommitZone,
 							() => html`
 								<div class="new-commit-drop-zone">
 									<div class="drop-zone-content">
@@ -1299,6 +1350,7 @@ export class CommitsPanel extends LitElement {
 											.selected=${this.selectedCommitId === commit.id}
 											.multiSelected=${this.selectedCommitIds.has(commit.id)}
 											.isPreviewMode=${this.isPreviewMode}
+											.isRecomposeLocked=${this.isRecomposeLocked}
 											?first=${i === 0}
 											?last=${i === this.commits.length - 1 && !this.baseCommit}
 											@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e)}
@@ -1339,8 +1391,8 @@ export class CommitsPanel extends LitElement {
 							`,
 						)}
 					</div>
-					<!-- Auto-Compose container in original position when already used -->
-					${when(this.hasUsedAutoCompose, () => this.renderAutoComposeContainer())}
+					<!-- Auto-Compose container in original position when already used or in recompose locked mode -->
+					${when(this.hasUsedAutoCompose || this.isRecomposeLocked, () => this.renderAutoComposeContainer())}
 				</div>
 				${this.renderFinishCommitSection()}
 			</div>

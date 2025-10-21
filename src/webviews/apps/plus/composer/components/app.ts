@@ -1176,15 +1176,19 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canFinishAndCommit(): boolean {
-		return this.state.commits.length > 0;
+		return !this.commitsLocked && this.state.commits.length > 0;
 	}
 
 	private get isPreviewMode(): boolean {
 		return this.state?.mode === 'preview';
 	}
 
+	private get commitsLocked(): boolean {
+		return this.state?.recompose?.enabled === true && this.state?.recompose?.locked === true;
+	}
+
 	private get canCombineCommits(): boolean {
-		return !this.isPreviewMode;
+		return !this.isPreviewMode && !this.commitsLocked;
 	}
 
 	private get showHistoryButtons(): boolean {
@@ -1192,7 +1196,15 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canMoveHunks(): boolean {
-		return !this.isPreviewMode;
+		return !this.isPreviewMode && !this.commitsLocked;
+	}
+
+	private get canEditCommitMessages(): boolean {
+		return !this.commitsLocked;
+	}
+
+	private get canReorderCommits(): boolean {
+		return !this.isPreviewMode && !this.commitsLocked;
 	}
 
 	private get isReadyToFinishAndCommit(): boolean {
@@ -1223,10 +1235,6 @@ export class ComposerApp extends LitElement {
 		}
 
 		return availableHunks;
-	}
-
-	private get canEditCommitMessages(): boolean {
-		return true; // Always allowed
 	}
 
 	private get canGenerateCommitMessages(): boolean {
@@ -1580,6 +1588,7 @@ export class ComposerApp extends LitElement {
 					.canCombineCommits=${this.canCombineCommits}
 					.canMoveHunks=${this.canMoveHunks}
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
+					.canReorderCommits=${this.canReorderCommits}
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
 					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name}
@@ -1591,6 +1600,7 @@ export class ComposerApp extends LitElement {
 					.compositionFeedback=${this.compositionFeedback}
 					.compositionSessionId=${this.compositionSessionId}
 					.isReadyToCommit=${this.isReadyToFinishAndCommit}
+					.recompose=${this.state.recompose}
 					@commit-select=${(e: CustomEvent) => this.selectCommit(e.detail.commitId, e.detail.multiSelect)}
 					@unassigned-select=${(e: CustomEvent) => this.selectUnassignedSection(e.detail.section)}
 					@combine-commits=${this.combineSelectedCommits}
