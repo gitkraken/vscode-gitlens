@@ -1,7 +1,7 @@
 import { readdir } from 'fs';
 import type { CancellationToken, Uri } from 'vscode';
 import type { Container } from '../../../../container';
-import { CancellationError } from '../../../../errors';
+import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import {
@@ -605,5 +605,129 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		const files = status?.files.filter(f => f.path.startsWith(relativePath));
 		return files;
+	}
+
+	@gate<StatusGitSubProvider['hasWorkingChanges']>(
+		(rp, o) => `${rp ?? ''}:${o?.staged ?? true}:${o?.unstaged ?? true}:${o?.untracked ?? true}`,
+	)
+	@log()
+	async hasWorkingChanges(
+		repoPath: string,
+		options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<boolean> {
+		const scope = getLogScope();
+
+		try {
+			const staged = options?.staged ?? true;
+			const unstaged = options?.unstaged ?? true;
+			if (staged || unstaged) {
+				const result = await this.git.exec(
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						errors: GitErrorHandling.Ignore,
+					},
+					'diff',
+					'--quiet',
+					staged && unstaged ? 'HEAD' : staged ? '--staged' : undefined,
+				);
+				if (result.exitCode === 1) {
+					if (staged && unstaged) {
+						setLogScopeExit(scope, ' \u2022 has staged and unstaged changes');
+					} else if (staged) {
+						setLogScopeExit(scope, ' \u2022 has staged changes');
+					} else {
+						setLogScopeExit(scope, ' \u2022 has unstaged changes');
+					}
+					return true;
+				}
+			}
+
+			// Check for untracked files
+			const untracked = options?.untracked ?? true;
+			if (untracked) {
+				const hasUntracked = await this.hasUntrackedFiles(repoPath, cancellation);
+				if (hasUntracked) {
+					setLogScopeExit(scope, ' \u2022 has untracked files');
+					return true;
+				}
+			}
+
+			setLogScopeExit(scope, ' \u2022 no working changes');
+			return false;
+		} catch (ex) {
+			// Re-throw cancellation errors
+			if (isCancellationError(ex)) throw ex;
+
+			// Log other errors and return false for graceful degradation
+			Logger.error(ex, scope);
+			setLogScopeExit(scope, ' \u2022 error checking for changes');
+			return false;
+		}
+	}
+
+	private async hasUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean> {
+		try {
+			const stream = this.git.stream(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+				},
+				'ls-files',
+				'--others',
+				'--exclude-standard',
+			);
+
+			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+			for await (const _chunk of stream) {
+				return true;
+			}
+
+			return false;
+		} catch (ex) {
+			// Re-throw cancellation errors
+			if (isCancellationError(ex)) throw ex;
+
+			// Treat other errors as "no untracked files" for graceful degradation
+			return false;
+		}
+	}
+
+	@gate<StatusGitSubProvider['getUntrackedFiles']>(rp => rp ?? '')
+	@log()
+	async getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<string[]> {
+		const scope = getLogScope();
+
+		try {
+			const result = await this.git.exec(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					errors: GitErrorHandling.Ignore,
+				},
+				'ls-files',
+				'--others',
+				'--exclude-standard',
+			);
+
+			if (!result.stdout) {
+				setLogScopeExit(scope, ' \u2022 no untracked files');
+				return [];
+			}
+
+			// Split by newlines and filter out empty strings
+			const files = result.stdout.split('\n').filter(f => f.length > 0);
+			setLogScopeExit(scope, ` \u2022 ${files.length} untracked file(s)`);
+			return files;
+		} catch (ex) {
+			// Re-throw cancellation errors
+			if (isCancellationError(ex)) throw ex;
+
+			// Log other errors and return empty array for graceful degradation
+			Logger.error(ex, scope);
+			setLogScopeExit(scope, ' \u2022 error getting untracked files');
+			return [];
+		}
 	}
 }

@@ -35,4 +35,12 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				: undefined,
 		);
 	}
+
+	hasWorkingChanges(): Promise<boolean> {
+		return Promise.resolve(false);
+	}
+
+	getUntrackedFiles(): Promise<string[]> {
+		return Promise.resolve([]);
+	}
 }

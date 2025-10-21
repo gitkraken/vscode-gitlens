@@ -726,6 +726,34 @@ export interface GitStatusSubProvider {
 	): Promise<GitPausedOperationStatus | undefined>;
 	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
 	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
+
+	/**
+	 * Quickly check if the repository has any working changes
+	 * @param repoPath Repository path
+	 * @param options Options to control which types of changes to check for
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to true if any of the requested change types exist
+	 */
+	hasWorkingChanges(
+		repoPath: string,
+		options?: {
+			/** Check for staged changes (default: true) */
+			staged?: boolean;
+			/** Check for unstaged changes (default: true) */
+			unstaged?: boolean;
+			/** Check for untracked files (default: true) */
+			untracked?: boolean;
+		},
+		cancellation?: CancellationToken,
+	): Promise<boolean>;
+
+	/**
+	 * Get all untracked files in the repository
+	 * @param repoPath Repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to an array of untracked file paths (relative to repo root)
+	 */
+	getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<string[]>;
 }
 
 export interface GitTagsSubProvider {
