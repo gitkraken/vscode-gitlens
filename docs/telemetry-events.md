@@ -2174,6 +2174,7 @@ or
   'context.config.dimMergeCommits': boolean,
   'context.config.experimental.renderer.enabled': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
+  'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,
   'context.config.layout': 'editor' | 'panel',
   'context.config.minimap.additionalTypes': string,

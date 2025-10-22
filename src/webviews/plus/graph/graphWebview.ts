@@ -2057,14 +2057,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private async notifyDidChangeWorkingTree() {
+	private async notifyDidChangeWorkingTree(hasWorkingChanges?: boolean) {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
 		return this.host.notify(DidChangeWorkingTreeNotification, {
-			stats: (await this.getWorkingTreeStats()) ?? { added: 0, deleted: 0, modified: 0 },
+			stats: (await this.getWorkingTreeStats(hasWorkingChanges)) ?? { added: 0, deleted: 0, modified: 0 },
 		});
 	}
 
@@ -2555,13 +2555,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return item;
 	}
 
-	private async getWorkingTreeStats(cancellation?: CancellationToken): Promise<GraphWorkingTreeStats | undefined> {
+	private async getWorkingTreeStats(
+		hasWorkingChanges?: boolean,
+		cancellation?: CancellationToken,
+	): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || !this.container.git.repositoryCount) return undefined;
 
 		const svc = this.container.git.getRepositoryService(this.repository.path);
 
+		hasWorkingChanges ??= await svc.status.hasWorkingChanges(
+			{ staged: true, unstaged: true, untracked: false },
+			cancellation,
+		);
+
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			svc.status.getStatus(cancellation),
+			hasWorkingChanges ? svc.status.getStatus(cancellation) : undefined,
 			svc.status.getPausedOperationStatus?.(cancellation),
 		]);
 
@@ -2610,6 +2618,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
+		const hasWorkingChanges = await this.repository.git.status.hasWorkingChanges(
+			{ staged: true, unstaged: true, untracked: false },
+			cancellation.token,
+		);
+
+		if (hasWorkingChanges && configuration.get('graph.initialRowSelection') === 'wip') {
+			this.setSelectedRows(uncommitted);
+		}
+
 		const selectedId = this._selectedId;
 		const rev = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
 
@@ -2634,7 +2651,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
-			this.getWorkingTreeStats(cancellation.token),
+			hasWorkingChanges ? this.getWorkingTreeStats(hasWorkingChanges, cancellation.token) : undefined,
 			this.repository.git.branches.getBranch(undefined, cancellation.token),
 			this.repository.getLastFetched(),
 		]);

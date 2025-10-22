@@ -1117,6 +1117,23 @@
 						"scope": "window",
 						"order": 500
 					},
+					"gitlens.graph.initialRowSelection": {
+						"type": [
+							"string"
+						],
+						"default": "wip",
+						"enum": [
+							"wip",
+							"head"
+						],
+						"enumDescriptions": [
+							"Selects the working changes (WIP) row when there are uncommitted changes, otherwise selects the HEAD row",
+							"Always selects the HEAD row"
+						],
+						"markdownDescription": "Specifies whether to select the \"Work in progress\" (WIP) row instead of HEAD if there are uncommitted changes in the _Commit Graph_",
+						"scope": "window",
+						"order": 501
+					},
 					"gitlens.graph.dateStyle": {
 						"type": [
 							"string",

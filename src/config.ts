@@ -438,6 +438,7 @@ export interface GraphConfig {
 	};
 	readonly scrollRowPadding: number;
 	readonly searchItemLimit: number;
+	readonly initialRowSelection: 'head' | 'wip';
 	readonly showDetailsView: 'open' | 'selection' | false;
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
