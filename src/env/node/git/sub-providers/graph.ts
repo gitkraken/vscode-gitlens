@@ -40,7 +40,7 @@ import {
 } from '../../../../git/utils/branch.utils';
 import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
 import { createReference } from '../../../../git/utils/reference.utils';
-import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
+import { isUncommitted } from '../../../../git/utils/revision.utils';
 import { getTagId } from '../../../../git/utils/tag.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
 import { getWorktreeId } from '../../../../git/utils/worktree.utils';
@@ -94,14 +94,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [shaResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
-				this.git.exec(
-					{ cwd: repoPath, configs: gitConfigsLog },
-					'log',
-					...shaParser.arguments,
-					'-n1',
-					rev && !isUncommittedStaged(rev) ? rev : 'HEAD',
-					'--',
-				),
+				!isUncommitted(rev, true)
+					? this.git.exec(
+							{ cwd: repoPath, configs: gitConfigsLog },
+							'log',
+							...shaParser.arguments,
+							'-n1',
+							rev ?? 'HEAD',
+							'--',
+						)
+					: undefined,
 				this.provider.stash?.getStash(repoPath, undefined, cancellation),
 				this.provider.branches.getBranches(repoPath, undefined, cancellation),
 				this.provider.remotes.getRemotes(repoPath, undefined, cancellation),
@@ -131,7 +133,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
-		const selectSha = first(shaParser.parse(getSettledValue(shaResult)?.stdout));
+		const shas = getSettledValue(shaResult)?.stdout;
+		const selectSha = shas != null ? first(shaParser.parse(shas)) : undefined;
 
 		const downstreamMap = new Map<string, string[]>();
 
@@ -589,7 +592,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					worktrees: worktrees,
 					worktreesByBranch: worktreesByBranch,
 					rows: rows,
-					id: sha,
+					id: sha ?? rev,
 					rowsStats: rowStats,
 					rowsStatsDeferred: rowsStatsDeferred,
 					paging: {

@@ -27,6 +27,7 @@ import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons';
 import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
 import { createReference } from '../../../../../git/utils/reference.utils';
+import { isUncommitted } from '../../../../../git/utils/revision.utils';
 import { getTagId } from '../../../../../git/utils/tag.utils';
 import { configuration } from '../../../../../system/-webview/configuration';
 import { log } from '../../../../../system/decorators/log';
@@ -66,7 +67,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
 			await Promise.allSettled([
-				this.provider.commits.getLog(repoPath, rev, {
+				this.provider.commits.getLog(repoPath, !rev || isUncommitted(rev) ? 'HEAD' : rev, {
 					all: true,
 					ordering: ordering,
 					limit: defaultLimit,
@@ -449,7 +450,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			worktrees: worktrees,
 			worktreesByBranch: worktreesByBranch,
 			rows: rows,
-			id: options?.ref,
+			id: options?.ref ?? first(log.commits.values())?.sha,
 
 			paging: {
 				limit: log.limit,

@@ -2623,18 +2623,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			cancellation.token,
 		);
 
-		if (hasWorkingChanges && configuration.get('graph.initialRowSelection') === 'wip') {
-			this.setSelectedRows(uncommitted);
-		}
+		let selectedId = this._selectedId;
+		let selectionChanged = false;
 
-		const selectedId = this._selectedId;
-		const rev = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
+		if (
+			selectedId !== uncommitted &&
+			hasWorkingChanges &&
+			configuration.get('graph.initialRowSelection') === 'wip'
+		) {
+			selectionChanged = true;
+
+			this.setSelectedRows(uncommitted);
+			selectedId = this._selectedId;
+		}
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
 		const dataPromise = this.repository.git.graph.getGraph(
-			rev,
+			selectedId,
 			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
@@ -2662,18 +2669,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				try {
 					const data = await dataPromise;
 					this.setGraph(data);
-					if (selectedId !== uncommitted) {
+
+					if (this._selectedId !== data.id) {
+						selectionChanged = true;
 						this.setSelectedRows(data.id);
 					}
 
 					void this.notifyDidChangeRefsVisibility();
-					void this.notifyDidChangeRows(true);
+					void this.notifyDidChangeRows(selectionChanged);
 				} catch {}
 			});
 		} else {
 			data = await dataPromise;
 			this.setGraph(data);
-			if (selectedId !== uncommitted) {
+
+			if (selectedId !== data.id) {
 				this.setSelectedRows(data.id);
 			}
 		}
