@@ -801,8 +801,9 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 		return;
 	}
 
-	const status = await svc.status.getStatus();
-	if (status?.files.length) {
+	// Check for uncommitted changes before prompting
+	const hasChanges = await svc.status.hasWorkingChanges();
+	if (hasChanges) {
 		const confirm = { title: 'Undo Commit' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(

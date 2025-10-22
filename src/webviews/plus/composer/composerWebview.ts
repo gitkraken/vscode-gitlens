@@ -306,8 +306,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	): Promise<State> {
 		// Stop repo change subscription so we can deal with untracked files
 		this._repositorySubscription?.dispose();
-		const status = await repo.git.status?.getStatus();
-		const untrackedPaths = status?.untrackedChanges.map(f => f.path);
+		const untrackedPaths = (await repo.git.status?.getUntrackedFiles())?.map(f => f.path);
 		if (untrackedPaths?.length) {
 			try {
 				await repo.git.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
@@ -1096,8 +1095,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			let workingTreeDiffs: WorkingTreeDiffs | undefined;
 			if (this._context.diff.unstagedIncluded) {
 				this._repositorySubscription?.dispose();
-				const status = await repo.git.status?.getStatus();
-				const untrackedPaths = status?.untrackedChanges.map(f => f.path);
+				const untrackedPaths = (await repo.git.status?.getUntrackedFiles())?.map(f => f.path);
 				if (untrackedPaths?.length) {
 					try {
 						workingTreeDiffs = await getWorkingTreeDiffs(repo);

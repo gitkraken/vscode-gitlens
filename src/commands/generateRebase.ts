@@ -243,8 +243,8 @@ export class UndoGenerateRebaseCommand extends GlCommandBase {
 			if (result !== confirm) return;
 
 			// Check if there are working tree changes and stash them
-			const status = await svc.status.getStatus();
-			if (status?.files && status.files.length > 0) {
+			const hasChanges = await svc.status.hasWorkingChanges();
+			if (hasChanges) {
 				await svc.stash?.saveStash(undefined, undefined, { includeUntracked: true });
 			}
 

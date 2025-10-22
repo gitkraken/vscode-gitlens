@@ -171,9 +171,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		try {
 			if (args?.to === uncommitted) {
 				// stage any untracked files to include them in the diff
-				const status = await repo.git.status?.getStatus();
-
-				untrackedPaths = status?.untrackedChanges.map(f => f.path);
+				untrackedPaths = (await repo.git.status?.getUntrackedFiles())?.map(f => f.path);
 				if (untrackedPaths?.length) {
 					try {
 						await repo.git.staging?.stageFiles(untrackedPaths);

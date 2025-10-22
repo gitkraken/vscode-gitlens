@@ -40,8 +40,8 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		if (options?.stash) {
 			// Stash any changes first
-			const status = await this.provider.status?.getStatus(repoPath);
-			if (status?.files?.length) {
+			const hasChanges = await this.provider.status?.hasWorkingChanges(repoPath);
+			if (hasChanges) {
 				if (options.stash === 'prompt') {
 					const confirm = { title: 'Stash Changes' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };

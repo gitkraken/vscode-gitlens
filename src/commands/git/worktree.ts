@@ -1201,9 +1201,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				try {
 					if (state.changes.type !== 'index') {
 						// stage any untracked files to include them in the diff
-						const status = await sourceSvc.status.getStatus();
-
-						untrackedPaths = status?.untrackedChanges.map(f => f.path);
+						untrackedPaths = (await sourceSvc.status?.getUntrackedFiles())?.map(f => f.path);
 						if (untrackedPaths?.length) {
 							try {
 								await sourceSvc.staging?.stageFiles(untrackedPaths);
