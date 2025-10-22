@@ -1,10 +1,11 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import { debounce } from '../../../../../system/function/debounce';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 
 @customElement('gl-commit-message')
 export class CommitMessage extends LitElement {
@@ -14,6 +15,7 @@ export class CommitMessage extends LitElement {
 	};
 
 	static override styles = [
+		scrollableBase,
 		boxSizingBase,
 		focusableBaseStyles,
 		css`
@@ -25,19 +27,19 @@ export class CommitMessage extends LitElement {
 				max-width: 80rem;
 			}
 
-			.commit-message__text {
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
-				padding: 1.2rem 1.6rem;
-				font-size: 1.6rem;
-				line-height: 1.4;
-				overflow-wrap: break-word;
-				word-wrap: break-word;
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
-				background: var(--color-background);
+			.commit-message__text,
+			.commit-message__input {
+				border-radius: 0.2rem;
+				font-family: inherit;
+				font-size: 1.3rem;
+				line-height: 2rem;
 				color: var(--vscode-input-foreground);
+				-webkit-font-smoothing: auto;
+			}
+
+			.commit-message__text {
+				border: 1px solid var(--vscode-panel-border);
+				background: var(--color-background);
 				margin-block: 0;
 			}
 
@@ -46,42 +48,67 @@ export class CommitMessage extends LitElement {
 				font-style: italic;
 			}
 
+			.commit-message__text .scrollable {
+				display: block;
+				overflow-y: auto;
+			}
+
+			.commit-message__text .scrollable,
+			.commit-message__input {
+				padding: 0.5rem;
+				min-height: 1lh;
+				max-height: 10lh;
+			}
+
 			.commit-message__field {
 				position: relative;
 			}
 
 			.commit-message__input {
-				width: 100%;
-				padding: 0.5rem;
-				font-family: inherit;
-				font-size: 1.3rem;
-				line-height: 2rem;
+				box-sizing: content-box;
+				width: calc(100% - 1rem);
 				border: 1px solid var(--vscode-input-border);
-				border-radius: 0.2rem;
 				background: var(--vscode-input-background);
-				color: var(--vscode-input-foreground);
 				vertical-align: middle;
-				-webkit-font-smoothing: auto;
+				field-sizing: content;
+				resize: none;
+			}
+
+			.commit-message__input::-webkit-scrollbar {
+				width: 10px;
+			}
+
+			.commit-message__input::-webkit-scrollbar-track {
+				background: transparent;
+			}
+
+			.commit-message__input::-webkit-scrollbar-thumb {
+				background-color: transparent;
+				border-color: transparent;
+				border-right-style: inset;
+				border-right-width: calc(100vw + 100vh);
+				border-radius: unset !important;
+			}
+
+			.commit-message__input:hover::-webkit-scrollbar-thumb,
+			.commit-message__input:focus-within::-webkit-scrollbar-thumb {
+				border-color: var(--vscode-scrollbarSlider-background);
+			}
+
+			.commit-message__input::-webkit-scrollbar-thumb:hover {
+				border-color: var(--vscode-scrollbarSlider-hoverBackground);
+			}
+
+			.commit-message__input::-webkit-scrollbar-thumb:active {
+				border-color: var(--vscode-scrollbarSlider-activeBackground);
 			}
 
 			.commit-message__input:has(~ .commit-message__ai-button) {
 				padding-right: 3rem;
-			}
-
-			textarea.commit-message__input {
-				box-sizing: content-box;
-				width: calc(100% - 1rem);
-				resize: vertical;
-				field-sizing: content;
-				min-height: 1lh;
-				max-height: 10lh;
-				resize: none;
-			}
-			textarea.commit-message__input:has(~ .commit-message__ai-button) {
 				width: calc(100% - 3.5rem);
 			}
 
-			.has-explanation {
+			.commit-message__input.has-explanation {
 				border-bottom-left-radius: 0;
 				border-bottom-right-radius: 0;
 			}
@@ -267,12 +294,15 @@ export class CommitMessage extends LitElement {
 	}
 
 	private renderReadOnly() {
-		const displayMessage =
-			this.message && this.message.trim().length > 0 ? this.message : 'Draft commit (add a commit message)';
-		const isPlaceholder = !this.message || this.message.trim().length === 0;
+		let displayMessage = 'Draft commit (add a commit message)';
+		let isPlaceholder = true;
+		if (this.message && this.message.trim().length > 0) {
+			displayMessage = this.message.replace(/\n/g, '<br/>');
+			isPlaceholder = false;
+		}
 
-		return html`<p id="focusable" class="commit-message__text ${isPlaceholder ? 'placeholder' : ''}">
-			${displayMessage}
+		return html`<p id="focusable" class="commit-message__text${isPlaceholder ? ' placeholder' : ''}">
+			<span class="scrollable"> ${unsafeHTML(displayMessage)} </span>
 		</p>`;
 	}
 
