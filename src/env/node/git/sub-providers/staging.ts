@@ -4,12 +4,14 @@ import type { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '../../../../git/gitProvider';
 import { splitPath } from '../../../../system/-webview/path';
+import { chunk, countStringLength } from '../../../../system/array';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { joinPaths } from '../../../../system/path';
 import { mixinAsyncDisposable } from '../../../../system/unifiedDisposable';
 import { scope } from '../../../../webviews/commitDetails/protocol';
 import type { Git } from '../git';
+import { maxGitCliLength } from '../git';
 
 export class StagingGitSubProvider implements GitStagingSubProvider {
 	constructor(
@@ -86,13 +88,17 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		pathOrUri: string[] | Uri[],
 		options?: { intentToAdd?: boolean },
 	): Promise<void> {
-		await this.git.exec(
-			{ cwd: repoPath },
-			'add',
-			options?.intentToAdd ? '-N' : '-A',
-			'--',
-			...pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
-		);
+		const pathspecs = pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0]));
+
+		// Calculate a safe batch size based on average path length
+		const avgPathLength = countStringLength(pathspecs) / pathspecs.length;
+		const batchSize = Math.max(1, Math.floor(maxGitCliLength / avgPathLength));
+
+		// Process files in batches (will be a single batch if under the limit)
+		const batches = chunk(pathspecs, batchSize);
+		for (const batch of batches) {
+			await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', ...batch);
+		}
 	}
 
 	@log()
@@ -113,10 +119,17 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@log()
 	async unstageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void> {
-		await this.git.reset(
-			repoPath,
-			pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
-		);
+		const pathspecs = pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0]));
+
+		// Calculate a safe batch size based on average path length
+		const avgPathLength = countStringLength(pathspecs) / pathspecs.length;
+		const batchSize = Math.max(1, Math.floor(maxGitCliLength / avgPathLength));
+
+		// Process files in batches (will be a single batch if under the limit)
+		const batches = chunk(pathspecs, batchSize);
+		for (const batch of batches) {
+			await this.git.reset(repoPath, batch);
+		}
 	}
 
 	@log()
