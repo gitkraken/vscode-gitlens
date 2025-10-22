@@ -8,12 +8,7 @@ import { uncommitted } from '../../../../git/models/revision';
 import { createCommandLink } from '../../../../system/commands';
 import { equalsIgnoreCase } from '../../../../system/string';
 import { serializeWebviewItemContext } from '../../../../system/webview';
-import type {
-	DetailsFileContextValue,
-	DetailsItemTypedContext,
-	DraftState,
-	Wip,
-} from '../../../commitDetails/protocol';
+import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol';
 import type { ComposerCommandArgs } from '../../../plus/composer/registration';
 import type { Change } from '../../../plus/patchDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
@@ -427,7 +422,7 @@ export class GlWipDetails extends GlDetailsBase {
 	override getFileContextData(file: File): string | undefined {
 		if (!this.wip?.repo?.path) return undefined;
 
-		const context: DetailsItemTypedContext<DetailsFileContextValue> = {
+		const context: DetailsItemTypedContext = {
 			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
 			webviewItemValue: {
 				type: 'file',
