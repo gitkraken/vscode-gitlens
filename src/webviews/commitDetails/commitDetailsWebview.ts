@@ -1106,9 +1106,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	private async setMode(mode: Mode, repository?: Repository): Promise<void> {
 		this._context.mode = mode;
-		if (mode === 'commit') {
-			void this.notifyDidChangeState(true);
-		} else {
+		void this.notifyDidChangeState(true);
+		if (mode === 'wip') {
 			await this.updateWipState(repository ?? this.container.git.getBestRepositoryOrFirst());
 		}
 
