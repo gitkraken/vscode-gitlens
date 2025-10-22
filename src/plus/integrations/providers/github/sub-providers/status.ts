@@ -1,6 +1,8 @@
 import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitStatusSubProvider, GitWorkingChangesState } from '../../../../../git/gitProvider';
+import type { GitConflictFile } from '../../../../../git/models';
+import type { GitFile } from '../../../../../git/models/file';
 import { GitStatus } from '../../../../../git/models/status';
 import { gate } from '../../../../../system/decorators/gate';
 import { log } from '../../../../../system/decorators/log';
@@ -44,7 +46,15 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return Promise.resolve({ staged: false, unstaged: false, untracked: false });
 	}
 
-	getUntrackedFiles(): Promise<string[]> {
+	hasConflictingFiles(): Promise<boolean> {
+		return Promise.resolve(false);
+	}
+
+	getConflictingFiles(): Promise<GitConflictFile[]> {
+		return Promise.resolve([]);
+	}
+
+	getUntrackedFiles(): Promise<GitFile[]> {
 		return Promise.resolve([]);
 	}
 }

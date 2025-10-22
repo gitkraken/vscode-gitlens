@@ -11,6 +11,9 @@ import {
 	PausedOperationContinueErrorReason,
 } from '../../../../git/errors';
 import type { GitStatusSubProvider, GitWorkingChangesState } from '../../../../git/gitProvider';
+import type { GitConflictFile } from '../../../../git/models';
+import type { GitFile } from '../../../../git/models/file';
+import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus';
 import type {
 	GitCherryPickStatus,
 	GitMergeStatus,
@@ -21,6 +24,7 @@ import type {
 import type { GitBranchReference, GitTagReference } from '../../../../git/models/reference';
 import { GitStatus } from '../../../../git/models/status';
 import type { GitStatusFile } from '../../../../git/models/statusFile';
+import { parseGitConflictFiles } from '../../../../git/parsers/indexParser';
 import { parseGitStatus } from '../../../../git/parsers/statusParser';
 import { createReference } from '../../../../git/utils/reference.utils';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -31,6 +35,7 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { stripFolderGlob } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
+import { iterateByDelimiter } from '../../../../system/string';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -663,30 +668,6 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		}
 	}
 
-	private async hasUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean> {
-		try {
-			const stream = this.git.stream(
-				{ cwd: repoPath, cancellation: cancellation },
-				'ls-files',
-				'--others',
-				'--exclude-standard',
-			);
-
-			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
-			for await (const _chunk of stream) {
-				return true;
-			}
-
-			return false;
-		} catch (ex) {
-			// Re-throw cancellation errors
-			if (isCancellationError(ex)) throw ex;
-
-			// Treat other errors as "no untracked files" for graceful degradation
-			return false;
-		}
-	}
-
 	@gate<StatusGitSubProvider['getWorkingChangesState']>(rp => rp ?? '')
 	@log()
 	async getWorkingChangesState(repoPath: string, cancellation?: CancellationToken): Promise<GitWorkingChangesState> {
@@ -736,15 +717,91 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		}
 	}
 
-	@gate<StatusGitSubProvider['getUntrackedFiles']>(rp => rp ?? '')
+	async hasConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean> {
+		try {
+			const stream = this.git.stream({ cwd: repoPath, cancellation: cancellation }, 'ls-files', '--unmerged');
+
+			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+			for await (const _chunk of stream) {
+				return true;
+			}
+
+			return false;
+		} catch (ex) {
+			// Re-throw cancellation errors
+			if (isCancellationError(ex)) throw ex;
+
+			return false;
+		}
+	}
+
+	@gate<StatusGitSubProvider['getConflictingFiles']>(rp => rp ?? '')
 	@log()
-	async getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<string[]> {
+	async getConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitConflictFile[]> {
 		const scope = getLogScope();
 
 		try {
 			const result = await this.git.exec(
 				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 				'ls-files',
+				'-z',
+				'--unmerged',
+			);
+
+			if (!result.stdout) {
+				setLogScopeExit(scope, ' \u2022 no conflicting files');
+				return [];
+			}
+
+			const files = parseGitConflictFiles(result.stdout, repoPath);
+			setLogScopeExit(scope, ` \u2022 ${files.length} conflicting file(s)`);
+			return files;
+		} catch (ex) {
+			// Re-throw cancellation errors
+			if (isCancellationError(ex)) throw ex;
+
+			// Log other errors and return empty array for graceful degradation
+			Logger.error(ex, scope);
+			setLogScopeExit(scope, ' \u2022 error getting conflicting files');
+			return [];
+		}
+	}
+
+	private async hasUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean> {
+		try {
+			const stream = this.git.stream(
+				{ cwd: repoPath, cancellation: cancellation },
+				'ls-files',
+				// '-z', // Unneeded since we are only looking for presence
+				'--others',
+				'--exclude-standard',
+			);
+
+			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+			for await (const _chunk of stream) {
+				return true;
+			}
+
+			return false;
+		} catch (ex) {
+			// Re-throw cancellation errors
+			if (isCancellationError(ex)) throw ex;
+
+			// Treat other errors as "no untracked files" for graceful degradation
+			return false;
+		}
+	}
+
+	@gate<StatusGitSubProvider['getUntrackedFiles']>(rp => rp ?? '')
+	@log()
+	async getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitFile[]> {
+		const scope = getLogScope();
+
+		try {
+			const result = await this.git.exec(
+				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+				'ls-files',
+				'-z',
 				'--others',
 				'--exclude-standard',
 			);
@@ -754,8 +811,14 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				return [];
 			}
 
-			// Split by newlines and filter out empty strings
-			const files = result.stdout.split('\n').filter(f => f.length > 0);
+			const files: GitFile[] = [];
+
+			for (const line of iterateByDelimiter(result.stdout, '\0')) {
+				if (!line.length) continue;
+
+				files.push({ path: line, repoPath: repoPath, status: GitFileWorkingTreeStatus.Untracked });
+			}
+
 			setLogScopeExit(scope, ` \u2022 ${files.length} untracked file(s)`);
 			return files;
 		} catch (ex) {

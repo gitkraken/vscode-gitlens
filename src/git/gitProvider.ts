@@ -8,6 +8,7 @@ import type { Features } from '../features';
 import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
 import type { GitUri } from './gitUri';
+import type { GitConflictFile } from './models';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
 import type { GitCommit, GitCommitStats, GitStashCommit } from './models/commit';
@@ -752,7 +753,6 @@ export interface GitStatusSubProvider {
 		},
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
-
 	/**
 	 * Get detailed information about all types of working changes in a single optimized call
 	 * @param repoPath The repository path
@@ -760,14 +760,27 @@ export interface GitStatusSubProvider {
 	 * @returns A promise that resolves to an object with boolean flags for each change type
 	 */
 	getWorkingChangesState(repoPath: string, cancellation?: CancellationToken): Promise<GitWorkingChangesState>;
-
+	/**
+	 * Quickly check if the repository has any conflicting files
+	 * @param repoPath Repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to true if there are any unmerged files
+	 */
+	hasConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean>;
+	/**
+	 * Get all conflicting files in the repository with detailed stage information
+	 * @param repoPath Repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to an array of conflicting files with stage information
+	 */
+	getConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitConflictFile[]>;
 	/**
 	 * Get all untracked files in the repository
 	 * @param repoPath Repository path
 	 * @param cancellation Cancellation token
 	 * @returns A promise that resolves to an array of untracked file paths (relative to repo root)
 	 */
-	getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<string[]>;
+	getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitFile[]>;
 }
 
 export interface GitTagsSubProvider {

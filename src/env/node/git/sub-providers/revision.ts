@@ -6,8 +6,9 @@ import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../git/g
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTreeEntry } from '../../../../git/models/tree';
+import { parseGitLsFilesStaged } from '../../../../git/parsers/indexParser';
 import { getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
-import { parseGitLsFilesStaged, parseGitTree } from '../../../../git/parsers/treeParser';
+import { parseGitTree } from '../../../../git/parsers/treeParser';
 import {
 	isRevisionWithSuffix,
 	isSha,
@@ -79,6 +80,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			let result = await this.git.exec(
 				{ cwd: root, errors: GitErrorHandling.Ignore },
 				'ls-files',
+				'-z',
 				'--stage',
 				'--',
 				relativePath,
