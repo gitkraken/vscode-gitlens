@@ -533,7 +533,11 @@ export class Git implements Disposable {
 					}
 				}
 			} finally {
-				// I have NO idea why this HAS to be in a finally block, but it does
+				// This await MUST be in this inner finally block to ensure the child process close event completes
+				// before we call removeAllListeners() in the outer finally. When consumers break early from the
+				// async generator (e.g., reading only the first chunk), the git process receives SIGPIPE and triggers
+				// the close handler asynchronously. Without awaiting here, removeAllListeners() would execute before
+				// the close handler finishes, causing a race condition and potential resource leaks.
 				await promise;
 			}
 		} catch (ex) {
