@@ -1239,13 +1239,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			}, 100);
 		}
 
-		if (current.hasAccount == null) {
-			current.hasAccount = await this.getHasAccount();
-		}
-
-		if (current.hasIntegrationsConnected == null) {
-			current.hasIntegrationsConnected = await this.getHasIntegrationsConnected();
-		}
+		current.hasAccount ??= await this.getHasAccount();
+		current.hasIntegrationsConnected ??= await this.getHasIntegrationsConnected();
 
 		const state: State = {
 			...this.host.baseWebviewState,
@@ -1683,7 +1678,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private getBestCommitOrStash(): GitCommit | GitRevisionReference | undefined {
 		if (this._pinned) return undefined;
 
-		let commit;
+		let commit: GitCommit | GitRevisionReference | undefined;
 
 		if (this.options.attachedTo !== 'graph' && window.activeTextEditor != null) {
 			const { lineTracker } = this.container;
@@ -1710,7 +1705,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
 		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
-			!commit.hasFullDetails() ? commit.ensureFullDetails().then(() => commit) : commit,
+			!commit.hasFullDetails()
+				? commit.ensureFullDetails({ include: { uncommittedFiles: true } }).then(() => commit)
+				: commit,
 			commit.author.getAvatarUri(commit, { size: 32 }),
 			this.container.git
 				.getRepositoryService(commit.repoPath)
@@ -1734,7 +1731,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			message: formattedMessage,
 			parents: commit.parents,
 			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
-			files: commit.fileset?.files,
+			files: commit.isUncommitted ? commit.anyFiles : commit.fileset?.files,
 			stats: commit.stats,
 			autolinks: autolinks != null ? [...map(autolinks.values(), serializeAutolink)] : undefined,
 

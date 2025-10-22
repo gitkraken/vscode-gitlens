@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes intermittent stuck loading state on the _Commit Graph_ ([#4669](https://github.com/gitkraken/vscode-gitlens/issues/4669))
 - Fixes underlines showing on home branch actions ([#4703](https://github.com/gitkraken/vscode-gitlens/issues/4703))
+- Fixes _Inspect_ view not showing uncommitted files on the Inspect tab ([#4714](https://github.com/gitkraken/vscode-gitlens/issues/4714))
 
 ## [17.6.2] - 2025-10-16
 
