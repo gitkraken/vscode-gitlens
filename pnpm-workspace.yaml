@@ -1,5 +1,6 @@
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
+    - '@eamodio/eslint-lite-webpack-plugin'
     - '@gitkraken/*'
     - '@typescript-eslint/*'
     - 'typescript-eslint'

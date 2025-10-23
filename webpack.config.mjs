@@ -485,6 +485,19 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		);
 	}
 
+	if (!env.skipLint) {
+		plugins.push(
+			new ESLintLitePlugin({
+				files: path.join(basePath, '**', '*.ts?(x)'),
+				worker: eslintWorker,
+				eslintOptions: {
+					...eslintOptions,
+					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
+				},
+			}),
+		);
+	}
+
 	let name = '';
 	let filePrefix = '';
 	if (Object.keys(webviews).length > 1) {

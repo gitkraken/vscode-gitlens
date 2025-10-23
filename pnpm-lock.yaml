@@ -131,8 +131,8 @@ importers:
         specifier: 0.10.10
         version: 0.10.10
       '@eamodio/eslint-lite-webpack-plugin':
-        specifier: 0.3.2
-        version: 0.3.2(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(eslint@9.37.0(jiti@2.4.0))(webpack-cli@6.0.1)(webpack@5.102.1)
+        specifier: 0.3.3
+        version: 0.3.3(eslint@9.37.0(jiti@2.4.0))(webpack@5.102.1)
       '@eslint/compat':
         specifier: 1.4.0
         version: 1.4.0(eslint@9.37.0(jiti@2.4.0))
@@ -335,7 +335,7 @@ importers:
 packages:
 
   '@axosoft/react-virtualized@9.22.3-gitkraken.3':
-    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==, tarball: https://registry.npmjs.org/@axosoft/react-virtualized/-/react-virtualized-9.22.3-gitkraken.3.tgz}
+    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==}
     peerDependencies:
       react: ^15.3.0 || ^16.0.0-alpha
       react-dom: ^15.3.0 || ^16.0.0-alpha
@@ -428,8 +428,8 @@ packages:
     resolution: {integrity: sha512-4B4OijXeVNOPZlYA2oEwWOTkzyltLao+xbotHQeqN++Rv27Y6s818+n2Qkp8q+Fxhn0t/5lA5X1Mxktud8eayQ==}
     engines: {node: '>=14.17.0'}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.3.2':
-    resolution: {integrity: sha512-vTjob+y8He0tiRSplYngmRF6cqBKau5MKWH67HGPU7UtMS9PVs+6oIBPsdwEeWvCHrM6AIiPjWKv8T2R+sQ6Bg==}
+  '@eamodio/eslint-lite-webpack-plugin@0.3.3':
+    resolution: {integrity: sha512-cXBm16OFztEv3ngaGopLLo15qUJaLs3h+qiKzUEV5cQzGj/A9kY0mGkAwA4CKIrEkC+L4ZPN5ji+W2JipF7n1Q==}
     engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
     peerDependencies:
       eslint: ^9.23.0
@@ -1646,9 +1646,6 @@ packages:
 
   '@types/warning@3.0.3':
     resolution: {integrity: sha512-D1XC7WK8K+zZEveUPY+cf4+kgauk8N4eHr/XIHXGlGYkHLud6hK9lYfZk1ry1TNh798cZUCgb6MqGEG8DkJt6Q==}
-
-  '@types/webpack@5.28.5':
-    resolution: {integrity: sha512-wR87cgvxj3p6D0Crt1r5avwqffqPXUkNlnQ1mjU93G7gCuFjufZR4I6j8cz5g1F1tTYpfOOFvly+cmIQwL9wvw==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -6549,18 +6546,11 @@ snapshots:
 
   '@discoveryjs/json-ext@0.6.3': {}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.3.2(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(eslint@9.37.0(jiti@2.4.0))(webpack-cli@6.0.1)(webpack@5.102.1)':
+  '@eamodio/eslint-lite-webpack-plugin@0.3.3(eslint@9.37.0(jiti@2.4.0))(webpack@5.102.1)':
     dependencies:
-      '@types/eslint': 9.6.1
-      '@types/webpack': 5.28.5(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(webpack-cli@6.0.1)
       eslint: 9.37.0(jiti@2.4.0)
       minimatch: 10.0.3
       webpack: 5.102.1(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(webpack-cli@6.0.1)
-    transitivePeerDependencies:
-      - '@swc/core'
-      - esbuild
-      - uglify-js
-      - webpack-cli
 
   '@emnapi/core@1.5.0':
     dependencies:
@@ -7626,17 +7616,6 @@ snapshots:
   '@types/vscode@1.95.0': {}
 
   '@types/warning@3.0.3': {}
-
-  '@types/webpack@5.28.5(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(webpack-cli@6.0.1)':
-    dependencies:
-      '@types/node': 20.16.15
-      tapable: 2.3.0
-      webpack: 5.102.1(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(webpack-cli@6.0.1)
-    transitivePeerDependencies:
-      - '@swc/core'
-      - esbuild
-      - uglify-js
-      - webpack-cli
 
   '@types/yargs-parser@21.0.3': {}
 

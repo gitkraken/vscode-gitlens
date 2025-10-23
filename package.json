@@ -25979,7 +25979,7 @@
 	},
 	"devDependencies": {
 		"@custom-elements-manifest/analyzer": "0.10.10",
-		"@eamodio/eslint-lite-webpack-plugin": "0.3.2",
+		"@eamodio/eslint-lite-webpack-plugin": "0.3.3",
 		"@eslint/compat": "1.4.0",
 		"@eslint/js": "9.37.0",
 		"@playwright/test": "1.56.0",
