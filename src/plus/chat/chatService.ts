@@ -51,14 +51,15 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 
 		try {
 			if (args.participant) {
-				// Send to specific participant
 				await openChat({
 					query: `@${args.participant} ${args.query}`,
 					isPartialQuery: true,
 				} as ChatViewOpenOptions);
 			} else {
-				// Send to general chat
-				await openChat(args.query);
+				await openChat({
+					query: args.query,
+					isPartialQuery: true,
+				} as ChatViewOpenOptions);
 			}
 		} catch (error) {
 			Logger.error('ChatService.sendToChat', error);
