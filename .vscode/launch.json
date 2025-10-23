@@ -17,7 +17,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -55,7 +55,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
@@ -87,7 +87,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -140,7 +140,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -179,7 +179,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
@@ -211,7 +211,7 @@
 				"sourceMapRenames": true,
 				"sourceMaps": true,
 				"trace": true,
-				// "urlFilter": "*eamodio.gitlens*",
+				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
