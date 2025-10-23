@@ -72,6 +72,7 @@ interface CreateState {
 	suggestRepoOnly?: boolean;
 	confirmOptions?: CreateFlags[];
 	associateWithIssue?: IssueShape;
+	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 }
 
 function isCreateState(state: Partial<State> | undefined): state is Partial<CreateState> {
@@ -457,6 +458,7 @@ export class BranchGitCommand extends QuickCommand {
 							reference: state.reference,
 							createBranch: state.name,
 							repo: state.repo,
+							onWorkspaceChanging: state.onWorkspaceChanging,
 						},
 					},
 					this.pickedVia,

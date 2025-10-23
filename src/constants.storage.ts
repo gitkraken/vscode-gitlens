@@ -6,6 +6,7 @@ import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
+import type { IssueShape } from './git/models/issue';
 import type { GitRevisionRangeNotation } from './git/models/revision';
 import type { OrganizationSettings } from './plus/gk/models/organization';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
@@ -335,6 +336,8 @@ export interface StoredDeepLinkContext {
 	secondaryTargetSha?: string | undefined;
 	useProgress?: boolean | undefined;
 	state?: DeepLinkServiceState | undefined;
+	// For start-work-chat action
+	issue?: IssueShape | undefined;
 }
 
 export interface StoredGraphColumn {

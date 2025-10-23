@@ -212,6 +212,10 @@ export class DeepLinkService implements Disposable {
 	private getServiceActionFromPendingContext(): DeepLinkServiceAction {
 		switch (this._context.state) {
 			case DeepLinkServiceState.MaybeOpenRepo:
+				// Check if this is a start-work-chat action
+				if (this._context.action === DeepLinkActionType.StartWorkChat) {
+					return DeepLinkServiceAction.StartWorkChat;
+				}
 				return this._context.repo != null
 					? DeepLinkServiceAction.RepoOpened
 					: DeepLinkServiceAction.RepoOpening;
@@ -308,6 +312,7 @@ export class DeepLinkService implements Disposable {
 		if (pendingDeepLink == null) return;
 		void this.container.storage.deleteSecret('deepLinks:pending');
 		if (pendingDeepLink?.url == null) return;
+
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
 
@@ -316,6 +321,7 @@ export class DeepLinkService implements Disposable {
 		this._context.targetSha = pendingDeepLink.targetSha;
 		this._context.secondaryTargetSha = pendingDeepLink.secondaryTargetSha;
 		this._context.repoPath = pendingDeepLink.repoPath;
+		this._context.issue = pendingDeepLink.issue;
 
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
@@ -1605,6 +1611,67 @@ export class DeepLinkService implements Disposable {
 						integrationIds ? { integrationIds: integrationIds } : undefined,
 						source != null ? { source: 'deeplink', detail: source } : { source: 'deeplink' },
 					);
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+				case DeepLinkServiceState.StartWorkChat: {
+					const chatService = this.container.chat;
+					if (chatService == null) {
+						Logger.warn('DeepLinkService.processDeepLink: Chat service not available');
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Chat service not available.';
+						break;
+					}
+
+					if (!repo) {
+						Logger.warn('DeepLinkService.processDeepLink: No repository found in context');
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No repository found.';
+						break;
+					}
+
+					// Get the issue data from the context
+					if (!this._context.issue) {
+						Logger.warn('DeepLinkService.processDeepLink: No issue data found in context');
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No issue data found.';
+						break;
+					}
+
+					// Deserialize the issue (convert date strings back to Date objects)
+					const issue = this._context.issue;
+					if (issue.createdDate && typeof issue.createdDate === 'string') {
+						issue.createdDate = new Date(issue.createdDate);
+					}
+					if (issue.updatedDate && typeof issue.updatedDate === 'string') {
+						issue.updatedDate = new Date(issue.updatedDate);
+					}
+					if (issue.closedDate && typeof issue.closedDate === 'string') {
+						issue.closedDate = new Date(issue.closedDate);
+					}
+
+					Logger.log(`DeepLinkService.processDeepLink: Sending issue ${issue.id} to chat`);
+
+					// Send the issue to chat
+					await chatService.sendContextualPrompt({
+						context: {
+							item: issue,
+							repository: repo,
+							source: 'start-work',
+							metadata: {
+								worktree: true,
+							},
+						},
+						action: 'start-work',
+						config: {
+							includeMcpTools: true,
+							includeRepoContext: true,
+							includeFileContext: false,
+						},
+						source: 'startWork',
+					});
+
+					Logger.log('DeepLinkService.processDeepLink: Successfully sent issue to chat');
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}

@@ -56,6 +56,7 @@ export enum DeepLinkActionType {
 	SwitchToPullRequest = 'switch-to-pr',
 	SwitchToPullRequestWorktree = 'switch-to-pr-worktree',
 	SwitchToAndSuggestPullRequest = 'switch-to-and-suggest-pr',
+	StartWorkChat = 'start-work-chat',
 }
 
 export const AccountDeepLinkTypes: DeepLinkType[] = [DeepLinkType.Draft, DeepLinkType.Workspace];
@@ -144,6 +145,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 					mainId: mainId,
 					remoteUrl: remoteUrl,
 					repoPath: repoPath,
+					action: action,
 				};
 			}
 
@@ -264,6 +266,7 @@ export const enum DeepLinkServiceState {
 	OpenAllPrChanges,
 	DeleteBranch,
 	ConnectCloudIntegrations,
+	StartWorkChat,
 }
 
 export const enum DeepLinkServiceAction {
@@ -299,6 +302,7 @@ export const enum DeepLinkServiceAction {
 	OpenSwitch,
 	OpenAllPrChanges,
 	DeleteBranch,
+	StartWorkChat,
 }
 
 export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
@@ -324,6 +328,7 @@ export interface DeepLinkServiceContext {
 	repoOpenUri?: Uri | undefined;
 	params?: URLSearchParams | undefined;
 	currentBranch?: string | undefined;
+	issue?: any | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -399,6 +404,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.EnsureRemoteMatch,
 		[DeepLinkServiceAction.RepoOpening]: DeepLinkServiceState.RepoOpening,
 		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.StartWorkChat]: DeepLinkServiceState.StartWorkChat,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
@@ -475,6 +481,11 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.ConnectCloudIntegrations]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.StartWorkChat]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,

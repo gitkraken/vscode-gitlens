@@ -8,6 +8,7 @@ import type {
 	PartialStepState,
 	QuickPickStep,
 	StepGenerator,
+	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../../commands/quickCommand';
@@ -274,6 +275,15 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 				const result = yield* this.pickChatActionStep(state, context);
 				if (result === StepResultBreak) continue;
 				state.chatAction = result;
+
+				// If user chose "Send to AI Chat", send the prompt and end the flow
+				if (result === 'explain-issue') {
+					await this.sendIssueToChatWithAction(state.item, 'explain-issue');
+					endSteps(state);
+					break;
+				}
+				// For "Create Worktree & Chat", the chat prompt will be sent when the new worktree window opens
+				// (handled by checkPendingWorktreeChat in extension.ts)
 			}
 
 			if (this.continuation) {
@@ -296,10 +306,10 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		}
 	}
 
-	private async *pickChatActionStep(
+	private *pickChatActionStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<'create-branch' | 'create-worktree' | 'explain-issue' | undefined> {
+	): StepResultGenerator<'create-branch' | 'create-worktree' | 'explain-issue' | undefined> {
 		const aiChat = {
 			label: '$(comment-discussion) Send to AI Chat',
 			description: 'Get AI assistance with this issue',
@@ -339,23 +349,21 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		const selectedItem = selection[0];
 		switch (selectedItem) {
 			case aiChat:
-				// Send explain-issue prompt to chat
-				await this.sendIssueToChatWithAction(state.item!, 'explain-issue');
+				// Return action to send explain-issue prompt to chat (handled in main flow)
 				return 'explain-issue';
 			case branchAndAiChat:
-				// Send create-branch prompt to chat
-				await this.sendIssueToChatWithAction(state.item!, 'create-branch');
+				// Return action to create branch then send prompt to chat
 				return 'create-branch';
 			case createWorktreeAndAiChat:
-				// Send create-worktree prompt to chat
-				await this.sendIssueToChatWithAction(state.item!, 'create-worktree');
+				// Return action to create worktree then send prompt to chat
 				return 'create-worktree';
 			default:
+				// Continue without AI Chat
 				return undefined;
 		}
 	}
 
-	private async sendIssueToChatWithAction(item: StartWorkItem, action: ChatAction): Promise<void> {
+	protected async sendIssueToChatWithAction(item: StartWorkItem, action: ChatAction): Promise<void> {
 		const repository = await this.getIssueRepositoryIfExists(item.issue);
 
 		const context: ChatIssueContext = {
@@ -689,6 +697,54 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 		const issue = state.item.issue;
 		const repo = issue && (await this.getIssueRepositoryIfExists(issue));
 
+		// Determine the confirm options based on chat action
+		let confirmOptions: ('--switch' | '--worktree')[] | undefined;
+		if (state.chatAction === 'create-worktree') {
+			// For worktree chat action, only allow worktree creation
+			confirmOptions = ['--worktree'];
+		} else if (state.chatAction === 'create-branch') {
+			// For branch chat action, only allow branch creation (no worktree)
+			confirmOptions = ['--switch'];
+		} else {
+			// For no chat action, allow both options
+			confirmOptions = ['--switch', '--worktree'];
+		}
+
+		// Create onWorkspaceChanging callback for worktree chat action
+		let onWorkspaceChanging: ((isNewWorktree?: boolean) => Promise<void>) | undefined;
+		if (state.chatAction === 'create-worktree' && repo) {
+			const { serializeIssue } = await import('../../git/utils/issue.utils');
+			const serializedIssue = serializeIssue(issue);
+
+			onWorkspaceChanging = async (isNewWorktree?: boolean) => {
+				if (!isNewWorktree) return;
+
+				// Get the repository ID
+				const repoId =
+					(await repo.git.getUniqueRepositoryId()) ??
+					(await import('../../git/models/repositoryIdentities')).missingRepositoryId;
+
+				// Get the remote URL
+				const remote = await repo.git.remotes.getDefaultRemote();
+				const remoteUrl = remote?.url;
+
+				// Store a deeplink with the issue data for the new worktree window
+				// Format: vscode://{extensionId}/link/r/{repoId}?action=start-work-chat&url={remoteUrl}
+				const url = `vscode://${this.container.context.extension.id}/link/r/${repoId}?action=start-work-chat${
+					remoteUrl ? `&url=${encodeURIComponent(remoteUrl)}` : ''
+				}`;
+
+				await this.container.storage.storeSecret(
+					'deepLinks:pending',
+					JSON.stringify({
+						url: url,
+						repoPath: repo.path,
+						issue: serializedIssue,
+					}),
+				);
+			};
+		}
+
 		const result = yield* getSteps(
 			this.container,
 			{
@@ -699,14 +755,22 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 					name: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
 					suggestNameOnly: true,
 					suggestRepoOnly: true,
-					confirmOptions: ['--switch', '--worktree'],
+					confirmOptions: confirmOptions,
 					associateWithIssue: issue,
+					onWorkspaceChanging: onWorkspaceChanging,
 				},
 			},
 			this.pickedVia,
 		);
 		if (result !== StepResultBreak) {
 			state.counter = 0;
+
+			// After branch creation, send prompt to chat if needed
+			if (state.chatAction === 'create-branch') {
+				await this.sendIssueToChatWithAction(state.item, 'create-branch');
+			}
+			// For worktree, the chat prompt will be sent when the new window opens
+			// (handled by the deeplink service processing the pending deeplink)
 		} else {
 			endSteps(state);
 		}
