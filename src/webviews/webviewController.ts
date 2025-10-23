@@ -673,9 +673,9 @@ export class WebviewController<
 		const scope = getNewLogScope(`${getLoggableName(this)}.notify(${id}|${notificationType.method})`, true);
 		const sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
 
-		const serializedParams = this.serializeIpcData(params);
+		const serializedParams = params != null ? this.serializeIpcData(params) : undefined;
 
-		sw?.restart({ message: `\u2022 serialized params; length=${serializedParams.length}` });
+		sw?.restart({ message: `\u2022 serialized params; length=${serializedParams?.length ?? 0}` });
 
 		let bytes: Uint8Array | undefined;
 		let compression: IpcMessage['compressed'] = false;
