@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 13.0.0-vnext.9
-        version: 13.0.0-vnext.9(@types/react@19.0.14)(react@19.0.0)
+        specifier: 13.0.0-vnext.10
+        version: 13.0.0-vnext.10(@types/react@19.0.14)(react@19.0.0)
       '@gitkraken/provider-apis':
         specifier: 0.29.7
         version: 0.29.7(encoding@0.1.13)
@@ -335,7 +335,7 @@ importers:
 packages:
 
   '@axosoft/react-virtualized@9.22.3-gitkraken.3':
-    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==}
+    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==, tarball: https://registry.npmjs.org/@axosoft/react-virtualized/-/react-virtualized-9.22.3-gitkraken.3.tgz}
     peerDependencies:
       react: ^15.3.0 || ^16.0.0-alpha
       react-dom: ^15.3.0 || ^16.0.0-alpha
@@ -662,8 +662,8 @@ packages:
   '@github/catalyst@1.7.0':
     resolution: {integrity: sha512-qOAxrDdRZz9+v4y2WoAfh11rpRY/x4FRofPNmJyZFzAjubtzE3sCa/tAycWWufmQGoYiwwzL/qJBBgyg7avxPw==}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.9':
-    resolution: {integrity: sha512-PvwOVrCk27aRG/J/Khx1EuipDfpULmmCi2YnKCQSFESY+uo12I2e7RIA4EPJ516/PaeQUvo6Zgps7Jjz0SOiRw==}
+  '@gitkraken/gitkraken-components@13.0.0-vnext.10':
+    resolution: {integrity: sha512-2V1ANVfW9mQZV/AQYCIt2yBIfqjet3WL05O/i2ptCbgmdqIVeDalNSQAodZWqtLqpXCIg59y7b2vtOzo6bYPBw==}
     peerDependencies:
       react: 19.0.0
 
@@ -6723,7 +6723,7 @@ snapshots:
 
   '@github/catalyst@1.7.0': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.9(@types/react@19.0.14)(react@19.0.0)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.10(@types/react@19.0.14)(react@19.0.0)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       classnames: 2.5.1
