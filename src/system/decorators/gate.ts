@@ -39,10 +39,34 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 				void promise.finally(() => (this[prop] = undefined));
 
 				// Log if gate takes too long to resolve
-				const timeout = setTimeout(() => {
-					Logger.warn(`[gate] ${key} has been pending for 60+ seconds (possible deadlock)`, `prop=${prop}`);
+				let timeout = setTimeout(() => {
+					Logger.warn(`[gate] ${key} has been pending for 120+ seconds (possible deadlock)`, `prop=${prop}`);
 					getTelementryService()?.sendEvent('op/gate/deadlock', { key: key, prop: prop, timeout: 60000 });
-				}, 60000);
+
+					timeout = setTimeout(() => {
+						Logger.warn(
+							`[gate] ${key} has still been pending for 420+ seconds (possible deadlock)`,
+							`prop=${prop}`,
+						);
+						getTelementryService()?.sendEvent('op/gate/deadlock', {
+							key: key,
+							prop: prop,
+							timeout: 420000,
+						});
+
+						timeout = setTimeout(() => {
+							Logger.warn(
+								`[gate] ${key} has still been pending for 900+ seconds (possible deadlock)`,
+								`prop=${prop}`,
+							);
+							getTelementryService()?.sendEvent('op/gate/deadlock', {
+								key: key,
+								prop: prop,
+								timeout: 900000,
+							});
+						}, 480000);
+					}, 300000);
+				}, 120000);
 				void promise.finally(() => clearTimeout(timeout));
 			}
 
