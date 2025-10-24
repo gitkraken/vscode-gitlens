@@ -692,7 +692,7 @@ export class Repository implements Disposable {
 		// If we've come back into focus and we are dirty, fire the change events
 
 		if (this._pendingRepoChange != null) {
-			Logger.debug(scope, `Firing pending repo changes: ${this._pendingRepoChange.toString(true)}`);
+			Logger.debug(scope, `Firing pending repo ${this._pendingRepoChange.toString(true)}`);
 			this._fireChangeDebounced?.();
 		}
 
@@ -878,7 +878,7 @@ export class Repository implements Disposable {
 		this.providerService.onRepositoryChanged(this, this._pendingRepoChange);
 
 		if (this._suspended) {
-			Logger.debug(scope, `SUSPENDED: queueing repo changes=${this._pendingRepoChange.toString(true)}`);
+			Logger.debug(scope, `SUSPENDED: queueing repo ${this._pendingRepoChange.toString(true)}`);
 			return;
 		}
 
@@ -896,7 +896,7 @@ export class Repository implements Disposable {
 
 		this._pendingRepoChange = undefined;
 
-		Logger.debug(scope, `firing repo changes=${e.toString(true)}`);
+		Logger.debug(scope, `firing repo ${e.toString(true)}`);
 		try {
 			this._onDidChange.fire(e);
 		} finally {
