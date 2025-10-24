@@ -274,7 +274,14 @@ export class Repository implements Disposable {
 			using scope = startLogScope(`${getLoggableName(this)}.closed`, false);
 			Logger.debug(scope, `setting closed=${value}`);
 			void this.getGitDir().then(gd => this.setupRepoWatchers(gd));
-			this.fireChange(this._closed ? RepositoryChange.Closed : RepositoryChange.Opened);
+
+			if (this._closed) {
+				// When closing, fire the event immediately even if suspended
+				// This ensures views can clean up nodes for closed repositories before VS Code tries to render them
+				this.fireChange(RepositoryChange.Closed, true);
+			} else {
+				this.fireChange(RepositoryChange.Opened);
+			}
 		}
 	}
 
@@ -865,14 +872,34 @@ export class Repository implements Disposable {
 		this._fireFileSystemChangeDebounced = undefined;
 	}
 
+	private fireChange(...changes: RepositoryChange[]): void;
+	private fireChange(change: RepositoryChange, force: boolean): void;
 	@debug()
-	private fireChange(...changes: RepositoryChange[]) {
+	private fireChange(...args: RepositoryChange[] | [RepositoryChange, boolean]): void {
 		const scope = getLogScope();
+
+		// Extract force flag if present (last argument is boolean)
+		const lastArg = args[args.length - 1];
+		const force = typeof lastArg === 'boolean' ? lastArg : false;
+		const changes = (force ? args.slice(0, -1) : args) as RepositoryChange[];
 
 		this._updatedAt = Date.now();
 
-		this._fireChangeDebounced ??= debounce(this.fireChangeCore.bind(this), defaultRepositoryChangeDelay);
+		if (force) {
+			// Cancel any pending debounced fire and clear the queue
+			this._fireChangeDebounced?.cancel();
+			this._fireChangeDebounced = undefined;
 
+			// Set the pending change and fire immediately, bypassing suspension
+			this._pendingRepoChange = new RepositoryChangeEvent(this, changes);
+
+			this.providerService.onRepositoryChanged(this, this._pendingRepoChange);
+			this.fireChangeCore();
+
+			return;
+		}
+
+		this._fireChangeDebounced ??= debounce(this.fireChangeCore.bind(this), defaultRepositoryChangeDelay);
 		this._pendingRepoChange = this._pendingRepoChange?.with(changes) ?? new RepositoryChangeEvent(this, changes);
 
 		this.providerService.onRepositoryChanged(this, this._pendingRepoChange);
