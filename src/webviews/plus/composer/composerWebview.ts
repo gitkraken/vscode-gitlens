@@ -1393,30 +1393,34 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Capture previous stash state
 			let previousStashCommit;
-			let stash = await svc.stash?.getStash();
-			if (stash?.stashes.size) {
-				const latestStash = stash.stashes.values().next().value;
-				if (latestStash) {
-					previousStashCommit = latestStash;
-				}
-			}
-
-			// Stash the working changes
-			const stashMessage = `Commit composer: ${new Date().toLocaleString()}`;
-			await svc.stash?.saveStash(stashMessage, undefined, { includeUntracked: true });
-
-			// Get the new stash reference
-			stash = await svc.stash?.getStash();
+			let stash;
 			let stashCommit;
 			let stashedSuccessfully = false;
-			if (stash?.stashes.size) {
-				stashCommit = stash.stashes.values().next().value;
-				if (
-					stashCommit &&
-					stashCommit.ref !== previousStashCommit?.ref &&
-					stashCommit.message?.includes(stashMessage)
-				) {
-					stashedSuccessfully = true;
+			const hasWorkingChanges = await repo.git.status.hasWorkingChanges({ throwOnError: true });
+			if (hasWorkingChanges) {
+				stash = await svc.stash?.getStash();
+				if (stash?.stashes.size) {
+					const latestStash = stash.stashes.values().next().value;
+					if (latestStash) {
+						previousStashCommit = latestStash;
+					}
+				}
+
+				// Stash the working changes
+				const stashMessage = `Commit composer: ${new Date().toLocaleString()}`;
+				await svc.stash?.saveStash(stashMessage, undefined, { includeUntracked: true });
+
+				// Get the new stash reference
+				stash = await svc.stash?.getStash();
+				if (stash?.stashes.size) {
+					stashCommit = stash.stashes.values().next().value;
+					if (
+						stashCommit &&
+						stashCommit.ref !== previousStashCommit?.ref &&
+						stashCommit.message?.includes(stashMessage)
+					) {
+						stashedSuccessfully = true;
+					}
 				}
 			}
 
