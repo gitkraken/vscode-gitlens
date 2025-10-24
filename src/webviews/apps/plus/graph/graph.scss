@@ -1129,6 +1129,10 @@ web-graph {
 		margin-top: 0.1rem;
 	}
 
+	.columns-btn.spinner {
+		margin-right: 0.6rem;
+	}
+
 	.button {
 		background-color: var(--color-graph-actionbar-background);
 		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
@@ -1465,3 +1469,5 @@ web-graph {
 		height: 100%;
 	}
 }
+
+@import '../../shared/codicons';

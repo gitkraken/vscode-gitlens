@@ -140,6 +140,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.refsMetadata=${graphState.refsMetadata}
 			.rows=${graphState.rows}
 			.rowsStats=${graphState.rowsStats}
+			?rowsStatsLoading=${graphState.rowsStatsLoading}
 			.searchResults=${graphState.searchResults}
 			.selectedRows=${graphState.selectedRows}
 			.theming=${this.theming}
