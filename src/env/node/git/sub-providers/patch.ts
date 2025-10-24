@@ -10,7 +10,7 @@ import {
 	WorktreeCreateError,
 } from '../../../../git/errors';
 import type { GitPatchSubProvider } from '../../../../git/gitProvider';
-import type { GitCommit } from '../../../../git/models/commit';
+import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -178,7 +178,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	async createUnreachableCommitsFromPatches(
 		repoPath: string,
 		base: string | undefined,
-		patches: { message: string; patch: string }[],
+		patches: { message: string; patch: string; author?: GitCommitIdentityShape }[],
 	): Promise<string[]> {
 		// Create a temporary index file
 		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
@@ -186,8 +186,8 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		const shas: string[] = [];
 
-		for (const { message, patch } of patches) {
-			const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
+		for (const { message, patch, author } of patches) {
+			const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch, author);
 			shas.push(sha);
 			base = sha;
 		}
@@ -201,6 +201,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		base: string | undefined,
 		message: string,
 		patch: string,
+		author?: GitCommitIdentityShape,
 	): Promise<string> {
 		const scope = getLogScope();
 
@@ -221,9 +222,18 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			let result = await this.git.exec({ cwd: repoPath, env: env }, 'write-tree');
 			const tree = result.stdout.trim();
 
+			// Set the author if provided
+			const commitEnv = author
+				? {
+						...env,
+						GIT_AUTHOR_NAME: author.name,
+						GIT_AUTHOR_EMAIL: author.email || '',
+					}
+				: env;
+
 			// Create new commit from the tree
 			result = await this.git.exec(
-				{ cwd: repoPath, env: env },
+				{ cwd: repoPath, env: commitEnv },
 				'commit-tree',
 				tree,
 				...(base ? ['-p', base] : []),

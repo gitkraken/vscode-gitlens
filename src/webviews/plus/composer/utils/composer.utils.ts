@@ -1,6 +1,6 @@
 import { sha256 } from '@env/crypto';
 import type { Container } from '../../../../container';
-import type { GitCommit } from '../../../../git/models/commit';
+import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit';
 import type { GitDiff, ParsedGitDiff } from '../../../../git/models/diff';
 import type { Repository } from '../../../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../../../git/models/revision';
@@ -129,18 +129,138 @@ export function createCombinedDiffForCommit(hunks: ComposerHunk[]): {
 	return { patch: commitPatch, filePatches: filePatches };
 }
 
+// Given a group of hunks assigned to a single commit, each with their own author and co-authors, determine a single author and co-authors list for the commit
+// based on the amount of changes made by each author, measured in additions + deletions
+function getAuthorAndCoAuthorsForCommit(commitHunks: ComposerHunk[]): {
+	author: GitCommitIdentityShape | undefined;
+	coAuthors: GitCommitIdentityShape[];
+} {
+	// Each hunk may or may not have an author. Determine the primary author based on the hunk with the largest diff, then assign the rest as co-authors.
+	// If there is a tie for largest diff, use the first one.
+	const authorContributionWeights = new Map<string, number>();
+	const coAuthors = new Map<string, GitCommitIdentityShape>();
+	for (const hunk of commitHunks) {
+		if (hunk.author == null) continue;
+		coAuthors.set(hunk.author.name, hunk.author);
+		hunk.coAuthors?.forEach(coAuthor => coAuthors.set(coAuthor.name, coAuthor));
+		authorContributionWeights.set(
+			hunk.author.name,
+			(authorContributionWeights.get(hunk.author.name) ?? 0) + hunk.additions + hunk.deletions,
+		);
+	}
+
+	let primary: GitCommitIdentityShape | undefined;
+	let primaryScore = 0;
+	for (const [author, score] of authorContributionWeights.entries()) {
+		if (primary == null || score > primaryScore) {
+			primary = coAuthors.get(author);
+			primaryScore = score;
+		}
+	}
+
+	// Remove the primary author from the co-authors, if present
+	if (primary != null) {
+		coAuthors.delete(primary.name);
+	}
+
+	return { author: primary, coAuthors: [...coAuthors.values()] };
+}
+
+function overlap(range1: { start: number; count: number }, range2: { start: number; count: number }): number {
+	const end1 = range1.start + range1.count;
+	const end2 = range2.start + range2.count;
+	const overlapStart = Math.max(range1.start, range2.start);
+	const overlapEnd = Math.min(end1, end2);
+	return Math.max(0, overlapEnd - overlapStart);
+}
+
+// Calculates a similarity score between two hunks that touch the same file, based on the overlap between the lines in their hunk headers
+function getHunkSimilarityValue(hunk1: ComposerHunk, hunk2: ComposerHunk): number {
+	const oldRange1 = hunk1.hunkHeader.match(/@@ -(\d+),(\d+)/);
+	const newRange1 = hunk1.hunkHeader.match(/@@ -\d+,\d+ \+(\d+),(\d+)/);
+	const oldRange2 = hunk2.hunkHeader.match(/@@ -(\d+),(\d+)/);
+	const newRange2 = hunk2.hunkHeader.match(/@@ -\d+,\d+ \+(\d+),(\d+)/);
+	if (oldRange1 == null || newRange1 == null || oldRange2 == null || newRange2 == null) {
+		return 0;
+	}
+	return (
+		overlap(
+			{ start: parseInt(oldRange1[1], 10), count: parseInt(oldRange1[2], 10) },
+			{ start: parseInt(oldRange2[1], 10), count: parseInt(oldRange2[2], 10) },
+		) +
+		overlap(
+			{ start: parseInt(newRange1[1], 10), count: parseInt(newRange1[2], 10) },
+			{ start: parseInt(newRange2[1], 10), count: parseInt(newRange2[2], 10) },
+		)
+	);
+}
+
+// Given an array of hunks representing commit history between two commits, and a hunk from their combined diff, determine the author and co-authors of the
+// combined diff hunk based on similarity to the commit hunks
+export function getAuthorAndCoAuthorsForCombinedDiffHunk(
+	commitHunks: ComposerHunk[],
+	combinedDiffHunk: ComposerHunk,
+): { author: GitCommitIdentityShape | undefined; coAuthors: GitCommitIdentityShape[] } {
+	const matches = commitHunks.filter(commitHunk => {
+		return (
+			commitHunk.author != null &&
+			commitHunk.fileName === combinedDiffHunk.fileName &&
+			(!combinedDiffHunk.isRename || commitHunk.isRename === combinedDiffHunk.isRename)
+		);
+	});
+
+	const similarityByHunkAuthor = new Map<string, number>();
+	const coAuthors = new Map<string, GitCommitIdentityShape>();
+	let maxSimilarity = 0;
+	let primaryAuthor: GitCommitIdentityShape | undefined;
+	for (const commitHunk of matches) {
+		coAuthors.set(commitHunk.author!.name, commitHunk.author!);
+		commitHunk.coAuthors?.forEach(coAuthor => coAuthors.set(coAuthor.name, coAuthor));
+		let similarity = getHunkSimilarityValue(commitHunk, combinedDiffHunk);
+		if (similarityByHunkAuthor.has(commitHunk.author!.name)) {
+			similarity += similarityByHunkAuthor.get(commitHunk.author!.name)!;
+		}
+
+		similarityByHunkAuthor.set(commitHunk.author!.name, similarity);
+		if (primaryAuthor == null || similarity > maxSimilarity) {
+			maxSimilarity = similarity;
+			primaryAuthor = commitHunk.author;
+		}
+	}
+
+	// Remove the primary author from the co-authors, if present
+	if (primaryAuthor != null) {
+		coAuthors.delete(primaryAuthor.name);
+	}
+
+	return { author: primaryAuthor, coAuthors: [...coAuthors.values()] };
+}
+
 export function convertToComposerDiffInfo(
 	commits: ComposerCommit[],
 	hunks: ComposerHunk[],
-): Array<{ message: string; explanation?: string; filePatches: Map<string, string[]>; patch: string }> {
+): Array<{
+	message: string;
+	explanation?: string;
+	filePatches: Map<string, string[]>;
+	patch: string;
+	author?: GitCommitIdentityShape;
+}> {
 	return commits.map(commit => {
 		const { patch, filePatches } = createCombinedDiffForCommit(getHunksForCommit(commit, hunks));
+		const commitHunks = getHunksForCommit(commit, hunks);
+		const { author, coAuthors } = getAuthorAndCoAuthorsForCommit(commitHunks);
+		let message = commit.message;
+		if (coAuthors.length > 0) {
+			message += `\n${coAuthors.map(a => `\nCo-authored-by: ${a.name} <${a.email}>`).join()}`;
+		}
 
 		return {
-			message: commit.message,
+			message: message,
 			explanation: commit.aiExplanation,
 			filePatches: filePatches,
 			patch: patch,
+			author: author,
 		};
 	});
 }
@@ -199,6 +319,8 @@ function convertDiffToComposerHunks(
 	diff: ParsedGitDiff,
 	source: 'staged' | 'unstaged' | 'commits',
 	startingCount: number,
+	author?: GitCommitIdentityShape,
+	coAuthors?: GitCommitIdentityShape[],
 ): { hunks: ComposerHunk[]; count: number } {
 	const hunks: ComposerHunk[] = [];
 	let counter = startingCount;
@@ -239,6 +361,8 @@ function convertDiffToComposerHunks(
 				source: source,
 				assigned: false,
 				isRename: file.metadata.renamedOrCopied !== false,
+				author: author,
+				coAuthors: coAuthors,
 			};
 
 			hunks.push(composerHunk);
@@ -262,6 +386,8 @@ function convertDiffToComposerHunks(
 					source: source,
 					assigned: false,
 					isRename: false,
+					author: author,
+					coAuthors: coAuthors,
 				};
 
 				hunks.push(composerHunk);
@@ -517,6 +643,22 @@ export async function getBranchCommits(
 	}
 }
 
+export function parseCoAuthorsFromGitCommit(commit: GitCommit): GitCommitIdentityShape[] {
+	const coAuthors: GitCommitIdentityShape[] = [];
+	if (!commit.message) return coAuthors;
+
+	const coAuthorRegex = /^Co-authored-by:\s*(.+?)(?:\s*<(.+?)>)?\s*$/gm;
+	let match;
+	while ((match = coAuthorRegex.exec(commit.message)) !== null) {
+		const [, name, email] = match;
+		if (name) {
+			coAuthors.push({ name: name.trim(), email: email?.trim(), date: commit.date });
+		}
+	}
+
+	return coAuthors;
+}
+
 /**
  * Creates ComposerCommit array from existing branch commits, preserving order and mapping hunks correctly
  */
@@ -525,6 +667,7 @@ export async function createComposerCommitsFromGitCommits(
 	commits: GitCommit[],
 ): Promise<{ commits: ComposerCommit[]; hunks: ComposerHunk[] } | undefined> {
 	try {
+		const currentUser = await repo.git.config.getCurrentUser();
 		const composerCommits: ComposerCommit[] = [];
 		const allHunks: ComposerHunk[] = [];
 		let count = 0;
@@ -545,8 +688,18 @@ export async function createComposerCommitsFromGitCommits(
 			// Parse the diff to get hunks
 			const parsedDiff = parseGitDiff(diff.contents);
 			const commitHunkIndices: number[] = [];
+			const author = {
+				...commit.author,
+				name: commit.author.name === 'You' ? (currentUser?.name ?? commit.author.name) : commit.author.name,
+			};
 
-			const { hunks, count: newCount } = convertDiffToComposerHunks(parsedDiff, 'commits', count);
+			const { hunks, count: newCount } = convertDiffToComposerHunks(
+				parsedDiff,
+				'commits',
+				count,
+				author,
+				parseCoAuthorsFromGitCommit(commit),
+			);
 			allHunks.push(...hunks);
 			count = newCount;
 			commitHunkIndices.push(...hunks.map(h => h.index));

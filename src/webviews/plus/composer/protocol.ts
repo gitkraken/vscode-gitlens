@@ -1,4 +1,5 @@
 import type { Sources } from '../../../constants.telemetry';
+import type { GitCommitIdentityShape } from '../../../git/models/commit';
 import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { AIModel } from '../../../plus/ai/models/model';
 import type { IpcScope, WebviewState } from '../../protocol';
@@ -23,6 +24,8 @@ export interface ComposerHunkBase {
 	assigned?: boolean; // True when this hunk's index is in any commit's hunkIndices array
 	isRename?: boolean; // True for rename-only hunks
 	originalFileName?: string; // Original filename for renames
+	author?: GitCommitIdentityShape; // Author of the commit this hunk belongs to, if any
+	coAuthors?: GitCommitIdentityShape[]; // Co-authors of the commit this hunk belongs to, if any
 }
 
 export interface ComposerCommit {
