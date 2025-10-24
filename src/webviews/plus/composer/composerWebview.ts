@@ -504,74 +504,94 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			};
 		}
 
-		// Get the merge target for the branch
-		const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
+		// Get the merge target for the branch with recursive resolution
 		let mergeTargetName: string | undefined;
-		if (!baseBranchNameResult.paused) {
-			mergeTargetName = baseBranchNameResult.value;
+		let currentMergeTargetBranchName = branchName;
+		let currentMergeTargetBranch = branch;
+		const visitedBranches = new Set<string>();
+		let attempts = 0;
+		const maxAttempts = 10;
+
+		while (attempts < maxAttempts) {
+			attempts++;
+
+			// Prevent infinite loops by tracking visited branches
+			if (visitedBranches.has(currentMergeTargetBranchName)) {
+				break;
+			}
+			visitedBranches.add(currentMergeTargetBranchName);
+
+			const mergeTargetNameResult = await getBranchMergeTargetName(this.container, currentMergeTargetBranch);
+			if (!mergeTargetNameResult.paused && mergeTargetNameResult.value) {
+				mergeTargetName = mergeTargetNameResult.value;
+
+				// Get branch commits to check if we have unique commits
+				const branchData = await getBranchCommits(this.container, repo, branchName, mergeTargetName);
+				if (branchData && branchData.commits.length > 0) {
+					// Found unique commits, use this merge target
+					const { commits: branchCommits, baseCommit, headCommitSha } = branchData;
+
+					// Create composer commits and hunks from branch commits
+					const composerData = await createComposerCommitsFromGitCommits(repo, branchCommits);
+					if (!composerData) {
+						return {
+							...this.initialState,
+							loadingError: `Failed to process commits for branch '${branchName}'.`,
+						};
+					}
+
+					const { commits, hunks } = composerData;
+					const diffs = (await getComposerDiffs(repo, { baseSha: baseCommit.sha, headSha: headCommitSha }))!;
+
+					// Return successful state with found commits
+					return this.initializeStateAndContext(
+						repo,
+						hunks,
+						commits,
+						diffs,
+						{
+							sha: baseCommit.sha,
+							message: baseCommit.message,
+							repoName: repo.name,
+							branchName: branchName,
+						},
+						headCommitSha,
+						currentMergeTargetBranchName,
+						mode,
+						source,
+						isReload,
+					);
+				}
+
+				// No unique commits found, try to resolve the merge target recursively
+				// Get the branch that the current merge target points to
+				const targetBranch = await repo.git.branches.getBranch(mergeTargetName);
+				if (!targetBranch) {
+					// Can't find the target branch, stop here
+					break;
+				}
+
+				// Check if the target branch name is the same as current branch (circular reference)
+				if (targetBranch.name === currentMergeTargetBranchName) {
+					break;
+				}
+
+				// Move to the target branch and try again
+				currentMergeTargetBranchName = targetBranch.name;
+				currentMergeTargetBranch = targetBranch;
+			} else {
+				// No merge target found or paused, stop here
+				break;
+			}
 		}
 
-		if (!mergeTargetName) {
-			return {
-				...this.initialState,
-				loadingError: `Unable to determine merge target for branch '${branchName}'.`,
-			};
-		}
-
-		// Get branch commits
-		const branchData = await getBranchCommits(this.container, repo, branchName, mergeTargetName);
-		if (!branchData) {
-			return {
-				...this.initialState,
-				loadingError: `No commits found for branch '${branchName}' or unable to determine branch base.`,
-			};
-		}
-
-		const { commits: branchCommits, baseCommit, headCommitSha } = branchData;
-
-		// Check if branch has no commits
-		if (branchCommits.length === 0) {
-			return {
-				...this.initialState,
-				loadingError: `Branch '${branchName}' has no unique commits.`,
-			};
-		}
-
-		// Create composer commits and hunks from branch commits
-		const composerData = await createComposerCommitsFromGitCommits(repo, branchCommits);
-		if (!composerData) {
-			return {
-				...this.initialState,
-				loadingError: `Failed to process commits for branch '${branchName}'.`,
-			};
-		}
-
-		const { commits, hunks } = composerData;
-		const diffs = (await getComposerDiffs(repo, { baseSha: baseCommit.sha, headSha: headCommitSha }))!;
-
-		// Set up telemetry context
-		this._context.diff.staged = false;
-		this._context.diff.unstaged = false;
-		this._context.diff.unstagedIncluded = false;
-		this._context.diff.commits = true;
-
-		return this.initializeStateAndContext(
-			repo,
-			hunks,
-			commits,
-			diffs,
-			{
-				sha: baseCommit.sha,
-				message: baseCommit.message,
-				repoName: repo.name,
-				branchName: branchName,
-			},
-			headCommitSha,
-			branchName,
-			mode,
-			source,
-			isReload,
-		);
+		// If we get here, we couldn't find unique commits after trying all merge targets or reaching max attempts
+		return {
+			...this.initialState,
+			loadingError: mergeTargetName
+				? `Branch '${branchName}' has no unique commits against any resolved merge target.`
+				: `Unable to determine merge target for branch '${branchName}'.`,
+		};
 	}
 
 	private getRepositoryState() {
