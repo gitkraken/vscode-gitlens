@@ -123,7 +123,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@log()
 	async hasWorkingChanges(
 		repoPath: string,
-		options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
+		options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean; throwOnError?: boolean },
 		cancellation?: CancellationToken,
 	): Promise<boolean> {
 		const scope = getLogScope();
@@ -169,6 +169,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			// Log other errors and return false for graceful degradation
 			Logger.error(ex, scope);
 			setLogScopeExit(scope, ' \u2022 error checking for changes');
+			if (options?.throwOnError) throw ex;
 			return false;
 		}
 	}

@@ -762,6 +762,8 @@ export interface GitStatusSubProvider {
 			unstaged?: boolean;
 			/** Check for untracked files (default: true) */
 			untracked?: boolean;
+			/** Throw errors rather than returning false */
+			throwOnError?: boolean;
 		},
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
