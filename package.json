@@ -25883,6 +25883,7 @@
 		"build:extension": "webpack --mode development --config-name extension:node",
 		"build:extension:browser": "webpack --mode development --config-name extension:webworker",
 		"build:webviews": "node ./scripts/compile-composer-templates.mjs && webpack --mode development --config-name webviews:common --config-name webviews",
+		"build:webviews:quick": "node ./scripts/compile-composer-templates.mjs && webpack --mode development --config-name webviews:common --config-name webviews --env skipLint",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
 		"build:tests": "node ./scripts/esbuild.tests.mjs",
 		"// Extracts the contributions from package.json into contributions.json": "//",
