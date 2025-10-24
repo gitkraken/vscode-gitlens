@@ -4,7 +4,7 @@ export default defineConfig([
 	{
 		label: 'Unit Tests',
 		files: 'out/tests/**/*.test.js',
-		version: 'insiders',
+		version: 'stable',
 		mocha: {
 			ui: 'tdd',
 			timeout: 20000,
