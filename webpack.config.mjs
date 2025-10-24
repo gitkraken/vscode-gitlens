@@ -41,6 +41,7 @@ const eslintOptions = {
 	// concurrency: 'auto',
 };
 
+const useAsyncTypeChecking = false;
 const useNpm = Boolean(process.env.GL_USE_NPM);
 if (useNpm) {
 	console.log('Using npm to run scripts');
@@ -88,6 +89,25 @@ const stats = {
 };
 
 /**
+ * @param {string} name
+ * @param { 'node' | 'webworker' } target
+ * @param { 'production' | 'development' | 'none' } mode
+ * @returns { WebpackConfig['cache'] }
+ */
+function getCacheConfig(name, target, mode) {
+	return undefined;
+	// Attempt at caching to improve build times, but it doesn't seem to help much if at all
+	// return {
+	// 	type: 'filesystem',
+	// 	cacheDirectory: path.join(__dirname, '.webpack-cache'),
+	// 	buildDependencies: {
+	// 		config: [__filename],
+	// 	},
+	// 	name: `${name}-${target}-${mode}`, // Unique per config
+	// };
+}
+
+/**
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
  * @returns { WebpackConfig }
@@ -133,6 +153,7 @@ function getCommonConfig(mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig('common', 'node', mode),
 	};
 }
 
@@ -154,10 +175,11 @@ function getExtensionConfig(target, mode, env) {
 			DEBUG: mode === 'development',
 		}),
 		new ForkTsCheckerPlugin({
-			async: false,
+			async: useAsyncTypeChecking,
 			formatter: 'basic',
 			typescript: {
 				configFile: tsConfigPath,
+				memoryLimit: 4096,
 			},
 		}),
 	];
@@ -322,6 +344,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig('extension', target, mode),
 	};
 }
 
@@ -440,6 +463,7 @@ function getWebviewsCommonConfig(mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig('webviews-common', 'webworker', mode),
 	};
 }
 
@@ -460,10 +484,11 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			DEBUG: mode === 'development',
 		}),
 		new ForkTsCheckerPlugin({
-			async: false,
+			async: useAsyncTypeChecking,
 			formatter: 'basic',
 			typescript: {
 				configFile: tsConfigPath,
+				memoryLimit: 4096,
 			},
 		}),
 		new WebpackRequireFromPlugin({
@@ -673,6 +698,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig(name, 'webworker', mode),
 	};
 }
 
@@ -762,52 +788,52 @@ function getHtmlPlugin(name, plus, mode, env) {
 	});
 }
 
-class InlineChunkHtmlPlugin {
-	constructor(htmlPlugin, patterns) {
-		this.htmlPlugin = htmlPlugin;
-		this.patterns = patterns;
-	}
+// class InlineChunkHtmlPlugin {
+// 	constructor(htmlPlugin, patterns) {
+// 		this.htmlPlugin = htmlPlugin;
+// 		this.patterns = patterns;
+// 	}
 
-	getInlinedTag(publicPath, assets, tag) {
-		if (
-			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
-			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
-		) {
-			return tag;
-		}
+// 	getInlinedTag(publicPath, assets, tag) {
+// 		if (
+// 			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
+// 			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
+// 		) {
+// 			return tag;
+// 		}
 
-		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
-		if (publicPath) {
-			chunkName = chunkName.replace(publicPath, '');
-		}
-		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
-			return tag;
-		}
+// 		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
+// 		if (publicPath) {
+// 			chunkName = chunkName.replace(publicPath, '');
+// 		}
+// 		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
+// 			return tag;
+// 		}
 
-		const asset = assets[chunkName];
-		if (asset == null) {
-			return tag;
-		}
+// 		const asset = assets[chunkName];
+// 		if (asset == null) {
+// 			return tag;
+// 		}
 
-		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
-	}
+// 		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
+// 	}
 
-	apply(compiler) {
-		let publicPath = compiler.options.output.publicPath || '';
-		if (publicPath && !publicPath.endsWith('/')) {
-			publicPath += '/';
-		}
+// 	apply(compiler) {
+// 		let publicPath = compiler.options.output.publicPath || '';
+// 		if (publicPath && !publicPath.endsWith('/')) {
+// 			publicPath += '/';
+// 		}
 
-		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
-			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
-			const sortFn = (a, b) => (a.tagName === 'script' ? 1 : -1) - (b.tagName === 'script' ? 1 : -1);
-			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
-				assets.headTags = assets.headTags.map(getInlinedTagFn).sort(sortFn);
-				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn).sort(sortFn);
-			});
-		});
-	}
-}
+// 		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
+// 			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
+// 			const sortFn = (a, b) => (a.tagName === 'script' ? 1 : -1) - (b.tagName === 'script' ? 1 : -1);
+// 			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
+// 				assets.headTags = assets.headTags.map(getInlinedTagFn).sort(sortFn);
+// 				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn).sort(sortFn);
+// 			});
+// 		});
+// 	}
+// }
 
 const schema = {
 	type: 'object',
@@ -858,6 +884,9 @@ class FileGeneratorPlugin {
 		return changed;
 	}
 
+	/**
+	 * @param {import("webpack").Compiler} compiler
+	 */
 	apply(compiler) {
 		let pendingGeneration = false;
 
@@ -993,6 +1022,9 @@ class LicensesPlugin extends FileGeneratorPlugin {
 class FantasticonPlugin {
 	alreadyRun = false;
 
+	/**
+	 * @param {{config?: { [key:string]: any }; configPath?: string; onBefore?: Function; onComplete?: Function }} options
+	 */
 	constructor(options = {}) {
 		this.pluginName = 'fantasticon';
 		this.options = options;
@@ -1082,7 +1114,9 @@ class FantasticonPlugin {
 		}
 
 		const generateFn = generate.bind(this);
+		// @ts-ignore
 		compiler.hooks.beforeRun.tapPromise(this.pluginName, generateFn);
+		// @ts-ignore
 		compiler.hooks.watchRun.tapPromise(this.pluginName, generateFn);
 	}
 }
