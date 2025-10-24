@@ -173,7 +173,11 @@ export class GlTimelineChart extends GlElement {
 			this.emit('gl-loading', this._loading.promise);
 		}
 
-		if (this.dataPromise == null) return;
+		if (this.dataPromise == null) {
+			// Fulfill the loading promise since there's no data to load
+			this._loading?.fulfill();
+			return;
+		}
 
 		this._chartAborter?.abort();
 		this._chartAborter = new AbortController();
