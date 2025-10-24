@@ -90,6 +90,7 @@ import {
 	createComposerCommitsFromGitCommits,
 	createHunksFromDiffs,
 	createSafetyState,
+	getAuthorAndCoAuthorsForCombinedDiffHunk,
 	getBranchCommits,
 	getComposerDiffs,
 	validateResultingDiff,
@@ -966,6 +967,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 				const combinedHunks = createHunksFromDiffs(combinedDiff!.contents);
 				for (const hunk of combinedHunks) {
+					const { author, coAuthors } = getAuthorAndCoAuthorsForCombinedDiffHunk(this._hunks, hunk);
+					hunk.author = author;
+					hunk.coAuthors = coAuthors.length ? coAuthors : undefined;
 					hunks.push({ ...hunk, assigned: true });
 				}
 				this._hunks = hunks;
