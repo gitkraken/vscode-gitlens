@@ -316,8 +316,21 @@ export class GitCommit implements GitRevisionReference {
 			}
 
 			if (options?.include?.stats) {
+				this._recomputeStats = true;
+				this.computeFileStats();
+
 				const stats = await repo?.git.diff.getChangedFilesCount(this.sha);
-				this._stats = stats;
+				if (stats != null) {
+					if (this._stats != null) {
+						this._stats = {
+							...this._stats,
+							additions: stats.additions,
+							deletions: stats.deletions,
+						};
+					} else {
+						this._stats = stats;
+					}
+				}
 				this._recomputeStats = false;
 			} else {
 				this._recomputeStats = true;
@@ -357,11 +370,7 @@ export class GitCommit implements GitRevisionReference {
 		if (!this._recomputeStats || this.fileset == null) return;
 		this._recomputeStats = false;
 
-		const changedFiles = {
-			added: 0,
-			deleted: 0,
-			changed: 0,
-		};
+		const changedFiles = { added: 0, deleted: 0, changed: 0 };
 
 		let additions = 0;
 		let deletions = 0;
