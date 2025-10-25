@@ -5,6 +5,7 @@ import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants.storage';
 import { Container } from './container';
 import type { CommitAuthor } from './git/models/author';
+import { CustomRemote } from './git/remotes/custom';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import { configuration } from './system/-webview/configuration';
 import { getContext } from './system/-webview/context';
@@ -130,7 +131,7 @@ function getAvatarUriCore(
 	if (
 		!options?.cached &&
 		repoPathOrCommit != null &&
-		getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
+		getContext('gitlens:repos:withRemotes')?.includes(
 			typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath,
 		)
 	) {
@@ -228,15 +229,33 @@ async function getAvatarUriFromRemoteProvider(
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 		// } else {
 		if (typeof repoPathOrCommit !== 'string') {
-			const remote = await Container.instance.git
+			const remoteWithIntegration = await Container.instance.git
 				.getRepositoryService(repoPathOrCommit.repoPath)
 				.remotes.getBestRemoteWithIntegration();
-			if (remote?.supportsIntegration()) {
+
+			if (remoteWithIntegration?.supportsIntegration()) {
 				account = await (
-					await remote.getIntegration()
-				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
+					await remoteWithIntegration.getIntegration()
+				)?.getAccountForCommit(remoteWithIntegration.provider.repoDesc, repoPathOrCommit.ref, {
 					avatarSize: size,
 				});
+			}
+
+			if (!account) {
+				const remoteWithProvider = await Container.instance.git
+					.getRepositoryService(repoPathOrCommit.repoPath)
+					.remotes.getBestRemoteWithProvider();
+
+				if (remoteWithProvider?.provider instanceof CustomRemote) {
+					const avatarUrl = remoteWithProvider.provider.getUrlForAvatar(email, size);
+					if (avatarUrl != null) {
+						avatar.uri = Uri.parse(avatarUrl);
+						avatar.timestamp = Date.now();
+						avatar.retries = 0;
+						avatarCache.set(`${md5(email.trim().toLowerCase())}:${size}`, { ...avatar });
+						return avatar.uri;
+					}
+				}
 			}
 		}
 
