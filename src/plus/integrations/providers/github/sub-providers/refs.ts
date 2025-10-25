@@ -133,4 +133,14 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	): Promise<boolean> {
 		return Promise.resolve(true);
 	}
+
+	@log()
+	updateReference(
+		_repoPath: string,
+		_ref: string,
+		_newRef: string,
+		_cancellation?: CancellationToken,
+	): Promise<void> {
+		return Promise.resolve();
+	}
 }

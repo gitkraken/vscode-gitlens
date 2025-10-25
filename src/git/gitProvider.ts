@@ -11,7 +11,7 @@ import type { GitUri } from './gitUri';
 import type { GitConflictFile } from './models';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
-import type { GitCommit, GitCommitStats, GitStashCommit } from './models/commit';
+import type { GitCommit, GitCommitIdentityShape, GitCommitStats, GitStashCommit } from './models/commit';
 import type { GitContributor, GitContributorsStats } from './models/contributor';
 import type {
 	GitDiff,
@@ -536,7 +536,7 @@ export interface GitPatchSubProvider {
 	createUnreachableCommitsFromPatches(
 		repoPath: string,
 		base: string | undefined,
-		patches: { message: string; patch: string }[],
+		patches: { message: string; patch: string; author?: GitCommitIdentityShape }[],
 	): Promise<string[]>;
 	createEmptyInitialCommit(repoPath: string): Promise<string>;
 
@@ -573,6 +573,7 @@ export interface GitRefsSubProvider {
 		pathOrUri?: string | Uri,
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
+	updateReference(repoPath: string, ref: string, newRef: string, cancellation?: CancellationToken): Promise<void>;
 }
 
 export interface GitRemotesSubProvider {
@@ -750,6 +751,8 @@ export interface GitStatusSubProvider {
 			unstaged?: boolean;
 			/** Check for untracked files (default: true) */
 			untracked?: boolean;
+			/** Throw errors rather than returning false */
+			throwOnError?: boolean;
 		},
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
