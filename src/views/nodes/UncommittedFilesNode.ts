@@ -1,11 +1,10 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import type { GitTrackingState } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
 import type { GitStatus } from '../../git/models/status';
-import type { GitStatusFile } from '../../git/models/statusFile';
 import { makeHierarchical } from '../../system/array';
 import { flatMap, groupBy } from '../../system/iterable';
+import type { Lazy } from '../../system/lazy';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { ViewsWithWorkingTree } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
@@ -17,17 +16,11 @@ export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWit
 	constructor(
 		view: ViewsWithWorkingTree,
 		protected override readonly parent: ViewNode,
-		public readonly status:
-			| GitStatus
-			| {
-					readonly repoPath: string;
-					readonly files: GitStatusFile[];
-					readonly state: GitTrackingState;
-					readonly upstream?: string;
-			  },
+		public readonly repoPath: string,
+		private readonly status: Lazy<Promise<GitStatus | undefined>>,
 		public readonly range: string | undefined,
 	) {
-		super('uncommitted-files', GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('uncommitted-files', GitUri.fromRepoPath(repoPath), view, parent);
 
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
@@ -36,15 +29,14 @@ export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWit
 		return this._uniqueId;
 	}
 
-	get repoPath(): string {
-		return this.status.repoPath;
-	}
-
-	getChildren(): ViewNode[] {
+	async getChildren(): Promise<ViewNode[]> {
 		const repoPath = this.repoPath;
 
+		const status = await this.status.value;
+		if (status == null) return [];
+
 		const files: GitFileWithCommit[] = [
-			...flatMap(this.status.files, f => {
+			...flatMap(status.files, f => {
 				const commits = f.getPseudoCommits(this.view.container, undefined);
 				return commits.map(
 					c =>

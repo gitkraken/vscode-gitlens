@@ -887,12 +887,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					try {
 						if (force) {
-							let status;
+							let hasChanges;
 							try {
-								status = await worktree?.getStatus();
+								hasChanges = await worktree?.hasWorkingChanges();
 							} catch {}
 
-							if ((status?.hasChanges ?? false) && !skipHasChangesPrompt) {
+							if ((hasChanges ?? false) && !skipHasChangesPrompt) {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showWarningMessage(

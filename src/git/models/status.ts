@@ -1,8 +1,7 @@
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
-import { pluralize } from '../../system/string';
 import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from '../utils/branch.utils';
-import { getUpstreamStatus } from '../utils/status.utils';
+import { getFormattedDiffStatus, getUpstreamStatus } from '../utils/status.utils';
 import type { GitBranchStatus, GitTrackingUpstream } from './branch';
 import type { GitDiffFileStats } from './diff';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './fileStatus';
@@ -175,11 +174,7 @@ export class GitStatus {
 
 	@memoize()
 	getDiffStatus(): GitDiffFileStats {
-		const diff = {
-			added: 0,
-			deleted: 0,
-			changed: 0,
-		};
+		const diff = { added: 0, deleted: 0, changed: 0 };
 
 		if (this.files.length === 0) return diff;
 
@@ -201,54 +196,15 @@ export class GitStatus {
 		return diff;
 	}
 
-	getFormattedDiffStatus({
-		compact,
-		empty,
-		expand,
-		prefix = '',
-		separator = ' ',
-		suffix = '',
-	}: {
+	getFormattedDiffStatus(options?: {
 		compact?: boolean;
 		empty?: string;
 		expand?: boolean;
 		prefix?: string;
 		separator?: string;
 		suffix?: string;
-	} = {}): string {
-		const { added, changed, deleted } = this.getDiffStatus();
-		if (added === 0 && changed === 0 && deleted === 0) return empty ?? '';
-
-		if (expand) {
-			let status = '';
-			if (added) {
-				status += `${pluralize('file', added)} added`;
-			}
-			if (changed) {
-				status += `${status.length === 0 ? '' : separator}${pluralize('file', changed)} changed`;
-			}
-			if (deleted) {
-				status += `${status.length === 0 ? '' : separator}${pluralize('file', deleted)} deleted`;
-			}
-			return `${prefix}${status}${suffix}`;
-		}
-
-		let status = '';
-		if (compact) {
-			if (added !== 0) {
-				status += `+${added}`;
-			}
-			if (changed !== 0) {
-				status += `${status.length === 0 ? '' : separator}~${changed}`;
-			}
-			if (deleted !== 0) {
-				status += `${status.length === 0 ? '' : separator}-${deleted}`;
-			}
-		} else {
-			status += `+${added}${separator}~${changed}${separator}-${deleted}`;
-		}
-
-		return `${prefix}${status}${suffix}`;
+	}): string {
+		return getFormattedDiffStatus(this.getDiffStatus(), options);
 	}
 
 	@memoize()

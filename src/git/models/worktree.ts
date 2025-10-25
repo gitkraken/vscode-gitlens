@@ -53,8 +53,9 @@ export class GitWorktree {
 			: this.formatDateFromNow();
 	}
 
+	private _hasWorkingChanges: boolean | undefined;
 	get hasChanges(): boolean | undefined {
-		return this._status?.hasChanges;
+		return this._hasWorkingChanges;
 	}
 
 	get opened(): boolean {
@@ -86,7 +87,6 @@ export class GitWorktree {
 		return this.date != null ? fromNow(this.date) : '';
 	}
 
-	private _status: GitStatus | undefined;
 	private _statusPromise: Promise<GitStatus | undefined> | undefined;
 	async getStatus(options?: { force?: boolean }): Promise<GitStatus | undefined> {
 		if (this.type === 'bare') return Promise.resolve(undefined);
@@ -96,7 +96,9 @@ export class GitWorktree {
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
 					const status = await this.container.git.getRepositoryService(this.uri.fsPath).status.getStatus();
-					this._status = status;
+					if (status != null) {
+						this._hasWorkingChanges = status.hasChanges;
+					}
 					resolve(status);
 				} catch (ex) {
 					// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
@@ -105,6 +107,27 @@ export class GitWorktree {
 			});
 		}
 		return this._statusPromise;
+	}
+
+	private _hasWorkingChangesPromise: Promise<boolean | undefined> | undefined;
+	async hasWorkingChanges(options?: {
+		force?: boolean;
+		staged?: boolean;
+		unstaged?: boolean;
+		untracked?: boolean;
+	}): Promise<boolean | undefined> {
+		if (this.type === 'bare') return Promise.resolve(undefined);
+
+		if (this._hasWorkingChangesPromise == null || options?.force) {
+			this._hasWorkingChangesPromise = this.container.git
+				.getRepositoryService(this.uri.fsPath)
+				.status?.hasWorkingChanges({
+					staged: options?.staged,
+					unstaged: options?.unstaged,
+					untracked: options?.untracked,
+				});
+		}
+		return this._hasWorkingChangesPromise;
 	}
 }
 

@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { IconPath } from '../../@types/vscode.iconpath';
 import { GlyphChars } from '../../constants';
@@ -17,6 +18,8 @@ import { getBestPath } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
+import type { Lazy } from '../../system/lazy';
+import { lazy } from '../../system/lazy';
 import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
@@ -43,6 +46,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	limit: number | undefined;
 
 	private _branch: GitBranch | undefined;
+	private _lazyStatus: Lazy<Promise<GitStatus | undefined>> | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -194,9 +198,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
-			const { status } = await this.getStatus();
-			if (status?.hasChanges) {
-				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
+			const { hasChanges } = await this.hasWorkingChanges();
+			if (hasChanges) {
+				this._lazyStatus ??= lazy(() => this.worktree.getStatus());
+				children.unshift(
+					new UncommittedFilesNode(this.view, this, this.worktree.uri.fsPath, this._lazyStatus, undefined),
+				);
 			}
 
 			this.children = children;
@@ -209,28 +216,13 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	async getTreeItem(): Promise<TreeItem> {
 		let description = '';
 		let icon: IconPath | undefined;
-		let hasChanges = false;
 
-		const tooltip = new MarkdownString('', true);
-		tooltip.isTrusted = true;
-
-		const indicators =
-			this.worktree.isDefault || this.worktree.opened
-				? ` \u00a0(${
-						this.worktree.isDefault
-							? `_default${this.worktree.opened ? ', active_' : '_'}`
-							: this.worktree.opened
-								? '_active_'
-								: ''
-					})`
-				: '';
-
-		let status: GitStatus | undefined;
+		let hasChanges: boolean | undefined;
 		let missing = false;
 
-		const result = await pauseOnCancelOrTimeout(this.getStatus(), undefined, 1);
+		const result = await pauseOnCancelOrTimeout(this.hasWorkingChanges(), undefined, 1);
 		if (!result.paused) {
-			({ status, missing } = result.value);
+			({ hasChanges, missing } = result.value);
 		} else {
 			queueMicrotask(() => {
 				void result.value.then(() => {
@@ -239,155 +231,70 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			});
 		}
 
-		const folder = `\\\n$(folder) [\`${
-			this.worktree.friendlyPath
-		}\`](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "Reveal in Explorer")`;
-
 		const { viewAs } = this.view.config.worktrees;
 
 		switch (this.worktree.type) {
 			case 'bare':
 				icon = new ThemeIcon('folder');
-				tooltip.appendMarkdown(
-					`${this.worktree.isDefault ? '$(pass) ' : ''}Bare Worktree${indicators}${folder}`,
-				);
 				break;
 
 			case 'branch': {
 				const { branch } = this.worktree;
 				this._branch = branch;
 
-				tooltip.appendMarkdown(
-					`${this.worktree.isDefault ? '$(pass) ' : ''}Worktree for $(git-branch) \`${
-						branch?.getNameWithoutRemote() ?? branch?.name
-					}\`${indicators}${folder}`,
-				);
 				icon = getBranchIconPath(this.view.container, branch);
 
-				if (branch != null) {
-					if (!branch.remote) {
-						if (branch.upstream != null) {
-							let arrows = GlyphChars.Dash;
+				if (branch != null && !branch.remote && branch.upstream != null) {
+					let arrows = GlyphChars.Dash;
 
-							const remote = await branch.getRemote();
-							if (!branch.upstream.missing) {
-								if (remote != null) {
-									let left;
-									let right;
-									for (const { type } of remote.urls) {
-										if (type === 'fetch') {
-											left = true;
+					const remote = await branch.getRemote();
+					if (!branch.upstream.missing) {
+						if (remote != null) {
+							let left;
+							let right;
+							for (const { type } of remote.urls) {
+								if (type === 'fetch') {
+									left = true;
 
-											if (right) break;
-										} else if (type === 'push') {
-											right = true;
+									if (right) break;
+								} else if (type === 'push') {
+									right = true;
 
-											if (left) break;
-										}
-									}
-
-									if (left && right) {
-										arrows = GlyphChars.ArrowsRightLeft;
-									} else if (right) {
-										arrows = GlyphChars.ArrowRight;
-									} else if (left) {
-										arrows = GlyphChars.ArrowLeft;
-									}
+									if (left) break;
 								}
-							} else {
-								arrows = GlyphChars.Warning;
 							}
 
-							description = `${branch.getTrackingStatus({
-								empty: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
-									arrows,
-									viewAs !== 'name' ? 2 : 0,
-									2,
-								)}`,
-								suffix: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
-									arrows,
-									2,
-									2,
-								)}`,
-							})}${branch.upstream.name}`;
-
-							tooltip.appendMarkdown(
-								`\n\nBranch is ${branch.getTrackingStatus({
-									empty: `${
-										branch.upstream.missing ? 'missing upstream' : 'up to date with'
-									} \\\n $(git-branch) \`${branch.upstream.name}\`${
-										remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-									}`,
-									expand: true,
-									icons: true,
-									separator: ', ',
-									suffix: `\\\n$(git-branch) \`${branch.upstream.name}\`${
-										remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-									}`,
-								})}`,
-							);
-						} else {
-							const providerName = getHighlanderProviderName(
-								await this.view.container.git
-									.getRepositoryService(branch.repoPath)
-									.remotes.getRemotesWithProviders(),
-							);
-
-							tooltip.appendMarkdown(
-								`\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`,
-							);
+							if (left && right) {
+								arrows = GlyphChars.ArrowsRightLeft;
+							} else if (right) {
+								arrows = GlyphChars.ArrowRight;
+							} else if (left) {
+								arrows = GlyphChars.ArrowLeft;
+							}
 						}
+					} else {
+						arrows = GlyphChars.Warning;
 					}
-				}
 
-				if (status != null) {
-					hasChanges = status.hasChanges;
-					tooltip.appendMarkdown(
-						`\n\n${status.getFormattedDiffStatus({
-							prefix: 'Has Uncommitted Changes\\\n',
-							empty: 'No Uncommitted Changes',
-							expand: true,
-						})}`,
-					);
+					description = `${branch.getTrackingStatus({
+						empty: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
+							arrows,
+							viewAs !== 'name' ? 2 : 0,
+							2,
+						)}`,
+						suffix: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(arrows, 2, 2)}`,
+					})}${branch.upstream.name}`;
 				}
 
 				break;
 			}
 			case 'detached': {
 				icon = new ThemeIcon('git-commit');
-				tooltip.appendMarkdown(
-					`${this.worktree.isDefault ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
-						this.worktree.sha,
-					)}${indicators}${folder}`,
-				);
-
-				if (status != null) {
-					hasChanges = status.hasChanges;
-					tooltip.appendMarkdown(
-						`\n\n${status.getFormattedDiffStatus({
-							prefix: 'Has Uncommitted Changes',
-							empty: 'No Uncommitted Changes',
-							expand: true,
-						})}`,
-					);
-				}
-
 				break;
 			}
 		}
 
 		const pendingPullRequest = this.getState('pendingPullRequest');
-		if (pendingPullRequest != null) {
-			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
-		}
-
-		if (missing) {
-			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
-		}
-
-		if (this.worktree.branch?.starred) {
-			tooltip.appendMarkdown('\n\n$(star-full) Favorited');
-		}
 
 		let label: string;
 		switch (viewAs) {
@@ -421,13 +328,131 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				: this.worktree.opened
 					? new ThemeIcon('check')
 					: icon;
-		item.tooltip = tooltip;
+		// Tooltip will be set lazily in resolveTreeItem
 		item.resourceUri = createViewDecorationUri('worktree', {
 			hasChanges: hasChanges,
 			missing: missing,
 			starred: this.worktree.branch?.starred,
 		});
 
+		return item;
+	}
+
+	override async resolveTreeItem(item: TreeItem, _token: CancellationToken): Promise<TreeItem> {
+		if (item.tooltip != null) return item;
+
+		const tooltip = new MarkdownString('', true);
+		tooltip.isTrusted = true;
+
+		const indicators =
+			this.worktree.isDefault || this.worktree.opened
+				? ` \u00a0(${
+						this.worktree.isDefault
+							? `_default${this.worktree.opened ? ', active_' : '_'}`
+							: this.worktree.opened
+								? '_active_'
+								: ''
+					})`
+				: '';
+
+		const folder = `\\\n$(folder) [\`${
+			this.worktree.friendlyPath
+		}\`](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "Reveal in Explorer")`;
+
+		switch (this.worktree.type) {
+			case 'bare':
+				tooltip.appendMarkdown(
+					`${this.worktree.isDefault ? '$(pass) ' : ''}Bare Worktree${indicators}${folder}`,
+				);
+				break;
+
+			case 'branch': {
+				const { branch } = this.worktree;
+				tooltip.appendMarkdown(
+					`${this.worktree.isDefault ? '$(pass) ' : ''}Worktree for $(git-branch) \`${
+						branch?.getNameWithoutRemote() ?? branch?.name
+					}\`${indicators}${folder}`,
+				);
+
+				if (branch != null && !branch.remote) {
+					if (branch.upstream != null) {
+						const remote = await branch.getRemote();
+						tooltip.appendMarkdown(
+							`\n\nBranch is ${branch.getTrackingStatus({
+								empty: `${
+									branch.upstream.missing ? 'missing upstream' : 'up to date with'
+								} \\\n $(git-branch) \`${branch.upstream.name}\`${
+									remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+								}`,
+								expand: true,
+								icons: true,
+								separator: ', ',
+								suffix: `\\\n$(git-branch) \`${branch.upstream.name}\`${
+									remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+								}`,
+							})}`,
+						);
+					} else {
+						const providerName = getHighlanderProviderName(
+							await this.view.container.git
+								.getRepositoryService(branch.repoPath)
+								.remotes.getRemotesWithProviders(),
+						);
+						tooltip.appendMarkdown(
+							`\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`,
+						);
+					}
+				}
+
+				break;
+			}
+
+			case 'detached':
+				tooltip.appendMarkdown(
+					`${this.worktree.isDefault ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
+						this.worktree.sha,
+					)}${indicators}${folder}`,
+				);
+
+				break;
+		}
+
+		switch (this.worktree.type) {
+			case 'branch':
+			case 'detached': {
+				this._lazyStatus ??= lazy(() => this.worktree.getStatus());
+				const status = await this._lazyStatus.value;
+				const stats = status?.getFormattedDiffStatus({
+					prefix: 'Has Uncommitted Changes\\\n',
+					empty: 'No Uncommitted Changes',
+					expand: true,
+				});
+				if (stats != null) {
+					tooltip.appendMarkdown(`\n\n${stats}`);
+				}
+
+				break;
+			}
+		}
+
+		// Add pending pull request indicator
+		const pendingPullRequest = this.getState('pendingPullRequest');
+		if (pendingPullRequest != null) {
+			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
+		}
+
+		// Add missing worktree warning
+		const { missing } = await this.hasWorkingChanges();
+		if (missing) {
+			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
+		}
+
+		// Add favorited indicator
+		if (this.worktree.branch?.starred) {
+			tooltip.appendMarkdown('\n\n$(star-full) Favorited');
+		}
+
+		item.tooltip = tooltip;
 		return item;
 	}
 
@@ -492,19 +517,19 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		return this._log;
 	}
 
-	private _status: { status: GitStatus | undefined; missing: boolean } | undefined;
-	private async getStatus() {
-		if (this._status == null) {
+	private _hasWorkingChanges: { hasChanges: boolean | undefined; missing: boolean } | undefined;
+	private async hasWorkingChanges() {
+		if (this._hasWorkingChanges == null) {
 			try {
-				const status = await this.worktree.getStatus();
-				this._status = { status: status, missing: false };
+				const hasChanges = await this.worktree.hasWorkingChanges();
+				this._hasWorkingChanges = { hasChanges: hasChanges, missing: false };
 			} catch (ex) {
-				Logger.error(ex, `Worktree status failed: ${this.worktree.uri.toString(true)}`);
-				this._status = { status: undefined, missing: true };
+				Logger.error(ex, `Worktree hasWorkingChanges failed: ${this.worktree.uri.toString(true)}`);
+				this._hasWorkingChanges = { hasChanges: undefined, missing: true };
 			}
 		}
 
-		return this._status;
+		return this._hasWorkingChanges;
 	}
 
 	get hasMore(): boolean {

@@ -262,10 +262,10 @@ export async function getWorktrees(
 				if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
 
 				let missing = false;
-				let status;
+				let hasChanges;
 				if (includeStatus) {
 					try {
-						status = await w.getStatus();
+						hasChanges = await w.hasWorkingChanges();
 					} catch (ex) {
 						Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
 						missing = true;
@@ -277,12 +277,7 @@ export async function getWorktrees(
 					picked != null &&
 						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
 					missing,
-					{
-						buttons: buttons,
-						includeStatus: includeStatus,
-						path: true,
-						status: status,
-					},
+					{ buttons: buttons, hasChanges: hasChanges, includeStatus: includeStatus, path: true },
 				);
 			}),
 		),
