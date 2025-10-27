@@ -173,6 +173,13 @@ export const composerItemCommitStyles = css`
 		border-left-style: solid;
 	}
 
+	.composer-item.is-recompose-locked .composer-item__commit::after {
+		border-style: solid;
+	}
+	.composer-item.is-recompose-locked .composer-item__commit::before {
+		border-left-style: solid;
+	}
+
 	.composer-item__commit.is-empty::before,
 	.composer-item__commit.is-empty::after {
 		display: none;

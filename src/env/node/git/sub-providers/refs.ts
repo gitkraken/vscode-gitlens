@@ -178,4 +178,21 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		);
 		return result.stdout.trim() || undefined;
 	}
+
+	@log()
+	async updateReference(
+		repoPath: string,
+		ref: string,
+		newRef: string,
+		cancellation?: CancellationToken,
+	): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'update-ref', ref, newRef);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+		}
+	}
 }

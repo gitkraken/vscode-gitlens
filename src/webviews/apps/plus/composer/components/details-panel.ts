@@ -243,6 +243,12 @@ export class DetailsPanel extends LitElement {
 	@property({ type: Boolean })
 	hasChanges: boolean = true;
 
+	@property({ type: Boolean })
+	canEditCommitMessages: boolean = true;
+
+	@property({ type: Boolean })
+	canMoveHunks: boolean = true;
+
 	@state()
 	private defaultFilesExpanded: boolean = true;
 
@@ -262,7 +268,8 @@ export class DetailsPanel extends LitElement {
 		if (
 			changedProperties.has('selectedCommits') ||
 			changedProperties.has('hunks') ||
-			changedProperties.has('isPreviewMode')
+			changedProperties.has('isPreviewMode') ||
+			changedProperties.has('canMoveHunks')
 		) {
 			this.initializeHunksSortable();
 			this.setupAutoScroll();
@@ -287,8 +294,8 @@ export class DetailsPanel extends LitElement {
 	private initializeHunksSortable() {
 		this.destroyHunksSortables();
 
-		// Don't initialize sortable in AI preview mode
-		if (this.isPreviewMode) {
+		// Don't initialize sortable in AI preview mode or when hunk moving is disabled
+		if (this.isPreviewMode || !this.canMoveHunks) {
 			return;
 		}
 
@@ -665,7 +672,7 @@ export class DetailsPanel extends LitElement {
 					?generating=${this.generatingCommitMessage === commit.id}
 					?ai-enabled=${this.aiEnabled}
 					.aiDisabledReason=${this.aiDisabledReason}
-					editable
+					?editable=${this.canEditCommitMessages}
 					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
 					@generate-commit-message=${(e: CustomEvent) => this.handleGenerateCommitMessage(commit.id, e)}
 				></gl-commit-message>
