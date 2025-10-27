@@ -131,8 +131,8 @@ importers:
         specifier: 0.10.10
         version: 0.10.10
       '@eamodio/eslint-lite-webpack-plugin':
-        specifier: 0.3.3
-        version: 0.3.3(eslint@9.37.0(jiti@2.4.0))(webpack@5.102.1)
+        specifier: 0.3.4
+        version: 0.3.4(eslint@9.37.0(jiti@2.4.0))(webpack@5.102.1)
       '@eslint/compat':
         specifier: 1.4.0
         version: 1.4.0(eslint@9.37.0(jiti@2.4.0))
@@ -428,8 +428,8 @@ packages:
     resolution: {integrity: sha512-4B4OijXeVNOPZlYA2oEwWOTkzyltLao+xbotHQeqN++Rv27Y6s818+n2Qkp8q+Fxhn0t/5lA5X1Mxktud8eayQ==}
     engines: {node: '>=14.17.0'}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.3.3':
-    resolution: {integrity: sha512-cXBm16OFztEv3ngaGopLLo15qUJaLs3h+qiKzUEV5cQzGj/A9kY0mGkAwA4CKIrEkC+L4ZPN5ji+W2JipF7n1Q==}
+  '@eamodio/eslint-lite-webpack-plugin@0.3.4':
+    resolution: {integrity: sha512-rz0HMmv1HzEHY4iSepH1JeKLUGTZdKWof/V3pVDmq5UZY7r4lGSqwyVveNqGbSwX9PrSjHXHtHdjmbMmufHr5g==}
     engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
     peerDependencies:
       eslint: ^9.23.0
@@ -6546,7 +6546,7 @@ snapshots:
 
   '@discoveryjs/json-ext@0.6.3': {}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.3.3(eslint@9.37.0(jiti@2.4.0))(webpack@5.102.1)':
+  '@eamodio/eslint-lite-webpack-plugin@0.3.4(eslint@9.37.0(jiti@2.4.0))(webpack@5.102.1)':
     dependencies:
       eslint: 9.37.0(jiti@2.4.0)
       minimatch: 10.0.3
