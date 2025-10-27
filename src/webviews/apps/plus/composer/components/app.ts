@@ -27,7 +27,7 @@ import {
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
 } from '../../../../plus/composer/protocol';
-import { updateHunkAssignments } from '../../../../plus/composer/utils';
+import { updateHunkAssignments } from '../../../../plus/composer/utils/composer.utils';
 import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';

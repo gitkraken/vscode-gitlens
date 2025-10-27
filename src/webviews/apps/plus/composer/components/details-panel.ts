@@ -10,7 +10,7 @@ import {
 	getUnassignedHunks,
 	getUniqueFileNames,
 	groupHunksByFile,
-} from '../../../../plus/composer/utils';
+} from '../../../../plus/composer/utils/composer.utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import type { CommitMessage } from './commit-message';

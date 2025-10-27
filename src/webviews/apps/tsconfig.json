@@ -13,7 +13,6 @@
 	"include": [
 		"**/*",
 		"../ipc.ts",
-		"../plus/composer/utils.ts",
 		"../**/protocol.ts",
 		"../../**/models/**/*.ts",
 		"../../**/utils/**/*.ts",
@@ -23,7 +22,6 @@
 		"../../constants.*.ts",
 		"../../env/browser/**/*",
 		"../../features.ts",
-		"../../git/parsers/diffParser.ts",
 		"../../system/**/*.ts",
 		"../../**/webview/**/*"
 	],

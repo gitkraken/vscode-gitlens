@@ -79,7 +79,7 @@ import {
 	ReloadComposerCommand,
 } from './protocol';
 import type { ComposerWebviewShowingArgs } from './registration';
-import type { WorkingTreeDiffs } from './utils';
+import type { WorkingTreeDiffs } from './utils/composer.utils';
 import {
 	convertToComposerDiffInfo,
 	createCombinedDiffForCommit,
@@ -88,7 +88,7 @@ import {
 	getWorkingTreeDiffs,
 	validateResultingDiff,
 	validateSafetyState,
-} from './utils';
+} from './utils/composer.utils';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;

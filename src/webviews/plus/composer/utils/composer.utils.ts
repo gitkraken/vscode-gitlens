@@ -1,10 +1,10 @@
 import { sha256 } from '@env/crypto';
-import type { GitDiff, ParsedGitDiff } from '../../../git/models/diff';
-import type { Repository } from '../../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
-import { parseGitDiff } from '../../../git/parsers/diffParser';
-import { getSettledValue } from '../../../system/promise';
-import type { ComposerCommit, ComposerHunk, ComposerSafetyState } from './protocol';
+import type { GitDiff, ParsedGitDiff } from '../../../../git/models/diff';
+import type { Repository } from '../../../../git/models/repository';
+import { uncommitted, uncommittedStaged } from '../../../../git/models/revision';
+import { parseGitDiff } from '../../../../git/parsers/diffParser';
+import { getSettledValue } from '../../../../system/promise';
+import type { ComposerCommit, ComposerHunk, ComposerSafetyState } from '../protocol';
 
 export function getHunksForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): ComposerHunk[] {
 	return hunks.filter(hunk => commit.hunkIndices.includes(hunk.index));

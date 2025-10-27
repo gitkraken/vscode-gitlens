@@ -11,7 +11,7 @@ import {
 	getFileCountForCommit,
 	getUnassignedHunks,
 	getUniqueFileNames,
-} from '../../../../plus/composer/utils';
+} from '../../../../plus/composer/utils/composer.utils';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, inlineCode, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import { ruleStyles } from '../../shared/components/vscode.css';
