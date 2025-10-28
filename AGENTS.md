@@ -596,3 +596,54 @@ GitLens supports multiple environments:
 ---
 
 This architecture enables GitLens to provide powerful Git tooling while maintaining clean separation of concerns, extensibility for new features, and support for multiple runtime environments.
+
+## Work-in-Progress Context (MEMORIES.md)
+
+This project uses MEMORIES.md files to track work-in-progress context. These files help agents understand what's been done, what's blocked, and what approaches have already been tried.
+
+### How to Work with MEMORIES.md
+
+**Before starting work:**
+
+1. Look for MEMORIES.md or MEMORIES-<task-name>.md files in the repository
+2. Search in this order:
+   - Current working directory
+   - Parent directories up to repository root
+   - Repository root
+3. If you find a MEMORIES.md file, read it completely before starting work
+4. The file contains critical context: what's been tried, what failed, what's blocked, and where to look in the codebase
+
+**If multiple MEMORIES.md files exist:**
+
+- Use the one closest to the files you're working on
+- If ambiguous, use the one in the repository root
+- Each MEMORIES.md file tracks a specific work item or task
+
+**While working:**
+
+- Keep the MEMORIES.md file open as you work
+- Update it as you make progress:
+  - Mark completed tasks in the Task List
+  - Add new approaches you try to "Approaches Attempted"
+  - Update "Current Status" with your progress
+  - Add any blockers you encounter
+  - Document test results as you validate work
+
+**Before handing off or stopping:**
+
+- Update "Current Status" with a clear summary of where things stand
+- Mark all completed tasks
+- Document any blockers preventing further progress
+- Add a new entry to "Session Log" with what you accomplished
+- Commit the updated MEMORIES.md file
+
+**If no MEMORIES.md file exists:**
+
+- Create one in the repository root
+- Use the format defined at https://github.com/axosoft-ramint/MEMORIES.md/blob/main/docs/SPECIFICATION.md
+- Include sections for: Work Item, Objectives, Current Status, Task List, Key Decisions, Approaches Attempted, Relevant Code Locations, Blockers, Test Results
+- Update it as you work (don't wait until the end)
+
+### Why This Matters
+
+MEMORIES.md files enable seamless handoffs between agents and team members. When you update MEMORIES.md, the next person (or agent) who picks up this work won't have to re-explore the codebase or re-try failed approaches. They'll have all the context they need to continue immediately
