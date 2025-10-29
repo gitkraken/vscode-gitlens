@@ -18,7 +18,7 @@ import { stateContext } from './context';
 
 type State = IpcSerialized<_State>;
 
-export class CommitDetailsStateProvider extends StateProviderBase<State, typeof stateContext> {
+export class CommitDetailsStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
 	protected override get deferBootstrap(): boolean {
 		return true;
 	}

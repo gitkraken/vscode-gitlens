@@ -26,7 +26,7 @@ import { telemetryContext } from '../../../shared/contexts/telemetry';
 import type { Disposable } from '../../../shared/events';
 import type { ThemeChangeEvent } from '../../../shared/theme';
 import { onDidChangeTheme } from '../../../shared/theme';
-import { graphStateContext } from '../stateProvider';
+import { graphStateContext } from '../context';
 import type { GlGraph } from './gl-graph';
 import type { GraphWrapperTheming } from './gl-graph.react';
 import './gl-graph';

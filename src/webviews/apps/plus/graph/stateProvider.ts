@@ -1,13 +1,7 @@
-import { ContextProvider, createContext } from '@lit/context';
-import type { SearchQuery } from '../../../../constants.search';
+import { ContextProvider } from '@lit/context';
 import { debounce } from '../../../../system/function/debounce';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import type {
-	GraphSearchResults,
-	GraphSearchResultsError,
-	GraphSelectedRows,
-	State,
-} from '../../../plus/graph/protocol';
+import type { GraphSearchResults, GraphSearchResultsError, State } from '../../../plus/graph/protocol';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -36,18 +30,14 @@ import { signalObjectState, signalState } from '../../shared/components/signal-u
 import type { LoggerContext } from '../../shared/contexts/logger';
 import type { HostIpc } from '../../shared/ipc';
 import { StateProviderBase } from '../../shared/stateProviderBase';
+import type { AppState } from './context';
+import { graphStateContext } from './context';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
 	'webviewId',
 	'webviewInstanceId',
-] as const satisfies readonly (keyof WebviewState)[] as readonly string[];
-
-interface AppState {
-	activeDay?: number;
-	activeRow?: string;
-	visibleDays?: { top: number; bottom: number };
-}
+] as const satisfies readonly (keyof WebviewState<any>)[] as readonly string[];
 
 function getSearchResultModel(searchResults: State['searchResults']): {
 	results: undefined | GraphSearchResults;
@@ -65,24 +55,13 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	return { results: results, resultsError: resultsError };
 }
 
-export const graphStateContext = createContext<GraphStateProvider>('graph-state-context');
-
-export class GraphStateProvider extends StateProviderBase<State, typeof graphStateContext> {
+export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
 	// App state members moved from GraphAppState
 	@signalState()
-	accessor activeDay: number | undefined;
+	accessor activeDay: AppState['activeDay'];
 
 	@signalState()
-	accessor activeRow: string | undefined = undefined;
-
-	@signalState(false)
-	accessor loading = false;
-
-	@signalState(false)
-	accessor searching = false;
-
-	@signalObjectState()
-	accessor visibleDays: AppState['visibleDays'];
+	accessor activeRow: AppState['activeRow'];
 
 	@signalObjectState(
 		{ query: '' },
@@ -92,10 +71,20 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 			},
 		},
 	)
-	accessor filter!: SearchQuery;
+	accessor filter!: AppState['filter'];
+
+	get isBusy(): AppState['isBusy'] {
+		return this.loading || this.searching || this.rowsStatsLoading || false;
+	}
 
 	@signalState(false)
-	accessor searchResultsHidden = false;
+	accessor loading: AppState['loading'] = false;
+
+	@signalState(false)
+	accessor searching: AppState['searching'] = false;
+
+	@signalState(false)
+	accessor searchResultsHidden: AppState['searchResultsHidden'] = false;
 
 	@signalState<GraphSearchResults | GraphSearchResultsError | undefined>(undefined, {
 		afterChange: (target, value) => {
@@ -104,16 +93,19 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 			target.searchResultsError = resultsError;
 		},
 	})
-	accessor searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
+	accessor searchResultsResponse: AppState['searchResultsResponse'];
 
 	@signalState()
-	accessor searchResults: GraphSearchResults | undefined;
+	accessor searchResults: AppState['searchResults'];
 
 	@signalState()
-	accessor searchResultsError: GraphSearchResultsError | undefined;
+	accessor searchResultsError: AppState['searchResultsError'];
 
 	@signalState()
-	accessor selectedRows: undefined | GraphSelectedRows;
+	accessor selectedRows: AppState['selectedRows'];
+
+	@signalObjectState()
+	accessor visibleDays: AppState['visibleDays'];
 
 	// State accessors for all top-level State properties
 	@signalState()
@@ -126,7 +118,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor repositories: State['repositories'];
 
 	@signalState()
-	accessor selectedRepository: string | undefined;
+	accessor selectedRepository: State['selectedRepository'];
 
 	@signalState()
 	accessor selectedRepositoryVisibility: State['selectedRepositoryVisibility'];
@@ -141,13 +133,13 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor branchState: State['branchState'];
 
 	@signalState()
-	accessor lastFetched: Date | undefined;
+	accessor lastFetched: State['lastFetched'];
 
 	@signalState()
 	accessor subscription: State['subscription'];
 
 	@signalState()
-	accessor allowed: boolean = false;
+	accessor allowed: State['allowed'] = false;
 
 	@signalState()
 	accessor avatars: State['avatars'];
@@ -162,7 +154,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor rowsStats: State['rowsStats'];
 
 	@signalState()
-	accessor rowsStatsLoading: boolean | undefined;
+	accessor rowsStatsLoading: State['rowsStatsLoading'] | undefined;
 
 	@signalState()
 	accessor downstreams: State['downstreams'];
@@ -180,7 +172,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor context: State['context'];
 
 	@signalState()
-	accessor nonce: string | undefined;
+	accessor nonce: State['nonce'];
 
 	@signalState()
 	accessor workingTreeStats: State['workingTreeStats'];
@@ -189,7 +181,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	accessor defaultSearchMode: State['defaultSearchMode'];
 
 	@signalState()
-	accessor useNaturalLanguageSearch: boolean | undefined;
+	accessor useNaturalLanguageSearch: State['useNaturalLanguageSearch'] | undefined;
 
 	@signalState()
 	accessor excludeRefs: State['excludeRefs'];
@@ -206,9 +198,7 @@ export class GraphStateProvider extends StateProviderBase<State, typeof graphSta
 	@signalState()
 	accessor orgSettings: State['orgSettings'];
 
-	get isBusy() {
-		return this.loading || this.searching || this.rowsStatsLoading || false;
-	}
+	mcpBannerCollapsed?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,

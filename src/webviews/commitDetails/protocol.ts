@@ -92,7 +92,7 @@ export interface DraftState {
 	inReview: boolean;
 }
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.views.commitDetails' | 'gitlens.views.graphDetails'> {
 	mode: Mode;
 
 	pinned: boolean;

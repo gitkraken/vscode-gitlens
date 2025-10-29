@@ -9,7 +9,7 @@ import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry';
-import { graphStateContext } from '../stateProvider';
+import { graphStateContext } from '../context';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 

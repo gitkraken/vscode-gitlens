@@ -21,7 +21,7 @@ import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
 export const scope: IpcScope = 'home';
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.views.home'> {
 	discovering: boolean;
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;

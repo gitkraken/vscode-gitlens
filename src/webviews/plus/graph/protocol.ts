@@ -91,7 +91,7 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
 	webroot?: string;
 	repositories?: GraphRepository[];

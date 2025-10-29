@@ -6,7 +6,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import { GlElement } from '../../shared/components/element';
 import { linkStyles } from '../shared/components/vscode.css';
-import { graphStateContext } from './stateProvider';
+import { graphStateContext } from './context';
 import '../../shared/components/feature-badge';
 import '../../shared/components/feature-gate';
 

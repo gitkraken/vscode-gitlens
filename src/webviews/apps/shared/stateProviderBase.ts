@@ -1,5 +1,6 @@
 import type { Context, ContextProvider, ContextType } from '@lit/context';
 import { fromBase64ToString } from '@env/base64';
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import { isPromise } from '../../../system/promise';
 import type { IpcMessage, WebviewState } from '../../protocol';
 import { WebviewReadyRequest } from '../../protocol';
@@ -16,8 +17,11 @@ import type { HostIpc } from './ipc';
  * - Sync: Uses bootstrap state from HTML
  * - Async: Requests full state from extension after connection
  */
-export abstract class StateProviderBase<State extends WebviewState, TContext extends Context<unknown, State>>
-	implements Disposable
+export abstract class StateProviderBase<
+	ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
+	State extends WebviewState<ID>,
+	TContext extends Context<unknown, State>,
+> implements Disposable
 {
 	protected readonly disposable: Disposable;
 	protected readonly provider: ContextProvider<TContext, ReactiveElementHost>;

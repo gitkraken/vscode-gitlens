@@ -16,7 +16,7 @@ import type { ReactiveElementHost } from '../shared/appHost';
 import { StateProviderBase } from '../shared/stateProviderBase';
 import { stateContext } from './context';
 
-export class HomeStateProvider extends StateProviderBase<State, typeof stateContext> {
+export class HomeStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
 	protected override createContextProvider(state: State): ContextProvider<typeof stateContext, ReactiveElementHost> {
 		return new ContextProvider(this.host, { context: stateContext, initialValue: state });
 	}

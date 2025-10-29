@@ -60,7 +60,7 @@ export interface ComposerSafetyState {
 	// timestamp: number;
 }
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.composer'> {
 	// data model
 	hunks: ComposerHunk[];
 
@@ -111,7 +111,7 @@ export interface State extends WebviewState {
 	};
 }
 
-export const initialState: Omit<State, keyof WebviewState> = {
+export const initialState: Omit<State, keyof WebviewState<'gitlens.composer'>> = {
 	hunks: [],
 	commits: [],
 	baseCommit: null,

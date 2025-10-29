@@ -69,7 +69,7 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
 	readonly ready: boolean;
 	readonly viewColumn: ViewColumn | undefined;
 	readonly visible: boolean;
-	readonly baseWebviewState: WebviewState;
+	readonly baseWebviewState: WebviewState<ID>;
 	readonly cspNonce: string;
 
 	getWebRoot(): string;

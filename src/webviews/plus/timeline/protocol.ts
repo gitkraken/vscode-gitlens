@@ -8,7 +8,7 @@ import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 
 export const scope: IpcScope = 'timeline';
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.timeline' | 'gitlens.views.timeline'> {
 	dataset?: Promise<TimelineDatum[]>;
 	config: {
 		showAllBranches: boolean;

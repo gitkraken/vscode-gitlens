@@ -1,10 +1,9 @@
-import type { CustomEditorIds } from '../../constants.views';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification } from '../protocol';
 
 export const scope: IpcScope = 'rebase';
 
-export interface State extends WebviewState<CustomEditorIds> {
+export interface State extends WebviewState<'gitlens.rebase'> {
 	branch: string;
 	onto: { sha: string; commit?: Commit } | undefined;
 

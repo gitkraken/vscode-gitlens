@@ -419,7 +419,7 @@ export class WebviewController<
 		});
 	}
 
-	get baseWebviewState(): WebviewState {
+	get baseWebviewState(): WebviewState<ID> {
 		return {
 			webviewId: this.id,
 			webviewInstanceId: this.instanceId,

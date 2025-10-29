@@ -5,7 +5,7 @@ import { IpcNotification, IpcRequest } from '../protocol';
 
 export const scope: IpcScope = 'settings';
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.settings'> {
 	version: string;
 	config: Config;
 	customSettings?: Record<string, boolean>;

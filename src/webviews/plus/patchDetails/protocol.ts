@@ -151,7 +151,7 @@ export interface CreatePatchState {
 	userSelections?: DraftUserSelection[];
 }
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.patchDetails' | 'gitlens.views.patchDetails'> {
 	mode: Mode;
 
 	preferences: Preferences;

@@ -74,13 +74,14 @@ export class IpcNotification<Params = void> extends IpcCall<Params> {}
 
 // COMMANDS & REQUESTS
 
+export interface WebviewReadyParams {
+	bootstrap?: boolean;
+}
+
 export interface WebviewReadyResponse {
 	state?: unknown | Promise<unknown>;
 }
-export const WebviewReadyRequest = new IpcRequest<{ bootstrap?: boolean }, WebviewReadyResponse>(
-	'core',
-	'webview/ready',
-);
+export const WebviewReadyRequest = new IpcRequest<WebviewReadyParams, WebviewReadyResponse>('core', 'webview/ready');
 
 export interface WebviewFocusChangedParams {
 	focused: boolean;
@@ -190,7 +191,7 @@ export function assertsConfigKeyValue<T extends ConfigPath>(
 	// Noop
 }
 
-export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds = WebviewIds | WebviewViewIds> {
+export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds> {
 	webviewId: Id;
 	webviewInstanceId: string | undefined;
 	timestamp: number;
