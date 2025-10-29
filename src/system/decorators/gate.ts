@@ -4,7 +4,7 @@ import { Logger } from '../logger';
 import { isPromise } from '../promise';
 import { resolveProp } from './resolver';
 
-export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
+export function gate<T extends (...arg: any) => any>(getGroupingKey?: (...args: Parameters<T>) => string) {
 	return (_target: any, key: string, descriptor: PropertyDescriptor): void => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 		let fn: Function | undefined;
@@ -18,7 +18,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 		const gateKey = `$gate$${key}`;
 
 		descriptor.value = function (this: any, ...args: any[]) {
-			const prop = resolveProp(gateKey, resolver, ...(args as Parameters<T>));
+			const prop = resolveProp(gateKey, getGroupingKey, ...(args as Parameters<T>));
 			if (!Object.prototype.hasOwnProperty.call(this, prop)) {
 				Object.defineProperty(this, prop, {
 					configurable: false,

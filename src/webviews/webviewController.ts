@@ -21,7 +21,7 @@ import { setContext } from '../system/-webview/context';
 import { getViewFocusCommand } from '../system/-webview/vscode/views';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
-import { sequentialize } from '../system/decorators/serialize';
+import { sequentialize } from '../system/decorators/sequentialize';
 import { serializeIpcData } from '../system/ipcSerialize';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
