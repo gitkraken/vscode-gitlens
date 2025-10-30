@@ -1175,18 +1175,15 @@ export class Git implements Disposable {
 	async reset(
 		repoPath: string,
 		pathspecs: string[],
-		options?: { hard?: boolean; soft?: never; ref?: string } | { soft?: boolean; hard?: never; ref?: string },
+		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft'; rev?: string },
 	): Promise<void> {
 		try {
 			const flags = [];
-			if (options?.hard) {
-				flags.push('--hard');
-			} else if (options?.soft) {
-				flags.push('--soft');
+			if (options?.mode) {
+				flags.push(`--${options.mode}`);
 			}
-
-			if (options?.ref) {
-				flags.push(options.ref);
+			if (options?.rev) {
+				flags.push(options.rev);
 			}
 			await this.exec({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
 		} catch (ex) {

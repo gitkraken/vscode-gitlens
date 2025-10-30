@@ -1240,7 +1240,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Reset the current branch to the new shas
-			await svc.ops?.reset(shas[shas.length - 1], { hard: true });
+			await svc.ops?.reset(shas[shas.length - 1], { mode: 'hard' });
 
 			// Pop the stash we created to restore what is left in the working tree
 			if (stashCommit && stashedSuccessfully) {

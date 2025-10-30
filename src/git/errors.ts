@@ -771,7 +771,7 @@ export class ResetError extends Error {
 					message = `${message} because the argument is ambiguous`;
 					break;
 				case ResetErrorReason.EntryNotUpToDate:
-					message = `${message} because the entry is not up to date`;
+					message = `${message} because the index is not up to date (you may have unresolved merge conflicts)`;
 					break;
 				case ResetErrorReason.RefLocked:
 					message = `${message} because the ref is locked`;

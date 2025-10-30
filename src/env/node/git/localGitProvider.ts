@@ -10,6 +10,7 @@ import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git'
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import type { Features } from '../../../features';
+import { gitMinimumVersion } from '../../../features';
 import { GitCache } from '../../../git/cache';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '../../../git/errors';
@@ -359,10 +360,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
-		// Warn if git is less than v2.7.2
-		if (compare(fromString(location.version), fromString('2.7.2')) === -1) {
+		// Warn if git is less than our minimum (v2.7.2)
+		if (compare(fromString(location.version), fromString(gitMinimumVersion)) === -1) {
 			Logger.log(scope, `Git version (${location.version}) is outdated`);
-			void showGitVersionUnsupportedErrorMessage(location.version, '2.7.2');
+			void showGitVersionUnsupportedErrorMessage(location.version, gitMinimumVersion);
 		}
 
 		return location;

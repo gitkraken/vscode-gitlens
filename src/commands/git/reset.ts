@@ -1,4 +1,6 @@
+import { window } from 'vscode';
 import type { Container } from '../../container';
+import { ResetError, ResetErrorReason } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
@@ -29,7 +31,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--hard' | '--soft';
+type Flags = '--hard' | '--keep' | '--soft';
 
 interface State {
 	repo: string | Repository;
@@ -72,18 +74,30 @@ export class ResetGitCommand extends QuickCommand<State> {
 	}
 
 	private async execute(state: ResetStepState) {
+		const mode = state.flags.includes('--soft')
+			? 'soft'
+			: state.flags.includes('--keep')
+				? 'keep'
+				: state.flags.includes('--hard')
+					? 'hard'
+					: undefined;
+
 		try {
-			await state.repo.git.ops?.reset(
-				state.reference.ref,
-				state.flags.includes('--hard')
-					? { hard: true }
-					: state.flags.includes('--soft')
-						? { soft: true }
-						: undefined,
-			);
+			await state.repo.git.ops?.reset(state.reference.ref, { mode: mode });
 		} catch (ex) {
 			Logger.error(ex, this.title);
-			void showGenericErrorMessage(ex.message);
+
+			if (
+				mode === 'keep' &&
+				(ResetError.is(ex, ResetErrorReason.EntryNotUpToDate) ||
+					ResetError.is(ex, ResetErrorReason.ChangesWouldBeOverwritten))
+			) {
+				void window.showWarningMessage(
+					'Unable to safely reset. Your local changes would be overwritten by the reset. Please commit or stash your changes before trying again.',
+				);
+			} else {
+				void showGenericErrorMessage(ex.message);
+			}
 		}
 	}
 
@@ -182,23 +196,32 @@ export class ResetGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will reset (leaves changes in the working tree) ${getReferenceLabel(
-						context.destination,
-					)} to ${getReferenceLabel(state.reference)}`,
+					description: '--mixed \u2022 unstages your changes and reset changes',
+					detail: `Will unstage your changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--soft'], {
 					label: `Soft ${this.title}`,
-					description: '--soft',
-					detail: `Will soft reset (leaves changes in the index and working tree) ${getReferenceLabel(
-						context.destination,
-					)} to ${getReferenceLabel(state.reference)}`,
+					description: '--soft \u2022 keeps your changes and stages reset changes',
+					detail: `Will keep your changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
+				}),
+				createFlagsQuickPickItem<Flags>(state.flags, ['--keep'], {
+					label: `Safe Hard ${this.title}`,
+					description:
+						'--keep \u2022 keeps your changes and discards reset changes; aborts if reset changes would overwrite them',
+					detail: `Will safely hard reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
 					label: `Hard ${this.title}`,
-					description: '--hard',
-					detail: `Will hard reset (discards all changes) ${getReferenceLabel(
-						context.destination,
-					)} to ${getReferenceLabel(state.reference)}`,
+					description: '⚠️ --hard \u2022 discards ALL changes',
+					detail: `Will discard ALL changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
+						state.reference,
+					)}`,
 				}),
 			],
 		);

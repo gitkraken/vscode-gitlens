@@ -29,6 +29,7 @@ export type FilteredGitFeatures<T extends GitFeatureOrPrefix> = T extends GitFea
 	? T
 	: Extract<GitFeatures, T | `${T}:${string}`>;
 
+export const gitMinimumVersion = '2.7.2';
 export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:for-each-ref:worktreePath', '2.23'],
 	['git:ignoreRevsFile', '2.23'],

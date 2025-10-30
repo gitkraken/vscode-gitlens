@@ -397,7 +397,11 @@ export interface GitOperationsSubProvider {
 			publish?: { remote: string };
 		},
 	): Promise<void>;
-	reset(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
+	reset(
+		repoPath: string,
+		rev: string,
+		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
+	): Promise<void>;
 }
 
 export interface GitPausedOperationsSubProvider {

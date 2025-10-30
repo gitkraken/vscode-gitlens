@@ -269,7 +269,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	}
 
 	@log()
-	async reset(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void> {
-		await this.git.reset(repoPath, [], { ...options, ref: ref });
+	async reset(
+		repoPath: string,
+		rev: string,
+		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
+	): Promise<void> {
+		await this.git.reset(repoPath, [], { ...options, rev: rev });
 	}
 }
