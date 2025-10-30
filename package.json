@@ -25294,7 +25294,7 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "Save 50% on GitLens Pro.",
+				"contents": "Save up to 50% on GitLens Pro.",
 				"when": "gitlens:launchpad:connected && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -25359,7 +25359,7 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Save 50% on GitLens Pro.",
+				"contents": "Save up to 50% on GitLens Pro.",
 				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -25419,7 +25419,7 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Save 50% on GitLens Pro.",
+				"contents": "Save up to 50% on GitLens Pro.",
 				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -25507,7 +25507,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Save 50% on GitLens Pro.",
+				"contents": "Save up to 50% on GitLens Pro.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
