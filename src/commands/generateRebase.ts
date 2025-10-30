@@ -249,7 +249,7 @@ export class UndoGenerateRebaseCommand extends GlCommandBase {
 			}
 
 			// Reset hard to the previous HEAD
-			await svc.reset(args.previousHeadRef.ref, { hard: true });
+			await svc.ops?.reset(args.previousHeadRef.ref, { hard: true });
 
 			// Apply the generated stash
 			try {
@@ -351,7 +351,7 @@ export async function generateRebase(
 				}
 
 				// reset the current branch to the new shas
-				await svc.reset(shas[shas.length - 1], { hard: true });
+				await svc.ops?.reset(shas[shas.length - 1], { hard: true });
 
 				// Capture the new HEAD after reset
 				generatedHeadRef = createReference(shas[shas.length - 1], svc.path, { refType: 'revision' });

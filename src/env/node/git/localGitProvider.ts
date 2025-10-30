@@ -12,14 +12,7 @@ import type { Container } from '../../../container';
 import type { Features } from '../../../features';
 import { GitCache } from '../../../git/cache';
 import { GitErrorHandling } from '../../../git/commandOptions';
-import {
-	BlameIgnoreRevsFileBadRevisionError,
-	BlameIgnoreRevsFileError,
-	FetchError,
-	PullError,
-	PushError,
-	PushErrorReason,
-} from '../../../git/errors';
+import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '../../../git/errors';
 import type {
 	GitProvider,
 	GitProviderDescriptor,
@@ -37,7 +30,6 @@ import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models
 import type { GitCommit } from '../../../git/models/commit';
 import type { GitLineDiff, ParsedGitDiffHunks } from '../../../git/models/diff';
 import type { GitLog } from '../../../git/models/log';
-import type { GitBranchReference, GitReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
@@ -45,8 +37,6 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import { deletedOrMissing } from '../../../git/models/revision';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser';
-import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../git/utils/branch.utils';
-import { isBranchReference } from '../../../git/utils/reference.utils';
 import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import {
@@ -74,7 +64,7 @@ import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/strin
 import { compare, fromString } from '../../../system/version';
 import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
-import type { Git, PushForceOptions } from './git';
+import type { Git } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { fsExists } from './shell';
@@ -84,7 +74,9 @@ import { ConfigGitSubProvider } from './sub-providers/config';
 import { ContributorsGitSubProvider } from './sub-providers/contributors';
 import { DiffGitSubProvider, findPathStatusChanged } from './sub-providers/diff';
 import { GraphGitSubProvider } from './sub-providers/graph';
+import { OperationsGitSubProvider } from './sub-providers/operations';
 import { PatchGitSubProvider } from './sub-providers/patch';
+import { PausedOperationsGitSubProvider } from './sub-providers/pausedOperations';
 import { RefsGitSubProvider } from './sub-providers/refs';
 import { RemotesGitSubProvider } from './sub-providers/remotes';
 import { RevisionGitSubProvider } from './sub-providers/revision';
@@ -978,31 +970,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async checkout(
-		repoPath: string,
-		ref: string,
-		options?: { createBranch?: string } | { path?: string },
-	): Promise<void> {
-		const scope = getLogScope();
-
-		try {
-			await this.git.checkout(repoPath, ref, options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches', 'status'] });
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (/overwritten by checkout/i.test(msg)) {
-				void showGenericErrorMessage(
-					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
-				);
-				return;
-			}
-
-			Logger.error(ex, scope);
-			void showGenericErrorMessage(`Unable to checkout '${ref}'`);
-		}
-	}
-
-	@log()
 	async clone(url: string, parentPath: string): Promise<string | undefined> {
 		const scope = getLogScope();
 
@@ -1036,158 +1003,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return [...paths.values()];
-	}
-
-	@gate()
-	@log()
-	async fetch(
-		repoPath: string,
-		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
-	): Promise<void> {
-		const scope = getLogScope();
-
-		const { branch, ...opts } = options ?? {};
-		try {
-			if (isBranchReference(branch)) {
-				const [branchName, remoteName] = getBranchNameAndRemote(branch);
-				if (remoteName == null) return undefined;
-
-				await this.git.fetch(repoPath, {
-					branch: branchName,
-					remote: remoteName,
-					upstream: getBranchTrackingWithoutRemote(branch)!,
-					pull: options?.pull,
-				});
-			} else {
-				await this.git.fetch(repoPath, opts);
-			}
-
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
-		} catch (ex) {
-			Logger.error(ex, scope);
-			if (!FetchError.is(ex)) throw ex;
-
-			void window.showErrorMessage(ex.message);
-		}
-	}
-
-	@gate()
-	@log()
-	async push(
-		repoPath: string,
-		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
-	): Promise<void> {
-		const scope = getLogScope();
-
-		let branchName: string;
-		let remoteName: string | undefined;
-		let upstreamName: string | undefined;
-		let setUpstream:
-			| {
-					branch: string;
-					remote: string;
-					remoteBranch: string;
-			  }
-			| undefined;
-
-		if (isBranchReference(options?.reference)) {
-			if (options.publish != null) {
-				branchName = options.reference.name;
-				remoteName = options.publish.remote;
-			} else {
-				[branchName, remoteName] = getBranchNameAndRemote(options.reference);
-			}
-			upstreamName = getBranchTrackingWithoutRemote(options.reference);
-		} else {
-			const branch = await this.branches.getBranch(repoPath);
-			if (branch == null) return;
-
-			branchName =
-				options?.reference != null
-					? `${options.reference.ref}:${
-							options?.publish != null ? 'refs/heads/' : ''
-						}${branch.getNameWithoutRemote()}`
-					: branch.name;
-			remoteName = branch.getRemoteName() ?? options?.publish?.remote;
-			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
-
-			// Git can't setup upstream tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
-			if (options?.publish?.remote != null && options?.reference != null) {
-				setUpstream = {
-					branch: branch.getNameWithoutRemote(),
-					remote: remoteName!,
-					remoteBranch: branch.getNameWithoutRemote(),
-				};
-			}
-		}
-
-		if (options?.publish == null && remoteName == null && upstreamName == null) {
-			debugger;
-			throw new PushError(PushErrorReason.Other);
-		}
-
-		let forceOpts: PushForceOptions | undefined;
-		if (options?.force) {
-			const withLease = configuration.getCore('git.useForcePushWithLease') ?? true;
-			if (withLease) {
-				forceOpts = {
-					withLease: withLease,
-					ifIncludes: configuration.getCore('git.useForcePushIfIncludes') ?? true,
-				};
-			} else {
-				forceOpts = {
-					withLease: withLease,
-				};
-			}
-		}
-
-		try {
-			await this.git.push(repoPath, {
-				branch: branchName,
-				remote: remoteName,
-				upstream: upstreamName,
-				force: forceOpts,
-				publish: options?.publish != null,
-			});
-
-			// Since Git can't setup upstream tracking when publishing a new branch to a specific commit, do it now
-			if (setUpstream != null) {
-				await this.git.exec(
-					{ cwd: repoPath },
-					'branch',
-					'--set-upstream-to',
-					`${setUpstream.remote}/${setUpstream.remoteBranch}`,
-					setUpstream.branch,
-				);
-			}
-
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
-		} catch (ex) {
-			Logger.error(ex, scope);
-			if (!PushError.is(ex)) throw ex;
-
-			void window.showErrorMessage(ex.message);
-		}
-	}
-
-	@gate()
-	@log()
-	async pull(repoPath: string, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
-		const scope = getLogScope();
-
-		try {
-			await this.git.pull(repoPath, {
-				rebase: options?.rebase,
-				tags: options?.tags,
-			});
-
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
-		} catch (ex) {
-			Logger.error(ex, scope);
-			if (!PullError.is(ex)) throw ex;
-
-			void window.showErrorMessage(ex.message);
-		}
 	}
 
 	private readonly toCanonicalMap = new Map<string, Uri>();
@@ -2065,11 +1880,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log()
-	async reset(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void> {
-		await this.git.reset(repoPath, [], { ...options, ref: ref });
-	}
-
 	@log({ args: { 2: false } })
 	async runGitCommandViaTerminal(
 		repoPath: string,
@@ -2118,9 +1928,29 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return (this._graph ??= new GraphGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
+	private _operations: OperationsGitSubProvider | undefined;
+	get ops(): OperationsGitSubProvider {
+		return (this._operations ??= new OperationsGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
+	}
+
 	private _patch: PatchGitSubProvider | undefined;
 	get patch(): PatchGitSubProvider | undefined {
 		return (this._patch ??= new PatchGitSubProvider(this.container, this.git, this));
+	}
+
+	private _pausedOperations: PausedOperationsGitSubProvider | undefined;
+	get pausedOps(): PausedOperationsGitSubProvider {
+		return (this._pausedOperations ??= new PausedOperationsGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _refs: RefsGitSubProvider | undefined;

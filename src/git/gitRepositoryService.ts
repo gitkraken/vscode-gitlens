@@ -1,8 +1,6 @@
 import type { Uri } from 'vscode';
 import { GlyphChars } from '../constants';
-import { ProviderNotSupportedError } from '../errors';
 import type { Features } from '../features';
-import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { groupByFilterMap } from '../system/iterable';
 import { getSettledValue } from '../system/promise';
@@ -13,7 +11,9 @@ import type {
 	GitContributorsSubProvider,
 	GitDiffSubProvider,
 	GitGraphSubProvider,
+	GitOperationsSubProvider,
 	GitPatchSubProvider,
+	GitPausedOperationsSubProvider,
 	GitProvider,
 	GitProviderDescriptor,
 	GitRefsSubProvider,
@@ -34,7 +34,6 @@ import { createSubProviderProxyForRepo } from './gitProvider';
 import type { GitProviderService } from './gitProviderService';
 import type { GitBranch } from './models/branch';
 import type { GitFile } from './models/file';
-import type { GitBranchReference, GitReference } from './models/reference';
 import { deletedOrMissing } from './models/revision';
 import type { GitTag } from './models/tag';
 import { getRemoteThemeIconString } from './utils/remote.utils';
@@ -74,30 +73,9 @@ export class GitRepositoryService implements IGitRepositoryService {
 		this.getRepository = svc.getRepository.bind(svc, path);
 	}
 
-	@log()
-	checkout(ref: string, options?: { createBranch?: string } | { path?: string }): Promise<void> {
-		if (this._provider.checkout == null) throw new ProviderNotSupportedError(this._provider.descriptor.name);
-
-		return this._provider.checkout(this.path, ref, options);
-	}
-
 	@log<GitRepositoryService['excludeIgnoredUris']>({ args: { 0: uris => uris.length } })
 	excludeIgnoredUris(uris: Uri[]): Promise<Uri[]> {
 		return this._provider.excludeIgnoredUris(this.path, uris);
-	}
-
-	@gate()
-	@log()
-	fetch(options?: {
-		all?: boolean;
-		branch?: GitBranchReference;
-		prune?: boolean;
-		pull?: boolean;
-		remote?: string;
-	}): Promise<void> {
-		if (this._provider.fetch == null) throw new ProviderNotSupportedError(this._provider.descriptor.name);
-
-		return this._provider.fetch(this.path, options);
 	}
 
 	getAbsoluteUri: IGitRepositoryService['getAbsoluteUri'];
@@ -235,29 +213,6 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.getWorkingUri(this.path, uri);
 	}
 
-	@gate()
-	@log()
-	pull(options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
-		if (this._provider.pull == null) throw new ProviderNotSupportedError(this._provider.descriptor.name);
-
-		return this._provider.pull(this.path, options);
-	}
-
-	@gate()
-	@log()
-	push(options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } }): Promise<void> {
-		if (this._provider.push == null) throw new ProviderNotSupportedError(this._provider.descriptor.name);
-
-		return this._provider.push(this.path, options);
-	}
-
-	@log()
-	async reset(ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void> {
-		if (this._provider.reset == null) throw new ProviderNotSupportedError(this._provider.descriptor.name);
-
-		return this._provider.reset(this.path, ref, options);
-	}
-
 	@log({ args: false })
 	async runGitCommandViaTerminal(command: string, args: string[], options?: { execute?: boolean }): Promise<void> {
 		return this._provider.runGitCommandViaTerminal?.(this.path, command, args, options);
@@ -289,8 +244,14 @@ export class GitRepositoryService implements IGitRepositoryService {
 	get graph(): GitSubProviderForRepo<GitGraphSubProvider> {
 		return this.getSubProviderProxy('graph');
 	}
+	get ops(): GitSubProviderForRepo<GitOperationsSubProvider> | undefined {
+		return this.getSubProviderProxy('ops');
+	}
 	get patch(): GitSubProviderForRepo<GitPatchSubProvider> | undefined {
 		return this.getSubProviderProxy('patch');
+	}
+	get pausedOps(): GitSubProviderForRepo<GitPausedOperationsSubProvider> | undefined {
+		return this.getSubProviderProxy('pausedOps');
 	}
 	get refs(): GitSubProviderForRepo<GitRefsSubProvider> {
 		return this.getSubProviderProxy('refs');

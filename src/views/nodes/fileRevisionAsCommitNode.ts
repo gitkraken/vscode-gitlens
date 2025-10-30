@@ -64,7 +64,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 
 		const pausedOpStatus = await this.view.container.git
 			.getRepositoryService(this.commit.repoPath)
-			.status.getPausedOperationStatus?.();
+			.pausedOps?.getPausedOperationStatus?.();
 		if (pausedOpStatus == null) return [];
 
 		return [

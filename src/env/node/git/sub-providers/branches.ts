@@ -88,7 +88,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult] = await Promise.allSettled([
 			isDetachedHead(ref.name)
-				? this.provider.status?.getPausedOperationStatus(repoPath, cancellation)
+				? this.provider.pausedOps.getPausedOperationStatus(repoPath, cancellation)
 				: undefined,
 			this.git
 				.exec(

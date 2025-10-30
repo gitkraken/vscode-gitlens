@@ -1397,7 +1397,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			if (confirm == null || confirm.title !== 'Continue') return;
 
-			await this.container.git.getRepositoryService(ref.repoPath).checkout(mergeTargetLocalBranchName);
+			await this.container.git.getRepositoryService(ref.repoPath).ops?.checkout(mergeTargetLocalBranchName);
 
 			void executeGitCommand({
 				command: 'branch',
@@ -1460,7 +1460,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
 	})
 	private pushBranch(ref: BranchRef) {
-		void this.container.git.getRepositoryService(ref.repoPath).push({
+		void this.container.git.getRepositoryService(ref.repoPath).ops?.push({
 			reference: {
 				name: ref.branchName,
 				ref: ref.branchId,
@@ -1991,7 +1991,9 @@ async function getWipInfo(
 
 	const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 		statusPromise,
-		active ? container.git.getRepositoryService(branch.repoPath).status.getPausedOperationStatus?.() : undefined,
+		active
+			? container.git.getRepositoryService(branch.repoPath).pausedOps?.getPausedOperationStatus?.()
+			: undefined,
 	]);
 
 	const status = getSettledValue(statusResult);

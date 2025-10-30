@@ -93,7 +93,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		if (remote != null) {
 			remoteName = remote.name;
 			// Ensure we have the latest from the remote
-			await repo.git.fetch({ remote: remote.name });
+			await repo.git.ops?.fetch({ remote: remote.name });
 		} else {
 			remoteName = remoteOwner;
 			addRemote = { name: remoteOwner, url: remoteUrl };

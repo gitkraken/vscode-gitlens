@@ -73,7 +73,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 	private async execute(state: ResetStepState) {
 		try {
-			await state.repo.git.reset(
+			await state.repo.git.ops?.reset(
 				state.reference.ref,
 				state.flags.includes('--hard')
 					? { hard: true }

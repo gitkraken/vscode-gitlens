@@ -6,7 +6,6 @@ import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import type { GitCommandOptions } from '../../../../git/commandOptions';
 import { GitErrorHandling } from '../../../../git/commandOptions';
-import { CherryPickError, CherryPickErrorReason } from '../../../../git/errors';
 import type {
 	GitCommitsSubProvider,
 	GitLogForPathOptions,
@@ -37,7 +36,6 @@ import type {
 } from '../../../../git/parsers/logParser';
 import {
 	getCommitsLogParser,
-	getShaAndDatesLogParser,
 	getShaAndFilesAndStatsLogParser,
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
@@ -58,7 +56,7 @@ import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { Git, GitResult } from '../git';
-import { gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../git';
+import { gitConfigsLog, gitConfigsLogWithFiles } from '../git';
 import type { LocalGitProviderInternal } from '../localGitProvider';
 import { convertStashesToStdin } from './stash';
 
@@ -75,63 +73,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 	private get useCaching() {
 		return configuration.get('advanced.caching.enabled');
-	}
-
-	@log()
-	async cherryPick(
-		repoPath: string,
-		revs: string[],
-		options?: { edit?: boolean; noCommit?: boolean },
-	): Promise<void> {
-		const args = ['cherry-pick'];
-		if (options?.edit) {
-			args.push('-e');
-		}
-		if (options?.noCommit) {
-			args.push('-n');
-		}
-
-		if (revs.length > 1) {
-			const parser = getShaAndDatesLogParser();
-			// Ensure the revs are in reverse committer date order
-			const result = await this.git.exec(
-				{ cwd: repoPath, stdin: join(revs, '\n') },
-				'log',
-				'--no-walk',
-				'--stdin',
-				...parser.arguments,
-				'--',
-			);
-			const commits = [...parser.parse(result.stdout)].sort(
-				(c1, c2) =>
-					Number(c1.committerDate) - Number(c2.committerDate) ||
-					Number(c1.authorDate) - Number(c2.authorDate),
-			);
-			revs = commits.map(c => c.sha);
-		}
-
-		args.push(...revs);
-
-		try {
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-
-			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
-			if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = CherryPickErrorReason.AbortedWouldOverwrite;
-			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = CherryPickErrorReason.Conflicts;
-			} else if (GitErrors.emptyPreviousCherryPick.test(msg)) {
-				reason = CherryPickErrorReason.EmptyCommit;
-			}
-
-			debugger;
-			throw new CherryPickError(reason, ex, revs);
-		}
 	}
 
 	@log()

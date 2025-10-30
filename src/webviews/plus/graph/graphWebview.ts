@@ -2570,7 +2570,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 			hasWorkingChanges ? svc.status.getStatus(cancellation) : undefined,
-			svc.status.getPausedOperationStatus?.(cancellation),
+			svc.pausedOps?.getPausedOperationStatus?.(cancellation),
 		]);
 
 		const status = getSettledValue(statusResult);
@@ -3414,7 +3414,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async continuePausedOperation(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const status = await this.repository.git.status.getPausedOperationStatus?.();
+		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
 		if (status == null || status.type === 'revert') return;
 
 		await continuePausedOperation(this.repository.git);
@@ -3424,7 +3424,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async openRebaseEditor(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const status = await this.repository.git.status.getPausedOperationStatus?.();
+		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
 		if (status == null || status.type !== 'rebase') return;
 
 		const gitDir = await this.repository.git.config.getGitDir?.();

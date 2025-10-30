@@ -7,7 +7,7 @@ import { getReferenceLabel } from '../utils/reference.utils';
 
 export async function abortPausedOperation(svc: GitRepositoryService, options?: { quit?: boolean }): Promise<void> {
 	try {
-		return await svc.status.abortPausedOperation?.(options);
+		return await svc.pausedOps?.abortPausedOperation?.(options);
 	} catch (ex) {
 		void window.showErrorMessage(ex.message);
 	}
@@ -23,7 +23,7 @@ export async function skipPausedOperation(svc: GitRepositoryService): Promise<vo
 
 async function continuePausedOperationCore(svc: GitRepositoryService, skip: boolean = false): Promise<void> {
 	try {
-		return await svc.status.continuePausedOperation?.(skip ? { skip: true } : undefined);
+		return await svc.pausedOps?.continuePausedOperation?.(skip ? { skip: true } : undefined);
 	} catch (ex) {
 		if (
 			ex instanceof PausedOperationContinueError &&

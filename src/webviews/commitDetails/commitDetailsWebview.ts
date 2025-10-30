@@ -2047,7 +2047,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const { path, repoPath, sha } = item.webviewItemValue;
 		if (sha == null || sha === uncommitted) return;
 
-		await this.container.git.getRepositoryService(repoPath).checkout(sha, { path: path });
+		await this.container.git.getRepositoryService(repoPath).ops?.checkout(sha, { path: path });
 	}
 
 	@command('gitlens.restorePrevious.file:')

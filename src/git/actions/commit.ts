@@ -691,7 +691,7 @@ export async function restoreFile(
 		}
 	}
 
-	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(rev, { path: path });
+	await Container.instance.git.getRepositoryService(revision.repoPath).ops?.checkout(rev, { path: path });
 }
 
 export function revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {

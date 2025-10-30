@@ -513,7 +513,7 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			await this.git.fetch(options);
+			await this.git.ops?.fetch(options);
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
@@ -593,10 +593,10 @@ export class Repository implements Disposable {
 		try {
 			const withTags = configuration.getCore('git.pullTags', this.uri);
 			if (configuration.getCore('git.fetchOnPull', this.uri)) {
-				await this.git.fetch();
+				await this.git.ops?.fetch();
 			}
 
-			await this.git.pull({ ...options, tags: withTags });
+			await this.git.ops?.pull({ ...options, tags: withTags });
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
@@ -660,7 +660,7 @@ export class Repository implements Disposable {
 
 	private async pushCore(options?: { force?: boolean; reference?: GitReference; publish?: { remote: string } }) {
 		try {
-			await this.git.push({
+			await this.git.ops?.push({
 				reference: options?.reference,
 				force: options?.force,
 				publish: options?.publish,
@@ -742,7 +742,7 @@ export class Repository implements Disposable {
 
 	private async switchCore(ref: string, options?: { createBranch?: string }) {
 		try {
-			await this.git.checkout(ref, options);
+			await this.git.ops?.checkout(ref, options);
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {

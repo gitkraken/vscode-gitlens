@@ -231,7 +231,7 @@ export class BranchNode
 			] = await Promise.allSettled([
 				this.getLog(svc),
 				svc.getBranchesAndTagsTipsLookup(branch.name),
-				this.options.showStatus && branch.current ? svc.status.getPausedOperationStatus?.() : undefined,
+				this.options.showStatus && branch.current ? svc.pausedOps?.getPausedOperationStatus?.() : undefined,
 				!branch.remote
 					? getBranchAheadRange(svc, branch).then(range =>
 							range

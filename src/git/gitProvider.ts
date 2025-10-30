@@ -154,39 +154,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 export interface GitRepositoryProvider {
-	checkout?(
-		repoPath: string,
-		ref: string,
-		options?: { createBranch?: string | undefined } | { path?: string | undefined },
-	): Promise<void>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
-	fetch?(
-		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			branch?: GitBranchReference | undefined;
-			prune?: boolean | undefined;
-			pull?: boolean | undefined;
-			remote?: string | undefined;
-		},
-	): Promise<void>;
-	pull?(
-		repoPath: string,
-		options?: {
-			branch?: GitBranchReference | undefined;
-			rebase?: boolean | undefined;
-			tags?: boolean | undefined;
-		},
-	): Promise<void>;
-	push?(
-		repoPath: string,
-		options?: {
-			reference?: GitReference | undefined;
-			force?: boolean | undefined;
-			publish?: { remote: string };
-		},
-	): Promise<void>;
-	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
 
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 	runGitCommandViaTerminal?(
@@ -202,7 +170,9 @@ export interface GitRepositoryProvider {
 	contributors: GitContributorsSubProvider;
 	diff: GitDiffSubProvider;
 	graph: GitGraphSubProvider;
+	ops?: GitOperationsSubProvider;
 	patch?: GitPatchSubProvider;
+	pausedOps?: GitPausedOperationsSubProvider;
 	refs: GitRefsSubProvider;
 	remotes: GitRemotesSubProvider;
 	revision: GitRevisionSubProvider;
@@ -337,7 +307,6 @@ export interface IncomingActivityOptions extends GitLogOptionsBase {
 }
 
 export interface GitCommitsSubProvider {
-	cherryPick?(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
 	getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined>;
 	getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined>;
 	getCommitFiles(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitFileChange[]>;
@@ -393,6 +362,51 @@ export interface GitCommitsSubProvider {
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
 	): Promise<SearchCommitsResult>;
+}
+
+export interface GitOperationsSubProvider {
+	checkout(
+		repoPath: string,
+		ref: string,
+		options?: { createBranch?: string | undefined } | { path?: string | undefined },
+	): Promise<void>;
+	cherryPick(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
+	fetch(
+		repoPath: string,
+		options?: {
+			all?: boolean | undefined;
+			branch?: GitBranchReference | undefined;
+			prune?: boolean | undefined;
+			pull?: boolean | undefined;
+			remote?: string | undefined;
+		},
+	): Promise<void>;
+	pull(
+		repoPath: string,
+		options?: {
+			branch?: GitBranchReference | undefined;
+			rebase?: boolean | undefined;
+			tags?: boolean | undefined;
+		},
+	): Promise<void>;
+	push(
+		repoPath: string,
+		options?: {
+			reference?: GitReference | undefined;
+			force?: boolean | undefined;
+			publish?: { remote: string };
+		},
+	): Promise<void>;
+	reset(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
+}
+
+export interface GitPausedOperationsSubProvider {
+	getPausedOperationStatus(
+		repoPath: string,
+		cancellation?: CancellationToken,
+	): Promise<GitPausedOperationStatus | undefined>;
+	abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void>;
+	continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 }
 
 export interface GitConfigSubProvider {
@@ -727,13 +741,6 @@ export interface GitStatusSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitStatusFile[] | undefined>;
 
-	getPausedOperationStatus?(
-		repoPath: string,
-		cancellation?: CancellationToken,
-	): Promise<GitPausedOperationStatus | undefined>;
-	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
-	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
-
 	/**
 	 * Quickly check if the repository has any working changes
 	 * @param repoPath Repository path
@@ -836,7 +843,9 @@ export type GitSubProvider =
 	| GitContributorsSubProvider
 	| GitDiffSubProvider
 	| GitGraphSubProvider
+	| GitOperationsSubProvider
 	| GitPatchSubProvider
+	| GitPausedOperationsSubProvider
 	| GitRefsSubProvider
 	| GitRemotesSubProvider
 	| GitRevisionSubProvider

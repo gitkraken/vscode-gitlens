@@ -122,14 +122,14 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		if (options?.branchName != null && currentBranch?.name !== options.branchName) {
 			const checkoutRef = shouldCreate ? (currentBranch?.ref ?? 'HEAD') : options.branchName;
-			await this.provider.checkout(targetPath, checkoutRef, {
+			await this.provider.ops.checkout(targetPath, checkoutRef, {
 				createBranch: shouldCreate ? options.branchName : undefined,
 			});
 		}
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.provider.commits.cherryPick(targetPath, [rev], { noCommit: true });
+			await this.provider.ops.cherryPick(targetPath, [rev], { noCommit: true });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {

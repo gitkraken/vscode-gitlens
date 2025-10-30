@@ -372,40 +372,51 @@ export class CherryPickError extends Error {
 		return ex instanceof CherryPickError && (reason == null || ex.reason === reason);
 	}
 
+	private static buildErrorMessage(reason?: CherryPickErrorReason, revs?: string[]): string {
+		const baseMessage = `Unable to cherry-pick${
+			revs?.length ? (revs.length === 1 ? ` commit '${revs[0]}'` : ` ${pluralize('commit', revs.length)}`) : ''
+		}`;
+
+		switch (reason) {
+			case CherryPickErrorReason.AbortedWouldOverwrite:
+				return `${baseMessage} as some local changes would be overwritten.`;
+			case CherryPickErrorReason.Conflicts:
+				return `${baseMessage} due to conflicts.`;
+			default:
+				return baseMessage;
+		}
+	}
+
 	readonly original?: Error;
 	readonly reason: CherryPickErrorReason | undefined;
+	private _revs?: string[];
+	get revs(): string[] | undefined {
+		return this._revs;
+	}
 
 	constructor(reason?: CherryPickErrorReason, original?: Error, revs?: string[]);
 	constructor(message?: string, original?: Error);
 	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, revs?: string[]) {
 		let message;
-		const baseMessage = `Unable to cherry-pick${
-			revs?.length ? (revs.length === 1 ? ` commit '${revs[0]}'` : ` ${pluralize('commit', revs.length)}`) : ''
-		}`;
 		let reason: CherryPickErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = baseMessage;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
+		if (messageOrReason == null || typeof messageOrReason !== 'string') {
 			reason = messageOrReason;
-			switch (reason) {
-				case CherryPickErrorReason.AbortedWouldOverwrite:
-					message = `${baseMessage} as some local changes would be overwritten.`;
-					break;
-				case CherryPickErrorReason.Conflicts:
-					message = `${baseMessage} due to conflicts.`;
-					break;
-				default:
-					message = baseMessage;
-			}
+			message = CherryPickError.buildErrorMessage(reason, revs);
+		} else {
+			message = messageOrReason;
 		}
 		super(message);
 
 		this.original = original;
 		this.reason = reason;
+		this._revs = revs;
 		Error.captureStackTrace?.(this, CherryPickError);
+	}
+
+	update(changes: { revs?: string[] }): this {
+		this._revs = changes.revs === null ? undefined : (changes.revs ?? this._revs);
+		this.message = CherryPickError.buildErrorMessage(this.reason, this._revs);
+		return this;
 	}
 }
 
@@ -515,6 +526,27 @@ export class BranchError extends Error {
 		return ex instanceof BranchError && (reason == null || ex.reason === reason);
 	}
 
+	private static buildErrorMessage(reason?: BranchErrorReason, branch?: string, action?: string): string {
+		let baseMessage: string;
+		if (action != null) {
+			baseMessage = `Unable to ${action} branch ${branch ? `'${branch}'` : ''}`;
+		} else {
+			baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
+		}
+		switch (reason) {
+			case BranchErrorReason.BranchAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case BranchErrorReason.BranchNotFullyMerged:
+				return `${baseMessage} because it is not fully merged`;
+			case BranchErrorReason.NoRemoteReference:
+				return `${baseMessage} because the remote reference does not exist`;
+			case BranchErrorReason.InvalidBranchName:
+				return `${baseMessage} because the branch name is invalid`;
+			default:
+				return baseMessage;
+		}
+	}
+
 	readonly original?: Error;
 	readonly reason: BranchErrorReason | undefined;
 	private _branch?: string;
@@ -536,8 +568,8 @@ export class BranchError extends Error {
 	) {
 		let message;
 		let reason: BranchErrorReason | undefined;
-		if (typeof messageOrReason !== 'string') {
-			reason = messageOrReason as BranchErrorReason;
+		if (messageOrReason == null || typeof messageOrReason !== 'string') {
+			reason = messageOrReason;
 			message = BranchError.buildErrorMessage(reason, branch, action);
 		} else {
 			message = messageOrReason;
@@ -549,27 +581,6 @@ export class BranchError extends Error {
 		this._branch = branch;
 		this._action = action;
 		Error.captureStackTrace?.(this, BranchError);
-	}
-
-	private static buildErrorMessage(reason?: BranchErrorReason, branch?: string, action?: string): string {
-		let baseMessage: string;
-		if (action != null) {
-			baseMessage = `Unable to ${action} branch ${branch ? `'${branch}'` : ''}`;
-		} else {
-			baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
-		}
-		switch (reason) {
-			case BranchErrorReason.BranchAlreadyExists:
-				return `${baseMessage} because it already exists`;
-			case BranchErrorReason.BranchNotFullyMerged:
-				return `${baseMessage} because it is not fully merged`;
-			case BranchErrorReason.NoRemoteReference:
-				return `${baseMessage} because the remote reference does not exist`;
-			case BranchErrorReason.InvalidBranchName:
-				return `${baseMessage} because the branch name is invalid`;
-			default:
-				return baseMessage;
-		}
 	}
 
 	update(changes: { branch?: string; action?: string }): this {
@@ -594,37 +605,6 @@ export class TagError extends Error {
 		return ex instanceof TagError && (reason == null || ex.reason === reason);
 	}
 
-	readonly original?: Error;
-	readonly reason: TagErrorReason | undefined;
-	private _tag?: string;
-	get tag(): string | undefined {
-		return this._tag;
-	}
-	private _action?: string;
-	get action(): string | undefined {
-		return this._action;
-	}
-
-	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
-	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
-		let message;
-		let reason: TagErrorReason | undefined;
-		if (typeof messageOrReason !== 'string') {
-			reason = messageOrReason as TagErrorReason;
-			message = TagError.buildErrorMessage(reason, tag, action);
-		} else {
-			message = messageOrReason;
-		}
-		super(message);
-
-		this.original = original;
-		this.reason = reason;
-		this._tag = tag;
-		this._action = action;
-		Error.captureStackTrace?.(this, TagError);
-	}
-
 	private static buildErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
 		let baseMessage: string;
 		if (action != null) {
@@ -647,6 +627,37 @@ export class TagError extends Error {
 			default:
 				return baseMessage;
 		}
+	}
+
+	readonly original?: Error;
+	readonly reason: TagErrorReason | undefined;
+	private _tag?: string;
+	get tag(): string | undefined {
+		return this._tag;
+	}
+	private _action?: string;
+	get action(): string | undefined {
+		return this._action;
+	}
+
+	constructor(reason?: TagErrorReason, original?: Error, tag?: string, action?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | TagErrorReason | undefined, original?: Error, tag?: string, action?: string) {
+		let message;
+		let reason: TagErrorReason | undefined;
+		if (messageOrReason == null || typeof messageOrReason !== 'string') {
+			reason = messageOrReason;
+			message = TagError.buildErrorMessage(reason, tag, action);
+		} else {
+			message = messageOrReason;
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this._tag = tag;
+		this._action = action;
+		Error.captureStackTrace?.(this, TagError);
 	}
 
 	update(changes: { tag?: string; action?: string }): this {

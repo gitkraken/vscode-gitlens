@@ -90,7 +90,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 	private async execute(state: CherryPickStepState<State<GitReference[]>>) {
 		try {
-			await state.repo.git.commits.cherryPick?.(
+			await state.repo.git.ops?.cherryPick?.(
 				state.references.map(c => c.ref),
 				{
 					edit: state.flags.includes('--edit'),
@@ -102,10 +102,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			if (ex instanceof CherryPickError && ex.reason === CherryPickErrorReason.EmptyCommit) {
 				let pausedOperation: GitPausedOperationStatus | undefined;
 				try {
-					pausedOperation = await state.repo.git.status.getPausedOperationStatus?.();
+					pausedOperation = await state.repo.git.pausedOps?.getPausedOperationStatus?.();
 					pausedOperation ??= await state.repo
 						.waitForRepoChange(500)
-						.then(() => state.repo.git.status.getPausedOperationStatus?.());
+						.then(() => state.repo.git.pausedOps?.getPausedOperationStatus?.());
 				} catch {}
 
 				const pausedAt = pausedOperation
