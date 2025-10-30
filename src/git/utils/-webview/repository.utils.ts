@@ -1,7 +1,10 @@
+import type { Uri } from 'vscode';
+import { Schemes } from '../../../constants';
 import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { formatDate, fromNow } from '../../../system/date';
 import { map } from '../../../system/iterable';
+import { normalizePath } from '../../../system/path';
 import type { GitRemote } from '../../models/remote';
 import { RemoteResourceType } from '../../models/remoteResource';
 import type { Repository } from '../../models/repository';
@@ -27,6 +30,11 @@ export function formatLastFetched(lastFetched: number, short: boolean = true): s
 	}
 	return formatDate(date, format);
 }
+
+export function getRepositoryOrWorktreePath(uri: Uri): string {
+	return uri.scheme === Schemes.File ? normalizePath(uri.fsPath) : uri.toString();
+}
+
 export async function groupRepositories(
 	repositories: Iterable<Repository>,
 ): Promise<Map<Repository, Map<string, Repository>>> {

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri, WorkspaceFolder } from 'vscode';
 import { workspace } from 'vscode';
-import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import { relative } from '../../system/-webview/path';
 import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces';
@@ -9,6 +8,7 @@ import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
 import { normalizePath } from '../../system/path';
+import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils';
 import { shortenRevision } from '../utils/revision.utils';
 import type { GitBranch } from './branch';
 import type { GitStatus } from './status';
@@ -35,7 +35,7 @@ export class GitWorktree {
 	}
 
 	get path(): string {
-		return this.uri.scheme === Schemes.File ? normalizePath(this.uri.fsPath) : this.uri.toString();
+		return getRepositoryOrWorktreePath(this.uri);
 	}
 
 	@memoize()

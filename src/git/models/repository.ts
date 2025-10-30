@@ -3,7 +3,6 @@ import type { ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vsco
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
 import { md5, uuid } from '@env/crypto';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
@@ -23,9 +22,10 @@ import { filter, groupByMap, join, map, min, some } from '../../system/iterable'
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
-import { basename, normalizePath } from '../../system/path';
+import { basename } from '../../system/path';
 import type { GitDir, GitProviderDescriptor } from '../gitProvider';
 import type { GitRepositoryService } from '../gitRepositoryService';
+import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../utils/branch.utils';
 import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/reference.utils';
 import type { GitBranch } from './branch';
@@ -295,7 +295,7 @@ export class Repository implements Disposable {
 	}
 
 	get path(): string {
-		return this.uri.scheme === Schemes.File ? normalizePath(this.uri.fsPath) : this.uri.toString();
+		return getRepositoryOrWorktreePath(this.uri);
 	}
 
 	private _orderByLastFetched = false;
