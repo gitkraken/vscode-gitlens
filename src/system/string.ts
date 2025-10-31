@@ -444,109 +444,256 @@ export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
 	return tokens;
 }
 
-export function* iterateByDelimiter(data: string | Iterable<string>, delimiter: string): IterableIterator<string> {
-	const delimiterLen = delimiter.length;
-	let i = 0;
-	let j;
+/**
+ * Fast string delimiter iterator
+ * Optimized for simple string splitting without generator overhead
+ */
+class StringDelimiterIterator implements IterableIterator<string> {
+	private readonly delimiterLen: number;
+	private index = 0;
+	private done = false;
 
-	if (typeof data === 'string') {
-		while (i < data.length) {
-			j = data.indexOf(delimiter, i);
-			if (j === -1) {
-				j = data.length;
-			}
-
-			yield data.substring(i, j);
-			i = j + delimiterLen;
-		}
-
-		return;
+	constructor(
+		private readonly data: string,
+		private readonly delimiter: string,
+	) {
+		this.delimiterLen = delimiter.length;
 	}
 
-	if (Array.isArray(data)) {
-		let count = 0;
-		let leftover: string | undefined;
-		for (let s of data as string[]) {
-			count++;
-			if (leftover) {
-				s = leftover + s;
-				leftover = undefined;
-			}
-
-			i = 0;
-			while (i < s.length) {
-				j = s.indexOf(delimiter, i);
-				if (j === -1) {
-					if (count === data.length) {
-						j = s.length;
-					} else {
-						leftover = s.substring(i);
-						break;
-					}
-				}
-
-				yield s.substring(i, j);
-				i = j + delimiterLen;
-			}
+	next(): IteratorResult<string> {
+		if (this.done || this.index >= this.data.length) {
+			this.done = true;
+			return { done: true, value: undefined };
 		}
 
-		return;
+		const j = this.data.indexOf(this.delimiter, this.index);
+		const endIndex = j === -1 ? this.data.length : j;
+
+		const value = this.data.substring(this.index, endIndex);
+		this.index = endIndex + this.delimiterLen;
+
+		return { done: false, value: value };
 	}
 
-	let buffer = '';
-	for (const chunk of data) {
-		buffer += chunk;
-
-		i = 0;
-		while (i < buffer.length) {
-			j = buffer.indexOf(delimiter, i);
-			if (j === -1) {
-				break;
-			}
-
-			yield buffer.substring(i, j);
-			i = j + delimiterLen;
-		}
-
-		if (i > 0) {
-			buffer = buffer.substring(i);
-		}
-	}
-
-	// Yield any remaining content
-	if (buffer.length > 0) {
-		yield buffer;
+	[Symbol.iterator](): IterableIterator<string> {
+		return this;
 	}
 }
 
-export async function* iterateAsyncByDelimiter(data: AsyncIterable<string>, delimiter: string): AsyncGenerator<string> {
-	const delimiterLen = delimiter.length;
-	let i = 0;
-	let j;
-	let buffer = '';
-	for await (const chunk of data) {
-		buffer += chunk;
+/**
+ * Iterable delimiter iterator with buffering
+ * Handles streaming data by buffering incomplete segments
+ */
+class IterableDelimiterIterator implements IterableIterator<string> {
+	private readonly delimiterLen: number;
+	private readonly iterator: Iterator<string>;
+	private readonly isArray: boolean;
+	private readonly arrayLength: number;
 
-		i = 0;
-		while (i < buffer.length) {
-			j = buffer.indexOf(delimiter, i);
-			if (j === -1) {
-				break;
+	private arrayCount = 0;
+	private buffer = '';
+	private bufferIndex = 0;
+	private needsMoreData = true;
+	private done = false;
+
+	constructor(
+		data: Iterable<string>,
+		private readonly delimiter: string,
+	) {
+		this.delimiterLen = delimiter.length;
+		this.isArray = Array.isArray(data);
+		this.arrayLength = this.isArray ? (data as string[]).length : 0;
+		this.iterator = data[Symbol.iterator]();
+	}
+
+	next(): IteratorResult<string> {
+		if (this.done) {
+			return { done: true, value: undefined };
+		}
+
+		while (true) {
+			// Try to find delimiter in current buffer
+			if (this.bufferIndex < this.buffer.length) {
+				const j = this.buffer.indexOf(this.delimiter, this.bufferIndex);
+
+				if (j !== -1) {
+					// Found delimiter - return the segment
+					const value = this.buffer.substring(this.bufferIndex, j);
+					this.bufferIndex = j + this.delimiterLen;
+					return { done: false, value: value };
+				}
+
+				// No delimiter found in buffer
+				if (!this.needsMoreData) {
+					// No more data coming - yield rest of buffer
+					if (this.bufferIndex < this.buffer.length) {
+						const value = this.buffer.substring(this.bufferIndex);
+						this.bufferIndex = this.buffer.length;
+						this.done = true;
+						return { done: false, value: value };
+					}
+					this.done = true;
+					return { done: true, value: undefined };
+				}
+
+				// Need more data - keep unprocessed part as leftover
+				if (this.bufferIndex > 0) {
+					this.buffer = this.buffer.substring(this.bufferIndex);
+					this.bufferIndex = 0;
+				}
 			}
 
-			yield buffer.substring(i, j);
-			i = j + delimiterLen;
-		}
+			// Fetch next chunk if needed
+			if (this.needsMoreData) {
+				const result = this.iterator.next();
 
-		if (i > 0) {
-			buffer = buffer.substring(i);
+				if (result.done) {
+					this.needsMoreData = false;
+
+					// Yield any remaining buffer content
+					if (this.buffer.length > 0) {
+						const value = this.buffer;
+						this.buffer = '';
+						this.done = true;
+						return { done: false, value: value };
+					}
+
+					this.done = true;
+					return { done: true, value: undefined };
+				}
+
+				// Track array iteration
+				if (this.isArray) {
+					this.arrayCount++;
+					if (this.arrayCount === this.arrayLength) {
+						this.needsMoreData = false;
+					}
+				}
+
+				// Append chunk to buffer
+				this.buffer += result.value;
+			} else {
+				// No more data and buffer is empty
+				this.done = true;
+				return { done: true, value: undefined };
+			}
 		}
 	}
 
-	// Yield any remaining content
-	if (buffer.length > 0) {
-		yield buffer;
+	[Symbol.iterator](): IterableIterator<string> {
+		return this;
 	}
+}
+
+/**
+ * Iterate over a string or iterable by delimiter without using generators
+ * More performant than generator version while maintaining lazy evaluation
+ */
+export function iterateByDelimiter(data: string | Iterable<string>, delimiter: string): IterableIterator<string> {
+	if (typeof data === 'string') {
+		return new StringDelimiterIterator(data, delimiter);
+	}
+	return new IterableDelimiterIterator(data, delimiter);
+}
+
+/**
+ * Async iterable delimiter iterator with buffering
+ * Handles streaming async data by buffering incomplete segments
+ */
+class AsyncIterableDelimiterIterator implements AsyncIterableIterator<string> {
+	private readonly delimiterLen: number;
+	private readonly iterator: AsyncIterator<string>;
+
+	private buffer = '';
+	private bufferIndex = 0;
+	private needsMoreData = true;
+	private done = false;
+
+	constructor(
+		data: AsyncIterable<string>,
+		private readonly delimiter: string,
+	) {
+		this.delimiterLen = delimiter.length;
+		this.iterator = data[Symbol.asyncIterator]();
+	}
+
+	async next(): Promise<IteratorResult<string>> {
+		if (this.done) {
+			return { done: true, value: undefined };
+		}
+
+		while (true) {
+			// Try to find delimiter in current buffer
+			if (this.bufferIndex < this.buffer.length) {
+				const j = this.buffer.indexOf(this.delimiter, this.bufferIndex);
+
+				if (j !== -1) {
+					// Found delimiter - return the segment
+					const value = this.buffer.substring(this.bufferIndex, j);
+					this.bufferIndex = j + this.delimiterLen;
+					return { done: false, value: value };
+				}
+
+				// No delimiter found in buffer
+				if (!this.needsMoreData) {
+					// No more data coming - yield rest of buffer
+					if (this.bufferIndex < this.buffer.length) {
+						const value = this.buffer.substring(this.bufferIndex);
+						this.bufferIndex = this.buffer.length;
+						this.done = true;
+						return { done: false, value: value };
+					}
+					this.done = true;
+					return { done: true, value: undefined };
+				}
+
+				// Need more data - keep unprocessed part as leftover
+				if (this.bufferIndex > 0) {
+					this.buffer = this.buffer.substring(this.bufferIndex);
+					this.bufferIndex = 0;
+				}
+			}
+
+			// Fetch next chunk if needed
+			if (this.needsMoreData) {
+				const result = await this.iterator.next();
+
+				if (result.done) {
+					this.needsMoreData = false;
+
+					// Yield any remaining unprocessed buffer content
+					if (this.bufferIndex < this.buffer.length) {
+						const value = this.buffer.substring(this.bufferIndex);
+						this.bufferIndex = this.buffer.length;
+						this.done = true;
+						return { done: false, value: value };
+					}
+
+					this.done = true;
+					return { done: true, value: undefined };
+				}
+
+				// Append chunk to buffer
+				this.buffer += result.value;
+			} else {
+				// No more data and buffer is empty
+				this.done = true;
+				return { done: true, value: undefined };
+			}
+		}
+	}
+
+	[Symbol.asyncIterator](): AsyncIterableIterator<string> {
+		return this;
+	}
+}
+
+/**
+ * Iterate over an async iterable by delimiter without using generators
+ * More performant than generator version while maintaining lazy evaluation
+ */
+export function iterateAsyncByDelimiter(data: AsyncIterable<string>, delimiter: string): AsyncIterableIterator<string> {
+	return new AsyncIterableDelimiterIterator(data, delimiter);
 }
 
 export function interpolate(template: string, context: object | undefined): string {

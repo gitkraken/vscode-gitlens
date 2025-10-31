@@ -307,6 +307,9 @@ importers:
       terser-webpack-plugin:
         specifier: 5.3.14
         version: 5.3.14(@swc/core@1.13.5(@swc/helpers@0.5.17))(esbuild@0.25.10)(webpack@5.102.1)
+      tinybench:
+        specifier: 5.0.1
+        version: 5.0.1
       ts-loader:
         specifier: 9.5.4
         version: 9.5.4(typescript@5.9.3)(webpack@5.102.1)
@@ -5984,6 +5987,10 @@ packages:
 
   ticky@1.0.1:
     resolution: {integrity: sha512-RX35iq/D+lrsqhcPWIazM9ELkjOe30MSeoBHQHSsRwd1YuhJO5ui1K1/R0r7N3mFvbLBs33idw+eR6j+w6i/DA==}
+
+  tinybench@5.0.1:
+    resolution: {integrity: sha512-aNVgWQZY4veCZLQJRftDA1X9OoLUIjDWNfC90nledkX7Lx205IpSEFYnsu4slyofoPGpJ+NIQj+BNSt4U5edMg==}
+    engines: {node: '>=20.0.0'}
 
   tinyglobby@0.2.14:
     resolution: {integrity: sha512-tX5e7OM1HnYr2+a2C/4V0htOcSQcoSTH9KgJnVvNm5zm/cyEWKJ7j7YutsH9CxMdtOkkLFy2AHrMci9IM8IPZQ==}
@@ -12456,6 +12463,8 @@ snapshots:
       xtend: 4.0.2
 
   ticky@1.0.1: {}
+
+  tinybench@5.0.1: {}
 
   tinyglobby@0.2.14:
     dependencies:

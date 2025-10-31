@@ -1,47 +1,132 @@
-export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
-	let chunk: T[] = [];
+/**
+ * Iterator for chunking arrays
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class ChunkIterator<T> implements IterableIterator<T[]> {
+	private index = 0;
+	private done = false;
 
-	for (const item of source) {
-		if (chunk.length < size) {
+	constructor(
+		private readonly source: T[],
+		private readonly size: number,
+	) {}
+
+	next(): IteratorResult<T[]> {
+		if (this.done || this.index >= this.source.length) {
+			this.done = true;
+			return { done: true, value: undefined };
+		}
+
+		const endIndex = Math.min(this.index + this.size, this.source.length);
+		const chunk: T[] = [];
+
+		for (let i = this.index; i < endIndex; i++) {
+			chunk.push(this.source[i]);
+		}
+
+		this.index = endIndex;
+		return { done: false, value: chunk };
+	}
+
+	[Symbol.iterator](): IterableIterator<T[]> {
+		return this;
+	}
+}
+
+export function chunk<T>(source: T[], size: number): Iterable<T[]> {
+	return new ChunkIterator(source, size);
+}
+
+/**
+ * Iterator for chunking strings by total length
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class ChunkByStringLengthIterator implements IterableIterator<string[]> {
+	private index = 0;
+	private done = false;
+
+	constructor(
+		private readonly source: string[],
+		private readonly maxLength: number,
+	) {}
+
+	next(): IteratorResult<string[]> {
+		if (this.done || this.index >= this.source.length) {
+			this.done = true;
+			return { done: true, value: undefined };
+		}
+
+		const chunk: string[] = [];
+		let chunkLength = 0;
+
+		while (this.index < this.source.length) {
+			const item = this.source[this.index];
+			const length = chunkLength + item.length;
+
+			if (length > this.maxLength && chunk.length > 0) {
+				break;
+			}
+
 			chunk.push(item);
-			continue;
+			chunkLength = length;
+			this.index++;
 		}
 
-		yield chunk;
-		chunk = [];
+		return { done: false, value: chunk };
 	}
 
-	if (chunk.length > 0) {
-		yield chunk;
+	[Symbol.iterator](): IterableIterator<string[]> {
+		return this;
 	}
 }
 
-export function* chunkByStringLength(source: string[], maxLength: number): Iterable<string[]> {
-	let chunk: string[] = [];
+export function chunkByStringLength(source: string[], maxLength: number): Iterable<string[]> {
+	return new ChunkByStringLengthIterator(source, maxLength);
+}
 
-	let chunkLength = 0;
-	for (const item of source) {
-		let length = chunkLength + item.length;
-		if (length > maxLength && chunk.length > 0) {
-			yield chunk;
+/**
+ * Iterator for concatenating multiple iterables
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class ConcatIterator<T> implements IterableIterator<T> {
+	private sourceIndex = 0;
+	private currentIterator: Iterator<T> | undefined;
+	private done = false;
 
-			chunk = [];
-			length = item.length;
+	constructor(private readonly sources: (Iterable<T> | IterableIterator<T>)[]) {}
+
+	next(): IteratorResult<T> {
+		if (this.done) {
+			return { done: true, value: undefined };
 		}
 
-		chunk.push(item);
-		chunkLength = length;
+		while (this.sourceIndex < this.sources.length) {
+			// Initialize iterator for current source if needed
+			if (this.currentIterator === undefined) {
+				this.currentIterator = this.sources[this.sourceIndex][Symbol.iterator]();
+			}
+
+			const result = this.currentIterator.next();
+			if (!result.done) {
+				return { done: false, value: result.value };
+			}
+
+			// Move to next source
+			this.sourceIndex++;
+			this.currentIterator = undefined;
+		}
+
+		this.done = true;
+		return { done: true, value: undefined };
 	}
 
-	if (chunk.length > 0) {
-		yield chunk;
+	[Symbol.iterator](): IterableIterator<T> {
+		return this;
 	}
 }
 
-export function* concat<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): Iterable<T> {
-	for (const source of sources) {
-		yield* source;
-	}
+export function concat<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): Iterable<T> {
+	return new ConcatIterator(sources);
 }
 
 export function count<T>(
@@ -66,6 +151,44 @@ export function every<T>(source: Iterable<T> | IterableIterator<T>, predicate: (
 	return true;
 }
 
+/**
+ * Iterator for filtering items
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class FilterIterator<T, U extends T = T> implements IterableIterator<T | U> {
+	private iterator: Iterator<T>;
+	private done = false;
+
+	constructor(
+		source: Iterable<T> | IterableIterator<T>,
+		private readonly predicate?: ((item: T) => item is U) | ((item: T) => boolean),
+	) {
+		this.iterator = source[Symbol.iterator]();
+	}
+
+	next(): IteratorResult<T | U> {
+		if (this.done) {
+			return { done: true, value: undefined };
+		}
+
+		while (true) {
+			const result = this.iterator.next();
+			if (result.done) {
+				this.done = true;
+				return { done: true, value: undefined };
+			}
+
+			if (this.predicate === undefined ? result.value != null : this.predicate(result.value)) {
+				return { done: false, value: result.value as T | U };
+			}
+		}
+	}
+
+	[Symbol.iterator](): IterableIterator<T | U> {
+		return this;
+	}
+}
+
 export function filter<T>(
 	source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>,
 ): Iterable<NonNullable<T>>;
@@ -74,29 +197,57 @@ export function filter<T, U extends T>(
 	predicate: (item: T) => item is U,
 ): Iterable<U>;
 export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
-export function* filter<T, U extends T = T>(
+export function filter<T, U extends T = T>(
 	source: Iterable<T> | IterableIterator<T>,
 	predicate?: ((item: T) => item is U) | ((item: T) => boolean),
 ): Iterable<T | U> {
-	if (predicate === undefined) {
-		for (const item of source) {
-			if (item != null) yield item;
+	return new FilterIterator(source, predicate);
+}
+
+/**
+ * Iterator for filtering and mapping items in one pass
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class FilterMapIterator<T, TMapped> implements IterableIterator<TMapped> {
+	private iterator: Iterator<T>;
+	private done = false;
+
+	constructor(
+		source: Iterable<T> | IterableIterator<T>,
+		private readonly predicateMapper: (item: T) => TMapped | undefined | null,
+	) {
+		this.iterator = source[Symbol.iterator]();
+	}
+
+	next(): IteratorResult<TMapped> {
+		if (this.done) {
+			return { done: true, value: undefined };
 		}
-	} else {
-		for (const item of source) {
-			if (predicate(item)) yield item;
+
+		while (true) {
+			const result = this.iterator.next();
+			if (result.done) {
+				this.done = true;
+				return { done: true, value: undefined };
+			}
+
+			const mapped = this.predicateMapper(result.value);
+			if (mapped != null) {
+				return { done: false, value: mapped };
+			}
 		}
+	}
+
+	[Symbol.iterator](): IterableIterator<TMapped> {
+		return this;
 	}
 }
 
-export function* filterMap<T, TMapped>(
+export function filterMap<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	predicateMapper: (item: T) => TMapped | undefined | null,
 ): Iterable<TMapped> {
-	for (const item of source) {
-		const mapped = predicateMapper(item);
-		if (mapped != null) yield mapped;
-	}
+	return new FilterMapIterator(source, predicateMapper);
 }
 
 export function forEach<T>(source: Iterable<T> | IterableIterator<T>, fn: (item: T, index: number) => void): void {
@@ -140,13 +291,61 @@ export function flatCount<T>(
 	return count;
 }
 
-export function* flatMap<T, TMapped>(
+/**
+ * Iterator for flat-mapping items
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class FlatMapIterator<T, TMapped> implements IterableIterator<TMapped> {
+	private iterator: Iterator<T>;
+	private currentMappedIterator: Iterator<TMapped> | undefined;
+	private done = false;
+
+	constructor(
+		source: Iterable<T> | IterableIterator<T>,
+		private readonly mapper: (item: T) => Iterable<TMapped>,
+	) {
+		this.iterator = source[Symbol.iterator]();
+	}
+
+	next(): IteratorResult<TMapped> {
+		if (this.done) {
+			return { done: true, value: undefined };
+		}
+
+		while (true) {
+			// If we have a current mapped iterator, try to get the next value from it
+			if (this.currentMappedIterator !== undefined) {
+				const mappedResult = this.currentMappedIterator.next();
+				if (!mappedResult.done) {
+					return { done: false, value: mappedResult.value };
+				}
+				// Current mapped iterator is exhausted, move to next source item
+				this.currentMappedIterator = undefined;
+			}
+
+			// Get next item from source
+			const result = this.iterator.next();
+			if (result.done) {
+				this.done = true;
+				return { done: true, value: undefined };
+			}
+
+			// Map the item and create iterator for the mapped iterable
+			const mapped = this.mapper(result.value);
+			this.currentMappedIterator = mapped[Symbol.iterator]();
+		}
+	}
+
+	[Symbol.iterator](): IterableIterator<TMapped> {
+		return this;
+	}
+}
+
+export function flatMap<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => Iterable<TMapped>,
 ): IterableIterator<TMapped> {
-	for (const item of source) {
-		yield* mapper(item);
-	}
+	return new FlatMapIterator(source, mapper);
 }
 
 export function flatten<T>(source: Iterable<Iterable<T>> | IterableIterator<IterableIterator<T>>): IterableIterator<T> {
@@ -252,13 +451,45 @@ export function last<T>(source: Iterable<T>): T | undefined {
 	return item;
 }
 
-export function* map<T, TMapped>(
+/**
+ * Iterator for mapping items
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class MapIterator<T, TMapped> implements IterableIterator<TMapped> {
+	private iterator: Iterator<T>;
+	private done = false;
+
+	constructor(
+		source: Iterable<T> | IterableIterator<T>,
+		private readonly mapper: (item: T) => TMapped,
+	) {
+		this.iterator = source[Symbol.iterator]();
+	}
+
+	next(): IteratorResult<TMapped> {
+		if (this.done) {
+			return { done: true, value: undefined };
+		}
+
+		const result = this.iterator.next();
+		if (result.done) {
+			this.done = true;
+			return { done: true, value: undefined };
+		}
+
+		return { done: false, value: this.mapper(result.value) };
+	}
+
+	[Symbol.iterator](): IterableIterator<TMapped> {
+		return this;
+	}
+}
+
+export function map<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => TMapped,
 ): IterableIterator<TMapped> {
-	for (const item of source) {
-		yield mapper(item);
-	}
+	return new MapIterator(source, mapper);
 }
 
 export function max(source: Iterable<number> | IterableIterator<number>): number;
@@ -307,12 +538,54 @@ export function next<T>(source: IterableIterator<T>): T {
 	return source.next().value as T;
 }
 
-export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): IterableIterator<T> {
-	let i = 0;
-	for (const item of source) {
-		if (i >= count) yield item;
-		i++;
+/**
+ * Iterator for skipping first N items
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class SkipIterator<T> implements IterableIterator<T> {
+	private iterator: Iterator<T>;
+	private skipped = 0;
+	private done = false;
+
+	constructor(
+		source: Iterable<T> | IterableIterator<T>,
+		private readonly count: number,
+	) {
+		this.iterator = source[Symbol.iterator]();
 	}
+
+	next(): IteratorResult<T> {
+		if (this.done) {
+			return { done: true, value: undefined };
+		}
+
+		// Skip items until we reach the count
+		while (this.skipped < this.count) {
+			const result = this.iterator.next();
+			if (result.done) {
+				this.done = true;
+				return { done: true, value: undefined };
+			}
+			this.skipped++;
+		}
+
+		// Return remaining items
+		const result = this.iterator.next();
+		if (result.done) {
+			this.done = true;
+			return { done: true, value: undefined };
+		}
+
+		return { done: false, value: result.value };
+	}
+
+	[Symbol.iterator](): IterableIterator<T> {
+		return this;
+	}
+}
+
+export function skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): IterableIterator<T> {
+	return new SkipIterator(source, count);
 }
 
 export function slice<T>(source: Iterable<T> | IterableIterator<T>, start: number, end: number): Iterable<T> {
@@ -344,25 +617,98 @@ export function sum<T>(source: Iterable<T> | IterableIterator<T> | undefined, ge
 	return sum;
 }
 
-export function* take<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> {
-	if (count > 0) {
-		let i = 0;
-		for (const item of source) {
-			yield item;
-			i++;
-			if (i >= count) break;
+/**
+ * Iterator for taking first N items
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class TakeIterator<T> implements IterableIterator<T> {
+	private iterator: Iterator<T>;
+	private taken = 0;
+	private done = false;
+
+	constructor(
+		source: Iterable<T> | IterableIterator<T>,
+		private readonly count: number,
+	) {
+		this.iterator = source[Symbol.iterator]();
+	}
+
+	next(): IteratorResult<T> {
+		if (this.done || this.taken >= this.count) {
+			this.done = true;
+			return { done: true, value: undefined };
 		}
+
+		const result = this.iterator.next();
+		if (result.done) {
+			this.done = true;
+			return { done: true, value: undefined };
+		}
+
+		this.taken++;
+		return { done: false, value: result.value };
+	}
+
+	[Symbol.iterator](): IterableIterator<T> {
+		return this;
 	}
 }
 
-export function* union<T>(...sources: (Iterable<T> | IterableIterator<T> | undefined)[]): Iterable<T> {
-	for (const source of sources) {
-		if (source == null) continue;
+export function take<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> {
+	return new TakeIterator(source, count);
+}
 
-		for (const item of source) {
-			yield item;
+/**
+ * Iterator for union of multiple iterables
+ * Optimized class-based iterator avoiding generator overhead
+ */
+class UnionIterator<T> implements IterableIterator<T> {
+	private sourceIndex = 0;
+	private currentIterator: Iterator<T> | undefined;
+	private done = false;
+
+	constructor(private readonly sources: (Iterable<T> | IterableIterator<T> | undefined)[]) {}
+
+	next(): IteratorResult<T> {
+		if (this.done) {
+			return { done: true, value: undefined };
 		}
+
+		while (this.sourceIndex < this.sources.length) {
+			const source = this.sources[this.sourceIndex];
+
+			// Skip undefined sources
+			if (source == null) {
+				this.sourceIndex++;
+				continue;
+			}
+
+			// Initialize iterator for current source if needed
+			if (this.currentIterator === undefined) {
+				this.currentIterator = source[Symbol.iterator]();
+			}
+
+			const result = this.currentIterator.next();
+			if (!result.done) {
+				return { done: false, value: result.value };
+			}
+
+			// Move to next source
+			this.sourceIndex++;
+			this.currentIterator = undefined;
+		}
+
+		this.done = true;
+		return { done: true, value: undefined };
 	}
+
+	[Symbol.iterator](): IterableIterator<T> {
+		return this;
+	}
+}
+
+export function union<T>(...sources: (Iterable<T> | IterableIterator<T> | undefined)[]): Iterable<T> {
+	return new UnionIterator(sources);
 }
 
 export function uniqueBy<TKey, TValue>(
