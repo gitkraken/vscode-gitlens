@@ -88,7 +88,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 										.markerTypes=${this.graphState.config?.minimapMarkerTypes ?? []}
 										.refMetadata=${this.graphState.refsMetadata}
 										.searchResults=${this.graphState.searchResults}
-										.visibleDays=${this.graphState.visibleDays}
+										.visibleDays=${this.graphState.visibleDays
+											? { ...this.graphState.visibleDays } // Need to clone the object since it is a signal proxy
+											: undefined}
 										@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
 									></gl-graph-minimap-container>
 								`,

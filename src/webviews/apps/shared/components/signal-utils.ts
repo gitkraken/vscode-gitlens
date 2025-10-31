@@ -147,13 +147,13 @@ export const signalObjectState = <T extends Record<PropertyKey, unknown> | undef
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 			return {
 				get: function () {
-					// I don't return {...signal} for optimization purpose
+					// Don't return {...signal} for optimization purpose
 					return signal;
 				},
 				set: function (value: any) {
-					Object.entries(value).forEach(([key, value]) => {
-						signal[key] = value;
-					});
+					for (const [k, v] of Object.entries(value)) {
+						signal[k] = v;
+					}
 					options?.afterChange?.(target, value);
 				},
 			} as any;
