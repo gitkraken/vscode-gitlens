@@ -1394,8 +1394,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				{ modal: true },
 				{ title: 'Continue' },
 			);
-
-			if (confirm == null || confirm.title !== 'Continue') return;
+			if (confirm?.title !== 'Continue') return;
 
 			await this.container.git.getRepositoryService(ref.repoPath).ops?.checkout(mergeTargetLocalBranchName);
 
@@ -1417,8 +1416,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				{ modal: true },
 				{ title: 'Continue' },
 			);
-
-			if (confirm == null || confirm.title !== 'Continue') return;
+			if (confirm?.title !== 'Continue') return;
 
 			const schemeOverride = configuration.get('deepLinks.schemeOverride');
 			const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;

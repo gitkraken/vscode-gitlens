@@ -598,7 +598,7 @@ export class PatchDetailsWebviewProvider
 		for (const member of members) {
 			const selection = preserveSelections.get(member.id);
 			// If we have an existing selection, and it's marked for deletion, we need to undo the deletion
-			if (selection != null && selection.change === 'delete') {
+			if (selection?.change === 'delete') {
 				selection.change = undefined;
 			}
 

@@ -950,18 +950,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
+				if (result?.title !== 'Yes') return;
 
-				if (result == null || result.title !== 'Yes') return;
+				try {
+					void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn', '--3way'));
 
-				if (result.title === 'Yes') {
-					try {
-						void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn', '--3way'));
-
-						return;
-					} catch (e) {
-						// eslint-disable-next-line no-ex-assign
-						ex = e;
-					}
+					return;
+				} catch (e) {
+					// eslint-disable-next-line no-ex-assign
+					ex = e;
 				}
 			}
 

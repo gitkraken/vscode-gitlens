@@ -37,7 +37,7 @@ export async function getChangesForChangelog(
 		const issuesOrPullRequests = await Promise.allSettled(
 			filterMap(enriched, async ([key, [issueOrPullRequest]]) => {
 				const issueOrPR = await issueOrPullRequest;
-				if (issueOrPR == null || issueOrPR.type !== 'issue') return undefined;
+				if (issueOrPR?.type !== 'issue') return undefined;
 
 				return [key, issueOrPR] as const;
 			}),

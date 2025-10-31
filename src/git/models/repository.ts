@@ -716,7 +716,7 @@ export class Repository implements Disposable {
 
 	get starred(): boolean {
 		const starred = this.container.storage.getWorkspace('starred:repositories');
-		return starred != null && starred[this.id] === true;
+		return starred?.[this.id] === true;
 	}
 
 	@log<Repository['star']>({ args: { 0: b => b?.name } })

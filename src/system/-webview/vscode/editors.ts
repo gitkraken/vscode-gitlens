@@ -25,7 +25,7 @@ export function getOpenTextEditor(uri: Uri): TextEditor | undefined {
 
 export function getOpenTextEditorIfActive(document: TextDocument): TextEditor | undefined {
 	const editor = window.activeTextEditor;
-	return editor != null && editor.document === document ? editor : undefined;
+	return editor?.document === document ? editor : undefined;
 }
 
 export function getOpenTextEditorIfVisible(uri: Uri): TextEditor | undefined;

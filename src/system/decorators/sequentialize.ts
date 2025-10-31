@@ -76,7 +76,7 @@ export function sequentialize<T extends (...arg: any) => any>(
 			const dedupeKey = getDedupingKey?.(...(args as Parameters<T>)) ?? defaultResolver(...(args as any));
 
 			// If there's a waiting call, check if we can deduplicate with it and return the same promise as the waiting call
-			if (state?.waiting != null && state.waiting.key === dedupeKey) return state.waiting.promise;
+			if (state?.waiting?.key === dedupeKey) return state.waiting.promise;
 
 			// Chain this call after the current promise (or start fresh if no state)
 			let promise: Promise<any>;

@@ -3402,7 +3402,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@log()
 	private async compareSelectedCommits(item?: GraphItemContext) {
 		const { selection } = this.getGraphItemRefs(item, 'revision');
-		if (selection == null || selection.length !== 2) return Promise.resolve();
+		if (selection?.length !== 2) return Promise.resolve();
 
 		const [commit1, commit2] = selection;
 		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, commit1.repoPath, commit1.ref, commit2.ref);
@@ -3432,7 +3432,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.repository == null) return;
 
 		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
-		if (status == null || status.type !== 'rebase') return;
+		if (status?.type !== 'rebase') return;
 
 		const gitDir = await this.repository.git.config.getGitDir?.();
 		if (gitDir == null) return;
