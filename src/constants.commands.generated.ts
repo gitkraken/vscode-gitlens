@@ -915,6 +915,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.shareAsCloudPatch'
 	| 'gitlens.showAccountView'
 	| 'gitlens.showBranchesView'
+	| 'gitlens.showChangeCloudPage'
 	| 'gitlens.showCommitDetailsView'
 	| 'gitlens.showCommitInView'
 	| 'gitlens.showCommitSearch'

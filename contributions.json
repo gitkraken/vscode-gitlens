@@ -4494,6 +4494,11 @@
 			"label": "Show Branches View",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.showChangeCloudPage": {
+			"label": "Show Change Cloud",
+			"icon": "$(cloud)",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.showCommitDetailsView": {
 			"label": "Show Inspect View",
 			"commandPalette": "gitlens:enabled"

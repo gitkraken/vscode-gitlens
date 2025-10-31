@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?d3b316716ee1329763a193a20834cd0a') format('woff2');
+			}
+		</style>
+	</head>
+
+	<body
+		class="preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
+		<gl-change-cloud-app name="ChangeCloudView" placement="#{placement}" bootstrap="#{state}"></gl-change-cloud-app>
+	</body>
+</html>

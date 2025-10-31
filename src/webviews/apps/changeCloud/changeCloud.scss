@@ -1,0 +1,36 @@
+@use '../shared/base';
+@use '../shared/buttons';
+@use '../shared/codicons';
+@use '../shared/glicons';
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+	box-sizing: border-box;
+	font-family: var(--font-family);
+}
+
+body {
+	height: 100%;
+	margin: 0;
+	background-color: var(--color-view-background);
+	color: var(--color-view-foreground);
+	font-family: var(--font-family);
+	font-size: var(--font-size);
+	overflow: hidden;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+
+a {
+	text-decoration: none;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+

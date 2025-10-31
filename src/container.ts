@@ -71,6 +71,7 @@ import { UriService } from './uris/uriService';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { Views } from './views/views';
 import { VslsController } from './vsls/vsls';
+import { registerChangeCloudWebviewPanel } from './webviews/changeCloud/registration';
 import { registerComposerWebviewCommands, registerComposerWebviewPanel } from './webviews/plus/composer/registration';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration';
 import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration';
@@ -256,6 +257,9 @@ export class Container {
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		const changeCloudPanels = registerChangeCloudWebviewPanel(webviews);
+		this._disposables.push(changeCloudPanels);
 
 		this._disposables.push(new ViewFileDecorationProvider());
 

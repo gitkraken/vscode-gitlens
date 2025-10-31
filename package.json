@@ -7945,6 +7945,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showChangeCloudPage",
+				"title": "Show Change Cloud",
+				"category": "GitLens",
+				"icon": "$(cloud)"
+			},
+			{
 				"command": "gitlens.showCommitDetailsView",
 				"title": "Show Inspect View",
 				"category": "GitLens"
@@ -12638,6 +12644,10 @@
 				},
 				{
 					"command": "gitlens.showBranchesView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showChangeCloudPage",
 					"when": "gitlens:enabled"
 				},
 				{

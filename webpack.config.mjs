@@ -357,6 +357,7 @@ function getWebviewsConfigs(mode, env) {
 	return [
 		getWebviewConfig(
 			{
+				changeCloud: { entry: './changeCloud/changeCloud.ts' },
 				commitDetails: { entry: './commitDetails/commitDetails.ts' },
 				composer: { entry: './plus/composer/composer.ts', plus: true },
 				graph: { entry: './plus/graph/graph.ts', plus: true },
