@@ -3026,9 +3026,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private setSelectedRows(id: string | undefined) {
-		if (this._selectedId === id) return;
+		// _selectedId should always be a "real" SHA
+		let selectedId = id;
+		if (id === ('work-dir-changes' satisfies GitGraphRowType)) {
+			selectedId = uncommitted;
+		}
+		if (this._selectedId === selectedId) return;
 
-		this._selectedId = id;
+		this._selectedId = selectedId;
+
+		// _selectedRows should always be a "virtual" row type
 		if (id === uncommitted) {
 			id = 'work-dir-changes' satisfies GitGraphRowType;
 		}
