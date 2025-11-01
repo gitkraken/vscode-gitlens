@@ -81,6 +81,11 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		const children = [...this.children];
 		if (children.includes(results)) return;
 
+		const index = children.findIndex(c => c.id === results.id);
+		if (index !== -1) {
+			children.splice(index, 1);
+		}
+
 		children.push(results);
 		this.children = children;
 

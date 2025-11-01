@@ -29,7 +29,7 @@ export abstract class RepositoryFolderNode<
 	) {
 		super('repo-folder', uri, view, parent);
 
-		this.updateContext({ repository: this.repo });
+		this.updateContext({ repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 

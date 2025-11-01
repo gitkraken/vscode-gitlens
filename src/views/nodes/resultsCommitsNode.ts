@@ -56,7 +56,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		super(type, GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (_results.direction != null) {
-			this.updateContext({ branchStatusUpstreamType: _results.direction });
+			this.updateContext({ branchStatusUpstreamType: _results.direction, repoPath: repoPath });
 		}
 		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);

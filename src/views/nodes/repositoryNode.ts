@@ -49,7 +49,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	) {
 		super('repository', uri, view, parent);
 
-		this.updateContext({ ...context, repository: this.repo });
+		this.updateContext({ ...context, repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this._status = this.repo.git.status.getStatus();

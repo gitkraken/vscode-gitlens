@@ -127,6 +127,7 @@ export interface AmbientContext {
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
 	readonly repository?: Repository;
+	readonly repoPath?: string;
 	readonly root?: boolean;
 	readonly searchId?: string;
 	readonly storedComparisonId?: string;
@@ -150,8 +151,8 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	if (context.wsRepositoryDescriptor != null) {
 		uniqueness += `/wsrepo/${context.wsRepositoryDescriptor.id}`;
 	}
-	if (context.repository != null) {
-		uniqueness += `/repo/${context.repository.id}`;
+	if (context.repository != null || context.repoPath != null) {
+		uniqueness += `/repo/${context.repository?.id ?? context.repoPath}`;
 	}
 	if (context.worktree != null) {
 		uniqueness += `/worktree/${context.worktree.uri.path}`;

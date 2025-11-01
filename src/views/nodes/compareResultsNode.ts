@@ -42,6 +42,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 		this.updateContext({
 			comparisonId: `${_ref.ref}+${_compareWith.ref}`,
+			repoPath: repoPath,
 			storedComparisonId: this.getStorageId(),
 		});
 		this._uniqueId = getViewNodeId(this.type, this.context);
