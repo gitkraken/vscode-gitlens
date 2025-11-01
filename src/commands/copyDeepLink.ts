@@ -266,7 +266,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 				`Copy Link to ${filePath} at Reference`,
 				'Choose a reference (branch, tag, etc) to copy the file link for',
 				{
-					allowRevisions: true,
+					allowedAdditionalInput: { rev: true },
 					include: ReferencesQuickPickIncludes.All,
 				},
 			);

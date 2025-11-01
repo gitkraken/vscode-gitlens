@@ -165,7 +165,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 							: `Open File on Remote From${pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`,
 						`Choose a branch or tag to ${args.clipboard ? 'copy' : 'open'} the file revision from`,
 						{
-							allowRevisions: true,
+							allowedAdditionalInput: { rev: true },
 							autoPick: true,
 							filter: { branches: b => b.remote || b.upstream != null },
 							picked: args.branchOrTag,

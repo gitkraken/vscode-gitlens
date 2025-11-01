@@ -47,7 +47,7 @@ export async function showComparisonPicker(
 
 		if (head == null || force) {
 			const pick = await showReferencePicker2(repoPath, title, placeholder, {
-				allowRevisions: { ranges: true },
+				allowedAdditionalInput: { range: true, rev: true },
 				include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
 				picked: head?.ref,
 				sort: { branches: { current: true } },
@@ -94,7 +94,7 @@ export async function showComparisonPicker(
 
 			const pick = await showReferencePicker2(repoPath, title, placeholder, {
 				allowBack: true,
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true },
 				exclude: [head.ref],
 				include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
 				picked: base?.ref,

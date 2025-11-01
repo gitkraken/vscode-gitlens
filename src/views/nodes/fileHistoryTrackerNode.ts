@@ -164,7 +164,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			'Change File History Base',
 			'Choose a reference to set as the new base',
 			{
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true },
 				picked: this._base,
 				sort: { branches: { current: true }, tags: {} },
 			},

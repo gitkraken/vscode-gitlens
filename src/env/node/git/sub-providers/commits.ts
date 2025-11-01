@@ -506,7 +506,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const log: GitLog = {
 				repoPath: repoPath,
 				commits: commits,
-				sha: rev,
+				sha: isRevisionRange(rev) ? undefined : rev,
 				count: commits.size,
 				limit: limit,
 				hasMore: overrideHasMore ?? count - countStashChildCommits > commits.size,

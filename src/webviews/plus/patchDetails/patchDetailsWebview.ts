@@ -1497,7 +1497,7 @@ export class PatchDetailsWebviewProvider
 								`Choose New Base for Patch`,
 								`Choose a new base to apply the patch onto`,
 								{
-									allowRevisions: true,
+									allowedAdditionalInput: { rev: true },
 									include:
 										ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
 								},

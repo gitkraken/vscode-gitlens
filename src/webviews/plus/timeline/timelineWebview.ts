@@ -374,8 +374,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				? 'Choose a reference (branch, tag, etc) as the base to view history from'
 				: 'Choose a reference (branch, tag, etc) as the head to view history for',
 			{
-				// allowRevisions: { ranges: true },
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true /*, range: true */ },
 				picked: ref?.ref,
 				include:
 					ReferencesQuickPickIncludes.BranchesAndTags |

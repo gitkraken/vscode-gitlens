@@ -60,7 +60,7 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 						`Open Folder Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}${relativePath}`,
 						'Choose a reference (branch, tag, etc) to compare',
 						{
-							allowRevisions: true,
+							allowedAdditionalInput: { rev: true },
 							include: ReferencesQuickPickIncludes.All,
 							sort: { branches: { current: true }, tags: {} },
 						},
@@ -79,7 +79,7 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 					}`,
 					'Choose a reference (branch, tag, etc) to compare with',
 					{
-						allowRevisions: true,
+						allowedAdditionalInput: { rev: true },
 						include:
 							args.rhs === ''
 								? ReferencesQuickPickIncludes.All & ~ReferencesQuickPickIncludes.WorkingTree

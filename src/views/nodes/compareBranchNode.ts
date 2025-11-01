@@ -286,7 +286,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
 			'Choose a reference (branch, tag, etc) to compare with',
 			{
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true },
 				picked: this.branch.ref,
 				sort: { branches: { current: true }, tags: {} },
 			},

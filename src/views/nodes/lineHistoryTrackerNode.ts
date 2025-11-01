@@ -181,7 +181,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			'Change Line History Base',
 			'Choose a reference to set as the new base',
 			{
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true },
 				picked: this._base,
 				sort: { branches: { current: true }, tags: {} },
 			},
