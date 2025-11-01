@@ -60,9 +60,7 @@ function findBenchmarkFiles() {
 				benchmarks.push({
 					name,
 					sourcePath: relativePath,
-					outputPath: relativePath
-						.replace('src/', 'out/tests/')
-						.replace('.ts', '.js'),
+					outputPath: relativePath.replace('src/', 'out/tests/').replace('.ts', '.js'),
 				});
 			}
 		}

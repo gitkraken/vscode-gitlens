@@ -39,7 +39,10 @@ suite('Iterable Test Suite', () => {
 
 		test('handles exact divisions', () => {
 			const result = Array.from(chunk([1, 2, 3, 4], 2));
-			assert.deepStrictEqual(result, [[1, 2], [3, 4]]);
+			assert.deepStrictEqual(result, [
+				[1, 2],
+				[3, 4],
+			]);
 		});
 
 		test('handles chunk size larger than array', () => {
@@ -61,7 +64,10 @@ suite('Iterable Test Suite', () => {
 			const chunked = chunk([1, 2, 3, 4], 2);
 			const result1 = Array.from(chunked);
 			const result2 = Array.from(chunked);
-			assert.deepStrictEqual(result1, [[1, 2], [3, 4]]);
+			assert.deepStrictEqual(result1, [
+				[1, 2],
+				[3, 4],
+			]);
 			assert.deepStrictEqual(result2, []); // Iterator is consumed
 		});
 	});
@@ -360,10 +366,7 @@ suite('Iterable Test Suite', () => {
 
 		test('concat + filter + chunk', () => {
 			const result = Array.from(
-				chunk(
-					Array.from(filter(concat([1, 2, 3], [4, 5, 6], [7, 8, 9]), n => n % 2 === 1)),
-					2,
-				),
+				chunk(Array.from(filter(concat([1, 2, 3], [4, 5, 6], [7, 8, 9]), n => n % 2 === 1)), 2),
 			);
 			assert.deepStrictEqual(result, [[1, 3], [5, 7], [9]]);
 		});
