@@ -510,7 +510,6 @@ export function getValidateGitReferenceFn(
 		if (value.startsWith('#')) {
 			allowRevs = options?.revs?.allow ?? true;
 			value = value.substring(1);
-			allowRevs = true;
 		} else if (isSha(value)) {
 			allowRevs = options?.revs?.allow ?? true;
 		}
