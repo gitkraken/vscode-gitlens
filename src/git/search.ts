@@ -5,6 +5,7 @@ import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { NaturalLanguageSearchOptions } from '../plus/search/naturalLanguageSearchProcessor';
 import { NaturalLanguageSearchProcessor } from '../plus/search/naturalLanguageSearchProcessor';
+import { some } from '../system/iterable';
 import type { GitRevisionReference } from './models/reference';
 import type { GitUser } from './models/user';
 import { isSha, shortenRevision } from './utils/revision.utils';
@@ -185,6 +186,8 @@ export interface SearchQueryFilters {
 	files: boolean;
 	/** Specifies whether the search results will be filtered to a specific type, only `stash` is supported */
 	type?: 'stash';
+	/** Specifies whether the search results will be filtered to a specific ref or ref range */
+	refs: boolean;
 }
 
 export interface SearchQueryCommand {
@@ -207,6 +210,7 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 	const filters: SearchQueryFilters = {
 		files: false,
 		type: undefined,
+		refs: false,
 	};
 
 	let op;
@@ -225,10 +229,6 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 		shas = searchArgs;
 	} else {
 		searchArgs.add('--all');
-		searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
-		if (search.matchRegex && !search.matchCase) {
-			searchArgs.add('--regexp-ignore-case');
-		}
 
 		for ([op, values] of operations.entries()) {
 			switch (op) {
@@ -355,6 +355,31 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 
 					break;
 				}
+
+				case 'ref:':
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+						}
+
+						filters.refs = true;
+						// Replace --all with the specific ref or ref range
+						searchArgs.delete('--all');
+						searchArgs.add(value);
+					}
+
+					break;
+			}
+		}
+
+		// Add regex/string matching flags if we have (--grep, --author) patterns
+		if (some(searchArgs.values(), arg => arg.startsWith('--grep=') || arg.startsWith('--author='))) {
+			searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
+			if (search.matchRegex && !search.matchCase) {
+				searchArgs.add('--regexp-ignore-case');
 			}
 		}
 	}

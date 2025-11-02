@@ -1041,7 +1041,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 			const args = [
 				'log',
-
 				...parser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
@@ -1055,7 +1054,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (shas?.size) {
 				stdin = join(shas, '\n');
 				args.push('--no-walk');
-			} else {
+			} else if (!filters.refs) {
+				// Don't include stashes when using ref: filter, as they would add unrelated commits
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 				({ stdin, stashes } = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, undefined, cancellation),

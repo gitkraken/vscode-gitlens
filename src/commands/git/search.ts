@@ -12,6 +12,7 @@ import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem, createQuickPickSeparator } from '../../quickpicks/items/common';
 import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../quickpicks/referencePicker';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext } from '../../system/-webview/context';
 import { first, join, map } from '../../system/iterable';
@@ -51,6 +52,11 @@ const UseFilePickerQuickInputButton: QuickInputButton = {
 const UseFolderPickerQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('new-folder'),
 	tooltip: 'Pick Folder',
+};
+
+const UseRefPickerQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('git-branch'),
+	tooltip: 'Pick Reference',
 };
 
 interface Context {
@@ -94,6 +100,8 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 	['since:', 'Search After Date'],
 	['before:', 'Search Before Date'],
 	['until:', 'Search Before Date'],
+	['^:', 'Search by Reference or Range'],
+	['ref:', 'Search by Reference or Range'],
 ]);
 
 type SearchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
@@ -299,22 +307,29 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const items: QuickPickItemOfT<Items>[] = [
 			{
 				label: searchOperatorToTitleMap.get('')!,
-				description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
+				description: `<message> or message:<message> or =:<message> ${GlyphChars.Dash} use quotes to search for phrases`,
 				alwaysShow: true,
 				item: { type: 'add', operator: 'message:' },
 			},
 			{
 				label: searchOperatorToTitleMap.get('author:')!,
-				description: 'author: pattern or @: pattern',
+				description: 'author:<author> or @:<author>',
 				buttons: [UseAuthorPickerQuickInputButton],
 				alwaysShow: true,
 				item: { type: 'add', operator: 'author:' },
 			},
 			{
 				label: searchOperatorToTitleMap.get('commit:')!,
-				description: 'commit: sha or #: sha',
+				description: '<sha> or commit:<sha> or #:<sha>',
 				alwaysShow: true,
 				item: { type: 'add', operator: 'commit:' },
+			},
+			{
+				label: searchOperatorToTitleMap.get('ref:')!,
+				description: 'ref:<ref> or ^:<ref> (supports ranges like main..feature)',
+				buttons: [UseRefPickerQuickInputButton],
+				alwaysShow: true,
+				item: { type: 'add', operator: 'ref:' },
 			},
 		];
 
@@ -428,6 +443,8 @@ export class SearchGitCommand extends QuickCommand<State> {
 						state,
 						context,
 					);
+				} else if (button === UseRefPickerQuickInputButton) {
+					await updateSearchQuery(item.item.operator, { ref: true }, quickpick, step, state, context);
 				}
 
 				return false;
@@ -516,7 +533,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 async function updateSearchQuery(
 	operator: SearchOperatorsLongForm,
-	usePickers: { author?: boolean; file?: { type: 'file' | 'folder' } },
+	usePickers: { author?: boolean; file?: { type: 'file' | 'folder' }; ref?: boolean },
 	quickpick: QuickPick<any>,
 	step: QuickPickStep,
 	state: SearchStepState,
@@ -594,8 +611,29 @@ async function updateSearchQuery(
 			append = true;
 		}
 
-		if (files == null || files.size === 0) {
+		if (!files?.size) {
 			ops.delete('file:');
+		}
+	} else if (usePickers?.ref && operator === 'ref:') {
+		using _frozen = step.freeze?.();
+
+		const refs = ops.get('ref:');
+
+		const pick = await showReferencePicker2(
+			state.repo.path,
+			'Search by Reference or Range',
+			'Choose a reference to search',
+			{
+				allowedAdditionalInput: { range: true, rev: false },
+				include: ReferencesQuickPickIncludes.All,
+				picked: refs && first(refs),
+			},
+		);
+
+		if (pick.value != null) {
+			ops.set('ref:', new Set([pick.value.ref]));
+		} else {
+			append = true;
 		}
 	} else {
 		const values = ops.get(operator);

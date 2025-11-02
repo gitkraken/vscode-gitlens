@@ -663,11 +663,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				args.push('--no-walk');
 
 				remappedIds = new Map();
-			} else {
+			} else if (!filters.refs) {
+				// Don't include stashes when using ref: filter, as they would add unrelated commits
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 				({ stdin, stashes, remappedIds } = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
 				));
+			} else {
+				remappedIds = new Map();
 			}
 
 			if (stdin) {

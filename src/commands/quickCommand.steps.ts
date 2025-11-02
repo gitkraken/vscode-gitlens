@@ -525,9 +525,7 @@ export function getValidateGitReferenceFn(
 
 				if (!getSettledValue(leftResult, false) || !getSettledValue(rightResult, false)) {
 					quickpick.items = [
-						createDirectiveQuickPickItem(Directive.Noop, true, {
-							label: `Invalid Range: ${value}`,
-						}),
+						createDirectiveQuickPickItem(Directive.Noop, true, { label: `Invalid Range: ${value}` }),
 					];
 					return true;
 				}

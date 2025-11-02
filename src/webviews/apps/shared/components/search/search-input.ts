@@ -640,6 +640,11 @@ export class GlSearchInput extends GlElement {
 				return html`<span>Author: use a user's account, e.g. <code>author:eamodio</code></span>`;
 			case 'commit:':
 				return html`<span>Commit: use a full or short Commit SHA, e.g. <code>commit:4ce3a</code></span>`;
+			case 'ref:':
+				return html`<span
+					>Ref: use a reference (branch, tag, etc) or reference range, e.g. <code>ref:main</code> or
+					<code>ref:main..feature</code></span
+				>`;
 			case 'type:':
 				return html`<span
 					>Type: use <code>stash</code> to search only stashes, e.g. <code>type:stash</code></span
@@ -708,6 +713,11 @@ export class GlSearchInput extends GlElement {
 				<menu-item role="none">
 					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('commit:')}">
 						Commit SHA <small>commit: or #:</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('ref:')}">
+						Ref <small>ref: or ^:</small>
 					</button>
 				</menu-item>
 				<menu-item role="none">

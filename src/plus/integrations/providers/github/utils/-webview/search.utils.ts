@@ -64,6 +64,7 @@ export async function getQueryArgsFromSearchQuery(
 			case 'type:':
 			case 'file:':
 			case 'change:':
+			case 'ref:':
 				// Not supported in GitHub search
 				break;
 
