@@ -130,7 +130,7 @@ import { disposableInterval } from '../../../system/function';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
 import { count, find, join, last } from '../../../system/iterable';
-import { flatten, updateRecordValue } from '../../../system/object';
+import { flatten, hasKeys, updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
@@ -1710,11 +1710,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.container.views.searchAndCompare.search(this.repository.path, e.search, {
 			label: { label: `for ${e.search.query}` },
-			reveal: {
-				select: true,
-				focus: false,
-				expand: true,
-			},
+			reveal: { select: true, focus: false, expand: true },
 		});
 	}
 
@@ -2210,7 +2206,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (graph == null) return undefined;
 
 		const storedExcludeRefs = filters?.excludeRefs;
-		if (storedExcludeRefs == null || Object.keys(storedExcludeRefs).length === 0) return undefined;
+		if (!hasKeys(storedExcludeRefs)) return undefined;
 
 		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
@@ -2988,7 +2984,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (repoPath == null) return;
 
 		let excludeTypes = this.getFiltersByRepo(repoPath)?.excludeTypes;
-		if ((excludeTypes == null || !Object.keys(excludeTypes).length) && value === false) {
+		if (!hasKeys(excludeTypes) && value === false) {
 			return;
 		}
 

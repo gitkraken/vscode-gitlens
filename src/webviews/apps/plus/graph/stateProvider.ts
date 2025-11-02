@@ -299,9 +299,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
 					);
 
-					rows = [];
 					// Preallocate the array to avoid reallocations
-					rows.length = previousRowsLength + newRowsLength;
+					rows = new Array(previousRowsLength + newRowsLength);
 
 					if (msg.params.paging.startingCursor !== lastId) {
 						this.logger.log(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);

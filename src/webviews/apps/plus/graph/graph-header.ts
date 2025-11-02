@@ -385,7 +385,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this.graphState.searching = false;
 	}
 
-	@debounce(250)
+	@debounce(500)
 	private handleSearchInput(e: CustomEvent<SearchQuery>) {
 		this.graphState.filter = e.detail;
 		void this.handleSearch();
@@ -530,7 +530,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
 				timeout = undefined;
 				this.graphState.loading = true;
-			}, 500);
+			}, 250);
 
 			const ensureCore = async () => {
 				const e = await this.onEnsureRowPromise(id, false);
