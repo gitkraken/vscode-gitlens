@@ -53,7 +53,7 @@ import { splitCommitMessage } from '../../git/utils/commit.utils';
 import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils';
 import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils';
 import { createReference } from '../../git/utils/reference.utils';
-import { shortenRevision } from '../../git/utils/revision.utils';
+import { isUncommitted, shortenRevision } from '../../git/utils/revision.utils';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
 import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.utils';
@@ -2189,15 +2189,12 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
 
+		const previousSha = await commit.getPreviousSha();
+		const ref1 = isUncommitted(previousSha) ? '' : previousSha;
+		const ref2 = commit.isUncommitted ? '' : commit.sha;
+
 		void executeCommand('gitlens.externalDiff', {
-			files: [
-				{
-					uri: file.uri,
-					staged: false,
-					ref1: `${commit.ref}^`,
-					ref2: commit.ref,
-				},
-			],
+			files: [{ uri: file.uri, staged: commit.isUncommittedStaged, ref1: ref1, ref2: ref2 }],
 		});
 	}
 

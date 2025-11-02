@@ -106,6 +106,7 @@ import type { StashNode } from './nodes/stashNode';
 import type { StatusFileNode } from './nodes/statusFileNode';
 import type { TagNode } from './nodes/tagNode';
 import type { TagsNode } from './nodes/tagsNode';
+import type { UncommittedFileNode } from './nodes/UncommittedFileNode';
 import type { UncommittedFilesNode } from './nodes/UncommittedFilesNode';
 import type { WorktreeNode } from './nodes/worktreeNode';
 import type { WorktreesNode } from './nodes/worktreesNode';
@@ -1074,7 +1075,7 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.stageFile')
 	@log()
 	private async stageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
-		if (!node.isAny('commit-file', 'file-commit') && !node.is('status-file')) {
+		if (!node.isAny('commit-file', 'file-commit', 'status-file')) {
 			return;
 		}
 
@@ -1383,7 +1384,7 @@ export class ViewCommands implements Disposable {
 
 	@command('gitlens.views.openChanges')
 	@log()
-	private openChanges(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
+	private openChanges(node: ViewRefFileNode | MergeConflictFileNode) {
 		if (node.is('conflict-file')) {
 			void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				lhs: {
@@ -1402,7 +1403,7 @@ export class ViewCommands implements Disposable {
 			return;
 		}
 
-		if (!(node instanceof ViewRefFileNode) && !node.is('status-file')) return;
+		if (!(node instanceof ViewRefFileNode)) return;
 
 		const command = node.getCommand();
 		if (command?.arguments == null) return;
@@ -1546,24 +1547,18 @@ export class ViewCommands implements Disposable {
 
 	@command('gitlens.views.openChangesWithWorking')
 	@log()
-	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
-		if (node.is('status-file')) {
+	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode) {
+		if (node.isAny('status-file', 'uncommitted-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.uri,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				showOptions: { preserveFocus: true, preview: true },
 			});
 		}
 
 		if (node.is('conflict-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.baseUri,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				showOptions: { preserveFocus: true, preview: true },
 			});
 		}
 
@@ -1572,10 +1567,7 @@ export class ViewCommands implements Disposable {
 			if (baseUri != null) {
 				return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 					uri: baseUri,
-					showOptions: {
-						preserveFocus: true,
-						preview: true,
-					},
+					showOptions: { preserveFocus: true, preview: true },
 				});
 			}
 		}
@@ -1602,21 +1594,14 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.openFile')
 	@log()
 	private openFile(
-		node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode,
+		node: ViewRefFileNode | MergeConflictFileNode | FileHistoryNode | LineHistoryNode,
 		options?: TextDocumentShowOptions,
 	) {
-		if (
-			!(node instanceof ViewRefFileNode) &&
-			!node.isAny('conflict-file', 'status-file', 'file-history', 'line-history')
-		) {
+		if (!(node instanceof ViewRefFileNode) && !node.isAny('conflict-file', 'file-history', 'line-history')) {
 			return Promise.resolve();
 		}
 
-		return CommitActions.openFile(node.uri, {
-			preserveFocus: true,
-			preview: false,
-			...options,
-		});
+		return CommitActions.openFile(node.uri, { preserveFocus: true, preview: false, ...options });
 	}
 
 	@command('gitlens.views.openChangedFiles')
@@ -1668,10 +1653,21 @@ export class ViewCommands implements Disposable {
 			| ResultsFileNode
 			| StashFileNode
 			| MergeConflictFileNode
-			| StatusFileNode,
+			| StatusFileNode
+			| UncommittedFileNode,
 		options?: OpenFileAtRevisionCommandArgs,
 	) {
-		if (!node.isAny('commit-file', 'file-commit', 'results-file', 'stash-file', 'conflict-file', 'status-file')) {
+		if (
+			!node.isAny(
+				'commit-file',
+				'file-commit',
+				'results-file',
+				'stash-file',
+				'conflict-file',
+				'status-file',
+				'uncommitted-file',
+			)
+		) {
 			return Promise.resolve();
 		}
 
@@ -1679,7 +1675,7 @@ export class ViewCommands implements Disposable {
 
 		let uri = options.revisionUri;
 		if (uri == null) {
-			if (node.isAny('results-file', 'conflict-file')) {
+			if (node.isAny('results-file', 'conflict-file', 'uncommitted-file')) {
 				uri = this.container.git.getRevisionUriFromGitUri(node.uri);
 			} else {
 				uri =

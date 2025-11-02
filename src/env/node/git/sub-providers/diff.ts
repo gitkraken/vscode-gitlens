@@ -111,8 +111,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
 		let paths: Set<string> | undefined;
-		let untrackedPaths: string[] | undefined;
-
 		if (options?.uris) {
 			paths = new Set<string>(options.uris.map(u => this.provider.getRelativePath(u, repoPath)));
 			args.push('--', ...paths);
@@ -130,10 +128,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			debugger;
 			Logger.error(ex, scope);
 			return undefined;
-		} finally {
-			if (untrackedPaths?.length) {
-				await this.provider.staging?.unstageFiles(repoPath, untrackedPaths);
-			}
 		}
 
 		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };

@@ -114,6 +114,12 @@ export function isCommandContextViewNodeHasRef(
 	);
 }
 
+export function isCommandContextViewNodeHasRefFile(
+	context: CommandContext,
+): context is CommandViewNodeContext & { node: ViewRefFileNode } {
+	return context.type === 'viewItem' && context.node instanceof ViewRefFileNode;
+}
+
 export function isCommandContextViewNodeHasRemote(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { remote: GitRemote } } {

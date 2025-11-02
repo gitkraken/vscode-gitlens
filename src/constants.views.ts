@@ -104,26 +104,23 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 
 export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';
 export const treeViewRefNodeTypes: TreeViewRefNodeTypes[] = ['branch', 'commit', 'stash', 'tag'];
-export type TreeViewRefFileNodeTypes = 'commit-file' | 'file-commit' | 'results-file' | 'stash-file';
+export type TreeViewRefFileNodeTypes =
+	| 'commit-file'
+	| 'file-commit'
+	| 'results-file'
+	| 'stash-file'
+	| 'status-file'
+	| 'uncommitted-file';
 export const treeViewRefFileNodeTypes: TreeViewRefFileNodeTypes[] = [
 	'commit-file',
 	'file-commit',
 	'results-file',
 	'stash-file',
-];
-export type TreeViewFileNodeTypes =
-	| TreeViewRefFileNodeTypes
-	| 'conflict-file'
-	// | 'folder'
-	| 'status-file'
-	| 'uncommitted-file';
-export const treeViewFileNodeTypes: TreeViewFileNodeTypes[] = [
-	...treeViewRefFileNodeTypes,
-	'conflict-file',
-	// 'folder',
 	'status-file',
 	'uncommitted-file',
 ];
+export type TreeViewFileNodeTypes = TreeViewRefFileNodeTypes | 'conflict-file';
+export const treeViewFileNodeTypes: TreeViewFileNodeTypes[] = [...treeViewRefFileNodeTypes, 'conflict-file'];
 export type TreeViewSubscribableNodeTypes =
 	| 'autolinks'
 	| 'commits-current-branch'

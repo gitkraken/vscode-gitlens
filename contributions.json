@@ -1675,7 +1675,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "1_gitlens",
 						"order": 3
 					}
@@ -1688,7 +1688,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.graphDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.graphDetails",
 						"group": "1_gitlens",
 						"order": 3
 					}
@@ -1739,7 +1739,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "1_gitlens",
 						"order": 4
 					}
@@ -1751,7 +1751,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.graphDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.graphDetails",
 						"group": "1_gitlens",
 						"order": 4
 					}
@@ -1871,7 +1871,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)(?!.*?\\b\\+conflicted\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)(?!.*?\\b\\+conflicted\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
 						"group": "1_gitlens_",
 						"order": 5
 					}
@@ -1883,7 +1883,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)(?!.*?\\b\\+conflicted\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.graphDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)(?!.*?\\b\\+conflicted\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.graphDetails",
 						"group": "1_gitlens_",
 						"order": 5
 					}
@@ -10646,7 +10646,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "1_gitlens",
 						"order": 1
 					}
@@ -10659,7 +10659,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.graphDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.graphDetails",
 						"group": "1_gitlens",
 						"order": 1
 					}
@@ -10925,7 +10925,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+(conflicted|stashed|staged|unstaged)\\b)/",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 						"group": "1_gitlens",
 						"order": 2
 					}
