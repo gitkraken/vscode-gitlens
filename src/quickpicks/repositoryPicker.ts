@@ -36,12 +36,12 @@ export async function getRepositoryOrShowPicker(
 	container: Container,
 	title: string,
 	placeholder?: string,
-	uri?: Uri,
+	pathOrUri?: string | Uri,
 	options?: { excludeWorktrees?: boolean; filter?: (r: Repository) => Promise<boolean> },
 ): Promise<Repository | undefined> {
 	return getRepositoryOrShowPickerCore(
 		container,
-		uri == null ? container.git.highlander : await container.git.getOrOpenRepository(uri),
+		pathOrUri == null ? container.git.highlander : await container.git.getOrOpenRepository(pathOrUri),
 		title,
 		placeholder,
 		options,

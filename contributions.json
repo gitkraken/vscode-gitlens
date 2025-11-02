@@ -912,7 +912,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
 					}
@@ -936,7 +936,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.graphDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.graphDetails",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
 					}
@@ -991,9 +991,14 @@
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "viewItem =~ /gitlens:file($|\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
+					},
+					{
+						"when": "viewItem =~ /gitlens:uncommitted:files\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 97
 					}
 				]
 			}

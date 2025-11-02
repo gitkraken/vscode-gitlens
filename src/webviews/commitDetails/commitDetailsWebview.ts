@@ -1991,20 +1991,33 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
 
-		if (commit.message == null) {
-			await commit.ensureFullDetails();
+		let args: CreatePatchCommandArgs;
+		if (commit.isUncommitted) {
+			const to = commit.isUncommittedStaged ? uncommittedStaged : uncommitted;
+			args = {
+				repoPath: commit.repoPath,
+				to: to,
+				title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+				uris: [file.uri],
+			};
+		} else {
+			if (commit.message == null) {
+				await commit.ensureFullDetails();
+			}
+
+			const { summary: title, body: description } = splitCommitMessage(commit.message);
+
+			args = {
+				repoPath: commit.repoPath,
+				to: commit.ref,
+				from: `${commit.ref}^`,
+				title: title,
+				description: description,
+				uris: [file.uri],
+			};
 		}
 
-		const { summary: title, body: description } = splitCommitMessage(commit.message);
-
-		void executeCommand<CreatePatchCommandArgs>('gitlens.copyPatchToClipboard', {
-			repoPath: commit.repoPath,
-			to: commit.ref,
-			from: `${commit.ref}^`,
-			title: title,
-			description: description,
-			uris: [file.uri],
-		});
+		void executeCommand<CreatePatchCommandArgs>('gitlens.copyPatchToClipboard', args);
 	}
 
 	@command('gitlens.views.openFileRevision:')
