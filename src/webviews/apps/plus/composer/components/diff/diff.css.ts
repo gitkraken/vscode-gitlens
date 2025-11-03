@@ -98,9 +98,11 @@ export const hljsStyles = css`
 
 export const diff2htmlStyles = css`
 	:host {
-		--d2h-intrinsic-base-height: 3.5rem;
+		--d2h-intrinsic-base-height: 3.5rem; /* header height */
 		--d2h-intrinsic-line-count: 50;
-		--d2h-intrinsic-line-height: 1.8rem;
+		--d2h-intrinsic-line-height: calc(
+			var(--editor-font-size) * 1.5
+		); /* 1.8rem - line height, should be relative to font size, but still a fixed height */
 		--d2h-intrinsic-height: calc(
 			var(--d2h-intrinsic-base-height) + (var(--d2h-intrinsic-line-height) * var(--d2h-intrinsic-line-count))
 		);
