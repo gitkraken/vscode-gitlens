@@ -99,7 +99,7 @@ export const hljsStyles = css`
 export const diff2htmlStyles = css`
 	:host {
 		--d2h-intrinsic-base-height: 3.5rem; /* header height */
-		--d2h-intrinsic-container-offset-height: 10px; /* 10px scrollbar height + 2px vertical borders */
+		--d2h-intrinsic-container-offset-height: 12px; /* 10px scrollbar height + 2px vertical borders */
 		--d2h-intrinsic-line-count: 50;
 		--d2h-intrinsic-line-height: calc(
 			var(--editor-font-size) * 1.5
@@ -113,12 +113,12 @@ export const diff2htmlStyles = css`
 		position: relative;
 	}
 
-	.d2h-file-wrapper {
+	.diff-container {
 		content-visibility: auto;
 		contain-intrinsic-size: auto var(--d2h-intrinsic-base-height);
 	}
 
-	.d2h-file-wrapper[open] {
+	.diff-container:has(.d2h-file-wrapper[open]) {
 		contain-intrinsic-height: var(--d2h-intrinsic-height);
 	}
 

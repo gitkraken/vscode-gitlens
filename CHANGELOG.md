@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds `gitlens.graph.initialRowSelection` setting to specify whether to select the "Work in progress" (WIP) row instead of HEAD if there are uncommitted changes
 - Changes to use the "merge target" when we are creating pull requests ([#4709](https://github.com/gitkraken/vscode-gitlens/issues/4709))
 - Changes the minimum VS Code version to 1.95.0 ([#4691](https://github.com/gitkraken/vscode-gitlens/issues/4691))
+- Greatly improves performance of the _Commit Composer_ view by virtualizing file diffs ([#4675](https://github.com/gitkraken/vscode-gitlens/issues/4675))
 
 ### Fixed
 
