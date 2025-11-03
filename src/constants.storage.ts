@@ -184,6 +184,8 @@ export type WorkspaceStorage = {
 	[key in IntegrationConnectedKey]: boolean;
 } & {
 	[key in `views:${TreeViewTypes}:repositoryFilter`]: string[] | undefined;
+} & {
+	[key in `graph:searchHistory:${string}`]: StoredGraphSearchHistory[];
 };
 
 export interface Stored<T, SchemaVersion extends number = 1> {
@@ -351,6 +353,17 @@ export interface StoredGraphFilters {
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
+
+export type StoredGraphSearchHistory = {
+	query: string;
+	matchAll: boolean | undefined;
+	matchCase: boolean | undefined;
+	matchRegex: boolean | undefined;
+	matchWholeWord: boolean | undefined;
+	naturalLanguage: boolean | undefined;
+	/** For NL queries, store the last known structured form to show in history */
+	nlStructuredQuery?: string;
+};
 
 export type StoredGraphSearchMode = 'normal' | 'filter';
 

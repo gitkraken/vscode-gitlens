@@ -22,7 +22,8 @@ import type { GitLog } from '../../../../../git/models/log';
 import type { GitRevisionRange } from '../../../../../git/models/revision';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitUser } from '../../../../../git/models/user';
-import { parseSearchQuery, processNaturalLanguageToSearchQuery } from '../../../../../git/search';
+import { parseSearchQuery } from '../../../../../git/search';
+import { processNaturalLanguageToSearchQuery } from '../../../../../git/search.naturalLanguage';
 import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
 import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
@@ -891,9 +892,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log<CommitsGitSubProvider['searchCommits']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
+					s.matchWholeWord ? 'W' : ''
+				}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
 		},
 	})
 	async searchCommits(
@@ -915,7 +916,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			search = await processNaturalLanguageToSearchQuery(this.container, search, source);
 		}
 
-		const operations = parseSearchQuery(search);
+		const { operations } = parseSearchQuery(search);
 
 		const values = operations.get('commit:');
 		if (values?.size) {

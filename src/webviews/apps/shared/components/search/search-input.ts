@@ -1,10 +1,19 @@
+import { consume } from '@lit/context';
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { live } from 'lit/directives/live.js';
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../../../../constants.search';
 import { searchOperationHelpRegex, searchOperatorsToLongFormMap } from '../../../../../constants.search';
+import { parseSearchQuery } from '../../../../../git/search';
 import type { Deferrable } from '../../../../../system/function/debounce';
 import { debounce } from '../../../../../system/function/debounce';
+import {
+	SearchHistoryDeleteRequest,
+	SearchHistoryGetRequest,
+	SearchHistoryStoreRequest,
+} from '../../../../plus/graph/protocol';
+import { ipcContext } from '../../contexts/ipc';
 import { GlElement } from '../element';
 import type { GlPopover } from '../overlays/popover';
 import '../button';
@@ -252,6 +261,9 @@ export class GlSearchInput extends GlElement {
 		}
 	`;
 
+	@consume({ context: ipcContext })
+	private readonly _ipc!: typeof ipcContext.__context__;
+
 	@query('input') input!: HTMLInputElement;
 	@query('gl-popover') popoverEl!: GlPopover;
 
@@ -268,14 +280,19 @@ export class GlSearchInput extends GlElement {
 		return this._value;
 	}
 	set value(value: string) {
-		if (this._value !== undefined) return;
+		const oldValue = this._value;
 		this._value = value;
+		if (oldValue !== value) {
+			this.requestUpdate('value', oldValue);
+		}
 	}
 
 	@state() private errorMessage = '';
 	@state() private helpType?: SearchOperatorsLongForm;
 	@state() private processedQuery: string | undefined;
-	@state() private _value!: string;
+	@state() private _value = '';
+
+	private canDeleteHistoryItem = false;
 
 	private get label() {
 		return this.filter ? 'Filter' : 'Search';
@@ -289,6 +306,9 @@ export class GlSearchInput extends GlElement {
 		return this.matchRegex ? this.matchWholeWord : false;
 	}
 
+	/** State before the user navigates to a history entry */
+	private originalHistoryState: Required<Omit<SearchQuery, 'filter'>> | undefined;
+
 	private get placeholder() {
 		if (this.naturalLanguage) {
 			return `${this.label} commits using natural language (↑↓ for history), e.g. Show my commits from last month`;
@@ -296,7 +316,28 @@ export class GlSearchInput extends GlElement {
 		return `${this.label} commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
 	}
 
+	private repoPath: string | undefined;
 	private showNaturalLanguageHelpText = true;
+
+	private _searchHistory: SearchQuery[] = [];
+	private searchHistoryPos = -1;
+	private get searchHistory() {
+		return this._searchHistory;
+	}
+	private set searchHistory(value: SearchQuery[]) {
+		this._searchHistory = value;
+		this.searchHistoryPos = -1;
+		this.originalHistoryState = undefined;
+	}
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+
+		void this._ipc
+			.sendRequest(SearchHistoryGetRequest, { repoPath: this.repoPath })
+			.then(response => (this.searchHistory = response.history))
+			.catch(() => {});
+	}
 
 	override focus(options?: FocusOptions): void {
 		this.input.focus(options);
@@ -329,6 +370,8 @@ export class GlSearchInput extends GlElement {
 		this._value = '';
 		this.errorMessage = '';
 		this.processedQuery = undefined;
+		this.searchHistoryPos = -1;
+		this.originalHistoryState = undefined;
 		this.debouncedOnSearchChanged();
 	}
 
@@ -368,9 +411,17 @@ export class GlSearchInput extends GlElement {
 	private handleInput(e: InputEvent) {
 		this.errorMessage = '';
 		this.processedQuery = undefined;
+		this.canDeleteHistoryItem = false;
 
 		const value = (e.target as HTMLInputElement)?.value;
-		this._value = value;
+		this.value = value;
+
+		// Reset history position when user types something different
+		if (this.searchHistoryPos >= 0 && value !== this.searchHistory[this.searchHistoryPos]?.query) {
+			this.searchHistoryPos = -1;
+			this.originalHistoryState = undefined;
+		}
+
 		this.updateHelpText();
 
 		// Don't auto-search when in natural language mode - require explicit trigger
@@ -443,39 +494,101 @@ export class GlSearchInput extends GlElement {
 		this.updateHelpText();
 	}
 
-	private handleShortcutKeys(e: KeyboardEvent) {
-		if (!['Enter', 'ArrowUp', 'ArrowDown'].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return true;
+	private handleShortcutKeys(e: KeyboardEvent): boolean {
+		if (e.key !== 'Delete') {
+			this.canDeleteHistoryItem = false;
+		}
+		if (e.ctrlKey || e.metaKey || e.altKey) return false;
 
-		e.preventDefault();
-		if (e.key === 'Enter') {
-			// In natural language mode, Enter triggers search instead of navigation
-			if (this.naturalLanguage) {
+		switch (e.key) {
+			case 'Enter':
+				e.preventDefault();
+				e.stopPropagation();
+
+				this.searchHistoryPos = -1;
 				this.debouncedOnSearchChanged();
-			} else {
-				this.emit('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
-			}
-		} else if (this.searchHistory.length !== 0) {
-			const direction = e.key === 'ArrowDown' ? 1 : -1;
-			const nextPos = this.searchHistoryPos + direction;
-			if (nextPos > -1 && nextPos < this.searchHistory.length) {
-				this.searchHistoryPos = nextPos;
-				const value = this.searchHistory[nextPos];
-				if (value !== this.value) {
-					this._value = value;
-					this.updateHelpText();
-					// Don't auto-search when in natural language mode - require explicit trigger
-					if (!this.naturalLanguage) {
-						this.debouncedOnSearchChanged();
+
+				// In non-natural language mode, also navigate to results
+				if (!this.naturalLanguage) {
+					this.emit('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
+				}
+
+				return true;
+
+			case 'ArrowUp':
+			case 'ArrowDown':
+				e.preventDefault();
+				e.stopPropagation();
+
+				if (this.searchHistory.length > 0) {
+					let nextPos;
+					if (this.searchHistoryPos === -1) {
+						this.originalHistoryState = {
+							query: this.value,
+							naturalLanguage: this.naturalLanguage,
+							matchAll: this.matchAll,
+							matchCase: this.matchCase,
+							matchRegex: this.matchRegex,
+							matchWholeWord: this.matchWholeWord,
+						};
+						nextPos = e.key === 'ArrowUp' ? (this.value === this.searchHistory[0]?.query ? 1 : 0) : -1;
+					} else {
+						nextPos = this.searchHistoryPos + (e.key === 'ArrowUp' ? 1 : -1);
+					}
+
+					if (nextPos >= this.searchHistory.length) {
+						nextPos = this.searchHistory.length - 1;
+					}
+
+					if (nextPos < -1) {
+						nextPos = -1;
+					}
+
+					this.searchHistoryPos = nextPos;
+					this.canDeleteHistoryItem = true;
+
+					if (this.searchHistoryPos === -1) {
+						if (this.originalHistoryState != null) {
+							this.value = this.originalHistoryState.query;
+							this.naturalLanguage = Boolean(this.originalHistoryState.naturalLanguage);
+							this.matchAll = this.originalHistoryState.matchAll;
+							this.matchCase = this.originalHistoryState.matchCase;
+							this.matchRegex = this.originalHistoryState.matchRegex;
+							this.matchWholeWord = this.originalHistoryState.matchWholeWord;
+						} else {
+							this.value = '';
+						}
+					} else {
+						const entry = this.searchHistory[this.searchHistoryPos];
+						if (entry != null) {
+							this.value = entry.query;
+							this.naturalLanguage = Boolean(entry.naturalLanguage);
+						}
 					}
 				}
-			}
+
+				return true;
+
+			case 'Delete':
+				if (this.canDeleteHistoryItem && this.searchHistoryPos > -1) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					const entry = this.searchHistory[this.searchHistoryPos];
+					if (entry != null) {
+						void this.deleteHistoryEntry(entry.query);
+					}
+
+					return true;
+				}
+				break;
 		}
 
 		return false;
 	}
 
 	private handleInsertToken(token: string) {
-		this._value += `${this.value.length > 0 ? ' ' : ''}${token}`;
+		this._value += `${this.value.length ? ' ' : ''}${token}`;
 		window.requestAnimationFrame(() => {
 			this.updateHelpText();
 			// `@me` can be searched right away since it doesn't need additional text
@@ -488,7 +601,31 @@ export class GlSearchInput extends GlElement {
 		});
 	}
 
+	/**
+	 * Validates the raw query string using parseSearchQuery.
+	 * Returns an error message if query is empty or invalid, otherwise undefined.
+	 */
+	private validateQuery(raw: string): string | undefined {
+		if (!raw) return undefined;
+
+		const { operations, errors } = parseSearchQuery({ query: raw } as SearchQuery, true);
+		if (errors?.length) return errors[0];
+
+		// If no operations were parsed, the query is effectively empty
+		if (!operations.size) return 'Enter a search value';
+
+		return undefined;
+	}
+
 	private onSearchChanged() {
+		if (!this.naturalLanguage) {
+			// Only validate structured queries before starting the search
+			const invalid = this.validateQuery(this.value);
+			// Let's not show errors to the user since it's too noisy
+			// this.setCustomValidity(error);
+			if (invalid) return;
+		}
+
 		const search: SearchQuery = {
 			query: this.value,
 			naturalLanguage: this.naturalLanguage ? { query: this.value } : undefined,
@@ -506,31 +643,66 @@ export class GlSearchInput extends GlElement {
 		this.errorMessage = errorMessage;
 	}
 
-	searchHistory: string[] = [];
-	searchHistoryPos = 0;
-	logSearch(query: SearchQuery): void {
-		if (query.naturalLanguage) {
-			if (typeof query.naturalLanguage === 'boolean') {
+	async logSearch(search: SearchQuery): Promise<void> {
+		// Store exactly what user entered/sees (NL form or structured form)
+		let queryToStore;
+		if (search.naturalLanguage) {
+			if (typeof search.naturalLanguage === 'boolean') {
+				queryToStore = search.query;
 				this.processedQuery = undefined;
 				this.errorMessage = '';
-			} else if (query.naturalLanguage.error) {
+			} else if (search.naturalLanguage.error) {
+				queryToStore = search.naturalLanguage.query;
 				this.processedQuery = undefined;
-				this.errorMessage = query.naturalLanguage.error;
+				this.errorMessage = search.naturalLanguage.error;
 			} else {
-				this.processedQuery = query.naturalLanguage.processedQuery;
+				queryToStore = search.naturalLanguage.query;
+				this.processedQuery = search.naturalLanguage.processedQuery;
 				this.errorMessage = '';
 			}
+		} else {
+			// Only validate structured queries before storing the search
+			const invalid = this.validateQuery(search.query);
+			if (invalid) return;
+
+			queryToStore = search.query;
 		}
 
-		const lastIndex = this.searchHistory.length - 1;
+		const searchToStore: SearchQuery = { ...search, query: queryToStore };
 
-		// prevent duplicate entries
-		if (this.searchHistoryPos < lastIndex || this.searchHistory[lastIndex] === query.query) {
-			return;
+		try {
+			const response = await this._ipc.sendRequest(SearchHistoryStoreRequest, {
+				repoPath: this.repoPath,
+				search: searchToStore,
+			});
+			this.searchHistory = response.history;
+			this.searchHistoryPos = -1;
+		} catch {}
+	}
+
+	private async deleteHistoryEntry(query: string): Promise<void> {
+		try {
+			const response = await this._ipc.sendRequest(SearchHistoryDeleteRequest, {
+				repoPath: this.repoPath,
+				query: query,
+			});
+			this.searchHistory = response.history;
+			// Move to next entry if available, otherwise restore original value
+			if (this.searchHistoryPos >= 0 && this.searchHistoryPos < this.searchHistory.length) {
+				const entry = this.searchHistory[this.searchHistoryPos];
+				this.value = entry.query;
+				this.naturalLanguage = Boolean(entry.naturalLanguage);
+				this.updateHelpText();
+			} else {
+				this.searchHistoryPos = -1;
+				this.originalHistoryState = undefined;
+				this.value = '';
+				this.naturalLanguage = false;
+				this.updateHelpText();
+			}
+		} catch {
+			// Silent failure - keep existing history
 		}
-
-		this.searchHistory.push(query.query);
-		this.searchHistoryPos = this.searchHistory.length - 1;
 	}
 
 	setSearchQuery(query: string): void {
@@ -572,7 +744,7 @@ export class GlSearchInput extends GlElement {
 					type="text"
 					spellcheck="false"
 					placeholder="${this.placeholder}"
-					.value="${this._value ?? ''}"
+					.value="${live(this.value ?? '')}"
 					aria-valid="${!this.errorMessage}"
 					aria-describedby="${this.errorMessage !== '' ||
 					this.helpType != null ||

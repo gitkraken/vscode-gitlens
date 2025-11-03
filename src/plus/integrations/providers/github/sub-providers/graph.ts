@@ -269,7 +269,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						getRemoteIconUri(this.container, remote, asWebviewUri)
 					)?.toString(true);
 					context = {
-						webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
+						webviewItem: `gitlens:branch+remote${
+							isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''
+						}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(headBranch.name, repoPath, {
@@ -323,7 +325,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							getRemoteIconUri(this.container, remote, asWebviewUri)
 						)?.toString(true);
 						context = {
-							webviewItem: `gitlens:branch+remote${isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''}`,
+							webviewItem: `gitlens:branch+remote${
+								isBranchStarred(this.container, remoteBranchId) ? '+starred' : ''
+							}`,
 							webviewItemValue: {
 								type: 'branch',
 								ref: createReference(b, repoPath, {
@@ -489,9 +493,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	@log<GraphGitSubProvider['searchGraph']>({
 		args: {
 			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${s.matchWholeWord ? 'W' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}${
+					s.matchWholeWord ? 'W' : ''
+				}]: ${s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query}`,
 			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
 		},
 	})
@@ -511,7 +515,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		try {
 			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			const operations = parseSearchQuery(search);
+			const { operations } = parseSearchQuery(search);
 
 			const values = operations.get('commit:');
 			if (values != null) {

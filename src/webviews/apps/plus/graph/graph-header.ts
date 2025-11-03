@@ -371,7 +371,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				search: this.searchValid ? { ...this.graphState.filter } : undefined /*limit: options?.limit*/,
 			});
 
-			if (rsp.search && rsp.results) {
+			// Only log successful searches with at least 1 result
+			if (rsp.search && rsp.results && !('error' in rsp.results) && rsp.results.count > 0) {
 				this.searchEl.logSearch(rsp.search);
 			}
 
@@ -905,7 +906,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									</sl-select>
 								</gl-tooltip>
 								<div
-									class=${`shrink ${!Object.values(this.graphState.excludeRefs ?? {}).length && 'hidden'}`}
+									class=${`shrink ${
+										!Object.values(this.graphState.excludeRefs ?? {}).length && 'hidden'
+									}`}
 								>
 									<gl-popover
 										class="popover"

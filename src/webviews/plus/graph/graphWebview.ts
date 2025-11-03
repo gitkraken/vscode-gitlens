@@ -80,11 +80,8 @@ import type {
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
 import type { GitGraphSearch } from '../../../git/search';
-import {
-	getSearchQueryComparisonKey,
-	parseSearchQuery,
-	processNaturalLanguageToSearchQuery,
-} from '../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
+import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
 import { getBranchMergeTargetInfo, getStarredBranchIds } from '../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
@@ -227,6 +224,9 @@ import {
 	GetMoreRowsCommand,
 	GetRowHoverRequest,
 	OpenPullRequestDetailsCommand,
+	SearchHistoryDeleteRequest,
+	SearchHistoryGetRequest,
+	SearchHistoryStoreRequest,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	supportedRefMetadataTypes,
@@ -239,6 +239,7 @@ import {
 	UpdateSelectionCommand,
 } from './protocol';
 import type { GraphWebviewShowingArgs } from './registration';
+import { SearchHistory } from './searchHistory';
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
@@ -320,6 +321,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
+	private _searchHistory: SearchHistory | undefined;
 
 	private isWindowFocused: boolean = true;
 
@@ -806,6 +808,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case SearchOpenInViewCommand.is(e):
 				this.onSearchOpenInView(e.params);
+				break;
+			case SearchHistoryGetRequest.is(e):
+				this.onSearchHistoryGetRequest(SearchHistoryGetRequest, e);
+				break;
+			case SearchHistoryStoreRequest.is(e):
+				void this.onSearchHistoryStoreRequest(SearchHistoryStoreRequest, e);
+				break;
+			case SearchHistoryDeleteRequest.is(e):
+				void this.onSearchHistoryDeleteRequest(SearchHistoryDeleteRequest, e);
 				break;
 			case UpdateColumnsCommand.is(e):
 				this.onColumnsChanged(e.params);
@@ -1563,6 +1574,46 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private onSearchHistoryGetRequest<T extends typeof SearchHistoryGetRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		try {
+			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+		} catch {
+			void this.host.respond(requestType, msg, { history: [] });
+		}
+	}
+
+	@debug()
+	private async onSearchHistoryStoreRequest<T extends typeof SearchHistoryStoreRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+
+		try {
+			await this._searchHistory.store(msg.params.search);
+		} finally {
+			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+		}
+	}
+
+	@debug()
+	private async onSearchHistoryDeleteRequest<T extends typeof SearchHistoryDeleteRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		try {
+			await this._searchHistory.delete(msg.params.query);
+		} finally {
+			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+		}
+	}
+
+	@debug()
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
@@ -1573,7 +1624,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
-		const types = query != null ? join(query?.keys(), ',') : '';
+		const types = query != null ? join(query.operations.keys(), ',') : '';
 
 		let results;
 		let exception: (Error & { original?: Error }) | undefined;
@@ -3012,6 +3063,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private resetRepositoryState() {
 		this._getBranchesAndTagsTips = undefined;
+		this._searchHistory = undefined;
 		this.setGraph(undefined);
 		this.setSelectedRows(undefined);
 	}

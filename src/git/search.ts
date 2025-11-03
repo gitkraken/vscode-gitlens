@@ -1,10 +1,6 @@
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search';
 import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search';
 import type { StoredSearchQuery } from '../constants.storage';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { NaturalLanguageSearchOptions } from '../plus/search/naturalLanguageSearchProcessor';
-import { NaturalLanguageSearchProcessor } from '../plus/search/naturalLanguageSearchProcessor';
 import { some } from '../system/iterable';
 import type { GitRevisionReference } from './models/reference';
 import type { GitUser } from './models/user';
@@ -68,6 +64,11 @@ export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQu
 	}${search.matchRegex ? 'R' : ''}${search.matchWholeWord ? 'W' : ''}${search.naturalLanguage ? 'NL' : ''}`;
 }
 
+export interface ParsedSearchQuery {
+	operations: Map<SearchOperatorsLongForm, Set<string>>;
+	errors?: string[];
+}
+
 export function createSearchQueryForCommit(ref: string): string;
 export function createSearchQueryForCommit(commit: GitRevisionReference): string;
 export function createSearchQueryForCommit(refOrCommit: string | GitRevisionReference): string {
@@ -80,10 +81,11 @@ export function createSearchQueryForCommits(refsOrCommits: (string | GitRevision
 	return refsOrCommits.map(r => `#:${typeof r === 'string' ? shortenRevision(r) : r.name}`).join(' ');
 }
 
-export function parseSearchQuery(search: SearchQuery): Map<SearchOperatorsLongForm, Set<string>> {
+export function parseSearchQuery(search: SearchQuery, validate: boolean = false): ParsedSearchQuery {
 	const operations = new Map<SearchOperatorsLongForm, Set<string>>();
 	const query = search.query.trim();
 
+	let errors: string[] | undefined;
 	let pos = 0;
 
 	while (pos < query.length) {
@@ -164,6 +166,14 @@ export function parseSearchQuery(search: SearchQuery): Map<SearchOperatorsLongFo
 			value = text;
 		}
 
+		// Validate operator has a value
+		if (op && !value) {
+			if (!validate) continue;
+
+			errors ??= [];
+			errors.push(`'${op}' requires a value`);
+		}
+
 		// Add the discovered operation to our map
 		if (op && value) {
 			const longFormOp = searchOperatorsToLongFormMap.get(op);
@@ -178,7 +188,10 @@ export function parseSearchQuery(search: SearchQuery): Map<SearchOperatorsLongFo
 		}
 	}
 
-	return operations;
+	return {
+		operations: operations,
+		...(errors?.length && { errors: errors }),
+	};
 }
 
 export interface SearchQueryFilters {
@@ -202,7 +215,7 @@ export interface SearchQueryCommand {
 }
 
 export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUser | undefined): SearchQueryCommand {
-	const operations = parseSearchQuery(search);
+	const { operations } = parseSearchQuery(search);
 
 	const searchArgs = new Set<string>();
 	const files: string[] = [];
@@ -390,14 +403,4 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 		shas: shas,
 		filters: filters,
 	};
-}
-
-/** Converts natural language to a structured search query */
-export async function processNaturalLanguageToSearchQuery(
-	container: Container,
-	search: SearchQuery,
-	source: Source,
-	options?: NaturalLanguageSearchOptions,
-): Promise<SearchQuery> {
-	return new NaturalLanguageSearchProcessor(container).processNaturalLanguageToSearchQuery(search, source, options);
 }

@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new _Safe Hard Reset_ (`--keep`) option to Git _reset_ command
 - Adds support for reference or range commit searches on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command ([#4723](https://github.com/gitkraken/vscode-gitlens/issues/4723))
   - Adds natural language support to allow for more powerful queries
+- Adds a navigable search history to the search box on the _Commit Graph_ ([#4724](https://github.com/gitkraken/vscode-gitlens/issues/4724))
 
 ### Changed
 

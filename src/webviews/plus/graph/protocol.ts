@@ -327,6 +327,35 @@ export interface DidEnsureRowParams {
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
+export interface SearchHistoryGetParams {
+	repoPath: string | undefined;
+}
+export interface DidSearchHistoryGetParams {
+	history: SearchQuery[];
+}
+export const SearchHistoryGetRequest = new IpcRequest<SearchHistoryGetParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/get',
+);
+
+export interface SearchHistoryStoreParams {
+	repoPath: string | undefined;
+	search: SearchQuery;
+}
+export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/store',
+);
+
+export interface SearchHistoryDeleteParams {
+	repoPath: string | undefined;
+	query: string;
+}
+export const SearchHistoryDeleteRequest = new IpcRequest<SearchHistoryDeleteParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/delete',
+);
+
 export type DidGetCountParams =
 	| {
 			branches: number;

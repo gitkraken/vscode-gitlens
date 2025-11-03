@@ -454,7 +454,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				// Simulate an extra step if we have a value
 				state.counter = value ? 3 : 2;
 
-				const operations = parseSearchQuery({
+				const { operations } = parseSearchQuery({
 					query: value,
 					matchAll: state.matchAll,
 					matchCase: state.matchCase,
@@ -539,7 +539,7 @@ async function updateSearchQuery(
 	state: SearchStepState,
 	context: Context,
 ) {
-	const ops = parseSearchQuery({
+	const { operations: ops } = parseSearchQuery({
 		query: quickpick.value,
 		matchAll: state.matchAll,
 		matchCase: state.matchCase,
