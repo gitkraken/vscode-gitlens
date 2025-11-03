@@ -709,6 +709,21 @@ export class GlSearchInput extends GlElement {
 		this._value = query;
 	}
 
+	/**
+	 * Sets a search query from an external source (e.g., extension host) and triggers a search
+	 */
+	setExternalSearchQuery(search: SearchQuery): void {
+		this._value = search.query;
+		this.filter = search.filter ?? true;
+		this.matchAll = search.matchAll ?? false;
+		this.matchCase = search.matchCase ?? false;
+		this.matchRegex = search.matchRegex ?? true;
+		this.matchWholeWord = search.matchWholeWord ?? false;
+		this.naturalLanguage = Boolean(search.naturalLanguage);
+
+		this.debouncedOnSearchChanged();
+	}
+
 	override render(): unknown {
 		return html`<div class="field">
 				<div class="controls controls__start">

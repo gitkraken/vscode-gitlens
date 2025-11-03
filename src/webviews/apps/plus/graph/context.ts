@@ -1,5 +1,4 @@
 import { createContext } from '@lit/context';
-import type { SearchQuery } from '../../../../constants.search';
 import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -11,11 +10,11 @@ export interface AppState extends State {
 	state: State;
 	activeDay: number | undefined;
 	activeRow: string | undefined;
-	filter: SearchQuery;
 	isBusy: boolean;
 	loading: boolean;
 	mcpBannerCollapsed?: boolean | undefined;
 	searching: boolean;
+	searchMode: 'filter' | 'normal';
 	searchResultsHidden: boolean;
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;

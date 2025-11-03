@@ -5,6 +5,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { SearchQuery } from '../../../../constants.search';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import { getScopedCounter } from '../../../../system/counter';
 import { GetRowHoverRequest } from '../../../plus/graph/protocol';
@@ -14,6 +15,7 @@ import type { TelemetryContext } from '../../shared/contexts/telemetry';
 import { telemetryContext } from '../../shared/contexts/telemetry';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
 import { graphStateContext } from './context';
+import type { GlGraphHeader } from './graph-header';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper';
 import type { GlGraphHover } from './hover/graphHover';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
@@ -30,6 +32,7 @@ import '../../shared/components/mcp-banner';
 export class GraphApp extends SignalWatcher(LitElement) {
 	private _hoverTrackingCounter = getScopedCounter();
 	private _selectionTrackingCounter = getScopedCounter();
+	private _lastSearchRequest: SearchQuery | undefined;
 
 	// use Light DOM
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
@@ -48,6 +51,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@query('gl-graph-wrapper')
 	graph!: GlGraphWrapper;
 
+	@query('gl-graph-header')
+	private readonly graphHeader!: GlGraphHeader;
+
 	@query('gl-graph-hover#commit-hover')
 	private readonly graphHover!: GlGraphHover;
 
@@ -59,6 +65,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		this._hoverTrackingCounter.reset();
 		this._selectionTrackingCounter.reset();
+	}
+
+	override updated(changedProperties: Map<PropertyKey, unknown>): void {
+		super.updated(changedProperties);
+
+		// Check for external search request (from file history command, etc.)
+		const searchRequest = this.graphState.searchRequest;
+		if (searchRequest && searchRequest !== this._lastSearchRequest) {
+			this._lastSearchRequest = searchRequest;
+			// Wait for next render cycle to ensure graphHeader is ready
+			void this.updateComplete.then(() => {
+				this.graphHeader?.setExternalSearchQuery(searchRequest);
+			});
+		}
 	}
 
 	resetHover() {

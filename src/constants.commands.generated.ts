@@ -220,11 +220,19 @@ export type ContributedCommands =
 	| 'gitlens.openFileHistory'
 	| 'gitlens.openFileHistory:commitDetails'
 	| 'gitlens.openFileHistory:graphDetails'
+	| 'gitlens.openFileHistoryInGraph:commitDetails'
+	| 'gitlens.openFileHistoryInGraph:editor'
+	| 'gitlens.openFileHistoryInGraph:explorer'
+	| 'gitlens.openFileHistoryInGraph:graphDetails'
+	| 'gitlens.openFileHistoryInGraph:scm'
+	| 'gitlens.openFileHistoryInGraph:views'
 	| 'gitlens.openFileOnRemote'
 	| 'gitlens.openFileOnRemote:commitDetails'
 	| 'gitlens.openFileOnRemote:graphDetails'
 	| 'gitlens.openFileOnRemoteFrom'
 	| 'gitlens.openFolderHistory'
+	| 'gitlens.openFolderHistoryInGraph:explorer'
+	| 'gitlens.openFolderHistoryInGraph:scm'
 	| 'gitlens.openOnlyChangedFiles'
 	| 'gitlens.openPatch'
 	| 'gitlens.openPullRequestOnRemote'
@@ -883,6 +891,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.openCurrentBranchOnRemote'
 	| 'gitlens.openFileFromRemote'
 	| 'gitlens.openFileHistory'
+	| 'gitlens.openFileHistoryInGraph'
 	| 'gitlens.openFileOnRemote'
 	| 'gitlens.openFileOnRemoteFrom'
 	| 'gitlens.openFileRevision'
@@ -1027,4 +1036,5 @@ export type ContributedKeybindingCommands =
  */
 export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.graph.pushWithForce'
+	| 'gitlens.openFolderHistoryInGraph'
 	| 'gitlens.plus.cloudIntegrations.connect';

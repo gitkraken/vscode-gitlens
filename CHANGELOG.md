@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for reference or range commit searches on the _Commit Graph_, _Search & Compare_ view, and in the _Search Commits_ command ([#4723](https://github.com/gitkraken/vscode-gitlens/issues/4723))
   - Adds natural language support to allow for more powerful queries
 - Adds a navigable search history to the search box on the _Commit Graph_ ([#4724](https://github.com/gitkraken/vscode-gitlens/issues/4724))
+- Adds ability to show file or folder histories on the _Commit Graph_ ([#4725](https://github.com/gitkraken/vscode-gitlens/issues/4725))
+  - Adds _Open File History in Commit Graph_ command to files in views
+  - Adds _Open Folder History in Commit Graph_ command to folders in the Explorer view
 
 ### Changed
 

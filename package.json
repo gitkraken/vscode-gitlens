@@ -7675,6 +7675,42 @@
 				"icon": "$(history)"
 			},
 			{
+				"command": "gitlens.openFileHistoryInGraph",
+				"title": "Open File History in Commit Graph",
+				"category": "GitLens",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFileHistoryInGraph:commitDetails",
+				"title": "Open File History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFileHistoryInGraph:editor",
+				"title": "Open File History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFileHistoryInGraph:explorer",
+				"title": "Open File History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFileHistoryInGraph:graphDetails",
+				"title": "Open File History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFileHistoryInGraph:scm",
+				"title": "Open File History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFileHistoryInGraph:views",
+				"title": "Open File History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
 				"command": "gitlens.openFileOnRemote",
 				"title": "Open File on Remote",
 				"category": "GitLens",
@@ -7711,6 +7747,21 @@
 			{
 				"command": "gitlens.openFolderHistory",
 				"title": "Open Folder History"
+			},
+			{
+				"command": "gitlens.openFolderHistoryInGraph",
+				"title": "Open Folder History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFolderHistoryInGraph:explorer",
+				"title": "Open Folder History in Commit Graph",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openFolderHistoryInGraph:scm",
+				"title": "Open Folder History in Commit Graph",
+				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.openOnlyChangedFiles",
@@ -12449,6 +12500,34 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.openFileHistoryInGraph",
+					"when": "resource in gitlens:tabs:tracked"
+				},
+				{
+					"command": "gitlens.openFileHistoryInGraph:commitDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFileHistoryInGraph:editor",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFileHistoryInGraph:explorer",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFileHistoryInGraph:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFileHistoryInGraph:scm",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFileHistoryInGraph:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openFileOnRemote",
 					"when": "gitlens:repos:withRemotes"
 				},
@@ -12474,6 +12553,18 @@
 				},
 				{
 					"command": "gitlens.openFolderHistory",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFolderHistoryInGraph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFolderHistoryInGraph:explorer",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFolderHistoryInGraph:scm",
 					"when": "false"
 				},
 				{
@@ -15598,9 +15689,14 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.visualizeHistory.file:views",
+					"command": "gitlens.openFileHistoryInGraph:views",
 					"when": "viewItem =~ /gitlens:file\\b/",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:views",
+					"when": "viewItem =~ /gitlens:file\\b/",
+					"group": "1_gitlens@5"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory",
@@ -15618,14 +15714,24 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.visualizeHistory.file:commitDetails",
+					"command": "gitlens.openFileHistoryInGraph:commitDetails",
 					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.visualizeHistory.file:graphDetails",
+					"command": "gitlens.openFileHistoryInGraph:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.graphDetails",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
+					"group": "1_gitlens@5"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.graphDetails",
+					"group": "1_gitlens@5"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory:commitDetails",
@@ -15824,8 +15930,12 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.visualizeHistory.file:editor",
+					"command": "gitlens.openFileHistoryInGraph:editor",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:editor",
+					"group": "1_gitlens@5"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory",
@@ -15939,8 +16049,12 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.visualizeHistory.file:explorer",
+					"command": "gitlens.openFileHistoryInGraph:explorer",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:explorer",
+					"group": "1_gitlens@5"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory",
@@ -15953,8 +16067,12 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.visualizeHistory.folder:explorer",
+					"command": "gitlens.openFolderHistoryInGraph:explorer",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.folder:explorer",
+					"group": "1_gitlens@5"
 				}
 			],
 			"gitlens/explorer/openOn": [
@@ -16086,8 +16204,12 @@
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.visualizeHistory.folder:scm",
+					"command": "gitlens.openFolderHistoryInGraph:scm",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.folder:scm",
+					"group": "1_gitlens@5"
 				}
 			],
 			"gitlens/scm/resourceGroup/changes": [
@@ -16130,8 +16252,12 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.visualizeHistory.file:scm",
+					"command": "gitlens.openFileHistoryInGraph:scm",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:scm",
+					"group": "1_gitlens@5"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory",

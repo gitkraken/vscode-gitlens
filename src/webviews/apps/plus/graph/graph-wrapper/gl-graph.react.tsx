@@ -61,7 +61,7 @@ export type GraphWrapperProps = Pick<
 	| 'rowsStatsLoading'
 	| 'workingTreeStats'
 > &
-	Pick<GraphStateProvider, 'activeRow' | 'searchResults' | 'filter'> & { theming?: GraphWrapperTheming };
+	Pick<GraphStateProvider, 'activeRow' | 'searchMode' | 'searchResults'> & { theming?: GraphWrapperTheming };
 
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;
@@ -630,7 +630,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			refMetadataById={props.refsMetadata}
 			rowsStats={props.rowsStats}
 			rowsStatsLoading={props.rowsStatsLoading}
-			searchMode={props.filter?.filter ? 'filter' : 'normal'}
+			searchMode={props.searchMode ?? 'normal'}
 			shaLength={config.idLength}
 			shiftSelectMode={config.multiSelectionMode === 'topological' ? 'topological' : 'simple'}
 			suppressNonRefRowTooltips

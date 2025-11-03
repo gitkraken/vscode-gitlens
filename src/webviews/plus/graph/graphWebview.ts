@@ -25,6 +25,7 @@ import type {
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
 import type { ContextKeys } from '../../../constants.context';
+import type { SearchQuery } from '../../../constants.search';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -241,6 +242,10 @@ import {
 import type { GraphWebviewShowingArgs } from './registration';
 import { SearchHistory } from './searchHistory';
 
+function hasSearchQuery(arg: any): arg is { repository: Repository; search: SearchQuery } {
+	return arg?.repository != null && arg?.search != null;
+}
+
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
 	graph: { width: 150, mode: undefined, isHidden: false, order: 1 },
@@ -423,6 +428,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return context;
 	}
 
+	private _searchRequest: SearchQuery | undefined;
+
 	async onShowing(
 		loading: boolean,
 		_options?: WebviewShowOptions,
@@ -460,6 +467,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				void this.onGetMoreRows({ id: id }, true);
 			}
+		} else if (hasSearchQuery(arg)) {
+			this.repository = arg.repository;
+			this._searchRequest = arg.search;
+			this.updateState();
 		} else {
 			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
 				this.repository = this.container.git.getRepository(arg.state.selectedRepository);
@@ -2644,6 +2655,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.cancelOperation('branchState');
 		this.cancelOperation('state');
 
+		const searchRequest = this._searchRequest;
+		this._searchRequest = undefined;
+
 		if (this.container.git.repositoryCount === 0) {
 			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 		}
@@ -2810,7 +2824,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
-		return {
+		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
@@ -2862,7 +2876,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
+			searchRequest: searchRequest,
 		};
+		return result;
 	}
 
 	private updateColumns(columnsCfg: GraphColumnsConfig) {

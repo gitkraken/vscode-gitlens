@@ -4,7 +4,6 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { SearchQuery } from '../../../../../constants.search';
 import { debounce } from '../../../../../system/function/debounce';
 import type {
 	GraphColumnsConfig,
@@ -97,11 +96,11 @@ export class GlGraph extends LitElement {
 	@property({ type: Object })
 	theming?: GraphWrapperProps['theming'];
 
-	@property({ type: Object })
-	searchResults?: GraphWrapperProps['searchResults'];
+	@property({ type: String })
+	searchMode?: GraphWrapperProps['searchMode'];
 
 	@property({ type: Object })
-	filter!: SearchQuery;
+	searchResults?: GraphWrapperProps['searchResults'];
 
 	@property({ attribute: false })
 	setRef!: (ref: GraphContainer) => void;
@@ -158,7 +157,6 @@ export class GlGraph extends LitElement {
 				downstreams: this.downstreams,
 				excludeRefs: this.excludeRefs,
 				excludeTypes: this.excludeTypes,
-				filter: this.filter,
 				includeOnlyRefs: this.includeOnlyRefs,
 				loading: this.loading,
 				nonce: this.nonce,
@@ -167,6 +165,7 @@ export class GlGraph extends LitElement {
 				rows: this.rows,
 				rowsStats: this.rowsStats,
 				rowsStatsLoading: this.rowsStatsLoading,
+				searchMode: this.searchMode ?? 'normal',
 				searchResults: this.searchResults,
 				selectedRows: this.selectedRows,
 				theming: this.theming,

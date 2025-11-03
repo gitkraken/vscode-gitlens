@@ -1604,6 +1604,16 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openFile(node.uri, { preserveFocus: true, preview: false, ...options });
 	}
 
+	@command('gitlens.openFileHistoryInGraph:views')
+	@log()
+	private openFileHistoryInGraph(node: CommitFileNode | FileRevisionAsCommitNode | ResultsFileNode | StashFileNode) {
+		if (!node.isAny('commit-file', 'file-commit', 'results-file', 'stash-file')) {
+			return Promise.resolve();
+		}
+
+		return executeCommand('gitlens.openFileHistoryInGraph', node.uri);
+	}
+
 	@command('gitlens.views.openChangedFiles')
 	@log()
 	private async openFiles(

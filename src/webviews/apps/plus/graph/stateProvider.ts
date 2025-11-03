@@ -63,16 +63,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor activeRow: AppState['activeRow'];
 
-	@signalObjectState(
-		{ query: '' },
-		{
-			afterChange: target => {
-				target.searchResultsHidden = false;
-			},
-		},
-	)
-	accessor filter!: AppState['filter'];
-
 	get isBusy(): AppState['isBusy'] {
 		return this.loading || this.searching || this.rowsStatsLoading || false;
 	}
@@ -100,6 +90,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor searchResultsError: AppState['searchResultsError'];
+
+	@signalState()
+	accessor searchMode: AppState['searchMode'] = 'normal';
 
 	@signalState()
 	accessor selectedRows: AppState['selectedRows'];
@@ -182,6 +175,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor useNaturalLanguageSearch: State['useNaturalLanguageSearch'] | undefined;
+
+	@signalState()
+	accessor searchRequest: State['searchRequest'];
 
 	@signalState()
 	accessor excludeRefs: State['excludeRefs'];
@@ -380,6 +376,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 				updates.searchResults = msg.params.results;
 				this.updateState(updates);
+				// Update search mode separately since it's not part of State
+				this.searchMode = msg.params.search?.filter ? 'filter' : 'normal';
 				break;
 
 			case DidChangeSelectionNotification.is(msg):
@@ -432,6 +430,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					break;
 				case 'loading':
 					this.loading = partial.loading ?? false;
+					break;
+				case 'searchResults':
+					// searchResults is managed via searchResultsResponse, so update it specially
+					this.searchResultsResponse = value as GraphSearchResults | GraphSearchResultsError | undefined;
 					break;
 				default:
 					// @ts-expect-error key is a key of State

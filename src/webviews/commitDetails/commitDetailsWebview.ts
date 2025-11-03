@@ -2053,6 +2053,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		void executeCommand('gitlens.visualizeHistory.file', file.uri);
 	}
 
+	@command('gitlens.openFileHistoryInGraph:')
+	private async openFileHistoryInGraph(item: DetailsItemContext | undefined) {
+		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
+		if (commit == null) return;
+
+		void executeCommand('gitlens.openFileHistoryInGraph', file.uri);
+	}
+
 	@command('gitlens.restore.file:')
 	private async restoreFile(item: DetailsItemContext | undefined) {
 		if (!isDetailsFileContext(item)) return;

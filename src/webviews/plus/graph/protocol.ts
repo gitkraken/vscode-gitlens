@@ -117,6 +117,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
+	/** Search query to be executed once */
+	searchRequest?: SearchQuery;
 	searchResults?: DidSearchParams['results'];
 	defaultSearchMode?: GraphSearchMode;
 	useNaturalLanguageSearch?: boolean;

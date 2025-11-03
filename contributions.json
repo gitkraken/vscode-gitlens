@@ -3742,6 +3742,86 @@
 				]
 			}
 		},
+		"gitlens.openFileHistoryInGraph": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"commandPalette": "resource in gitlens:tabs:tracked"
+		},
+		"gitlens.openFileHistoryInGraph:commitDetails": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/commit/file/history": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFileHistoryInGraph:editor": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/editor/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFileHistoryInGraph:explorer": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/explorer/file/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFileHistoryInGraph:graphDetails": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/commit/file/history": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.graphDetails",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFileHistoryInGraph:scm": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/scm/resourceState/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFileHistoryInGraph:views": {
+			"label": "Open File History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/commit/file/history": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b/",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.openFileOnRemote": {
 			"label": "Open File on Remote",
 			"icon": "$(globe)",
@@ -3891,6 +3971,34 @@
 						"order": 1
 					}
 				],
+				"gitlens/scm/resourceFolder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFolderHistoryInGraph": {
+			"label": "Open Folder History in Commit Graph",
+			"icon": "$(gitlens-graph)"
+		},
+		"gitlens.openFolderHistoryInGraph:explorer": {
+			"label": "Open Folder History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"gitlens/explorer/folder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openFolderHistoryInGraph:scm": {
+			"label": "Open Folder History in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
 				"gitlens/scm/resourceFolder/history": [
 					{
 						"group": "1_gitlens",
@@ -17034,7 +17142,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17046,7 +17154,7 @@
 				"gitlens/editor/history": [
 					{
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17058,7 +17166,7 @@
 				"gitlens/explorer/file/history": [
 					{
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17071,7 +17179,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.graphDetails",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17083,7 +17191,7 @@
 				"gitlens/scm/resourceState/history": [
 					{
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17096,7 +17204,7 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b/",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17108,7 +17216,7 @@
 				"gitlens/explorer/folder/history": [
 					{
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}
@@ -17120,7 +17228,7 @@
 				"gitlens/scm/resourceFolder/history": [
 					{
 						"group": "1_gitlens",
-						"order": 2
+						"order": 5
 					}
 				]
 			}

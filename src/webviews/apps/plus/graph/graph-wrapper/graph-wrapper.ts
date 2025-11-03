@@ -132,7 +132,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.downstreams=${graphState.downstreams}
 			.excludeRefs=${graphState.excludeRefs}
 			.excludeTypes=${graphState.excludeTypes}
-			.filter=${graphState.filter}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
 			?loading=${graphState.loading}
 			nonce=${ifDefined(graphState.nonce)}
@@ -141,6 +140,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.rows=${graphState.rows}
 			.rowsStats=${graphState.rowsStats}
 			?rowsStatsLoading=${graphState.rowsStatsLoading}
+			.searchMode=${graphState.searchMode}
 			.searchResults=${graphState.searchResults}
 			.selectedRows=${graphState.selectedRows}
 			.theming=${this.theming}

@@ -1,11 +1,14 @@
-import { Disposable, ViewColumn } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import type { SearchQuery } from '../../../constants.search';
 import type { Container } from '../../../container';
+import { GitUri } from '../../../git/gitUri';
 import type { GitReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext } from '../../../system/-webview/context';
-import { isScm } from '../../../system/-webview/scm';
+import { getScmResourceFolderUri, getScmResourceUri, isScm } from '../../../system/-webview/scm';
 import { ViewNode } from '../../../views/nodes/abstract/viewNode';
 import type { BranchNode } from '../../../views/nodes/branchNode';
 import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
@@ -21,10 +24,13 @@ import type {
 } from '../../webviewsController';
 import type { State } from './protocol';
 
-export type GraphWebviewShowingArgs = [Repository | { ref: GitReference }];
+export type GraphWebviewShowingArgs = [
+	Repository | { ref: GitReference } | { repository: Repository; search: SearchQuery },
+];
 
 export type ShowInCommitGraphCommandArgs =
 	| { ref: GitReference; preserveFocus?: boolean }
+	| { repository: Repository; search: SearchQuery; preserveFocus?: boolean }
 	| Repository
 	| BranchNode
 	| CommitNode
@@ -88,6 +94,72 @@ export function registerGraphWebviewCommands<T>(
 	container: Container,
 	panels: WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, T>,
 ): Disposable {
+	function showInCommitGraph(args: ShowInCommitGraphCommandArgs): void {
+		if (args instanceof PullRequestNode) {
+			if (args.ref == null) return;
+
+			args = { ref: args.ref };
+		}
+
+		const preserveFocus = 'preserveFocus' in args ? (args.preserveFocus ?? false) : false;
+		if (configuration.get('graph.layout') === 'panel') {
+			if (!container.views.graph.visible) {
+				const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
+				if (instance != null) {
+					void instance.show({ preserveFocus: preserveFocus }, args);
+					return;
+				}
+			}
+
+			void container.views.graph.show({ preserveFocus: preserveFocus }, args);
+		} else {
+			void panels.show({ preserveFocus: preserveFocus }, args);
+		}
+	}
+
+	async function openFileHistoryInGraph(...args: any[]): Promise<void> {
+		const uri = getUriFromArgs(args);
+		if (uri == null) return;
+
+		const gitUri = await GitUri.fromUri(uri);
+		if (gitUri?.repoPath == null) return;
+
+		const repository = container.git.getRepository(gitUri.repoPath);
+		if (repository == null) return;
+
+		const relativePath = container.git.getRelativePath(gitUri, gitUri.repoPath);
+		const searchQuery: SearchQuery = {
+			query: `file:"${relativePath}"`,
+			filter: true,
+			matchAll: false,
+			matchCase: false,
+			matchRegex: false,
+		};
+
+		showInCommitGraph({ repository: repository, search: searchQuery });
+	}
+	async function openFolderHistoryInGraph(...args: any[]): Promise<void> {
+		const uri = getUriFromArgs(args);
+		if (uri == null) return;
+
+		const gitUri = await GitUri.fromUri(uri);
+		if (gitUri?.repoPath == null) return;
+
+		const repository = container.git.getRepository(gitUri.repoPath);
+		if (repository == null) return;
+
+		const relativePath = container.git.getRelativePath(gitUri, gitUri.repoPath);
+		const searchQuery: SearchQuery = {
+			query: `file:"${relativePath}/**"`,
+			filter: true,
+			matchAll: false,
+			matchCase: false,
+			matchRegex: false,
+		};
+
+		showInCommitGraph({ repository: repository, search: searchQuery });
+	}
+
 	return Disposable.from(
 		registerCommand('gitlens.showGraph', (...args: unknown[]) => {
 			const [arg] = args;
@@ -109,7 +181,8 @@ export function registerGraphWebviewCommands<T>(
 			}
 
 			if (showInGraphArg != null) {
-				return executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', showInGraphArg);
+				showInCommitGraph(showInGraphArg);
+				return;
 			}
 
 			if (configuration.get('graph.layout') === 'panel') {
@@ -145,28 +218,7 @@ export function registerGraphWebviewCommands<T>(
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
 			}
 		}),
-		registerCommand('gitlens.showInCommitGraph', (args: ShowInCommitGraphCommandArgs) => {
-			if (args instanceof PullRequestNode) {
-				if (args.ref == null) return;
-
-				args = { ref: args.ref };
-			}
-
-			const preserveFocus = 'preserveFocus' in args ? (args.preserveFocus ?? false) : false;
-			if (configuration.get('graph.layout') === 'panel') {
-				if (!container.views.graph.visible) {
-					const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
-					if (instance != null) {
-						void instance.show({ preserveFocus: preserveFocus }, args);
-						return;
-					}
-				}
-
-				void container.views.graph.show({ preserveFocus: preserveFocus }, args);
-			} else {
-				void panels.show({ preserveFocus: preserveFocus }, args);
-			}
-		}),
+		registerCommand('gitlens.showInCommitGraph', showInCommitGraph),
 		registerCommand('gitlens.showInCommitGraphView', (args: ShowInCommitGraphCommandArgs) => {
 			if (args instanceof PullRequestNode) {
 				if (args.ref == null) return;
@@ -182,5 +234,47 @@ export function registerGraphWebviewCommands<T>(
 			`${panels.id}.split`,
 			() => void panels.splitActiveInstance({ preserveInstance: false, column: ViewColumn.Beside }),
 		),
+		registerCommand('gitlens.openFileHistoryInGraph', openFileHistoryInGraph),
+		registerCommand('gitlens.openFileHistoryInGraph:editor', openFileHistoryInGraph),
+		registerCommand('gitlens.openFileHistoryInGraph:explorer', openFileHistoryInGraph),
+		registerCommand('gitlens.openFileHistoryInGraph:scm', async (...args: any[]): Promise<void> => {
+			const uri = getScmResourceUri(args);
+			await openFileHistoryInGraph(uri);
+		}),
+		registerCommand('gitlens.openFolderHistoryInGraph', openFolderHistoryInGraph),
+		registerCommand('gitlens.openFolderHistoryInGraph:explorer', openFolderHistoryInGraph),
+		registerCommand('gitlens.openFolderHistoryInGraph:scm', async (...args: any[]): Promise<void> => {
+			const uri = getScmResourceFolderUri(args) ?? getUriFromArgs(args);
+			await openFolderHistoryInGraph(uri);
+		}),
 	);
+}
+
+function getUriFromArgs(args: any[]): Uri | undefined {
+	const scmUri = getScmResourceUri(args);
+	if (scmUri) return scmUri;
+
+	let uri: Uri | undefined;
+	let editor: TextEditor | undefined;
+
+	if (args.length > 0) {
+		const [arg] = args;
+		if (arg instanceof Uri) {
+			uri = arg;
+		} else if (arg?.uri instanceof Uri) {
+			uri = arg.uri;
+		} else if (arg?.editor != null) {
+			editor = arg.editor;
+		}
+	}
+
+	if (uri == null && editor == null) {
+		editor = window.activeTextEditor;
+	}
+
+	if (uri == null && editor != null) {
+		uri = editor.document.uri;
+	}
+
+	return uri;
 }
