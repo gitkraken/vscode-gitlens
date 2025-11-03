@@ -99,12 +99,14 @@ export const hljsStyles = css`
 export const diff2htmlStyles = css`
 	:host {
 		--d2h-intrinsic-base-height: 3.5rem; /* header height */
+		--d2h-intrinsic-container-offset-height: 10px; /* 10px scrollbar height + 2px vertical borders */
 		--d2h-intrinsic-line-count: 50;
 		--d2h-intrinsic-line-height: calc(
 			var(--editor-font-size) * 1.5
-		); /* 1.8rem - line height, should be relative to font size, but still a fixed height */
+		); /* 1.2rem (font) to 1.8rem (line height) ratio, but still fixed */
 		--d2h-intrinsic-height: calc(
-			var(--d2h-intrinsic-base-height) + (var(--d2h-intrinsic-line-height) * var(--d2h-intrinsic-line-count))
+			var(--d2h-intrinsic-base-height) + (var(--d2h-intrinsic-line-height) * var(--d2h-intrinsic-line-count)) +
+				var(--d2h-intrinsic-container-offset-height)
 		);
 
 		display: block;
@@ -757,6 +759,16 @@ export const diffStyles = css`
 	td {
 		padding-block: 0;
 		line-height: var(--d2h-intrinsic-line-height);
+	}
+	.d2h-code-line,
+	.d2h-code-side-line {
+		height: var(--d2h-intrinsic-line-height);
+		overflow: hidden;
+		vertical-align: top;
+	}
+	.d2h-file-diff {
+		overflow-x: scroll;
+		overflow-y: hidden;
 	}
 	.d2h-file-wrapper {
 		margin-block-end: 0;
