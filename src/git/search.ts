@@ -197,8 +197,8 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 export interface SearchQueryFilters {
 	/** Specifies whether the search results will be filtered to specific files */
 	files: boolean;
-	/** Specifies whether the search results will be filtered to a specific type, only `stash` is supported */
-	type?: 'stash';
+	/** Specifies whether the search results will be filtered to a specific type, only `stash` and `tip` are supported */
+	type?: 'stash' | 'tip';
 	/** Specifies whether the search results will be filtered to a specific ref or ref range */
 	refs: boolean;
 }
@@ -306,6 +306,8 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 						if (value === 'stash') {
 							filters.type = 'stash';
 							searchArgs.add('--no-walk');
+						} else if (value === 'tip') {
+							filters.type = 'tip';
 						}
 					}
 

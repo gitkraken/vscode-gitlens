@@ -225,13 +225,19 @@ export class GlSearchInput extends GlElement {
 		}
 
 		.menu-button {
-			display: block;
+			display: flex;
 			width: 100%;
 			padding: 0.1rem 0.6rem 0 0.6rem;
 			line-height: 2.2rem;
 			text-align: left;
 			color: var(--vscode-menu-foreground);
 			border-radius: 3px;
+		}
+
+		.menu-button small {
+			margin-left: auto;
+			padding-left: 1.5rem;
+			opacity: 0.8;
 		}
 
 		.menu-button:hover {
@@ -834,7 +840,7 @@ export class GlSearchInput extends GlElement {
 				>`;
 			case 'type:':
 				return html`<span
-					>Type: use <code>stash</code> to search only stashes, e.g. <code>type:stash</code></span
+					>Type: use <code>is:stash</code> for stashes or <code>is:tip</code> for branch & tag tips</span
 				>`;
 			case 'file:':
 				return html`<span
@@ -907,9 +913,15 @@ export class GlSearchInput extends GlElement {
 						Ref <small>ref: or ^:</small>
 					</button>
 				</menu-item>
+				<menu-divider></menu-divider>
 				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('type:stash')}">
-						Type <small>type:stash or is:stash</small>
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('is:stash')}">
+						Stashes <small>is:stash or type:stash</small>
+					</button>
+				</menu-item>
+				<menu-item role="none">
+					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('is:tip')}">
+						Branch & Tag Tips <small>is:tip or type:tip</small>
 					</button>
 				</menu-item>
 				<menu-divider></menu-divider>

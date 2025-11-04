@@ -1267,6 +1267,8 @@ async function parseCommits(
 	let countStashChildCommits = 0;
 	const commits = new Map<string, GitCommit>();
 
+	const tipsOnly = searchFilters?.type === 'tip';
+
 	if (resultOrStream instanceof Promise) {
 		const result = await resultOrStream;
 
@@ -1276,8 +1278,10 @@ async function parseCommits(
 		if (stashes?.size) {
 			const allowFilteredFiles = searchFilters?.files ?? false;
 			const stashesOnly = searchFilters?.type === 'stash';
+
 			for (const c of parser.parse(result.stdout)) {
 				if (stashesOnly && !stashes?.has(c.sha)) continue;
+				if (tipsOnly && !c.tips) continue;
 
 				count++;
 				if (limit && count > limit) break;
@@ -1307,6 +1311,8 @@ async function parseCommits(
 			}
 		} else {
 			for (const c of parser.parse(result.stdout)) {
+				if (tipsOnly && !c.tips) continue;
+
 				count++;
 				if (limit && count > limit) break;
 
@@ -1322,8 +1328,10 @@ async function parseCommits(
 	if (stashes?.size) {
 		const allowFilteredFiles = searchFilters?.files ?? false;
 		const stashesOnly = searchFilters?.type === 'stash';
+
 		for await (const c of parser.parseAsync(resultOrStream)) {
 			if (stashesOnly && !stashes?.has(c.sha)) continue;
+			if (tipsOnly && !c.tips) continue;
 
 			count++;
 			if (limit && count > limit) break;
@@ -1353,6 +1361,8 @@ async function parseCommits(
 		}
 	} else {
 		for await (const c of parser.parseAsync(resultOrStream)) {
+			if (tipsOnly && !c.tips) continue;
+
 			count++;
 			if (limit && count > limit) break;
 

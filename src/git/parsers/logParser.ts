@@ -99,11 +99,19 @@ export function getShaLogParser(): ShaLogParser {
 }
 
 const shaAndDateMapping = { sha: '%H', authorDate: '%at', committerDate: '%ct' };
+const shaAndDateAndTipsMapping = { sha: '%H', authorDate: '%at', committerDate: '%ct', tips: '%D' };
 
-type ShaAndDatesLogParser = LogParser<typeof shaAndDateMapping>;
+type ShaAndDatesLogParser = LogParser<typeof shaAndDateMapping & { tips?: string }>;
 let _shaAndDatesParser: ShaAndDatesLogParser | undefined;
+type ShaAndDatesAndTipsLogParser = LogParser<typeof shaAndDateAndTipsMapping>;
+let _shaAndDatesAndTipsParser: ShaAndDatesAndTipsLogParser | undefined;
 
-export function getShaAndDatesLogParser(): ShaAndDatesLogParser {
+export function getShaAndDatesLogParser(includeTips?: boolean): ShaAndDatesLogParser | ShaAndDatesAndTipsLogParser {
+	if (includeTips) {
+		_shaAndDatesAndTipsParser ??= createLogParser(shaAndDateAndTipsMapping);
+		return _shaAndDatesAndTipsParser;
+	}
+
 	_shaAndDatesParser ??= createLogParser(shaAndDateMapping);
 	return _shaAndDatesParser;
 }

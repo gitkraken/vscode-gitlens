@@ -637,22 +637,22 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 		try {
-			const parser = getShaAndDatesLogParser();
-
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			const args = [
-				'log',
-
-				...parser.arguments,
-				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-				'--use-mailmap',
-			];
-
 			const currentUser = search.query.includes('@me')
 				? await this.provider.config.getCurrentUser(repoPath)
 				: undefined;
 
 			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
+
+			const tipsOnly = filters.type === 'tip';
+			const parser = getShaAndDatesLogParser(tipsOnly);
+
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+			const args = [
+				'log',
+				...parser.arguments,
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'--use-mailmap',
+			];
 
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
@@ -736,7 +736,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 						count++;
 						sha = remappedIds.get(r.sha) ?? r.sha;
-						if (results.has(sha) || (stashesOnly && !stashes?.has(sha))) {
+						if (results.has(sha) || (stashesOnly && !stashes?.has(sha)) || (tipsOnly && !r.tips)) {
 							continue;
 						}
 

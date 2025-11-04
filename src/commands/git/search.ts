@@ -337,7 +337,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			items.push(
 				{
 					label: searchOperatorToTitleMap.get('type:')!,
-					description: 'type:stash or is:stash',
+					description: 'type:stash or is:stash; type:tip or is:tip',
 					alwaysShow: true,
 					item: { type: 'add', operator: 'type:' },
 				},
