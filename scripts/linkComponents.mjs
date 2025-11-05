@@ -55,7 +55,7 @@ function findComponentsPaths() {
 	const mainRoot = join(parentRoot, 'GitKrakenComponents');
 	if (existsSync(join(mainRoot, 'package.json'))) {
 		results.push({
-			path: '../GitKrakenComponents',
+			path: relative(root, mainRoot).replace(/\\/g, '/'),
 			description: `${getCurrentBranch(mainRoot)} (default)`,
 			abs: mainRoot,
 		});
@@ -68,9 +68,8 @@ function findComponentsPaths() {
 			const pkgs = globSync('**/package.json', { cwd: worktreesRoot, ignore: ['**/node_modules/**'] });
 			for (const pkg of pkgs) {
 				const dir = join(worktreesRoot, dirname(pkg));
-				const rel = relative(worktreesRoot, dir).replace(/\\/g, '/');
 				results.push({
-					path: `../GitKrakenComponents.worktrees/${rel}`,
+					path: relative(root, dir).replace(/\\/g, '/'),
 					description: `${getCurrentBranch(dir)} (worktree)`,
 					abs: dir,
 				});
@@ -103,8 +102,7 @@ async function promptForPath() {
 	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 	const availablePaths = findComponentsPaths();
-
-	if (availablePaths.length === 0) {
+	if (!availablePaths.length) {
 		console.log('\n⚠️ No GitKrakenComponents directories found.');
 		const customPath = await rl.question('Enter path to GitKrakenComponents: ');
 		rl.close();
