@@ -319,7 +319,9 @@ export class GitCommit implements GitRevisionReference {
 				this._recomputeStats = true;
 				this.computeFileStats();
 
-				const stats = await repo?.git.diff.getChangedFilesCount(this.sha);
+				const stats = await repo?.git.diff.getChangedFilesCount(
+					this.isUncommittedStaged ? uncommitted : 'HEAD',
+				);
 				if (stats != null) {
 					if (this._stats != null) {
 						this._stats = {
@@ -502,7 +504,7 @@ export class GitCommit implements GitRevisionReference {
 
 		let result = fileStats.join(separator);
 		if (style === 'stats' && options?.color) {
-			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span>`;
+			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span> `;
 		}
 		if (options?.addParenthesesToFileStats) {
 			result = `(${result})`;
