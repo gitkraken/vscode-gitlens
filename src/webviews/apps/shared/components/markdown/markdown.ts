@@ -13,6 +13,8 @@ export class GlMarkdown extends LitElement {
 		ruleStyles,
 		css`
 			:host {
+				display: contents;
+
 				--markdown-compact-block-spacing: 8px;
 				--markdown-list-spacing: 20px;
 			}
@@ -105,32 +107,53 @@ export class GlMarkdown extends LitElement {
 			li > ul {
 				margin-top: 0;
 			}
-		`,
+=		`,
 	];
 
 	@property({ type: String })
-	private markdown = '';
+	markdown = '';
 
 	@property({ type: String, reflect: true })
 	density: 'compact' | 'document' = 'compact';
+
+	@property({ type: Boolean, reflect: true })
+	inline = false;
 
 	override render(): unknown {
 		return html`${this.markdown ? until(this.renderMarkdown(this.markdown), 'Loading...') : ''}`;
 	}
 
 	private async renderMarkdown(markdown: string) {
-		marked.setOptions({
-			gfm: true,
-			// smartypants: true,
-			// langPrefix: 'language-',
-		});
+		marked.setOptions({ gfm: true });
 
-		marked.use({ renderer: getMarkdownRenderer() });
+		const renderer = this.inline ? getInlineMarkdownRenderer() : getMarkdownRenderer();
+		marked.use({ renderer: renderer });
 
 		let rendered = await marked.parse(markdownEscapeEscapedIcons(markdown));
 		rendered = renderThemeIconsWithinText(rendered);
 		return unsafeHTML(rendered);
 	}
+}
+
+const escapeReplacements: { [index: string]: string } = {
+	'&': '&amp;',
+	'<': '&lt;',
+	'>': '&gt;',
+	'"': '&quot;',
+	"'": '&#39;',
+};
+const getEscapeReplacement = (ch: string) => escapeReplacements[ch];
+
+export function escape(html: string, encode?: boolean) {
+	if (encode) {
+		if (/[&<>"']/.test(html)) {
+			return html.replace(/[&<>"']/g, getEscapeReplacement);
+		}
+	} else if (/[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/.test(html)) {
+		return html.replace(/[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, getEscapeReplacement);
+	}
+
+	return html;
 }
 
 function getMarkdownRenderer(): RendererObject {
@@ -157,37 +180,69 @@ function getMarkdownRenderer(): RendererObject {
 			const text = this.parser.parseInline(tokens);
 			return `<p>${text}</p>`;
 		},
-		link: function (this: RendererThis, { href, title, tokens }: Tokens.Link): string | false {
-			if (typeof href !== 'string') return '';
+		html: function (this: RendererThis, { text }: Tokens.HTML | Tokens.Tag): string {
+			const match = text.match(/^(<span[^>]+>)|(<\/\s*span>)$/);
+			return match ? text : '';
+		},
+	};
+}
 
-			// Remove markdown escapes. Workaround for https://github.com/chjj/marked/issues/829
-			let text = this.parser.parseInline(tokens);
-			if (href === text) {
-				// raw link case
-				text = removeMarkdownEscapes(text);
+function getInlineMarkdownRenderer(): RendererObject {
+	let listIndex = 0;
+	let isOrderedList = false;
+
+	const renderListItem = function (this: RendererThis, item: Tokens.ListItem): string {
+		// In inline mode, render list item with symbol prefix
+		const text = this.parser.parse(item.tokens, Boolean(item.loose));
+		// Get the symbol: task checkbox, number for ordered, bullet for unordered
+		let symbol: string;
+		if (item.task) {
+			symbol = item.checked ? '☑' : '☐';
+		} else if (isOrderedList) {
+			symbol = `${listIndex}.`;
+			listIndex++;
+		} else {
+			symbol = '•';
+		}
+		return `${symbol} ${text.trim()} `;
+	};
+
+	return {
+		image: function (this: RendererThis, { text }: Tokens.Image): string {
+			// In inline mode, use alt text if available, otherwise skip
+			return text || '';
+		},
+		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
+			const text = this.parser.parseInline(tokens);
+			return text;
+		},
+		list: function (this: RendererThis, token: Tokens.List): string {
+			// In inline mode, render list items separated by spaces with their symbols
+			isOrderedList = token.ordered;
+			listIndex = typeof token.start === 'number' ? token.start : 1;
+			let body = '';
+			for (const item of token.items) {
+				body += renderListItem.call(this, item);
 			}
-
-			title = typeof title === 'string' ? escapeDoubleQuotes(removeMarkdownEscapes(title)) : '';
-
-			// HTML Encode href
-			href = removeMarkdownEscapes(href)
-				.replace(/&/g, '&amp;')
-				.replace(/</g, '&lt;')
-				.replace(/>/g, '&gt;')
-				.replace(/"/g, '&quot;')
-				.replace(/'/g, '&#39;');
-
-			return `<a href="${href}" title="${title || href}" draggable="false">${text}</a>`;
+			return body;
 		},
-		code: function (this: RendererThis, { text, lang }: Tokens.Code): string {
-			// Remote code may include characters that need to be escaped to be visible in HTML
-			text = text.replace(/</g, '&lt;');
-			return `<pre class="language-${lang}"><code>${text}</code></pre>`;
+		listitem: renderListItem,
+		link: function (this: RendererThis, { tokens }: Tokens.Link): string | false {
+			const text = this.parser.parseInline(tokens);
+			return text;
 		},
-		codespan: function (this: RendererThis, { text }: Tokens.Codespan): string {
-			// Remote code may include characters that need to be escaped to be visible in HTML
-			text = text.replace(/</g, '&lt;');
-			return `<code>${text}</code>`;
+		code: function (this: RendererThis, { text }: Tokens.Code): string {
+			// In inline mode, wrap in code tag but without pre block formatting
+			return `<code>${escape(text, true)}</code>`;
+		},
+
+		br: function (): string {
+			// In inline mode, render as a space instead of line break
+			return ' ';
+		},
+		html: function (): string {
+			// In inline mode, skip HTML tags
+			return '';
 		},
 	};
 }
@@ -263,11 +318,4 @@ function renderThemeIcon(icon: ThemeIcon): string {
 
 function escapeDoubleQuotes(input: string) {
 	return input.replace(/"/g, '&quot;');
-}
-
-function removeMarkdownEscapes(text: string): string {
-	if (!text) {
-		return text;
-	}
-	return text.replace(/\\([\\`*_{}[\]()#+\-.!~])/g, '$1');
 }

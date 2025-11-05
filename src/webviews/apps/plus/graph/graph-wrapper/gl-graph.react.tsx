@@ -21,6 +21,7 @@ import type { ReactElement } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../../config';
+import { splitCommitMessage } from '../../../../../git/utils/commit.utils';
 import type { DateTimeFormat } from '../../../../../system/date';
 import { formatDate, fromNow } from '../../../../../system/date';
 import { first, groupByFilterMap } from '../../../../../system/iterable';
@@ -566,14 +567,22 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const emptyConfig = useMemo(() => ({}) as unknown as NonNullable<typeof props.config>, []);
 	const config = useMemo(() => props.config ?? emptyConfig, [props.config, emptyConfig]);
 
+	const formatCommitMessage = (commitMessage: string) => {
+		const { summary, body } = splitCommitMessage(commitMessage);
+
+		return {
+			summary: <GlMarkdown markdown={summary} inline></GlMarkdown>,
+			body: body ? <GlMarkdown markdown={body} inline></GlMarkdown> : undefined,
+		};
+	};
+
 	return (
 		<GraphContainer
 			ref={graphRef}
 			avatarUrlByEmail={props.avatars}
 			columnsSettings={props.columns}
 			contexts={context}
-			// @ts-expect-error returnType of formatCommitMessage callback expects to be string, but it works fine with react element
-			formatCommitMessage={e => <GlMarkdown markdown={e}></GlMarkdown>}
+			formatCommitMessage={formatCommitMessage}
 			cssVariables={props.theming?.cssVariables}
 			dimMergeCommits={config.dimMergeCommits}
 			downstreamsByUpstream={props.downstreams}
