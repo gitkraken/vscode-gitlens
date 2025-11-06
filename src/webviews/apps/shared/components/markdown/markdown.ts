@@ -3,9 +3,12 @@ import { customElement, property } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { until } from 'lit/directives/until.js';
 import type { RendererObject, RendererThis, Tokens } from 'marked';
-import { marked } from 'marked';
+import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 import { ruleStyles } from '../../../plus/shared/components/vscode.css';
+
+let inlineMarked: Marked | undefined;
+let blockMarked: Marked | undefined;
 
 @customElement('gl-markdown')
 export class GlMarkdown extends LitElement {
@@ -124,12 +127,16 @@ export class GlMarkdown extends LitElement {
 	}
 
 	private async renderMarkdown(markdown: string) {
-		marked.setOptions({ gfm: true });
+		let rendered;
+		if (this.inline) {
+			inlineMarked ??= new Marked({ breaks: false, gfm: true, renderer: getInlineMarkdownRenderer() });
+			// Not using parseInline here, since our custom inline renderer handles lists and other block elements manually for prettier formatting
+			rendered = await inlineMarked.parse(markdownEscapeEscapedIcons(markdown));
+		} else {
+			blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer() });
+			rendered = await blockMarked.parse(markdownEscapeEscapedIcons(markdown));
+		}
 
-		const renderer = this.inline ? getInlineMarkdownRenderer() : getMarkdownRenderer();
-		marked.use({ renderer: renderer });
-
-		let rendered = await marked.parse(markdownEscapeEscapedIcons(markdown));
 		rendered = renderThemeIconsWithinText(rendered);
 		return unsafeHTML(rendered);
 	}
