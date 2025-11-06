@@ -64,7 +64,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor activeRow: AppState['activeRow'];
 
 	get isBusy(): AppState['isBusy'] {
-		return this.loading || this.searching || this.rowsStatsLoading || false;
+		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
 	}
 
 	@signalState(false)

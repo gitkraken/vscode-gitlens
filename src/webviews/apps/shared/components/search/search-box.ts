@@ -10,7 +10,6 @@ import { GlElement } from '../element';
 import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input';
 import '../code-icon';
 import '../overlays/tooltip';
-import '../progress';
 import './search-input';
 
 export { SearchModeChangeEventDetail, SearchNavigationEventDetail };
@@ -39,9 +38,6 @@ export class GlSearchBox extends GlElement {
 		}
 		:host(:focus) {
 			outline: 0;
-		}
-		progress-indicator {
-			top: -4px;
 		}
 
 		.search-navigation {
@@ -315,7 +311,6 @@ export class GlSearchBox extends GlElement {
 						<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
 					</button>
 				</gl-tooltip>
-			</div>
-			<progress-indicator ?active="${this.searching}"></progress-indicator>`;
+			</div>`;
 	}
 }

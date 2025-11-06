@@ -50,7 +50,7 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry';
 import { ruleStyles } from '../shared/components/vscode.css';
 import { graphStateContext } from './context';
 import { actionButton, linkBase } from './styles/graph.css';
-import { graphHeaderControlStyles, progressStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
+import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/button';
@@ -59,6 +59,7 @@ import '../../shared/components/code-icon';
 import '../../shared/components/menu/menu-divider';
 import '../../shared/components/menu/menu-item';
 import '../../shared/components/menu/menu-label';
+import '../../shared/components/progress';
 import '../../shared/components/overlays/popover';
 import '../../shared/components/overlays/tooltip';
 import '../../shared/components/radio/radio';
@@ -114,8 +115,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		titlebarStyles,
 		repoHeaderStyles,
 		graphHeaderControlStyles,
-		progressStyles,
 		css`
+			progress-indicator {
+				top: 0;
+			}
+
 			.mcp-tooltip::part(body) {
 				--max-width: 320px;
 			}
@@ -643,6 +647,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		return cache(
 			html`<header class="titlebar graph-app__header">
+				<progress-indicator ?active="${this.graphState.isBusy}"></progress-indicator>
 				<div class="titlebar__row titlebar__row--wrap">
 					<div class="titlebar__group">
 						<gl-repo-button-group
@@ -659,84 +664,83 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						>
 						${when(
 							this.graphState.allowed && repo,
-							() => html`
-								<span><code-icon icon="chevron-right"></code-icon></span>${when(
-									this.graphState.branchState?.pr,
-									pr => html`
-										<gl-popover placement="bottom">
-											<button slot="anchor" type="button" class="action-button">
-												<issue-pull-request
-													type="pr"
-													identifier=${`#${pr.id}`}
-													status=${pr.state}
-													compact
-												></issue-pull-request>
-											</button>
-											<div slot="content">
-												<issue-pull-request
-													type="pr"
-													name=${pr.title}
-													url=${pr.url}
-													identifier=${`#${pr.id}`}
-													status=${pr.state}
-													.date=${pr.updatedDate}
-													.dateFormat=${this.graphState.config?.dateFormat}
-													.dateStyle=${this.graphState.config?.dateStyle}
-													details
-													@gl-issue-pull-request-details=${() => {
-														this.onOpenPullRequest(pr);
-													}}
-												>
-												</issue-pull-request>
-											</div>
-										</gl-popover>
-									`,
-								)}
-								<gl-ref-button
-									href=${createWebviewCommandLink(
-										'gitlens.graph.switchToAnotherBranch',
-										this.graphState.webviewId,
-										this.graphState.webviewInstanceId,
+							() =>
+								html`<span><code-icon icon="chevron-right"></code-icon></span>${when(
+										this.graphState.branchState?.pr,
+										pr => html`
+											<gl-popover placement="bottom">
+												<button slot="anchor" type="button" class="action-button">
+													<issue-pull-request
+														type="pr"
+														identifier=${`#${pr.id}`}
+														status=${pr.state}
+														compact
+													></issue-pull-request>
+												</button>
+												<div slot="content">
+													<issue-pull-request
+														type="pr"
+														name=${pr.title}
+														url=${pr.url}
+														identifier=${`#${pr.id}`}
+														status=${pr.state}
+														.date=${pr.updatedDate}
+														.dateFormat=${this.graphState.config?.dateFormat}
+														.dateStyle=${this.graphState.config?.dateStyle}
+														details
+														@gl-issue-pull-request-details=${() => {
+															this.onOpenPullRequest(pr);
+														}}
+													>
+													</issue-pull-request>
+												</div>
+											</gl-popover>
+										`,
 									)}
-									icon
-									.ref=${this.graphState.branch}
-									?worktree=${this.graphState.branchState?.worktree}
-								>
-									<div slot="tooltip">
-										Switch Branch...
-										<hr />
-										<code-icon icon="git-branch" aria-hidden="true"></code-icon>
-										<span class="inline-code">${this.graphState.branch?.name}</span>${when(
-											this.graphState.branchState?.worktree,
-											() => html`<i> (in a worktree)</i> `,
+									<gl-ref-button
+										href=${createWebviewCommandLink(
+											'gitlens.graph.switchToAnotherBranch',
+											this.graphState.webviewId,
+											this.graphState.webviewInstanceId,
 										)}
-									</div>
-								</gl-ref-button>
-								<gl-button class="jump-to-ref" appearance="toolbar" @click=${this.handleJumpToRef}>
-									<code-icon icon="target"></code-icon>
-									<span slot="tooltip">
-										Jump to HEAD
-										<br />
-										[Alt] Jump to Reference...
+										icon
+										.ref=${this.graphState.branch}
+										?worktree=${this.graphState.branchState?.worktree}
+									>
+										<div slot="tooltip">
+											Switch Branch...
+											<hr />
+											<code-icon icon="git-branch" aria-hidden="true"></code-icon>
+											<span class="inline-code">${this.graphState.branch?.name}</span>${when(
+												this.graphState.branchState?.worktree,
+												() => html`<i> (in a worktree)</i> `,
+											)}
+										</div>
+									</gl-ref-button>
+									<gl-button class="jump-to-ref" appearance="toolbar" @click=${this.handleJumpToRef}>
+										<code-icon icon="target"></code-icon>
+										<span slot="tooltip">
+											Jump to HEAD
+											<br />
+											[Alt] Jump to Reference...
+										</span>
+									</gl-button>
+									<span>
+										<code-icon icon="chevron-right"></code-icon>
 									</span>
-								</gl-button>
-								<span>
-									<code-icon icon="chevron-right"></code-icon>
-								</span>
-								<gl-git-actions-buttons
-									.branchName=${this.graphState.branch?.name}
-									.branchState=${this.graphState.branchState}
-									.lastFetched=${this.graphState.lastFetched}
-									.state=${this.graphState}
-								></gl-git-actions-buttons>
-							`,
+									<gl-git-actions-buttons
+										.branchName=${this.graphState.branch?.name}
+										.branchState=${this.graphState.branchState}
+										.lastFetched=${this.graphState.lastFetched}
+										.state=${this.graphState}
+									></gl-git-actions-buttons>`,
 						)}
 					</div>
 					<div class="titlebar__group">
 						${when(
 							!(this.graphState.state.mcpBannerCollapsed ?? true),
-							() => html`
-								<gl-popover class="mcp-tooltip" placement="bottom" trigger="click focus hover">
+							() =>
+								html`<gl-popover class="mcp-tooltip" placement="bottom" trigger="click focus hover">
 									<a
 										class="action-button action-button--mcp"
 										href=${createCommandLink('gitlens.ai.mcp.install', { source: 'graph' })}
@@ -749,8 +753,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										Leverage Git and Integration information from GitLens in AI chat.
 										<a href="https://help.gitkraken.com/mcp/mcp-getting-started">Learn more</a>
 									</div>
-								</gl-popover>
-							`,
+								</gl-popover>`,
 						)}
 						<gl-tooltip placement="bottom">
 							<a
@@ -832,12 +835,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-tooltip>
 						${when(
 							this.graphState.subscription == null || !isSubscriptionPaid(this.graphState.subscription),
-							() => html`
-								<gl-feature-badge
+							() =>
+								html`<gl-feature-badge
 									.source=${{ source: 'graph', detail: 'badge' } as const}
 									.subscription=${this.graphState.subscription}
-								></gl-feature-badge>
-							`,
+								></gl-feature-badge>`,
 						)}
 					</div>
 				</div>
@@ -847,8 +849,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						this.graphState.workingTreeStats != null &&
 						(this.graphState.workingTreeStats.hasConflicts ||
 							this.graphState.workingTreeStats.pausedOpStatus),
-					() => html`
-						<div class="merge-conflict-warning">
+					() =>
+						html`<div class="merge-conflict-warning">
 							<gl-merge-rebase-status
 								class="merge-conflict-warning__content"
 								?conflicts=${this.graphState.workingTreeStats?.hasConflicts}
@@ -862,13 +864,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									webviewInstance: this.graphState.webviewInstanceId,
 								}}
 							></gl-merge-rebase-status>
-						</div>
-					`,
+						</div>`,
 				)}
 				${when(
 					this.graphState.allowed,
-					() => html`
-						<div class="titlebar__row">
+					() =>
+						html`<div class="titlebar__row">
 							<div class="titlebar__group">
 								<gl-tooltip placement="top" content="Branches Visibility">
 									<sl-select
@@ -1202,15 +1203,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									</gl-popover>
 								</span>
 							</div>
-						</div>
-					`,
+						</div>`,
 				)}
-				<div
-					class=${`progress-container infinite${this.graphState.isBusy ? ' active' : ''}`}
-					role="progressbar"
-				>
-					<div class="progress-bar"></div>
-				</div>
 			</header>`,
 		);
 	}

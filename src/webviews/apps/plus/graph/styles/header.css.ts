@@ -11,61 +11,6 @@ export const repoHeaderStyles = css`
 	}
 `;
 
-export const progressStyles = css`
-	.progress-container {
-		position: absolute;
-		left: 0;
-		bottom: 0;
-		z-index: 5;
-		height: 2px;
-		width: 100%;
-		overflow: hidden;
-	}
-	.progress-container .progress-bar {
-		background-color: var(--vscode-progressBar-background);
-		display: none;
-		position: absolute;
-		left: 0;
-		width: 2%;
-		height: 2px;
-	}
-
-	.progress-container.active .progress-bar {
-		display: inherit;
-	}
-
-	.progress-container.discrete .progress-bar {
-		left: 0;
-		transition: width 0.1s linear;
-	}
-
-	.progress-container.discrete.done .progress-bar {
-		width: 100%;
-	}
-
-	.progress-container.infinite .progress-bar {
-		animation-name: progress;
-		animation-duration: 4s;
-		animation-iteration-count: infinite;
-		animation-timing-function: steps(100);
-		transform: translateZ(0);
-	}
-
-	@keyframes progress {
-		0% {
-			transform: translateX(0) scaleX(1);
-		}
-
-		50% {
-			transform: translateX(2500%) scaleX(3);
-		}
-
-		to {
-			transform: translateX(4900%) scaleX(1);
-		}
-	}
-`;
-
 export const titlebarStyles = css`
 	.titlebar {
 		background: var(--titlebar-bg);
