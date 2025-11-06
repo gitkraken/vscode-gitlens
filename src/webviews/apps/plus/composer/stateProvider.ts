@@ -58,12 +58,18 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 					...this._state,
 					generatingCommits: false,
 					commits: msg.params.commits,
-					hunks: this._state.hunks.map(hunk => ({
+					hunks: (msg.params.hunks ?? this._state.hunks).map(hunk => ({
 						...hunk,
 						assigned: true,
 					})),
 					hasUsedAutoCompose: true,
 					timestamp: Date.now(),
+					recompose: this._state.recompose?.enabled
+						? {
+								...this._state.recompose,
+								locked: false,
+							}
+						: this._state.recompose,
 				};
 
 				(this as any)._state = updatedState;
@@ -143,6 +149,12 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 					timestamp: Date.now(),
 					hasUsedAutoCompose: false,
 					repositoryState: msg.params.repositoryState,
+					recompose: this._state.recompose?.enabled
+						? {
+								...this._state.recompose,
+								locked: true,
+							}
+						: this._state.recompose,
 				};
 
 				(this as any)._state = updatedState;

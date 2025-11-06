@@ -11,6 +11,7 @@ export interface ComposerCommandArgs {
 	source?: Sources;
 	mode?: 'experimental' | 'preview';
 	includedUnstagedChanges?: boolean;
+	branchName?: string;
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];

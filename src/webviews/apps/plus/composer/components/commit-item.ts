@@ -84,6 +84,9 @@ export class CommitItem extends LitElement {
 	isPreviewMode = false;
 
 	@property({ type: Boolean })
+	isRecomposeLocked = false;
+
+	@property({ type: Boolean })
 	first = false;
 
 	@property({ type: Boolean })
@@ -123,7 +126,9 @@ export class CommitItem extends LitElement {
 			<div
 				class="composer-item commit-item ${this.selected ? ' is-selected' : ''}${this.multiSelected
 					? ' multi-selected'
-					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}"
+					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}${this.isRecomposeLocked
+					? ' is-recompose-locked'
+					: ''}"
 				tabindex="0"
 				@click=${this.handleClick}
 				@keydown=${this.handleClick}

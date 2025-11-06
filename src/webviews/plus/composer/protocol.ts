@@ -1,4 +1,5 @@
 import type { Sources } from '../../../constants.telemetry';
+import type { GitCommitIdentityShape } from '../../../git/models/commit';
 import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { AIModel } from '../../../plus/ai/models/model';
 import type { IpcScope, WebviewState } from '../../protocol';
@@ -23,6 +24,8 @@ export interface ComposerHunkBase {
 	assigned?: boolean; // True when this hunk's index is in any commit's hunkIndices array
 	isRename?: boolean; // True for rename-only hunks
 	originalFileName?: string; // Original filename for renames
+	author?: GitCommitIdentityShape; // Author of the commit this hunk belongs to, if any
+	coAuthors?: GitCommitIdentityShape[]; // Co-authors of the commit this hunk belongs to, if any
 }
 
 export interface ComposerCommit {
@@ -44,7 +47,9 @@ export interface ComposerBaseCommit {
 
 export interface ComposerSafetyState {
 	repoPath: string;
+	branchName?: string;
 	headSha: string | null;
+	baseSha: string | null;
 	// branchName: string;
 	// branchRefSha: string;
 	// worktreeName: string;
@@ -52,6 +57,7 @@ export interface ComposerSafetyState {
 		staged: string | null;
 		unstaged: string | null;
 		unified: string | null;
+		commits?: string | null; // Combined diff hash for branch mode
 	};
 
 	// stagedDiff: string | null; // null if no staged changes when composer opened
@@ -94,6 +100,11 @@ export interface State extends WebviewState<'gitlens.composer'> {
 
 	// Mode controls
 	mode: 'experimental' | 'preview'; // experimental = normal mode, preview = locked AI preview mode
+	recompose: {
+		enabled: boolean; // true if composer is in recompose mode
+		branchName?: string; // name of the branch being recomposed
+		locked: boolean; // true if commits are locked (cannot be reordered/edited)
+	} | null;
 
 	// AI settings
 	aiEnabled: {
@@ -135,6 +146,7 @@ export const initialState: Omit<State, keyof WebviewState<'gitlens.composer'>> =
 	workingDirectoryHasChanged: false,
 	indexHasChanged: false,
 	mode: 'preview',
+	recompose: null,
 	aiEnabled: {
 		org: false,
 		config: false,
@@ -154,6 +166,7 @@ export interface ComposerContext {
 		lines: number;
 		staged: boolean;
 		unstaged: boolean;
+		commits: boolean;
 		unstagedIncluded: boolean;
 	};
 	commits: {
@@ -226,6 +239,7 @@ export const baseContext: ComposerContext = {
 		lines: 0,
 		staged: false,
 		unstaged: false,
+		commits: false,
 		unstagedIncluded: false,
 	},
 	commits: {
@@ -456,6 +470,7 @@ export interface ReloadComposerParams {
 
 export interface DidGenerateCommitsParams {
 	commits: ComposerCommit[];
+	hunks?: ComposerHunk[];
 }
 
 export interface DidGenerateCommitMessageParams {

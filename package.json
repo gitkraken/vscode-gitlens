@@ -7925,6 +7925,21 @@
 				"title": "Quick Open File History"
 			},
 			{
+				"command": "gitlens.recomposeBranch",
+				"title": "Recompose Commits (Preview)...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.recomposeBranch:graph",
+				"title": "Recompose Commits (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.recomposeBranch:views",
+				"title": "Recompose Commits (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.regenerateMarkdownDocument",
 				"title": "Regenerate",
 				"icon": "$(refresh)"
@@ -12691,6 +12706,18 @@
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.recomposeBranch",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.recomposeBranch:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.recomposeBranch:views",
 					"when": "false"
 				},
 				{
@@ -18312,6 +18339,11 @@
 					"command": "gitlens.ai.explainUnpushed:views",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@20"
+				},
+				{
+					"command": "gitlens.recomposeBranch:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_ai@15"
 				},
 				{
 					"command": "gitlens.views.openBranchOnRemote",
@@ -24189,6 +24221,11 @@
 					"command": "gitlens.ai.explainUnpushed:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@20"
+				},
+				{
+					"command": "gitlens.recomposeBranch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_ai@15"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",

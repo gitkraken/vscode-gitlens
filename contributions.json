@@ -4404,6 +4404,36 @@
 				]
 			}
 		},
+		"gitlens.recomposeBranch": {
+			"label": "Recompose Commits (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.recomposeBranch:graph": {
+			"label": "Recompose Commits (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_ai",
+						"order": 15
+					}
+				]
+			}
+		},
+		"gitlens.recomposeBranch:views": {
+			"label": "Recompose Commits (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_ai",
+						"order": 15
+					}
+				]
+			}
+		},
 		"gitlens.regenerateMarkdownDocument": {
 			"label": "Regenerate",
 			"icon": "$(refresh)",

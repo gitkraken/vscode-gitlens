@@ -17,6 +17,7 @@ import type { InspectCommandArgs } from '../../../commands/inspect';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
 import type { CreatePatchCommandArgs } from '../../../commands/patches';
+import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch';
 import type {
 	Config,
 	GraphBranchesVisibility,
@@ -722,6 +723,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.ai.explainUnpushed:graph', this.aiExplainUnpushed),
 			this.host.registerWebviewCommand('gitlens.ai.explainBranch:graph', this.explainBranch),
 			this.host.registerWebviewCommand('gitlens.ai.explainCommit:graph', this.explainCommit),
+			this.host.registerWebviewCommand('gitlens.recomposeBranch:graph', this.recomposeBranch),
 			this.host.registerWebviewCommand('gitlens.ai.explainStash:graph', this.explainStash),
 			this.host.registerWebviewCommand('gitlens.ai.explainWip:graph', this.explainWip),
 
@@ -4021,6 +4023,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			source: { source: 'graph', context: { type: 'branch' } },
 		});
 	}
+
+	@log()
+	private recomposeBranch(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'branch');
+		if (ref == null) return Promise.resolve();
+
+		return executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
+			repoPath: ref.repoPath,
+			branchName: ref.name,
+			source: 'graph',
+		});
+	}
+
 	@log()
 	private explainCommit(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
