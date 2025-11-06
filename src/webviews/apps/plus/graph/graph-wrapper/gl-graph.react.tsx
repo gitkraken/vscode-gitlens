@@ -16,7 +16,7 @@ import type {
 	GraphZoneType,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
-import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
+import GraphContainer, { CommitDateTimeSources, noShaHighlightedSha, refZone } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -576,6 +576,13 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		};
 	};
 
+	let footer;
+	if (props.searchResults?.count === 0) {
+		footer = <>No results found</>;
+	} else if (props.searchResults?.count && !props.searchResults.paging?.hasMore && !props.loading) {
+		footer = <>No more results found</>;
+	}
+
 	return (
 		<GraphContainer
 			ref={graphRef}
@@ -597,7 +604,11 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			graphRows={props.rows ?? emptyRows}
 			hasMoreCommits={props.paging?.hasMore}
 			// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
-			highlightedShas={props.searchResults?.ids as GraphContainerProps['highlightedShas']}
+			highlightedShas={
+				props.searchResults?.count === 0
+					? { [noShaHighlightedSha]: true }
+					: (props.searchResults?.ids as GraphContainerProps['highlightedShas'])
+			}
 			highlightRowsOnRefHover={config.highlightRowsOnRefHover}
 			includeOnlyRefsById={props.includeOnlyRefs}
 			scrollRowPadding={config.scrollRowPadding}
@@ -646,6 +657,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}
 			workDirStats={props.workingTreeStats}
+			customFooterRow={footer}
 		/>
 	);
 });
