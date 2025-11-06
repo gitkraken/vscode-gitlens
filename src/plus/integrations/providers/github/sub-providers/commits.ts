@@ -3,6 +3,7 @@ import type { CancellationToken, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../../constants.search';
 import type { Source } from '../../../../../constants.telemetry';
 import type { Container } from '../../../../../container';
+import { CancellationError } from '../../../../../errors';
 import type { GitCache } from '../../../../../git/cache';
 import type {
 	GitCommitsSubProvider,
@@ -22,7 +23,7 @@ import type { GitLog } from '../../../../../git/models/log';
 import type { GitRevisionRange } from '../../../../../git/models/revision';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitUser } from '../../../../../git/models/user';
-import { parseSearchQuery } from '../../../../../git/search';
+import { parseSearchQueryGitHubCommand } from '../../../../../git/search';
 import { processNaturalLanguageToSearchQuery } from '../../../../../git/search.naturalLanguage';
 import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
 import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
@@ -36,7 +37,6 @@ import { GitDocumentState } from '../../../../../trackers/trackedDocument';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 import { stripOrigin } from '../githubGitProvider';
 import { fromCommitFileStatus } from '../models';
-import { getQueryArgsFromSearchQuery } from '../utils/-webview/search.utils';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 
@@ -902,7 +902,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		search: SearchQuery,
 		source: Source,
 		options?: GitSearchCommitsOptions,
-		_cancellation?: CancellationToken,
+		cancellation?: CancellationToken,
 	): Promise<SearchCommitsResult> {
 		if (repoPath == null) return { search: search, log: undefined };
 
@@ -916,7 +916,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			search = await processNaturalLanguageToSearchQuery(this.container, search, source);
 		}
 
-		const { operations } = parseSearchQuery(search);
+		const currentUser = search.query.includes('@me')
+			? await this.provider.config.getCurrentUser(repoPath)
+			: undefined;
+		if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+		const { args: queryArgs, operations } = parseSearchQueryGitHubCommand(search, currentUser);
 
 		const values = operations.get('commit:');
 		if (values?.size) {
@@ -936,7 +941,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			};
 		}
 
-		const queryArgs = await getQueryArgsFromSearchQuery(this.provider, search, operations, repoPath);
 		if (!queryArgs.length) return { search: search, log: undefined };
 
 		const limit = this.provider.getPagingLimit(options?.limit);

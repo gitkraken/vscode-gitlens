@@ -7,16 +7,16 @@ import type { GitUser } from './models/user';
 import { isSha, shortenRevision } from './utils/revision.utils';
 
 export interface GitGraphSearchResultData {
-	date: number;
-	i: number;
+	readonly date: number;
+	readonly i: number;
 }
 export type GitGraphSearchResults = Map<string, GitGraphSearchResultData>;
 
 export interface GitGraphSearch {
-	repoPath: string;
-	query: SearchQuery;
-	comparisonKey: string;
-	results: GitGraphSearchResults;
+	readonly repoPath: string;
+	readonly query: SearchQuery;
+	readonly comparisonKey: string;
+	readonly results: GitGraphSearchResults;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
@@ -203,7 +203,7 @@ export interface SearchQueryFilters {
 	refs: boolean;
 }
 
-export interface SearchQueryCommand {
+export interface SearchQueryGitCommand {
 	/** Git log args */
 	args: string[];
 	/** Pathspecs to search, if any */
@@ -212,19 +212,19 @@ export interface SearchQueryCommand {
 	shas?: Set<string> | undefined;
 
 	filters: SearchQueryFilters;
+	operations: Map<SearchOperatorsLongForm, Set<string>>;
 }
 
-export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUser | undefined): SearchQueryCommand {
+export function parseSearchQueryGitCommand(
+	search: SearchQuery,
+	currentUser: GitUser | undefined,
+): SearchQueryGitCommand {
 	const { operations } = parseSearchQuery(search);
 
 	const searchArgs = new Set<string>();
 	const files: string[] = [];
 	let shas;
-	const filters: SearchQueryFilters = {
-		files: false,
-		type: undefined,
-		refs: false,
-	};
+	const filters: SearchQueryFilters = { files: false, type: undefined, refs: false };
 
 	let op;
 	let values = operations.get('commit:');
@@ -404,5 +404,103 @@ export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUse
 		files: files,
 		shas: shas,
 		filters: filters,
+		operations: operations,
 	};
+}
+
+export interface SearchQueryGitHubCommand {
+	/** Query args */
+	args: string[];
+
+	filters: SearchQueryFilters;
+	operations: Map<SearchOperatorsLongForm, Set<string>>;
+}
+
+export function parseSearchQueryGitHubCommand(
+	search: SearchQuery,
+	currentUser: GitUser | undefined,
+): SearchQueryGitHubCommand {
+	const { operations } = parseSearchQuery(search);
+
+	const queryArgs = [];
+	const filters: SearchQueryFilters = { files: false, type: undefined, refs: false };
+
+	for (const [op, values] of operations.entries()) {
+		switch (op) {
+			case 'message:':
+				for (let value of values) {
+					if (!value) continue;
+
+					if (value.startsWith('"') && value.endsWith('"')) {
+						value = value.slice(1, -1);
+						if (!value) continue;
+					}
+
+					if (search.matchWholeWord && search.matchRegex) {
+						value = `\\b${value}\\b`;
+					}
+
+					queryArgs.push(value.replace(/ /g, '+'));
+				}
+				break;
+
+			case 'author:': {
+				for (let value of values) {
+					if (!value) continue;
+
+					if (value.startsWith('"') && value.endsWith('"')) {
+						value = value.slice(1, -1);
+						if (!value) continue;
+					}
+
+					if (value === '@me') {
+						if (!currentUser?.name) continue;
+
+						value = `@${currentUser.username}`;
+					}
+
+					value = value.replace(/ /g, '+');
+					if (value.startsWith('@')) {
+						value = value.slice(1);
+						queryArgs.push(`author:${value.slice(1)}`);
+					} else if (value.includes('@')) {
+						queryArgs.push(`author-email:${value}`);
+					} else {
+						queryArgs.push(`author-name:${value}`);
+					}
+				}
+
+				break;
+			}
+
+			case 'type:':
+			case 'file:':
+			case 'change:':
+			case 'ref:':
+				// Not supported in GitHub search
+				break;
+
+			case 'after:':
+			case 'before:': {
+				const flag = op === 'after:' ? 'author-date:>' : 'author-date:<';
+
+				for (let value of values) {
+					if (!value) continue;
+
+					if (value.startsWith('"') && value.endsWith('"')) {
+						value = value.slice(1, -1);
+						if (!value) continue;
+					}
+
+					// if value is YYYY-MM-DD then include it, otherwise we can't use it
+					if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+						queryArgs.push(`${flag}${value}`);
+					}
+				}
+				break;
+			}
+		}
+	}
+
+	return { args: queryArgs, filters: filters, operations: operations };
 }

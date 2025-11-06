@@ -21,7 +21,7 @@ import type { GitRemote } from '../../../../../git/models/remote';
 import type { GitUser } from '../../../../../git/models/user';
 import type { GitWorktree } from '../../../../../git/models/worktree';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQueryGitHubCommand } from '../../../../../git/search';
 import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons';
 import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils';
@@ -41,7 +41,6 @@ import type {
 	GraphTagContextValue,
 } from '../../../../../webviews/plus/graph/protocol';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { getQueryArgsFromSearchQuery } from '../utils/-webview/search.utils';
 
 const doubleQuoteRegex = /"/g;
 
@@ -514,8 +513,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const comparisonKey = getSearchQueryComparisonKey(search);
 
 		try {
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
+
 			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			const { operations } = parseSearchQuery(search);
+			const { args: queryArgs, operations } = parseSearchQueryGitHubCommand(search, currentUser);
 
 			const values = operations.get('commit:');
 			if (values != null) {
@@ -542,8 +545,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				};
 			}
 
-			const queryArgs = await getQueryArgsFromSearchQuery(this.provider, search, operations, repoPath);
-			if (queryArgs.length === 0) {
+			if (!queryArgs.length) {
 				return {
 					repoPath: repoPath,
 					query: search,

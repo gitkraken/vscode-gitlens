@@ -29,7 +29,7 @@ import {
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '../../../../git/search';
 import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
@@ -643,7 +643,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				? await this.provider.config.getCurrentUser(repoPath)
 				: undefined;
 
-			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
 
 			const tipsOnly = filters.type === 'tip';
 			const parser = getShaAndDatesLogParser(tipsOnly);

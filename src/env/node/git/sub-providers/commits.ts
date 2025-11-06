@@ -41,7 +41,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
 import type { SearchQueryFilters } from '../../../../git/search';
-import { parseSearchQueryCommand } from '../../../../git/search';
+import { parseSearchQueryGitCommand } from '../../../../git/search';
 import { processNaturalLanguageToSearchQuery } from '../../../../git/search.naturalLanguage';
 import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils';
 import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils';
@@ -1047,7 +1047,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				'--use-mailmap',
 			];
 
-			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
 
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
