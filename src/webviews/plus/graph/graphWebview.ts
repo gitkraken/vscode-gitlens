@@ -945,9 +945,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				interaction: 'passive',
 				preserveFocus: true,
 				preserveVisibility: this._showDetailsView === false,
+				searchContext: this.getSearchContext(activeSelection.ref),
 			},
 			{ source: this.host.id },
 		);
+	}
+
+	private getSearchContext(id: string | undefined): CommitSelectedEvent['data']['searchContext'] | undefined {
+		if (!this._search?.queryFilters.files || id == null) return undefined;
+
+		const result = this._search.results.get(id);
+		return {
+			query: this._search.query,
+			queryFilters: this._search.queryFilters,
+			matchedFiles: result?.files ?? [],
+		};
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -1146,16 +1158,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
 			if (commit != null) {
-				let searchContext: CommitSelectedEvent['data']['searchContext'] | undefined;
-				if (this._search?.queryFilters.files) {
-					const result = this._search.results.get(e.row.id);
-					searchContext = {
-						query: this._search.query,
-						queryFilters: this._search.queryFilters,
-						matchedFiles: result?.files ?? [],
-					};
-				}
-
+				const searchContext = this.getSearchContext(e.row.id);
 				this.container.events.fire(
 					'commit:selected',
 					{
@@ -1876,16 +1879,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (commits == null) return;
 		if (!this._firstSelection && this.host.is('editor') && !this.host.active) return;
 
-		let searchContext: CommitSelectedEvent['data']['searchContext'] | undefined;
-		if (this._search?.queryFilters.files && id != null) {
-			const result = this._search.results.get(id);
-			searchContext = {
-				query: this._search.query,
-				queryFilters: this._search.queryFilters,
-				matchedFiles: result?.files ?? [],
-			};
-		}
-
 		this.container.events.fire(
 			'commit:selected',
 			{
@@ -1895,7 +1888,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				preserveVisibility: this._firstSelection
 					? this._showDetailsView === false
 					: this._showDetailsView !== 'selection',
-				searchContext: searchContext,
+				searchContext: this.getSearchContext(id),
 			},
 			{ source: this.host.id },
 		);
