@@ -139,6 +139,10 @@ export class GlTreeGenerator extends GlElement {
 
 		this._model = value;
 
+		// Clear stale node map before processing new model
+		// This prevents stale node references when switching commits or toggling filters
+		this._nodeMap.clear();
+
 		// Build both maps during tree flattening (single traversal)
 		let treeItems: TreeModelFlat[] | undefined;
 		if (this._model != null) {
