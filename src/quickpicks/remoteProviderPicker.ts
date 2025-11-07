@@ -62,7 +62,9 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 					}
 				} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 					let branch = resource.base.branch;
-					if (branch == null) {
+					const sameBranchMergeAttempt =
+						branch === resource.head.branch && this.remote.url === resource.head.remote.url;
+					if (branch == null || sameBranchMergeAttempt) {
 						branch = await getDefaultBranchName(Container.instance, this.remote.repoPath, this.remote.name);
 						if (branch) {
 							branch = getBranchNameWithoutRemote(branch);
