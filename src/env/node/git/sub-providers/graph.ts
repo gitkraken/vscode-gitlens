@@ -25,6 +25,7 @@ import type { GitWorktree } from '../../../../git/models/worktree';
 import {
 	getGraphParser,
 	getShaAndDatesLogParser,
+	getShaAndDatesWithFilesLogParser,
 	getShaAndStatsLogParser,
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
@@ -646,7 +647,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
 
 			const tipsOnly = filters.type === 'tip';
-			const parser = getShaAndDatesLogParser(tipsOnly);
+			const parser = filters.files
+				? getShaAndDatesWithFilesLogParser(tipsOnly)
+				: getShaAndDatesLogParser(tipsOnly);
 
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 			const args = [
@@ -745,6 +748,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						results.set(sha, {
 							i: results.size,
 							date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+							files: r.files,
 						});
 					}
 
@@ -755,6 +759,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					return {
 						repoPath: repoPath,
 						query: search,
+						queryFilters: filters,
 						comparisonKey: comparisonKey,
 						results: results,
 						paging: limit ? { limit: limit, hasMore: hasMore } : undefined,
@@ -763,7 +768,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					};
 				} catch (ex) {
 					if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
-						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+						return {
+							repoPath: repoPath,
+							query: search,
+							queryFilters: filters,
+							comparisonKey: comparisonKey,
+							results: results,
+						};
 					}
 
 					throw new GitSearchError(ex);

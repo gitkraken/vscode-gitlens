@@ -9,6 +9,24 @@
 	--gl-color-background-counter: #000;
 }
 
+// Vertical split mask for mixed filter mode icon
+action-item.filter-mode-mixed::part(icon) {
+	-webkit-mask: linear-gradient(
+		to right,
+		rgba(0, 0, 0, 1) 0%,
+		rgba(0, 0, 0, 1) 50%,
+		rgba(0, 0, 0, 0.4) 50%,
+		rgba(0, 0, 0, 0.4) 100%
+	);
+	mask: linear-gradient(
+		to right,
+		rgba(0, 0, 0, 1) 0%,
+		rgba(0, 0, 0, 1) 50%,
+		rgba(0, 0, 0, 0.4) 50%,
+		rgba(0, 0, 0, 0.4) 100%
+	);
+}
+
 .commit-detail-panel {
 	height: 100vh;
 	display: flex;

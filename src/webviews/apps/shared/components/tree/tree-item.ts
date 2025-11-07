@@ -51,6 +51,9 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	showIcon = true;
 
+	@property({ type: Boolean, reflect: true })
+	matched = false;
+
 	@property({ type: Number })
 	override tabIndex = -1;
 

@@ -73,6 +73,9 @@ export class WebviewPane extends LitElement {
 
 			.subtitle {
 				margin-left: 1rem;
+			}
+
+			.subtitle::slotted(*) {
 				opacity: 0.6;
 			}
 

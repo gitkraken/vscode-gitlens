@@ -434,11 +434,17 @@ export class GlCommitDetails extends GlDetailsBase {
 		if (stats?.files == null) return undefined;
 
 		if (typeof stats.files === 'number') {
-			return html`<commit-stats added="?" modified="${stats.files}" removed="?"></commit-stats>`;
+			return html`<commit-stats modified="${stats.files}" symbol="icons" appearance="pill"></commit-stats>`;
 		}
 
 		const { added, deleted, changed } = stats.files;
-		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
+		return html`<commit-stats
+			added="${added}"
+			modified="${changed}"
+			removed="${deleted}"
+			symbol="icons"
+			appearance="pill"
+		></commit-stats>`;
 	}
 
 	override getFileActions(_file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {

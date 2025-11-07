@@ -2,6 +2,7 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { Autolink } from '../../autolinks/models/autolinks';
 import type { Config, DateStyle } from '../../config';
 import type { Sources } from '../../constants.telemetry';
+import type { CommitSelectedEvent } from '../../eventBus';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/fileChange';
 import type { GitFileStatus } from '../../git/models/fileStatus';
@@ -116,6 +117,7 @@ export interface State extends WebviewState<'gitlens.views.commitDetails' | 'git
 	inReview?: boolean;
 	hasAccount: boolean;
 	hasIntegrationsConnected: boolean;
+	searchContext?: CommitSelectedEvent['data']['searchContext'];
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];

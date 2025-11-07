@@ -60,6 +60,11 @@ export class GlTreeGenerator extends GlElement {
 			gl-tree-item {
 				width: 100%;
 			}
+
+			/* Dim non-matched items when filter is present */
+			:host([filtered]) gl-tree-item:not([matched]) {
+				opacity: 0.6;
+			}
 		`,
 	];
 
@@ -68,6 +73,9 @@ export class GlTreeGenerator extends GlElement {
 
 	@property({ reflect: true })
 	guides?: 'none' | 'onHover' | 'always';
+
+	@property({ type: Boolean, reflect: true })
+	filtered = false;
 
 	@property({ type: String, attribute: 'aria-label' })
 	override ariaLabel = 'Tree';
@@ -233,6 +241,7 @@ export class GlTreeGenerator extends GlElement {
 			.checked=${model.checked ?? false}
 			.disableCheck=${model.disableCheck ?? false}
 			.showIcon=${model.icon != null}
+			.matched=${model.matched ?? false}
 			.selected=${isSelected}
 			.focused=${isFocused && this._containerHasFocus && !this._actionButtonHasFocus}
 			.focusedInactive=${isFocused && (!this._containerHasFocus || this._actionButtonHasFocus)}

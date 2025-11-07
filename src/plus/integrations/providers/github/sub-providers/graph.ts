@@ -518,7 +518,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				: undefined;
 
 			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			const { args: queryArgs, operations } = parseSearchQueryGitHubCommand(search, currentUser);
+			const { args: queryArgs, filters, operations } = parseSearchQueryGitHubCommand(search, currentUser);
 
 			const values = operations.get('commit:');
 			if (values != null) {
@@ -534,12 +534,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					results.set(commit.sha, {
 						i: i++,
 						date: Number(options?.ordering === 'author-date' ? commit.author.date : commit.committer.date),
+						files: commit.fileset?.files,
 					});
 				}
 
 				return {
 					repoPath: repoPath,
 					query: search,
+					queryFilters: filters,
 					comparisonKey: comparisonKey,
 					results: results,
 				};
@@ -549,6 +551,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				return {
 					repoPath: repoPath,
 					query: search,
+					queryFilters: filters,
 					comparisonKey: comparisonKey,
 					results: results,
 				};
@@ -564,7 +567,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				cursor?: string,
 			): Promise<GitGraphSearch> {
 				if (cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+					return {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: results,
+					};
 				}
 
 				limit = this.provider.getPagingLimit(limit ?? configuration.get('advanced.maxSearchItems'));
@@ -580,13 +589,20 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				});
 
 				if (result == null || cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+					return {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: results,
+					};
 				}
 
 				for (const commit of result.values) {
 					results.set(commit.sha, {
 						i: results.size,
 						date: Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
+						files: undefined,
 					});
 				}
 
@@ -595,14 +611,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				return {
 					repoPath: repoPath,
 					query: search,
+					queryFilters: filters,
 					comparisonKey: comparisonKey,
 					results: results,
-					paging: result.pageInfo?.hasNextPage
-						? {
-								limit: limit,
-								hasMore: true,
-							}
-						: undefined,
+					paging: result.pageInfo?.hasNextPage ? { limit: limit, hasMore: true } : undefined,
 					more: async (limit: number): Promise<GitGraphSearch> => searchGraphCore.call(this, limit, cursor),
 				};
 			}

@@ -1146,6 +1146,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
 			if (commit != null) {
+				let searchContext: CommitSelectedEvent['data']['searchContext'] | undefined;
+				if (this._search?.queryFilters.files) {
+					const result = this._search.results.get(e.row.id);
+					searchContext = {
+						query: this._search.query,
+						queryFilters: this._search.queryFilters,
+						matchedFiles: result?.files ?? [],
+					};
+				}
+
 				this.container.events.fire(
 					'commit:selected',
 					{
@@ -1153,6 +1163,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						interaction: 'active',
 						preserveFocus: e.preserveFocus,
 						preserveVisibility: false,
+						searchContext: searchContext,
 					},
 					{ source: this.host.id },
 				);
@@ -1165,6 +1176,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commit: commit,
 						interaction: 'active',
 						preserveVisibility: false,
+						searchContext: searchContext,
 					} satisfies CommitSelectedEvent['data']);
 				}
 			}
@@ -1864,6 +1876,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (commits == null) return;
 		if (!this._firstSelection && this.host.is('editor') && !this.host.active) return;
 
+		let searchContext: CommitSelectedEvent['data']['searchContext'] | undefined;
+		if (this._search?.queryFilters.files && id != null) {
+			const result = this._search.results.get(id);
+			searchContext = {
+				query: this._search.query,
+				queryFilters: this._search.queryFilters,
+				matchedFiles: result?.files ?? [],
+			};
+		}
+
 		this.container.events.fire(
 			'commit:selected',
 			{
@@ -1873,6 +1895,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				preserveVisibility: this._firstSelection
 					? this._showDetailsView === false
 					: this._showDetailsView !== 'selection',
+				searchContext: searchContext,
 			},
 			{ source: this.host.id },
 		);

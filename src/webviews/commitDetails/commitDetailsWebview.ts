@@ -190,6 +190,7 @@ interface Context {
 	source?: Sources;
 	hasAccount: boolean | undefined;
 	hasIntegrationsConnected: boolean | undefined;
+	searchContext?: State['searchContext'];
 }
 
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, State, CommitDetailsWebviewShowingArgs> {
@@ -982,6 +983,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			return;
 		}
 
+		// Store search context from the event
+		this._context.searchContext = e.data.searchContext;
+
 		if (this.options.attachedTo === 'graph' /*|| e.source === 'gitlens.graph'*/) {
 			if (e.data.commit.ref === uncommitted) {
 				if (this.mode !== 'wip') {
@@ -1257,6 +1261,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			inReview: current.inReview,
 			hasAccount: current.hasAccount,
 			hasIntegrationsConnected: current.hasIntegrationsConnected,
+			searchContext: current.searchContext,
 		};
 		return state;
 	}
@@ -1469,6 +1474,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		this._context.autolinkedIssues = undefined;
 		this._context.pullRequest = undefined;
 		this._context.wip = wip;
+		// Clear search context when navigating to a different commit (unless it was just set by onCommitSelected)
+		if (this._context.commit?.sha !== commitish?.ref) {
+			this._context.searchContext = undefined;
+		}
 
 		if (options?.pinned != null) {
 			this.updatePinned(options?.pinned);

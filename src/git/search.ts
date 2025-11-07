@@ -9,12 +9,14 @@ import { isSha, shortenRevision } from './utils/revision.utils';
 export interface GitGraphSearchResultData {
 	readonly date: number;
 	readonly i: number;
+	readonly files?: ReadonlyArray<Readonly<{ readonly path: string }>>;
 }
 export type GitGraphSearchResults = Map<string, GitGraphSearchResultData>;
 
 export interface GitGraphSearch {
 	readonly repoPath: string;
 	readonly query: SearchQuery;
+	readonly queryFilters: SearchQueryFilters;
 	readonly comparisonKey: string;
 	readonly results: GitGraphSearchResults;
 

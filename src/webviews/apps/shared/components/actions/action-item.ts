@@ -160,7 +160,7 @@ export class ActionItem extends LitElement {
 					tabindex="0"
 					@keydown=${this.handleLinkKeydown}
 				>
-					<code-icon icon="${this.effectiveIcon}"></code-icon>
+					<code-icon part="icon" icon="${this.effectiveIcon}"></code-icon>
 				</a>
 			</gl-tooltip>
 		`;

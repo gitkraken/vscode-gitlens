@@ -401,6 +401,7 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 								.preferences=${this.state?.preferences}
 								.orgSettings=${this.state?.orgSettings}
 								.isUncommitted=${this.isUncommitted}
+								.searchContext=${this.state?.searchContext}
 							></gl-commit-details>`,
 						() =>
 							html`<gl-wip-details
