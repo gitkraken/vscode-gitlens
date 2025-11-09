@@ -204,7 +204,7 @@ export class GlGraph extends LitElement {
 
 	private handleChangeSelection = debounce(
 		(rows: GraphRow[]): void => void this.dispatchEvent(new CustomEvent('changeselection', { detail: rows })),
-		250,
+		50,
 		{ edges: 'both' },
 	);
 

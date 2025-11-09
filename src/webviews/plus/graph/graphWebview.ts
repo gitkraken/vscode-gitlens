@@ -1857,12 +1857,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
 		undefined;
+	private _lastUserSelectionTime: number = 0;
 
 	private onSelectionChanged(e: UpdateSelectionParams) {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
 		const item = e.selection[0];
 		this.setSelectedRows(item?.id);
+
+		// Track when user explicitly selects
+		this._lastUserSelectionTime = Date.now();
 
 		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
@@ -2750,7 +2754,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const data = await dataPromise;
 					this.setGraph(data);
 
-					if (this._selectedId !== data.id) {
+					// Don't override selection if user selected something in the last 500ms
+					const userRecentlySelected = Date.now() - this._lastUserSelectionTime < 500;
+					if (!userRecentlySelected && this._selectedId !== data.id) {
 						selectionChanged = true;
 						this.setSelectedRows(data.id);
 					}
