@@ -20685,6 +20685,16 @@
 					"group": "inline@98"
 				},
 				{
+					"command": "gitlens.views.remotes.setLayoutToList",
+					"when": "viewItem == gitlens:views:remotes",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.remotes.setLayoutToTree",
+					"when": "viewItem == gitlens:views:remotes",
+					"group": "3_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.remotes.setFilesLayoutToAuto",
 					"when": "viewItem == gitlens:views:remotes",
 					"group": "3_gitlens_@0"
@@ -21755,6 +21765,16 @@
 					"group": "inline@98"
 				},
 				{
+					"command": "gitlens.views.tags.setLayoutToList",
+					"when": "viewItem == gitlens:views:tags",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.tags.setLayoutToTree",
+					"when": "viewItem == gitlens:views:tags",
+					"group": "3_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.tags.setFilesLayoutToAuto",
 					"when": "viewItem == gitlens:views:tags",
 					"group": "3_gitlens_@1"
@@ -21838,6 +21858,16 @@
 					"command": "gitlens.views.worktrees.refresh",
 					"when": "viewItem == gitlens:views:worktrees",
 					"group": "inline@98"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToList",
+					"when": "viewItem == gitlens:views:worktrees",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToTree",
+					"when": "viewItem == gitlens:views:worktrees",
+					"group": "3_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
@@ -22808,6 +22838,16 @@
 					"command": "gitlens.views.remotes.attach",
 					"when": "view == gitlens.views.remotes",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.remotes.setLayoutToList",
+					"when": "view == gitlens.views.remotes",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.remotes.setLayoutToTree",
+					"when": "view == gitlens.views.remotes",
+					"group": "3_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.remotes.setFilesLayoutToAuto",
@@ -23931,6 +23971,16 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.tags.setLayoutToList",
+					"when": "view == gitlens.views.tags",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.tags.setLayoutToTree",
+					"when": "view == gitlens.views.tags",
+					"group": "3_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.tags.setFilesLayoutToAuto",
 					"when": "view == gitlens.views.tags",
 					"group": "3_gitlens_@1"
@@ -24019,6 +24069,16 @@
 					"command": "gitlens.views.worktrees.attach",
 					"when": "view == gitlens.views.worktrees",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToList",
+					"when": "view == gitlens.views.worktrees",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToTree",
+					"when": "view == gitlens.views.worktrees",
+					"group": "3_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.worktrees.setFilesLayoutToAuto",

@@ -11955,6 +11955,11 @@
 						"order": 50
 					},
 					{
+						"when": "viewItem == gitlens:views:remotes",
+						"group": "3_gitlens",
+						"order": 0
+					},
+					{
 						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens",
 						"order": 2
@@ -11965,6 +11970,11 @@
 						"when": "view == gitlens.views.remotes && config.gitlens.views.remotes.branches.layout == tree",
 						"group": "navigation",
 						"order": 50
+					},
+					{
+						"when": "view == gitlens.views.remotes",
+						"group": "3_gitlens",
+						"order": 0
 					},
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
@@ -11993,6 +12003,11 @@
 						"order": 50
 					},
 					{
+						"when": "viewItem == gitlens:views:remotes",
+						"group": "3_gitlens",
+						"order": 0
+					},
+					{
 						"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens",
 						"order": 2
@@ -12003,6 +12018,11 @@
 						"when": "view == gitlens.views.remotes && config.gitlens.views.remotes.branches.layout == list",
 						"group": "navigation",
 						"order": 50
+					},
+					{
+						"when": "view == gitlens.views.remotes",
+						"group": "3_gitlens",
+						"order": 0
 					},
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
@@ -15990,6 +16010,11 @@
 						"when": "viewItem == gitlens:views:tags && config.gitlens.views.tags.branches.layout == tree",
 						"group": "inline",
 						"order": 50
+					},
+					{
+						"when": "viewItem == gitlens:views:tags",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				],
 				"view/title": [
@@ -16002,6 +16027,11 @@
 						"when": "view == gitlens.views.tags && config.gitlens.views.tags.branches.layout == tree",
 						"group": "navigation",
 						"order": 50
+					},
+					{
+						"when": "view == gitlens.views.tags",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				]
 			}
@@ -16028,6 +16058,11 @@
 						"when": "viewItem == gitlens:views:tags && config.gitlens.views.tags.branches.layout == list",
 						"group": "inline",
 						"order": 50
+					},
+					{
+						"when": "viewItem == gitlens:views:tags",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				],
 				"view/title": [
@@ -16040,6 +16075,11 @@
 						"when": "view == gitlens.views.tags && config.gitlens.views.tags.branches.layout == list",
 						"group": "navigation",
 						"order": 50
+					},
+					{
+						"when": "view == gitlens.views.tags",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				]
 			}
@@ -16823,6 +16863,11 @@
 						"when": "viewItem == gitlens:views:worktrees && config.gitlens.views.worktrees.branches.layout == tree",
 						"group": "inline",
 						"order": 50
+					},
+					{
+						"when": "viewItem == gitlens:views:worktrees",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				],
 				"view/title": [
@@ -16835,6 +16880,11 @@
 						"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.branches.layout == tree",
 						"group": "navigation",
 						"order": 50
+					},
+					{
+						"when": "view == gitlens.views.worktrees",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				]
 			}
@@ -16861,6 +16911,11 @@
 						"when": "viewItem == gitlens:views:worktrees && config.gitlens.views.worktrees.branches.layout == list",
 						"group": "inline",
 						"order": 50
+					},
+					{
+						"when": "viewItem == gitlens:views:worktrees",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				],
 				"view/title": [
@@ -16873,6 +16928,11 @@
 						"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.branches.layout == list",
 						"group": "navigation",
 						"order": 50
+					},
+					{
+						"when": "view == gitlens.views.worktrees",
+						"group": "3_gitlens",
+						"order": 0
 					}
 				]
 			}
