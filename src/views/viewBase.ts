@@ -596,11 +596,10 @@ export abstract class ViewBase<
 	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
 		if (node !== this.root) return promise;
 
+		const { openRepositories: repos } = this.container.git;
+
 		// If we are not grouped and we are either not filterable or there aren't multiple repos open, then just return the promise
-		if (
-			!this.grouped &&
-			(!this.isAny(...treeViewTypesSupportsRepositoryFilter) || this.container.git.openRepositories.length <= 1)
-		) {
+		if (!this.grouped && (!this.isAny(...treeViewTypesSupportsRepositoryFilter) || repos.length <= 1)) {
 			return promise;
 		}
 
@@ -626,6 +625,16 @@ export abstract class ViewBase<
 
 			return children;
 		};
+
+		if (!this.grouped && this.supportsWorktreeCollapsing) {
+			return groupRepositories(repos).then(grouped => {
+				if (grouped.size <= 1) return promise;
+
+				return isPromise(promise)
+					? promise.then(c => ensureGroupedHeaderNode(c))
+					: ensureGroupedHeaderNode(promise);
+			});
+		}
 
 		return isPromise(promise) ? promise.then(c => ensureGroupedHeaderNode(c)) : ensureGroupedHeaderNode(promise);
 	}
