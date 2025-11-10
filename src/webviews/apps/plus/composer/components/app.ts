@@ -1204,7 +1204,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get canReorderCommits(): boolean {
-		return !this.isPreviewMode && !this.commitsLocked;
+		return !this.commitsLocked;
 	}
 
 	private get isReadyToFinishAndCommit(): boolean {
