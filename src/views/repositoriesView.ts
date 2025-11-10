@@ -36,6 +36,7 @@ import { StashesNode } from './nodes/stashesNode';
 import { TagsNode } from './nodes/tagsNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
@@ -95,6 +96,19 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				() => this.setBranchesLayout('tree'),
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('setSortByDiscovered'),
+				() => this.setSortByDiscovered(),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setSortByLastFetched'),
+				() => this.setSortByLastFetched(),
+				this,
+			),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -794,6 +808,26 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByDiscovered() {
+		return updateSorting('sortRepositoriesBy', 'discovered', undefined);
+	}
+
+	private setSortByLastFetched() {
+		return updateSorting('sortRepositoriesBy', 'lastFetched', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortRepositoriesBy', 'name', 'asc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortRepositoriesBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortRepositoriesBy', 'asc');
 	}
 
 	private setShowAvatars(enabled: boolean) {

@@ -22,6 +22,7 @@ import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { RemoteNode } from './nodes/remoteNode';
 import { RemotesNode } from './nodes/remotesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
@@ -129,6 +130,10 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -353,6 +358,22 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByDate() {
+		return updateSorting('sortBranchesBy', 'date', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortBranchesBy', 'name', 'asc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortBranchesBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortBranchesBy', 'asc');
 	}
 
 	private setShowAvatars(enabled: boolean) {

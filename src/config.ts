@@ -48,6 +48,7 @@ export interface Config {
 	readonly sortContributorsBy: ContributorSorting;
 	readonly sortTagsBy: TagSorting;
 	readonly sortRepositoriesBy: RepositoriesSorting;
+	readonly sortWorktreesBy: WorktreeSorting;
 	readonly statusBar: StatusBarConfig;
 	readonly strings: StringsConfig;
 	readonly telemetry: TelemetryConfig;
@@ -92,6 +93,7 @@ export type ContributorSorting =
 	| 'score:desc'
 	| 'score:asc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
+export type WorktreeSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type CustomRemoteType =
 	| 'AzureDevOps'
 	| 'Bitbucket'

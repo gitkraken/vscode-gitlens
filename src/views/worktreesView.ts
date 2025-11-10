@@ -17,6 +17,7 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
@@ -144,6 +145,10 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -198,8 +203,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortRepositoriesBy')
-			// && !configuration.changed(e, 'sortWorktreesBy')
+			!configuration.changed(e, 'sortRepositoriesBy') &&
+			!configuration.changed(e, 'sortWorktreesBy')
 		) {
 			return false;
 		}
@@ -265,6 +270,22 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByDate() {
+		return updateSorting('sortWorktreesBy', 'date', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortWorktreesBy', 'name', 'asc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortWorktreesBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortWorktreesBy', 'asc');
 	}
 
 	private setShowAvatars(enabled: boolean) {

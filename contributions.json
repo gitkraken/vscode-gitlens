@@ -7169,6 +7169,54 @@
 				]
 			}
 		},
+		"gitlens.views.branches.setSortAscending": {
+			"label": "Ascending",
+			"enablement": "config.gitlens.sortBranchesBy =~ /:desc$/",
+			"menus": {
+				"gitlens/views/branches/sort": [
+					{
+						"group": "2_direction",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.branches.setSortByDate": {
+			"label": "Sort by Date",
+			"enablement": "config.gitlens.sortBranchesBy =~ /^name:/",
+			"menus": {
+				"gitlens/views/branches/sort": [
+					{
+						"group": "1_type",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.views.branches.setSortByName": {
+			"label": "Sort by Name",
+			"enablement": "config.gitlens.sortBranchesBy =~ /^date:/",
+			"menus": {
+				"gitlens/views/branches/sort": [
+					{
+						"group": "1_type",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.branches.setSortDescending": {
+			"label": "Descending",
+			"enablement": "config.gitlens.sortBranchesBy =~ /:asc$/",
+			"menus": {
+				"gitlens/views/branches/sort": [
+					{
+						"group": "2_direction",
+						"order": 0
+					}
+				]
+			}
+		},
 		"gitlens.views.branches.viewOptionsTitle": {
 			"label": "Branches View Options",
 			"enablement": "false",
@@ -8609,6 +8657,78 @@
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !config.gitlens.views.contributors.showStatistics",
 						"group": "5_gitlens",
 						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.views.contributors.setSortAscending": {
+			"label": "Ascending",
+			"enablement": "config.gitlens.sortContributorsBy =~ /:desc$/",
+			"menus": {
+				"gitlens/views/contributors/sort": [
+					{
+						"group": "2_direction",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.contributors.setSortByCount": {
+			"label": "Sort by Count",
+			"enablement": "config.gitlens.sortContributorsBy =~ /^(?!count:)/",
+			"menus": {
+				"gitlens/views/contributors/sort": [
+					{
+						"group": "1_type",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.views.contributors.setSortByDate": {
+			"label": "Sort by Date",
+			"enablement": "config.gitlens.sortContributorsBy =~ /^(?!date:)/",
+			"menus": {
+				"gitlens/views/contributors/sort": [
+					{
+						"group": "1_type",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.contributors.setSortByName": {
+			"label": "Sort by Name",
+			"enablement": "config.gitlens.sortContributorsBy =~ /^(?!name:)/",
+			"menus": {
+				"gitlens/views/contributors/sort": [
+					{
+						"group": "1_type",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.views.contributors.setSortByScore": {
+			"label": "Sort by Score",
+			"enablement": "config.gitlens.sortContributorsBy =~ /^(?!score:)/",
+			"menus": {
+				"gitlens/views/contributors/sort": [
+					{
+						"group": "1_type",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.contributors.setSortDescending": {
+			"label": "Descending",
+			"enablement": "config.gitlens.sortContributorsBy =~ /:asc$/",
+			"menus": {
+				"gitlens/views/contributors/sort": [
+					{
+						"group": "2_direction",
+						"order": 0
 					}
 				]
 			}
@@ -12176,6 +12296,22 @@
 				]
 			}
 		},
+		"gitlens.views.remotes.setSortAscending": {
+			"label": "Ascending",
+			"enablement": "config.gitlens.sortBranchesBy =~ /:desc$/"
+		},
+		"gitlens.views.remotes.setSortByDate": {
+			"label": "Sort Branches by Date",
+			"enablement": "config.gitlens.sortBranchesBy =~ /^name:/"
+		},
+		"gitlens.views.remotes.setSortByName": {
+			"label": "Sort Branches by Name",
+			"enablement": "config.gitlens.sortBranchesBy =~ /^date:/"
+		},
+		"gitlens.views.remotes.setSortDescending": {
+			"label": "Descending",
+			"enablement": "config.gitlens.sortBranchesBy =~ /:asc$/"
+		},
 		"gitlens.views.remotes.viewOptionsTitle": {
 			"label": "Remotes View Options",
 			"enablement": "false",
@@ -12969,6 +13105,66 @@
 						"when": "!config.gitlens.views.repositories.showWorktrees",
 						"group": "2_gitlens",
 						"order": 7
+					}
+				]
+			}
+		},
+		"gitlens.views.repositories.setSortAscending": {
+			"label": "Ascending",
+			"enablement": "config.gitlens.sortRepositoriesBy =~ /:desc$/",
+			"menus": {
+				"gitlens/views/repositories/sort": [
+					{
+						"group": "2_direction",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.repositories.setSortByDiscovered": {
+			"label": "Sort by Discovery Time",
+			"enablement": "config.gitlens.sortRepositoriesBy =~ /^(?!discovered$)/",
+			"menus": {
+				"gitlens/views/repositories/sort": [
+					{
+						"group": "1_type",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.views.repositories.setSortByLastFetched": {
+			"label": "Sort by Last Fetched",
+			"enablement": "config.gitlens.sortRepositoriesBy =~ /^(?!lastFetched:)/",
+			"menus": {
+				"gitlens/views/repositories/sort": [
+					{
+						"group": "1_type",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.repositories.setSortByName": {
+			"label": "Sort by Name",
+			"enablement": "config.gitlens.sortRepositoriesBy =~ /^(?!name:)/",
+			"menus": {
+				"gitlens/views/repositories/sort": [
+					{
+						"group": "1_type",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.views.repositories.setSortDescending": {
+			"label": "Descending",
+			"enablement": "config.gitlens.sortRepositoriesBy =~ /:asc$/",
+			"menus": {
+				"gitlens/views/repositories/sort": [
+					{
+						"group": "2_direction",
+						"order": 0
 					}
 				]
 			}
@@ -16156,6 +16352,54 @@
 				]
 			}
 		},
+		"gitlens.views.tags.setSortAscending": {
+			"label": "Ascending",
+			"enablement": "config.gitlens.sortTagsBy =~ /:desc$/",
+			"menus": {
+				"gitlens/views/tags/sort": [
+					{
+						"group": "2_direction",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.tags.setSortByDate": {
+			"label": "Sort by Date",
+			"enablement": "config.gitlens.sortTagsBy =~ /^name:/",
+			"menus": {
+				"gitlens/views/tags/sort": [
+					{
+						"group": "1_type",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.views.tags.setSortByName": {
+			"label": "Sort by Name",
+			"enablement": "config.gitlens.sortTagsBy =~ /^date:/",
+			"menus": {
+				"gitlens/views/tags/sort": [
+					{
+						"group": "1_type",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.tags.setSortDescending": {
+			"label": "Descending",
+			"enablement": "config.gitlens.sortTagsBy =~ /:asc$/",
+			"menus": {
+				"gitlens/views/tags/sort": [
+					{
+						"group": "2_direction",
+						"order": 0
+					}
+				]
+			}
+		},
 		"gitlens.views.tags.viewOptionsTitle": {
 			"label": "Tags View Options",
 			"enablement": "false",
@@ -17225,6 +17469,54 @@
 				]
 			}
 		},
+		"gitlens.views.worktrees.setSortAscending": {
+			"label": "Ascending",
+			"enablement": "config.gitlens.sortWorktreesBy =~ /:desc$/",
+			"menus": {
+				"gitlens/views/worktrees/sort": [
+					{
+						"group": "2_direction",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.worktrees.setSortByDate": {
+			"label": "Sort by Date",
+			"enablement": "config.gitlens.sortWorktreesBy =~ /^name:/",
+			"menus": {
+				"gitlens/views/worktrees/sort": [
+					{
+						"group": "1_type",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.views.worktrees.setSortByName": {
+			"label": "Sort by Name",
+			"enablement": "config.gitlens.sortWorktreesBy =~ /^date:/",
+			"menus": {
+				"gitlens/views/worktrees/sort": [
+					{
+						"group": "1_type",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.worktrees.setSortDescending": {
+			"label": "Descending",
+			"enablement": "config.gitlens.sortWorktreesBy =~ /:asc$/",
+			"menus": {
+				"gitlens/views/worktrees/sort": [
+					{
+						"group": "2_direction",
+						"order": 0
+					}
+				]
+			}
+		},
 		"gitlens.views.worktrees.viewOptionsTitle": {
 			"label": "Worktrees View Options",
 			"enablement": "false",
@@ -17958,6 +18250,44 @@
 				]
 			}
 		},
+		"gitlens/views/branches/sort": {
+			"label": "Sort By",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:branches",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.branches",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens/views/contributors/sort": {
+			"label": "Sort By",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:contributors",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.contributors",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				]
+			}
+		},
 		"gitlens/views/grouped/attachOrDetach": {
 			"label": "Group / Detach Views",
 			"menus": {
@@ -18204,6 +18534,82 @@
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && !gitlens:plus:disabled && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "navigation",
 						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens/views/remotes/sort": {
+			"label": "Sort Branches By",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:remotes",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.remotes",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens/views/repositories/sort": {
+			"label": "Sort By",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:repositories",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.repositories",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens/views/tags/sort": {
+			"label": "Sort By",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:tags",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.tags",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens/views/worktrees/sort": {
+			"label": "Sort By",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:worktrees",
+						"group": "2_gitlens_sort",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.worktrees",
+						"group": "2_gitlens_sort",
+						"order": 0
 					}
 				]
 			}
