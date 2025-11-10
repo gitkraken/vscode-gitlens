@@ -18,6 +18,8 @@ interface PromiseCacheOptions {
 	accessTTL?: number;
 	/** Whether to expire the entry if the promise fails (default: true) */
 	expireOnError?: boolean;
+	/** Maximum number of entries in the cache (LRU eviction when exceeded) */
+	capacity?: number;
 }
 
 export class PromiseCache<K, V> {
@@ -72,9 +74,9 @@ export class PromiseCache<K, V> {
 		};
 		this.cache.set(key, entry);
 
-		// Clean up other expired entries
+		// Clean up expired entries and enforce capacity limit in one pass
 		if (this.cache.size > 1) {
-			queueMicrotask(() => this.cleanupExpired());
+			queueMicrotask(() => this.cleanup());
 		}
 
 		if (options?.expireOnError ?? true) {
@@ -84,12 +86,37 @@ export class PromiseCache<K, V> {
 		return promise;
 	}
 
-	private cleanupExpired(): void {
+	private cleanup(): void {
 		const now = Date.now();
+		const capacity = this.options.capacity;
 
+		// If no capacity limit, just remove expired entries
+		if (capacity == null) {
+			for (const [key, entry] of this.cache.entries()) {
+				if (this.expired(entry, now)) {
+					this.cache.delete(key);
+				}
+			}
+			return;
+		}
+
+		// Single pass: collect non-expired entries and find LRU candidates
+		const entries: Array<[K, CacheEntry<V>]> = [];
 		for (const [key, entry] of this.cache.entries()) {
-			if (this.expired(entry, now)) {
+			if (!this.expired(entry, now)) {
+				entries.push([key, entry]);
+			} else {
 				this.cache.delete(key);
+			}
+		}
+
+		// If still over capacity, remove LRU entries
+		const excess = entries.length - capacity;
+		if (excess > 0) {
+			// Sort by accessed time (oldest first) and remove the excess
+			entries.sort((a, b) => a[1].accessed - b[1].accessed);
+			for (let i = 0; i < excess; i++) {
+				this.cache.delete(entries[i][0]);
 			}
 		}
 	}

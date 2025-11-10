@@ -306,6 +306,13 @@ export interface IncomingActivityOptions extends GitLogOptionsBase {
 	skip?: number;
 }
 
+export interface GitCommitReachability {
+	readonly refs: (
+		| { readonly refType: 'branch'; readonly name: string; readonly remote: boolean; readonly current?: boolean }
+		| { readonly refType: 'tag'; readonly name: string; readonly current?: never }
+	)[];
+}
+
 export interface GitCommitsSubProvider {
 	getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined>;
 	getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined>;
@@ -362,6 +369,11 @@ export interface GitCommitsSubProvider {
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
 	): Promise<SearchCommitsResult>;
+	getCommitReachability?(
+		repoPath: string,
+		rev: string,
+		cancellation?: CancellationToken,
+	): Promise<GitCommitReachability | undefined>;
 }
 
 export interface GitOperationsSubProvider {

@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../config';
 import type { GlCommands } from '../../../constants.commands';
+import type { GitCommitReachability } from '../../../git/gitProvider';
 import type { IpcSerialized } from '../../../system/ipcSerialize';
 import { pluralize } from '../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol';
@@ -28,6 +29,7 @@ import {
 	PublishCommand,
 	PullCommand,
 	PushCommand,
+	ReachabilityRequest,
 	SearchCommitCommand,
 	ShowCodeSuggestionCommand,
 	StageFileCommand,
@@ -89,6 +91,12 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 
 	@state()
 	private draftState: DraftState = { inReview: false };
+
+	@state()
+	private reachability?: GitCommitReachability;
+
+	@state()
+	private reachabilityState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
 
 	@state()
 	private get isUncommitted(): boolean {
@@ -402,6 +410,10 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 								.orgSettings=${this.state?.orgSettings}
 								.isUncommitted=${this.isUncommitted}
 								.searchContext=${this.state?.searchContext}
+								.reachability=${this.reachability}
+								.reachabilityState=${this.reachabilityState}
+								@load-reachability=${() => this.onLoadReachability()}
+								@refresh-reachability=${() => this.onRefreshReachability()}
 							></gl-commit-details>`,
 						() =>
 							html`<gl-wip-details
@@ -496,6 +508,33 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 		} catch (_ex) {
 			this.explain = { error: { message: 'Error retrieving content' } };
 		}
+	}
+
+	private async onLoadReachability() {
+		if (this.reachabilityState === 'loading' || this.state?.commit == null) return;
+
+		this.reachabilityState = 'loading';
+
+		try {
+			const result = await this._ipc.sendRequest(ReachabilityRequest, undefined);
+
+			if (result.error) {
+				this.reachabilityState = 'error';
+				this.reachability = undefined;
+			} else {
+				this.reachabilityState = 'loaded';
+				this.reachability = { refs: result.refs };
+			}
+		} catch {
+			this.reachabilityState = 'error';
+			this.reachability = undefined;
+		}
+	}
+
+	private onRefreshReachability() {
+		this.reachabilityState = 'idle';
+		this.reachability = undefined;
+		void this.onLoadReachability();
 	}
 
 	private async onCreateGenerateTitle(_e: CreatePatchMetadataEventDetail) {

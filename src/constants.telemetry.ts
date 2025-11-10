@@ -133,9 +133,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'command/core': CoreCommandEvent;
 
 	/** Sent when the Inspect view is shown */
-	'commitDetails/shown': CommitDetailsShownEvent;
+	'commitDetails/shown': DetailsShownEvent;
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
-	'commitDetails/mode/changed': CommitDetailsModeChangedEvent;
+	'commitDetails/mode/changed': DetailsModeChangedEvent;
+	/** Sent when commit reachability is successfully loaded */
+	'commitDetails/reachability/loaded': DetailsReachabilityLoadedEvent;
+	/** Sent when commit reachability fails to load */
+	'commitDetails/reachability/failed': DetailsReachabilityFailedEvent;
 
 	/** Sent when the Commit Composer is first loaded with repo data */
 	'composer/loaded': ComposerEvent;
@@ -203,9 +207,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/searched': GraphSearchedEvent;
 
 	/** Sent when the Graph Details view is shown */
-	'graphDetails/shown': GraphDetailsShownEvent;
+	'graphDetails/shown': DetailsShownEvent;
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
-	'graphDetails/mode/changed': GraphDetailsModeChangedEvent;
+	'graphDetails/mode/changed': DetailsModeChangedEvent;
+	/** Sent when commit reachability is successfully loaded in Graph Details */
+	'graphDetails/reachability/loaded': DetailsReachabilityLoadedEvent;
+	/** Sent when commit reachability fails to load in Graph Details */
+	'graphDetails/reachability/failed': DetailsReachabilityFailedEvent;
 
 	/** Sent when a Home command is executed */
 	'home/command': CommandEventData;
@@ -646,12 +654,23 @@ interface CoreCommandEvent {
 	command: string;
 }
 
-type CommitDetailsShownEvent = WebviewShownEventData & InspectShownEventData;
+type DetailsShownEvent = WebviewShownEventData & InspectShownEventData;
 
-type CommitDetailsModeChangedEvent = InspectContextEventData & {
+type DetailsModeChangedEvent = InspectContextEventData & {
 	'mode.old': 'wip' | 'commit';
 	'mode.new': 'wip' | 'commit';
 };
+
+interface DetailsReachabilityLoadedEvent {
+	'refs.count': number;
+	duration: number;
+}
+
+interface DetailsReachabilityFailedEvent {
+	duration: number;
+	'failed.reason': 'git-error' | 'timeout' | 'unknown';
+	'failed.error'?: string;
+}
 
 export type FeaturePreviewDayEventData = Record<`day.${number}.startedOn`, string>;
 export type FeaturePreviewEventData = {
@@ -728,12 +747,6 @@ interface GraphSearchedEvent extends GraphContextEventData {
 	'failed.error'?: string;
 	'failed.error.detail'?: string;
 }
-
-type GraphDetailsShownEvent = WebviewShownEventData & InspectShownEventData;
-type GraphDetailsModeChangedEvent = InspectContextEventData & {
-	'mode.old': 'wip' | 'commit';
-	'mode.new': 'wip' | 'commit';
-};
 
 export type HomeTelemetryContext = WebviewTelemetryContext & {
 	'context.preview': string | undefined;

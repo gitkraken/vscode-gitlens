@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css';
 import { handleUnsafeOverlayContent } from '../overlays/overlays.utils';
 import { focusOutline } from '../styles/lit/a11y.css';
@@ -75,7 +76,7 @@ export class ActionChip extends LitElement {
 			::slotted(*) {
 				padding-inline-end: 0.2rem;
 				vertical-align: middle;
-				text-transform: capitalize;
+				text-transform: var(--chip-text-transform, capitalize);
 			}
 		`,
 	];
@@ -124,7 +125,12 @@ export class ActionChip extends LitElement {
 				href=${this.href ?? nothing}
 				slot=${this.overlay === 'popover' ? 'anchor' : nothing}
 			>
-				<code-icon part="icon" icon="${this.icon}"></code-icon><slot></slot>
+				<code-icon
+					part="icon"
+					icon="${this.icon}"
+					modifier="${ifDefined(this.icon === 'loading' ? 'spin' : '')}"
+				></code-icon
+				><slot></slot>
 			</a>
 		`;
 	}

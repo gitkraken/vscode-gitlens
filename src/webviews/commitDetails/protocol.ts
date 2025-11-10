@@ -3,6 +3,7 @@ import type { Autolink } from '../../autolinks/models/autolinks';
 import type { Config, DateStyle } from '../../config';
 import type { Sources } from '../../constants.telemetry';
 import type { CommitSelectedEvent } from '../../eventBus';
+import type { GitCommitReachability } from '../../git/gitProvider';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/fileChange';
 import type { GitFileStatus } from '../../git/models/fileStatus';
@@ -227,6 +228,15 @@ export type DidGenerateParams =
 	  }
 	| { error: { message: string } };
 export const GenerateRequest = new IpcRequest<void, DidGenerateParams>(scope, 'generate');
+
+export type DidReachabilityParams =
+	| {
+			readonly refs: GitCommitReachability['refs'];
+			duration: number;
+			error?: never;
+	  }
+	| { error: { message: string }; duration: number };
+export const ReachabilityRequest = new IpcRequest<void, DidReachabilityParams>(scope, 'reachability');
 
 // NOTIFICATIONS
 

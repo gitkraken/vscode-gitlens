@@ -885,6 +885,29 @@ or
 }
 ```
 
+### commitDetails/reachability/failed
+
+> Sent when commit reachability fails to load
+
+```typescript
+{
+  'duration': number,
+  'failed.error': string,
+  'failed.reason': 'unknown' | 'git-error' | 'timeout'
+}
+```
+
+### commitDetails/reachability/loaded
+
+> Sent when commit reachability is successfully loaded
+
+```typescript
+{
+  'duration': number,
+  'refs.count': number
+}
+```
+
 ### commitDetails/showAborted
 
 ```typescript
@@ -2261,6 +2284,29 @@ or
   'context.webview.type': string,
   'mode.new': 'wip' | 'commit',
   'mode.old': 'wip' | 'commit'
+}
+```
+
+### graphDetails/reachability/failed
+
+> Sent when commit reachability fails to load in Graph Details
+
+```typescript
+{
+  'duration': number,
+  'failed.error': string,
+  'failed.reason': 'unknown' | 'git-error' | 'timeout'
+}
+```
+
+### graphDetails/reachability/loaded
+
+> Sent when commit reachability is successfully loaded in Graph Details
+
+```typescript
+{
+  'duration': number,
+  'refs.count': number
 }
 ```
 

@@ -142,6 +142,7 @@ import {
 	PublishCommand,
 	PullCommand,
 	PushCommand,
+	ReachabilityRequest,
 	SearchCommitCommand,
 	ShowCodeSuggestionCommand,
 	StageFileCommand,
@@ -546,6 +547,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 			case GenerateRequest.is(e):
 				void this.generateRequest(GenerateRequest, e);
+				break;
+
+			case ReachabilityRequest.is(e):
+				void this.reachabilityRequest(ReachabilityRequest, e);
 				break;
 
 			case StageFileCommand.is(e):
@@ -1207,6 +1212,57 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		}
 
 		void this.host.respond(requestType, msg, params);
+	}
+
+	private async reachabilityRequest<T extends typeof ReachabilityRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		const startTime = Date.now();
+
+		try {
+			const commit = this._context.commit;
+			if (commit == null) {
+				void this.host.respond(requestType, msg, {
+					error: { message: 'Unable to find commit' },
+					duration: Date.now() - startTime,
+				});
+				return;
+			}
+
+			const result = await this.container.git
+				.getRepositoryService(commit.repoPath)
+				.commits.getCommitReachability?.(commit.sha, this._cancellationTokenSource?.token);
+
+			const duration = Date.now() - startTime;
+
+			this.container.telemetry.sendEvent(
+				`${this.options.attachedTo === 'graph' ? 'graphDetails' : 'commitDetails'}/reachability/loaded`,
+				{
+					'refs.count': result?.refs.length ?? 0,
+					duration: duration,
+				},
+			);
+
+			void this.host.respond(requestType, msg, { refs: result?.refs ?? [], duration: duration });
+		} catch (ex) {
+			const duration = Date.now() - startTime;
+			const errorMessage = ex instanceof Error ? ex.message : String(ex);
+
+			this.container.telemetry.sendEvent(
+				`${this.options.attachedTo === 'graph' ? 'graphDetails' : 'commitDetails'}/reachability/failed`,
+				{
+					duration: duration,
+					'failed.reason': ex instanceof Error && ex.name === 'CancellationError' ? 'timeout' : 'git-error',
+					'failed.error': errorMessage,
+				},
+			);
+
+			void this.host.respond(requestType, msg, {
+				error: { message: 'Failed trying to find branches or tags that contain this commit' },
+				duration: duration,
+			});
+		}
 	}
 
 	private navigateStack(direction: 'back' | 'forward') {
@@ -1890,7 +1946,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		void this.setMode(params.mode, repo);
 
 		this.container.telemetry.sendEvent(
-			`${this.options.attachedTo ? 'graphDetails' : 'commitDetails'}/mode/changed`,
+			`${this.options.attachedTo === 'graph' ? 'graphDetails' : 'commitDetails'}/mode/changed`,
 			{
 				...this.getTelemetryContext(),
 				'mode.old': currentMode,

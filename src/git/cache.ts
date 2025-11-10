@@ -6,7 +6,7 @@ import type { PromiseOrValue } from '../system/promise';
 import type { PromiseCache } from '../system/promiseCache';
 import { PromiseMap } from '../system/promiseCache';
 import { PathTrie } from '../system/trie';
-import type { CachedGitTypes, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
+import type { CachedGitTypes, GitCommitReachability, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
@@ -105,6 +105,13 @@ export class GitCache implements Disposable {
 			: undefined;
 	}
 
+	private _reachabilityCache: Map<RepoPath, PromiseCache<string, GitCommitReachability | undefined>> | undefined;
+	get reachability(): Map<RepoPath, PromiseCache<string, GitCommitReachability | undefined>> | undefined {
+		return this.useCaching
+			? (this._reachabilityCache ??= new Map<RepoPath, PromiseCache<string, GitCommitReachability | undefined>>())
+			: undefined;
+	}
+
 	private _remotesCache: PromiseMap<RepoPath, GitRemote[]> | undefined;
 	get remotes(): PromiseMap<RepoPath, GitRemote[]> | undefined {
 		return this.useCaching ? (this._remotesCache ??= new PromiseMap<RepoPath, GitRemote[]>()) : undefined;
@@ -145,6 +152,7 @@ export class GitCache implements Disposable {
 			cachesToClear.add(this._branchCache);
 			cachesToClear.add(this._branchesCache);
 			cachesToClear.add(this._defaultBranchNameCache);
+			cachesToClear.add(this._reachabilityCache);
 		}
 
 		if (!types.length || types.includes('contributors')) {
@@ -204,6 +212,8 @@ export class GitCache implements Disposable {
 		this._contributorsLiteCache = undefined;
 		this._pausedOperationStatusCache?.clear();
 		this._pausedOperationStatusCache = undefined;
+		this._reachabilityCache?.clear();
+		this._reachabilityCache = undefined;
 		this._remotesCache?.clear();
 		this._remotesCache = undefined;
 		this._stashesCache?.clear();

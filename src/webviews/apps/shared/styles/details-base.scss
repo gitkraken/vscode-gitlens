@@ -175,15 +175,165 @@ ul {
 
 .message-block-row--actions {
 	font-size: 1.3rem;
-	color: var(--color-foreground--50);
+	color: var(--color-foreground--65);
 	background: var(--color-background--level-075);
 	border-radius: 0 0 0.2rem 0.2rem;
-	padding-inline-end: 0.2rem;
+	padding: 0.2rem;
 
 	gl-action-chip::part(icon),
 	gl-autolink-chip::part(icon),
-	gl-commit-date {
+	gl-commit-date,
+	.reachability-summary code-icon {
 		--code-icon-size: 1.3rem;
+	}
+
+	gl-commit-date {
+		margin-inline-end: 0.2rem;
+	}
+
+	gl-action-chip.error {
+		background-color: var(--color-alert-errorBackground);
+	}
+
+	gl-action-chip.warning {
+		background-color: var(--color-alert-warningHoverBackground);
+	}
+}
+
+// Reachability styles
+.reachability-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+	align-items: center;
+	overflow: hidden;
+}
+
+.reachability-range-chip-wrapper {
+	display: inline-block;
+	max-width: 100%;
+
+	@media (max-width: 768px) {
+		flex: 1 1 100%;
+	}
+}
+
+.reachability-range-chip {
+	color: var(--color-foreground);
+	opacity: 0.8;
+	border-radius: 0.3rem;
+	padding: 0.1rem 0.25rem;
+	--chip-text-transform: none;
+	display: inline-flex !important;
+	min-width: 0;
+	max-width: 100%;
+	width: auto;
+	transition:
+		opacity 0.3s ease-in-out,
+		color 0.3s ease-in-out;
+
+	&:hover,
+	&:focus {
+		color: var(--color-foreground);
+		opacity: 1;
+	}
+
+	&--range {
+		cursor: pointer;
+	}
+
+	&--local-branch {
+		background-color: color-mix(
+			in srgb,
+			var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor) 75%,
+			transparent
+		);
+	}
+
+	&--remote-branch {
+		background-color: color-mix(
+			in srgb,
+			var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor) 55%,
+			transparent
+		);
+	}
+
+	&--tag {
+		background-color: var(--vscode-gitlens-graphScrollMarkerTagsColor);
+	}
+
+	&--current &__label {
+		font-weight: 600;
+	}
+
+	&__label {
+		flex: 1 1 auto;
+		min-width: 0;
+		max-width: 100%;
+		width: 100%;
+		padding-left: 0.25rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.95em;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	&__ellipsis {
+		opacity: 0.8;
+		padding: 0 0.4rem;
+	}
+
+	&__count {
+		padding-left: 0.4rem;
+		font-weight: 600;
+		font-size: 0.85em;
+	}
+}
+
+.reachability-popover {
+	min-width: 200px;
+	max-width: 400px;
+
+	&__header {
+		padding-bottom: 0.6rem;
+		font-weight: 500;
+	}
+
+	&__list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		max-height: 300px;
+		overflow-y: auto;
+	}
+}
+
+.reachability-list-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.3rem 0.4rem;
+	font-size: 0.95em;
+	line-height: 1.4;
+
+	&--current {
+		font-weight: 600;
+	}
+
+	&__icon {
+		flex-shrink: 0;
+		opacity: 0.8;
+		font-size: 1.1em;
+	}
+
+	&__label {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 }
 

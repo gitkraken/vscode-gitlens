@@ -7,6 +7,7 @@ import type { GitCache } from '../../../../git/cache';
 import type { GitCommandOptions } from '../../../../git/commandOptions';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type {
+	GitCommitReachability,
 	GitCommitsSubProvider,
 	GitLogForPathOptions,
 	GitLogOptions,
@@ -53,6 +54,9 @@ import { filterMap, first, join, last, some } from '../../../../system/iterable'
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
+import { wait } from '../../../../system/promise';
+import type { Cancellable } from '../../../../system/promiseCache';
+import { PromiseCache } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
@@ -172,6 +176,104 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			return undefined;
 		}
+	}
+
+	@log()
+	async getCommitReachability(
+		repoPath: string,
+		rev: string,
+		cancellation?: CancellationToken,
+	): Promise<GitCommitReachability | undefined> {
+		if (repoPath == null || isUncommitted(rev)) return undefined;
+
+		const scope = getLogScope();
+
+		const getCore = async (cancellable?: Cancellable) => {
+			try {
+				// Use for-each-ref with %(HEAD) to mark current branch with *
+				const result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+					'for-each-ref',
+					'--contains',
+					rev,
+					'--format=%(HEAD)%(refname)',
+					'--sort=-version:refname',
+					'--sort=-committerdate',
+					'--sort=-HEAD',
+					'refs/heads/',
+					'refs/remotes/',
+					'refs/tags/',
+				);
+				if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+				const refs: GitCommitReachability['refs'] = [];
+
+				// Parse branches from refs/heads/ and refs/remotes/
+				if (result?.stdout) {
+					const lines = result.stdout.split('\n');
+
+					for (let line of lines) {
+						line = line.trim();
+						if (!line) continue;
+
+						// %(HEAD) outputs '*' for current branch, ' ' for others
+						const isCurrent = line.startsWith('*');
+						const refname = isCurrent ? line.substring(1) : line; // Skip the HEAD marker
+
+						// Skip HEADs
+						if (refname.endsWith('/HEAD')) continue;
+
+						if (refname.startsWith('refs/heads/')) {
+							// Remove 'refs/heads/'
+							const name = refname.substring(11);
+							refs.push({
+								refType: 'branch',
+								name: name,
+								remote: false,
+								current: isCurrent,
+							});
+						} else if (refname.startsWith('refs/remotes/')) {
+							// Remove 'refs/remotes/'
+							refs.push({ refType: 'branch', name: refname.substring(13), remote: true });
+						} else if (refname.startsWith('refs/tags/')) {
+							// Remove 'refs/tags/'
+							refs.push({ refType: 'tag', name: refname.substring(10) });
+						}
+					}
+				}
+
+				// Sort to move tags to the end, preserving order within each type
+				refs.sort((a, b) => (a.refType !== b.refType ? (a.refType === 'tag' ? 1 : -1) : 0));
+
+				await wait(20000);
+
+				return { refs: refs };
+			} catch (ex) {
+				cancellable?.cancelled();
+				debugger;
+				if (isCancellationError(ex)) throw ex;
+
+				Logger.error(ex, scope);
+
+				return undefined;
+			}
+		};
+
+		const cache = this.cache.reachability;
+		if (cache == null) return getCore();
+
+		let reachabilityCache = cache.get(repoPath);
+		if (reachabilityCache == null) {
+			cache.set(
+				repoPath,
+				(reachabilityCache = new PromiseCache<string, GitCommitReachability | undefined>({
+					accessTTL: 1000 * 60 * 60, // 60 minutes
+					capacity: 25, // Limit to 25 commits per repo
+				})),
+			);
+		}
+
+		return reachabilityCache.get(rev, getCore);
 	}
 
 	@log()
