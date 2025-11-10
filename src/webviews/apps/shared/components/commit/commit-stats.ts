@@ -63,7 +63,7 @@ export class CommitStats extends LitElement {
 		}
 
 		.icon {
-			--code-icon-size: 0.94017em;
+			--code-icon-size: 0.9rem;
 			margin-inline-end: 0.2rem;
 		}
 
