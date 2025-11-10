@@ -2710,7 +2710,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		let selectedId = this._selectedId;
 		let selectionChanged = false;
 
+		// Skip default row selection if we have a pending search request
+		// to avoid jumping to WIP/HEAD before the search is applied
 		if (
+			searchRequest == null &&
 			selectedId !== uncommitted &&
 			hasWorkingChanges &&
 			configuration.get('graph.initialRowSelection') === 'wip'
