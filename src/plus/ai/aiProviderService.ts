@@ -1,5 +1,6 @@
 import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
 import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
+import { fetch } from '@env/fetch';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai';
 import {
 	anthropicProviderDescriptor,
