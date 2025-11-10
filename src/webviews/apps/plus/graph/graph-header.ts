@@ -18,10 +18,12 @@ import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
 import { createCommandLink } from '../../../../system/commands';
 import { debounce } from '../../../../system/decorators/debounce';
+import { hasTruthyKeys } from '../../../../system/object';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type {
 	DidChooseRefParams,
 	GraphExcludedRef,
+	GraphExcludeRefs,
 	GraphExcludeTypes,
 	GraphMinimapMarkerTypes,
 	GraphSearchResults,
@@ -938,6 +940,56 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		</gl-tooltip>`;
 	}
 
+	private renderHiddenRefs(excludeRefs: GraphExcludeRefs | undefined) {
+		if (!hasTruthyKeys(excludeRefs)) return nothing;
+
+		return html`<gl-popover
+			class="popover"
+			placement="bottom-start"
+			trigger="click focus"
+			?arrow=${false}
+			distance=${0}
+		>
+			<gl-tooltip placement="top" slot="anchor">
+				<button type="button" id="hiddenRefs" class="action-button">
+					<code-icon icon=${`eye-closed`}></code-icon>
+					${Object.values(excludeRefs ?? {}).length}
+					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
+				</button>
+				<span slot="content">Hidden Branches / Tags</span>
+			</gl-tooltip>
+			<div slot="content">
+				<menu-label>Hidden Branches / Tags</menu-label>
+				${when(
+					this.excludeRefs.length > 0,
+					() => html`
+						${repeat(
+							this.excludeRefs,
+							ref => html`
+								<menu-item
+									@click=${(event: CustomEvent) => {
+										this.handleOnToggleRefsVisibilityClick(event, [ref], true);
+									}}
+									class="flex-gap"
+								>
+									${this.renderRemoteAvatarOrIcon(ref)}
+									<span>${ref.name}</span>
+								</menu-item>
+							`,
+						)}
+						<menu-item
+							@click=${(event: CustomEvent) => {
+								this.handleOnToggleRefsVisibilityClick(event, this.excludeRefs, true);
+							}}
+						>
+							Show All
+						</menu-item>
+					`,
+				)}
+			</div>
+		</gl-popover>`;
+	}
+
 	private renderTitlebarSearchRow(repo: RepositoryShape | undefined) {
 		if (!this.graphState.allowed) return nothing;
 
@@ -956,58 +1008,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return html`
 			<div class="titlebar__row">
 				<div class="titlebar__group">
-					${this.renderBranchVisibility(repo)}
-					<div class=${`shrink ${!Object.values(excludeRefs ?? {}).length && 'hidden'}`}>
-						<gl-popover
-							class="popover"
-							placement="bottom-start"
-							trigger="click focus"
-							?arrow=${false}
-							distance=${0}
-						>
-							<gl-tooltip placement="top" slot="anchor">
-								<button type="button" id="hiddenRefs" class="action-button">
-									<code-icon icon=${`eye-closed`}></code-icon>
-									${Object.values(excludeRefs ?? {}).length}
-									<code-icon
-										class="action-button__more"
-										icon="chevron-down"
-										aria-hidden="true"
-									></code-icon>
-								</button>
-								<span slot="content">Hidden Branches / Tags</span>
-							</gl-tooltip>
-							<div slot="content">
-								<menu-label>Hidden Branches / Tags</menu-label>
-								${when(
-									this.excludeRefs.length > 0,
-									() => html`
-										${repeat(
-											this.excludeRefs,
-											ref => html`
-												<menu-item
-													@click=${(event: CustomEvent) => {
-														this.handleOnToggleRefsVisibilityClick(event, [ref], true);
-													}}
-													class="flex-gap"
-												>
-													${this.renderRemoteAvatarOrIcon(ref)}
-													<span>${ref.name}</span>
-												</menu-item>
-											`,
-										)}
-										<menu-item
-											@click=${(event: CustomEvent) => {
-												this.handleOnToggleRefsVisibilityClick(event, this.excludeRefs, true);
-											}}
-										>
-											Show All
-										</menu-item>
-									`,
-								)}
-							</div>
-						</gl-popover>
-					</div>
+					${this.renderBranchVisibility(repo)} ${this.renderHiddenRefs(excludeRefs)}
 					<gl-popover
 						class="popover"
 						placement="bottom-start"
