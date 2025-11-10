@@ -8756,12 +8756,12 @@
 			{
 				"command": "gitlens.views.branches.setSortByDate",
 				"title": "Sort by Date",
-				"enablement": "config.gitlens.sortBranchesBy =~ /^name:/"
+				"enablement": "config.gitlens.sortBranchesBy =~ /^(?!date:)/"
 			},
 			{
 				"command": "gitlens.views.branches.setSortByName",
 				"title": "Sort by Name",
-				"enablement": "config.gitlens.sortBranchesBy =~ /^date:/"
+				"enablement": "config.gitlens.sortBranchesBy =~ /^(?!name:)/"
 			},
 			{
 				"command": "gitlens.views.branches.setSortDescending",
@@ -9888,12 +9888,12 @@
 			{
 				"command": "gitlens.views.remotes.setSortByDate",
 				"title": "Sort Branches by Date",
-				"enablement": "config.gitlens.sortBranchesBy =~ /^name:/"
+				"enablement": "config.gitlens.sortBranchesBy =~ /^(?!date:)/"
 			},
 			{
 				"command": "gitlens.views.remotes.setSortByName",
 				"title": "Sort Branches by Name",
-				"enablement": "config.gitlens.sortBranchesBy =~ /^date:/"
+				"enablement": "config.gitlens.sortBranchesBy =~ /^(?!name:)/"
 			},
 			{
 				"command": "gitlens.views.remotes.setSortDescending",
@@ -10740,12 +10740,12 @@
 			{
 				"command": "gitlens.views.tags.setSortByDate",
 				"title": "Sort by Date",
-				"enablement": "config.gitlens.sortTagsBy =~ /^name:/"
+				"enablement": "config.gitlens.sortTagsBy =~ /^(?!date:)/"
 			},
 			{
 				"command": "gitlens.views.tags.setSortByName",
 				"title": "Sort by Name",
-				"enablement": "config.gitlens.sortTagsBy =~ /^date:/"
+				"enablement": "config.gitlens.sortTagsBy =~ /^(?!name:)/"
 			},
 			{
 				"command": "gitlens.views.tags.setSortDescending",
@@ -10983,12 +10983,12 @@
 			{
 				"command": "gitlens.views.worktrees.setSortByDate",
 				"title": "Sort by Date",
-				"enablement": "config.gitlens.sortWorktreesBy =~ /^name:/"
+				"enablement": "config.gitlens.sortWorktreesBy =~ /^(?!date:)/"
 			},
 			{
 				"command": "gitlens.views.worktrees.setSortByName",
 				"title": "Sort by Name",
-				"enablement": "config.gitlens.sortWorktreesBy =~ /^date:/"
+				"enablement": "config.gitlens.sortWorktreesBy =~ /^(?!name:)/"
 			},
 			{
 				"command": "gitlens.views.worktrees.setSortDescending",
@@ -18193,6 +18193,24 @@
 					"command": "gitlens.views.scm.grouped.worktrees.detach",
 					"when": "gitlens:views:scm:grouped:view == worktrees",
 					"group": "9_gitlens@3"
+				}
+			],
+			"gitlens/views/remotes/sort": [
+				{
+					"command": "gitlens.views.remotes.setSortByDate",
+					"group": "1_type@0"
+				},
+				{
+					"command": "gitlens.views.remotes.setSortByName",
+					"group": "1_type@1"
+				},
+				{
+					"command": "gitlens.views.remotes.setSortDescending",
+					"group": "2_direction@0"
+				},
+				{
+					"command": "gitlens.views.remotes.setSortAscending",
+					"group": "2_direction@1"
 				}
 			],
 			"gitlens/views/repositories/sort": [

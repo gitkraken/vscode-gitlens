@@ -581,6 +581,10 @@ export type ContributedCommands =
 	| 'gitlens.views.remotes.setShowAvatarsOn'
 	| 'gitlens.views.remotes.setShowBranchPullRequestOff'
 	| 'gitlens.views.remotes.setShowBranchPullRequestOn'
+	| 'gitlens.views.remotes.setSortAscending'
+	| 'gitlens.views.remotes.setSortByDate'
+	| 'gitlens.views.remotes.setSortByName'
+	| 'gitlens.views.remotes.setSortDescending'
 	| 'gitlens.views.remotes.viewOptionsTitle'
 	| 'gitlens.views.removeRemote'
 	| 'gitlens.views.renameBranch'
@@ -1073,8 +1077,4 @@ export type ContributedKeybindingCommands =
 export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'
-	| 'gitlens.plus.cloudIntegrations.connect'
-	| 'gitlens.views.remotes.setSortAscending'
-	| 'gitlens.views.remotes.setSortByDate'
-	| 'gitlens.views.remotes.setSortByName'
-	| 'gitlens.views.remotes.setSortDescending';
+	| 'gitlens.plus.cloudIntegrations.connect';
