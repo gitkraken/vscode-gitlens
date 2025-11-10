@@ -107,6 +107,8 @@ export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQu
 export interface ParsedSearchQuery {
 	operations: Map<SearchOperatorsLongForm, Set<string>>;
 	errors?: string[];
+	/** Positions of operators in the original query string */
+	operatorRanges?: { start: number; end: number; operator: SearchOperators }[];
 }
 
 export function createSearchQueryForCommit(ref: string): string;
@@ -126,6 +128,7 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 	const query = search.query.trim();
 
 	let errors: string[] | undefined;
+	let operatorRanges: Array<{ start: number; end: number; operator: SearchOperators }> | undefined;
 	let pos = 0;
 
 	while (pos < query.length) {
@@ -146,8 +149,17 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 
 			if (query.startsWith(operator, pos)) {
 				op = operator as SearchOperators;
+				const operatorStart = pos;
 				const startPos = pos + operator.length;
 				pos = startPos;
+
+				// Track operator position
+				operatorRanges ??= [];
+				operatorRanges.push({
+					start: operatorStart,
+					end: startPos,
+					operator: op,
+				});
 
 				// Skip optional space after operator
 				if (query[pos] === ' ') {
@@ -231,6 +243,7 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 	return {
 		operations: operations,
 		...(errors?.length && { errors: errors }),
+		...(operatorRanges?.length && { operatorRanges: operatorRanges }),
 	};
 }
 

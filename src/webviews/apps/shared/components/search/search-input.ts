@@ -184,12 +184,12 @@ export class GlSearchInput extends GlElement {
 			line-height: 1.4;
 		}
 
-		input[aria-valid='false'] + .message {
+		input[aria-valid='false'] ~ .message {
 			background-color: var(--vscode-inputValidation-errorBackground);
 			border-color: var(--vscode-inputValidation-errorBorder);
 		}
 
-		input:not([aria-describedby='help-text']:focus) + .message {
+		input:not([aria-describedby='help-text']:focus) ~ .message {
 			display: none;
 		}
 
@@ -200,6 +200,7 @@ export class GlSearchInput extends GlElement {
 			display: inline-flex;
 			flex-direction: row;
 			gap: 0.1rem;
+			z-index: 2; /* Above input and overlay */
 		}
 
 		.controls.controls__start {
@@ -272,6 +273,65 @@ export class GlSearchInput extends GlElement {
 
 		gl-copy-container {
 			margin-top: -0.1rem;
+		}
+
+		/* Input highlighting overlay */
+		.input-container {
+			position: relative;
+		}
+
+		.input-highlight {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			pointer-events: none;
+			white-space: pre;
+			overflow: hidden;
+			box-sizing: border-box;
+			height: 2.7rem;
+			border: 1px solid transparent;
+			border-radius: 0.25rem;
+			font-family: inherit;
+			font-size: inherit;
+			line-height: 2.7rem;
+			color: var(--gl-search-input-foreground);
+			/* Match input padding exactly, but using margins to ensure clipping */
+			margin-top: 0;
+			margin-bottom: 1px;
+			margin-left: calc(1.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
+			margin-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
+		}
+
+		:host([data-natural-language-mode]) .input-highlight {
+			padding-left: calc(0.7rem + calc(1.96rem * (var(--gl-search-input-buttons-left))));
+		}
+
+		/* CSS Custom Highlight API for operators */
+		::highlight(search-operators) {
+			color: var(--vscode-textLink-foreground);
+			font-weight: 600;
+		}
+
+		/* Input with transparent background and text to show overlay */
+		.input-container input {
+			position: relative;
+			z-index: 1;
+			background: transparent;
+			/* Make input text invisible so only overlay shows */
+			color: transparent;
+			caret-color: var(--gl-search-input-foreground);
+		}
+
+		/* In natural language mode, show the input text normally */
+		:host([data-natural-language-mode]) .input-container input {
+			color: var(--gl-search-input-foreground);
+		}
+
+		/* Keep placeholder visible */
+		.input-container input::placeholder {
+			color: var(--gl-search-input-placeholder);
 		}
 	`;
 
@@ -357,6 +417,13 @@ export class GlSearchInput extends GlElement {
 			.catch(() => {});
 	}
 
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+
+		// Clean up CSS highlights
+		CSS.highlights.delete('search-operators');
+	}
+
 	override focus(options?: FocusOptions): void {
 		this.input.focus(options);
 	}
@@ -375,6 +442,16 @@ export class GlSearchInput extends GlElement {
 		this.toggleAttribute('data-ai-allowed', this.aiAllowed);
 		this.toggleAttribute('data-has-input', Boolean(this._value?.length));
 		this.toggleAttribute('data-natural-language-mode', this.naturalLanguage);
+
+		// Update highlights and sync scroll when value changes
+		if (changedProperties.has('_value') || changedProperties.has('naturalLanguage')) {
+			const input = this.input;
+			const highlight = this.renderRoot.querySelector('.input-highlight') as HTMLElement;
+			if (input && highlight) {
+				highlight.scrollLeft = input.scrollLeft;
+			}
+			this.applyHighlights();
+		}
 
 		super.updated(changedProperties);
 	}
@@ -839,22 +916,26 @@ export class GlSearchInput extends GlElement {
 						: nothing}
 					${this.renderSearchByPopover()}
 				</div>
-				<input
-					id="search"
-					part="search"
-					type="text"
-					spellcheck="false"
-					placeholder="${this.placeholder}"
-					.value="${live(this.value ?? '')}"
-					aria-valid="${!this.errorMessage}"
-					aria-describedby="${this.showHelpText ? 'help-text' : nothing}"
-					@input="${this.handleInput}"
-					@keydown="${this.handleShortcutKeys}"
-					@keyup="${this.handleKeyup}"
-					@click="${this.handleInputClick}"
-					@focus="${this.handleFocus}"
-				/>
-				${this.renderHelpText()}
+				<div class="input-container">
+					<div class="input-highlight" aria-hidden="true">${this.renderHighlightedText()}</div>
+					<input
+						id="search"
+						part="search"
+						type="text"
+						spellcheck="false"
+						placeholder="${this.placeholder}"
+						.value="${live(this.value ?? '')}"
+						aria-valid="${!this.errorMessage}"
+						aria-describedby="${this.showHelpText ? 'help-text' : nothing}"
+						@input="${this.handleInput}"
+						@keydown="${this.handleShortcutKeys}"
+						@keyup="${this.handleKeyup}"
+						@click="${this.handleInputClick}"
+						@focus="${this.handleFocus}"
+						@scroll="${this.handleInputScroll}"
+					/>
+					${this.renderHelpText()}
+				</div>
 			</div>
 			<div class="controls">
 				<gl-button
@@ -940,6 +1021,88 @@ export class GlSearchInput extends GlElement {
 			>Type your structured query and press Enter. Click <code-icon icon="sparkle"></code-icon> to toggle
 			modes.</span
 		>`;
+	}
+
+	private handleInputScroll(_e: Event) {
+		// Sync scroll position of highlight overlay with input
+		const input = this.input;
+		const highlight = this.renderRoot.querySelector('.input-highlight') as HTMLElement;
+		if (input && highlight) {
+			highlight.scrollLeft = input.scrollLeft;
+		}
+	}
+
+	/**
+	 * Applies CSS Custom Highlight API to the overlay text
+	 */
+	private applyHighlights() {
+		// Clear existing highlights
+		CSS.highlights.delete('search-operators');
+
+		// Don't highlight in natural language mode or if no value
+		if (this.naturalLanguage || !this.value) {
+			return;
+		}
+
+		const highlight = this.renderRoot.querySelector('.input-highlight') as HTMLElement;
+		if (!highlight) {
+			return;
+		}
+
+		// Parse the query to get operator positions
+		const parsed = parseSearchQuery({
+			query: this.value,
+			matchAll: this.matchAll,
+			matchCase: this.matchCase,
+			matchRegex: this.matchRegex,
+			matchWholeWord: this.matchWholeWord,
+		});
+
+		if (!parsed.operatorRanges?.length) {
+			return;
+		}
+
+		try {
+			// Find the text node - Lit may create comment nodes, so we need to search for the actual text node
+			let textNode: Node | null = null;
+			for (const node of highlight.childNodes) {
+				if (node.nodeType === Node.TEXT_NODE) {
+					textNode = node;
+					break;
+				}
+			}
+
+			if (!textNode) {
+				return;
+			}
+
+			// Create ranges for each operator
+			const ranges = parsed.operatorRanges.map(({ start, end }) => {
+				const range = new Range();
+				range.setStart(textNode, start);
+				range.setEnd(textNode, end);
+				return range;
+			});
+
+			// Apply the highlight
+			const highlightObj = new Highlight(...ranges);
+			CSS.highlights.set('search-operators', highlightObj);
+		} catch (error) {
+			console.error('[search-input] Error applying highlights:', error);
+		}
+	}
+
+	/**
+	 * Renders the highlighted text overlay for the input
+	 */
+	private renderHighlightedText() {
+		// Don't highlight in natural language mode or if no value
+		if (this.naturalLanguage || !this.value) {
+			return nothing;
+		}
+
+		// Just return the plain text - highlighting will be done via CSS Highlight API
+		return this.value;
 	}
 
 	private renderSearchByPopover() {
