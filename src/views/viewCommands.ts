@@ -68,6 +68,7 @@ import { lazy } from '../system/lazy';
 import { basename } from '../system/path';
 import { getSettledValue } from '../system/promise';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
+import type { ShowInCommitGraphCommandArgs } from '../webviews/plus/graph/registration';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ClipboardType } from './nodes/abstract/viewNode';
@@ -1628,6 +1629,28 @@ export class ViewCommands implements Disposable {
 		}
 
 		return executeCommand('gitlens.openFileHistoryInGraph', node.uri);
+	}
+
+	@command('gitlens.graph.soloBranch:views')
+	@command('gitlens.graph.soloTag:views')
+	@log()
+	private async soloReferenceInGraph(node: BranchNode | TagNode) {
+		if (!node.is('branch') && !node.is('tag')) return Promise.resolve();
+
+		const repo = this.container.git.getRepository(node.repoPath);
+		if (repo == null) return Promise.resolve();
+
+		// Show the graph with a ref: search query to filter the graph to this branch
+		return void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+			repository: repo,
+			search: {
+				query: `ref:${node.ref.name}`,
+				filter: true,
+				matchAll: false,
+				matchCase: false,
+				matchRegex: false,
+			},
+		});
 	}
 
 	@command('gitlens.views.openChangedFiles')

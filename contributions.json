@@ -3456,6 +3456,58 @@
 				]
 			}
 		},
+		"gitlens.graph.soloBranch": {
+			"label": "Solo Branch",
+			"commandPalette": true,
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b/",
+						"group": "8_gitlens_actions",
+						"order": 9
+					}
+				]
+			}
+		},
+		"gitlens.graph.soloBranch:views": {
+			"label": "Solo Branch in Commit Graph",
+			"commandPalette": true,
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b/",
+						"group": "8_gitlens_actions",
+						"order": 9
+					}
+				]
+			}
+		},
+		"gitlens.graph.soloTag": {
+			"label": "Solo Tag",
+			"commandPalette": true,
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:tag\\b/",
+						"group": "8_gitlens_actions",
+						"order": 9
+					}
+				]
+			}
+		},
+		"gitlens.graph.soloTag:views": {
+			"label": "Solo Tag in Commit Graph",
+			"commandPalette": true,
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:tag\\b/",
+						"group": "8_gitlens_actions",
+						"order": 9
+					}
+				]
+			}
+		},
 		"gitlens.graph.split": {
 			"label": "Split Commit Graph",
 			"icon": "$(split-horizontal)",

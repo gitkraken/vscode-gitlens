@@ -5,6 +5,7 @@ import type {
 	GraphContexts,
 	GraphRef,
 	GraphRefOptData,
+	GraphRefType,
 	GraphRow,
 	GraphZoneType,
 	Head,
@@ -32,6 +33,7 @@ import type { GitPausedOperationStatus } from '../../../git/models/pausedOperati
 import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
+	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
@@ -40,6 +42,7 @@ import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { GitGraphSearchResultData } from '../../../git/search';
 import type { Subscription } from '../../../plus/gk/models/subscription';
+import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { IpcScope, WebviewState } from '../../protocol';
@@ -314,10 +317,17 @@ export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scop
 
 // REQUESTS
 
+export type DidChooseRefParams =
+	| { id?: string; name: string; sha: string; refType: GitReference['refType']; graphRefType?: GraphRefType }
+	| undefined;
+
+export const JumpToHeadRequest = new IpcRequest<undefined, DidChooseRefParams>(scope, 'jumpToHead');
+
 export interface ChooseRefParams {
-	alt: boolean;
+	title: string;
+	placeholder: string;
+	include?: ReferencesQuickPickIncludes;
 }
-export type DidChooseRefParams = { name: string; sha: string } | undefined;
 export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
 
 export interface EnsureRowParams {

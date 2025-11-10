@@ -7579,6 +7579,26 @@
 				"icon": "$(eye)"
 			},
 			{
+				"command": "gitlens.graph.soloBranch",
+				"title": "Solo Branch",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.soloBranch:views",
+				"title": "Solo Branch in Commit Graph",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.soloTag",
+				"title": "Solo Tag",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.soloTag:views",
+				"title": "Solo Tag in Commit Graph",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.split",
 				"title": "Split Commit Graph",
 				"category": "GitLens",
@@ -18800,6 +18820,11 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.soloBranch:views",
+					"when": "viewItem =~ /gitlens:branch\\b/",
+					"group": "8_gitlens_actions@9"
+				},
+				{
 					"command": "gitlens.views.repositories.setShowSectionOff",
 					"when": "viewItem =~ /gitlens:(compare:branch(?=.*?\\b\\+root\\b)|branches|branch(?=.*?\\b\\+commits\\b)|reflog|remotes|stashes|status:upstream|tags|worktrees)\\b/ && view == gitlens.views.repositories && !listMultiSelection",
 					"group": "8_gitlens_toggles@99"
@@ -20242,6 +20267,11 @@
 					"command": "gitlens.views.createBranch",
 					"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_3@3"
+				},
+				{
+					"command": "gitlens.graph.soloTag:views",
+					"when": "viewItem =~ /gitlens:tag\\b/",
+					"group": "8_gitlens_actions@9"
 				},
 				{
 					"command": "gitlens.views.createTag",
@@ -24777,6 +24807,11 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.soloBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b/",
+					"group": "8_gitlens_actions@9"
+				},
+				{
 					"command": "gitlens.graph.hideRemote",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@10"
@@ -25235,6 +25270,11 @@
 					"command": "gitlens.graph.createBranch",
 					"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_3@4"
+				},
+				{
+					"command": "gitlens.graph.soloTag",
+					"when": "webviewItem =~ /gitlens:tag\\b/",
+					"group": "8_gitlens_actions@9"
 				},
 				{
 					"command": "gitlens.graph.hideTag",

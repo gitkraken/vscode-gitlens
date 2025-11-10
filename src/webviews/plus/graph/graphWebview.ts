@@ -179,6 +179,7 @@ import type {
 	GraphMissingRefsMetadataType,
 	GraphRefMetadata,
 	GraphRefMetadataType,
+	GraphRefType,
 	GraphRepository,
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
@@ -225,6 +226,7 @@ import {
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
 	GetRowHoverRequest,
+	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
@@ -240,7 +242,7 @@ import {
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from './protocol';
-import type { GraphWebviewShowingArgs } from './registration';
+import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from './registration';
 import { SearchHistory } from './searchHistory';
 
 function hasSearchQuery(arg: any): arg is { repository: Repository; search: SearchQuery } {
@@ -559,6 +561,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			),
 			this.host.registerWebviewCommand('gitlens.graph.hideTag', this.hideRef),
 
+			this.host.registerWebviewCommand('gitlens.graph.soloBranch', this.soloReference),
+			this.host.registerWebviewCommand('gitlens.graph.soloTag', this.soloReference),
+
 			this.host.registerWebviewCommand('gitlens.graph.cherryPick', this.cherryPick),
 			this.host.registerWebviewCommand('gitlens.graph.cherryPick.multi', this.cherryPick),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.copyRemoteCommitUrl', item =>
@@ -792,6 +797,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case ChooseRefRequest.is(e):
 				void this.onChooseRef(ChooseRefRequest, e);
+				break;
+			case JumpToHeadRequest.is(e):
+				void this.onJumpToHead(JumpToHeadRequest, e);
 				break;
 			case DoubleClickedCommandType.is(e):
 				void this.onDoubleClick(e.params);
@@ -1833,26 +1841,48 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return this.host.respond(requestType, msg, undefined);
 		}
 
-		let pick;
-		// If not alt, then jump directly to HEAD
-		if (!msg.params.alt) {
-			let branch = find(this._graph!.branches.values(), b => b.current);
-			if (branch == null) {
-				branch = await this.repository.git.branches.getBranch();
-			}
-			if (branch != null) {
-				pick = branch;
-			}
-		} else {
-			pick = await showReferencePicker(
-				this.repository.path,
-				`Jump to Reference ${GlyphChars.Dot} ${this.repository?.name}`,
-				'Choose a reference to jump to',
-				{ include: ReferencesQuickPickIncludes.BranchesAndTags },
-			);
+		const pick = await showReferencePicker(this.repository.path, msg.params.title, msg.params.placeholder, {
+			include: msg.params.include ?? ReferencesQuickPickIncludes.BranchesAndTags,
+		});
+
+		return this.host.respond(
+			requestType,
+			msg,
+			pick?.sha != null
+				? {
+						id: pick.id,
+						name: pick.name,
+						sha: pick.sha,
+						refType: pick.refType,
+						graphRefType: convertRefToGraphRefType(pick),
+					}
+				: undefined,
+		);
+	}
+
+	private async onJumpToHead<T extends typeof JumpToHeadRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, undefined);
 		}
 
-		return this.host.respond(requestType, msg, pick?.sha != null ? { name: pick.name, sha: pick.sha } : undefined);
+		let branch = find(this._graph!.branches.values(), b => b.current);
+		if (branch == null) {
+			branch = await this.repository.git.branches.getBranch();
+		}
+
+		return this.host.respond(
+			requestType,
+			msg,
+			branch?.sha != null
+				? {
+						id: branch.id,
+						name: branch.name,
+						sha: branch.sha,
+						refType: branch.refType,
+						graphRefType: convertRefToGraphRefType(branch),
+					}
+				: undefined,
+		);
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
@@ -3704,6 +3734,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private soloReference(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item)) return;
+
+		const { ref } = item.webviewItemValue;
+		if (ref.id == null) return;
+
+		const repo = this.container.git.getRepository(ref.repoPath);
+		if (repo == null) return Promise.resolve();
+
+		// Show the graph with a ref: search query to filter the graph to this branch
+		return void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+			repository: repo,
+			search: {
+				query: `ref:${ref.name}`,
+				filter: true,
+				matchAll: false,
+				matchCase: false,
+				matchRegex: false,
+			},
+		});
+	}
+
+	@log()
 	private switchToAnother(item?: GraphItemContext | unknown) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return RepoActions.switchTo(this.repository?.path);
@@ -4441,4 +4494,17 @@ function convertBranchUpstreamToIncludeOnlyRef(branch: GitBranch): GraphIncludeO
 		name: getBranchNameWithoutRemote(branch.upstream.name),
 		owner: branch.getRemoteName(),
 	};
+}
+
+function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
+	switch (ref.refType) {
+		case 'branch':
+			if (ref.remote) return 'remote';
+			if (ref.worktree) return 'worktree';
+			return 'head';
+		case 'tag':
+			return 'tag';
+		default:
+			return undefined;
+	}
 }
