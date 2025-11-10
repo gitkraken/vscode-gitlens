@@ -221,7 +221,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 				untrackedPaths = (await git.status?.getUntrackedFiles())?.map(f => f.path);
 				if (untrackedPaths?.length) {
 					try {
-						await git.staging?.stageFiles(untrackedPaths);
+						await git.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
 					} catch (ex) {
 						Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for patch`);
 					}
