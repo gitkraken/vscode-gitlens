@@ -157,7 +157,7 @@ export function updateRecordValue<T>(
  * @param o - The object to check
  * @returns true if the object has at least one own enumerable property, false otherwise
  */
-export function hasKeys(o: Record<string, any> | null | undefined): boolean {
+export function hasKeys(o: Record<string, any> | null | undefined): o is Record<string, any> {
 	for (const k in o) {
 		if (Object.hasOwn(o, k)) return true;
 	}
@@ -170,7 +170,10 @@ export function hasKeys(o: Record<string, any> | null | undefined): boolean {
  * @param required - The minimum number of truthy values required (default: 1)
  * @returns true if the object has at least the required number of properties with truthy values
  */
-export function hasTruthyKeys(o: Record<string, any> | null | undefined, required: number = 1): boolean {
+export function hasTruthyKeys(
+	o: Record<string, any> | null | undefined,
+	required: number = 1,
+): o is Record<string, any> {
 	let count = 0;
 	for (const k in o) {
 		if (Object.hasOwn(o, k) && o[k]) {
