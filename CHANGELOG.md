@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds ability to show file or folder histories on the _Commit Graph_ ([#4725](https://github.com/gitkraken/vscode-gitlens/issues/4725))
   - Adds _Open File History in Commit Graph_ command to files in views
   - Adds _Open Folder History in Commit Graph_ command to folders in the Explorer view
+- Adds improvements and new features to the _Commit Composer_:
+  - Allows existing branches to be recomposed via the _Recompose Commits (Preview)_ command in the context menu of branches and from the Command Palette ([#4598](https://github.com/gitkraken/vscode-gitlens/issues/4598), [#4599](https://github.com/gitkraken/vscode-gitlens/issues/4599))
+  - Allows reordering auto-composed commits by dragging and dropping them in the commit list ([#4433](https://github.com/gitkraken/vscode-gitlens/issues/4433))
+  - Improves some cases where staging or working tree changes are incorrectly detected ([#4667](https://github.com/gitkraken/vscode-gitlens/issues/4667))
+  - Adds support for untracked files ([#4636](https://github.com/gitkraken/vscode-gitlens/issues/4636))
+  - Adds support for composing without a base commit ([#4637](https://github.com/gitkraken/vscode-gitlens/issues/4637))
 
 ### Changed
 
@@ -34,6 +40,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Commit Graph_ losing row selection when graph updates ([#4544](https://github.com/gitkraken/vscode-gitlens/issues/4544))
 - Fixes "Element with id already registered" error on comparison w/ multiple repos ([#4521](https://github.com/gitkraken/vscode-gitlens/issues/4521))
 - Fixes _Commit Composer_ diffs misaligned with large editor font sizes ([#4573](https://github.com/gitkraken/vscode-gitlens/issues/4573))
+- Fixes MCP installation flow from proceeding in cases where it shouldn't ([#4672](https://github.com/gitkraken/vscode-gitlens/issues/4672), [#4673](https://github.com/gitkraken/vscode-gitlens/issues/4673), [#4674](https://github.com/gitkraken/vscode-gitlens/issues/4674))
 
 ## [17.6.2] - 2025-10-16
 
