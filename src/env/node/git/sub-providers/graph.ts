@@ -51,7 +51,7 @@ import { find, first, join, last } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { getSettledValue } from '../../../../system/promise';
-import { mixinDisposable } from '../../../../system/unifiedDisposable';
+import { createDisposable, mixinDisposable } from '../../../../system/unifiedDisposable';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type {
 	GraphBranchContextValue,
@@ -181,6 +181,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					cursor?.skip ? `--skip=${cursor.skip}` : undefined,
 					'--',
 				);
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 				const rows: GitGraphRow[] = [];
 
@@ -725,6 +726,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						'--',
 						...files,
 					);
+					using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 					let count = 0;
 					let hasMore = false;

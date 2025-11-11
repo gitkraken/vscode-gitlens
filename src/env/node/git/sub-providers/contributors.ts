@@ -16,6 +16,7 @@ import { getLogScope } from '../../../../system/logger.scope';
 import { normalizePath } from '../../../../system/path';
 import type { Cancellable } from '../../../../system/promiseCache';
 import { PromiseCache } from '../../../../system/promiseCache';
+import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { Git } from '../git';
 import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -91,6 +92,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					'log',
 					...args,
 				);
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 				for await (const c of parser.parseAsync(stream)) {
 					if (signal?.aborted || cancellation?.isCancellationRequested) {

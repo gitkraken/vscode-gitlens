@@ -169,6 +169,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 }
 
 const uniqueCounterForStdin = getScopedCounter();
+const uniqueCounterForStream = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
@@ -392,7 +393,7 @@ export class Git implements Disposable {
 			exception = undefined;
 			return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
 		} finally {
-			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), waiting);
+			this.logGitCommandComplete(gitCommand, exception, getDurationMilliseconds(start), waiting);
 		}
 	}
 
@@ -400,6 +401,7 @@ export class Git implements Disposable {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
+		const streamId = uniqueCounterForStream.next();
 
 		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
@@ -457,6 +459,7 @@ export class Git implements Disposable {
 
 		const command = await this.path();
 		const proc = spawn(command, runArgs, spawnOpts);
+
 		if (stdin) {
 			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 		}
@@ -524,7 +527,23 @@ export class Git implements Disposable {
 			});
 		});
 
+		let cleanedUp = false;
+		const cleanup = () => {
+			if (cleanedUp) return;
+			cleanedUp = true;
+
+			try {
+				disposable?.dispose();
+			} catch {}
+			try {
+				proc.removeAllListeners();
+			} catch {}
+			this.logGitCommandComplete(gitCommand, exception, getDurationMilliseconds(start), false, streamId);
+		};
+
 		try {
+			this.logGitCommandStart(gitCommand, streamId);
+
 			try {
 				if (proc.stdout) {
 					proc.stdout.setEncoding('utf8');
@@ -544,11 +563,14 @@ export class Git implements Disposable {
 			exception = ex;
 			throw ex;
 		} finally {
-			disposable?.dispose();
-			proc.removeAllListeners();
-
-			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false);
+			cleanup();
 		}
+
+		// Ensure cleanup happens immediately when the generator is explicitly closed (e.g., via break or return)
+		// This is called by JavaScript when the generator is abandoned, ensuring logGitCommand is called
+		// synchronously rather than waiting for garbage collection.
+		// eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+		return void cleanup();
 	}
 
 	private _gitLocation: GitLocation | undefined;
@@ -1685,14 +1707,25 @@ export class Git implements Disposable {
 		terminal.sendText(text, options?.execute ?? false);
 	}
 
-	private logGitCommand(command: string, ex: Error | undefined, duration: number, waiting: boolean): void {
+	private logGitCommandStart(command: string, id: number): void {
+		Logger.log(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} ${GlyphChars.Dot} starting...`);
+		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} ${GlyphChars.Dot} starting...`);
+	}
+
+	private logGitCommandComplete(
+		command: string,
+		ex: Error | undefined,
+		duration: number,
+		waiting: boolean,
+		id?: number,
+	): void {
 		const slow = duration > slowCallWarningThreshold;
 		const status = slow && waiting ? ' (slow, waiting)' : waiting ? ' (waiting)' : slow ? ' (slow)' : '';
 
 		if (ex != null) {
 			Logger.error(
 				undefined,
-				`${getLoggableScopeBlockOverride('GIT')} ${command} ${GlyphChars.Dot} ${
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT')} ${command} ${GlyphChars.Dot} ${
 					isCancellationError(ex)
 						? 'cancelled'
 						: (ex.message || String(ex) || '')
@@ -1703,13 +1736,18 @@ export class Git implements Disposable {
 			);
 		} else if (slow) {
 			Logger.warn(
-				`${getLoggableScopeBlockOverride('GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `*${duration}ms`)} ${command} [*${duration}ms]${status}`,
 			);
 		} else {
-			Logger.log(`${getLoggableScopeBlockOverride('GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`);
+			Logger.log(
+				`${getLoggableScopeBlockOverride(id ? `GIT:←${id}` : 'GIT', `${duration}ms`)} ${command} [${duration}ms]${status}`,
+			);
 		}
 
-		this.logCore(`${getLoggableScopeBlockOverride(slow ? '*' : '', `${duration}ms`)} ${command}${status}`, ex);
+		this.logCore(
+			`${getLoggableScopeBlockOverride(`${id ? `←${id}` : ''}${slow ? '*' : ''}`, `${duration}ms`)} ${command}${status}`,
+			ex,
+		);
 	}
 
 	private _gitOutput: OutputChannel | undefined;

@@ -58,6 +58,7 @@ import { wait } from '../../../../system/promise';
 import type { Cancellable } from '../../../../system/promiseCache';
 import { PromiseCache } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
+import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { Git, GitResult } from '../git';
@@ -1426,6 +1427,8 @@ async function parseCommits(
 
 		return { commits: commits, count: count, countStashChildCommits: countStashChildCommits };
 	}
+
+	using _streamDisposer = createDisposable(() => void resultOrStream.return?.(undefined));
 
 	if (stashes?.size) {
 		const allowFilteredFiles = searchFilters?.files ?? false;

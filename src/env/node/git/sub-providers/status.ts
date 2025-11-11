@@ -19,6 +19,7 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { stripFolderGlob } from '../../../../system/path';
 import { iterateByDelimiter } from '../../../../system/string';
+import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
@@ -226,6 +227,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	async hasConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean> {
 		try {
 			const stream = this.git.stream({ cwd: repoPath, cancellation: cancellation }, 'ls-files', '--unmerged');
+			using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
 			for await (const _chunk of stream) {
@@ -282,6 +284,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				'--others',
 				'--exclude-standard',
 			);
+			using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
 			for await (const _chunk of stream) {
