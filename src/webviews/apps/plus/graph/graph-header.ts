@@ -933,7 +933,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					Favorited Branches
 					<gl-tooltip placement="right" slot="suffix">
 						<code-icon icon="info"></code-icon>
-						<span slot="content"> Shows only branches that have been starred as favorites </span>
+						<span slot="content">
+							Shows only branches that have been starred as favorites
+							<br />
+							<br />
+							<i>Also includes the current branch</i>
+						</span>
 					</gl-tooltip>
 				</sl-option>
 			</sl-select>
