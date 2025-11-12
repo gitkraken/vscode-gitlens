@@ -10,19 +10,17 @@ import type {
 	ProviderResult,
 } from 'vscode';
 import { chat, Uri } from 'vscode';
-import type { ChatViewOpenOptions } from '../../@types/vscode.chat';
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type {
 	ChatAction,
 	ChatIntegrationCommandArgs,
-	ChatIssueContext,
 	ChatPromptConfig,
 	GitLensChatResult,
 	SendToChatCommandArgs,
 } from './models/chat';
-import { openChat, supportsChat } from './utils/-webview/chat.utils';
+import { openChat, supportsChat, supportsChatParticipant } from './utils/-webview/chat.utils';
 import { ChatPromptBuilder } from './utils/-webview/prompt.utils';
 
 /**
@@ -30,6 +28,7 @@ import { ChatPromptBuilder } from './utils/-webview/prompt.utils';
  */
 export class ChatService implements Disposable, ChatFollowupProvider {
 	private _chat?: ChatParticipant;
+	private _disposables!: Disposable[];
 	private readonly _promptBuilder: ChatPromptBuilder;
 	private _discoveringParticipant = false;
 
@@ -42,6 +41,9 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 				this._discoveringParticipant = false;
 			})
 			.catch();
+		void container.onReady(() => {
+			void this.sendToChat({ query: 'Hello world' });
+		});
 	}
 
 	dispose(): void {
@@ -60,15 +62,13 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 
 		try {
 			if (args.participant) {
-				await openChat({
-					query: `@${args.participant} ${args.query}`,
-					isPartialQuery: true,
-				} as ChatViewOpenOptions);
+				await openChat(`@${args.participant} ${args.query}`, {
+					execute: false,
+				});
 			} else {
-				await openChat({
-					query: args.query,
-					isPartialQuery: true,
-				} as ChatViewOpenOptions);
+				await openChat(args.query, {
+					execute: false,
+				});
 			}
 		} catch (error) {
 			Logger.error('ChatService.sendToChat', error);
@@ -111,7 +111,7 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 	 * Register the GitLens chat participant
 	 */
 	private async registerChatParticipant(): Promise<ChatParticipant | undefined> {
-		if (!(await supportsChat())) {
+		if (!(await supportsChatParticipant())) {
 			Logger.warn('ChatService: chat.createChatParticipant is not available');
 			return;
 		}
