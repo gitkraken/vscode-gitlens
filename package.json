@@ -18663,19 +18663,24 @@
 					"group": "1_gitlens_actions_1@1"
 				},
 				{
+					"command": "gitlens.recomposeBranch:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_1@2"
+				},
+				{
 					"command": "gitlens.views.rebaseOntoBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@2"
+					"group": "1_gitlens_actions_1@3"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoUpstream",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@2"
+					"group": "1_gitlens_actions_1@3"
 				},
 				{
 					"command": "gitlens.views.resetToTip",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@3"
+					"group": "1_gitlens_actions_1@4"
 				},
 				{
 					"command": "gitlens.views.associateIssueWithBranch",
@@ -18736,11 +18741,6 @@
 					"command": "gitlens.ai.explainBranch:views",
 					"when": "viewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
-				},
-				{
-					"command": "gitlens.recomposeBranch:views",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens_ai@15"
 				},
 				{
 					"command": "gitlens.ai.explainUnpushed:views",
@@ -24680,19 +24680,24 @@
 					"group": "1_gitlens_actions_1@1"
 				},
 				{
+					"command": "gitlens.recomposeBranch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_1@2"
+				},
+				{
 					"command": "gitlens.graph.rebaseOntoBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@2"
+					"group": "1_gitlens_actions_1@3"
 				},
 				{
 					"command": "gitlens.graph.rebaseOntoUpstream",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@2"
+					"group": "1_gitlens_actions_1@3"
 				},
 				{
 					"command": "gitlens.graph.resetToTip",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@3"
+					"group": "1_gitlens_actions_1@4"
 				},
 				{
 					"command": "gitlens.graph.associateIssueWithBranch",
@@ -24748,11 +24753,6 @@
 					"command": "gitlens.ai.explainBranch:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
-				},
-				{
-					"command": "gitlens.recomposeBranch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens_ai@15"
 				},
 				{
 					"command": "gitlens.ai.explainUnpushed:graph",
