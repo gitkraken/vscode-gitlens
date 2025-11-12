@@ -54,7 +54,6 @@ import { filterMap, first, join, last, some } from '../../../../system/iterable'
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
-import { wait } from '../../../../system/promise';
 import type { Cancellable } from '../../../../system/promiseCache';
 import { PromiseCache } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
@@ -245,8 +244,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 				// Sort to move tags to the end, preserving order within each type
 				refs.sort((a, b) => (a.refType !== b.refType ? (a.refType === 'tag' ? 1 : -1) : 0));
-
-				await wait(20000);
 
 				return { refs: refs };
 			} catch (ex) {
