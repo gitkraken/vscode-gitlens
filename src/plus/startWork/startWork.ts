@@ -56,7 +56,7 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import type { ChatAction, ChatIssueContext } from '../chat/models/chat';
-import { supportsChatAPI } from '../chat/utils/-webview/chat.utils';
+import { supportsChat } from '../chat/utils/-webview/chat.utils';
 import { getIssueOwner } from '../integrations/providers/utils';
 
 export type StartWorkItem = {
@@ -271,7 +271,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			assertsStartWorkStepState(state);
 
 			// Add chat integration step after issue selection
-			if (supportsChatAPI() && (state.counter < 2 || state.chatAction == null)) {
+			if ((await supportsChat()) && (state.counter < 2 || state.chatAction == null)) {
 				const result = yield* this.pickChatActionStep(state, context);
 				if (result === StepResultBreak) continue;
 				state.chatAction = result;
