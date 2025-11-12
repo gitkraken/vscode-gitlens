@@ -1,4 +1,14 @@
-import type { CancellationToken, ChatFollowup, ChatFollowupProvider, Disposable, ProviderResult } from 'vscode';
+import type {
+	CancellationToken,
+	ChatContext,
+	ChatFollowup,
+	ChatFollowupProvider,
+	ChatParticipant,
+	ChatRequest,
+	ChatResponseStream,
+	Disposable,
+	ProviderResult,
+} from 'vscode';
 import { chat, Uri } from 'vscode';
 import type { ChatViewOpenOptions } from '../../@types/vscode.chat';
 import type { Container } from '../../container';
@@ -12,31 +22,30 @@ import type {
 	GitLensChatResult,
 	SendToChatCommandArgs,
 } from './models/chat';
-import { openChat, supportsChatAPI } from './utils/-webview/chat.utils';
+import { openChat, supportsChat } from './utils/-webview/chat.utils';
 import { ChatPromptBuilder } from './utils/-webview/prompt.utils';
 
 /**
  * Service for managing AI chat integration in GitLens
  */
 export class ChatService implements Disposable, ChatFollowupProvider {
-	private readonly _disposable: Disposable;
+	private _chat?: ChatParticipant;
 	private readonly _promptBuilder: ChatPromptBuilder;
+	private _discoveringParticipant = false;
 
 	constructor(private readonly container: Container) {
 		this._promptBuilder = new ChatPromptBuilder(container);
 
-		// Only register chat participant if VS Code version supports it
-		if (supportsChatAPI()) {
-			this._disposable = this.registerChatParticipant();
-		} else {
-			// For older VS Code versions, just register a dummy disposable
-			this._disposable = { dispose: () => {} };
-			Logger.warn('ChatService: VS Code version does not support Chat API (requires 1.99.0+)');
-		}
+		this._discoveringParticipant = true;
+		void this.registerChatParticipant()
+			.then(() => {
+				this._discoveringParticipant = false;
+			})
+			.catch();
 	}
 
 	dispose(): void {
-		this._disposable.dispose();
+		this._chat?.dispose();
 	}
 
 	/**
@@ -44,8 +53,8 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 	 */
 	@debug()
 	async sendToChat(args: SendToChatCommandArgs): Promise<void> {
-		if (!supportsChatAPI()) {
-			Logger.warn('ChatService: Cannot send to chat - VS Code version does not support Chat API');
+		if (!(await supportsChat())) {
+			Logger.warn('ChatService: Cannot send to chat - Chat API is not enabled');
 			return;
 		}
 
@@ -72,8 +81,8 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 	 */
 	@debug()
 	async sendContextualPrompt(args: ChatIntegrationCommandArgs): Promise<void> {
-		if (!supportsChatAPI()) {
-			Logger.warn('ChatService: Cannot send contextual prompt - VS Code version does not support Chat API');
+		if (!(await supportsChat())) {
+			Logger.warn('ChatService: Cannot send contextual prompt - Chat API is not enabled');
 			return;
 		}
 
@@ -101,12 +110,11 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 	/**
 	 * Register the GitLens chat participant
 	 */
-	private registerChatParticipant(): Disposable {
-		if (!chat?.createChatParticipant) {
+	private async registerChatParticipant(): Promise<ChatParticipant | undefined> {
+		if (!(await supportsChat())) {
 			Logger.warn('ChatService: chat.createChatParticipant is not available');
-			return { dispose: () => {} };
+			return;
 		}
-
 		const participant = chat.createChatParticipant('gitlens', async (request, context, stream, token) => {
 			return this.handleChatRequest(request, context, stream, token);
 		});
@@ -139,9 +147,9 @@ export class ChatService implements Disposable, ChatFollowupProvider {
 	 * Handle chat requests to the GitLens participant
 	 */
 	private handleChatRequest(
-		request: any,
-		context: any,
-		stream: any,
+		request: ChatRequest,
+		context: ChatContext,
+		stream: ChatResponseStream,
 		token: CancellationToken,
 	): Promise<GitLensChatResult> {
 		try {
