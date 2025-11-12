@@ -12,3 +12,8 @@ gitlens-*.vsix
 product.json
 tsconfig*.tsbuildinfo
 localdev*.instructions.md
+*localdev.instructions.md
+localdev*.prompt.md
+*localdev.prompt.md
+localdev*.chatmode.md
+*localdev.chatmode.md
