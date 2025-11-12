@@ -183,9 +183,18 @@ type InternalGlCommands =
 export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;
 export type GlPaletteCommands = ContributedPaletteCommands;
 
+export type VendorChatCommands =
+	| 'composer.newAgentChat'
+	| 'kiroAgent.focusContinueInputWithoutClear'
+	| 'kiroAgent.newSession'
+	| 'windsurf.prioritized.chat.openNewConversation'
+	| 'workbench.action.icube.aiChatSidebar.createNewSession';
+
 export type CoreCommands =
 	| '_open.mergeEditor'
+	| 'composer.newAgentChat'
 	| 'cursorMove'
+	| 'editor.action.clipboardPasteAction'
 	| 'editor.action.showHover'
 	| 'editor.action.showReferences'
 	| 'editor.action.webvieweditor.showFind'
@@ -224,6 +233,7 @@ export type CoreCommands =
 	| 'workbench.view.explorer'
 	| 'workbench.view.extension.gitlensInspect'
 	| 'workbench.view.scm'
+	| VendorChatCommands
 	| `${ViewContainerIds | CoreViewContainerIds}.resetViewContainerLocation`
 	| `${ViewIds}.${'focus' | 'open' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
