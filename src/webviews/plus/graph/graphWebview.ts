@@ -931,6 +931,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
 		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
+
+		// Update the active search query's filter property to match the new mode
+		if (this._search?.query != null) {
+			this._search = {
+				...this._search,
+				query: { ...this._search.query, filter: params.searchMode === 'filter' },
+			};
+		}
 	}
 
 	private _showActiveSelectionDetailsDebounced:
