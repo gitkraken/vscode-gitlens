@@ -2,7 +2,6 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { Autolink } from '../../autolinks/models/autolinks';
 import type { Config, DateStyle } from '../../config';
 import type { Sources } from '../../constants.telemetry';
-import type { CommitSelectedEvent } from '../../eventBus';
 import type { GitCommitReachability } from '../../git/gitProvider';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/fileChange';
@@ -10,6 +9,7 @@ import type { GitFileStatus } from '../../git/models/fileStatus';
 import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
+import type { GitCommitSearchContext } from '../../git/search';
 import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
 import type { DateTimeFormat } from '../../system/date';
 import type { WebviewItemContext } from '../../system/webview';
@@ -118,7 +118,7 @@ export interface State extends WebviewState<'gitlens.views.commitDetails' | 'git
 	inReview?: boolean;
 	hasAccount: boolean;
 	hasIntegrationsConnected: boolean;
-	searchContext?: CommitSelectedEvent['data']['searchContext'];
+	searchContext?: GitCommitSearchContext;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];

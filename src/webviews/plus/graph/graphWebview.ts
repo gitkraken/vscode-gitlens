@@ -81,7 +81,7 @@ import type {
 } from '../../../git/models/repository';
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
-import type { GitGraphSearch } from '../../../git/search';
+import type { GitCommitSearchContext, GitGraphSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
 import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
@@ -967,7 +967,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
-	private getSearchContext(id: string | undefined): CommitSelectedEvent['data']['searchContext'] | undefined {
+	private getSearchContext(id: string | undefined): GitCommitSearchContext | undefined {
 		if (!this._search?.queryFilters.files || id == null) return undefined;
 
 		const result = this._search.results.get(id);

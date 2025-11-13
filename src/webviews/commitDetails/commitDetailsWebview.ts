@@ -48,12 +48,14 @@ import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
+import type { GitCommitSearchContext } from '../../git/search';
 import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils';
 import { splitCommitMessage } from '../../git/utils/commit.utils';
 import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils';
 import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils';
 import { createReference } from '../../git/utils/reference.utils';
 import { isUncommitted, shortenRevision } from '../../git/utils/revision.utils';
+import { areSearchContextsEqual } from '../../git/utils/search.utils';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
 import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.utils';
@@ -169,6 +171,12 @@ interface WipContext {
 	codeSuggestions?: Draft[];
 }
 
+/** Keeps commit and searchContext synchronized as a unit */
+interface CommitState {
+	commit: GitCommit | undefined;
+	searchContext: GitCommitSearchContext | undefined;
+}
+
 interface Context {
 	mode: Mode;
 	navigationStack: {
@@ -179,7 +187,7 @@ interface Context {
 	pinned: boolean;
 	preferences: Preferences;
 
-	commit: GitCommit | undefined;
+	commitState: CommitState;
 	autolinksEnabled: boolean;
 	experimentalComposerEnabled: boolean;
 	formattedMessage: string | undefined;
@@ -191,7 +199,6 @@ interface Context {
 	source?: Sources;
 	hasAccount: boolean | undefined;
 	hasIntegrationsConnected: boolean | undefined;
-	searchContext?: State['searchContext'];
 }
 
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, State, CommitDetailsWebviewShowingArgs> {
@@ -201,6 +208,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private _pinned = false;
 	private _focused = false;
 	private _commitStack = new MRU<GitRevisionReference>(10, (a, b) => a.ref === b.ref);
+
+	private get commit(): GitCommit | undefined {
+		return this._context.commitState.commit;
+	}
+
+	private get searchContext(): GitCommitSearchContext | undefined {
+		return this._context.commitState.searchContext;
+	}
 
 	constructor(
 		private readonly container: Container,
@@ -217,7 +232,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			pinned: false,
 			preferences: this.getPreferences(),
 
-			commit: undefined,
+			commitState: { commit: undefined, searchContext: undefined },
 			autolinksEnabled: configuration.get('views.commitDetails.autolinks.enabled'),
 			experimentalComposerEnabled: configuration.get('ai.experimental.composer.enabled', undefined, false),
 			formattedMessage: undefined,
@@ -270,9 +285,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 				'context.autolinks':
 					(this._context.pullRequest != null ? 1 : 0) + (this._context.autolinkedIssues?.length ?? 0),
 				'context.pinned': this._context.pinned,
-				'context.type':
-					this._context.commit == null ? undefined : isStash(this._context.commit) ? 'stash' : 'commit',
-				'context.uncommitted': this._context.commit?.isUncommitted ?? false,
+				'context.type': this.commit == null ? undefined : isStash(this.commit) ? 'stash' : 'commit',
+				'context.uncommitted': this.commit?.isUncommitted ?? false,
 			};
 		}
 
@@ -377,12 +391,23 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 		if (commit == null) {
 			if (!this._pinned) {
-				commit = this.getBestCommitOrStash();
+				const bestCommitState = this.getBestCommitOrStash();
+				commit = bestCommitState.commit;
+				// Use the cached searchContext if data doesn't provide one
+				if (data == null) {
+					data = { searchContext: bestCommitState.searchContext };
+				} else if (data.searchContext == null) {
+					data = { ...data, searchContext: bestCommitState.searchContext };
+				}
 			}
 		}
 
-		if (commit != null && !this._context.commit?.ref.startsWith(commit.ref)) {
-			await this.updateCommit(commit, { pinned: false });
+		if (
+			commit != null &&
+			(!this.commit?.ref.startsWith(commit.ref) ||
+				!areSearchContextsEqual(data?.searchContext, this.searchContext, false))
+		) {
+			await this.updateCommitState(commit, data?.searchContext, { pinned: false });
 		}
 
 		if (data?.preserveVisibility && !this.host.visible) return false;
@@ -473,10 +498,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 										})
 									: undefined;
 						} else {
-							ref =
-								this._context.commit != null
-									? getReferenceFromRevision(this._context.commit)
-									: undefined;
+							ref = this.commit != null ? getReferenceFromRevision(this.commit) : undefined;
 						}
 						if (ref == null) return;
 
@@ -497,19 +519,19 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						break;
 
 					case 'sha':
-						if (this._context.commit != null) {
+						if (this.commit != null) {
 							if (e.params.alt) {
 								void executeCommand<CopyMessageToClipboardCommandArgs>(
 									'gitlens.copyMessageToClipboard',
 									{
-										message: this._context.commit.message,
+										message: this.commit.message,
 									},
 								);
-							} else if (isStash(this._context.commit)) {
-								void env.clipboard.writeText(this._context.commit.stashName);
+							} else if (isStash(this.commit)) {
+								void env.clipboard.writeText(this.commit.stashName);
 							} else {
 								void executeCommand<CopyShaToClipboardCommandArgs>('gitlens.copyShaToClipboard', {
-									sha: this._context.commit.sha,
+									sha: this.commit.sha,
 								});
 							}
 						}
@@ -749,7 +771,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		if (this._context.mode === 'wip') {
 			return this._context.wip?.repo.path;
 		}
-		return this._context.commit?.repoPath;
+		return this.commit?.repoPath;
 	}
 
 	private fetch() {
@@ -798,8 +820,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		if (this._context.pullRequest == null) return;
 
 		return {
-			repoPath: this._context.commit!.repoPath,
-			commit: this._context.commit!,
+			repoPath: this.commit!.repoPath,
+			commit: this.commit!,
 			pr: this._context.pullRequest,
 		};
 	}
@@ -862,8 +884,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 				this.container.git.getBestRepositoryOrFirst(uri != null ? Uri.parse(uri) : undefined),
 			);
 		} else {
-			const commit = this.getBestCommitOrStash();
-			void this.updateCommit(commit, { immediate: false });
+			const { commit, searchContext } = this.getBestCommitOrStash();
+			void this.updateCommitState(commit, searchContext, { immediate: false });
 		}
 	}
 
@@ -903,10 +925,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		}
 
 		if (
-			this._context.commit != null &&
+			this.commit != null &&
 			configuration.changed(e, ['views.commitDetails.autolinks', 'views.commitDetails.pullRequests'])
 		) {
-			void this.updateCommit(this._context.commit, { force: true });
+			void this.updateCommitState(this.commit, this.searchContext, { force: true });
 		}
 	}
 
@@ -987,9 +1009,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		) {
 			return;
 		}
-
-		// Store search context from the event
-		this._context.searchContext = e.data.searchContext;
 
 		if (this.options.attachedTo === 'graph' /*|| e.source === 'gitlens.graph'*/) {
 			if (e.data.commit.ref === uncommitted) {
@@ -1104,7 +1123,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 		const line = e.selections?.[0]?.active;
 		const commit = line != null ? this.container.lineTracker.getState(line)?.commit : undefined;
-		void this.updateCommit(commit);
+		void this.updateCommitState(commit, undefined);
 	}
 
 	private _wipSubscription: RepositorySubscription | undefined;
@@ -1125,13 +1144,13 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	private updateTitle() {
 		if (this.mode === 'commit') {
-			if (this._context.commit == null) {
+			if (this.commit == null) {
 				this.host.title = this.host.originalTitle;
 			} else {
 				let following = 'Commit Details';
-				if (this._context.commit.refType === 'stash') {
+				if (this.commit.refType === 'stash') {
 					following = 'Stash Details';
-				} else if (this._context.commit.isUncommitted) {
+				} else if (this.commit.isUncommitted) {
 					following = 'Uncommitted Changes';
 				}
 
@@ -1146,21 +1165,18 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		let params: DidExplainParams;
 		try {
 			// check for uncommitted changes
-			if (
-				this._context.commit != null &&
-				(this._context.commit.isUncommitted || this._context.commit.isUncommittedStaged)
-			) {
+			if (this.commit != null && (this.commit.isUncommitted || this.commit.isUncommittedStaged)) {
 				await executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
-					repoPath: this._context.commit.repoPath,
+					repoPath: this.commit.repoPath,
 					source: { source: 'inspect', context: { type: 'wip' } },
 				});
 			} else {
-				const isStashCommit = isStash(this._context.commit);
+				const isStashCommit = isStash(this.commit);
 				await executeCommand<ExplainCommitCommandArgs | ExplainStashCommandArgs>(
 					isStashCommit ? 'gitlens.ai.explainStash' : 'gitlens.ai.explainCommit',
 					{
-						repoPath: this._context.commit!.repoPath,
-						rev: this._context.commit!.sha,
+						repoPath: this.commit!.repoPath,
+						rev: this.commit!.sha,
 						source: { source: 'inspect', context: { type: isStashCommit ? 'stash' : 'commit' } },
 					},
 				);
@@ -1221,7 +1237,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const startTime = Date.now();
 
 		try {
-			const commit = this._context.commit;
+			const commit = this.commit;
 			if (commit == null) {
 				void this.host.respond(requestType, msg, {
 					error: { message: 'Unable to find commit' },
@@ -1269,7 +1285,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const commit = this._commitStack.navigate(direction);
 		if (commit == null) return;
 
-		void this.updateCommit(commit, { immediate: true, skipStack: true });
+		void this.updateCommitState(commit, undefined, { immediate: true, skipStack: true });
 	}
 
 	private _cancellationTokenSource: CancellationTokenSource | undefined = undefined;
@@ -1282,8 +1298,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		}
 
 		let details;
-		if (current.commit != null) {
-			details = await this.getDetailsModel(current.commit, current.formattedMessage);
+		if (current.commitState.commit != null) {
+			details = await this.getDetailsModel(current.commitState.commit, current.formattedMessage);
 		}
 
 		const wip = current.wip;
@@ -1317,7 +1333,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			inReview: current.inReview,
 			hasAccount: current.hasAccount,
 			hasIntegrationsConnected: current.hasIntegrationsConnected,
-			searchContext: current.searchContext,
+			searchContext: current.commitState.searchContext,
 		};
 		return state;
 	}
@@ -1474,12 +1490,23 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	private _repositorySubscription: RepositorySubscription | undefined;
 
-	private async updateCommit(
+	private async updateCommitState(
 		commitish: GitCommit | GitRevisionReference | undefined,
-		options?: { force?: boolean; pinned?: boolean; immediate?: boolean; skipStack?: boolean },
+		searchContext: GitCommitSearchContext | undefined,
+		options?: {
+			force?: boolean;
+			pinned?: boolean;
+			immediate?: boolean;
+			skipStack?: boolean;
+		},
 	) {
-		// this.commits = [commit];
-		if (!options?.force && this._context.commit?.sha === commitish?.ref) return;
+		if (
+			!options?.force &&
+			this.commit?.sha === commitish?.ref &&
+			areSearchContextsEqual(searchContext, this.searchContext, false)
+		) {
+			return;
+		}
 
 		let commit: GitCommit | undefined;
 		if (isCommit(commitish)) {
@@ -1519,7 +1546,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			}
 		}
 
-		this._context.commit = commit;
+		this._context.commitState = { commit: commit, searchContext: searchContext };
+
 		this._context.autolinksEnabled = configuration.get('views.commitDetails.autolinks.enabled');
 		this._context.experimentalComposerEnabled = configuration.get(
 			'ai.experimental.composer.enabled',
@@ -1530,10 +1558,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		this._context.autolinkedIssues = undefined;
 		this._context.pullRequest = undefined;
 		this._context.wip = wip;
-		// Clear search context when navigating to a different commit (unless it was just set by onCommitSelected)
-		if (this._context.commit?.sha !== commitish?.ref) {
-			this._context.searchContext = undefined;
-		}
 
 		if (options?.pinned != null) {
 			this.updatePinned(options?.pinned);
@@ -1739,10 +1763,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		});
 	}
 
-	private getBestCommitOrStash(): GitCommit | GitRevisionReference | undefined {
-		if (this._pinned) return undefined;
+	private getBestCommitOrStash(): {
+		commit: GitCommit | GitRevisionReference | undefined;
+		searchContext: GitCommitSearchContext | undefined;
+	} {
+		if (this._pinned) return { commit: undefined, searchContext: undefined };
 
 		let commit: GitCommit | GitRevisionReference | undefined;
+		let searchContext: GitCommitSearchContext | undefined;
 
 		if (this.options.attachedTo !== 'graph' && window.activeTextEditor != null) {
 			const { lineTracker } = this.container;
@@ -1757,14 +1785,16 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			if (this.options.attachedTo === 'graph') {
 				const args = this.container.events.getCachedEventArgsBySource('commit:selected', 'gitlens.views.graph');
 				commit = args?.commit;
+				searchContext = args?.searchContext;
 			} else {
 				// For commitDetails, use the general cache (for backward compatibility)
 				const args = this.container.events.getCachedEventArgs('commit:selected');
 				commit = args?.commit;
+				searchContext = args?.searchContext;
 			}
 		}
 
-		return commit;
+		return { commit: commit, searchContext: searchContext };
 	}
 
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
@@ -1889,7 +1919,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 			commit = await this.container.git.getRepositoryService(Uri.parse(uri)).commits.getCommit(uncommitted);
 		} else {
-			commit = this._context.commit;
+			commit = this.commit;
 		}
 
 		commit = await commit?.getCommitForFile(params.path, params.staged);
@@ -1901,7 +1931,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			command: 'log',
 			state: {
 				reference: 'HEAD',
-				repo: this._context.commit?.repoPath,
+				repo: this.commit?.repoPath,
 				openPickInView: true,
 			},
 		});
@@ -1912,9 +1942,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	private showCommitActions() {
-		if (this._context.commit == null || this._context.commit.isUncommitted) return;
+		if (this.commit == null || this.commit.isUncommitted) return;
 
-		void showDetailsQuickPick(this._context.commit);
+		void showDetailsQuickPick(this.commit);
 	}
 
 	private async showFileActions(params: ExecuteFileActionParams) {

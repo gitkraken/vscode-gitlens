@@ -6,6 +6,12 @@ import type { GitRevisionReference } from './models/reference';
 import type { GitUser } from './models/user';
 import { isSha, shortenRevision } from './utils/revision.utils';
 
+export interface GitCommitSearchContext {
+	readonly query: SearchQuery;
+	readonly queryFilters: SearchQueryFilters;
+	readonly matchedFiles: ReadonlyArray<Readonly<{ readonly path: string }>>;
+}
+
 export interface GitGraphSearchResultData {
 	readonly date: number;
 	readonly i: number;
