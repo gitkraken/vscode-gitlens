@@ -60,45 +60,6 @@ export interface AIProviderDescriptorWithType<T extends AIProviders = AIProvider
 
 export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDescriptor<T>): AIModel<T>[] => [
 	{
-		id: 'gpt-4.1',
-		name: 'GPT-4.1',
-		maxTokens: { input: 1047576, output: 32768 },
-		provider: provider,
-	},
-	{
-		id: 'gpt-4.1-2025-04-14',
-		name: 'GPT-4.1 (2025-04-14)',
-		maxTokens: { input: 1047576, output: 32768 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gpt-4.1-mini',
-		name: 'GPT-4.1 mini',
-		maxTokens: { input: 1047576, output: 32768 },
-		provider: provider,
-	},
-	{
-		id: 'gpt-4.1-mini-2025-04-14',
-		name: 'GPT-4.1 mini (2025-04-14)',
-		maxTokens: { input: 1047576, output: 32768 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gpt-4.1-nano',
-		name: 'GPT-4.1 nano',
-		maxTokens: { input: 1047576, output: 32768 },
-		provider: provider,
-	},
-	{
-		id: 'gpt-4.1-nano-2025-04-14',
-		name: 'GPT-4.1 nano (2025-04-14)',
-		maxTokens: { input: 1047576, output: 32768 },
-		provider: provider,
-		hidden: true,
-	},
-	{
 		id: 'gpt-5',
 		name: 'GPT-5',
 		maxTokens: { input: 400000, output: 128000 },
@@ -116,6 +77,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		name: 'GPT-5 mini',
 		maxTokens: { input: 400000, output: 128000 },
 		provider: provider,
+		default: true,
 	},
 	{
 		id: 'gpt-5-mini-2025-08-07',
@@ -138,6 +100,61 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		hidden: true,
 	},
 	{
+		id: 'gpt-5-pro',
+		name: 'GPT-5 Pro',
+		maxTokens: { input: 400000, output: 272000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-5-pro-2025-10-06',
+		name: 'GPT-5 Pro (2025-10-06)',
+		maxTokens: { input: 400000, output: 272000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1',
+		name: 'GPT-4.1',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-2025-04-14',
+		name: 'GPT-4.1 (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-mini',
+		name: 'GPT-4.1 mini',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-mini-2025-04-14',
+		name: 'GPT-4.1 mini (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-nano',
+		name: 'GPT-4.1 nano',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-nano-2025-04-14',
+		name: 'GPT-4.1 nano (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'o4-mini',
 		name: 'o4 mini',
 		maxTokens: { input: 200000, output: 100000 },
@@ -147,6 +164,22 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 	{
 		id: 'o4-mini-2025-04-16',
 		name: 'o4 mini (2025-04-16)',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o3-deep-research',
+		name: 'o3 Deep Research',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o3-deep-research-2025-06-26',
+		name: 'o3 Deep Research (2025-06-26)',
 		maxTokens: { input: 200000, output: 100000 },
 		provider: provider,
 		temperature: null,
@@ -195,6 +228,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 200000, output: 100000 },
 		provider: provider,
 		temperature: null,
+		hidden: true,
 	},
 	{
 		id: 'o1-2024-12-17',
@@ -226,6 +260,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 65536 },
 		provider: provider,
 		temperature: null,
+		hidden: true,
 	},
 	{
 		id: 'o1-mini-2024-09-12',
@@ -240,7 +275,6 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		name: 'GPT-4o',
 		maxTokens: { input: 128000, output: 16384 },
 		provider: provider,
-		default: true,
 	},
 	{
 		id: 'gpt-4o-2024-11-20',
@@ -275,6 +309,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		name: 'GPT-4o mini',
 		maxTokens: { input: 128000, output: 16384 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-4o-mini-2024-07-18',
