@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Updates the OpenAI model selection
+- Improves positioning of the "Recompose Commits" command in context menus
+- Ensures Git streams are closed eagerly to prevent resource leaks and potential `SIGPIPE` errors
+
+### Fixed
+
+- Fixes performance of _Show Branches and Tags_ command
+
 ## [17.7.0] - 2025-11-11
 
 ### Added
