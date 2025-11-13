@@ -2683,7 +2683,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const svc = this.container.git.getRepositoryService(this.repository.path);
 
 		hasWorkingChanges ??= await svc.status.hasWorkingChanges(
-			{ staged: true, unstaged: true, untracked: false },
+			{ staged: true, unstaged: true, untracked: true },
 			cancellation,
 		);
 
@@ -2741,7 +2741,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
 		const hasWorkingChanges = await this.repository.git.status.hasWorkingChanges(
-			{ staged: true, unstaged: true, untracked: false },
+			{ staged: true, unstaged: true, untracked: true },
 			cancellation.token,
 		);
 
