@@ -43,6 +43,7 @@ export interface Config {
 	readonly proxy: ProxyConfig | null;
 	readonly rebaseEditor: RebaseEditorConfig;
 	readonly remotes: RemotesConfig[] | null;
+	readonly realpath: boolean;
 	readonly showWhatsNewAfterUpgrades: boolean;
 	readonly sortBranchesBy: BranchSorting;
 	readonly sortContributorsBy: ContributorSorting;
