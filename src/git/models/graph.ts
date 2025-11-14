@@ -63,6 +63,43 @@ export interface GitGraph {
 		readonly hasMore: boolean;
 	};
 
+	/**
+	 * Loads more commits for the graph.
+	 *
+	 * @param limit - The number of commits to load (page size)
+	 * @param id - Optional SHA to find
+	 * @param cancellation - Cancellation token
+	 *
+	 * **Behavior based on parameters:**
+	 *
+	 * - **`id` provided + `limit > 0`**: Find the commit with the given SHA, then ensure at least `limit` commits are loaded.
+	 *   - If SHA is found early (e.g., at position 100), continues loading to reach `limit` total commits.
+	 *   - If SHA is found late (e.g., at position 2000 when limit is 1000), loads all commits up to and including the SHA.
+	 *   - This ensures the target commit is included AND provides a full page of context.
+	 *
+	 * - **`id` provided + `limit === 0`**: Find the commit with the given SHA and stop immediately.
+	 *   - Loads only as many commits as needed to reach the target SHA.
+	 *   - Used when you want to find a specific commit without loading extra commits.
+	 *
+	 * - **No `id` + `limit > 0`**: Load exactly `limit` commits (normal pagination).
+	 *   - Standard page-based loading without a specific target.
+	 *
+	 * - **No `id` + `limit === 0`**: Load all remaining commits.
+	 *   - Loads everything from the current position to the end of history.
+	 *   - Use with caution as this can load a large number of commits.
+	 *
+	 * @example
+	 * // Load next page of 1000 commits
+	 * await graph.more(1000);
+	 *
+	 * @example
+	 * // Find a specific commit and ensure a full page is loaded
+	 * await graph.more(1000, 'abc123');
+	 *
+	 * @example
+	 * // Find a specific commit and stop (minimal loading)
+	 * await graph.more(0, 'abc123');
+	 */
 	more?(limit: number, id?: string, cancellation?: CancellationToken): Promise<GitGraph | undefined>;
 }
 

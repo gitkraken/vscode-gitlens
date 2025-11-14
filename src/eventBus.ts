@@ -1,12 +1,11 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { SearchQuery } from './constants.search';
 import type { CustomEditorIds, ViewIds, WebviewIds } from './constants.views';
 import type { CachedGitTypes } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
 import type { RepositoryChange } from './git/models/repository';
-import type { SearchQueryFilters } from './git/search';
+import type { GitCommitSearchContext } from './git/search';
 import type { Draft, LocalDraft } from './plus/drafts/models/drafts';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
@@ -15,11 +14,7 @@ interface CommitSelectedEventArgs {
 	readonly interaction: 'active' | 'passive';
 	readonly preserveFocus?: boolean;
 	readonly preserveVisibility?: boolean;
-	readonly searchContext?: {
-		readonly query: SearchQuery;
-		readonly queryFilters: SearchQueryFilters;
-		readonly matchedFiles: ReadonlyArray<Readonly<{ readonly path: string }>>;
-	};
+	readonly searchContext?: GitCommitSearchContext;
 }
 
 export type DraftSelectedEvent = EventBusEvent<'draft:selected'>;

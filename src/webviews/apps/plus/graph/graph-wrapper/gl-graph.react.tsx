@@ -15,8 +15,9 @@ import type {
 	GraphRow,
 	GraphZoneType,
 	OnFormatCommitDateTime,
+	ReadonlyGraphRow,
 } from '@gitkraken/gitkraken-components';
-import GraphContainer, { CommitDateTimeSources, noShaHighlightedSha, refZone } from '@gitkraken/gitkraken-components';
+import GraphContainer, { CommitDateTimeSources, emptySetMarker, refZone } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -26,6 +27,7 @@ import type { DateTimeFormat } from '../../../../../system/date';
 import { formatDate, fromNow } from '../../../../../system/date';
 import { first, groupByFilterMap } from '../../../../../system/iterable';
 import { hasKeys } from '../../../../../system/object';
+import { pluralize } from '../../../../../system/string';
 import type {
 	GraphAvatars,
 	GraphColumnName,
@@ -67,7 +69,7 @@ export type GraphWrapperProps = Pick<
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;
 	onChangeRefsVisibility?: (detail: { refs: GraphExcludedRef[]; visible: boolean }) => void;
-	onChangeSelection?: (rows: GraphRow[]) => void;
+	onChangeSelection?: (rows: ReadonlyGraphRow[]) => void;
 	onChangeVisibleDays?: (detail: { top: number; bottom: number }) => void;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
@@ -530,7 +532,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	);
 
 	const handleSelectGraphRows = useCallback(
-		(rows: GraphRow[]) => {
+		(rows: ReadonlyGraphRow[]) => {
 			// Compute context synchronously when selection changes
 			const newContext = rows.length > 1 ? computeSelectionContext(rows) : undefined;
 			setSelectionContexts(newContext);
@@ -567,6 +569,16 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const emptyConfig = useMemo(() => ({}) as unknown as NonNullable<typeof props.config>, []);
 	const config = useMemo(() => props.config ?? emptyConfig, [props.config, emptyConfig]);
 
+	// Memoize highlightedShas to avoid creating new object references
+	const highlightedShas = useMemo(() => {
+		if (props.searchResults == null) return undefined;
+		// Forces the graph to show no commits, because this set will never match any commits
+		if (!props.searchResults.count) return { [emptySetMarker]: true };
+
+		// Cast the { [id: string]: number } object to { [id: string]: boolean } for performance
+		return props.searchResults.ids as GraphContainerProps['highlightedShas'];
+	}, [props.searchResults]);
+
 	const formatCommitMessage = (commitMessage: string) => {
 		const { summary, body } = splitCommitMessage(commitMessage);
 
@@ -576,12 +588,62 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		};
 	};
 
-	let footer;
-	if (props.searchResults?.count === 0) {
-		footer = <>No results found</>;
-	} else if (props.searchResults?.count && !props.searchResults.paging?.hasMore && !props.loading) {
-		footer = <>No more results found</>;
-	}
+	const renderFooter = useCallback((): ReactElement | undefined => {
+		// No results found
+		if (props.searchResults?.count === 0) {
+			return <span>No results found</span>;
+		}
+
+		// Only show footer when we have results AND not currently loading
+		if (!props.searchResults?.count || props.loading) {
+			return undefined;
+		}
+
+		// All search results are loaded and visible OR no more commits available
+		if (
+			props.searchMode === 'filter' &&
+			!props.searchResults.hasMore &&
+			(props.searchResults.commitsLoaded.count === props.searchResults.count || !props.paging?.hasMore)
+		) {
+			return (
+				<span className="graph-footer__message">
+					{`Showing all ${pluralize('result', props.searchResults.count)}`}
+				</span>
+			);
+		}
+
+		// We have search results but all commits aren't loaded yet
+		return (
+			<>
+				<span className="graph-footer__message">
+					{`Showing ${pluralize('result', props.searchResults.commitsLoaded.count)} of ${pluralize(
+						'result',
+						props.searchResults.count,
+					)}${props.searchResults.hasMore ? '+' : ''}`}
+				</span>
+				<a
+					style={{ marginLeft: '0.5rem' }}
+					className="graph-footer__link"
+					onClick={e => {
+						e.preventDefault();
+						handleMoreCommits();
+					}}
+					role="button"
+					tabIndex={0}
+					onKeyDown={e => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							handleMoreCommits();
+						}
+					}}
+				>
+					{props.searchMode === 'filter' ? 'Load more results...' : 'Load more commits...'}
+				</a>
+			</>
+		);
+	}, [props.searchResults, props.loading, props.searchMode, props.paging?.hasMore, handleMoreCommits]);
+
+	const footer = renderFooter();
 
 	return (
 		<GraphContainer
@@ -591,6 +653,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			contexts={context}
 			formatCommitMessage={formatCommitMessage}
 			cssVariables={props.theming?.cssVariables}
+			customFooterRow={footer}
 			dimMergeCommits={config.dimMergeCommits}
 			downstreamsByUpstream={props.downstreams}
 			enabledRefMetadataTypes={config.enabledRefMetadataTypes}
@@ -603,12 +666,8 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			getExternalIcon={getIconElementLibrary}
 			graphRows={props.rows ?? emptyRows}
 			hasMoreCommits={props.paging?.hasMore}
-			// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
-			highlightedShas={
-				props.searchResults?.count === 0
-					? { [noShaHighlightedSha]: true }
-					: (props.searchResults?.ids as GraphContainerProps['highlightedShas'])
-			}
+			hasMoreSearchResults={props.searchResults?.hasMore}
+			highlightedShas={highlightedShas}
 			highlightRowsOnRefHover={config.highlightRowsOnRefHover}
 			includeOnlyRefsById={props.includeOnlyRefs}
 			scrollRowPadding={config.scrollRowPadding}
@@ -657,7 +716,6 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}
 			workDirStats={props.workingTreeStats}
-			customFooterRow={footer}
 		/>
 	);
 });
@@ -693,7 +751,7 @@ declare global {
 		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;
 		'graph-changegraphconfiguration': CustomEvent<UpdateGraphConfigurationParams['changes']>;
 		'graph-changerefsvisibility': CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
-		'graph-changeselection': CustomEvent<GraphRow[]>;
+		'graph-changeselection': CustomEvent<ReadonlyGraphRow[]>;
 		'graph-doubleclickref': CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
 		'graph-doubleclickrow': CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
 		'graph-missingavatars': CustomEvent<GraphAvatars>;

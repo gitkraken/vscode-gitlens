@@ -734,3 +734,44 @@ export function uniqueBy<TKey, TValue>(
 
 	return result.values();
 }
+
+/**
+ * Consumes an async generator and returns its final return value.
+ *
+ * Async generators can both yield values (via `yield`) and return a final value (via `return`).
+ * The `for await` loop only iterates over yielded values and doesn't capture the return value.
+ * This helper consumes all yielded values and returns the final return value.
+ *
+ * @param generator The async generator to consume
+ * @param onProgress Optional callback to process each yielded value
+ * @returns The final return value from the generator, or undefined if the generator doesn't return a value
+ *
+ * @example
+ * ```typescript
+ * async function* myGenerator() {
+ *   yield 1;
+ *   yield 2;
+ *   return { final: 'result' };
+ * }
+ *
+ * const result = await consumeAsyncGenerator(myGenerator());
+ * // result = { final: 'result' }
+ * ```
+ */
+export async function getAsyncGeneratorReturnValue<TYield, TReturn>(
+	generator: AsyncGenerator<TYield, TReturn, void>,
+	onProgress?: (value: TYield) => void | Promise<void>,
+): Promise<TReturn | undefined> {
+	let result: IteratorResult<TYield, TReturn> | undefined;
+	if (onProgress == null) {
+		while (!(result = await generator.next()).done) {
+			/* noop */
+		}
+		return result?.value;
+	}
+
+	while (!(result = await generator.next()).done) {
+		await onProgress(result.value);
+	}
+	return result?.value;
+}

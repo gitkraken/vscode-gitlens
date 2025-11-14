@@ -141,13 +141,28 @@ export class GlCommitDetails extends GlDetailsBase {
 		}
 
 		return html`
-			${this.renderCommitMessage()}
+			${this.renderHiddenNotice()} ${this.renderCommitMessage()}
 			<webview-pane-group flexible>
 				${this.renderChangedFiles(
 					this.isStash ? 'stash' : 'commit',
 					this.renderCommitStats(this.state.commit.stats),
 				)}
 			</webview-pane-group>
+		`;
+	}
+
+	private renderHiddenNotice() {
+		if (!this.searchContext?.hiddenFromGraph) return nothing;
+
+		return html`
+			<div class="section">
+				<div class="alert alert--warning">
+					<code-icon icon="warning"></code-icon>
+					<p class="alert__content">
+						This ${this.isStash ? 'stash' : 'commit'} is not currently visible in the Commit Graph.
+					</p>
+				</div>
+			</div>
 		`;
 	}
 

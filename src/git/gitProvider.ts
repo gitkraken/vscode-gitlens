@@ -41,7 +41,7 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
-import type { GitGraphSearch } from './search';
+import type { GitGraphSearch, GitGraphSearchCursor, GitGraphSearchProgress, GitGraphSearchResults } from './search';
 import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting';
 
 export type CachedGitTypes =
@@ -531,6 +531,23 @@ export interface GitDiffSubProvider {
 }
 
 export interface GitGraphSubProvider {
+	/**
+	 * Gets the commit graph for a repository.
+	 *
+	 * @param repoPath - The repository path
+	 * @param rev - Optional revision/SHA to start from or find
+	 * @param asWebviewUri - Function to convert URIs for webview usage
+	 * @param options - Options including stats and limit (page size)
+	 * @param cancellation - Cancellation token
+	 *
+	 * **Behavior when `rev` is provided:**
+	 * - Finds the commit with the given revision/SHA
+	 * - Ensures at least `options.limit` commits are loaded (fills the page)
+	 * - If the SHA is found early, continues loading to reach the limit
+	 * - If the SHA is found late, loads all commits up to and including it
+	 *
+	 * This ensures the initial graph load always provides a full page of commits for good UX.
+	 */
 	getGraph(
 		repoPath: string,
 		rev: string | undefined,
@@ -543,7 +560,14 @@ export interface GitGraphSubProvider {
 		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 		cancellation?: CancellationToken,
-	): Promise<GitGraphSearch>;
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
+	continueSearchGraph(
+		repoPath: string,
+		cursor: GitGraphSearchCursor,
+		existingResults: GitGraphSearchResults,
+		options?: { limit?: number },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
 }
 
 export interface GitPatchSubProvider {

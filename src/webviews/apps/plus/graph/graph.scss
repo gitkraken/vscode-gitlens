@@ -1188,6 +1188,35 @@ web-graph {
 	& .changes-zone.changes-bar .changes-sub-bar.deleted {
 		margin-left: 2px;
 	}
+
+	// Graph footer styles
+	& .graph-footer__message {
+		color: var(--vscode-descriptionForeground);
+		font-size: 1.2rem;
+		font-style: italic;
+	}
+
+	& .graph-footer__link {
+		color: var(--vscode-textLink-foreground);
+		cursor: pointer;
+		font-size: 1.2rem;
+		text-decoration: none;
+		transition: color 0.2s ease;
+		padding: 0.2rem 0.5rem;
+		border: 1px solid transparent;
+		border-radius: 0.4rem;
+
+		&:hover {
+			color: var(--vscode-textLink-activeForeground);
+			border-color: var(--vscode-textLink-activeForeground);
+		}
+
+		&:focus-visible {
+			border-color: var(--vscode-focusBorder) !important;
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0;
+		}
+	}
 }
 
 // don't see usage

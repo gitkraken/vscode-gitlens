@@ -29,7 +29,13 @@ import {
 	getShaAndStatsLogParser,
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
-import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
+import type {
+	GitGraphSearch,
+	GitGraphSearchCursor,
+	GitGraphSearchProgress,
+	GitGraphSearchResultData,
+	GitGraphSearchResults,
+} from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '../../../../git/search';
 import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
@@ -64,6 +70,8 @@ import type { Git } from '../git';
 import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 import { convertStashesToStdin } from './stash';
+
+const progressiveSearchResultsBatchTimeMs = 500; // Send updates every 500ms (2 updates/second)
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
@@ -225,9 +233,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				let hasMore = false;
 
 				for await (const commit of parser.parseAsync(stream)) {
-					if (count > limit && (!sha || (sha && found))) {
+					// Stopping logic (check AFTER processing the commit):
+					// - SHA + limit > 0: Find SHA, ensure at least `limit` commits loaded
+					// - SHA + limit = 0: Find SHA, stop immediately
+					// - No SHA + limit > 0: Load exactly `limit` commits
+					// - No SHA + limit = 0: Load everything remaining
+					if ((limit && count >= limit && (!sha || found)) || (!limit && sha && found)) {
 						hasMore = true;
-
 						aborter.abort();
 						break;
 					}
@@ -631,12 +643,43 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			2: o => `limit=${o?.limit}, ordering=${o?.ordering}`,
 		},
 	})
-	async searchGraph(
+	async *searchGraph(
 		repoPath: string,
 		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 		cancellation?: CancellationToken,
-	): Promise<GitGraphSearch> {
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
+		return yield* this.searchGraphCore(repoPath, search, undefined, undefined, options, cancellation);
+	}
+
+	@log<GraphGitSubProvider['continueSearchGraph']>({
+		args: {
+			1: c =>
+				`[${c.search.matchAll ? 'A' : ''}${c.search.matchCase ? 'C' : ''}${c.search.matchRegex ? 'R' : ''}${c.search.matchWholeWord ? 'W' : ''}]: ${
+					c.search.query.length > 500 ? `${c.search.query.substring(0, 500)}...` : c.search.query
+				} (continue)`,
+			2: r => `results=${r.size}`,
+			3: o => `limit=${o?.limit}`,
+		},
+	})
+	async *continueSearchGraph(
+		repoPath: string,
+		cursor: GitGraphSearchCursor,
+		existingResults: GitGraphSearchResults,
+		options?: { limit?: number },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
+		return yield* this.searchGraphCore(repoPath, cursor.search, cursor, existingResults, options, cancellation);
+	}
+
+	private async *searchGraphCore(
+		repoPath: string,
+		search: SearchQuery,
+		cursor: GitGraphSearchCursor | undefined,
+		existingResults: GitGraphSearchResults | undefined,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
@@ -696,67 +739,145 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				args.push(arg);
 			}
 
-			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			let iterations = 0;
-			/** Total seen, not results */
-			let totalSeen = 0;
+			const results: GitGraphSearchResults = existingResults ?? new Map<string, GitGraphSearchResultData>();
 
-			async function searchForCommitsCore(
-				this: GraphGitSubProvider,
-				limit: number,
-				cursor?: { sha: string; skip: number },
-				cancellation?: CancellationToken,
-			): Promise<GitGraphSearch> {
+			// Use state from cursor, if provided
+			const cursorState = cursor?.state != null && typeof cursor.state === 'object' ? cursor.state : undefined;
+			let iterations = cursorState?.iterations ?? 0;
+			let totalSeen = cursorState?.totalSeen ?? 0;
+			let skipCursor = cursorState ? { sha: cursorState.sha, skip: cursorState.skip } : undefined;
+
+			let count = 0;
+			try {
 				iterations++;
 
-				try {
-					const aborter = new AbortController();
-					using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
+				const aborter = new AbortController();
+				using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
 
-					const stream = this.git.stream(
-						{
-							cwd: repoPath,
-							cancellation: cancellation,
-							configs: ['-C', repoPath, ...gitConfigsLog],
-							signal: aborter.signal,
-							stdin: stdin,
-						},
-						...args,
-						cursor?.skip ? `--skip=${cursor.skip}` : undefined,
-						'--',
-						...files,
-					);
-					using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				const stream = this.git.stream(
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						configs: ['-C', repoPath, ...gitConfigsLog],
+						signal: aborter.signal,
+						stdin: stdin,
+					},
+					...args,
+					skipCursor?.skip ? `--skip=${skipCursor.skip}` : undefined,
+					'--',
+					...files,
+				);
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				let hasMore = false;
+				let sha;
+				const stashesOnly = filters.type === 'stash';
 
-					let count = 0;
-					let hasMore = false;
-					let sha;
-					const stashesOnly = filters.type === 'stash';
+				// Progressive results support - time-based batching for consistent UI updates
+				const batch: [string, GitGraphSearchResultData][] = [];
+				let lastProgressTime = Date.now();
 
-					for await (const r of parser.parseAsync(stream)) {
-						if (count > limit) {
-							hasMore = true;
-
-							aborter.abort();
-							break;
-						}
-
-						count++;
-						sha = remappedIds.get(r.sha) ?? r.sha;
-						if (results.has(sha) || (stashesOnly && !stashes?.has(sha)) || (tipsOnly && !r.tips)) {
-							continue;
-						}
-
-						results.set(sha, {
-							i: results.size,
-							date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
-							files: r.files,
-						});
+				for await (const r of parser.parseAsync(stream)) {
+					// Check for cancellation early in each iteration
+					if (cancellation?.isCancellationRequested) {
+						// When paused/cancelled, assume there are more results
+						hasMore = true;
+						break;
 					}
 
+					if (limit && count > limit) {
+						hasMore = true;
+
+						aborter.abort();
+						break;
+					}
+
+					count++;
+					sha = remappedIds.get(r.sha) ?? r.sha;
+					if (results.has(sha) || (stashesOnly && !stashes?.has(sha)) || (tipsOnly && !r.tips)) {
+						continue;
+					}
+
+					const resultData: GitGraphSearchResultData = {
+						i: results.size,
+						date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+						files: r.files,
+					};
+					results.set(sha, resultData);
+					batch.push([sha, resultData]);
+
+					// Send progress updates with incremental results
+					const timeSinceLastProgress = Date.now() - lastProgressTime;
+
+					// Send batch when enough time has passed and we have new results
+					const shouldSendBatch =
+						timeSinceLastProgress >= progressiveSearchResultsBatchTimeMs && batch.length > 0;
+
+					if (shouldSendBatch) {
+						// Send only the NEW results since last batch (incremental)
+						yield {
+							repoPath: repoPath,
+							query: search,
+							queryFilters: filters,
+							comparisonKey: comparisonKey,
+							results: new Map(batch),
+							runningTotal: results.size,
+							hasMore: true,
+						};
+						batch.length = 0;
+						lastProgressTime = Date.now();
+					}
+				}
+
+				// Send final progress update if there are remaining results
+				if (batch.length) {
+					yield {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: new Map(batch),
+						runningTotal: results.size,
+						hasMore: hasMore,
+					};
+				}
+
+				totalSeen += count;
+				const lastSha = last(results)?.[0];
+				skipCursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					queryFilters: filters,
+					comparisonKey: comparisonKey,
+					results: results,
+					hasMore: hasMore,
+					paging:
+						limit || hasMore
+							? {
+									limit: limit || count,
+									cursor:
+										hasMore && skipCursor
+											? {
+													search: search,
+													state: {
+														iterations: iterations,
+														totalSeen: totalSeen,
+														sha: skipCursor.sha,
+														skip: skipCursor.skip,
+													},
+												}
+											: undefined,
+								}
+							: undefined,
+				};
+			} catch (ex) {
+				if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
+					// When cancelled, preserve cursor so search can be resumed
+					// Update totalSeen with the count from this iteration
 					totalSeen += count;
 					const lastSha = last(results)?.[0];
-					cursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
+					const skipCursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
 
 					return {
 						repoPath: repoPath,
@@ -764,26 +885,29 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						queryFilters: filters,
 						comparisonKey: comparisonKey,
 						results: results,
-						paging: limit ? { limit: limit, hasMore: hasMore } : undefined,
-						more: async (limit: number): Promise<GitGraphSearch> =>
-							searchForCommitsCore.call(this, limit, cursor),
+						hasMore: true, // Assume there are more results since we were cancelled mid-search
+						paging:
+							limit || skipCursor
+								? {
+										limit: limit || count,
+										cursor: skipCursor
+											? {
+													search: search,
+													state: {
+														iterations: iterations,
+														totalSeen: totalSeen,
+														sha: skipCursor.sha,
+														skip: skipCursor.skip,
+													},
+												}
+											: undefined,
+									}
+								: undefined,
 					};
-				} catch (ex) {
-					if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
-						return {
-							repoPath: repoPath,
-							query: search,
-							queryFilters: filters,
-							comparisonKey: comparisonKey,
-							results: results,
-						};
-					}
-
-					throw new GitSearchError(ex);
 				}
-			}
 
-			return await searchForCommitsCore.call(this, limit, undefined, cancellation);
+				throw new GitSearchError(ex);
+			}
 		} catch (ex) {
 			if (ex instanceof GitSearchError) throw ex;
 

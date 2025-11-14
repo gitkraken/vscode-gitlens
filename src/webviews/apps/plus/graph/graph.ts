@@ -21,7 +21,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	@state()
 	searching: string = '';
-	searchResultsHidden: unknown;
+
 	get hasFilters() {
 		if (this.state.config?.onlyFollowFirstParent) return true;
 		if (this.state.excludeTypes == null) return false;

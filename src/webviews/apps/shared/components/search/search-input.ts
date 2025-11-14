@@ -6,6 +6,7 @@ import { live } from 'lit/directives/live.js';
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../../../../constants.search';
 import { searchOperationHelpRegex, searchOperatorsToLongFormMap } from '../../../../../constants.search';
 import { parseSearchQuery } from '../../../../../git/search';
+import { areSearchQueriesEqual } from '../../../../../git/utils/search.utils';
 import type { Deferrable } from '../../../../../system/function/debounce';
 import { debounce } from '../../../../../system/function/debounce';
 import {
@@ -33,6 +34,10 @@ export interface SearchModeChangeEventDetail {
 	useNaturalLanguage: boolean;
 }
 
+export interface SearchCancelEventDetail {
+	preserveResults: boolean;
+}
+
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-search-input': GlSearchInput;
@@ -42,6 +47,9 @@ declare global {
 		'gl-search-inputchange': CustomEvent<SearchQuery>;
 		'gl-search-navigate': CustomEvent<SearchNavigationEventDetail>;
 		'gl-search-modechange': CustomEvent<SearchModeChangeEventDetail>;
+		'gl-search-cancel': CustomEvent<SearchCancelEventDetail>;
+		'gl-search-pause': CustomEvent<void>;
+		'gl-search-resume': CustomEvent<void>;
 	}
 }
 
@@ -281,6 +289,7 @@ export class GlSearchInput extends GlElement {
 	@property({ type: Boolean }) matchWholeWord = false;
 	@property({ type: Boolean }) naturalLanguage = false;
 	@property({ type: Boolean }) searching = false;
+	@property({ type: Boolean }) hasMoreResults = false;
 	@property({ type: String })
 	get value() {
 		return this._value;
@@ -297,8 +306,12 @@ export class GlSearchInput extends GlElement {
 	@state() private helpType?: SearchOperatorsLongForm;
 	@state() private processedQuery: string | undefined;
 	@state() private _value = '';
+	@state() private showHelpText = true;
 
 	private canDeleteHistoryItem = false;
+
+	// Track last search to avoid re-searching on Enter when query hasn't changed
+	private _lastSearch: SearchQuery | undefined = undefined;
 
 	private get label() {
 		return this.filter ? 'Filter' : 'Search';
@@ -319,11 +332,10 @@ export class GlSearchInput extends GlElement {
 		if (this.naturalLanguage) {
 			return `${this.label} commits using natural language (↑↓ for history), e.g. Show my commits from last month`;
 		}
-		return `${this.label} commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
+		return `${this.label} commits (press Enter to search, ↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
 	}
 
 	private repoPath: string | undefined;
-	private showNaturalLanguageHelpText = true;
 
 	private _searchHistory: SearchQuery[] = [];
 	private searchHistoryPos = -1;
@@ -371,14 +383,26 @@ export class GlSearchInput extends GlElement {
 		void this.popoverEl.hide();
 	}
 
-	private handleClear(_e: Event) {
-		this.focus();
-		this._value = '';
+	private cancelSearch() {
+		// Clear all search-related UI state
 		this.errorMessage = '';
 		this.processedQuery = undefined;
 		this.searchHistoryPos = -1;
 		this.originalHistoryState = undefined;
-		this.debouncedOnSearchChanged();
+		this.showHelpText = true;
+
+		// Emit cancel to backend - idempotent, safe to always call
+		this.emit('gl-search-cancel', { preserveResults: false });
+
+		// Send empty search immediately to clear results
+		this.onSearchChanged(true);
+		this._lastSearch = undefined;
+	}
+
+	private handleClear(_e: Event) {
+		this._value = '';
+		this.cancelSearch();
+		this.focus();
 	}
 
 	private _updateHelpTextDebounced: Deferrable<GlSearchInput['updateHelpText']> | undefined;
@@ -415,57 +439,64 @@ export class GlSearchInput extends GlElement {
 	}
 
 	private handleInput(e: InputEvent) {
-		this.errorMessage = '';
-		this.processedQuery = undefined;
-		this.canDeleteHistoryItem = false;
-
 		const value = (e.target as HTMLInputElement)?.value;
 		this.value = value;
 
-		// Reset history position when user types something different
-		if (this.searchHistoryPos >= 0 && value !== this.searchHistory[this.searchHistoryPos]?.query) {
-			this.searchHistoryPos = -1;
-			this.originalHistoryState = undefined;
-		}
+		if (!value) {
+			// Input is now empty - cancel and clear search
+			this.cancelSearch();
+		} else {
+			// Input has content - update UI state
+			this.errorMessage = '';
+			this.processedQuery = undefined;
+			this.canDeleteHistoryItem = false;
 
-		this.updateHelpText();
+			// Reset history position when user types something different
+			if (this.searchHistoryPos >= 0 && value !== this.searchHistory[this.searchHistoryPos]?.query) {
+				this.searchHistoryPos = -1;
+				this.originalHistoryState = undefined;
+			}
 
-		// Don't auto-search when in natural language mode - require explicit trigger
-		if (!this.naturalLanguage || !value) {
-			this.debouncedOnSearchChanged();
+			this.showHelpText = true;
+			this.updateHelpText();
 		}
 	}
 
 	private handleMatchAll(_e: Event) {
 		this.matchAll = !this.matchAll;
-		this.debouncedOnSearchChanged();
+		// Only trigger search if there's a query value
+		if (this.value) {
+			this.debouncedOnSearchChanged.cancel();
+			this.onSearchChanged(true); // Force search when options change
+		}
 	}
 
 	private handleMatchCase(_e: Event) {
 		this.matchCase = !this.matchCase;
-		this.debouncedOnSearchChanged();
+		// Only trigger search if there's a query value
+		if (this.value) {
+			this.debouncedOnSearchChanged.cancel();
+			this.onSearchChanged(true); // Force search when options change
+		}
 	}
 
 	private handleMatchRegex(_e: Event) {
 		this.matchRegex = !this.matchRegex;
-		this.debouncedOnSearchChanged();
+		// Only trigger search if there's a query value
+		if (this.value) {
+			this.debouncedOnSearchChanged.cancel();
+			this.onSearchChanged(true); // Force search when options change
+		}
 	}
 
 	private handleMatchWholeWord(_e: Event) {
 		this.matchWholeWord = !this.matchWholeWord;
-		this.debouncedOnSearchChanged();
+		// Only trigger search if there's a query value
+		if (this.value) {
+			this.debouncedOnSearchChanged.cancel();
+			this.onSearchChanged(true); // Force search when options change
+		}
 	}
-
-	// private handleShowNaturalLanguageHelpText(_e: Event) {
-	// 	if (!this.naturalLanguage) {
-	// 		this.showNaturalLanguageHelpText = false;
-	// 		return;
-	// 	}
-
-	// 	this.showNaturalLanguageHelpText = !this.showNaturalLanguageHelpText;
-	// 	this.focus();
-	// 	this.updateHelpText();
-	// }
 
 	private handleFilterClick(_e: Event) {
 		this.filter = !this.filter;
@@ -473,23 +504,21 @@ export class GlSearchInput extends GlElement {
 			searchMode: this.filter ? 'filter' : 'normal',
 			useNaturalLanguage: this.naturalLanguage,
 		});
-		this.debouncedOnSearchChanged();
+		// Don't trigger a new search - just update the mode for future searches
+		// and let the UI update based on the current results
 	}
 
 	private handleNaturalLanguageClick(_e: Event) {
 		this.updateNaturalLanguage(!this.naturalLanguage);
-
-		// Only trigger search when switching FROM natural language mode TO regular mode
-		// When switching TO natural language mode, wait for explicit user action
-		if (!this.naturalLanguage) {
-			this.debouncedOnSearchChanged();
-		}
+		// Don't trigger a new search - just update the mode for future searches
+		// and let the UI update based on the current results
 	}
 
 	private updateNaturalLanguage(useNaturalLanguage: boolean) {
 		this.processedQuery = undefined;
 
 		this.naturalLanguage = useNaturalLanguage && this.aiAllowed;
+		this.showHelpText = true;
 		this.emit('gl-search-modechange', {
 			searchMode: this.filter ? 'filter' : 'normal',
 			useNaturalLanguage: this.naturalLanguage,
@@ -507,20 +536,63 @@ export class GlSearchInput extends GlElement {
 		if (e.ctrlKey || e.metaKey || e.altKey) return false;
 
 		switch (e.key) {
-			case 'Enter':
+			case 'Escape':
 				e.preventDefault();
 				e.stopPropagation();
 
-				this.searchHistoryPos = -1;
-				this.debouncedOnSearchChanged();
+				this.showHelpText = false;
 
-				// In non-natural language mode, also navigate to results
-				if (!this.naturalLanguage) {
-					this.emit('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
+				// If search is running, pause it (preserve results)
+				if (this.searching) {
+					this.emit('gl-search-pause');
 				}
 
 				return true;
 
+			case 'Enter': {
+				e.preventDefault();
+				e.stopPropagation();
+
+				// If search box is empty, cancel and clear immediately
+				if (!this.value) {
+					this.cancelSearch();
+					return true;
+				}
+
+				// Check if search has changed
+				const currentSearch: SearchQuery = {
+					query: this.value,
+					naturalLanguage: this.naturalLanguage ? { query: this.value } : undefined,
+					filter: this.filter,
+					matchAll: this.matchAll,
+					matchCase: this.matchCase,
+					matchRegex: this.matchRegex,
+					matchWholeWord: this.matchWholeWord,
+				};
+
+				const hasSearchChanged = !areSearchQueriesEqual(this._lastSearch, currentSearch);
+
+				if (hasSearchChanged) {
+					this.searchHistoryPos = -1;
+
+					// Search changed - trigger new search
+					this.debouncedOnSearchChanged.cancel();
+					this.onSearchChanged(true);
+
+					// In structured query mode, hide help-text after search starts
+					if (!this.naturalLanguage) {
+						this.showHelpText = false;
+					}
+				} else if (!this.searching && this.hasMoreResults) {
+					// Search unchanged and paused with more results - resume search
+					this.emit('gl-search-resume');
+				} else {
+					// Search unchanged - navigate to next result (works in both NL and non-NL modes)
+					this.emit('gl-search-navigate', { direction: e.shiftKey ? 'previous' : 'next' });
+				}
+
+				return true;
+			}
 			case 'ArrowUp':
 			case 'ArrowDown':
 				e.preventDefault();
@@ -623,9 +695,9 @@ export class GlSearchInput extends GlElement {
 		return undefined;
 	}
 
-	private onSearchChanged() {
-		if (!this.naturalLanguage) {
-			// Only validate structured queries before starting the search
+	private onSearchChanged(force = false) {
+		if (!this.naturalLanguage && this.value) {
+			// Only validate non-empty structured queries before starting the search
 			const invalid = this.validateQuery(this.value);
 			// Let's not show errors to the user since it's too noisy
 			// this.setCustomValidity(error);
@@ -641,8 +713,14 @@ export class GlSearchInput extends GlElement {
 			matchRegex: this.matchRegex,
 			matchWholeWord: this.matchWholeWord,
 		};
+
+		// Only emit if search changed or forced
+		if (!force && this._lastSearch && areSearchQueriesEqual(search, this._lastSearch)) return;
+
+		this._lastSearch = search;
 		this.emit('gl-search-inputchange', search);
 	}
+
 	private debouncedOnSearchChanged = debounce(this.onSearchChanged.bind(this), 250);
 
 	setCustomValidity(errorMessage: string = ''): void {
@@ -716,7 +794,8 @@ export class GlSearchInput extends GlElement {
 	}
 
 	/**
-	 * Sets a search query from an external source (e.g., extension host) and triggers a search
+	 * Sets a search query from an external source (e.g., extension host).
+	 * This updates the UI but does NOT trigger a search - the caller should trigger the search if needed.
 	 */
 	setExternalSearchQuery(search: SearchQuery): void {
 		this._value = search.query;
@@ -727,7 +806,8 @@ export class GlSearchInput extends GlElement {
 		this.matchWholeWord = search.matchWholeWord ?? false;
 		this.naturalLanguage = Boolean(search.naturalLanguage);
 
-		this.debouncedOnSearchChanged();
+		// Don't trigger a search - just update the UI
+		// The caller (graph-app.ts) will trigger the search if needed
 	}
 
 	override render(): unknown {
@@ -767,11 +847,7 @@ export class GlSearchInput extends GlElement {
 					placeholder="${this.placeholder}"
 					.value="${live(this.value ?? '')}"
 					aria-valid="${!this.errorMessage}"
-					aria-describedby="${this.errorMessage !== '' ||
-					this.helpType != null ||
-					(this.naturalLanguage && this.showNaturalLanguageHelpText)
-						? 'help-text'
-						: ''}"
+					aria-describedby="${this.showHelpText ? 'help-text' : nothing}"
 					@input="${this.handleInput}"
 					@keydown="${this.handleShortcutKeys}"
 					@keyup="${this.handleKeyup}"
@@ -807,21 +883,17 @@ export class GlSearchInput extends GlElement {
 		}
 
 		if (this.naturalLanguage) {
-			if (this.showNaturalLanguageHelpText) {
-				if (!this.processedQuery) {
-					if (this.searching) {
-						return html`<span>Query: <code-icon icon="loading" modifier="spin"></code-icon></span>`;
-					}
-					return html`<span
-						>Type your natural language query and press Enter. Click
-						<code-icon icon="sparkle"></code-icon> to toggle modes.</span
-					>`;
+			if (!this.processedQuery) {
+				if (this.searching) {
+					return html`<span>Query: <code-icon icon="loading" modifier="spin"></code-icon></span>`;
 				}
-
-				return html`<span> Query: <code>${this.processedQuery}</code></span>`;
+				return html`<span
+					>Type your natural language query and press Enter. Click <code-icon icon="sparkle"></code-icon> to
+					toggle modes.</span
+				>`;
 			}
 
-			return nothing;
+			return html`<span> Query: <code>${this.processedQuery}</code></span>`;
 		}
 
 		switch (type) {
@@ -861,7 +933,13 @@ export class GlSearchInput extends GlElement {
 				>`;
 		}
 
-		return nothing;
+		if (this.searching) {
+			return html`<span>Searching <code-icon icon="loading" modifier="spin"></code-icon></span>`;
+		}
+		return html`<span
+			>Type your structured query and press Enter. Click <code-icon icon="sparkle"></code-icon> to toggle
+			modes.</span
+		>`;
 	}
 
 	private renderSearchByPopover() {

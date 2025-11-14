@@ -90,7 +90,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			<div class="graph">
 				<gl-graph-header
 					class="graph__header"
-					@gl-select-commits=${this.handleHeaderSearchNavigation}
+					.selectCommits=${this.selectCommits}
+					.getCommits=${this.getCommits}
 				></gl-graph-header>
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
@@ -133,9 +134,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private handleHeaderSearchNavigation(e: CustomEventType<'gl-select-commits'>) {
-		this.graph.selectCommits([e.detail], false, true);
-	}
+	private selectCommits = (shas: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) => {
+		return this.graph.selectCommits(shas, includeToPrevSel, isAutoOrKeyScroll);
+	};
+
+	private getCommits = (shas: string[]) => {
+		return this.graph.getCommits(shas);
+	};
 
 	private handleMinimapDaySelected(e: CustomEvent<GraphMinimapDaySelectedEventDetail>) {
 		if (!this.graphState.rows) return;

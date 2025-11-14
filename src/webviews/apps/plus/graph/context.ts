@@ -13,9 +13,9 @@ export interface AppState extends State {
 	isBusy: boolean;
 	loading: boolean;
 	mcpBannerCollapsed?: boolean | undefined;
+	navigating: 'next' | 'previous' | false;
 	searching: boolean;
 	searchMode: 'filter' | 'normal';
-	searchResultsHidden: boolean;
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;
 	searchResultsError: GraphSearchResultsError | undefined;

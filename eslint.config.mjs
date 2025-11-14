@@ -10,6 +10,7 @@ import importX from 'eslint-plugin-import-x';
 import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
 import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
+import reactCompiler from 'eslint-plugin-react-compiler';
 import { fileURLToPath } from 'node:url';
 
 /** @type {Awaited<import('typescript-eslint').Config>[number]['languageOptions']} */
@@ -429,7 +430,12 @@ export default defineConfig(
 		name: 'webviews:apps',
 		files: filePatterns.webviewsApps,
 		ignores: ignorePatterns.extensionOnly,
-		extends: [litConfigs['flat/recommended'], wcConfigs['flat/recommended'], wcConfigs['flat/best-practice']],
+		extends: [
+			litConfigs['flat/recommended'],
+			wcConfigs['flat/recommended'],
+			wcConfigs['flat/best-practice'],
+			reactCompiler.configs.recommended,
+		],
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.browser } },
 		rules: {
 			'@typescript-eslint/no-restricted-imports': restrictedImports.webviews,

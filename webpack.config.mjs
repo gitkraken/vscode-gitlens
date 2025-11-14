@@ -19,6 +19,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { createRequire } from 'module';
 import { availableParallelism } from 'os';
 import path from 'path';
+import { defineReactCompilerLoaderOption, reactCompilerLoader } from 'react-compiler-webpack';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
 import { fileURLToPath } from 'url';
@@ -50,7 +51,7 @@ if (useNpm) {
 const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
 /**
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean } | undefined } env
  * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
  * @returns { WebpackConfig[] }
  */
@@ -61,7 +62,7 @@ export default function (env, argv) {
 		analyzeBundle: false,
 		analyzeDeps: false,
 		esbuild: true,
-		skipLint: false,
+		quick: false,
 		...env,
 	};
 
@@ -109,7 +110,7 @@ function getCacheConfig(name, target, mode) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getCommonConfig(mode, env) {
@@ -122,28 +123,30 @@ function getCommonConfig(mode, env) {
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
-	const plugins = [
-		new DocsPlugin(),
-		new LicensesPlugin(),
-		new FantasticonPlugin({
-			configPath: '.fantasticonrc.js',
-			onBefore:
-				mode !== 'production'
-					? undefined
-					: () =>
-							spawnSync(pkgMgr, ['run', 'icons:svgo'], {
-								cwd: __dirname,
-								encoding: 'utf8',
-								shell: true,
-							}),
-			onComplete: () =>
-				spawnSync(pkgMgr, ['run', 'icons:apply'], {
-					cwd: __dirname,
-					encoding: 'utf8',
-					shell: true,
+	const plugins = env.quick
+		? []
+		: [
+				new DocsPlugin(),
+				new LicensesPlugin(),
+				new FantasticonPlugin({
+					configPath: '.fantasticonrc.js',
+					onBefore:
+						mode !== 'production'
+							? undefined
+							: () =>
+									spawnSync(pkgMgr, ['run', 'icons:svgo'], {
+										cwd: __dirname,
+										encoding: 'utf8',
+										shell: true,
+									}),
+					onComplete: () =>
+						spawnSync(pkgMgr, ['run', 'icons:apply'], {
+							cwd: __dirname,
+							encoding: 'utf8',
+							shell: true,
+						}),
 				}),
-		}),
-	];
+			];
 
 	return {
 		name: 'common',
@@ -160,7 +163,7 @@ function getCommonConfig(mode, env) {
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -173,6 +176,7 @@ function getExtensionConfig(target, mode, env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
 		new DefinePlugin({
 			DEBUG: mode === 'development',
+			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
 		new ForkTsCheckerPlugin({
 			async: useAsyncTypeChecking,
@@ -184,7 +188,7 @@ function getExtensionConfig(target, mode, env) {
 		}),
 	];
 
-	if (!env.skipLint) {
+	if (!env.quick) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
@@ -340,6 +344,7 @@ function getExtensionConfig(target, mode, env) {
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+			conditionNames: ['browser', 'import', 'module', 'default'],
 		},
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
@@ -350,7 +355,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
  * @returns { WebpackConfig[] }
  */
 function getWebviewsConfigs(mode, env) {
@@ -375,58 +380,60 @@ function getWebviewsConfigs(mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewsCommonConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 	/** @type WebpackConfig['plugins'] | any */
-	const plugins = [
-		new CleanPlugin(
-			mode === 'production'
-				? {
-						cleanOnceBeforeBuildPatterns: [
-							path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
-						],
-						dangerouslyAllowCleanPatternsOutsideProject: true,
-						dry: false,
-					}
-				: undefined,
-		),
-		new CopyPlugin({
-			patterns: [
-				{
-					from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.*'),
-					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
-				},
-				{
-					from: path.posix.join(
-						__dirname.replace(/\\/g, '/'),
-						'node_modules',
-						'@vscode',
-						'codicons',
-						'dist',
-						'codicon.ttf',
-					),
-					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
-				},
-			],
-		}),
-	];
+	const plugins = env.quick
+		? []
+		: [
+				new CleanPlugin(
+					mode === 'production'
+						? {
+								cleanOnceBeforeBuildPatterns: [
+									path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
+								],
+								dangerouslyAllowCleanPatternsOutsideProject: true,
+								dry: false,
+							}
+						: undefined,
+				),
+				new CopyPlugin({
+					patterns: [
+						{
+							from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.*'),
+							to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
+						},
+						{
+							from: path.posix.join(
+								__dirname.replace(/\\/g, '/'),
+								'node_modules',
+								'@vscode',
+								'codicons',
+								'dist',
+								'codicon.ttf',
+							),
+							to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
+						},
+					],
+				}),
+			];
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
-	if (mode !== 'production') {
-		plugins.push(
-			new ImageMinimizerPlugin({
-				deleteOriginalAssets: true,
-				generator: [imageGeneratorConfig],
-			}),
-		);
-	}
+	if (!env.quick) {
+		if (mode !== 'production') {
+			plugins.push(
+				new ImageMinimizerPlugin({
+					deleteOriginalAssets: true,
+					generator: [imageGeneratorConfig],
+				}),
+			);
+		}
 
-	if (!env.skipLint) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
@@ -471,7 +478,7 @@ function getWebviewsCommonConfig(mode, env) {
  * @param {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} webviews
  * @param {{ alias?: { [key:string]: string }}} overrides
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewConfig(webviews, overrides, mode, env) {
@@ -482,6 +489,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	const plugins = [
 		new DefinePlugin({
 			DEBUG: mode === 'development',
+			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
 		new ForkTsCheckerPlugin({
 			async: useAsyncTypeChecking,
@@ -501,16 +509,16 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
-	if (mode !== 'production') {
-		plugins.push(
-			new ImageMinimizerPlugin({
-				deleteOriginalAssets: true,
-				generator: [imageGeneratorConfig],
-			}),
-		);
-	}
+	if (!env.quick) {
+		if (mode !== 'production') {
+			plugins.push(
+				new ImageMinimizerPlugin({
+					deleteOriginalAssets: true,
+					generator: [imageGeneratorConfig],
+				}),
+			);
+		}
 
-	if (!env.skipLint) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
@@ -633,24 +641,32 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
-					use: env.esbuild
-						? {
-								loader: 'esbuild-loader',
-								options: {
-									format: 'esm',
-									implementation: esbuild,
-									target: ['es2023', 'chrome124'],
-									tsconfig: tsConfigPath,
+					use: [
+						// React Compiler - must come before esbuild-loader/ts-loader
+						{
+							loader: reactCompilerLoader,
+							options: defineReactCompilerLoaderOption({ target: '19' }),
+						},
+						// TypeScript transpilation
+						env.esbuild
+							? {
+									loader: 'esbuild-loader',
+									options: {
+										format: 'esm',
+										implementation: esbuild,
+										target: ['es2023', 'chrome124'],
+										tsconfig: tsConfigPath,
+									},
+								}
+							: {
+									loader: 'ts-loader',
+									options: {
+										configFile: tsConfigPath,
+										experimentalWatchApi: true,
+										transpileOnly: true,
+									},
 								},
-							}
-						: {
-								loader: 'ts-loader',
-								options: {
-									configFile: tsConfigPath,
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
-							},
+					],
 				},
 				{
 					test: /\.scss$/,
@@ -687,6 +703,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			fallback: { path: require.resolve('path-browserify') },
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
+			conditionNames: ['browser', 'import', 'module', 'default'],
 		},
 		ignoreWarnings: [
 			// Ignore warnings about findDOMNode being removed from React 19

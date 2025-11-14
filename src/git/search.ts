@@ -10,6 +10,8 @@ export interface GitCommitSearchContext {
 	readonly query: SearchQuery;
 	readonly queryFilters: SearchQueryFilters;
 	readonly matchedFiles: ReadonlyArray<Readonly<{ readonly path: string }>>;
+	/** Whether the commit is hidden from the graph (filtered out by type or other filters) */
+	readonly hiddenFromGraph?: boolean;
 }
 
 export interface GitGraphSearchResultData {
@@ -19,16 +21,46 @@ export interface GitGraphSearchResultData {
 }
 export type GitGraphSearchResults = Map<string, GitGraphSearchResultData>;
 
+export interface GitGraphSearchProgress {
+	readonly repoPath: string;
+	readonly query: SearchQuery;
+	readonly queryFilters: SearchQueryFilters;
+	readonly comparisonKey: string;
+	/** Whether there are more results available beyond the current limit */
+	readonly hasMore: boolean;
+	/** New results since the last progress update */
+	readonly results: GitGraphSearchResults;
+	/** Total count of all results accumulated so far */
+	readonly runningTotal: number;
+}
+
+export interface LocalGitGraphSearchCursorState {
+	readonly iterations: number;
+	readonly totalSeen: number;
+	readonly sha: string;
+	readonly skip: number;
+}
+
+export type GitGraphSearchCursorState = LocalGitGraphSearchCursorState | string;
+
+export interface GitGraphSearchCursor {
+	readonly search: SearchQuery;
+	readonly state: GitGraphSearchCursorState;
+}
+
 export interface GitGraphSearch {
 	readonly repoPath: string;
 	readonly query: SearchQuery;
 	readonly queryFilters: SearchQueryFilters;
 	readonly comparisonKey: string;
+	/** Whether there are more results available beyond the current limit */
+	readonly hasMore: boolean;
+	/** Complete set of results up to the current limit */
 	readonly results: GitGraphSearchResults;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
-		readonly hasMore: boolean;
+		readonly cursor?: GitGraphSearchCursor;
 	};
 
 	more?(limit: number): Promise<GitGraphSearch>;

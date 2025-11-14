@@ -120,10 +120,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
+	searchMode?: GraphSearchMode;
 	/** Search query to be executed once */
 	searchRequest?: SearchQuery;
 	searchResults?: DidSearchParams['results'];
-	defaultSearchMode?: GraphSearchMode;
 	useNaturalLanguageSearch?: boolean;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
@@ -273,6 +273,11 @@ export interface SearchOpenInViewParams {
 }
 export const SearchOpenInViewCommand = new IpcCommand<SearchOpenInViewParams>(scope, 'search/openInView');
 
+export interface SearchCancelParams {
+	preserveResults: boolean;
+}
+export const SearchCancelCommand = new IpcCommand<SearchCancelParams>(scope, 'search/cancel');
+
 export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
 }
@@ -311,7 +316,7 @@ export interface UpdateIncludedRefsParams {
 export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
 
 export interface UpdateSelectionParams {
-	selection: { id: string; type: GitGraphRowType }[];
+	selection: { id: string; type: GitGraphRowType; hidden: boolean }[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
@@ -392,14 +397,16 @@ export interface DidGetRowHoverParams {
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
 
 export interface SearchParams {
-	search?: SearchQuery;
+	search: SearchQuery;
 	limit?: number;
 	more?: boolean;
 }
 export interface GraphSearchResults {
 	ids?: Record<string, GitGraphSearchResultData>;
 	count: number;
-	paging?: { hasMore: boolean };
+	hasMore: boolean;
+	/** Whether the commits for these search results are loaded in the graph */
+	commitsLoaded: { count: number };
 }
 export interface GraphSearchResultsError {
 	error: string;
@@ -408,6 +415,10 @@ export interface DidSearchParams {
 	search: SearchQuery | undefined;
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
 	selectedRows?: GraphSelectedRows;
+	/** Indicates this is a partial result (more results coming) */
+	partial?: boolean;
+	/** Search ID to track which search these results belong to */
+	searchId: number;
 }
 export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
 
@@ -505,7 +516,7 @@ export interface DidChangeRowsParams {
 	refsMetadata?: GraphRefsMetadata | null;
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
-	searchResults?: GraphSearchResults;
+	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 }
 export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(scope, 'rows/didChange');

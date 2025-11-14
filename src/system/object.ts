@@ -111,8 +111,52 @@ export function flatten<T extends object | null | undefined, P extends string | 
 	return flattened as Flatten<T, P, NonNullable<O['joinArrays']> extends true ? true : false>;
 }
 
-export function entries<TKey extends PropertyKey, TVal>(o: Partial<Record<TKey, TVal>>): [TKey, TVal][] {
-	return Object.entries(o) as [TKey, TVal][];
+export function filterMap<T, TMapped>(
+	o: Record<string, T> | undefined,
+	predicateMapper: (key: string, value: T) => TMapped | null | undefined,
+): Record<string, TMapped> {
+	if (o == null) return {};
+
+	const result: Record<string, TMapped> = {};
+	for (const [key, value] of Object.entries(o)) {
+		const mapped = predicateMapper(key, value);
+		if (mapped == null) continue;
+
+		result[key] = mapped;
+	}
+	return result;
+}
+
+export function filterMapEntries<T, TMapped>(
+	o: Record<string, T> | undefined,
+	predicateMapper: (key: string, value: T) => TMapped | null | undefined,
+): [string, TMapped][] {
+	if (o == null) return [];
+
+	const result: [string, TMapped][] = [];
+	for (const [key, value] of Object.entries(o)) {
+		const mapped = predicateMapper(key, value);
+		if (mapped == null) continue;
+
+		result.push([key, mapped]);
+	}
+	return result;
+}
+
+export function filterMapValues<T, TMapped>(
+	o: Record<string, T> | undefined,
+	predicateMapper: (value: T) => TMapped | null | undefined,
+): TMapped[] {
+	if (o == null) return [];
+
+	const result: TMapped[] = [];
+	for (const key in o) {
+		const mapped = predicateMapper(o[key]);
+		if (mapped == null) continue;
+
+		result.push(mapped);
+	}
+	return result;
 }
 
 export function paths(o: Record<string, any>, path?: string): string[] {

@@ -175,3 +175,31 @@ hr {
 	white-space: nowrap;
 	border-bottom: 1px dashed currentColor;
 }
+
+.alert {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	width: 100%;
+	max-width: 100%;
+	margin-block: 0;
+	background-color: var(--color-alert-warningBackground);
+	border-radius: 0.3rem;
+	padding: 0.4rem 0.8rem;
+	color: var(--color-alert-warningForeground, var(--vscode-input-foreground));
+	border: 1px solid var(--color-alert-warningBorder);
+
+	code-icon {
+		flex: none;
+		font-size: 1.3rem;
+	}
+
+	&__content {
+		flex: 1;
+		min-width: 0;
+		font-size: 1.2rem;
+		line-height: 1.4;
+		margin: 0;
+	}
+}

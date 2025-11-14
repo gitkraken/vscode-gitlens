@@ -1,4 +1,4 @@
-import type { GraphRefOptData } from '@gitkraken/gitkraken-components';
+import type { GraphRefOptData, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
 import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
@@ -19,6 +19,7 @@ import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad'
 import { createCommandLink } from '../../../../system/commands';
 import { debounce } from '../../../../system/decorators/debounce';
 import { hasTruthyKeys } from '../../../../system/object';
+import { wait } from '../../../../system/promise';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type {
 	DidChooseRefParams,
@@ -36,6 +37,7 @@ import {
 	EnsureRowRequest,
 	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
+	SearchCancelCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	UpdateExcludeTypesCommand,
@@ -55,6 +57,7 @@ import { telemetryContext } from '../../shared/contexts/telemetry';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
 import { ruleStyles } from '../shared/components/vscode.css';
 import { graphStateContext } from './context';
+import { isGraphSearchResultsError } from './stateProvider';
 import { actionButton, linkBase } from './styles/graph.css';
 import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -80,10 +83,6 @@ import './actions/gitActionsButtons';
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-graph-header': GlGraphHeader;
-	}
-
-	interface GlobalEventHandlersEventMap {
-		'gl-select-commits': CustomEvent<string>;
 	}
 }
 
@@ -161,6 +160,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	@state() private aiAllowed = true;
 
+	// Function to get commits without modifying selection, passed from graph-app
+	getCommits?: (shas: string[]) => ReadonlyGraphRow[];
+	// Function to select commits on the graph, passed from graph-app
+	selectCommits?: (shas: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) => ReadonlyGraphRow[];
+
 	get hasFilters() {
 		if (this.graphState.config?.onlyFollowFirstParent) return true;
 		if (this.graphState.excludeTypes == null) return false;
@@ -175,6 +179,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	// Local search query state (not in global context)
 	private _searchQuery: SearchQuery = { query: '' };
 
+	@state()
+	private _searchResultHidden = false;
+
 	override updated(changedProperties: PropertyValues): void {
 		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && (this.graphState.orgSettings?.ai ?? true);
 		super.updated(changedProperties);
@@ -183,6 +190,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	setExternalSearchQuery(query: SearchQuery) {
 		this._searchQuery = query;
 		this.searchEl?.setExternalSearchQuery(query);
+
+		// Trigger the search
+		void this.startSearch();
 	}
 
 	private async onJumpToRefPromise(alt: boolean): Promise<DidChooseRefParams | undefined> {
@@ -204,10 +214,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private async handleJumpToRef(e: MouseEvent) {
 		const ref = await this.onJumpToRefPromise(e.altKey);
 		if (ref != null) {
-			const sha = await this.ensureSearchResultRow(ref.sha);
-			if (sha == null) return;
+			const id = await this.ensureSearchResultRow(ref.sha);
+			if (id == null) return;
 
-			this.dispatchEvent(new CustomEvent('gl-select-commits', { detail: sha }));
+			// Select the commit and check if it's filtered out
+			const rows = this.selectCommits?.([id], false, false);
+
+			// If loaded but filtered out, show warning
+			if (rows?.[0]?.hidden) {
+				this._searchResultHidden = true;
+			}
 		}
 	}
 
@@ -250,18 +266,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		if (next) {
 			if (index < results.count - 1) {
 				index++;
-			} else if (query != null && results.paging?.hasMore) {
+			} else if (query != null && results.hasMore) {
 				index = -1; // Indicates a boundary that we should load more results
-			} else {
-				index = 0;
 			}
+			// else: at the end with no more results - stay at current index
 		} else if (index > 0) {
 			index--;
-		} else if (query != null && results.paging?.hasMore) {
+		} else if (query != null && results.hasMore) {
 			index = -1; // Indicates a boundary that we should load more results
-		} else {
-			index = results.count - 1;
 		}
+		// else: at the beginning with no more results - stay at current index
 		return index;
 	}
 
@@ -321,7 +335,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				}
 			}
 
-			index = nearestIndex == null ? results.count - 1 : nearestIndex + (next ? -1 : 1);
+			// If no nearest result found:
+			// - When next=true: we're after all results, wrap to last result
+			// - When next=false: we're before all results, use -1 to indicate this
+			if (nearestIndex == null) {
+				index = next ? results.count - 1 : -1;
+			} else {
+				index = nearestIndex + (next ? -1 : 1);
+			}
 		}
 
 		index = this.getNextOrPreviousSearchResultIndex(index, next, results, query);
@@ -336,11 +357,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const id = this.getActiveRowInfo()?.id;
 		let searchIndex = id ? searchResults.ids[id]?.i : undefined;
 		if (searchIndex == null) {
-			({ index: searchIndex } = this.getClosestSearchResultIndex(searchResults, {
-				...this._searchQuery,
-			}));
+			// Get the closest search result for display purposes
+			// We want to show which result we're at or have passed, not the next one
+			({ index: searchIndex } = this.getClosestSearchResultIndex(
+				searchResults,
+				{
+					...this._searchQuery,
+				},
+				false,
+			)); // Use false to get the result we're at/past, not the next one
 		}
-		return searchIndex < 1 ? 1 : searchIndex + 1;
+		// If searchIndex is negative, we're before the first result - show 0
+		return searchIndex < 0 ? 0 : searchIndex + 1;
 	});
 
 	private get searchPosition(): number {
@@ -349,6 +377,48 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	get searchValid() {
 		return (this._searchQuery.query?.length ?? 0) > 2;
+	}
+
+	private cancelSearch(preserveResults: boolean) {
+		// Send cancel command to backend
+		// Don't update local state here - wait for backend notification to ensure cancel is processed
+		// The searchId-based filtering will prevent any race conditions with stale progressive updates
+		if (!preserveResults) {
+			this.graphState.searchResultsResponse = undefined;
+		}
+
+		this._ipc.sendCommand(SearchCancelCommand, { preserveResults: preserveResults });
+	}
+
+	private async startSearch() {
+		if (!this.searchValid) {
+			this.cancelSearch(false);
+			return;
+		}
+
+		try {
+			const rsp = await this._ipc.sendRequest(SearchRequest, { search: { ...this._searchQuery } });
+
+			// Only log successful searches with at least 1 result
+			if (rsp.search && rsp.results && !('error' in rsp.results) && rsp.results.count > 0) {
+				this.searchEl.logSearch(rsp.search);
+			}
+
+			this.graphState.searchResultsResponse = rsp.results;
+
+			// if (!rsp.results || 'error' in rsp.results) {
+			// 	this.graphState.searchResultsResponse = rsp.results;
+			// 	this.graphState.searching = false;
+			// }
+
+			this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
+			if (rsp.selectedRows != null) {
+				this.graphState.selectedRows = rsp.selectedRows;
+			}
+		} catch {
+			this.graphState.searchResultsResponse = undefined;
+			this.graphState.searching = false;
+		}
 	}
 
 	private handleFilterChange(e: CustomEvent) {
@@ -390,38 +460,48 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this.onRefIncludesChanged($el.value as GraphBranchesVisibility);
 	}
 
-	private async handleSearch() {
-		this.graphState.searching = this.searchValid;
-		if (!this.searchValid) {
-			this.graphState.searchResultsResponse = undefined;
-			this.graphState.searchMode = 'normal';
-		}
-
-		try {
-			const rsp = await this._ipc.sendRequest(SearchRequest, {
-				search: this.searchValid ? { ...this._searchQuery } : undefined /*limit: options?.limit*/,
-			});
-
-			// Only log successful searches with at least 1 result
-			if (rsp.search && rsp.results && !('error' in rsp.results) && rsp.results.count > 0) {
-				this.searchEl.logSearch(rsp.search);
-			}
-
-			this.graphState.searchResultsResponse = rsp.results;
-			this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
-			if (rsp.selectedRows != null) {
-				this.graphState.selectedRows = rsp.selectedRows;
-			}
-		} catch {
-			this.graphState.searchResultsResponse = undefined;
-		}
-		this.graphState.searching = false;
+	private handleSearch() {
+		void this.startSearch();
 	}
 
-	@debounce(500)
 	private handleSearchInput(e: CustomEvent<SearchQuery>) {
+		// Cancel any existing search before starting a new one
+		if (this.graphState.searching) {
+			this.cancelSearch(false);
+		}
+
 		this._searchQuery = e.detail;
-		void this.handleSearch();
+		void this.startSearch();
+	}
+
+	private handleSearchCancel(e: CustomEvent<{ preserveResults: boolean }>) {
+		this.cancelSearch(e.detail.preserveResults);
+	}
+
+	private handleSearchPause() {
+		// Pause the search by cancelling with preserveResults=true
+		this.cancelSearch(true);
+	}
+
+	private handleSearchResume() {
+		// Set searching state immediately for responsive UI
+		this.graphState.searching = true;
+
+		// Preserve current search results but ensure hasMore is true
+		// Read from searchResultsResponse (the source) not searchResults (the derived value)
+		const currentResults = this.graphState.searchResultsResponse;
+		if (currentResults != null && !isGraphSearchResultsError(currentResults)) {
+			this.graphState.searchResultsResponse = {
+				...currentResults,
+				hasMore: true,
+			};
+		}
+
+		// Resume a paused search by requesting more results
+		void this._ipc.sendRequest(SearchRequest, {
+			search: this._searchQuery,
+			more: true,
+		});
 	}
 
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
@@ -432,9 +512,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				more: options?.more,
 			});
 
-			this.graphState.searchResultsResponse = rsp.results;
-			if (rsp.selectedRows != null) {
-				this.graphState.selectedRows = rsp.selectedRows;
+			// Don't update state for resume operations - progressive notifications handle it
+			if (!options?.more) {
+				this.graphState.searchResultsResponse = rsp.results;
+				if (rsp.selectedRows != null) {
+					this.graphState.selectedRows = rsp.selectedRows;
+				}
 			}
 
 			return rsp;
@@ -443,26 +526,70 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private async handleSearchNavigation(e: CustomEvent<SearchNavigationEventDetail>) {
+	private _pendingNavigation: SearchNavigationEventDetail['direction'] | undefined;
+	private _isNavigating = false;
+
+	/**
+	 * Handles search navigation requests (next/previous/first/last)
+	 * Uses a queuing mechanism to batch rapid keyboard navigation
+	 */
+	private handleSearchNavigation(e: CustomEvent<SearchNavigationEventDetail>) {
+		const direction = e.detail?.direction ?? 'next';
+
+		// Store the latest navigation request
+		this._pendingNavigation = direction;
+
+		// If already navigating, the pending request will be picked up when current navigation completes
+		if (this._isNavigating) return;
+
+		// Start navigation loop
+		void this.processNavigation();
+	}
+
+	/**
+	 * Processes navigation requests in a loop to handle rapid keyboard navigation
+	 * Waits 50ms after each navigation to catch keyboard repeat events, allowing users to see each step when holding down a navigation key
+	 */
+	private async processNavigation() {
+		this._isNavigating = true;
+		try {
+			while (this._pendingNavigation != null) {
+				const direction = this._pendingNavigation;
+				this._pendingNavigation = undefined;
+
+				// Set navigation direction for UI feedback (bounce animation)
+				this.graphState.navigating = direction === 'next' || direction === 'last' ? 'next' : 'previous';
+
+				await this.executeNavigation(direction);
+
+				// Wait 50ms to catch keyboard repeat events (typically 30-50ms between repeats)
+				await wait(50);
+			}
+		} finally {
+			this._isNavigating = false;
+			this.graphState.navigating = false;
+		}
+	}
+
+	/**
+	 * Executes a single navigation operation to find and select the next/previous/first/last search result
+	 * Handles loading rows on demand and skipping filtered-out results
+	 */
+	private async executeNavigation(direction: SearchNavigationEventDetail['direction']) {
 		let { searchResults } = this.graphState;
 		if (searchResults == null) return;
 
-		const direction = e.detail?.direction ?? 'next';
-
 		let count = searchResults.count;
-
-		let searchIndex;
+		let searchIndex: number;
 		let id: string | undefined;
+		const next = direction !== 'previous' && direction !== 'first';
 
-		let next;
+		// Determine starting position
 		if (direction === 'first') {
-			next = false;
 			searchIndex = 0;
 		} else if (direction === 'last') {
-			next = false;
 			searchIndex = -1;
 		} else {
-			next = direction === 'next';
 			({ index: searchIndex, id } = this.getClosestSearchResultIndex(
 				searchResults,
 				{ ...this._searchQuery },
@@ -470,72 +597,139 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			));
 		}
 
-		let iterations = 0;
-		// Avoid infinite loops
-		while (iterations < 1000) {
-			iterations++;
+		// Track last visible result to maintain stable position during async loading
+		const lastVisibleId: string | undefined = this.getActiveRowInfo()?.id;
 
-			// Indicates a boundary and we need to load more results
+		// For jump-to-last while search is running, wait for search to complete first
+		if (direction === 'last' && this.graphState.searching) {
+			// Wait for the search to complete by polling the state
+			// The search will update searchResults via notifications
+			const maxWaitTime = 30000; // 30 seconds max
+			const startTime = Date.now();
+			while (this.graphState.searching && Date.now() - startTime < maxWaitTime) {
+				await new Promise(resolve => setTimeout(resolve, 100));
+			}
+
+			// Refresh searchResults after waiting
+			searchResults = this.graphState.searchResults;
+			if (searchResults == null || isGraphSearchResultsError(searchResults)) return;
+			count = searchResults.count;
+		}
+
+		// Avoid infinite loops (max 1000 iterations)
+		for (let iterations = 0; iterations < 1000; iterations++) {
+			// Handle boundary case - need to load more results
 			if (searchIndex === -1) {
-				if (next) {
-					if (this._searchQuery.query && searchResults?.paging?.hasMore) {
-						this.graphState.searching = true;
-						let moreResults;
-						try {
-							moreResults = await this.onSearchPromise?.({ ...this._searchQuery }, { more: true });
-						} finally {
-							this.graphState.searching = false;
-						}
-						if (moreResults?.results != null && !('error' in moreResults.results)) {
-							if (count < moreResults.results.count) {
-								searchResults = moreResults.results;
-								searchIndex = count;
-								count = searchResults.count;
-							} else {
-								searchIndex = 0;
-							}
-						} else {
-							searchIndex = 0;
-						}
-					} else {
-						searchIndex = 0;
-					}
-					// this._searchQuery != null seems noop
-				} else if (direction === 'last' && this._searchQuery != null && searchResults?.paging?.hasMore) {
-					this.graphState.searching = true;
-					let moreResults;
-					try {
-						moreResults = await this.onSearchPromise({ ...this._searchQuery }, { limit: 0, more: true });
-					} finally {
-						this.graphState.searching = false;
-					}
-					if (moreResults?.results != null && !('error' in moreResults.results)) {
-						if (count < moreResults.results.count) {
-							searchResults = moreResults.results;
-							count = searchResults.count;
-						}
-						searchIndex = count;
-					}
-				} else {
+				if (!this._searchQuery?.query) break;
+
+				// If no more results to load, jump to the last known result
+				if (!searchResults.hasMore) {
 					searchIndex = count - 1;
+					continue;
+				}
+
+				let moreResults;
+				try {
+					// For 'last', load all results at once; otherwise load incrementally
+					const limit = direction === 'last' ? 0 : undefined;
+					moreResults = await this.onSearchPromise({ ...this._searchQuery }, { limit: limit, more: true });
+				} catch {
+					break;
+				}
+
+				if (
+					!moreResults?.results ||
+					isGraphSearchResultsError(moreResults.results) ||
+					count >= moreResults.results.count
+				) {
+					break;
+				}
+
+				searchResults = moreResults.results;
+				count = searchResults.count;
+				searchIndex = direction === 'last' ? count - 1 : count - (moreResults.results.count - count);
+				continue;
+			}
+
+			// Get the ID for the current search index
+			id = id ?? getSearchResultIdByIndex(searchResults, searchIndex);
+
+			if (id != null) {
+				// Check if row is loaded without modifying selection
+				const rows = this.getCommits?.([id]);
+				const isHidden = rows?.[0]?.hidden;
+
+				if (isHidden === false) {
+					// Row is loaded and visible - select it and done!
+					this.selectCommits?.([id], false, false);
+					this._searchResultHidden = false;
+					break;
+				}
+
+				if (isHidden === true) {
+					// Row is loaded but hidden from graph - select it anyway and show warning
+					this.selectCommits?.([id], false, false);
+					this._searchResultHidden = true;
+					break;
+				}
+
+				// Row not loaded yet - need to load it
+				// Re-select last visible to keep position stable during loading
+				if (lastVisibleId != null) {
+					this.selectCommits?.([lastVisibleId], false, false);
+				}
+
+				// Load the row
+				const ensuredId = await this.ensureSearchResultRow(id);
+
+				if (ensuredId != null) {
+					// Row loaded - select it and check if filtered out
+					const rows = this.selectCommits?.([ensuredId], false, false);
+					if (rows?.[0]?.hidden) {
+						this._searchResultHidden = true;
+					} else {
+						this._searchResultHidden = false;
+					}
+
+					// Done either way
+					break;
+				}
+
+				// Row couldn't be loaded - re-select last visible and try next
+				if (lastVisibleId != null) {
+					this.selectCommits?.([lastVisibleId], false, false);
+				}
+
+				// Clear id to get next index
+				id = undefined;
+			}
+
+			// No ID at this index - check if we should load more or stop
+			if (id == null) {
+				if (next && searchIndex >= count - 1 && this._searchQuery?.query && searchResults.hasMore) {
+					// For 'last', we've already loaded all results, so don't trigger another load
+					// Instead, fall through to move to previous index
+					if (direction !== 'last') {
+						// At/past last result - trigger load on next iteration
+						searchIndex = -1;
+						continue;
+					}
+				} else if (!next && searchIndex <= 0) {
+					// For 'first', we've already at the first result, so don't stop
+					// Instead, fall through to move to next index
+					if (direction !== 'first') break;
 				}
 			}
 
-			id = id ?? getSearchResultIdByIndex(searchResults, searchIndex);
-			if (id != null) {
-				id = await this.ensureSearchResultRow(id);
-				if (id != null) break;
-			}
-
-			this.graphState.searchResultsHidden = true;
-
+			// Move to next/previous search result
+			const prevIndex = searchIndex;
 			searchIndex = this.getNextOrPreviousSearchResultIndex(searchIndex, next, searchResults, {
 				...this._searchQuery,
 			});
-		}
+			id = undefined;
 
-		if (id != null) {
-			this.dispatchEvent(new CustomEvent('gl-select-commits', { detail: id }));
+			// Stop if we didn't move (at boundary with no more results)
+			if (searchIndex === prevIndex) break;
 		}
 	}
 
@@ -547,13 +741,26 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	// Cache of ensured rows to avoid redundant IPC calls
 	private readonly ensuredIds = new Set<string>();
-	private readonly ensuredSkippedIds = new Set<string>();
 	private readonly pendingEnsureRequests = new Map<string, Promise<string | undefined>>();
 
+	/**
+	 * Ensures a search result row is loaded in the graph.
+	 * Returns the ID if successfully loaded, undefined if couldn't be loaded.
+	 *
+	 * Optimizations:
+	 * - Caches results to avoid redundant IPC calls
+	 * - Deduplicates concurrent requests for the same row
+	 * - Shows loading indicator only if operation takes >250ms
+	 * - Waits for row data to be processed before returning (fixes race condition)
+	 *
+	 * Note: This only ensures the row is loaded. Use selectCommits to check if it's filtered out.
+	 *
+	 * @returns ID if row was loaded, undefined if couldn't be loaded
+	 */
 	private async ensureSearchResultRow(id: string): Promise<string | undefined> {
 		if (this.ensuredIds.has(id)) return id;
-		if (this.ensuredSkippedIds.has(id)) return undefined;
 
 		let promise = this.pendingEnsureRequests.get(id);
 		if (promise == null) {
@@ -571,13 +778,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				}
 
 				if (e?.id === id) {
+					// Wait for row data to be loaded
+					await this.ensureRowLoadedInGraph(id);
+
+					// Row is loaded - cache it
 					this.ensuredIds.add(id);
 					return id;
 				}
 
-				if (e != null) {
-					this.ensuredSkippedIds.add(id);
-				}
+				// Row couldn't be loaded
 				return undefined;
 			};
 
@@ -590,7 +799,38 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return promise;
 	}
 
+	/**
+	 * Waits for a row to be processed and available in the graph -- to avoid race conditions where we are trying to access the row before it's available.
+	 *
+	 * Returns as soon as the row is loaded, regardless of whether it's filtered out.
+	 * Polls every 10ms using getCommits to check availability without modifying selection.
+	 *
+	 * @returns Array of ReadonlyGraphRow objects, or undefined on timeout
+	 */
+	private async ensureRowLoadedInGraph(
+		id: string,
+		maxWaitMs: number = 1000,
+	): Promise<ReadonlyGraphRow[] | undefined> {
+		const startTime = Date.now();
+
+		while (Date.now() - startTime < maxWaitMs) {
+			const rows = this.getCommits?.([id]);
+			if (rows != null) return rows;
+
+			await wait(10);
+		}
+
+		debugger;
+		return undefined;
+	}
+
 	handleSearchModeChanged(e: CustomEvent) {
+		// Update local state immediately for responsive UI
+		this.graphState.searchMode = e.detail.searchMode;
+
+		// Update the search query's filter property so it's included in the next search
+		this._searchQuery.filter = e.detail.searchMode === 'filter';
+
 		this._ipc.sendCommand(UpdateGraphSearchModeCommand, {
 			searchMode: e.detail.searchMode,
 			useNaturalLanguage: e.detail.useNaturalLanguage,
@@ -1000,13 +1240,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		const {
 			config,
-			defaultSearchMode,
 			excludeRefs,
 			excludeTypes,
 			searching,
+			searchMode,
 			searchResults,
 			searchResultsError,
-			searchResultsHidden,
 			useNaturalLanguageSearch,
 		} = this.graphState;
 
@@ -1099,20 +1338,24 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					<gl-search-box
 						?aiAllowed=${this.aiAllowed}
 						errorMessage=${searchResultsError?.error ?? ''}
-						?filter=${defaultSearchMode === 'filter'}
+						?filter=${searchMode === 'filter'}
 						?naturalLanguage=${Boolean(useNaturalLanguageSearch)}
-						?more=${searchResults?.paging?.hasMore ?? false}
-						?resultsHidden=${searchResultsHidden}
+						.navigating=${this.graphState.navigating}
+						?resultsHasMore=${searchResults?.hasMore ?? false}
+						?resultHidden=${this._searchResultHidden}
 						?resultsLoaded=${searchResults != null}
 						?searching=${searching}
 						step=${this.searchPosition}
 						total=${searchResults?.count ?? 0}
 						?valid=${this.searchValid}
 						value=${this._searchQuery.query ?? ''}
+						@gl-search-cancel=${this.handleSearchCancel}
 						@gl-search-inputchange=${this.handleSearchInput}
+						@gl-search-modechange=${this.handleSearchModeChanged}
 						@gl-search-navigate=${this.handleSearchNavigation}
 						@gl-search-openinview=${this.onSearchOpenInView}
-						@gl-search-modechange=${this.handleSearchModeChanged}
+						@gl-search-pause=${this.handleSearchPause}
+						@gl-search-resume=${this.handleSearchResume}
 					></gl-search-box>
 					<span>
 						<span class="action-divider"></span>
