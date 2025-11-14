@@ -568,7 +568,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		function getItemsAndQuickpickProps(isFiltering?: boolean) {
 			const result = context.inSearch ? context.searchResult : context.result;
 
-			if (result?.error != null) {
+			if (result?.error != null && !result?.items?.length) {
 				return {
 					title: `${context.title} \u00a0\u2022\u00a0 Unable to Load Items`,
 					placeholder: `Unable to load items (${
@@ -582,7 +582,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				};
 			}
 
-			if (!result?.items.length) {
+			if (!result?.items?.length) {
 				if (context.inSearch === 'mode') {
 					return {
 						title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
@@ -616,6 +616,21 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			const items = getLaunchpadQuickPickItems(result.items, isFiltering);
+
+			// Add error information item if there's an error but items were still loaded
+			const errorItem: DirectiveQuickPickItem | undefined =
+				result?.error != null
+					? createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: '$(warning) Unable to fully load items',
+							detail:
+								result.error.name === 'HttpError' &&
+								'status' in result.error &&
+								typeof result.error.status === 'number'
+									? `${result.error.status}: ${String(result.error)}`
+									: String(result.error),
+						})
+					: undefined;
+
 			const hasPicked = items.some(i => i.picked);
 			if (context.inSearch === 'mode') {
 				const offItem: ToggleSearchModeQuickPickItem = {
@@ -630,7 +645,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				return {
 					title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
 					placeholder: 'Enter a term to search for a pull request to act on',
-					items: isFiltering ? [...items, offItem] : [offItem, ...items],
+					items: isFiltering
+						? [...(errorItem != null ? [errorItem] : []), ...items, offItem]
+						: [offItem, ...(errorItem != null ? [errorItem] : []), ...items],
 				};
 			}
 
@@ -646,8 +663,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				title: context.title,
 				placeholder: 'Choose a pull request or paste a pull request URL to act on',
 				items: isFiltering
-					? [...items, onItem]
-					: [onItem, ...getLaunchpadQuickPickItems(result.items, isFiltering)],
+					? [...(errorItem != null ? [errorItem] : []), ...items, onItem]
+					: [
+							onItem,
+							...(errorItem != null ? [errorItem] : []),
+							...getLaunchpadQuickPickItems(result.items, isFiltering),
+						],
 			};
 		}
 
@@ -1657,10 +1678,10 @@ function updateTelemetryContext(context: Context) {
 	if (context.telemetryContext == null) return;
 
 	let updatedContext: NonNullable<(typeof context)['telemetryContext']>;
-	if (context.result.error != null) {
+	if (context.result.error != null || !context.result.items) {
 		updatedContext = {
 			...context.telemetryContext,
-			'items.error': String(context.result.error),
+			'items.error': String(context.result.error ?? 'items not loaded'),
 		};
 	} else {
 		const grouped = countLaunchpadItemGroups(context.result.items);

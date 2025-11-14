@@ -795,7 +795,7 @@ export class IntegrationService implements Disposable {
 		const successfulResults = [
 			...flatten(
 				filterMap(results, r =>
-					r.status === 'fulfilled' && r.value != null && r.value?.error == null ? r.value.value : undefined,
+					r.status === 'fulfilled' && r.value?.value != null ? r.value.value : undefined,
 				),
 			),
 		];
@@ -804,15 +804,17 @@ export class IntegrationService implements Disposable {
 				r.status === 'fulfilled' && r.value?.error != null ? r.value.error : undefined,
 			),
 		];
-		if (errors.length > 0 && successfulResults.length === 0) {
-			return {
-				error: errors.length === 1 ? errors[0] : new AggregateError(errors),
-				duration: Date.now() - start,
-			};
-		}
+
+		const error =
+			errors.length === 0
+				? undefined
+				: errors.length === 1
+					? errors[0]
+					: new AggregateError(errors, 'Failed to get some pull requests');
 
 		return {
 			value: successfulResults,
+			error: error,
 			duration: Date.now() - start,
 		};
 	}

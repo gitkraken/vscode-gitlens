@@ -46,7 +46,7 @@ export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extend
 export type IntegrationConnectedKey<T extends IntegrationIds = IntegrationIds> = `connected:${IntegrationKey<T>}`;
 
 export type IntegrationResult<T> =
-	| { value: T; duration?: number; error?: never }
+	| { value: T; duration?: number; error?: Error }
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
 
