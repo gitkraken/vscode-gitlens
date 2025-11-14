@@ -50,6 +50,7 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { getScopedCounter } from '../../system/counter.js';
 import { fromNow } from '../../system/date.js';
 import { some } from '../../system/iterable.js';
+import { Logger } from '../../system/logger.js';
 import { interpolate, pluralize } from '../../system/string.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
 import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
@@ -163,6 +164,11 @@ const Steps = {
 	ConfirmAction: 'confirm-action',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
+
+const OpenLogsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('output'),
+	tooltip: 'Open Logs',
+};
 
 export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
@@ -644,6 +650,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								typeof result.error.status === 'number'
 									? `${result.error.status}: ${String(result.error)}`
 									: String(result.error),
+							buttons: [OpenLogsQuickInputButton],
 						})
 					: undefined;
 
@@ -843,6 +850,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			onDidClickItemButton: async (quickpick, button, { group, item }) => {
 				if (button === LearnAboutProQuickInputButton) {
 					void openUrl(urls.proFeatures);
+					return;
+				}
+
+				if (button === OpenLogsQuickInputButton) {
+					Logger.showOutputChannel();
 					return;
 				}
 
