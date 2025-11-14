@@ -1972,13 +1972,13 @@ async function getLaunchpadItemInfo(
 ): Promise<LaunchpadItemInfo> {
 	launchpadPromise ??= container.launchpad.getCategorizedItems();
 	let result = await launchpadPromise;
-	if (result.error != null) return undefined;
+	if (result.error != null || !result.items) return undefined;
 
 	let lpi = result.items.find(i => i.url === pr.url);
 	if (lpi == null) {
 		// result = await container.launchpad.getCategorizedItems({ search: pr.url });
 		result = await container.launchpad.getCategorizedItems({ search: [pr] });
-		if (result.error != null) return undefined;
+		if (result.error != null || !result.items) return undefined;
 
 		lpi = result.items.find(i => i.url === pr.url);
 	}
