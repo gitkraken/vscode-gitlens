@@ -973,8 +973,8 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.changeUpstream:views')
 	@command('gitlens.setUpstream:views')
 	@log()
-	private changeUpstreamBranch(node: BranchNode) {
-		if (!node.is('branch')) return Promise.resolve();
+	private changeUpstreamBranch(node: BranchNode | BranchTrackingStatusNode) {
+		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
 
 		return BranchActions.changeUpstream(node.repoPath, node.branch);
 	}

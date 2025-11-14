@@ -466,8 +466,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions_2",
-						"order": 3
+						"group": "1_gitlens_actions",
+						"order": 10
 					}
 				]
 			}
@@ -480,8 +480,13 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?=.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions_2",
-						"order": 3
+						"group": "1_gitlens_actions",
+						"order": 10
+					},
+					{
+						"when": "viewItem =~ /gitlens:status(-branch)?:upstream:(ahead|behind|same|missing)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 10
 					}
 				]
 			}
@@ -4636,8 +4641,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions_2",
-						"order": 3
+						"group": "1_gitlens_actions",
+						"order": 10
 					}
 				]
 			}
@@ -4650,8 +4655,13 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions_2",
-						"order": 3
+						"group": "1_gitlens_actions",
+						"order": 10
+					},
+					{
+						"when": "viewItem =~ /gitlens:status(-branch)?:upstream:none/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 10
 					}
 				]
 			}
