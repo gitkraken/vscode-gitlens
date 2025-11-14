@@ -52,6 +52,7 @@ import { openUrl } from '../../system/-webview/vscode/uris';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
+import { Logger } from '../../system/logger';
 import { interpolate, pluralize } from '../../system/string';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
@@ -156,6 +157,11 @@ function assertsLaunchpadStepState(state: StepState<State>): asserts state is La
 const instanceCounter = getScopedCounter();
 
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
+
+const OpenLogsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('output'),
+	tooltip: 'Open Logs',
+};
 
 export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
@@ -628,6 +634,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								typeof result.error.status === 'number'
 									? `${result.error.status}: ${String(result.error)}`
 									: String(result.error),
+							buttons: [OpenLogsQuickInputButton],
 						})
 					: undefined;
 
@@ -848,6 +855,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			onDidClickItemButton: async (quickpick, button, { group, item }) => {
 				if (button === LearnAboutProQuickInputButton) {
 					void openUrl(urls.proFeatures);
+					return;
+				}
+
+				if (button === OpenLogsQuickInputButton) {
+					Logger.showOutputChannel();
 					return;
 				}
 
