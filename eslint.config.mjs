@@ -1,6 +1,7 @@
 // @ts-check
 import globals from 'globals';
 import { includeIgnoreFile } from '@eslint/compat';
+import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import antiTrojanSource from 'eslint-plugin-anti-trojan-source';
@@ -143,7 +144,7 @@ const restrictedImports = {
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
-export default ts.config(
+export default defineConfig(
 	includeIgnoreFile(gitignorePath),
 	{ ignores: ignorePatterns.default },
 	js.configs.recommended,
@@ -154,8 +155,11 @@ export default ts.config(
 		languageOptions: { ...defaultLanguageOptions },
 		linterOptions: { reportUnusedDisableDirectives: true },
 		plugins: {
+			// @ts-ignore
 			'import-x': importX,
+			// @ts-ignore
 			'anti-trojan-source': antiTrojanSource,
+			// @ts-ignore
 			'@gitlens': { rules: { 'no-src-imports': noSrcImports } },
 		},
 		rules: {
