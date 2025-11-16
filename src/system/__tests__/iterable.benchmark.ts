@@ -525,7 +525,9 @@ async function analyzeOverall(): Promise<void> {
 	if (iteratorWins > operations.length / 2) {
 		console.log('\n✅ Iterator implementation shows performance benefits');
 	} else {
-		console.log('\n⚠️  Generator implementation is competitive - optimization may not be worth the complexity');
+		console.log(
+			'\n\u26A0\ufe0f Generator implementation is competitive - optimization may not be worth the complexity',
+		);
 	}
 }
 

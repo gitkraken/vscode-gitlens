@@ -152,7 +152,7 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 	 */
 	private createCancelledContent(metadata: MarkdownContentMetadata): string {
 		const headerContent = getMarkdownHeaderContent(metadata, this.container.telemetry.enabled);
-		return `${headerContent}\n\n---\n\n⚠️ **Generation Cancelled**\n\nThe AI explanation was cancelled before completion.`;
+		return `${headerContent}\n\n---\n\n\u26a0\ufe0f **Generation Cancelled**\n\nThe AI explanation was cancelled before completion.`;
 	}
 
 	/**

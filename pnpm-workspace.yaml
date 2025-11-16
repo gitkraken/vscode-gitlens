@@ -2,3 +2,5 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
+    - '@octokit/*'
+    - '@vscode/*'

@@ -200,7 +200,7 @@ function getInlineMarkdownRenderer(): RendererObject {
 
 	const renderListItem = function (this: RendererThis, item: Tokens.ListItem): string {
 		// In inline mode, render list item with symbol prefix
-		const text = this.parser.parse(item.tokens, Boolean(item.loose));
+		const text = this.parser.parse(item.tokens);
 		// Get the symbol: task checkbox, number for ordered, bullet for unordered
 		let symbol: string;
 		if (item.task) {

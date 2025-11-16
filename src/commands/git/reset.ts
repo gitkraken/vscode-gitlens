@@ -218,7 +218,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
 					label: `Hard ${this.title}`,
-					description: '⚠️ --hard \u2022 discards ALL changes',
+					description: '$(warning) --hard \u2022 discards ALL changes',
 					detail: `Will discard ALL changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
 						state.reference,
 					)}`,
