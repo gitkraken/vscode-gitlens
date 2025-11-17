@@ -4239,7 +4239,17 @@
 		},
 		"gitlens.plus.cloudIntegrations.manage": {
 			"label": "Manage Integrations...",
-			"commandPalette": "gitlens:plus"
+			"icon": "$(plug)",
+			"commandPalette": "gitlens:plus",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:launchpad:error\\+auth/",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.plus.hide": {
 			"label": "Hide Pro Features",
@@ -4986,6 +4996,20 @@
 						"when": "view == gitlens.views.fileHistory && !gitlens:hasVirtualFolders",
 						"group": "8_gitlens_toggles",
 						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.showOutputChannel": {
+			"label": "Show Output Channel",
+			"icon": "$(output)",
+			"commandPalette": "gitlens:enabled",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:launchpad:error/",
+						"group": "inline",
+						"order": 2
 					}
 				]
 			}

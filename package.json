@@ -7879,7 +7879,8 @@
 			{
 				"command": "gitlens.plus.cloudIntegrations.manage",
 				"title": "Manage Integrations...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": "$(plug)"
 			},
 			{
 				"command": "gitlens.plus.hide",
@@ -8161,6 +8162,12 @@
 				"command": "gitlens.showLineHistoryView",
 				"title": "Show Line History View",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showOutputChannel",
+				"title": "Show Output Channel",
+				"category": "GitLens",
+				"icon": "$(output)"
 			},
 			{
 				"command": "gitlens.showPatchDetailsPage",
@@ -13021,6 +13028,10 @@
 				{
 					"command": "gitlens.showLineHistoryView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.showOutputChannel",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showPatchDetailsPage",
@@ -19563,6 +19574,16 @@
 					"when": "viewItem =~ /gitlens:(history:(file|line)|status:file)\\b/ && !listMultiSelection && gitlens:repos:withRemotes",
 					"group": "5_gitlens_open@2",
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
+				},
+				{
+					"command": "gitlens.showOutputChannel",
+					"when": "viewItem =~ /gitlens:launchpad:error/",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.plus.cloudIntegrations.manage",
+					"when": "viewItem =~ /gitlens:launchpad:error\\+auth/",
+					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",

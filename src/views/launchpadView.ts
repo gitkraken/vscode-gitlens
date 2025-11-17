@@ -1,10 +1,10 @@
 import type { ConfigurationChangeEvent, TreeViewVisibilityChangeEvent } from 'vscode';
-import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import { Disposable, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
 import { proBadge } from '../constants';
 import type { Container } from '../container';
-import { AuthenticationRequiredError } from '../errors';
+import { AuthenticationError, AuthenticationRequiredError } from '../errors';
 import { GitUri, unknownGitUri } from '../git/gitUri';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
@@ -16,9 +16,11 @@ import type { LaunchpadGroup } from '../plus/launchpad/models/launchpad';
 import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../plus/launchpad/models/launchpad';
 import { createCommand, executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
+import { AggregateError } from '../system/promise';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
+import { MessageNode } from './nodes/common';
 import type { GroupingNode } from './nodes/groupingNode';
 import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
@@ -121,7 +123,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 export class LaunchpadViewNode extends CacheableChildrenViewNode<
 	'launchpad',
 	LaunchpadView,
-	GroupingNode | LaunchpadItemNode
+	GroupingNode | LaunchpadItemNode | MessageNode
 > {
 	private disposable: Disposable;
 
@@ -151,7 +153,31 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		this.children = undefined;
 	}
 
-	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode)[]> {
+	private createErrorNode(error: Error): MessageNode {
+		// Extract AuthenticationError from AggregateError if present
+		let actualError = error;
+		if (error instanceof AggregateError) {
+			const firstAuthError = error.errors.find(e => e instanceof AuthenticationError);
+			actualError = firstAuthError ?? error.errors[0] ?? error;
+		}
+
+		const isAuthError = actualError instanceof AuthenticationError;
+		const contextValue = isAuthError ? ContextValues.LaunchpadErrorAuth : ContextValues.LaunchpadError;
+
+		return new MessageNode(
+			this.view,
+			this,
+			isAuthError ? 'Authentication Required' : 'Unable to fully load items',
+			actualError.name === 'HttpError' && 'status' in actualError && typeof actualError.status === 'number'
+				? `${actualError.status}: ${String(actualError)}`
+				: String(actualError),
+			String(actualError),
+			new ThemeIcon('warning', new ThemeColor('list.warningForeground')),
+			contextValue,
+		);
+	}
+
+	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode | MessageNode)[]> {
 		this.view.description = this.view.grouped
 			? `${this.view.name.toLocaleLowerCase()}\u00a0\u2022\u00a0 ${proBadge}`
 			: proBadge;
@@ -161,13 +187,25 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 			const access = await this.view.container.git.access('launchpad');
 			if (!access.allowed) return [];
 
-			const children: (GroupingNode | LaunchpadItemNode)[] = [];
+			const children: (GroupingNode | LaunchpadItemNode | MessageNode)[] = [];
 
 			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
 			if (!hasIntegrations) return [];
 
 			try {
 				const result = await this.view.container.launchpad.getCategorizedItems();
+
+				// Handle error - always show error node
+				if (result.error != null) {
+					this.view.message = undefined;
+					children.push(this.createErrorNode(result.error));
+
+					// If there are no items, just return the error node
+					if (!result.items?.length) {
+						return children;
+					}
+				}
+
 				if (!result.items?.length) {
 					this.view.message = 'All done! Take a vacation.';
 					return [];

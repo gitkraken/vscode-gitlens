@@ -34,6 +34,7 @@ import './commands/ghpr/openOrCreateWorktree';
 import './commands/gitWizard';
 import './commands/inviteToLiveShare';
 import './commands/inspect';
+import './commands/showOutputChannel';
 import './commands/logging';
 import './commands/openAssociatedPullRequestOnRemote';
 import './commands/openBranchesOnRemote';
