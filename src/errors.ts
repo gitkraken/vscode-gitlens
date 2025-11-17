@@ -382,3 +382,17 @@ export class AINoRequestDataError extends AIError {
 		Error.captureStackTrace?.(this, new.target);
 	}
 }
+
+/**
+ * Gets a error message string suitable for user-facing UI and telemetry.
+ * For AuthenticationError instances, returns just the message property to avoid
+ * exposing technical token details (microHash, scopes, expiresAt).
+ * For all other errors, returns the string representation.
+ */
+export function getPresentableErrorMessage(error: Error | unknown): string {
+	if (error instanceof AuthenticationError) {
+		// avoid exposing sensitive token details: microHash, scopes, expiresAt.
+		return error.message;
+	}
+	return String(error);
+}
