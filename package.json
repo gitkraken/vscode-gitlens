@@ -5452,6 +5452,13 @@
 						"scope": "window",
 						"order": 110
 					},
+					"gitlens.advanced.realpath": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "[Experimental] Specifies whether to resolve symbolic links when determining file paths for Git operations",
+						"scope": "window",
+						"order": 115
+					},
 					"gitlens.advanced.commits.delayLoadingFileDetails": {
 						"type": "boolean",
 						"default": false,
@@ -5564,13 +5571,6 @@
 						"markdownDescription": "Specifies whether to enable virtual repositories support",
 						"scope": "window",
 						"order": 70
-					},
-					"gitlens.realpath": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "[Experimental] Specifies whether to resolve symbolic links when determining file paths for Git operations",
-						"scope": "window",
-						"order": 80
 					},
 					"gitlens.insiders": {
 						"deprecationMessage": "Deprecated. Use the pre-release edition of GitLens instead",
