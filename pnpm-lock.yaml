@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 13.0.0-vnext.16
-        version: 13.0.0-vnext.16(@types/react@19.2.4)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: 13.0.0-vnext.17
+        version: 13.0.0-vnext.17(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@gitkraken/provider-apis':
         specifier: 0.29.7
         version: 0.29.7(encoding@0.1.13)
@@ -38,7 +38,7 @@ importers:
         version: 1.1.6
       '@lit/react':
         specifier: 1.0.8
-        version: 1.0.8(@types/react@19.2.4)
+        version: 1.0.8(@types/react@19.2.5)
       '@lit/task':
         specifier: 1.0.3
         version: 1.0.3
@@ -71,7 +71,7 @@ importers:
         version: 1.38.0
       '@shoelace-style/shoelace':
         specifier: 2.20.1
-        version: 2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.4)
+        version: 2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.5)
       '@vscode/codicons':
         specifier: 0.0.42
         version: 0.0.42
@@ -161,11 +161,11 @@ importers:
         specifier: 20.16.15
         version: 20.16.15
       '@types/react':
-        specifier: 19.2.4
-        version: 19.2.4
+        specifier: 19.2.5
+        version: 19.2.5
       '@types/react-dom':
         specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.4)
+        version: 19.2.3(@types/react@19.2.5)
       '@types/sinon':
         specifier: 17.0.4
         version: 17.0.4
@@ -787,8 +787,8 @@ packages:
   '@github/catalyst@1.7.0':
     resolution: {integrity: sha512-qOAxrDdRZz9+v4y2WoAfh11rpRY/x4FRofPNmJyZFzAjubtzE3sCa/tAycWWufmQGoYiwwzL/qJBBgyg7avxPw==}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.16':
-    resolution: {integrity: sha512-r9lOI68qk7gwur2d63m2BJFxuuiJapOz3raoLJbBRqG0ee7Ykj3pGtZwo5txYgEgOLLrpvU6Zg5Hxt2k1AeIKw==}
+  '@gitkraken/gitkraken-components@13.0.0-vnext.17':
+    resolution: {integrity: sha512-tDP2V9knpF9a4jRvQQX3t7pMyf2G/wXDttha30or9es5TdnjvOORoNVlArLvv8pnn5+N+S949aZjmj8R5P7S0g==}
     engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
     peerDependencies:
       dragula: 3.7.3
@@ -1778,20 +1778,20 @@ packages:
   '@swc/types@0.1.25':
     resolution: {integrity: sha512-iAoY/qRhNH8a/hBvm3zKj9qQ4oc2+3w1unPJa2XvTK3XjeLXtzcCingVPw/9e5mn1+0yPqxcBGp9Jf0pkfMb1g==}
 
-  '@textlint/ast-node-types@15.2.3':
-    resolution: {integrity: sha512-GEhoxfmh6TF+xC8TJmAUwOzzh0J6sVDqjKhwTTwetf7YDdhHbIv1PuUb/dTadMVIWs1H0+JD4Y27n6LWMmqn9Q==}
+  '@textlint/ast-node-types@15.3.0':
+    resolution: {integrity: sha512-y61yQXWRVEpUozPUoDUx3Qw8YO86LTU9+LMB23UbPKadM2W2XjKLkKxzzP8A/m0aw4EXozW098E+y55ZmNVZ1w==}
 
-  '@textlint/linter-formatter@15.2.3':
-    resolution: {integrity: sha512-gnFGl8MejAS4rRDPKV2OYvU0Tb0iJySOPDahf+RCK30b615UqY6CjqWxXw1FvXfT3pHPoRrefVu39j1AKm2ezg==}
+  '@textlint/linter-formatter@15.3.0':
+    resolution: {integrity: sha512-MfSgfmN4QCdgVy1s0HttpsjsfXRYpB4QWXHCsxX/OVEcNOHhwEKrDzlyS6Osb74VpQSzSiWMtX1oY++iVw0l0w==}
 
-  '@textlint/module-interop@15.2.3':
-    resolution: {integrity: sha512-dV6M3ptOFJjR5bgYUMeVqc8AqFrMtCEFaZEiLAfMufX29asYonI2K8arqivOA69S2Lh6esyij6V7qpQiXeK/cA==}
+  '@textlint/module-interop@15.3.0':
+    resolution: {integrity: sha512-SzJLo3SBd526I+RI69+DCj0TpS2C40VxgI52uv2Q31qENaa2xHCI7JXV37J26bVyYBZMA4uwRwj74GWeaZD5rA==}
 
-  '@textlint/resolver@15.2.3':
-    resolution: {integrity: sha512-Qd3udqo2sWa3u0sYgDVd9M/iybBVBJLrWGaID6Yzl9GyhdGi0E6ngo3b9r+H6psbJDIaCKi54IxvC9q5didWfA==}
+  '@textlint/resolver@15.3.0':
+    resolution: {integrity: sha512-utvrWoc9X0PaF/yzA3IpSDHWKlA/iTsuWRJ9gKzDLTz+ErgHcB2aV97YvhMDdE8qtHpOp4MGjVK1cw4BviRQBQ==}
 
-  '@textlint/types@15.2.3':
-    resolution: {integrity: sha512-i8XVmDHJwykMXcGgkSxZLjdbeqnl+voYAcIr94KIe0STwgkHIhwHJgb/tEVFawGClHo+gPczF12l1C5+TAZEzQ==}
+  '@textlint/types@15.3.0':
+    resolution: {integrity: sha512-pOlYZ0TWS5XFek2axLK2KOQJCXC4zEj57u4/YTkN3CU1DtvUsvLQUs5oGSrxTyAGtYPFCYOrSqEzER6252732A==}
 
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
@@ -1870,8 +1870,8 @@ packages:
     peerDependencies:
       '@types/react': '*'
 
-  '@types/react@19.2.4':
-    resolution: {integrity: sha512-tBFxBp9Nfyy5rsmefN+WXc1JeW/j2BpBHFdLZbEVfs9wn3E3NRFxwV0pJg8M1qQAexFpvz73hJXFofV0ZAu92A==}
+  '@types/react@19.2.5':
+    resolution: {integrity: sha512-keKxkZMqnDicuvFoJbzrhbtdLSPhj/rZThDlKWCDbgXmUg0rEUFtRssDXKYmtXluZlIqiC5VqkCgRwzuyLHKHw==}
 
   '@types/sarif@2.1.7':
     resolution: {integrity: sha512-kRz0VEkJqWLf1LLVN4pT1cg1Z9wAuvI6L97V3m2f5B76Tg8d413ddvLBPTEHAZJlnn4XSvu0FkZtViCQGVyrXQ==}
@@ -1963,6 +1963,10 @@ packages:
 
   '@typescript-eslint/types@8.46.3':
     resolution: {integrity: sha512-G7Ok9WN/ggW7e/tOf8TQYMaxgID3Iujn231hfi0Pc7ZheztIJVpO44ekY00b7akqc6nZcvregk0Jpah3kep6hA==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@typescript-eslint/types@8.46.4':
+    resolution: {integrity: sha512-USjyxm3gQEePdUwJBFjjGNG18xY9A2grDVGuk7/9AkjIF1L+ZrVnwR5VAU5JXtUnBL/Nwt3H31KlRDaksnM7/w==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
   '@typescript-eslint/typescript-estree@8.46.2':
@@ -2499,8 +2503,8 @@ packages:
   atoa@1.0.0:
     resolution: {integrity: sha512-VVE1H6cc4ai+ZXo/CRWoJiHXrA1qfA31DPnx6D20+kSI547hQN5Greh51LQ1baMRMfxO5K5M4ImMtZbZt2DODQ==}
 
-  autoprefixer@10.4.21:
-    resolution: {integrity: sha512-O+A6LWV5LDHSJD3LjHYoNi4VLsj/Whi7k6zG12xTYaU4cQ8oxQGckXNX8cRHK5yOZ/ppVHe0ZBXGzSV9jXdVbQ==}
+  autoprefixer@10.4.22:
+    resolution: {integrity: sha512-ARe0v/t9gO28Bznv6GgqARmVqcWOV3mfgUPn9becPHMiD3o9BwlRgaeccZnwTpZ7Zwqrm+c1sUSsMxIzQzc8Xg==}
     engines: {node: ^10 || ^12 || >=14}
     hasBin: true
     peerDependencies:
@@ -2535,8 +2539,8 @@ packages:
       bare-abort-controller:
         optional: true
 
-  bare-fs@4.5.0:
-    resolution: {integrity: sha512-GljgCjeupKZJNetTqxKaQArLK10vpmK28or0+RwWjEl5Rk+/xG3wkpmkv+WrcBm3q1BwHKlnhXzR8O37kcvkXQ==}
+  bare-fs@4.5.1:
+    resolution: {integrity: sha512-zGUCsm3yv/ePt2PHNbVxjjn0nNB1MkIaR4wOCxJ2ig5pCf5cCVAYJXVhQg/3OhhJV6DB1ts7Hv0oUaElc2TPQg==}
     engines: {bare: '>=1.16.0'}
     peerDependencies:
       bare-buffer: '*'
@@ -2618,8 +2622,8 @@ packages:
   browserify-zlib@0.1.4:
     resolution: {integrity: sha512-19OEpq7vWgsH6WkvkBJQDFvJS1uPcbFOQ4v9CU839dO+ZZXUZO6XpE6hNCqvlIIj+4fZvRiJ6DsAQ382GwiyTQ==}
 
-  browserslist@4.27.0:
-    resolution: {integrity: sha512-AXVQwdhot1eqLihwasPElhX2tAZiBjWdJ9i/Zcj2S6QYIjkx62OKSfnobkriB81C3l4w0rVy3Nt4jaTBltYEpw==}
+  browserslist@4.28.0:
+    resolution: {integrity: sha512-tbydkR/CxfMwelN0vwdP/pLkDwyAASZ+VfWm4EOwlB6SWhx1sYnWLqo8N5j0rAzPfzfRaxt0mM/4wPU/Su84RQ==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
@@ -3720,8 +3724,8 @@ packages:
     resolution: {integrity: sha512-KrGhL9Q4zjj0kiUt5OO4Mr/A/jlI2jDYs5eHBpYHPcBEVSiipAvn2Ko2HnPe20rmcuuvMHNdZFp+4IlGTMF0Ow==}
     engines: {node: '>= 6'}
 
-  fraction.js@4.3.7:
-    resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
+  fraction.js@5.3.4:
+    resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
 
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
@@ -6710,6 +6714,12 @@ packages:
     peerDependencies:
       zod: ^3.24.4
 
+  zod-validation-error@4.0.2:
+    resolution: {integrity: sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -6862,7 +6872,7 @@ snapshots:
     dependencies:
       '@babel/compat-data': 7.28.5
       '@babel/helper-validator-option': 7.27.1
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       lru-cache: 5.1.1
       semver: 6.3.1
 
@@ -7179,14 +7189,14 @@ snapshots:
 
   '@github/catalyst@1.7.0': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.16(@types/react@19.2.4)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.17(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       classnames: 2.5.1
       dragula: 3.7.3
       re-resizable: 6.11.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
-      react-bootstrap: 2.10.10(@types/react@19.2.4)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react-bootstrap: 2.10.10(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react-dom: 19.2.0(react@19.2.0)
       react-dragula: 1.1.17
       react-onclickoutside: 6.13.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -7410,9 +7420,9 @@ snapshots:
     dependencies:
       '@lit/reactive-element': 2.1.1
 
-  '@lit/react@1.0.8(@types/react@19.2.4)':
+  '@lit/react@1.0.8(@types/react@19.2.5)':
     dependencies:
-      '@types/react': 19.2.4
+      '@types/react': 19.2.5
 
   '@lit/reactive-element@2.1.1':
     dependencies:
@@ -7885,9 +7895,9 @@ snapshots:
     dependencies:
       '@secretlint/resolver': 10.2.2
       '@secretlint/types': 10.2.2
-      '@textlint/linter-formatter': 15.2.3
-      '@textlint/module-interop': 15.2.3
-      '@textlint/types': 15.2.3
+      '@textlint/linter-formatter': 15.3.0
+      '@textlint/module-interop': 15.3.0
+      '@textlint/types': 15.3.0
       chalk: 5.6.2
       debug: 4.4.3(supports-color@8.1.1)
       pluralize: 8.0.0
@@ -7935,11 +7945,11 @@ snapshots:
 
   '@shoelace-style/localize@3.2.1': {}
 
-  '@shoelace-style/shoelace@2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.4)':
+  '@shoelace-style/shoelace@2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.5)':
     dependencies:
       '@ctrl/tinycolor': 4.2.0
       '@floating-ui/dom': 1.7.4
-      '@lit/react': 1.0.8(@types/react@19.2.4)
+      '@lit/react': 1.0.8(@types/react@19.2.5)
       '@shoelace-style/animations': 1.2.0
       '@shoelace-style/localize': 3.2.1
       composed-offset-position: 0.0.6(@floating-ui/utils@0.2.10)
@@ -8023,15 +8033,15 @@ snapshots:
     dependencies:
       '@swc/counter': 0.1.3
 
-  '@textlint/ast-node-types@15.2.3': {}
+  '@textlint/ast-node-types@15.3.0': {}
 
-  '@textlint/linter-formatter@15.2.3':
+  '@textlint/linter-formatter@15.3.0':
     dependencies:
       '@azu/format-text': 1.0.2
       '@azu/style-format': 1.0.1
-      '@textlint/module-interop': 15.2.3
-      '@textlint/resolver': 15.2.3
-      '@textlint/types': 15.2.3
+      '@textlint/module-interop': 15.3.0
+      '@textlint/resolver': 15.3.0
+      '@textlint/types': 15.3.0
       chalk: 4.1.2
       debug: 4.4.3(supports-color@8.1.1)
       js-yaml: 3.14.1
@@ -8044,13 +8054,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@textlint/module-interop@15.2.3': {}
+  '@textlint/module-interop@15.3.0': {}
 
-  '@textlint/resolver@15.2.3': {}
+  '@textlint/resolver@15.3.0': {}
 
-  '@textlint/types@15.2.3':
+  '@textlint/types@15.3.0':
     dependencies:
-      '@textlint/ast-node-types': 15.2.3
+      '@textlint/ast-node-types': 15.3.0
 
   '@tootallnate/once@2.0.0': {}
 
@@ -8133,15 +8143,15 @@ snapshots:
 
   '@types/prop-types@15.7.15': {}
 
-  '@types/react-dom@19.2.3(@types/react@19.2.4)':
+  '@types/react-dom@19.2.3(@types/react@19.2.5)':
     dependencies:
-      '@types/react': 19.2.4
+      '@types/react': 19.2.5
 
-  '@types/react-transition-group@4.4.12(@types/react@19.2.4)':
+  '@types/react-transition-group@4.4.12(@types/react@19.2.5)':
     dependencies:
-      '@types/react': 19.2.4
+      '@types/react': 19.2.5
 
-  '@types/react@19.2.4':
+  '@types/react@19.2.5':
     dependencies:
       csstype: 3.1.3
 
@@ -8251,7 +8261,10 @@ snapshots:
 
   '@typescript-eslint/types@8.46.2': {}
 
-  '@typescript-eslint/types@8.46.3': {}
+  '@typescript-eslint/types@8.46.3':
+    optional: true
+
+  '@typescript-eslint/types@8.46.4': {}
 
   '@typescript-eslint/typescript-estree@8.46.2(typescript@5.9.3)':
     dependencies:
@@ -8826,11 +8839,11 @@ snapshots:
 
   atoa@1.0.0: {}
 
-  autoprefixer@10.4.21(postcss@8.5.6):
+  autoprefixer@10.4.22(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       caniuse-lite: 1.0.30001754
-      fraction.js: 4.3.7
+      fraction.js: 5.3.4
       normalize-range: 0.1.2
       picocolors: 1.1.1
       postcss: 8.5.6
@@ -8856,7 +8869,7 @@ snapshots:
 
   bare-events@2.8.2: {}
 
-  bare-fs@4.5.0:
+  bare-fs@4.5.1:
     dependencies:
       bare-events: 2.8.2
       bare-path: 3.0.0
@@ -8960,13 +8973,13 @@ snapshots:
     dependencies:
       pako: 0.2.9
 
-  browserslist@4.27.0:
+  browserslist@4.28.0:
     dependencies:
       baseline-browser-mapping: 2.8.25
       caniuse-lite: 1.0.30001754
       electron-to-chromium: 1.5.249
       node-releases: 2.0.27
-      update-browserslist-db: 1.1.4(browserslist@4.27.0)
+      update-browserslist-db: 1.1.4(browserslist@4.28.0)
 
   buffer-builder@0.2.0: {}
 
@@ -9063,7 +9076,7 @@ snapshots:
 
   caniuse-api@3.0.0:
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       caniuse-lite: 1.0.30001754
       lodash.memoize: 4.1.2
       lodash.uniq: 4.5.0
@@ -9347,8 +9360,8 @@ snapshots:
 
   cssnano-preset-advanced@7.0.10(postcss@8.5.6):
     dependencies:
-      autoprefixer: 10.4.21(postcss@8.5.6)
-      browserslist: 4.27.0
+      autoprefixer: 10.4.22(postcss@8.5.6)
+      browserslist: 4.28.0
       cssnano-preset-default: 7.0.10(postcss@8.5.6)
       postcss: 8.5.6
       postcss-discard-unused: 7.0.4(postcss@8.5.6)
@@ -9358,7 +9371,7 @@ snapshots:
 
   cssnano-preset-default@7.0.10(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       css-declaration-sorter: 7.3.0(postcss@8.5.6)
       cssnano-utils: 5.0.1(postcss@8.5.6)
       postcss: 8.5.6
@@ -9950,7 +9963,7 @@ snapshots:
 
   eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.46.3(eslint@9.39.1(jiti@2.4.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@2.4.0)):
     dependencies:
-      '@typescript-eslint/types': 8.46.3
+      '@typescript-eslint/types': 8.46.4
       comment-parser: 1.4.1
       debug: 4.4.3(supports-color@8.1.1)
       eslint: 9.39.1(jiti@2.4.0)
@@ -10019,7 +10032,7 @@ snapshots:
       eslint: 9.39.1(jiti@2.4.0)
       hermes-parser: 0.25.1
       zod: 4.1.12
-      zod-validation-error: 3.5.4(zod@4.1.12)
+      zod-validation-error: 4.0.2(zod@4.1.12)
     transitivePeerDependencies:
       - supports-color
 
@@ -10229,7 +10242,7 @@ snapshots:
       hasown: 2.0.2
       mime-types: 2.1.35
 
-  fraction.js@4.3.7: {}
+  fraction.js@5.3.4: {}
 
   fresh@0.5.2: {}
 
@@ -11884,7 +11897,7 @@ snapshots:
 
   postcss-colormin@7.0.5(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       caniuse-api: 3.0.0
       colord: 2.9.3
       postcss: 8.5.6
@@ -11892,7 +11905,7 @@ snapshots:
 
   postcss-convert-values@7.0.8(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       postcss: 8.5.6
       postcss-value-parser: 4.2.0
 
@@ -11932,7 +11945,7 @@ snapshots:
 
   postcss-merge-rules@7.0.7(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       caniuse-api: 3.0.0
       cssnano-utils: 5.0.1(postcss@8.5.6)
       postcss: 8.5.6
@@ -11952,7 +11965,7 @@ snapshots:
 
   postcss-minify-params@7.0.5(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       cssnano-utils: 5.0.1(postcss@8.5.6)
       postcss: 8.5.6
       postcss-value-parser: 4.2.0
@@ -12015,7 +12028,7 @@ snapshots:
 
   postcss-normalize-unicode@7.0.5(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       postcss: 8.5.6
       postcss-value-parser: 4.2.0
 
@@ -12042,7 +12055,7 @@ snapshots:
 
   postcss-reduce-initial@7.0.5(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       caniuse-api: 3.0.0
       postcss: 8.5.6
 
@@ -12196,13 +12209,13 @@ snapshots:
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
 
-  react-bootstrap@2.10.10(@types/react@19.2.4)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  react-bootstrap@2.10.10(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       '@babel/runtime': 7.28.4
       '@restart/hooks': 0.4.16(react@19.2.0)
       '@restart/ui': 1.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@types/prop-types': 15.7.15
-      '@types/react-transition-group': 4.4.12(@types/react@19.2.4)
+      '@types/react-transition-group': 4.4.12(@types/react@19.2.5)
       classnames: 2.5.1
       dom-helpers: 5.2.1
       invariant: 2.2.4
@@ -12214,7 +12227,7 @@ snapshots:
       uncontrollable: 7.2.1(react@19.2.0)
       warning: 4.0.3
     optionalDependencies:
-      '@types/react': 19.2.4
+      '@types/react': 19.2.5
 
   react-compiler-webpack@1.0.0(babel-plugin-react-compiler@1.0.0):
     dependencies:
@@ -12922,7 +12935,7 @@ snapshots:
 
   stylehacks@7.0.7(postcss@8.5.6):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       postcss: 8.5.6
       postcss-selector-parser: 7.1.0
 
@@ -12996,7 +13009,7 @@ snapshots:
       pump: 3.0.3
       tar-stream: 3.1.7
     optionalDependencies:
-      bare-fs: 4.5.0
+      bare-fs: 4.5.1
       bare-path: 3.0.0
     transitivePeerDependencies:
       - bare-abort-controller
@@ -13250,7 +13263,7 @@ snapshots:
   uncontrollable@7.2.1(react@19.2.0):
     dependencies:
       '@babel/runtime': 7.28.4
-      '@types/react': 19.2.4
+      '@types/react': 19.2.5
       invariant: 2.2.4
       react: 19.2.0
       react-lifecycles-compat: 3.0.4
@@ -13305,9 +13318,9 @@ snapshots:
       '@unrs/resolver-binding-win32-ia32-msvc': 1.11.1
       '@unrs/resolver-binding-win32-x64-msvc': 1.11.1
 
-  update-browserslist-db@1.1.4(browserslist@4.27.0):
+  update-browserslist-db@1.1.4(browserslist@4.28.0):
     dependencies:
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       escalade: 3.2.0
       picocolors: 1.1.1
 
@@ -13419,7 +13432,7 @@ snapshots:
       '@webassemblyjs/wasm-parser': 1.14.1
       acorn: 8.15.0
       acorn-import-phases: 1.0.4(acorn@8.15.0)
-      browserslist: 4.27.0
+      browserslist: 4.28.0
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.18.3
       es-module-lexer: 1.7.0
@@ -13586,7 +13599,7 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  zod-validation-error@3.5.4(zod@4.1.12):
+  zod-validation-error@4.0.2(zod@4.1.12):
     dependencies:
       zod: 4.1.12
 

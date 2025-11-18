@@ -712,6 +712,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			searchMode={props.searchMode ?? 'normal'}
 			shaLength={config.idLength}
 			shiftSelectMode={config.multiSelectionMode === 'topological' ? 'topological' : 'simple'}
+			stickyTimeline={config.stickyTimeline}
 			suppressNonRefRowTooltips
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}

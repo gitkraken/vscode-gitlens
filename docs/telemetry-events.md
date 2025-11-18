@@ -2217,6 +2217,7 @@ or
   'context.config.showUpstreamStatus': boolean,
   'context.config.sidebar.enabled': boolean,
   'context.config.statusBar.enabled': boolean,
+  'context.config.stickyTimeline': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

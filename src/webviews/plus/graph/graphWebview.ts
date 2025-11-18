@@ -2823,6 +2823,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			sidebar: configuration.get('graph.sidebar.enabled') ?? true,
+			stickyTimeline: configuration.get('graph.stickyTimeline'),
 		};
 		return config;
 	}

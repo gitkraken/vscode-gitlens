@@ -419,6 +419,7 @@ export interface GraphConfig {
 		};
 	};
 	readonly highlightRowsOnRefHover: boolean;
+	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;
 	};
@@ -440,7 +441,6 @@ export interface GraphConfig {
 	};
 	readonly scrollRowPadding: number;
 	readonly searchItemLimit: number;
-	readonly initialRowSelection: 'head' | 'wip';
 	readonly showDetailsView: 'open' | 'selection' | false;
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
@@ -451,6 +451,7 @@ export interface GraphConfig {
 	readonly statusBar: {
 		readonly enabled: boolean;
 	};
+	readonly stickyTimeline: boolean;
 }
 
 interface HeatmapConfig {

@@ -1243,6 +1243,13 @@
 						"scope": "window",
 						"order": 751
 					},
+					"gitlens.graph.stickyTimeline": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a sticky timeline header that remains visible at the top while scrolling in the _Commit Graph_",
+						"scope": "window",
+						"order": 752
+					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",
 						"default": 500,
@@ -26712,7 +26719,7 @@
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.16",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.17",
 		"@gitkraken/provider-apis": "0.29.7",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -26762,7 +26769,7 @@
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
 		"@types/node": "20.16.15",
-		"@types/react": "19.2.4",
+		"@types/react": "19.2.5",
 		"@types/react-dom": "19.2.3",
 		"@types/sinon": "17.0.4",
 		"@types/slug": "5.0.9",

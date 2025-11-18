@@ -202,6 +202,7 @@ export interface GraphComponentConfig {
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	sidebar: boolean;
+	stickyTimeline?: boolean;
 }
 
 export interface GraphColumnConfig {
