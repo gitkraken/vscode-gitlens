@@ -43,7 +43,6 @@ export interface Config {
 	readonly proxy: ProxyConfig | null;
 	readonly rebaseEditor: RebaseEditorConfig;
 	readonly remotes: RemotesConfig[] | null;
-	readonly realpath: boolean;
 	readonly showWhatsNewAfterUpgrades: boolean;
 	readonly sortBranchesBy: BranchSorting;
 	readonly sortContributorsBy: ContributorSorting;
@@ -209,6 +208,7 @@ export interface AdvancedConfig {
 	readonly quickPick: {
 		readonly closeOnFocusOut: boolean;
 	};
+	readonly realpath: boolean;
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
 }

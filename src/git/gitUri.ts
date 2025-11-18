@@ -252,7 +252,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		if (isGitUri(uri)) return uri;
 
 		// Check for symbolic links (Node.js only)
-		if (configuration.get('realpath') && !isWeb && uri.scheme === 'file') {
+		if (configuration.get('advanced.realpath') && !isWeb && uri.scheme === 'file') {
 			try {
 				const { realpathSync } = await import('fs');
 				const realPath = realpathSync(uri.fsPath);
