@@ -1,6 +1,7 @@
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { when } from 'lit/directives/when.js';
@@ -70,6 +71,9 @@ export class GlTreeGenerator extends GlElement {
 
 	@state()
 	treeItems?: TreeModelFlat[] = undefined;
+
+	@state()
+	private _virtualizerKey = 0;
 
 	@property({ reflect: true })
 	guides?: 'none' | 'onHover' | 'always';
@@ -142,6 +146,10 @@ export class GlTreeGenerator extends GlElement {
 		// Clear stale node map before processing new model
 		// This prevents stale node references when switching commits or toggling filters
 		this._nodeMap.clear();
+
+		// Increment virtualizer key to force complete re-render
+		// This prevents stale DOM node references in the repeat directive
+		this._virtualizerKey++;
 
 		// Build both maps during tree flattening (single traversal)
 		let treeItems: TreeModelFlat[] | undefined;
@@ -271,6 +279,8 @@ export class GlTreeGenerator extends GlElement {
 		// Use aria-activedescendant to indicate which tree item is active for screen readers
 		const activeDescendant = this._focusedItemPath ? `tree-item-${this._focusedItemPath}` : undefined;
 
+		// Use keyed directive to force virtualizer re-creation when model changes
+		// This prevents stale DOM node references in the repeat directive
 		return html`
 			<div
 				${ref(this.scrollableRef)}
@@ -284,14 +294,18 @@ export class GlTreeGenerator extends GlElement {
 				@focus=${this.handleContainerFocus}
 				@blur=${this.handleContainerBlur}
 			>
-				<lit-virtualizer
-					${ref(this.virtualizerRef)}
-					.items=${this.treeItems}
-					.keyFunction=${(item: TreeModelFlat) => item.path}
-					.layout=${flow({ direction: 'vertical' })}
-					.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
-					.scroller=${Boolean(this.scrollableRef.value)}
-				></lit-virtualizer>
+				${keyed(
+					this._virtualizerKey,
+					html`<lit-virtualizer
+						class="scrollable"
+						${ref(this.virtualizerRef)}
+						.items=${this.treeItems}
+						.keyFunction=${(item: TreeModelFlat) => item.path}
+						.layout=${flow({ direction: 'vertical' })}
+						.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
+						scroller
+					></lit-virtualizer>`,
+				)}
 			</div>
 		`;
 	}
@@ -317,9 +331,13 @@ export class GlTreeGenerator extends GlElement {
 	private rebuildFlattenedTree() {
 		if (!this._model) return;
 
+		// Clear stale node map before processing new model
+		// This prevents stale node references when expanding/collapsing nodes
+		this._nodeMap.clear();
+
 		const size = this._model.length;
 		const newTreeItems = this._model.reduce<TreeModelFlat[]>((acc, node, index) => {
-			acc.push(...flattenTree(node, size, index + 1));
+			acc.push(...flattenTree(node, size, index + 1, undefined, this._nodeMap));
 			return acc;
 		}, []);
 
