@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 13.0.0-vnext.17
-        version: 13.0.0-vnext.17(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: 13.0.0-vnext.19
+        version: 13.0.0-vnext.19(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@gitkraken/provider-apis':
         specifier: 0.29.7
         version: 0.29.7(encoding@0.1.13)
@@ -787,8 +787,8 @@ packages:
   '@github/catalyst@1.7.0':
     resolution: {integrity: sha512-qOAxrDdRZz9+v4y2WoAfh11rpRY/x4FRofPNmJyZFzAjubtzE3sCa/tAycWWufmQGoYiwwzL/qJBBgyg7avxPw==}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.17':
-    resolution: {integrity: sha512-tDP2V9knpF9a4jRvQQX3t7pMyf2G/wXDttha30or9es5TdnjvOORoNVlArLvv8pnn5+N+S949aZjmj8R5P7S0g==}
+  '@gitkraken/gitkraken-components@13.0.0-vnext.19':
+    resolution: {integrity: sha512-RELT/TeSlAiCBrwjrjNVs3fja44f31vloffODgy+IiO1d+Zu/P/5O8Qy3A2u+kgq8C2wtkTrT616UCcGewDEeg==}
     engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
     peerDependencies:
       dragula: 3.7.3
@@ -7189,7 +7189,7 @@ snapshots:
 
   '@github/catalyst@1.7.0': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.17(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.19(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       classnames: 2.5.1
@@ -8220,7 +8220,7 @@ snapshots:
   '@typescript-eslint/project-service@8.46.3(typescript@5.9.3)':
     dependencies:
       '@typescript-eslint/tsconfig-utils': 8.46.3(typescript@5.9.3)
-      '@typescript-eslint/types': 8.46.3
+      '@typescript-eslint/types': 8.46.4
       debug: 4.4.3(supports-color@8.1.1)
       typescript: 5.9.3
     transitivePeerDependencies:
