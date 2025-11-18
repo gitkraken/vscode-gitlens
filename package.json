@@ -440,7 +440,7 @@
 					},
 					"gitlens.statusBar.tooltipFormat": {
 						"type": "string",
-						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
+						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoAndDateBothSources}${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 						"editPresentation": "multilineText",
 						"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
@@ -586,7 +586,7 @@
 					},
 					"gitlens.hovers.detailsMarkdownFormat": {
 						"type": "string",
-						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
+						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoAndDateBothSources}${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 						"editPresentation": "multilineText",
 						"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
@@ -1746,14 +1746,14 @@
 					},
 					"gitlens.views.formats.commits.tooltip": {
 						"type": "string",
-						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_ \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
+						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoAndDateBothSources} \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
 					},
 					"gitlens.views.formats.commits.tooltipWithStatus": {
 						"type": "string",
-						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_ \\\n${link}${' via  'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
+						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoAndDateBothSources} \\\n${link}${' via  'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
@@ -1788,7 +1788,7 @@
 					},
 					"gitlens.views.formats.stashes.tooltip": {
 						"type": "string",
-						"default": "${link}${' on `'stashOnRef`}${'\\\n&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${ago} _(${date})_ ${message}${\n\n---\n\nfootnotes}",
+						"default": "${link}${' on `'stashOnRef`}${'\\\n&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${agoAndDate} ${message}${\n\n---\n\nfootnotes}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 52

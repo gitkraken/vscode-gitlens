@@ -1313,12 +1313,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			pr = getSettledValue(prResult);
 		}
 
-		let template;
-		if (isStash(commit)) {
-			template = configuration.get('views.formats.stashes.tooltip');
-		} else {
-			template = configuration.get('views.formats.commits.tooltip');
-		}
+		const template = configuration.get(`views.formats.${isStash(commit) ? 'stashes' : 'commits'}.tooltip`);
 
 		this._getBranchesAndTagsTips ??= await svc.getBranchesAndTagsTipsLookup();
 

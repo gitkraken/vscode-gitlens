@@ -17,7 +17,7 @@ import { OpenFileAtRevisionCommand } from '../../commands/openFileAtRevision';
 import { ConnectRemoteProviderCommand } from '../../commands/remoteProviders';
 import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
 import { ShowQuickCommitFileCommand } from '../../commands/showQuickCommitFile';
-import type { DateStyle } from '../../config';
+import type { DateSource, DateStyle } from '../../config';
 import { GlyphChars } from '../../constants';
 import { actionCommandPrefix } from '../../constants.commands';
 import { Container } from '../../container';
@@ -51,6 +51,7 @@ import { Formatter } from './formatter';
 export interface CommitFormatOptions extends FormatOptions {
 	aiEnabled?: boolean;
 	avatarSize?: number;
+	dateSource?: DateSource;
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
 	footnotes?: Map<number, string>;
@@ -86,6 +87,9 @@ export interface CommitFormatOptions extends FormatOptions {
 		ago?: TokenOptions;
 		agoOrDate?: TokenOptions;
 		agoOrDateShort?: TokenOptions;
+		agoAndDate?: TokenOptions;
+		agoAndDateShort?: TokenOptions;
+		agoAndDateBothSources?: TokenOptions;
 		author?: TokenOptions;
 		authorFirst?: TokenOptions;
 		authorLast?: TokenOptions;
@@ -208,6 +212,49 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._padOrTruncate(
 			dateStyle === 'absolute' ? this._date : this._dateAgoShort,
 			this._options.tokenOptions.agoOrDateShort,
+		);
+	}
+
+	get agoAndDate(): string {
+		return this._padOrTruncate(
+			this._options.outputFormat === 'markdown'
+				? `${this._dateAgo} _(${this._date})_`
+				: `${this._dateAgo} (${this._date})`,
+			this._options.tokenOptions.agoAndDate,
+		);
+	}
+
+	get agoAndDateBothSources(): string {
+		const committerAgo = this.committerAgo;
+		const committerDate = this.committerDate;
+		const authorAgo = this.authorAgo;
+		const authorDate = this.authorDate;
+
+		const source = this._options.dateSource ?? configuration.get('defaultDateSource');
+
+		if (source === 'committed') {
+			return this._padOrTruncate(
+				this._options.outputFormat === 'markdown'
+					? `${committerAgo} _(${committerDate}${committerAgo === authorAgo ? '' : `, authored ${authorAgo}`})_`
+					: `${committerAgo} (${committerDate}${committerAgo === authorAgo ? '' : `, authored ${authorAgo}`})`,
+				this._options.tokenOptions.agoAndDateBothSources,
+			);
+		}
+
+		return this._padOrTruncate(
+			this._options.outputFormat === 'markdown'
+				? `${authorAgo} _(${authorDate}${committerAgo === authorAgo ? '' : `, committed ${committerAgo}`})_`
+				: `${authorAgo} (${authorDate}${committerAgo === authorAgo ? '' : `, committed ${committerAgo}`})`,
+			this._options.tokenOptions.agoAndDateBothSources,
+		);
+	}
+
+	get agoAndDateShort(): string {
+		return this._padOrTruncate(
+			this._options.outputFormat === 'markdown'
+				? `${this._dateAgoShort} _(${this._date})_`
+				: `${this._dateAgoShort} (${this._date})`,
+			this._options.tokenOptions.agoAndDateShort,
 		);
 	}
 
