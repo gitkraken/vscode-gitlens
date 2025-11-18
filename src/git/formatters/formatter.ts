@@ -56,7 +56,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 	protected _padOrTruncate(s: string, options: TokenOptions | undefined): string {
 		if (s == null || s.length === 0) return s;
 
-		// NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right
+		// NOTE: the collapsible whitespace logic relies on the javascript template evaluation to be left to right
 		options ??= defaultTokenOptions;
 
 		// 0 is a special case to collapse to just the prefix and suffix
