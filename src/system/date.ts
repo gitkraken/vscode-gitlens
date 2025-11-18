@@ -79,7 +79,7 @@ export function createFromDateDelta(
 }
 
 export function fromNow(date: Date | number, short?: boolean): string {
-	const elapsed = (typeof date === 'number' ? date : date.getTime()) - new Date().getTime();
+	const elapsed = (typeof date === 'number' ? date : date.getTime()) - Date.now();
 
 	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
 		const elapsedABS = Math.abs(elapsed);
@@ -101,7 +101,7 @@ export function fromNow(date: Date | number, short?: boolean): string {
 				}
 
 				if (locale === 'en' || locale?.startsWith('en-')) {
-					const value = Math.round(elapsedABS / divisor);
+					const value = Math.floor(elapsedABS / divisor);
 					return `${value}${shortUnit}`;
 				}
 
@@ -113,7 +113,7 @@ export function fromNow(date: Date | number, short?: boolean): string {
 					});
 				}
 
-				return defaultShortRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
+				return defaultShortRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 			}
 
 			if (defaultRelativeTimeFormat == null) {
@@ -123,7 +123,7 @@ export function fromNow(date: Date | number, short?: boolean): string {
 					style: 'long',
 				});
 			}
-			return defaultRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
+			return defaultRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 		}
 	}
 

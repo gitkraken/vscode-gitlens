@@ -1138,7 +1138,7 @@ function generateRandomTimelineDataset(itemType: TimelineScopeType): TimelineDat
 	const count = 10;
 	for (let i = 0; i < count; i++) {
 		// Generate a random date between now and 3 months ago
-		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
+		const date = new Date(Date.now() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
 		const author = authors[Math.floor(Math.random() * authors.length)];
 
 		// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit
