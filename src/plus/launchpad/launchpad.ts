@@ -577,16 +577,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			const result = context.inSearch ? context.searchResult : context.result;
 
 			if (result?.error != null && !result?.items?.length) {
+				const errorItem = this.createErrorQuickPickItem(result.error);
 				return {
 					title: `${context.title} \u00a0\u2022\u00a0 Unable to Load Items`,
-					placeholder: `Unable to load items (${
-						result.error.name === 'HttpError' &&
-						'status' in result.error &&
-						typeof result.error.status === 'number'
-							? `${result.error.status}: ${String(result.error)}`
-							: String(result.error)
-					})`,
-					items: [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })],
+					placeholder: 'Unable to load items',
+					items: [errorItem],
 				};
 			}
 
