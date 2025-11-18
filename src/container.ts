@@ -301,7 +301,7 @@ export class Container {
 		);
 
 		context.subscriptions.push({
-			dispose: () => this._disposables.reverse().forEach(d => void d.dispose()),
+			dispose: () => this._disposables.reverse().forEach(d => void d?.dispose()),
 		});
 
 		scheduleAddMissingCurrentWorkspaceRepos(this);
