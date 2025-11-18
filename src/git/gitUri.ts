@@ -1,5 +1,6 @@
 import { Uri } from 'vscode';
 import { isWeb } from '@env/platform';
+import { realpath } from '@env/realpath';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
@@ -254,8 +255,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		// Check for symbolic links (Node.js only)
 		if (configuration.get('advanced.realpath') && !isWeb && uri.scheme === 'file') {
 			try {
-				const { realpathSync } = await import('fs');
-				const realPath = realpathSync(uri.fsPath);
+				const realPath = await realpath(uri.fsPath);
 				if (uri.fsPath !== realPath) {
 					const newUri = Uri.file(realPath);
 					return await this.fromUri(newUri);
