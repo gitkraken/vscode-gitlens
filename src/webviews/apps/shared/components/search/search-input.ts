@@ -3,27 +3,25 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
-import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../../../../constants.search';
-import { searchOperationHelpRegex, searchOperatorsToLongFormMap } from '../../../../../constants.search';
+import type { SearchOperators, SearchQuery } from '../../../../../constants.search';
+import { searchOperatorsToLongFormMap } from '../../../../../constants.search';
 import { parseSearchQuery } from '../../../../../git/search';
 import { areSearchQueriesEqual } from '../../../../../git/utils/search.utils';
-import type { Deferrable } from '../../../../../system/function/debounce';
-import { debounce } from '../../../../../system/function/debounce';
+import { fuzzyFilter } from '../../../../../system/fuzzy';
 import {
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
 } from '../../../../plus/graph/protocol';
 import { ipcContext } from '../../contexts/ipc';
+import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete';
 import { GlElement } from '../element';
-import type { GlPopover } from '../overlays/popover';
+import type { SearchCompletionItem, SearchCompletionOperator } from './models';
+import { naturalLanguageSearchAutocompleteCommand, searchCompletionOperators } from './models';
 import '../button';
+import '../autocomplete/autocomplete';
 import '../code-icon';
 import '../copy-container';
-import '../menu/menu-divider';
-import '../menu/menu-label';
-import '../menu/menu-item';
-import '../overlays/popover';
 
 export interface SearchNavigationEventDetail {
 	direction: 'first' | 'previous' | 'next' | 'last';
@@ -68,7 +66,7 @@ export class GlSearchInput extends GlElement {
 				--vscode-editor-placeholder\\\.foreground,
 				var(--vscode-input-placeholderForeground)
 			);
-			--gl-search-input-buttons-left: 2;
+			--gl-search-input-buttons-left: 1;
 			--gl-search-input-buttons-right: 4;
 
 			display: inline-flex;
@@ -81,11 +79,10 @@ export class GlSearchInput extends GlElement {
 		}
 
 		:host([data-ai-allowed]) {
-			--gl-search-input-buttons-left: 3;
+			--gl-search-input-buttons-left: 2;
 		}
 
 		:host([data-natural-language-mode]) {
-			--gl-search-input-buttons-left: 2;
 			--gl-search-input-buttons-right: 0;
 		}
 
@@ -134,14 +131,10 @@ export class GlSearchInput extends GlElement {
 			border-radius: 0.25rem;
 			padding-top: 0;
 			padding-bottom: 1px;
-			padding-left: calc(1.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
+			padding-left: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
 			padding-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
 			font-family: inherit;
 			font-size: inherit;
-		}
-
-		:host([data-natural-language-mode]) input {
-			padding-left: calc(0.7rem + calc(1.96rem * (var(--gl-search-input-buttons-left))));
 		}
 
 		input:focus {
@@ -154,12 +147,6 @@ export class GlSearchInput extends GlElement {
 
 		input::-webkit-search-cancel-button {
 			display: none;
-		}
-
-		input[aria-describedby='help-text']:focus {
-			outline-color: var(--vscode-inputValidation-infoBorder);
-			border-bottom-left-radius: 0;
-			border-bottom-right-radius: 0;
 		}
 
 		input[aria-valid='false'] {
@@ -189,8 +176,59 @@ export class GlSearchInput extends GlElement {
 			border-color: var(--vscode-inputValidation-errorBorder);
 		}
 
-		input:not([aria-describedby='help-text']:focus) ~ .message {
-			display: none;
+		/* Input highlighting overlay */
+		.input-container {
+			position: relative;
+		}
+
+		.input-highlight {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			pointer-events: none;
+			white-space: pre;
+			overflow: hidden;
+			box-sizing: border-box;
+			height: 2.7rem;
+			border: 1px solid transparent;
+			border-radius: 0.25rem;
+			font-family: inherit;
+			font-size: inherit;
+			line-height: 2.7rem;
+			color: var(--gl-search-input-foreground);
+			/* Match input padding exactly, but using margins to ensure clipping */
+			margin-top: 0;
+			margin-bottom: 1px;
+			margin-left: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
+			margin-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
+		}
+
+		/* CSS Custom Highlight API for operators */
+		::highlight(search-operators) {
+			color: var(--vscode-textLink-foreground);
+			font-weight: 600;
+		}
+
+		/* Input with transparent background and text to show overlay */
+		.input-container input {
+			position: relative;
+			z-index: 1;
+			background: transparent;
+			/* Make input text invisible so only overlay shows */
+			color: transparent;
+			caret-color: var(--gl-search-input-foreground);
+		}
+
+		/* In natural language mode, show the input text normally */
+		:host([data-natural-language-mode]) .input-container input {
+			color: var(--gl-search-input-foreground);
+		}
+
+		/* Keep placeholder visible */
+		.input-container input::placeholder {
+			color: var(--gl-search-input-placeholder);
 		}
 
 		.controls {
@@ -225,33 +263,8 @@ export class GlSearchInput extends GlElement {
 			cursor: pointer;
 		}
 
-		.is-hidden {
-			display: none;
-		}
-
-		menu-item {
-			padding: 0 0.5rem;
-		}
-
-		.menu-button {
-			display: flex;
-			width: 100%;
-			padding: 0.1rem 0.6rem 0 0.6rem;
-			line-height: 2.2rem;
-			text-align: left;
-			color: var(--vscode-menu-foreground);
-			border-radius: 3px;
-		}
-
-		.menu-button small {
-			margin-left: auto;
-			padding-left: 1.5rem;
-			opacity: 0.8;
-		}
-
-		.menu-button:hover {
-			color: var(--vscode-menu-selectionForeground);
-			background-color: var(--vscode-menu-selectionBackground);
+		.example {
+			display: inline-block;
 		}
 
 		code {
@@ -262,76 +275,17 @@ export class GlSearchInput extends GlElement {
 			font-family: var(--vscode-editor-font-family);
 		}
 
-		.popover {
+		/* .popover {
 			margin-left: -0.25rem;
 		}
 		.popover::part(body) {
 			padding: 0 0 0.5rem 0;
 			font-size: var(--vscode-font-size);
 			background-color: var(--vscode-menu-background);
-		}
+		} */
 
 		gl-copy-container {
 			margin-top: -0.1rem;
-		}
-
-		/* Input highlighting overlay */
-		.input-container {
-			position: relative;
-		}
-
-		.input-highlight {
-			position: absolute;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			pointer-events: none;
-			white-space: pre;
-			overflow: hidden;
-			box-sizing: border-box;
-			height: 2.7rem;
-			border: 1px solid transparent;
-			border-radius: 0.25rem;
-			font-family: inherit;
-			font-size: inherit;
-			line-height: 2.7rem;
-			color: var(--gl-search-input-foreground);
-			/* Match input padding exactly, but using margins to ensure clipping */
-			margin-top: 0;
-			margin-bottom: 1px;
-			margin-left: calc(1.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
-			margin-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
-		}
-
-		:host([data-natural-language-mode]) .input-highlight {
-			padding-left: calc(0.7rem + calc(1.96rem * (var(--gl-search-input-buttons-left))));
-		}
-
-		/* CSS Custom Highlight API for operators */
-		::highlight(search-operators) {
-			color: var(--vscode-textLink-foreground);
-			font-weight: 600;
-		}
-
-		/* Input with transparent background and text to show overlay */
-		.input-container input {
-			position: relative;
-			z-index: 1;
-			background: transparent;
-			/* Make input text invisible so only overlay shows */
-			color: transparent;
-			caret-color: var(--gl-search-input-foreground);
-		}
-
-		/* In natural language mode, show the input text normally */
-		:host([data-natural-language-mode]) .input-container input {
-			color: var(--gl-search-input-foreground);
-		}
-
-		/* Keep placeholder visible */
-		.input-container input::placeholder {
-			color: var(--gl-search-input-placeholder);
 		}
 	`;
 
@@ -339,7 +293,6 @@ export class GlSearchInput extends GlElement {
 	private readonly _ipc!: typeof ipcContext.__context__;
 
 	@query('input') input!: HTMLInputElement;
-	@query('gl-popover') popoverEl!: GlPopover;
 
 	@property({ type: Boolean }) aiAllowed = true;
 	@property({ type: Boolean }) filter = false;
@@ -363,10 +316,17 @@ export class GlSearchInput extends GlElement {
 	}
 
 	@state() private errorMessage = '';
-	@state() private helpType?: SearchOperatorsLongForm;
 	@state() private processedQuery: string | undefined;
 	@state() private _value = '';
-	@state() private showHelpText = true;
+
+	// Autocomplete state
+	@state() private autocompleteOpen = false;
+	@state() private autocompleteItems: SearchCompletionItem[] = [];
+	@state() private cursorOperator?: SearchCompletionOperator;
+	private autocompleteStartPos = 0;
+	private autocompleteEndPos = 0;
+
+	@query('gl-autocomplete') private autocomplete?: GlAutocomplete;
 
 	private canDeleteHistoryItem = false;
 
@@ -390,9 +350,9 @@ export class GlSearchInput extends GlElement {
 
 	private get placeholder() {
 		if (this.naturalLanguage) {
-			return `${this.label} commits using natural language (↑↓ for history), e.g. Show my commits from last month`;
+			return `${this.label} commits using natural language (↑↓ for history), e.g. my commits from last week`;
 		}
-		return `${this.label} commits (press Enter to search, ↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
+		return `${this.label} commits (press Enter to search, ↑↓ for history), e.g. @me after:1.week.ago file:*.ts`;
 	}
 
 	private repoPath: string | undefined;
@@ -453,11 +413,20 @@ export class GlSearchInput extends GlElement {
 			this.applyHighlights();
 		}
 
+		// When searching state changes in NL mode, ensure autocomplete is open to show progress
+		if (changedProperties.has('searching') && this.naturalLanguage) {
+			this.autocompleteOpen = true;
+		}
+
 		super.updated(changedProperties);
 	}
 
-	private handleFocus(_e: Event) {
-		void this.popoverEl.hide();
+	private handleInputFocus(_e: FocusEvent) {
+		this.updateAutocomplete();
+	}
+
+	private handleInputBlur(_e: Event) {
+		this.hideAutocomplete();
 	}
 
 	private cancelSearch() {
@@ -466,7 +435,6 @@ export class GlSearchInput extends GlElement {
 		this.processedQuery = undefined;
 		this.searchHistoryPos = -1;
 		this.originalHistoryState = undefined;
-		this.showHelpText = true;
 
 		// Emit cancel to backend - idempotent, safe to always call
 		this.emit('gl-search-cancel', { preserveResults: false });
@@ -482,37 +450,8 @@ export class GlSearchInput extends GlElement {
 		this.focus();
 	}
 
-	private _updateHelpTextDebounced: Deferrable<GlSearchInput['updateHelpText']> | undefined;
-	private updateHelpText() {
-		if (this.naturalLanguage) return;
-
-		this._updateHelpTextDebounced ??= debounce(this.updateHelpTextCore.bind(this), 200);
-		this._updateHelpTextDebounced();
-	}
-
-	private updateHelpTextCore() {
-		const cursor = this.input?.selectionStart;
-		const value = this.value;
-		if (cursor != null && value.length !== 0 && value.includes(':')) {
-			const regex = new RegExp(searchOperationHelpRegex, 'g');
-			let match;
-			do {
-				match = regex.exec(value);
-				if (match == null) break;
-
-				const [, , part, op] = match;
-
-				if (cursor > match.index && cursor <= match.index + (part?.trim().length ?? 0)) {
-					this.helpType = searchOperatorsToLongFormMap.get(op as SearchOperators);
-					return;
-				}
-			} while (true);
-		}
-		this.helpType = undefined;
-	}
-
 	private handleInputClick(_e: MouseEvent) {
-		this.updateHelpText();
+		this.updateAutocomplete();
 	}
 
 	private handleInput(e: InputEvent) {
@@ -534,16 +473,301 @@ export class GlSearchInput extends GlElement {
 				this.originalHistoryState = undefined;
 			}
 
-			this.showHelpText = true;
-			this.updateHelpText();
+			this.updateAutocomplete();
 		}
+	}
+
+	/**
+	 * Updates autocomplete suggestions based on current cursor position and input
+	 */
+	private updateAutocomplete() {
+		const cursor = this.input?.selectionStart ?? 0;
+		const value = this.value;
+
+		// In natural language mode, always show welcome message (unless searching or have processed query)
+		// Don't show operator suggestions in NL mode
+		if (this.naturalLanguage) {
+			this.autocompleteItems = [];
+			this.cursorOperator = undefined;
+			this.autocompleteOpen = true;
+			return;
+		}
+
+		// Scenario 1: Empty Input or just focused (show welcome + all operators)
+		if (!value) {
+			const operators = searchCompletionOperators.map<SearchCompletionItem>(m => ({
+				label: m.operator,
+				description: m.aliases.join(', '),
+				detail: m.description,
+				icon: m.icon,
+				item: m,
+				score: 1,
+			}));
+
+			// In structured mode, add a toggle to NL suggestion at the top
+			this.autocompleteItems = [naturalLanguageSearchAutocompleteCommand, ...operators];
+
+			this.cursorOperator = undefined;
+			this.autocompleteStartPos = 0;
+			this.autocompleteEndPos = 0;
+			this.autocompleteOpen = true;
+			this.autocomplete?.resetSelection();
+			return;
+		}
+
+		// Find the word/operator being typed at cursor position
+		// Find the start of the current word/token
+		let start = cursor - 1;
+		while (start >= 0 && !/\s/.test(value[start])) {
+			start--;
+		}
+		start++; // Move to first non-whitespace character
+
+		// Find the end of the current word/token (for detecting if cursor is within an operator)
+		let end = cursor;
+		while (end < value.length && !/\s/.test(value[end])) {
+			end++;
+		}
+
+		// Extract the token and the pattern before cursor
+		const token = value.substring(start, end);
+		const pattern = value.substring(start, cursor);
+
+		// Scenario 3: Cursor is anywhere within a complete operator
+		// Check the full token to see if it starts with a complete operator
+		if (token.includes(':')) {
+			const colonIndex = token.indexOf(':');
+			const opPart = token.substring(0, colonIndex + 1);
+			const op = searchOperatorsToLongFormMap.get(opPart as SearchOperators);
+
+			// Only proceed if cursor is at or after the colon
+			const cursorOffsetInToken = cursor - start;
+			if (op && cursorOffsetInToken >= colonIndex + 1) {
+				const metadata = searchCompletionOperators.find(m => m.operator === op);
+				if (metadata) {
+					// If operator has predefined values, show them as suggestions
+					if (metadata.values?.length) {
+						const valuePart = token.substring(opPart.length);
+						// Use pattern (text before cursor) for fuzzy matching, not the full token
+						const valuePattern = pattern.substring(opPart.length);
+
+						// Check if we already have a complete value match (using full token)
+						const completeValue = metadata.values.find(v => v.value === valuePart);
+						if (completeValue && cursor === end) {
+							// Only show complete value help if cursor is at the end
+							this.autocompleteItems = [];
+							this.cursorOperator = completeValue.description
+								? { ...metadata, description: completeValue.description, example: undefined }
+								: metadata;
+							this.autocompleteStartPos = start;
+							this.autocompleteEndPos = end;
+							this.autocompleteOpen = true;
+							this.autocomplete?.resetSelection();
+							return;
+						}
+
+						// Fuzzy match based on text before cursor (valuePattern)
+						const matches = metadata.values
+							.map(valueItem => {
+								const result = fuzzyFilter(valuePattern, [valueItem.value], a => a)[0];
+								return result?.match.matches
+									? ({
+											label: valueItem.value,
+											detail: valueItem.description,
+											icon: valueItem.icon,
+											item: { operator: op, value: valueItem.value },
+											score: result.match.score,
+											match: result.match,
+										} satisfies SearchCompletionItem)
+									: null;
+							})
+							.filter((m): m is NonNullable<typeof m> => m != null);
+
+						// Always show value suggestions (even if empty) when in value context
+						matches.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+						this.autocompleteItems = matches;
+						this.cursorOperator = metadata; // Show operator description
+						this.autocompleteStartPos = start + opPart.length;
+						this.autocompleteEndPos = end;
+						this.autocompleteOpen = true;
+						this.autocomplete?.resetSelection();
+						return;
+					}
+
+					// Default: show operator help text
+					this.autocompleteItems = [];
+					this.cursorOperator = metadata;
+					this.autocompleteStartPos = start;
+					this.autocompleteEndPos = end;
+					this.autocompleteOpen = true;
+					this.autocomplete?.resetSelection();
+					return;
+				}
+			}
+		}
+
+		// Also check if the pattern itself matches an operator with a colon
+		// This handles the case where cursor is right after typing the operator with colon
+		// Note: We only show help if the operator has a colon, otherwise show autocomplete
+		for (const [_shortForm, longForm] of searchOperatorsToLongFormMap.entries()) {
+			// Only match if the pattern includes the colon
+			if (pattern === longForm) {
+				const metadata = searchCompletionOperators.find(m => m.operator === longForm);
+				if (metadata) {
+					// If operator has predefined values, show them as suggestions
+					if (metadata.values?.length) {
+						this.autocompleteItems = metadata.values.map(
+							valueItem =>
+								({
+									label: valueItem.value,
+									detail: valueItem.description,
+									icon: valueItem.icon,
+									item: { operator: longForm, value: valueItem.value },
+									score: 1,
+								}) satisfies SearchCompletionItem,
+						);
+						this.cursorOperator = metadata; // Show operator description
+						this.autocompleteStartPos = start + longForm.length;
+						this.autocompleteEndPos = end;
+						this.autocompleteOpen = true;
+						this.autocomplete?.resetSelection();
+						return;
+					}
+
+					// Default: show operator help text
+					this.autocompleteItems = [];
+					this.cursorOperator = metadata;
+					this.autocompleteStartPos = start;
+					this.autocompleteEndPos = end;
+					this.autocompleteOpen = true;
+					this.autocomplete?.resetSelection();
+					return;
+				}
+			}
+		}
+
+		// Scenario 2: Typing an operator (partial)
+		// Perform fuzzy matching on all operators and their aliases
+		const matches: CompletionItem<SearchCompletionOperator>[] = [];
+
+		for (const metadata of searchCompletionOperators) {
+			// Try matching against the operator name and all aliases
+			const searchTerms = [metadata.operator, ...metadata.aliases];
+
+			for (const term of searchTerms) {
+				if (!term) continue; // Skip empty string
+
+				const result = fuzzyFilter(pattern, [term], a => a)[0];
+				if (result?.match.matches) {
+					// Check if we already have this operator with a better score
+					const existing = matches.find(m => m.item.operator === metadata.operator);
+					if (!existing || result.match.score > (existing.score ?? 0)) {
+						if (existing) {
+							existing.score = result.match.score;
+							existing.match = result.match;
+						} else {
+							matches.push({
+								label: metadata.operator,
+								description: metadata.aliases.join(', '),
+								detail: metadata.description,
+								icon: metadata.icon,
+								item: metadata,
+								score: result.match.score,
+								match: result.match,
+							});
+						}
+					}
+				}
+			}
+		}
+
+		// If no matches, show only the NL suggestion in structured mode
+		if (!matches.length) {
+			if (!this.naturalLanguage) {
+				this.autocompleteItems = [naturalLanguageSearchAutocompleteCommand];
+				this.cursorOperator = undefined;
+				this.autocompleteStartPos = start;
+				this.autocompleteEndPos = end;
+				this.autocompleteOpen = true;
+				this.autocomplete?.resetSelection();
+			} else {
+				this.hideAutocomplete();
+			}
+			return;
+		}
+
+		// Sort by score (descending) and take top 7
+		matches.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+		let newItems: SearchCompletionItem[] = matches.slice(0, 7);
+
+		// In structured mode, add "Switch to NL" suggestion at the bottom
+		if (!this.naturalLanguage) {
+			newItems = [...newItems, naturalLanguageSearchAutocompleteCommand];
+		}
+
+		this.autocompleteItems = newItems;
+		this.cursorOperator = undefined;
+		this.autocompleteStartPos = start;
+		this.autocompleteEndPos = end;
+		this.autocompleteOpen = true;
+		this.autocomplete?.resetSelection();
+	}
+
+	private hideAutocomplete() {
+		this.autocompleteOpen = false;
+		this.autocompleteItems = [];
+		this.autocomplete?.resetSelection();
+	}
+
+	/**
+	 * Accepts the currently selected autocomplete suggestion
+	 */
+	private acceptAutocomplete(index: number) {
+		const selected = this.autocompleteItems[index];
+		if (!selected) return;
+
+		// Check if this is the toggle natural language command
+		if ('command' in selected.item && selected.item.command === 'toggle-natural-language-mode') {
+			this.updateNaturalLanguage(!this.naturalLanguage);
+			return;
+		}
+
+		// Type guard to ensure we have an operator
+		if (!('operator' in selected.item)) return;
+
+		const operator = selected.item.operator;
+		const value = this.value;
+
+		// Determine what to insert:
+		// - If it's a value completion, insert just the value (autocompleteStartPos is already after the operator)
+		// - Otherwise, insert the operator
+		const insertText = 'value' in selected.item ? selected.item.value : operator;
+
+		// Replace the entire token (from autocompleteStartPos to autocompleteEndPos) with the selected text
+		// This ensures we don't leave partial text when cursor is in the middle of a token
+		const newValue =
+			value.substring(0, this.autocompleteStartPos) + insertText + value.substring(this.autocompleteEndPos);
+
+		// Update the input value directly
+		this.input.value = newValue;
+		this._value = newValue;
+
+		// Position cursor after the inserted text
+		const cursorPos = this.autocompleteStartPos + insertText.length;
+		this.input.focus();
+		this.input.selectionStart = cursorPos;
+		this.input.selectionEnd = cursorPos;
+
+		// Update autocomplete in the next frame to ensure input is updated
+		window.requestAnimationFrame(() => {
+			this.updateAutocomplete();
+		});
 	}
 
 	private handleMatchAll(_e: Event) {
 		this.matchAll = !this.matchAll;
 		// Only trigger search if there's a query value
 		if (this.value) {
-			this.debouncedOnSearchChanged.cancel();
 			this.onSearchChanged(true); // Force search when options change
 		}
 	}
@@ -552,7 +776,6 @@ export class GlSearchInput extends GlElement {
 		this.matchCase = !this.matchCase;
 		// Only trigger search if there's a query value
 		if (this.value) {
-			this.debouncedOnSearchChanged.cancel();
 			this.onSearchChanged(true); // Force search when options change
 		}
 	}
@@ -561,7 +784,6 @@ export class GlSearchInput extends GlElement {
 		this.matchRegex = !this.matchRegex;
 		// Only trigger search if there's a query value
 		if (this.value) {
-			this.debouncedOnSearchChanged.cancel();
 			this.onSearchChanged(true); // Force search when options change
 		}
 	}
@@ -570,7 +792,6 @@ export class GlSearchInput extends GlElement {
 		this.matchWholeWord = !this.matchWholeWord;
 		// Only trigger search if there's a query value
 		if (this.value) {
-			this.debouncedOnSearchChanged.cancel();
 			this.onSearchChanged(true); // Force search when options change
 		}
 	}
@@ -595,15 +816,26 @@ export class GlSearchInput extends GlElement {
 		this.processedQuery = undefined;
 
 		this.naturalLanguage = useNaturalLanguage && this.aiAllowed;
-		this.showHelpText = true;
 		this.emit('gl-search-modechange', {
 			searchMode: this.filter ? 'filter' : 'normal',
 			useNaturalLanguage: this.naturalLanguage,
 		});
+
+		// Update autocomplete to reflect the new mode
+		this.updateAutocomplete();
 	}
 
-	private handleKeyup(_e: KeyboardEvent) {
-		this.updateHelpText();
+	private handleKeyup(e: KeyboardEvent) {
+		// Don't update autocomplete on navigation keys - they're handled in handleShortcutKeys
+		if (
+			e.key !== 'ArrowUp' &&
+			e.key !== 'ArrowDown' &&
+			e.key !== 'PageUp' &&
+			e.key !== 'PageDown' &&
+			e.key !== 'Escape'
+		) {
+			this.updateAutocomplete();
+		}
 	}
 
 	private handleShortcutKeys(e: KeyboardEvent): boolean {
@@ -617,10 +849,10 @@ export class GlSearchInput extends GlElement {
 				e.preventDefault();
 				e.stopPropagation();
 
-				this.showHelpText = false;
-
-				// If search is running, pause it (preserve results)
-				if (this.searching) {
+				if (this.autocompleteOpen) {
+					this.hideAutocomplete();
+				} else if (this.searching) {
+					// If search is running, pause it (preserve results)
 					this.emit('gl-search-pause');
 				}
 
@@ -629,6 +861,12 @@ export class GlSearchInput extends GlElement {
 			case 'Enter': {
 				e.preventDefault();
 				e.stopPropagation();
+
+				// Accept autocomplete selection if visible
+				if (this.autocompleteOpen && this.autocompleteItems.length) {
+					this.acceptAutocomplete(this.autocomplete?.selectedIndex ?? 0);
+					return true;
+				}
 
 				// If search box is empty, cancel and clear immediately
 				if (!this.value) {
@@ -653,13 +891,7 @@ export class GlSearchInput extends GlElement {
 					this.searchHistoryPos = -1;
 
 					// Search changed - trigger new search
-					this.debouncedOnSearchChanged.cancel();
 					this.onSearchChanged(true);
-
-					// In structured query mode, hide help-text after search starts
-					if (!this.naturalLanguage) {
-						this.showHelpText = false;
-					}
 				} else if (!this.searching && this.hasMoreResults) {
 					// Search unchanged and paused with more results - resume search
 					this.emit('gl-search-resume');
@@ -670,12 +902,55 @@ export class GlSearchInput extends GlElement {
 
 				return true;
 			}
+			case 'Tab':
+				// Let Tab work normally for focus management
+				// User must press Enter to accept autocomplete selection
+				break;
+
+			case 'PageUp':
+				if (this.autocompleteOpen && this.autocompleteItems.length) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					this.autocomplete?.pageUp();
+					return true;
+				}
+				break;
+
+			case 'PageDown':
+				if (this.autocompleteOpen && this.autocompleteItems.length) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					this.autocomplete?.pageDown();
+					return true;
+				}
+				break;
+
 			case 'ArrowUp':
 			case 'ArrowDown':
 				e.preventDefault();
 				e.stopPropagation();
 
-				if (this.searchHistory.length > 0) {
+				// Navigate autocomplete if visible
+				if (this.autocompleteOpen && this.autocompleteItems.length) {
+					// Only navigate within autocomplete if not at start of input with ArrowUp (to allow history navigation)
+					if (e.key === 'ArrowUp' && this.autocomplete?.selectedIndex === 0) {
+						this.hideAutocomplete();
+					} else {
+						if (e.key === 'ArrowUp') {
+							this.autocomplete?.selectPrevious();
+						} else {
+							this.autocomplete?.selectNext();
+						}
+						return true;
+					}
+				} else if (e.key === 'ArrowDown' && this.searchHistoryPos === -1) {
+					this.updateAutocomplete();
+					return true;
+				}
+
+				if (this.searchHistory.length) {
 					let nextPos;
 					if (this.searchHistoryPos === -1) {
 						this.originalHistoryState = {
@@ -742,20 +1017,6 @@ export class GlSearchInput extends GlElement {
 		return false;
 	}
 
-	private handleInsertToken(token: string) {
-		this._value += `${this.value.length ? ' ' : ''}${token}`;
-		window.requestAnimationFrame(() => {
-			this.updateHelpText();
-			// `@me` can be searched right away since it doesn't need additional text
-			// But don't auto-search in natural language mode
-			if (!this.naturalLanguage && (token === '@me' || token === 'is:stash' || token === 'type:stash')) {
-				this.debouncedOnSearchChanged();
-			}
-			this.input.focus();
-			this.input.selectionStart = this.value.length;
-		});
-	}
-
 	/**
 	 * Validates the raw query string using parseSearchQuery.
 	 * Returns an error message if query is empty or invalid, otherwise undefined.
@@ -795,10 +1056,9 @@ export class GlSearchInput extends GlElement {
 		if (!force && this._lastSearch && areSearchQueriesEqual(search, this._lastSearch)) return;
 
 		this._lastSearch = search;
+
 		this.emit('gl-search-inputchange', search);
 	}
-
-	private debouncedOnSearchChanged = debounce(this.onSearchChanged.bind(this), 250);
 
 	setCustomValidity(errorMessage: string = ''): void {
 		this.errorMessage = errorMessage;
@@ -853,13 +1113,11 @@ export class GlSearchInput extends GlElement {
 				const entry = this.searchHistory[this.searchHistoryPos];
 				this.value = entry.query;
 				this.naturalLanguage = Boolean(entry.naturalLanguage);
-				this.updateHelpText();
 			} else {
 				this.searchHistoryPos = -1;
 				this.originalHistoryState = undefined;
 				this.value = '';
 				this.naturalLanguage = false;
-				this.updateHelpText();
 			}
 		} catch {
 			// Silent failure - keep existing history
@@ -897,7 +1155,6 @@ export class GlSearchInput extends GlElement {
 						tooltip="Filter Commits"
 						aria-label="Filter Commits"
 						@click="${this.handleFilterClick}"
-						@focus="${this.handleFocus}"
 					>
 						<code-icon icon="list-filter"></code-icon>
 					</gl-button>
@@ -909,12 +1166,10 @@ export class GlSearchInput extends GlElement {
 								tooltip="Natural Language Search (AI Preview)"
 								aria-label="Natural Language Search (AI Preview)"
 								@click="${this.handleNaturalLanguageClick}"
-								@focus="${this.handleFocus}"
 							>
 								<code-icon icon="sparkle"></code-icon>
 							</gl-button>`
 						: nothing}
-					${this.renderSearchByPopover()}
 				</div>
 				<div class="input-container">
 					<div class="input-highlight" aria-hidden="true">${this.renderHighlightedText()}</div>
@@ -922,105 +1177,56 @@ export class GlSearchInput extends GlElement {
 						id="search"
 						part="search"
 						type="text"
+						role="combobox"
+						aria-autocomplete="list"
+						aria-controls="autocomplete-list"
+						aria-expanded="${this.autocompleteOpen}"
+						aria-activedescendant="${ifDefined(
+							this.autocompleteOpen && this.autocompleteItems.length > 0
+								? this.autocomplete?.getActiveDescendant()
+								: undefined,
+						)}"
 						spellcheck="false"
 						placeholder="${this.placeholder}"
 						.value="${live(this.value ?? '')}"
 						aria-valid="${!this.errorMessage}"
-						aria-describedby="${this.showHelpText ? 'help-text' : nothing}"
 						@input="${this.handleInput}"
 						@keydown="${this.handleShortcutKeys}"
 						@keyup="${this.handleKeyup}"
 						@click="${this.handleInputClick}"
-						@focus="${this.handleFocus}"
+						@focus="${this.handleInputFocus}"
+						@blur="${this.handleInputBlur}"
 						@scroll="${this.handleInputScroll}"
 					/>
-					${this.renderHelpText()}
+					${this.errorMessage ? html`<div class="message">${this.errorMessage}</div>` : nothing}
+					${this.renderAutocomplete()}
 				</div>
 			</div>
 			<div class="controls">
-				<gl-button
-					appearance="input"
-					class="${ifDefined(this.value ? undefined : 'is-hidden')}"
-					tooltip="Clear"
-					aria-label="Clear"
-					@click="${this.handleClear}"
-					@focus="${this.handleFocus}"
-				>
-					<code-icon icon="close"></code-icon>
-				</gl-button>
+				${this.value
+					? html`<gl-button
+							appearance="input"
+							tooltip="Clear"
+							aria-label="Clear"
+							@click="${this.handleClear}"
+						>
+							<code-icon icon="close"></code-icon>
+						</gl-button>`
+					: nothing}
 				${this.renderSearchOptions()}
 			</div>`;
 	}
 
-	private renderHelpText() {
-		return html`<div class="message" id="help-text" aria-live="polite">
-			${this.renderSpecificHelpText(this.helpType)}
-		</div>`;
-	}
+	private handleAutocompleteSelect(e: CustomEvent<CompletionSelectEvent>) {
+		const { index, item } = e.detail;
 
-	private renderSpecificHelpText(type?: SearchOperatorsLongForm) {
-		if (this.errorMessage) {
-			return html`<span>${this.errorMessage}</span>`;
+		// Check if this is the toggle natural language command
+		if ('command' in item.item && item.item.command === 'toggle-natural-language-mode') {
+			this.updateNaturalLanguage(!this.naturalLanguage);
+			return;
 		}
 
-		if (this.naturalLanguage) {
-			if (!this.processedQuery) {
-				if (this.searching) {
-					return html`<span>Query: <code-icon icon="loading" modifier="spin"></code-icon></span>`;
-				}
-				return html`<span
-					>Type your natural language query and press Enter. Click <code-icon icon="sparkle"></code-icon> to
-					toggle modes.</span
-				>`;
-			}
-
-			return html`<span> Query: <code>${this.processedQuery}</code></span>`;
-		}
-
-		switch (type) {
-			case 'message:':
-				return html`<span
-					>Message: use quotes to search for phrases, e.g. <code>message:"Updates dependencies"</code></span
-				>`;
-			case 'author:':
-				return html`<span>Author: use a user's account, e.g. <code>author:eamodio</code></span>`;
-			case 'commit:':
-				return html`<span>Commit: use a full or short Commit SHA, e.g. <code>commit:4ce3a</code></span>`;
-			case 'ref:':
-				return html`<span
-					>Ref: use a reference (branch, tag, etc) or reference range, e.g. <code>ref:main</code> or
-					<code>ref:main..feature</code></span
-				>`;
-			case 'type:':
-				return html`<span
-					>Type: use <code>is:stash</code> for stashes or <code>is:tip</code> for branch & tag tips</span
-				>`;
-			case 'file:':
-				return html`<span
-					>File: use a filename with extension, e.g. <code>file:package.json</code> or a glob pattern, e.g.
-					<code>file:*graph*</code></span
-				>`;
-			case 'change:':
-				return html`<span>Change: use a regex pattern, e.g. <code>change:update&#92;(param</code></span>`;
-			case 'after:':
-				return html`<span
-					>After Date: use a date string, e.g. <code>after:2022-01-01</code> or a relative date, e.g.
-					<code>since:6.months.ago</code></span
-				>`;
-			case 'before:':
-				return html`<span
-					>Before Date: use a date string, e.g. <code>before:2022-01-01</code> or a relative date, e.g.
-					<code>until:6.months.ago</code></span
-				>`;
-		}
-
-		if (this.searching) {
-			return html`<span>Searching <code-icon icon="loading" modifier="spin"></code-icon></span>`;
-		}
-		return html`<span
-			>Type your structured query and press Enter. Click <code-icon icon="sparkle"></code-icon> to toggle
-			modes.</span
-		>`;
+		this.acceptAutocomplete(index);
 	}
 
 	private handleInputScroll(_e: Event) {
@@ -1040,14 +1246,10 @@ export class GlSearchInput extends GlElement {
 		CSS.highlights.delete('search-operators');
 
 		// Don't highlight in natural language mode or if no value
-		if (this.naturalLanguage || !this.value) {
-			return;
-		}
+		if (this.naturalLanguage || !this.value) return;
 
-		const highlight = this.renderRoot.querySelector('.input-highlight') as HTMLElement;
-		if (!highlight) {
-			return;
-		}
+		const highlightEl = this.renderRoot.querySelector('.input-highlight') as HTMLElement;
+		if (!highlightEl) return;
 
 		// Parse the query to get operator positions
 		const parsed = parseSearchQuery({
@@ -1058,23 +1260,19 @@ export class GlSearchInput extends GlElement {
 			matchWholeWord: this.matchWholeWord,
 		});
 
-		if (!parsed.operatorRanges?.length) {
-			return;
-		}
+		if (!parsed.operatorRanges?.length) return;
 
 		try {
 			// Find the text node - Lit may create comment nodes, so we need to search for the actual text node
 			let textNode: Node | null = null;
-			for (const node of highlight.childNodes) {
+			for (const node of highlightEl.childNodes) {
 				if (node.nodeType === Node.TEXT_NODE) {
 					textNode = node;
 					break;
 				}
 			}
 
-			if (!textNode) {
-				return;
-			}
+			if (!textNode) return;
 
 			// Create ranges for each operator
 			const ranges = parsed.operatorRanges.map(({ start, end }) => {
@@ -1085,10 +1283,11 @@ export class GlSearchInput extends GlElement {
 			});
 
 			// Apply the highlight
-			const highlightObj = new Highlight(...ranges);
-			CSS.highlights.set('search-operators', highlightObj);
-		} catch (error) {
-			console.error('[search-input] Error applying highlights:', error);
+			const highlight = new Highlight(...ranges);
+			CSS.highlights.set('search-operators', highlight);
+		} catch (ex) {
+			debugger;
+			console.error('[search-input] Error applying highlights:', ex);
 		}
 	}
 
@@ -1097,124 +1296,75 @@ export class GlSearchInput extends GlElement {
 	 */
 	private renderHighlightedText() {
 		// Don't highlight in natural language mode or if no value
-		if (this.naturalLanguage || !this.value) {
-			return nothing;
-		}
+		if (this.naturalLanguage || !this.value) return nothing;
 
 		// Just return the plain text - highlighting will be done via CSS Highlight API
 		return this.value;
 	}
 
-	private renderSearchByPopover() {
-		if (this.naturalLanguage) return nothing;
+	private renderAutocomplete() {
+		// Show description if we have items, operator help, or NL mode
+		const hasDescription = Boolean(this.autocompleteItems.length || this.naturalLanguage || this.cursorOperator);
 
-		return html`<gl-popover
-			class="popover"
-			trigger="click focus"
-			hoist
-			placement="bottom-start"
-			.arrow=${false}
-			distance="0"
+		return html`<gl-autocomplete
+			id="autocomplete-list"
+			.items="${this.naturalLanguage ? [] : this.autocompleteItems}"
+			?open="${this.autocompleteOpen && hasDescription && !this.errorMessage}"
+			@gl-autocomplete-select="${this.handleAutocompleteSelect}"
+			@gl-autocomplete-cancel="${this.hideAutocomplete}"
 		>
-			<gl-button
-				style="height:100%;"
-				slot="anchor"
-				appearance="input"
-				tooltip="${this.label} By"
-				tooltipPlacement="top"
-				aria-label="${this.label} By"
-			>
-				<code-icon icon="search" size="14" aria-hidden="true"></code-icon>
-				<code-icon slot="suffix" icon="chevron-down" size="10" aria-hidden="true"></code-icon>
-			</gl-button>
-			<div slot="content">
-				<menu-label>${this.label} By</menu-label>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('@me')}">
-						My changes <small>@me</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('message:')}">
-						Message <small>message: or =:</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('author:')}">
-						Author <small>author: or @:</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('commit:')}">
-						Commit SHA <small>commit: or #:</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('ref:')}">
-						Ref <small>ref: or ^:</small>
-					</button>
-				</menu-item>
-				<menu-divider></menu-divider>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('is:stash')}">
-						Stashes <small>is:stash or type:stash</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('is:tip')}">
-						Branch & Tag Tips <small>is:tip or type:tip</small>
-					</button>
-				</menu-item>
-				<menu-divider></menu-divider>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('file:')}">
-						File <small>file: or ?:</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('change:')}">
-						Change <small>change: or ~:</small>
-					</button>
-				</menu-item>
-				<menu-divider></menu-divider>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('after:')}">
-						After Date <small>after: or since:</small>
-					</button>
-				</menu-item>
-				<menu-item role="none">
-					<button class="menu-button" type="button" @click="${() => this.handleInsertToken('before:')}">
-						Before Date <small>before: or until:</small>
-					</button>
-				</menu-item>
-			</div>
-		</gl-popover>`;
+			${hasDescription
+				? html`<div slot="description">
+						${this.cursorOperator
+							? html`${this.cursorOperator.description}${this.renderOperatorExample(this.cursorOperator)}`
+							: this.naturalLanguage
+								? this.renderNaturalLanguageDescription()
+								: html`Combine operators to build powerful searches, e.g.
+										<code>@me after:1.week.ago file:*.ts</code>`}
+					</div>`
+				: nothing}
+		</gl-autocomplete>`;
+	}
+
+	private renderOperatorExample(operator: SearchCompletionOperator | undefined) {
+		if (operator?.example) {
+			return html`<span class="example">${operator.example}</span>`;
+		}
+		return nothing;
+	}
+
+	private renderNaturalLanguageDescription() {
+		if (this.searching) {
+			return html`<code-icon icon="loading" modifier="spin"></code-icon> Processing your natural language query...`;
+		}
+
+		if (this.processedQuery) {
+			return html`Query: <code>${this.processedQuery}</code>`;
+		}
+
+		return html`Describe what you're looking for and let AI build the query, e.g.
+			<code>my commits from last week</code> or <code>changes to package.json by eamodio last month</code>`;
 	}
 
 	private renderSearchOptions() {
 		if (this.naturalLanguage) {
-			return html`<gl-copy-container
-				class="${ifDefined(this.value ? undefined : 'is-hidden')}"
-				appearance="toolbar"
-				copyLabel="Copy Query"
-				.content=${this.processedQuery}
-				placement="bottom"
-				?disabled=${!this.processedQuery}
-			>
-				<code-icon icon="copy" aria-hidden="true"></code-icon>
-			</gl-copy-container>`;
-
-			// <gl-button
-			// 	appearance="input"
-			// 	role="checkbox"
-			// 	aria-checked="${this.showNaturalLanguageHelpText}"
-			// 	tooltip="Show Query"
-			// 	aria-label="Show Query"
-			// 	@click="${this.handleShowNaturalLanguageHelpText}"
-			// 	@focus="${this.handleFocus}"
-			// >
-			// 	<code-icon icon="symbol-namespace"></code-icon>
-			// </gl-button>
+			return this.value
+				? html`<gl-copy-container
+						appearance="toolbar"
+						copyLabel="Copy Query"
+						.content=${this.processedQuery}
+						placement="bottom"
+						?disabled=${!this.processedQuery}
+					>
+						<code-icon
+							icon="copy"
+							tabindex="0"
+							role="button"
+							aria-label="Copy Query"
+							class="copy-icon"
+						></code-icon>
+					</gl-copy-container>`
+				: nothing;
 		}
 
 		return html`<gl-button
@@ -1229,7 +1379,6 @@ export class GlSearchInput extends GlElement {
 					: ''}"
 				?disabled="${!this.matchRegex}"
 				@click="${this.handleMatchCase}"
-				@focus="${this.handleFocus}"
 			>
 				<code-icon icon="case-sensitive"></code-icon>
 			</gl-button>
@@ -1245,7 +1394,6 @@ export class GlSearchInput extends GlElement {
 					: ''}"
 				?disabled="${!this.matchRegex}"
 				@click="${this.handleMatchWholeWord}"
-				@focus="${this.handleFocus}"
 			>
 				<code-icon icon="whole-word"></code-icon>
 			</gl-button>
@@ -1256,7 +1404,6 @@ export class GlSearchInput extends GlElement {
 				tooltip="Use Regular Expression"
 				aria-label="Use Regular Expression"
 				@click="${this.handleMatchRegex}"
-				@focus="${this.handleFocus}"
 			>
 				<code-icon icon="regex"></code-icon>
 			</gl-button>
@@ -1267,7 +1414,6 @@ export class GlSearchInput extends GlElement {
 				tooltip="Match All"
 				aria-label="Match All"
 				@click="${this.handleMatchAll}"
-				@focus="${this.handleFocus}"
 			>
 				<code-icon icon="check-all"></code-icon>
 			</gl-button>`;
