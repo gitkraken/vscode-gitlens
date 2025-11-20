@@ -323,8 +323,7 @@ export class GlSearchInput extends GlElement {
 	@state() private autocompleteOpen = false;
 	@state() private autocompleteItems: SearchCompletionItem[] = [];
 	@state() private cursorOperator?: SearchCompletionOperator;
-	private autocompleteStartPos = 0;
-	private autocompleteEndPos = 0;
+	private cursorPosition: [number, number] = [0, 0];
 
 	@query('gl-autocomplete') private autocomplete?: GlAutocomplete;
 
@@ -332,6 +331,10 @@ export class GlSearchInput extends GlElement {
 
 	// Track last search to avoid re-searching on Enter when query hasn't changed
 	private _lastSearch: SearchQuery | undefined = undefined;
+
+	private get inputFocused(): boolean {
+		return this.renderRoot instanceof ShadowRoot ? this.renderRoot.activeElement === this.input : false;
+	}
 
 	private get label() {
 		return this.filter ? 'Filter' : 'Search';
@@ -415,7 +418,7 @@ export class GlSearchInput extends GlElement {
 
 		// When searching state changes in NL mode, ensure autocomplete is open to show progress
 		if (changedProperties.has('searching') && this.naturalLanguage) {
-			this.autocompleteOpen = true;
+			this.autocompleteOpen = this.inputFocused;
 		}
 
 		super.updated(changedProperties);
@@ -489,7 +492,7 @@ export class GlSearchInput extends GlElement {
 		if (this.naturalLanguage) {
 			this.autocompleteItems = [];
 			this.cursorOperator = undefined;
-			this.autocompleteOpen = true;
+			this.autocompleteOpen = this.inputFocused;
 			return;
 		}
 
@@ -508,10 +511,9 @@ export class GlSearchInput extends GlElement {
 			this.autocompleteItems = [naturalLanguageSearchAutocompleteCommand, ...operators];
 
 			this.cursorOperator = undefined;
-			this.autocompleteStartPos = 0;
-			this.autocompleteEndPos = 0;
-			this.autocompleteOpen = true;
+			this.cursorPosition = [0, 0];
 			this.autocomplete?.resetSelection();
+			this.autocompleteOpen = this.inputFocused;
 			return;
 		}
 
@@ -559,10 +561,9 @@ export class GlSearchInput extends GlElement {
 							this.cursorOperator = completeValue.description
 								? { ...metadata, description: completeValue.description, example: undefined }
 								: metadata;
-							this.autocompleteStartPos = start;
-							this.autocompleteEndPos = end;
-							this.autocompleteOpen = true;
+							this.cursorPosition = [start, end];
 							this.autocomplete?.resetSelection();
+							this.autocompleteOpen = this.inputFocused;
 							return;
 						}
 
@@ -587,20 +588,18 @@ export class GlSearchInput extends GlElement {
 						matches.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 						this.autocompleteItems = matches;
 						this.cursorOperator = metadata; // Show operator description
-						this.autocompleteStartPos = start + opPart.length;
-						this.autocompleteEndPos = end;
-						this.autocompleteOpen = true;
+						this.cursorPosition = [start + opPart.length, end];
 						this.autocomplete?.resetSelection();
+						this.autocompleteOpen = this.inputFocused;
 						return;
 					}
 
 					// Default: show operator help text
 					this.autocompleteItems = [];
 					this.cursorOperator = metadata;
-					this.autocompleteStartPos = start;
-					this.autocompleteEndPos = end;
-					this.autocompleteOpen = true;
+					this.cursorPosition = [start, end];
 					this.autocomplete?.resetSelection();
+					this.autocompleteOpen = this.inputFocused;
 					return;
 				}
 			}
@@ -627,8 +626,7 @@ export class GlSearchInput extends GlElement {
 								}) satisfies SearchCompletionItem,
 						);
 						this.cursorOperator = metadata; // Show operator description
-						this.autocompleteStartPos = start + longForm.length;
-						this.autocompleteEndPos = end;
+						this.cursorPosition = [start + longForm.length, end];
 						this.autocompleteOpen = true;
 						this.autocomplete?.resetSelection();
 						return;
@@ -637,8 +635,7 @@ export class GlSearchInput extends GlElement {
 					// Default: show operator help text
 					this.autocompleteItems = [];
 					this.cursorOperator = metadata;
-					this.autocompleteStartPos = start;
-					this.autocompleteEndPos = end;
+					this.cursorPosition = [start, end];
 					this.autocompleteOpen = true;
 					this.autocomplete?.resetSelection();
 					return;
@@ -686,8 +683,7 @@ export class GlSearchInput extends GlElement {
 			if (!this.naturalLanguage) {
 				this.autocompleteItems = [naturalLanguageSearchAutocompleteCommand];
 				this.cursorOperator = undefined;
-				this.autocompleteStartPos = start;
-				this.autocompleteEndPos = end;
+				this.cursorPosition = [start, end];
 				this.autocompleteOpen = true;
 				this.autocomplete?.resetSelection();
 			} else {
@@ -707,8 +703,7 @@ export class GlSearchInput extends GlElement {
 
 		this.autocompleteItems = newItems;
 		this.cursorOperator = undefined;
-		this.autocompleteStartPos = start;
-		this.autocompleteEndPos = end;
+		this.cursorPosition = [start, end];
 		this.autocompleteOpen = true;
 		this.autocomplete?.resetSelection();
 	}
@@ -739,60 +734,54 @@ export class GlSearchInput extends GlElement {
 		const value = this.value;
 
 		// Determine what to insert:
-		// - If it's a value completion, insert just the value (autocompleteStartPos is already after the operator)
+		// - If it's a value completion, insert just the value (cursorPosition[0] is already after the operator)
 		// - Otherwise, insert the operator
 		const insertText = 'value' in selected.item ? selected.item.value : operator;
 
-		// Replace the entire token (from autocompleteStartPos to autocompleteEndPos) with the selected text
+		// Replace the entire token (from cursorPosition[0] to cursorPosition[1]) with the selected text
 		// This ensures we don't leave partial text when cursor is in the middle of a token
 		const newValue =
-			value.substring(0, this.autocompleteStartPos) + insertText + value.substring(this.autocompleteEndPos);
+			value.substring(0, this.cursorPosition[0]) + insertText + value.substring(this.cursorPosition[1]);
 
 		// Update the input value directly
 		this.input.value = newValue;
 		this._value = newValue;
 
 		// Position cursor after the inserted text
-		const cursorPos = this.autocompleteStartPos + insertText.length;
+		const cursorPos = this.cursorPosition[0] + insertText.length;
 		this.input.focus();
 		this.input.selectionStart = cursorPos;
 		this.input.selectionEnd = cursorPos;
 
 		// Update autocomplete in the next frame to ensure input is updated
-		window.requestAnimationFrame(() => {
-			this.updateAutocomplete();
-		});
+		window.requestAnimationFrame(() => this.updateAutocomplete());
 	}
 
 	private handleMatchAll(_e: Event) {
 		this.matchAll = !this.matchAll;
-		// Only trigger search if there's a query value
 		if (this.value) {
-			this.onSearchChanged(true); // Force search when options change
+			this.onSearchChanged(true);
 		}
 	}
 
 	private handleMatchCase(_e: Event) {
 		this.matchCase = !this.matchCase;
-		// Only trigger search if there's a query value
 		if (this.value) {
-			this.onSearchChanged(true); // Force search when options change
+			this.onSearchChanged(true);
 		}
 	}
 
 	private handleMatchRegex(_e: Event) {
 		this.matchRegex = !this.matchRegex;
-		// Only trigger search if there's a query value
 		if (this.value) {
-			this.onSearchChanged(true); // Force search when options change
+			this.onSearchChanged(true);
 		}
 	}
 
 	private handleMatchWholeWord(_e: Event) {
 		this.matchWholeWord = !this.matchWholeWord;
-		// Only trigger search if there's a query value
 		if (this.value) {
-			this.onSearchChanged(true); // Force search when options change
+			this.onSearchChanged(true);
 		}
 	}
 
