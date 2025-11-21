@@ -26731,7 +26731,7 @@
 		"@opentelemetry/sdk-trace-base": "2.2.0",
 		"@opentelemetry/semantic-conventions": "1.38.0",
 		"@shoelace-style/shoelace": "2.20.1",
-		"@vscode/codicons": "0.0.42",
+		"@vscode/codicons": "0.0.43",
 		"billboard.js": "3.17.2",
 		"diff2html": "3.4.52",
 		"dragula": "3.7.3",
@@ -26794,7 +26794,7 @@
 		"eslint-plugin-react-hooks": "7.0.1",
 		"eslint-plugin-wc": "3.0.2",
 		"fork-ts-checker-webpack-plugin": "9.1.0",
-		"glob": "12.0.0",
+		"glob": "13.0.0",
 		"globals": "16.5.0",
 		"hogan.js": "3.0.2",
 		"html-loader": "5.1.0",
@@ -26803,12 +26803,12 @@
 		"license-checker-rseidelsohn": "4.4.2",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.9.4",
-		"ovsx": "0.10.6",
+		"ovsx": "0.10.7",
 		"playwright": "1.56.1",
 		"prettier": "3.6.2",
 		"react-compiler-webpack": "1.0.0",
 		"regex-to-strings": "2.1.0",
-		"sass": "1.94.0",
+		"sass-embedded": "1.93.3",
 		"sass-loader": "16.0.6",
 		"schema-utils": "4.3.3",
 		"sharp": "0.34.5",
@@ -26819,8 +26819,8 @@
 		"ts-loader": "9.5.4",
 		"typescript": "5.9.3",
 		"typescript-eslint": "8.46.2",
-		"webpack": "5.102.1",
-		"webpack-bundle-analyzer": "5.0.0",
+		"webpack": "5.103.0",
+		"webpack-bundle-analyzer": "5.0.1",
 		"webpack-cli": "6.0.1",
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6"
@@ -26832,5 +26832,5 @@
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0"
 	},
-	"packageManager": "pnpm@10.22.0"
+	"packageManager": "pnpm@10.23.0"
 }

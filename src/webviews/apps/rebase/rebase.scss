@@ -1,8 +1,8 @@
+@use 'sass:meta';
 @use '../shared/styles/theme';
 @use '../shared/styles/utils';
-@import '../shared/base';
-@import '../shared/buttons';
-@import '../shared/utils';
+@use '../shared/base';
+@use '../shared/buttons';
 
 body {
 	--gk-avatar-size: 2.2rem;
@@ -521,4 +521,5 @@ $entry-padding: 7px;
 	}
 }
 
-@import '../shared/codicons';
+@include meta.load-css('../shared/codicons');
+@include meta.load-css('../shared/utils');

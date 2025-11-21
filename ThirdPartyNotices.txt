@@ -19,7 +19,7 @@ This project incorporates components from the projects listed below.
 14. @opentelemetry/sdk-trace-base version 2.2.0 (https://github.com/open-telemetry/opentelemetry-js)
 15. @opentelemetry/semantic-conventions version 1.38.0 (https://github.com/open-telemetry/opentelemetry-js)
 16. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
-17. @vscode/codicons version 0.0.42 (https://github.com/microsoft/vscode-codicons)
+17. @vscode/codicons version 0.0.43 (https://github.com/microsoft/vscode-codicons)
 18. billboard.js version 3.17.2 (https://github.com/naver/billboard.js)
 19. diff2html version 3.4.52 (https://github.com/rtfpessoa/diff2html)
 20. dragula version 3.7.3 (https://github.com/bevacqua/dragula)

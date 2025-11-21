@@ -1,8 +1,9 @@
+@use 'sass:meta';
 @use '../../shared/styles/theme';
 @use '../../shared/styles/utils';
 @use '../../shared/styles/icons/utils' as iconUtils;
-@import '../../shared/base';
-@import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
+@use '../../shared/base';
+@include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
 
 @mixin focusStyles() {
 	outline: 1px solid var(--vscode-focusBorder);
@@ -1306,4 +1307,4 @@ web-graph {
 	}
 }
 
-@import '../../shared/codicons';
+@include meta.load-css('../../shared/codicons');

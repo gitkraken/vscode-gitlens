@@ -561,7 +561,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	return {
 		name: name,
 		context: basePath,
-		entry: Object.fromEntries(Object.entries(webviews).map(([name, { entry }]) => [name, entry])),
+		entry: Object.fromEntries(Object.entries(webviews).map(([n, { entry }]) => [n, entry])),
 		mode: mode,
 		target: 'web',
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
@@ -677,14 +677,14 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 						{
 							loader: 'css-loader',
 							options: {
-								sourceMap: mode !== 'production',
+								sourceMap: mode !== 'production' && !env.quick,
 								url: false,
 							},
 						},
 						{
 							loader: 'sass-loader',
 							options: {
-								sourceMap: mode !== 'production',
+								sourceMap: mode !== 'production' && !env.quick,
 							},
 						},
 					],
