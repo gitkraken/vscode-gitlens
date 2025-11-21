@@ -42,7 +42,7 @@ import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { GitGraphSearchResultData } from '../../../git/search';
 import type { Subscription } from '../../../plus/gk/models/subscription';
-import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker';
+import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { IpcScope, WebviewState } from '../../protocol';
@@ -332,9 +332,32 @@ export const JumpToHeadRequest = new IpcRequest<undefined, DidChooseRefParams>(s
 export interface ChooseRefParams {
 	title: string;
 	placeholder: string;
-	include?: ReferencesQuickPickIncludes;
+	allowedAdditionalInput?: ReferencesQuickPickOptions2['allowedAdditionalInput'];
+	include?: ReferencesQuickPickOptions2['include'];
+	picked?: string;
 }
 export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
+
+export interface ChooseAuthorParams {
+	title: string;
+	placeholder: string;
+	picked?: string[];
+}
+export interface DidChooseAuthorParams {
+	authors: string[] | undefined;
+}
+export const ChooseAuthorRequest = new IpcRequest<ChooseAuthorParams, DidChooseAuthorParams>(scope, 'chooseAuthor');
+
+export interface ChooseFileParams {
+	title: string;
+	type: 'file' | 'folder';
+	openLabel?: string;
+	picked?: string[];
+}
+export interface DidChooseFileParams {
+	files: string[] | undefined;
+}
+export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileParams>(scope, 'chooseFile');
 
 export interface EnsureRowParams {
 	id: string;

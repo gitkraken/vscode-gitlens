@@ -7,9 +7,10 @@ export type SearchCompletionItem = CompletionItem<
 	SearchCompletionOperator | SearchCompletionCommand | SearchCompletionValue
 >;
 
-export interface SearchCompletionCommand {
-	command: 'toggle-natural-language-mode';
-}
+export type SearchCompletionCommand =
+	| { command: 'toggle-natural-language-mode' }
+	| { command: 'pick-author' | 'pick-file'; multi?: boolean }
+	| { command: 'pick-folder' | 'pick-ref'; multi?: never };
 
 export interface SearchCompletionValue {
 	/** The operator this value belongs to */
@@ -28,8 +29,10 @@ export const naturalLanguageSearchAutocompleteCommand: CompletionItem<SearchComp
 };
 
 export interface SearchCompletionOperatorValue {
-	/** The value to suggest */
-	value: string;
+	/** The value to suggest or command to execute when this value is selected */
+	value: string | SearchCompletionCommand;
+	/** Label to display in autocomplete */
+	label: string;
 	/** Description of what this value does (shown in autocomplete list) */
 	description: string;
 	/** Icon to display in autocomplete */
@@ -47,7 +50,7 @@ export interface SearchCompletionOperator {
 	icon?: string;
 	/** Example usage */
 	example?: TemplateResult;
-	/** Predefined values to suggest for this operator */
+	/** Predefined values to suggest for this operator (can include commands that help populate values) */
 	values?: SearchCompletionOperatorValue[];
 }
 
@@ -70,6 +73,14 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 		aliases: ['@:'],
 		example: html`Use a name or email, e.g. <code>author:eamodio</code>, <code>@:john</code>, or
 			<code>@me</code> for your own commits`,
+		values: [
+			{
+				value: { command: 'pick-author', multi: true },
+				label: 'Choose authors\u2026',
+				description: 'Select one or more contributors to filter by',
+				icon: 'person',
+			},
+		],
 	},
 	{
 		operator: 'commit:',
@@ -85,6 +96,14 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 		aliases: ['^:'],
 		example: html`Use a reference to filter, e.g. <code>ref:main</code> or <code>^:v1.0.0</code>, or a range to
 			compare, e.g. <code>ref:main..feature</code> (commits in feature but not in main)`,
+		values: [
+			{
+				value: { command: 'pick-ref' },
+				label: 'Choose a branch, tag, or range\u2026',
+				description: 'Select a branch, tag, or range to filter by',
+				icon: 'git-branch',
+			},
+		],
 	},
 	{
 		operator: 'type:',
@@ -95,11 +114,13 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 		values: [
 			{
 				value: 'stash',
+				label: 'stash',
 				description: 'Filter commits to only show stashes',
 				icon: 'archive',
 			},
 			{
 				value: 'tip',
+				label: 'tip',
 				description: 'Filter commits to only show commits pointed to by branches or tags',
 				icon: 'git-branch',
 			},
@@ -112,6 +133,20 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 		aliases: ['?:'],
 		example: html`Use a path or filename, e.g. <code>file:package.json</code>, or a glob, e.g.
 			<code>?:src/**/*.ts</code>`,
+		values: [
+			{
+				value: { command: 'pick-file', multi: true },
+				label: 'Choose files\u2026',
+				description: 'Select one or more files to filter by',
+				icon: 'file',
+			},
+			{
+				value: { command: 'pick-folder' },
+				label: 'Choose a folder\u2026',
+				description: 'Select a folder to filter by',
+				icon: 'folder',
+			},
+		],
 	},
 	{
 		operator: 'change:',

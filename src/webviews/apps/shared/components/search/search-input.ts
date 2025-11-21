@@ -5,10 +5,14 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
 import type { SearchOperators, SearchQuery } from '../../../../../constants.search';
 import { searchOperatorsToLongFormMap } from '../../../../../constants.search';
-import { parseSearchQuery } from '../../../../../git/search';
+import { parseSearchQuery, rebuildSearchQueryFromParsed } from '../../../../../git/search';
 import { areSearchQueriesEqual } from '../../../../../git/utils/search.utils';
+import { filterMap } from '../../../../../system/array';
 import { fuzzyFilter } from '../../../../../system/fuzzy';
 import {
+	ChooseAuthorRequest,
+	ChooseFileRequest,
+	ChooseRefRequest,
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
@@ -16,7 +20,12 @@ import {
 import { ipcContext } from '../../contexts/ipc';
 import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete';
 import { GlElement } from '../element';
-import type { SearchCompletionItem, SearchCompletionOperator } from './models';
+import type {
+	SearchCompletionCommand,
+	SearchCompletionItem,
+	SearchCompletionOperator,
+	SearchCompletionOperatorValue,
+} from './models';
 import { naturalLanguageSearchAutocompleteCommand, searchCompletionOperators } from './models';
 import '../button';
 import '../autocomplete/autocomplete';
@@ -545,22 +554,25 @@ export class GlSearchInput extends GlElement {
 			// Only proceed if cursor is at or after the colon
 			const cursorOffsetInToken = cursor - start;
 			if (op && cursorOffsetInToken >= colonIndex + 1) {
-				const metadata = searchCompletionOperators.find(m => m.operator === op);
-				if (metadata) {
+				const operator = searchCompletionOperators.find(m => m.operator === op);
+				if (operator) {
 					// If operator has predefined values, show them as suggestions
-					if (metadata.values?.length) {
+					if (operator.values?.length) {
 						const valuePart = token.substring(opPart.length);
 						// Use pattern (text before cursor) for fuzzy matching, not the full token
 						const valuePattern = pattern.substring(opPart.length);
 
 						// Check if we already have a complete value match (using full token)
-						const completeValue = metadata.values.find(v => v.value === valuePart);
+						// Exclude command items (they're not actual values, they're actions to help pick values)
+						const completeValue = operator.values.find(
+							v => !isValueCommand(v.value) && v.value === valuePart,
+						);
 						if (completeValue && cursor === end) {
 							// Only show complete value help if cursor is at the end
 							this.autocompleteItems = [];
 							this.cursorOperator = completeValue.description
-								? { ...metadata, description: completeValue.description, example: undefined }
-								: metadata;
+								? { ...operator, description: completeValue.description, example: undefined }
+								: operator;
 							this.cursorPosition = [start, end];
 							this.autocomplete?.resetSelection();
 							this.autocompleteOpen = this.inputFocused;
@@ -568,35 +580,51 @@ export class GlSearchInput extends GlElement {
 						}
 
 						// Fuzzy match based on text before cursor (valuePattern)
-						const matches = metadata.values
-							.map(valueItem => {
-								const result = fuzzyFilter(valuePattern, [valueItem.value], a => a)[0];
-								return result?.match.matches
-									? ({
-											label: valueItem.value,
-											detail: valueItem.description,
-											icon: valueItem.icon,
-											item: { operator: op, value: valueItem.value },
-											score: result.match.score,
-											match: result.match,
-										} satisfies SearchCompletionItem)
-									: null;
-							})
-							.filter((m): m is NonNullable<typeof m> => m != null);
+						const matches: SearchCompletionItem[] = filterMap(operator.values, v => {
+							// Command items are always included (not filtered)
+							if (isValueCommand(v.value)) {
+								return {
+									label: v.label,
+									detail: v.description,
+									icon: v.icon,
+									item: v.value,
+									score: 0,
+								} satisfies SearchCompletionItem;
+							}
+
+							// For regular value items, match against value
+							const result = fuzzyFilter(valuePattern, [v.value], a => a)[0];
+							return result?.match.matches
+								? ({
+										label: v.label,
+										detail: v.description,
+										icon: v.icon,
+										item: { operator: op, value: v.value },
+										score: result.match.score,
+										match: result.match,
+									} satisfies SearchCompletionItem)
+								: null;
+						});
 
 						// Always show value suggestions (even if empty) when in value context
 						matches.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 						this.autocompleteItems = matches;
-						this.cursorOperator = metadata; // Show operator description
+						this.cursorOperator = operator; // Show operator description
 						this.cursorPosition = [start + opPart.length, end];
-						this.autocomplete?.resetSelection();
 						this.autocompleteOpen = this.inputFocused;
+						// Only select first item if there's an actual match (score > 0)
+						const hasMatch = matches.length > 0 && (matches[0].score ?? 0) > 0;
+						if (hasMatch) {
+							this.autocomplete?.setSelection(0);
+						} else {
+							this.autocomplete?.resetSelection();
+						}
 						return;
 					}
 
 					// Default: show operator help text
 					this.autocompleteItems = [];
-					this.cursorOperator = metadata;
+					this.cursorOperator = operator;
 					this.cursorPosition = [start, end];
 					this.autocomplete?.resetSelection();
 					this.autocompleteOpen = this.inputFocused;
@@ -608,33 +636,34 @@ export class GlSearchInput extends GlElement {
 		// Also check if the pattern itself matches an operator with a colon
 		// This handles the case where cursor is right after typing the operator with colon
 		// Note: We only show help if the operator has a colon, otherwise show autocomplete
-		for (const [_shortForm, longForm] of searchOperatorsToLongFormMap.entries()) {
+		for (const [_shortForm, op] of searchOperatorsToLongFormMap.entries()) {
 			// Only match if the pattern includes the colon
-			if (pattern === longForm) {
-				const metadata = searchCompletionOperators.find(m => m.operator === longForm);
-				if (metadata) {
+			if (pattern === op) {
+				const operator = searchCompletionOperators.find(m => m.operator === op);
+				if (operator) {
 					// If operator has predefined values, show them as suggestions
-					if (metadata.values?.length) {
-						this.autocompleteItems = metadata.values.map(
-							valueItem =>
+					if (operator.values?.length) {
+						this.autocompleteItems = operator.values.map(
+							v =>
 								({
-									label: valueItem.value,
-									detail: valueItem.description,
-									icon: valueItem.icon,
-									item: { operator: longForm, value: valueItem.value },
+									label: v.label,
+									detail: v.description,
+									icon: v.icon,
+									item: isValueCommand(v.value) ? v.value : { operator: op, value: v.value },
 									score: 1,
 								}) satisfies SearchCompletionItem,
 						);
-						this.cursorOperator = metadata; // Show operator description
-						this.cursorPosition = [start + longForm.length, end];
+						this.cursorOperator = operator; // Show operator description
+						this.cursorPosition = [start + op.length, end];
 						this.autocompleteOpen = true;
+						// Don't select anything when just showing all values (no user input yet)
 						this.autocomplete?.resetSelection();
 						return;
 					}
 
 					// Default: show operator help text
 					this.autocompleteItems = [];
-					this.cursorOperator = metadata;
+					this.cursorOperator = operator;
 					this.cursorPosition = [start, end];
 					this.autocompleteOpen = true;
 					this.autocomplete?.resetSelection();
@@ -705,7 +734,12 @@ export class GlSearchInput extends GlElement {
 		this.cursorOperator = undefined;
 		this.cursorPosition = [start, end];
 		this.autocompleteOpen = true;
-		this.autocomplete?.resetSelection();
+		// Select first item if we have operator matches (not just the NL toggle)
+		if (matches.length > 0) {
+			this.autocomplete?.setSelection(0);
+		} else {
+			this.autocomplete?.resetSelection();
+		}
 	}
 
 	private hideAutocomplete() {
@@ -715,15 +749,129 @@ export class GlSearchInput extends GlElement {
 	}
 
 	/**
+	 * Handles picker commands (author, ref, file/folder)
+	 */
+	private async handlePickerCommand(command: SearchCompletionCommand) {
+		const value = this.value;
+		const operator = this.cursorOperator?.operator;
+		if (!operator) return;
+
+		// Get the current value at the cursor position (if any)
+		const currentValue = value.substring(this.cursorPosition[0], this.cursorPosition[1]).trim();
+
+		try {
+			switch (command.command) {
+				case 'pick-author': {
+					const result = await this._ipc.sendRequest(ChooseAuthorRequest, {
+						title: 'Search by Author',
+						placeholder: 'Choose contributors to include commits from',
+						picked: currentValue ? [currentValue] : undefined,
+					});
+
+					if (result.authors?.length) {
+						this.insertPickerValues(result.authors, operator, command.multi ?? false);
+					}
+					break;
+				}
+
+				case 'pick-ref': {
+					const result = await this._ipc.sendRequest(ChooseRefRequest, {
+						title: 'Search by Reference or Range',
+						placeholder: 'Choose a reference to search',
+						allowedAdditionalInput: { range: true, rev: false },
+						include: ['branches', 'tags', 'HEAD'],
+						picked: currentValue || undefined,
+					});
+
+					if (result?.name) {
+						this.insertPickerValues([result.name], operator, command.multi ?? false);
+					}
+					break;
+				}
+
+				case 'pick-file':
+				case 'pick-folder': {
+					const result = await this._ipc.sendRequest(ChooseFileRequest, {
+						title: command.command === 'pick-file' ? 'Search by File' : 'Search by Folder',
+						type: command.command === 'pick-file' ? 'file' : 'folder',
+						openLabel: 'Add to Search',
+						picked: currentValue ? [currentValue] : undefined,
+					});
+
+					if (result.files?.length) {
+						this.insertPickerValues(result.files, operator, command.multi ?? false);
+					}
+					break;
+				}
+			}
+		} catch {
+			// User cancelled or error occurred - just return focus to input
+			this.input.focus();
+		}
+	}
+
+	/**
+	 * Inserts values from a picker into the search query
+	 * @param values - The values to insert
+	 * @param operator - The operator these values belong to
+	 * @param multi - Whether to insert as multiple operator:value pairs (true) or space-separated values (false)
+	 */
+	private insertPickerValues(values: string[], operator: string, multi: boolean) {
+		const value = this.value;
+
+		// For multi mode, create separate operator:value pairs for each value
+		// First value doesn't need operator prefix (it's already in the input), rest do
+		// For single mode, join values with spaces
+		let insertText: string;
+		if (multi) {
+			insertText = values.map((v, i) => (i === 0 ? v : `${operator}${v}`)).join(' ');
+		} else {
+			insertText = values.join(' ');
+		}
+
+		// Replace the current token (from cursorPosition[0] to cursorPosition[1]) with the selected values
+		let newValue =
+			value.substring(0, this.cursorPosition[0]) + insertText + value.substring(this.cursorPosition[1]);
+
+		// Calculate cursor position after the inserted text (before deduplication)
+		const cursorPos = this.cursorPosition[0] + insertText.length;
+
+		// Deduplicate by parsing and rebuilding the query
+		// The parsed operations use Sets, so duplicates are automatically removed
+		const parsed = parseSearchQuery({ query: newValue } as SearchQuery);
+		newValue = rebuildSearchQueryFromParsed(parsed);
+
+		// Update the input value directly
+		this.input.value = newValue;
+		this._value = newValue;
+
+		// Position cursor after the inserted text
+		// Note: If deduplication removed text, cursor might be beyond the end, so clamp it
+		const finalCursorPos = Math.min(cursorPos, newValue.length);
+		this.input.focus();
+		this.input.selectionStart = finalCursorPos;
+		this.input.selectionEnd = finalCursorPos;
+
+		// Update autocomplete in the next frame to ensure input is updated
+		window.requestAnimationFrame(() => this.updateAutocomplete());
+	}
+
+	/**
 	 * Accepts the currently selected autocomplete suggestion
 	 */
-	private acceptAutocomplete(index: number) {
+	private async acceptAutocomplete(index: number) {
 		const selected = this.autocompleteItems[index];
 		if (!selected) return;
 
-		// Check if this is the toggle natural language command
-		if ('command' in selected.item && selected.item.command === 'toggle-natural-language-mode') {
-			this.updateNaturalLanguage(!this.naturalLanguage);
+		// Check if this is a command (toggle natural language or picker command)
+		if ('command' in selected.item) {
+			if (selected.item.command === 'toggle-natural-language-mode') {
+				this.updateNaturalLanguage(!this.naturalLanguage);
+				return;
+			}
+
+			// It's a picker command
+			await this.handlePickerCommand(selected.item);
 			return;
 		}
 
@@ -853,7 +1001,7 @@ export class GlSearchInput extends GlElement {
 
 				// Accept autocomplete selection if visible
 				if (this.autocompleteOpen && this.autocompleteItems.length) {
-					this.acceptAutocomplete(this.autocomplete?.selectedIndex ?? 0);
+					void this.acceptAutocomplete(this.autocomplete?.selectedIndex ?? 0);
 					return true;
 				}
 
@@ -924,7 +1072,7 @@ export class GlSearchInput extends GlElement {
 				// Navigate autocomplete if visible
 				if (this.autocompleteOpen && this.autocompleteItems.length) {
 					// Only navigate within autocomplete if not at start of input with ArrowUp (to allow history navigation)
-					if (e.key === 'ArrowUp' && this.autocomplete?.selectedIndex === 0) {
+					if (e.key === 'ArrowUp' && this.autocomplete?.selectedIndex === -1) {
 						this.hideAutocomplete();
 					} else {
 						if (e.key === 'ArrowUp') {
@@ -1215,7 +1363,7 @@ export class GlSearchInput extends GlElement {
 			return;
 		}
 
-		this.acceptAutocomplete(index);
+		void this.acceptAutocomplete(index);
 	}
 
 	private handleInputScroll(_e: Event) {
@@ -1407,4 +1555,8 @@ export class GlSearchInput extends GlElement {
 				<code-icon icon="check-all"></code-icon>
 			</gl-button>`;
 	}
+}
+
+function isValueCommand(value: SearchCompletionOperatorValue['value']): value is SearchCompletionCommand {
+	return typeof value !== 'string';
 }

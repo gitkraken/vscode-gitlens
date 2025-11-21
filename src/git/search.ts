@@ -557,3 +557,15 @@ export function parseSearchQueryGitHubCommand(
 
 	return { args: queryArgs, filters: filters, operations: operations };
 }
+
+export function rebuildSearchQueryFromParsed(parsed: ParsedSearchQuery): string {
+	const parts: string[] = [];
+
+	for (const [operator, values] of parsed.operations) {
+		for (const value of values) {
+			parts.push(`${operator}${value}`);
+		}
+	}
+
+	return parts.join(' ');
+}

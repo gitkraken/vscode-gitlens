@@ -115,6 +115,7 @@ import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
+import { showContributorsPicker } from '../../../quickpicks/contributorsPicker';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import {
@@ -130,13 +131,14 @@ import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
 import { openUrl } from '../../../system/-webview/vscode/uris';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces';
+import { filterMap } from '../../../system/array';
 import { getScopedCounter } from '../../../system/counter';
 import { debug, log } from '../../../system/decorators/log';
 import { disposableInterval } from '../../../system/function';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
 import { count, find, join, last } from '../../../system/iterable';
-import { filterMap, flatten, hasKeys, updateRecordValue } from '../../../system/object';
+import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
@@ -206,6 +208,8 @@ import type {
 	UpdateSelectionParams,
 } from './protocol';
 import {
+	ChooseAuthorRequest,
+	ChooseFileRequest,
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
@@ -810,8 +814,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case ChooseRepositoryCommand.is(e):
 				void this.onChooseRepository();
 				break;
+			case ChooseAuthorRequest.is(e):
+				void this.onChooseAuthor(ChooseAuthorRequest, e);
+				break;
 			case ChooseRefRequest.is(e):
 				void this.onChooseRef(ChooseRefRequest, e);
+				break;
+			case ChooseFileRequest.is(e):
+				void this.onChooseFile(ChooseFileRequest, e);
 				break;
 			case JumpToHeadRequest.is(e):
 				void this.onJumpToHead(JumpToHeadRequest, e);
@@ -2027,7 +2037,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const result = await showReferencePicker2(this.repository.path, msg.params.title, msg.params.placeholder, {
+			allowedAdditionalInput: msg.params.allowedAdditionalInput,
 			include: msg.params.include ?? ['branches', 'tags'],
+			picked: msg.params.picked,
 		});
 		const pick = result?.value;
 
@@ -2044,6 +2056,58 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				: undefined,
 		);
+	}
+
+	private async onChooseAuthor<T extends typeof ChooseAuthorRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, { authors: undefined });
+		}
+
+		const authors = msg.params.picked != null ? new Set(msg.params.picked) : undefined;
+		const contributors = await showContributorsPicker(
+			this.container,
+			this.repository,
+			msg.params.title,
+			msg.params.placeholder,
+			{
+				appendReposToTitle: true,
+				clearButton: true,
+				multiselect: true,
+				picked: c =>
+					authors != null &&
+					((c.email != null && authors.has(c.email)) ||
+						(c.name != null && authors.has(c.name)) ||
+						(c.username != null && authors.has(c.username))),
+			},
+		);
+
+		return this.host.respond(requestType, msg, {
+			authors: contributors != null ? filterMap(contributors, c => c.email) : undefined,
+		});
+	}
+
+	private async onChooseFile<T extends typeof ChooseFileRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, { files: undefined });
+		}
+
+		const uris = await window.showOpenDialog({
+			canSelectFiles: msg.params.type === 'file',
+			canSelectFolders: msg.params.type === 'folder',
+			canSelectMany: msg.params.type === 'file',
+			title: msg.params.title,
+			openLabel: msg.params.openLabel,
+			defaultUri: this.repository.folder?.uri,
+		});
+
+		if (!uris?.length) {
+			return this.host.respond(requestType, msg, { files: undefined });
+		}
+
+		// Convert URIs to relative paths from the repository root
+		const files = uris.map(uri => this.container.git.getRelativePath(uri, this.repository!.path));
+
+		return this.host.respond(requestType, msg, { files: files });
 	}
 
 	private async onJumpToHead<T extends typeof JumpToHeadRequest>(requestType: T, msg: IpcCallMessageType<T>) {
@@ -4770,7 +4834,7 @@ function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
 }
 
 function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
-	return filterMap(selectedRows, (_, v) => (v.selected ? true : undefined));
+	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
 }
 
 export function updateSearchMode<T extends GitGraphSearch | undefined>(

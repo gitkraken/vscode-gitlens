@@ -188,7 +188,7 @@ export class GlAutocomplete extends LitElement {
 	open = false;
 
 	@state()
-	private _selectedIndex = 0;
+	private _selectedIndex = -1;
 
 	/**
 	 * Gets the currently selected index (readonly from outside)
@@ -200,9 +200,11 @@ export class GlAutocomplete extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
 
-		// Reset selection when items change
+		// Clamp selection to valid range when items change
 		if (changedProperties.has('items')) {
-			this._selectedIndex = 0;
+			if (this._selectedIndex >= this.items.length) {
+				this._selectedIndex = this.items.length > 0 ? this.items.length - 1 : -1;
+			}
 		}
 
 		if (changedProperties.has('_selectedIndex') && this._selectedIndex >= 0) {
@@ -242,38 +244,33 @@ export class GlAutocomplete extends LitElement {
 		return Math.floor(availableHeight / itemHeight);
 	}
 
-	/**
-	 * Resets selection to first item
-	 */
+	/** Resets selection to no selection */
 	public resetSelection(): void {
-		this._selectedIndex = 0;
+		this._selectedIndex = -1;
 	}
 
-	/**
-	 * Moves selection up by one item
-	 */
+	/** Sets selection to a specific index */
+	public setSelection(index: number): void {
+		this._selectedIndex = Math.max(-1, Math.min(this.items.length - 1, index));
+	}
+
+	/** Moves selection up by one item */
 	public selectPrevious(): void {
-		this._selectedIndex = Math.max(0, this._selectedIndex - 1);
+		this._selectedIndex = Math.max(-1, this._selectedIndex - 1);
 	}
 
-	/**
-	 * Moves selection down by one item
-	 */
+	/** Moves selection down by one item */
 	public selectNext(): void {
 		this._selectedIndex = Math.min(this.items.length - 1, this._selectedIndex + 1);
 	}
 
-	/**
-	 * Jumps selection up by a page (visible items)
-	 */
+	/** Jumps selection up by a page (visible items) */
 	public pageUp(): void {
 		const pageSize = this.getVisibleItemCount();
 		this._selectedIndex = Math.max(0, this._selectedIndex - pageSize);
 	}
 
-	/**
-	 * Jumps selection down by a page (visible items)
-	 */
+	/** Jumps selection down by a page (visible items) */
 	public pageDown(): void {
 		const pageSize = this.getVisibleItemCount();
 		this._selectedIndex = Math.min(this.items.length - 1, this._selectedIndex + pageSize);
@@ -331,7 +328,7 @@ export class GlAutocomplete extends LitElement {
 
 		if (scrollable && selectedEl) {
 			// If the first item is selected, scroll to the very top to ensure description is visible
-			if (this.selectedIndex === 0) {
+			if (this.selectedIndex <= 0) {
 				scrollable.scrollTop = 0;
 				return;
 			}
