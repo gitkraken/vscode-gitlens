@@ -35,7 +35,8 @@ import {
 } from '../../../git/utils/revision.utils';
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import { Directive } from '../../../quickpicks/items/directive';
-import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../../quickpicks/referencePicker';
+import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker';
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
@@ -367,6 +368,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		let ref = e.params.type === 'base' ? scope.base : scope.head;
 
+		const include: ReferencesQuickPickIncludes[] = ['branches', 'tags', 'HEAD'];
+		if (!repo.virtual && !this._context.config.showAllBranches && e.params.type !== 'base') {
+			include.push('allBranches');
+		}
+
 		const pick = await showReferencePicker2(
 			repo.path,
 			e.params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
@@ -376,12 +382,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			{
 				allowedAdditionalInput: { rev: true /*, range: true */ },
 				picked: ref?.ref,
-				include:
-					ReferencesQuickPickIncludes.BranchesAndTags |
-					ReferencesQuickPickIncludes.HEAD |
-					(!repo.virtual && !this._context.config.showAllBranches && e.params.type !== 'base'
-						? ReferencesQuickPickIncludes.AllBranches
-						: 0),
+				include: include,
 				sort: true,
 			},
 		);

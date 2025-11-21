@@ -22,18 +22,7 @@ import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './
 import { createRefQuickPickItem } from './items/gitWizard';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
-
-export const enum ReferencesQuickPickIncludes {
-	Branches = 1 << 0,
-	Tags = 1 << 1,
-	WorkingTree = 1 << 2,
-	HEAD = 1 << 3,
-
-	AllBranches = 1 << 4,
-
-	BranchesAndTags = Branches | Tags,
-	All = Branches | Tags | WorkingTree | HEAD,
-}
+export type ReferencesQuickPickIncludes = 'branches' | 'tags' | 'workingTree' | 'HEAD' | 'allBranches';
 
 export interface ReferencesQuickPickOptions {
 	allowedAdditionalInput?: { range?: boolean; rev?: boolean };
@@ -41,7 +30,7 @@ export interface ReferencesQuickPickOptions {
 	picked?: string;
 	exclude?: string[];
 	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
-	include?: ReferencesQuickPickIncludes;
+	include?: ReferencesQuickPickIncludes[];
 	ignoreFocusOut?: boolean;
 	keyboard?: {
 		keys: Keys[];
@@ -50,8 +39,9 @@ export interface ReferencesQuickPickOptions {
 	sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 }
 
-export interface ReferencesQuickPickOptions2 extends ReferencesQuickPickOptions {
+export interface ReferencesQuickPickOptions2 extends Omit<ReferencesQuickPickOptions, 'include'> {
 	allowBack?: boolean;
+	include?: ReferencesQuickPickIncludes[];
 }
 
 export async function showReferencePicker(
@@ -218,13 +208,13 @@ async function getItems(
 	repoPath: string,
 	options?: ReferencesQuickPickOptions2,
 ): Promise<(ReferencesQuickPickItem | DirectiveQuickPickItem)[]> {
-	const include = options?.include ?? ReferencesQuickPickIncludes.BranchesAndTags;
+	const include = options?.include ?? ['branches', 'tags'];
 
 	const includes: ('branches' | 'tags')[] = [];
-	if (include & ReferencesQuickPickIncludes.Branches) {
+	if (include.includes('branches')) {
 		includes.push('branches');
 	}
-	if (include & ReferencesQuickPickIncludes.Tags) {
+	if (include.includes('tags')) {
 		includes.push('tags');
 	}
 
@@ -248,15 +238,15 @@ async function getItems(
 		}
 	}
 
-	if (include & ReferencesQuickPickIncludes.HEAD) {
+	if (include.includes('HEAD')) {
 		items.unshift(createRefQuickPickItem('HEAD', repoPath, undefined, { icon: true }));
 	}
 
-	if (include & ReferencesQuickPickIncludes.WorkingTree) {
+	if (include.includes('workingTree')) {
 		items.unshift(createRefQuickPickItem('', repoPath, undefined, { icon: true }));
 	}
 
-	if (include & ReferencesQuickPickIncludes.AllBranches) {
+	if (include.includes('allBranches')) {
 		items.unshift(createQuickPickSeparator());
 		items.unshift(createDirectiveQuickPickItem(Directive.RefsAllBranches));
 	}

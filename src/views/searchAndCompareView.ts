@@ -8,7 +8,7 @@ import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
 import { getSearchQuery } from '../git/search';
 import { getRevisionRangeParts, isRevisionRange, shortenRevision } from '../git/utils/revision.utils';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
@@ -156,7 +156,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		}
 
 		if (ref == null) {
-			const pick = await showReferencePicker(
+			const result = await showReferencePicker2(
 				repoPath,
 				`Compare ${this.getRefName(selectedRef.ref)} with`,
 				'Choose a reference (branch, tag, etc) to compare with',
@@ -164,11 +164,11 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 					allowedAdditionalInput: { rev: true },
 					picked: typeof selectedRef.ref === 'string' ? selectedRef.ref : selectedRef.ref.ref,
 					// checkmarks: true,
-					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
+					include: ['branches', 'tags', 'HEAD'],
 					sort: { branches: { current: true } },
 				},
 			);
-			if (pick == null) {
+			if (result.value == null) {
 				if (this.comparePicker != null) {
 					await this.view.show();
 					await this.view.reveal(this.comparePicker, { focus: true, select: true });
@@ -177,7 +177,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 				return;
 			}
 
-			ref = pick.ref;
+			ref = result.value.ref;
 		}
 
 		this.removeComparePicker();
@@ -197,23 +197,23 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		let prompt = options?.prompt ?? false;
 		let ref2;
 		if (ref == null) {
-			const pick = await showReferencePicker(
+			const result = await showReferencePicker2(
 				repoPath,
 				'Compare',
 				'Choose a reference (branch, tag, etc) to compare',
 				{
 					allowedAdditionalInput: { range: true, rev: true },
-					include: ReferencesQuickPickIncludes.All,
+					include: ['branches', 'tags', 'workingTree', 'HEAD'],
 					sort: { branches: { current: true }, tags: {} },
 				},
 			);
-			if (pick == null) {
+			if (result.value == null) {
 				await this.triggerChange();
 
 				return;
 			}
 
-			ref = pick.ref;
+			ref = result.value.ref;
 
 			if (isRevisionRange(ref)) {
 				const range = getRevisionRangeParts(ref);

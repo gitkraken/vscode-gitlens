@@ -13,18 +13,20 @@ import { debounce } from '../system/function/debounce';
 import { defer } from '../system/promise';
 import { pad, truncate } from '../system/string';
 
+export interface ContributorQuickPickOptions {
+	appendReposToTitle?: boolean;
+	clearButton?: boolean;
+	ignoreFocusOut?: boolean;
+	multiselect?: boolean;
+	picked?: (contributor: GitContributor) => boolean;
+}
+
 export async function showContributorsPicker(
 	container: Container,
 	repository: Repository,
 	title: string,
 	placeholder: string,
-	options?: {
-		appendReposToTitle?: boolean;
-		clearButton?: boolean;
-		ignoreFocusOut?: boolean;
-		multiselect?: boolean;
-		picked?: (contributor: GitContributor) => boolean;
-	},
+	options?: ContributorQuickPickOptions,
 ): Promise<GitContributor[] | undefined> {
 	const deferred = defer<GitContributor[] | undefined>();
 	const disposables: Disposable[] = [];

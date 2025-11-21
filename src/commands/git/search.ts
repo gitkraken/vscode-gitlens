@@ -12,7 +12,7 @@ import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem, createQuickPickSeparator } from '../../quickpicks/items/common';
 import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../../quickpicks/referencePicker';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext } from '../../system/-webview/context';
 import { first, join, map } from '../../system/iterable';
@@ -625,7 +625,7 @@ async function updateSearchQuery(
 			'Choose a reference to search',
 			{
 				allowedAdditionalInput: { range: true, rev: false },
-				include: ReferencesQuickPickIncludes.All,
+				include: ['branches', 'tags', 'HEAD'],
 				picked: refs && first(refs),
 			},
 		);

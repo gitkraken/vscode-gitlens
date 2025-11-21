@@ -115,7 +115,7 @@ import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import {
 	executeActionCommand,
@@ -2026,9 +2026,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return this.host.respond(requestType, msg, undefined);
 		}
 
-		const pick = await showReferencePicker(this.repository.path, msg.params.title, msg.params.placeholder, {
-			include: msg.params.include ?? ReferencesQuickPickIncludes.BranchesAndTags,
+		const result = await showReferencePicker2(this.repository.path, msg.params.title, msg.params.placeholder, {
+			include: msg.params.include ?? ['branches', 'tags'],
 		});
+		const pick = result?.value;
 
 		return this.host.respond(
 			requestType,

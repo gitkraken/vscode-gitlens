@@ -5,7 +5,7 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { showGenericErrorMessage } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
@@ -62,7 +62,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.branch == null) {
-				const pick = await showReferencePicker(
+				const result = await showReferencePicker2(
 					repoPath,
 					args.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
 					args.clipboard ? 'Choose a branch to copy the URL from' : 'Choose a branch to open',
@@ -70,11 +70,13 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 						autoPick: true,
 						// checkmarks: false,
 						filter: { branches: b => b.upstream != null },
-						include: ReferencesQuickPickIncludes.Branches,
+						include: ['branches'],
 						sort: { branches: { current: true }, tags: {} },
 					},
 				);
-				if (pick == null || pick instanceof CommandQuickPickItem) return;
+				if (result.value == null || result.value instanceof CommandQuickPickItem) return;
+
+				const pick = result.value;
 
 				if (pick.refType === 'branch') {
 					if (pick.remote || (pick.upstream != null && !pick.upstream.missing)) {

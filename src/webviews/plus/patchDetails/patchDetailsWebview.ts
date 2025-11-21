@@ -36,7 +36,7 @@ import type { OrganizationMember } from '../../../plus/gk/models/organization';
 import { ensureAccount } from '../../../plus/gk/utils/-webview/acount.utils';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
 import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
@@ -1492,19 +1492,18 @@ export class PatchDetailsWebviewProvider
 						// }
 
 						if (result === chooseBase) {
-							const ref = await showReferencePicker(
+							const pick = await showReferencePicker2(
 								repo.path,
 								`Choose New Base for Patch`,
 								`Choose a new base to apply the patch onto`,
 								{
 									allowedAdditionalInput: { rev: true },
-									include:
-										ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
+									include: ['branches', 'tags', 'HEAD'],
 								},
 							);
-							if (ref == null) break;
+							if (pick.value == null) break;
 
-							baseRef = ref.ref;
+							baseRef = pick.value.ref;
 							continue;
 						}
 					} else {

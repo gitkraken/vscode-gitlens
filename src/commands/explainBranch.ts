@@ -1,11 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
-import type { GitBranchReference } from '../git/models/reference';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
 import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
@@ -52,12 +51,12 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			// Clarifying the head branch
 			if (args.ref == null) {
 				// If no ref is provided, show a picker to select a branch
-				const pick = (await showReferencePicker(svc.path, this.pickerTitle, 'Choose a branch to explain', {
-					include: ReferencesQuickPickIncludes.Branches,
+				const result = await showReferencePicker2(svc.path, this.pickerTitle, 'Choose a branch to explain', {
+					include: ['branches'],
 					sort: { branches: { current: true } },
-				})) as GitBranchReference | undefined;
-				if (pick?.ref == null) return;
-				args.ref = pick.ref;
+				});
+				if (result.value?.ref == null) return;
+				args.ref = result.value.ref;
 			}
 
 			// Get the branch
