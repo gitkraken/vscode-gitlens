@@ -53,7 +53,7 @@ export class ActionChip extends LitElement {
 				justify-content: center;
 				align-items: center;
 				gap: 0.2rem;
-				vertical-align: middle;
+				/* vertical-align: middle; */
 				color: inherit;
 				min-width: 2rem;
 				height: 2rem;

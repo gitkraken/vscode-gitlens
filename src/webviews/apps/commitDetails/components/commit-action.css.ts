@@ -5,11 +5,11 @@ export const commitActionStyles = css`
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;
-		height: 21px;
+		height: 2rem;
 		border-radius: 0.25em;
 		color: inherit;
 		padding: 0.2rem;
-		vertical-align: text-bottom;
+		vertical-align: middle;
 		text-decoration: none;
 		gap: 0.2rem;
 	}

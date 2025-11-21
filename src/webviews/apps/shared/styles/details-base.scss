@@ -143,7 +143,7 @@ ul {
 	border: 1px solid var(--vscode-input-border);
 	background: var(--vscode-input-background);
 	padding: 0.5rem;
-	border-radius: 2px;
+	border-radius: 0.2rem 0.2rem 0 0;
 
 	&__text {
 		margin: 0;
@@ -177,8 +177,15 @@ ul {
 	font-size: 1.3rem;
 	color: var(--color-foreground--65);
 	background: var(--color-background--level-075);
-	border-radius: 0 0 0.2rem 0.2rem;
 	padding: 0.2rem;
+
+	&:last-child {
+		border-radius: 0 0 0.2rem 0.2rem;
+	}
+
+	&:first-of-type:last-child {
+		border-radius: 0.2rem;
+	}
 
 	gl-action-chip::part(icon),
 	gl-autolink-chip::part(icon),
