@@ -41,6 +41,19 @@ export class CustomRemote extends RemoteProvider {
 		return Promise.resolve(undefined);
 	}
 
+	getUrlForAvatar(email: string, size: number): string | undefined {
+		if (this.urls.avatar != null) {
+			const [name, domain] = email.split('@');
+			return this.encodeUrl(
+				interpolate(
+					this.urls.avatar,
+					this.getContext({ name: name, domain: domain, email: email, size: String(size) }),
+				),
+			);
+		}
+		return undefined;
+	}
+
 	protected override getUrlForRepository(): string {
 		return this.getUrl(this.urls.repository, this.getContext());
 	}
