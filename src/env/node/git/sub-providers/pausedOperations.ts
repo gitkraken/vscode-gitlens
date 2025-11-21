@@ -48,7 +48,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	): Promise<GitPausedOperationStatus | undefined> {
 		const scope = getLogScope();
 
-		const status = this.cache.pausedOperationStatus?.getOrCreate(repoPath, async _cancellable => {
+		const status = this.cache.pausedOperationStatus.getOrCreate(repoPath, async _cancellable => {
 			const gitDir = await this.provider.config.getGitDir(repoPath);
 
 			const operations = await new Promise<Set<Operation>>((resolve, _) => {

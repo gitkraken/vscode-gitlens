@@ -44,7 +44,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const tagsPromise = options?.paging?.cursor
 			? undefined
-			: this.cache.tags?.getOrCreate(repoPath, async cancellable => {
+			: this.cache.tags.getOrCreate(repoPath, async cancellable => {
 					try {
 						const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 

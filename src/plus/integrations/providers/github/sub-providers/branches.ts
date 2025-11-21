@@ -38,7 +38,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return branch;
 		}
 
-		let branchPromise = this.cache.branch?.get(repoPath);
+		let branchPromise = this.cache.branch.get(repoPath);
 		if (branchPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
 				const {
@@ -75,7 +75,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			branchPromise = load.call(this);
-			this.cache.branch?.set(repoPath, branchPromise);
+			this.cache.branch.set(repoPath, branchPromise);
 		}
 
 		return branchPromise;
@@ -95,7 +95,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getLogScope();
 
-		let branchesPromise = options?.paging?.cursor ? undefined : this.cache.branches?.get(repoPath);
+		let branchesPromise = options?.paging?.cursor ? undefined : this.cache.branches.get(repoPath);
 		if (branchesPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
@@ -176,14 +176,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					Logger.error(ex, scope);
 					debugger;
 
-					this.cache.branches?.delete(repoPath!);
+					this.cache.branches.delete(repoPath!);
 					return emptyPagedResult;
 				}
 			}
 
 			branchesPromise = load.call(this);
 			if (options?.paging?.cursor == null) {
-				this.cache.branches?.set(repoPath, branchesPromise);
+				this.cache.branches.set(repoPath, branchesPromise);
 			}
 		}
 

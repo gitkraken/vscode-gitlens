@@ -30,7 +30,7 @@ export class PromiseCache<K, V> {
 		this.options = { expireOnError: true, ...options };
 	}
 
-	async get(
+	async getOrCreate(
 		key: K,
 		factory: (cancellable: Cancellable) => Promise<V>,
 		options?: {
@@ -144,9 +144,6 @@ export class PromiseCache<K, V> {
 export class PromiseMap<K, V> {
 	private readonly cache = new Map<K, Promise<V>>();
 
-	/**
-	 * Returns the string tag for this object.
-	 */
 	get [Symbol.toStringTag](): string {
 		return 'PromiseMap';
 	}
@@ -250,10 +247,168 @@ export class PromiseMap<K, V> {
 		this.cache.forEach(callbackfn, thisArg);
 	}
 
-	/**
-	 * Returns an iterator for the cache entries.
-	 */
 	[Symbol.iterator](): IterableIterator<[K, Promise<V>]> {
 		return this.cache[Symbol.iterator]();
+	}
+}
+
+/**
+ * A two-level cache that organizes PromiseCaches by repository path.
+ * Automatically creates and manages inner PromiseCaches per repository.
+ *
+ * This is useful for caching data that varies by both repository and some other key,
+ * with TTL and capacity management provided by PromiseCache.
+ */
+export class RepoPromiseCacheMap<K, V> {
+	private readonly cache = new Map<string, PromiseCache<K, V>>();
+	private readonly options: PromiseCacheOptions;
+
+	constructor(options?: PromiseCacheOptions) {
+		this.options = { expireOnError: true, ...options };
+	}
+
+	get [Symbol.toStringTag](): string {
+		return 'RepoPromiseCacheMap';
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function.
+	 * Automatically creates the inner PromiseCache for the repository if it doesn't exist.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @param factory - Factory function to create the value if not cached
+	 * @param options - Optional TTL and error handling options that override the defaults
+	 */
+	getOrCreate(
+		repoPath: string,
+		key: K,
+		factory: (cancellable: Cancellable) => Promise<V>,
+		options?: {
+			/** TTL (time-to-live) in milliseconds since creation */
+			createTTL?: number;
+			/** TTL (time-to-live) in milliseconds since last access */
+			accessTTL?: number;
+			/** Whether to expire the entry if the promise fails */
+			expireOnError?: boolean;
+		},
+	): Promise<V> {
+		let repoCache = this.cache.get(repoPath);
+		if (repoCache == null) {
+			repoCache = new PromiseCache<K, V>(this.options);
+			this.cache.set(repoPath, repoCache);
+		}
+
+		return repoCache.getOrCreate(key, factory, options);
+	}
+
+	/**
+	 * Deletes a specific key from a repository's cache, or all keys for a repository.
+	 *
+	 * @param repoPath - The repository path
+	 * @param key - Optional specific key to delete. If omitted, deletes the entire repository cache.
+	 * @returns true if something was deleted, false otherwise
+	 */
+	delete(repoPath: string, key?: K): boolean {
+		if (key === undefined) {
+			return this.cache.delete(repoPath);
+		}
+
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return false;
+
+		repoCache.delete(key);
+		return true;
+	}
+
+	/**
+	 * Clears all caches for all repositories.
+	 */
+	clear(): void {
+		this.cache.clear();
+	}
+
+	/**
+	 * Returns the number of repositories in the cache.
+	 */
+	get size(): number {
+		return this.cache.size;
+	}
+}
+
+/**
+ * A two-level cache that organizes PromiseMaps by repository path.
+ * Automatically creates and manages inner PromiseMaps per repository.
+ *
+ * This is useful for caching data that varies by both repository and some other key,
+ * with simple promise deduplication and automatic error cleanup.
+ */
+export class RepoPromiseMap<K, V> {
+	private readonly cache = new Map<string, PromiseMap<K, V>>();
+
+	get [Symbol.toStringTag](): string {
+		return 'RepoPromiseMap';
+	}
+
+	/**
+	 * Gets a promise from the cache or creates a new one using the factory function.
+	 * Automatically creates the inner PromiseMap for the repository if it doesn't exist.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @param factory - Factory function to create the value if not cached
+	 */
+	getOrCreate(repoPath: string, key: K, factory: (cancellable: Cancellable) => Promise<V>): Promise<V> {
+		let repoCache = this.cache.get(repoPath);
+		if (repoCache == null) {
+			repoCache = new PromiseMap<K, V>();
+			this.cache.set(repoPath, repoCache);
+		}
+
+		return repoCache.getOrCreate(key, factory);
+	}
+
+	/**
+	 * Gets a promise from the cache without creating it.
+	 *
+	 * @param repoPath - The repository path (outer key)
+	 * @param key - The cache key within the repository (inner key)
+	 * @returns The cached promise, or undefined if not found
+	 */
+	get(repoPath: string, key: K): Promise<V> | undefined {
+		const repoCache = this.cache.get(repoPath);
+		return repoCache?.get(key);
+	}
+
+	/**
+	 * Deletes a specific key from a repository's cache, or all keys for a repository.
+	 *
+	 * @param repoPath - The repository path
+	 * @param key - Optional specific key to delete. If omitted, deletes the entire repository cache.
+	 * @returns true if something was deleted, false otherwise
+	 */
+	delete(repoPath: string, key?: K): boolean {
+		if (key === undefined) {
+			return this.cache.delete(repoPath);
+		}
+
+		const repoCache = this.cache.get(repoPath);
+		if (repoCache == null) return false;
+
+		return repoCache.delete(key);
+	}
+
+	/**
+	 * Clears all caches for all repositories.
+	 */
+	clear(): void {
+		this.cache.clear();
+	}
+
+	/**
+	 * Returns the number of repositories in the cache.
+	 */
+	get size(): number {
+		return this.cache.size;
 	}
 }

@@ -38,7 +38,6 @@ import { getLogScope } from '../../../../system/logger.scope';
 import { PageableResult } from '../../../../system/paging';
 import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
-import { PromiseMap } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
 import { gitConfigsLog, GitError, GitErrors } from '../git';
@@ -63,7 +62,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return branch;
 		}
 
-		const branchPromise = this.cache.branch?.getOrCreate(repoPath, async () => {
+		const branchPromise = this.cache.branch.getOrCreate(repoPath, async () => {
 			const {
 				values: [branch],
 			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
@@ -143,7 +142,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getLogScope();
 
-		let resultsPromise = this.cache.branches?.get(repoPath);
+		let resultsPromise = this.cache.branches.get(repoPath);
 		if (resultsPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
@@ -221,7 +220,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					}
 					return { values: branches };
 				} catch (ex) {
-					this.cache.branches?.delete(repoPath);
+					this.cache.branches.delete(repoPath);
 					if (isCancellationError(ex)) throw ex;
 
 					return emptyPagedResult;
@@ -231,7 +230,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			resultsPromise = load.call(this);
 
 			if (options?.paging?.cursor == null) {
-				this.cache.branches?.set(repoPath, resultsPromise);
+				this.cache.branches.set(repoPath, resultsPromise);
 			}
 		}
 
@@ -423,17 +422,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		remote ??= 'origin';
 
-		let cacheByRemote = this.cache.defaultBranchName?.get(repoPath);
-		if (cacheByRemote == null) {
-			cacheByRemote = new PromiseMap<string, string | undefined>();
-			this.cache.defaultBranchName?.set(repoPath, cacheByRemote);
-		}
-
-		const promise = cacheByRemote.getOrCreate(remote, async () => {
+		return this.cache.defaultBranchName.getOrCreate(repoPath, remote, async () => {
 			return this.git.symbolic_ref__HEAD(repoPath, remote, cancellation);
 		});
-
-		return promise;
 	}
 
 	@log()

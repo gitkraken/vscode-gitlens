@@ -55,7 +55,6 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
 import type { Cancellable } from '../../../../system/promiseCache';
-import { PromiseCache } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
@@ -75,10 +74,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: LocalGitProviderInternal,
 	) {}
-
-	private get useCaching() {
-		return configuration.get('advanced.caching.enabled');
-	}
 
 	@log()
 	async getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined> {
@@ -257,21 +252,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 		};
 
-		const cache = this.cache.reachability;
-		if (cache == null) return getCore();
-
-		let reachabilityCache = cache.get(repoPath);
-		if (reachabilityCache == null) {
-			cache.set(
-				repoPath,
-				(reachabilityCache = new PromiseCache<string, GitCommitReachability | undefined>({
-					accessTTL: 1000 * 60 * 60, // 60 minutes
-					capacity: 25, // Limit to 25 commits per repo
-				})),
-			);
-		}
-
-		return reachabilityCache.get(rev, getCore);
+		return this.cache.reachability.getOrCreate(repoPath, rev, getCore);
 	}
 
 	@log()
@@ -785,7 +766,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		let cacheKey: string | undefined;
 		if (
-			this.useCaching &&
 			// Don't cache folders
 			!options.isFolder &&
 			options.authors == null &&

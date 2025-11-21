@@ -5421,13 +5421,6 @@
 						"scope": "window",
 						"order": 81
 					},
-					"gitlens.advanced.caching.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether git output will be cached — changing the default is not recommended",
-						"scope": "window",
-						"order": 90
-					},
 					"gitlens.advanced.caching.gitPath": {
 						"type": "boolean",
 						"default": true,

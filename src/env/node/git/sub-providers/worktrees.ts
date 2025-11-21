@@ -102,8 +102,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			'Displaying worktrees',
 			' Please install a more recent version of Git and try again.',
 		);
-
-		const worktrees = this.cache.worktrees?.getOrCreate(repoPath, async () => {
+		const worktrees = this.cache.worktrees.getOrCreate(repoPath, async () => {
 			const [dataResult, branchesResult] = await Promise.allSettled([
 				this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
 				this.provider.branches.getBranches(repoPath, undefined, cancellation),

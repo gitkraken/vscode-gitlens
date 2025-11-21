@@ -1944,7 +1944,7 @@ export class AIProviderService implements Disposable {
 		const template = getLocalPromptTemplate(templateType, model);
 		const templateId = template?.id ?? templateType;
 
-		return this._promptTemplates.get(templateId, async cancellable => {
+		return this._promptTemplates.getOrCreate(templateId, async cancellable => {
 			if (!(await this.container.subscription.getSubscription()).account) {
 				return template;
 			}

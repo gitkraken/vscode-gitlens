@@ -46,7 +46,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		const scope = getLogScope();
 
-		const resultsPromise = this.cache.tags?.getOrCreate(repoPath, async cancellable => {
+		const resultsPromise = this.cache.tags.getOrCreate(repoPath, async cancellable => {
 			try {
 				const parser = getTagParser();
 

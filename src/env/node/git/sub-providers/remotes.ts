@@ -34,7 +34,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 
 		const scope = getLogScope();
 
-		const remotesPromise = this.cache.remotes?.getOrCreate(repoPath, async cancellable => {
+		const remotesPromise = this.cache.remotes.getOrCreate(repoPath, async cancellable => {
 			const providers = loadRemoteProvidersFromConfig(
 				this.container.git.getRepository(repoPath)?.folder?.uri ?? null,
 				await this.container.integrations.getConfigured(),

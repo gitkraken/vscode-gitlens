@@ -144,7 +144,7 @@ export class AutolinksProvider implements Disposable {
 	}
 
 	private async getRefSets(remote?: GitRemote, forBranch?: boolean) {
-		return this._refsetCache.get(`${remote?.remoteKey}${forBranch ? ':branch' : ''}`, async () => {
+		return this._refsetCache.getOrCreate(`${remote?.remoteKey}${forBranch ? ':branch' : ''}`, async () => {
 			const refsets: RefSet[] = [];
 
 			await this.collectIntegrationAutolinks(forBranch ? undefined : remote, refsets);

@@ -158,23 +158,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
-	private get useCaching() {
-		return configuration.get('advanced.caching.enabled');
-	}
-
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
 			this._cache.clearCaches(repo.path);
 		} else {
 			if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
-				this._cache.repoInfo?.delete(repo.path);
+				this._cache.repoInfo.delete(repo.path);
 			}
 
 			if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-				this._cache.branch?.delete(repo.path);
-				this._cache.branches?.delete(repo.path);
-				this._cache.contributors?.delete(repo.path);
-				this._cache.worktrees?.delete(repo.path);
+				this._cache.branch.delete(repo.path);
+				this._cache.branches.delete(repo.path);
+				this._cache.contributors.delete(repo.path);
+				this._cache.worktrees.delete(repo.path);
 			}
 
 			if (
@@ -184,8 +180,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					RepositoryChangeComparisonMode.Any,
 				)
 			) {
-				this._cache.remotes?.delete(repo.path);
-				this._cache.bestRemotes?.delete(repo.path);
+				this._cache.remotes.delete(repo.path);
+				this._cache.bestRemotes.delete(repo.path);
 			}
 
 			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
@@ -201,20 +197,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					RepositoryChangeComparisonMode.Any,
 				)
 			) {
-				this._cache.branch?.delete(repo.path);
-				this._cache.pausedOperationStatus?.delete(repo.path);
+				this._cache.branch.delete(repo.path);
+				this._cache.pausedOperationStatus.delete(repo.path);
 			}
 
 			if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
-				this._cache.stashes?.delete(repo.path);
+				this._cache.stashes.delete(repo.path);
 			}
 
 			if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
-				this._cache.tags?.delete(repo.path);
+				this._cache.tags.delete(repo.path);
 			}
 
 			if (e.changed(RepositoryChange.Worktrees, RepositoryChangeComparisonMode.Any)) {
-				this._cache.worktrees?.delete(repo.path);
+				this._cache.worktrees.delete(repo.path);
 			}
 		}
 
@@ -1129,19 +1125,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		const doc = await this.container.documentTracker.getOrAdd(document ?? uri);
-		if (this.useCaching) {
-			if (doc.state != null) {
-				const cachedBlame = doc.state.getBlame(key);
-				if (cachedBlame != null) {
-					Logger.debug(scope, `Cache hit: '${key}'`);
-					return cachedBlame.item;
-				}
+		if (doc.state != null) {
+			const cachedBlame = doc.state.getBlame(key);
+			if (cachedBlame != null) {
+				Logger.debug(scope, `Cache hit: '${key}'`);
+				return cachedBlame.item;
 			}
-
-			Logger.debug(scope, `Cache miss: '${key}'`);
-
-			doc.state ??= new GitDocumentState();
 		}
+
+		Logger.debug(scope, `Cache miss: '${key}'`);
+
+		doc.state ??= new GitDocumentState();
 
 		const promise = this.getBlameCore(uri, doc, key, scope);
 
@@ -1223,19 +1217,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const key = `blame:${md5(contents)}`;
 
 		const doc = await this.container.documentTracker.getOrAdd(uri);
-		if (this.useCaching) {
-			if (doc.state != null) {
-				const cachedBlame = doc.state.getBlame(key);
-				if (cachedBlame != null) {
-					Logger.debug(scope, `Cache hit: ${key}`);
-					return cachedBlame.item;
-				}
+		if (doc.state != null) {
+			const cachedBlame = doc.state.getBlame(key);
+			if (cachedBlame != null) {
+				Logger.debug(scope, `Cache hit: ${key}`);
+				return cachedBlame.item;
 			}
-
-			Logger.debug(scope, `Cache miss: ${key}`);
-
-			doc.state ??= new GitDocumentState();
 		}
+
+		Logger.debug(scope, `Cache miss: ${key}`);
+
+		doc.state ??= new GitDocumentState();
 
 		const promise = this.getBlameContentsCore(uri, contents, doc, key, scope);
 
@@ -1326,7 +1318,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		if (!options?.forceSingleLine && this.useCaching) {
+		if (!options?.forceSingleLine) {
 			const blame = await this.getBlame(uri, document);
 			if (blame == null) return undefined;
 
@@ -1394,7 +1386,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		contents: string,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		if (!options?.forceSingleLine && this.useCaching) {
+		if (!options?.forceSingleLine) {
 			const blame = await this.getBlameContents(uri, contents);
 			if (blame == null) return undefined;
 
@@ -1530,19 +1522,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		const doc = await this.container.documentTracker.getOrAdd(uri);
-		if (this.useCaching) {
-			if (doc.state != null) {
-				const cachedDiff = doc.state.getDiff(key);
-				if (cachedDiff != null) {
-					Logger.debug(scope, `Cache hit: '${key}'`);
-					return cachedDiff.item;
-				}
+		if (doc.state != null) {
+			const cachedDiff = doc.state.getDiff(key);
+			if (cachedDiff != null) {
+				Logger.debug(scope, `Cache hit: '${key}'`);
+				return cachedDiff.item;
 			}
-
-			Logger.debug(scope, `Cache miss: '${key}'`);
-
-			doc.state ??= new GitDocumentState();
 		}
+
+		Logger.debug(scope, `Cache miss: '${key}'`);
+
+		doc.state ??= new GitDocumentState();
 
 		const encoding = await getEncoding(uri);
 		const promise = this.getDiffForFileCore(
@@ -1617,19 +1607,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const key = `diff:${md5(contents)}`;
 
 		const doc = await this.container.documentTracker.getOrAdd(uri);
-		if (this.useCaching) {
-			if (doc.state != null) {
-				const cachedDiff = doc.state.getDiff(key);
-				if (cachedDiff != null) {
-					Logger.debug(scope, `Cache hit: ${key}`);
-					return cachedDiff.item;
-				}
+		if (doc.state != null) {
+			const cachedDiff = doc.state.getDiff(key);
+			if (cachedDiff != null) {
+				Logger.debug(scope, `Cache hit: ${key}`);
+				return cachedDiff.item;
 			}
-
-			Logger.debug(scope, `Cache miss: ${key}`);
-
-			doc.state ??= new GitDocumentState();
 		}
+
+		Logger.debug(scope, `Cache miss: ${key}`);
+
+		doc.state ??= new GitDocumentState();
 
 		const encoding = await getEncoding(uri);
 		const promise = this.getDiffForFileContentsCore(

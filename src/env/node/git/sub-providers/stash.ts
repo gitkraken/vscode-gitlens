@@ -77,7 +77,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		const stashPromise = this.cache.stashes?.getOrCreate(repoPath, async _cancellable => {
+		const stashPromise = this.cache.stashes.getOrCreate(repoPath, async _cancellable => {
 			const parser = getStashLogParser();
 			const args = [...parser.arguments];
 

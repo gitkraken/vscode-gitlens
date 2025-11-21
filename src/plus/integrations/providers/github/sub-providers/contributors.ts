@@ -13,7 +13,6 @@ import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
 import type { Cancellable } from '../../../../../system/promiseCache';
-import { PromiseCache } from '../../../../../system/promiseCache';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
@@ -205,9 +204,6 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			}
 		};
 
-		const cache = this.cache.contributors;
-		if (cache == null) return getCore();
-
 		let customCacheTTL;
 
 		let cacheKey = rev ?? '';
@@ -229,22 +225,12 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			cacheKey += ':stats';
 		}
 
-		let contributorsCache = cache.get(repoPath);
-		if (contributorsCache == null) {
-			cache.set(
-				repoPath,
-				(contributorsCache = new PromiseCache<string, GitContributorsResult>({
-					accessTTL: 1000 * 60 * 60 /* 60 minutes */,
-				})),
-			);
-		}
-
-		const contributors = contributorsCache.get(
+		return this.cache.contributors.getOrCreate(
+			repoPath,
 			cacheKey,
 			getCore,
 			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
 		);
-		return contributors;
 	}
 
 	@log()

@@ -225,7 +225,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	includeBootstrap(_deferrable?: boolean): Promise<State> {
-		return this._cache.get('bootstrap', () => this.getState(this._context, false));
+		return this._cache.getOrCreate('bootstrap', () => this.getState(this._context, false));
 	}
 
 	registerCommands(): Disposable[] {
@@ -1061,7 +1061,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	private async notifyDidChangeState() {
 		this._notifyDidChangeStateDebounced?.cancel();
 
-		const state = await this._cache.get('state', () => this.getState(this._context, true));
+		const state = await this._cache.getOrCreate('state', () => this.getState(this._context, true));
 		return this.host.notify(DidChangeNotification, { state: state });
 	}
 }

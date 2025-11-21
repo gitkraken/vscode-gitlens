@@ -270,7 +270,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	includeBootstrap(_deferrable?: boolean): Promise<State> {
-		return this._cache.get('bootstrap', () => this.getBootstrapState());
+		return this._cache.getOrCreate('bootstrap', () => this.getBootstrapState());
 	}
 
 	private async getBootstrapState(): Promise<State> {

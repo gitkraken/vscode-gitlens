@@ -47,10 +47,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	private get useCaching() {
-		return true; // configuration.get('advanced.caching.enabled');
-	}
-
 	@log()
 	async getCommit(repoPath: string, rev: string, _cancellation?: CancellationToken): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
@@ -497,7 +493,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		let cacheKey: string | undefined;
 		if (
-			this.useCaching &&
 			// Don't cache folders
 			!options.isFolder &&
 			options.authors == null &&
