@@ -208,6 +208,7 @@ export interface AdvancedConfig {
 	readonly quickPick: {
 		readonly closeOnFocusOut: boolean;
 	};
+	readonly realpath: boolean;
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
 }

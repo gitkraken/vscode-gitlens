@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Improves some cases where staging or working tree changes are incorrectly detected ([#4667](https://github.com/gitkraken/vscode-gitlens/issues/4667))
   - Adds a link to the custom instructions setting in the _Commit Composer_ view
 - Adds ability to explain unpushed changes via the _Explain Unpushed Changes_ command in the context menu of branches in the _Commit Graph_ and views ([#4443](https://github.com/gitkraken/vscode-gitlens/issues/4443))
+- Adds 'realpath' option to resolve symbolic links when determining file paths for Git operations ([#1328](https://github.com/gitkraken/vscode-gitlens/issues/1328))
 - Adds improved experience to the _Commit Graph_
   - Improves rendering, scrolling, and selection performance and stability
   - Adds "pill-style" stats to the "Work in Progress" (WIP) row in the _Commit Graph_

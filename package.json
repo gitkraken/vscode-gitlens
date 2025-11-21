@@ -5452,6 +5452,13 @@
 						"scope": "window",
 						"order": 110
 					},
+					"gitlens.advanced.realpath": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "[Experimental] Specifies whether to resolve symbolic links when determining file paths for Git operations",
+						"scope": "window",
+						"order": 115
+					},
 					"gitlens.advanced.commits.delayLoadingFileDetails": {
 						"type": "boolean",
 						"default": false,
