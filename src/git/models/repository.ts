@@ -5,7 +5,7 @@ import { md5, uuid } from '@env/crypto';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { Container } from '../../container';
 import type { FeatureAccess, PlusFeatures } from '../../features';
-import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
+import { showCreatePullRequestPrompt, showGitErrorMessage } from '../../messages';
 import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
 import { executeActionCommand } from '../../system/-webview/command';
@@ -23,6 +23,7 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename } from '../../system/path';
+import { CheckoutError, FetchError, PullError, PushError } from '../errors';
 import type { GitDir, GitProviderDescriptor } from '../gitProvider';
 import type { GitRepositoryService } from '../gitRepositoryService';
 import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils';
@@ -453,21 +454,20 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	branchDelete(
+	async branchDelete(
 		branches: GitBranchReference | GitBranchReference[],
 		options?: { force?: boolean; remote?: boolean },
-	): void {
+	): Promise<void> {
 		if (!Array.isArray(branches)) {
 			branches = [branches];
 		}
 
 		const localBranches = branches.filter(b => !b.remote);
 		if (localBranches.length !== 0) {
-			const args = ['--delete'];
-			if (options?.force) {
-				args.push('--force');
-			}
-			void this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
+			await this.git.branches.deleteLocalBranch?.(
+				localBranches.map(b => b.name),
+				{ force: options?.force },
+			);
 
 			if (options?.remote) {
 				const trackingBranches = localBranches.filter(b => b.upstream != null);
@@ -477,11 +477,9 @@ export class Repository implements Disposable {
 					);
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
-						void this.runTerminalCommand(
-							'push',
-							'-d',
+						await this.git.branches.deleteRemoteBranch?.(
+							branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
 							remote,
-							...branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
 						);
 					}
 				}
@@ -493,11 +491,9 @@ export class Repository implements Disposable {
 			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
-				void this.runTerminalCommand(
-					'push',
-					'-d',
+				await this.git.branches.deleteRemoteBranch?.(
+					branches.map(b => getReferenceNameWithoutRemote(b)),
 					remote,
-					...branches.map(b => getReferenceNameWithoutRemote(b)),
 				);
 			}
 		}
@@ -545,7 +541,12 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void showGenericErrorMessage('Unable to fetch repository');
+
+			if (FetchError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to fetch');
+			}
 		}
 	}
 
@@ -596,11 +597,6 @@ export class Repository implements Disposable {
 		return (await this.getCommonRepositoryUri()) != null;
 	}
 
-	@log()
-	merge(...args: string[]): void {
-		void this.runTerminalCommand('merge', ...args);
-	}
-
 	@gate()
 	@log()
 	async pull(options?: { progress?: boolean; rebase?: boolean }): Promise<void> {
@@ -628,7 +624,12 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void showGenericErrorMessage('Unable to pull repository');
+
+			if (PullError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to pull');
+			}
 		}
 	}
 
@@ -700,16 +701,13 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void showGenericErrorMessage('Unable to push repository');
-		}
-	}
 
-	@log()
-	rebase(configs: string[] | undefined, ...args: string[]): void {
-		void this.runTerminalCommand(
-			configs != null && configs.length !== 0 ? `${configs.join(' ')} rebase` : 'rebase',
-			...args,
-		);
+			if (PushError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to push');
+			}
+		}
 	}
 
 	@debug({ singleLine: true })
@@ -734,11 +732,6 @@ export class Repository implements Disposable {
 			Logger.debug(scope, `Firing pending file system changes`);
 			this._fireFileSystemChangeDebounced?.();
 		}
-	}
-
-	@log()
-	revert(...args: string[]): void {
-		void this.runTerminalCommand('revert', ...args);
 	}
 
 	get starred(): boolean {
@@ -774,7 +767,12 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void showGenericErrorMessage('Unable to switch to reference');
+
+			if (CheckoutError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to switch to reference');
+			}
 		}
 	}
 
@@ -1021,12 +1019,6 @@ export class Repository implements Disposable {
 	private _gitDirPromise: Promise<GitDir | undefined> | undefined;
 	private async getGitDir(): Promise<GitDir | undefined> {
 		return (this._gitDirPromise ??= this.git.config.getGitDir?.());
-	}
-
-	private async runTerminalCommand(command: string, ...args: string[]) {
-		await this.git.runGitCommandViaTerminal?.(command, args, { execute: true });
-
-		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
 	}
 
 	@debug({ singleLine: true })

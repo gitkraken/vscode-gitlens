@@ -9,7 +9,7 @@ import type { GitStashReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import type { AIModel } from '../../plus/ai/models/model';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -364,10 +364,10 @@ export class StashGitCommand extends QuickCommand<State> {
 
 				if (StashApplyError.is(ex, StashApplyErrorReason.WorkingChanges)) {
 					void window.showWarningMessage(
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+						'Unable to apply stash. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 					);
 				} else {
-					void showGenericErrorMessage(ex.message);
+					void showGitErrorMessage(ex);
 				}
 			}
 		}
@@ -452,7 +452,8 @@ export class StashGitCommand extends QuickCommand<State> {
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
-					void showGenericErrorMessage(
+					void showGitErrorMessage(
+						ex,
 						`Unable to delete stash@{${ref.stashNumber}}${ref.message ? `: ${ref.message}` : ''}`,
 					);
 				}
@@ -597,7 +598,7 @@ export class StashGitCommand extends QuickCommand<State> {
 					return;
 				}
 
-				void showGenericErrorMessage('Unable to stash changes');
+				void showGitErrorMessage(ex, 'Unable to stash changes');
 
 				return;
 			}
@@ -824,7 +825,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage(ex.message);
+				void showGitErrorMessage(ex);
 			}
 		}
 	}

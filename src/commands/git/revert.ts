@@ -1,11 +1,16 @@
+import { window } from 'vscode';
 import type { Container } from '../../container';
+import { RevertError, RevertErrorReason } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel } from '../../git/utils/reference.utils';
+import { showGitErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { executeCommand } from '../../system/-webview/command';
+import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -71,8 +76,59 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private execute(state: RevertStepState<State<GitRevisionReference[]>>) {
-		state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
+	private async execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+		const refs = state.references.map(c => c.ref).reverse();
+
+		const options: { editMessage?: boolean } = {};
+		if (state.flags.includes('--edit')) {
+			options.editMessage = true;
+		} else if (state.flags.includes('--no-edit')) {
+			options.editMessage = false;
+		}
+
+		try {
+			await state.repo.git.ops?.revert(refs, options);
+		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the revert
+			if (RevertError.is(ex, RevertErrorReason.Aborted)) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
+			Logger.error(ex, this.title);
+
+			if (
+				RevertError.is(ex, RevertErrorReason.WorkingChanges) ||
+				RevertError.is(ex, RevertErrorReason.OverwrittenChanges)
+			) {
+				void window.showWarningMessage(
+					'Unable to revert. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+				);
+				return;
+			}
+
+			if (RevertError.is(ex, RevertErrorReason.Conflicts)) {
+				void window.showWarningMessage(
+					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (RevertError.is(ex, RevertErrorReason.InProgress)) {
+				void window.showWarningMessage(
+					'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (RevertError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to revert');
+			}
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -160,7 +216,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
-			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
+			void this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

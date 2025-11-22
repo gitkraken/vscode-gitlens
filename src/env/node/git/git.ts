@@ -4,7 +4,7 @@ import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
 import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
-import { env, Uri, window, workspace } from 'vscode';
+import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
@@ -18,6 +18,8 @@ import {
 	BlameIgnoreRevsFileError,
 	BranchError,
 	BranchErrorReason,
+	CheckoutError,
+	CheckoutErrorReason,
 	FetchError,
 	FetchErrorReason,
 	PullError,
@@ -38,22 +40,18 @@ import { rootSha } from '../../../git/models/revision';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { getCancellationTokenId } from '../../../system/-webview/cancellation';
-import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
-import { getHostEditorCommand } from '../../../system/-webview/vscode';
 import { getScopedCounter } from '../../../system/counter';
-import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
-import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logger.scope';
+import { getLoggableScopeBlockOverride } from '../../../system/logger.scope';
 import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path';
 import { isPromise } from '../../../system/promise';
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
-import { ensureGitTerminal } from '../../../terminal';
 import type { GitLocation } from './locator';
 import type { RunOptions, RunResult } from './shell';
-import { fsExists, isWindows, runSpawn } from './shell';
+import { fsExists, runSpawn } from './shell';
 import { CancelledRunError, RunError } from './shell.errors';
 
 const emptyArray: readonly any[] = Object.freeze([]);
@@ -79,7 +77,7 @@ export const GitErrors = {
 	branchNotFullyMerged: /error: The branch '.+?' is not fully merged/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten:
-		/Your local changes to the following files would be overwritten|Your local changes would be overwritten/i,
+		/Your local changes to the following files would be overwritten|Your local changes would be overwritten|overwritten by checkout/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
 	detachedHead: /You are in 'detached HEAD' state/i,
@@ -102,9 +100,15 @@ export const GitErrors = {
 	noUserNameConfigured: /Please tell me who you are\./i,
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
+	mergeAborted: /merge.*aborted/i,
+	mergeInProgress: /^fatal: You have not concluded your merge/i,
+	rebaseAborted: /Nothing to do|rebase.*aborted/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
+	rebaseInProgress: /^fatal: It seems that there is already a rebase-merge directory/i,
+	revertAborted: /revert.*aborted/i,
+	revertInProgress: /^(error: )?(revert|cherry-pick) is already in progress/i,
 	refLocked: /fatal:\s*cannot lock ref ['"].+['"]: unable to create file/i,
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnection: /Could not read from remote repository/i,
@@ -181,6 +185,12 @@ const branchErrorsToReasons: [RegExp, BranchErrorReason][] = [
 	[GitErrors.branchNotFullyMerged, BranchErrorReason.BranchNotFullyMerged],
 ];
 
+const checkoutErrorsToReasons: [RegExp, CheckoutErrorReason][] = [
+	[GitErrors.changesWouldBeOverwritten, CheckoutErrorReason.ChangesWouldBeOverwritten],
+	[GitErrors.ambiguousArgument, CheckoutErrorReason.PathspecNotFound],
+	[GitErrors.notAValidObjectName, CheckoutErrorReason.InvalidRef],
+];
+
 const resetErrorsToReasons: [RegExp, ResetErrorReason][] = [
 	[GitErrors.ambiguousArgument, ResetErrorReason.AmbiguousArgument],
 	[GitErrors.changesWouldBeOverwritten, ResetErrorReason.ChangesWouldBeOverwritten],
@@ -229,7 +239,7 @@ export class GitError extends Error {
 		this.cmd = cmd;
 		this.exitCode = exitCode;
 
-		Error.captureStackTrace?.(this, GitError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -279,8 +289,8 @@ export class Git implements Disposable {
 		const runArgs = args.filter(a => a != null);
 
 		const runOpts: Mutable<RunOptions> = {
-			timeout: 1000 * 60,
 			...opts,
+			timeout: opts.timeout === 0 ? undefined : (opts.timeout ?? 1000 * 60),
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
 			// Shouldn't *really* be needed but better safe than sorry
@@ -763,17 +773,20 @@ export class Git implements Disposable {
 	}
 
 	async branch(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
+		const params = ['branch', ...args];
 		try {
-			const result = await this.exec({ cwd: repoPath }, 'branch', ...args);
+			const result = await this.exec({ cwd: repoPath }, ...params);
 			return result;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
+			const gitCommand = { repoPath: repoPath, args: params };
+
 			for (const [error, reason] of branchErrorsToReasons) {
 				if (error.test(msg) || error.test(ex.stderr ?? '')) {
-					throw new BranchError(reason, ex);
+					throw new BranchError(reason, ex, undefined, undefined, gitCommand);
 				}
 			}
-			throw new BranchError(BranchErrorReason.Other, ex);
+			throw new BranchError(BranchErrorReason.Other, ex, undefined, undefined, gitCommand);
 		}
 	}
 
@@ -836,8 +849,20 @@ export class Git implements Disposable {
 			}
 		}
 
-		const result = await this.exec({ cwd: repoPath }, ...params);
-		return result;
+		try {
+			const result = await this.exec({ cwd: repoPath }, ...params);
+			return result;
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			const gitCommand = { repoPath: repoPath, args: params };
+
+			for (const [error, reason] of checkoutErrorsToReasons) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new CheckoutError(reason, ex, ref, gitCommand);
+				}
+			}
+			throw new CheckoutError(CheckoutErrorReason.Other, ex, ref, gitCommand);
+		}
 	}
 
 	// TODO: Expand to include options and other params
@@ -1051,7 +1076,7 @@ export class Git implements Disposable {
 				reason = FetchErrorReason.RemoteConnection;
 			}
 
-			throw new FetchError(reason, ex, options?.branch, options?.remote);
+			throw new FetchError(reason, ex, options?.branch, options?.remote, { repoPath: repoPath, args: params });
 		}
 	}
 
@@ -1139,6 +1164,7 @@ export class Git implements Disposable {
 				ex,
 				options?.branch || options?.delete?.branch,
 				options?.remote || options?.delete?.remote,
+				{ repoPath: repoPath, args: params },
 			);
 		}
 	}
@@ -1190,7 +1216,7 @@ export class Git implements Disposable {
 				reason = PullErrorReason.TagConflict;
 			}
 
-			throw new PullError(reason, ex);
+			throw new PullError(reason, ex, { repoPath: repoPath, args: params });
 		}
 	}
 
@@ -1199,24 +1225,28 @@ export class Git implements Disposable {
 		pathspecs: string[],
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft'; rev?: string },
 	): Promise<void> {
+		const args = ['reset', '-q'];
+		if (options?.mode) {
+			args.push(`--${options.mode}`);
+		}
+		if (options?.rev) {
+			args.push(options.rev);
+		}
+		args.push('--', ...pathspecs);
+
 		try {
-			const flags = [];
-			if (options?.mode) {
-				flags.push(`--${options.mode}`);
-			}
-			if (options?.rev) {
-				flags.push(options.rev);
-			}
-			await this.exec({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
+			await this.exec({ cwd: repoPath }, ...args);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
+			const gitCommand = { repoPath: repoPath, args: args };
+
 			for (const [error, reason] of resetErrorsToReasons) {
 				if (error.test(msg) || error.test(ex.stderr ?? '')) {
-					throw new ResetError(reason, ex);
+					throw new ResetError(reason, ex, gitCommand);
 				}
 			}
 
-			throw new ResetError(ResetErrorReason.Other, ex);
+			throw new ResetError(ResetErrorReason.Other, ex, gitCommand);
 		}
 	}
 
@@ -1572,7 +1602,10 @@ export class Git implements Disposable {
 		try {
 			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
 			if (result.stdout.includes('No local changes to save')) {
-				throw new StashPushError(StashPushErrorReason.NothingToSave);
+				throw new StashPushError(StashPushErrorReason.NothingToSave, undefined, {
+					repoPath: repoPath,
+					args: params,
+				});
 			}
 		} catch (ex) {
 			if (
@@ -1580,7 +1613,10 @@ export class Git implements Disposable {
 				ex.stdout?.includes('Saved working directory and index state') &&
 				ex.stderr?.includes('Cannot remove worktree changes')
 			) {
-				throw new StashPushError(StashPushErrorReason.ConflictingStagedAndUnstagedLines);
+				throw new StashPushError(StashPushErrorReason.ConflictingStagedAndUnstagedLines, undefined, {
+					repoPath: repoPath,
+					args: params,
+				});
 			}
 			throw ex;
 		}
@@ -1620,17 +1656,20 @@ export class Git implements Disposable {
 	}
 
 	async tag(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
+		const params = ['tag', ...args];
 		try {
-			const result = await this.exec({ cwd: repoPath }, 'tag', ...args);
+			const result = await this.exec({ cwd: repoPath }, ...params);
 			return result;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
+			const gitCommand = { repoPath: repoPath, args: params };
+
 			for (const [error, reason] of tagErrorsToReasons) {
 				if (error.test(msg) || error.test(ex.stderr ?? '')) {
-					throw new TagError(reason, ex);
+					throw new TagError(reason, ex, undefined, undefined, gitCommand);
 				}
 			}
-			throw new TagError(TagErrorReason.Other, ex);
+			throw new TagError(TagErrorReason.Other, ex, undefined, undefined, gitCommand);
 		}
 	}
 
@@ -1666,47 +1705,6 @@ export class Git implements Disposable {
 			return undefined;
 		}
 	}
-	@log()
-	async runGitCommandViaTerminal(
-		cwd: string,
-		command: string,
-		args: string[],
-		options?: { execute?: boolean },
-	): Promise<void> {
-		const scope = getLogScope();
-
-		const location = await this.getLocation();
-		const git = normalizePath(location.path ?? 'git');
-
-		const coreEditorConfig = configuration.get('terminal.overrideGitEditor')
-			? `-c "core.editor=${await getHostEditorCommand()}" `
-			: '';
-
-		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&<]/.test(arg) ? `"${arg}"` : arg));
-
-		let text;
-		if (git.includes(' ')) {
-			const shell = env.shell;
-			Logger.debug(scope, `\u2022 git path '${git}' contains spaces, detected shell: '${shell}'`);
-
-			text = `${
-				(isWindows ? /(pwsh|powershell)\.exe/i : /pwsh/i).test(shell) ? '&' : ''
-			} "${git}" -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
-		} else {
-			text = `${git} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
-		}
-
-		Logger.log(scope, `\u2022 '${text}'`);
-		this.logCore(`${getLoggableScopeBlockOverride('TERMINAL')} ${text}`);
-
-		const terminal = ensureGitTerminal();
-		terminal.show(false);
-		// Removing this as this doesn't seem to work on bash
-		// // Sends ansi codes to remove any text on the current input line
-		// terminal.sendText('\x1b[2K\x1b', false);
-		terminal.sendText(text, options?.execute ?? false);
-	}
-
 	private logGitCommandStart(command: string, id: number): void {
 		Logger.log(`${getLoggableScopeBlockOverride(`GIT:→${id}`)} ${command} ${GlyphChars.Dot} starting...`);
 		this.logCore(`${getLoggableScopeBlockOverride(`→${id}`, '')} ${command} ${GlyphChars.Dot} starting...`);

@@ -8,7 +8,7 @@ import {
 	isRevisionReference,
 	isTagReference,
 } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -299,7 +299,7 @@ export class TagGitCommand extends QuickCommand<State> {
 				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage(ex);
+				void showGitErrorMessage(ex);
 			}
 		}
 	}
@@ -389,7 +389,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					await state.repo.git.tags.deleteTag?.(ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					void showGenericErrorMessage(ex);
+					void showGitErrorMessage(ex);
 				}
 			}
 		}

@@ -1,4 +1,5 @@
 import { window } from 'vscode';
+import { showGitErrorMessage } from '../../messages';
 import { executeCommand } from '../../system/-webview/command';
 import { PausedOperationContinueError, PausedOperationContinueErrorReason } from '../errors';
 import type { GitRepositoryService } from '../gitRepositoryService';
@@ -9,7 +10,7 @@ export async function abortPausedOperation(svc: GitRepositoryService, options?: 
 	try {
 		return await svc.pausedOps?.abortPausedOperation?.(options);
 	} catch (ex) {
-		void window.showErrorMessage(ex.message);
+		void showGitErrorMessage(ex);
 	}
 }
 
@@ -56,6 +57,6 @@ async function continuePausedOperationCore(svc: GitRepositoryService, skip: bool
 			return;
 		}
 
-		void window.showErrorMessage(ex.message);
+		void showGitErrorMessage(ex);
 	}
 }

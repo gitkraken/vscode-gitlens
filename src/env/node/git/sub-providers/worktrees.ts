@@ -43,17 +43,23 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	): Promise<void> {
 		const scope = getLogScope();
 
+		const args = ['worktree', 'add'];
+		if (options?.force) {
+			args.push('--force');
+		}
+		if (options?.createBranch) {
+			args.push('-b', options.createBranch);
+		}
+		if (options?.detach) {
+			args.push('--detach');
+		}
+		args.push(path);
+		if (options?.commitish) {
+			args.push(options.commitish);
+		}
+
 		try {
-			await this.git.exec(
-				{ cwd: repoPath },
-				'worktree',
-				'add',
-				options?.force ? '--force' : undefined,
-				...(options?.createBranch ? ['-b', options.createBranch] : []),
-				options?.detach ? '--detach' : undefined,
-				path,
-				options?.commitish || undefined,
-			);
+			await this.git.exec({ cwd: repoPath }, ...args);
 
 			this.container.events.fire('git:cache:reset', {
 				repoPath: repoPath,
@@ -63,16 +69,17 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			Logger.error(ex, scope);
 
 			const msg = String(ex);
+			const gitCommand = { repoPath: repoPath, args: args };
 
 			if (GitErrors.alreadyCheckedOut.test(msg)) {
-				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex);
+				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex, gitCommand);
 			}
 
 			if (GitErrors.alreadyExists.test(msg)) {
-				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyExists, ex);
+				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyExists, ex, gitCommand);
 			}
 
-			throw new WorktreeCreateError(undefined, ex);
+			throw new WorktreeCreateError(undefined, ex, { repoPath: repoPath, args: args });
 		}
 	}
 
@@ -175,26 +182,28 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			' Please install a more recent version of Git and try again.',
 		);
 
+		const args = ['worktree', 'remove'];
+		if (options?.force) {
+			args.push('--force');
+		}
+
 		path = normalizePath(typeof path === 'string' ? path : path.fsPath);
+		args.push(path);
+
 		try {
-			await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Throw },
-				'worktree',
-				'remove',
-				options?.force ? '--force' : undefined,
-				path,
-			);
+			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
 		} catch (ex) {
 			Logger.error(ex, scope);
 
 			const msg = String(ex);
+			const gitCommand = { repoPath: repoPath, args: args };
 
 			if (GitErrors.mainWorkingTree.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DefaultWorkingTree, ex);
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DefaultWorkingTree, ex, gitCommand);
 			}
 
 			if (GitErrors.uncommittedChanges.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex);
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex, gitCommand);
 			}
 
 			if (GitErrors.failedToDeleteDirectoryNotEmpty.test(msg)) {
@@ -246,11 +255,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 						}
 					}
 
-					throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DirectoryNotEmpty, ex);
+					throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DirectoryNotEmpty, ex, gitCommand);
 				}
 			}
 
-			throw new WorktreeDeleteError(undefined, ex);
+			throw new WorktreeDeleteError(undefined, ex, gitCommand);
 		} finally {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['worktrees'] });
 		}

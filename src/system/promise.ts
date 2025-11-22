@@ -749,6 +749,6 @@ export class AggregateError extends Error {
 	constructor(readonly errors: Error[]) {
 		super(`AggregateError(${errors.length})\n${errors.map(e => `\t${String(e)}`).join('\n')}`);
 
-		Error.captureStackTrace?.(this, AggregateError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }

@@ -9,7 +9,7 @@ export class UnableToFindGitError extends Error {
 	constructor(public readonly original?: Error) {
 		super('Unable to find git');
 
-		Error.captureStackTrace?.(this, UnableToFindGitError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -17,7 +17,7 @@ export class InvalidGitConfigError extends Error {
 	constructor(public readonly original: Error) {
 		super('Invalid Git configuration');
 
-		Error.captureStackTrace?.(this, InvalidGitConfigError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 

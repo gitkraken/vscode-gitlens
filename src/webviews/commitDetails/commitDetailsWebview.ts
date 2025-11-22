@@ -34,6 +34,7 @@ import {
 	showDetailsQuickPick,
 } from '../../git/actions/commit';
 import * as RepoActions from '../../git/actions/repository';
+import { CheckoutError } from '../../git/errors';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -56,6 +57,7 @@ import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git
 import { createReference } from '../../git/utils/reference.utils';
 import { isUncommitted, shortenRevision } from '../../git/utils/revision.utils';
 import { areSearchContextsEqual } from '../../git/utils/search.utils';
+import { showGitErrorMessage } from '../../messages';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
 import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.utils';
@@ -2163,7 +2165,15 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const { path, repoPath, sha } = item.webviewItemValue;
 		if (sha == null || sha === uncommitted) return;
 
-		await this.container.git.getRepositoryService(repoPath).ops?.checkout(sha, { path: path });
+		try {
+			await this.container.git.getRepositoryService(repoPath).ops?.checkout(sha, { path: path });
+		} catch (ex) {
+			if (CheckoutError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to restore file');
+			}
+		}
 	}
 
 	@command('gitlens.restorePrevious.file:')

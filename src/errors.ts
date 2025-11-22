@@ -23,7 +23,7 @@ export class AccessDeniedError extends Error {
 
 		this.subscription = subscription;
 		this.required = required;
-		Error.captureStackTrace?.(this, AccessDeniedError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -39,7 +39,7 @@ export class AccountValidationError extends Error {
 		this.original = original;
 		this.statusCode = statusCode;
 		this.statusText = statusText;
-		Error.captureStackTrace?.(this, AccountValidationError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -83,7 +83,7 @@ export class AuthenticationError extends Error {
 		this.id = id;
 		this.original = original;
 		this.reason = reason;
-		Error.captureStackTrace?.(this, AuthenticationError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -91,7 +91,7 @@ export class AuthenticationRequiredError extends Error {
 	constructor() {
 		super('Authentication required');
 
-		Error.captureStackTrace?.(this, AuthenticationRequiredError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -108,7 +108,7 @@ export class CancellationError extends _CancellationError {
 		} else {
 			this.message = 'Operation cancelled';
 		}
-		Error.captureStackTrace?.(this, CancellationError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -125,7 +125,7 @@ export class ExtensionNotFoundError extends Error {
 			`Unable to find the ${extensionName} extension (${extensionId}). Please ensure it is installed and enabled.`,
 		);
 
-		Error.captureStackTrace?.(this, ExtensionNotFoundError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -179,7 +179,7 @@ export class OpenVirtualRepositoryError extends Error {
 		this.original = original;
 		this.reason = reason;
 		this.repoPath = repoPath;
-		Error.captureStackTrace?.(this, OpenVirtualRepositoryError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -203,7 +203,7 @@ export class ProviderFetchError extends Error {
 			}`,
 		);
 
-		Error.captureStackTrace?.(this, ProviderFetchError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -219,7 +219,7 @@ export class ProviderNotFoundError extends Error {
 			}'`,
 		);
 
-		Error.captureStackTrace?.(this, ProviderNotFoundError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -227,7 +227,7 @@ export class ProviderNotSupportedError extends Error {
 	constructor(provider: string) {
 		super(`Action is not supported on the ${provider} provider.`);
 
-		Error.captureStackTrace?.(this, ProviderNotSupportedError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -235,7 +235,7 @@ export class RequestClientError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, RequestClientError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -243,7 +243,7 @@ export class RequestNotFoundError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, RequestNotFoundError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -255,7 +255,7 @@ export class RequestRateLimitError extends Error {
 	) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, RequestRateLimitError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -263,7 +263,7 @@ export class RequestGoneError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, RequestGoneError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -271,7 +271,7 @@ export class RequestUnprocessableEntityError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, RequestUnprocessableEntityError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -279,14 +279,14 @@ export class RequestsAreBlockedTemporarilyError extends Error {
 	constructor() {
 		super('Requests are blocked');
 
-		Error.captureStackTrace?.(this, RequestsAreBlockedTemporarilyError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
 export class RequiresIntegrationError extends Error {
 	constructor(message: string) {
 		super(message);
-		Error.captureStackTrace?.(this, RequiresIntegrationError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -353,7 +353,7 @@ export class AIError extends Error {
 
 		this.original = original;
 		this.reason = reason;
-		Error.captureStackTrace?.(this, AIError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }
 
@@ -361,6 +361,6 @@ export class AINoRequestDataError extends AIError {
 	constructor(message?: string) {
 		super(AIErrorReason.NoRequestData, message ? new Error(message) : undefined);
 
-		Error.captureStackTrace?.(this, AINoRequestDataError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }

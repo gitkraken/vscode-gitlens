@@ -13,6 +13,7 @@ import type { FileAnnotationType } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Source } from '../../constants.telemetry';
 import { Container } from '../../container';
+import { showGitErrorMessage } from '../../messages';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
@@ -691,7 +692,17 @@ export async function restoreFile(
 		}
 	}
 
-	await Container.instance.git.getRepositoryService(revision.repoPath).ops?.checkout(rev, { path: path });
+	try {
+		await Container.instance.git.getRepositoryService(revision.repoPath).ops?.checkout(rev, { path: path });
+	} catch (ex) {
+		void showGitErrorMessage(
+			ex,
+			`Unable to restore '${path}' from revision '${getReferenceLabel(revision, {
+				icon: false,
+				capitalize: false,
+			})}': ${ex.message}`,
+		);
+	}
 }
 
 export function revealCommit(commit: GitRevisionReference, options?: RevealOptions): Promise<ViewNode | undefined> {

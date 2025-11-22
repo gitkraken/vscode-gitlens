@@ -1,22 +1,25 @@
-import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import {
 	CherryPickError,
 	CherryPickErrorReason,
-	FetchError,
-	PullError,
+	MergeError,
+	MergeErrorReason,
 	PushError,
 	PushErrorReason,
+	RebaseError,
+	RebaseErrorReason,
+	RevertError,
+	RevertErrorReason,
 } from '../../../../git/errors';
 import type { GitOperationsSubProvider } from '../../../../git/gitProvider';
 import type { GitBranchReference, GitReference } from '../../../../git/models/reference';
 import { getShaAndDatesLogParser } from '../../../../git/parsers/logParser';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../../git/utils/branch.utils';
 import { isBranchReference } from '../../../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
+import { getHostEditorCommand } from '../../../../system/-webview/vscode';
 import { log } from '../../../../system/decorators/log';
 import { sequentialize } from '../../../../system/decorators/sequentialize';
 import { join } from '../../../../system/iterable';
@@ -46,16 +49,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			await this.git.checkout(repoPath, ref, options);
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches', 'status'] });
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (/overwritten by checkout/i.test(msg)) {
-				void showGenericErrorMessage(
-					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
-				);
-				return;
-			}
-
 			Logger.error(ex, scope);
-			void showGenericErrorMessage(`Unable to checkout '${ref}'`);
+			throw ex;
 		}
 	}
 
@@ -65,6 +60,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		revs: string[],
 		options?: { edit?: boolean; noCommit?: boolean },
 	): Promise<void> {
+		const scope = getLogScope();
+
 		const args = ['cherry-pick'];
 		if (options?.edit) {
 			args.push('-e');
@@ -97,6 +94,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
 		} catch (ex) {
+			Logger.error(ex, scope);
 			const msg: string = ex?.toString() ?? '';
 
 			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
@@ -112,7 +110,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 
 			debugger;
-			throw new CherryPickError(reason, ex, revs);
+			throw new CherryPickError(reason, ex, revs, { repoPath: repoPath, args: args });
 		}
 	}
 
@@ -143,9 +141,65 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!FetchError.is(ex)) throw ex;
+			throw ex;
+		}
+	}
 
-			void window.showErrorMessage(ex.message);
+	@log()
+	async merge(
+		repoPath: string,
+		ref: string,
+		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['merge'];
+
+		if (options?.fastForward === 'only') {
+			args.push('--ff-only');
+		} else if (options?.fastForward === true) {
+			args.push('--ff');
+		} else if (options?.fastForward === false) {
+			args.push('--no-ff');
+		}
+		if (options?.squash) {
+			args.push('--squash');
+		}
+		if (options?.noCommit) {
+			args.push('--no-commit');
+		}
+
+		args.push(ref);
+
+		try {
+			await this.git.exec(
+				// Avoid a timeout since merges can take a long time (set to 0 to disable)
+				{ cwd: repoPath, errors: GitErrorHandling.Throw, timeout: 0 },
+				...args,
+			);
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			const msg: string = ex?.toString() ?? '';
+
+			let reason: MergeErrorReason = MergeErrorReason.Other;
+			if (GitErrors.uncommittedChanges.test(msg) || GitErrors.uncommittedChanges.test(ex.stderr ?? '')) {
+				reason = MergeErrorReason.WorkingChanges;
+			} else if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
+				reason = MergeErrorReason.OverwrittenChanges;
+			} else if (GitErrors.mergeInProgress.test(msg) || GitErrors.mergeInProgress.test(ex.stdout ?? '')) {
+				reason = MergeErrorReason.InProgress;
+			} else if (GitErrors.unresolvedConflicts.test(msg) || GitErrors.unresolvedConflicts.test(ex.stdout ?? '')) {
+				reason = MergeErrorReason.Conflicts;
+			} else if (GitErrors.mergeAborted.test(msg) || GitErrors.mergeAborted.test(ex.stdout ?? '')) {
+				reason = MergeErrorReason.Aborted;
+			}
+
+			throw new MergeError(reason, ex, ref, { repoPath: repoPath, args: args });
 		}
 	}
 
@@ -163,9 +217,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!PullError.is(ex)) throw ex;
-
-			void window.showErrorMessage(ex.message);
+			throw ex;
 		}
 	}
 
@@ -262,9 +314,62 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!PushError.is(ex)) throw ex;
+			throw ex;
+		}
+	}
 
-			void window.showErrorMessage(ex.message);
+	@log()
+	async rebase(
+		repoPath: string,
+		rev: string,
+		options?: { autoStash?: boolean; interactive?: boolean },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['rebase'];
+		let configs;
+
+		if (options?.autoStash !== false) {
+			args.push('--autostash');
+		}
+
+		if (options?.interactive) {
+			args.push('--interactive');
+
+			const editor = await getHostEditorCommand();
+			configs = ['-c', `sequence.editor=${editor}`];
+		}
+
+		args.push(rev);
+
+		try {
+			await this.git.exec(
+				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
+				{ cwd: repoPath, errors: GitErrorHandling.Throw, configs: configs, timeout: 0 },
+				...args,
+			);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			const msg: string = ex?.toString() ?? '';
+
+			let reason: RebaseErrorReason = RebaseErrorReason.Other;
+			if (GitErrors.uncommittedChanges.test(msg) || GitErrors.uncommittedChanges.test(ex.stderr ?? '')) {
+				reason = RebaseErrorReason.WorkingChanges;
+			} else if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
+				reason = RebaseErrorReason.OverwrittenChanges;
+			} else if (GitErrors.rebaseInProgress.test(msg) || GitErrors.rebaseInProgress.test(ex.stdout ?? '')) {
+				reason = RebaseErrorReason.InProgress;
+			} else if (GitErrors.unresolvedConflicts.test(msg) || GitErrors.unresolvedConflicts.test(ex.stdout ?? '')) {
+				reason = RebaseErrorReason.Conflicts;
+			} else if (GitErrors.rebaseAborted.test(msg) || GitErrors.rebaseAborted.test(ex.stdout ?? '')) {
+				reason = RebaseErrorReason.Aborted;
+			}
+
+			debugger;
+			throw new RebaseError(reason, ex, rev, { repoPath: repoPath, args: args });
 		}
 	}
 
@@ -274,6 +379,59 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		rev: string,
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
 	): Promise<void> {
-		await this.git.reset(repoPath, [], { ...options, rev: rev });
+		const scope = getLogScope();
+
+		try {
+			await this.git.reset(repoPath, [], { ...options, rev: rev });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
+	@log()
+	async revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['revert'];
+
+		if (options?.editMessage === true) {
+			args.push('--edit');
+		} else if (options?.editMessage === false) {
+			args.push('--no-edit');
+		}
+
+		args.push(...refs);
+
+		try {
+			await this.git.exec(
+				// Avoid a timeout since reverts can take a long time (set to 0 to disable)
+				{ cwd: repoPath, errors: GitErrorHandling.Throw, timeout: 0 },
+				...args,
+			);
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			const msg: string = ex?.toString() ?? '';
+
+			let reason: RevertErrorReason = RevertErrorReason.Other;
+			if (GitErrors.uncommittedChanges.test(msg) || GitErrors.uncommittedChanges.test(ex.stderr ?? '')) {
+				reason = RevertErrorReason.WorkingChanges;
+			} else if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
+				reason = RevertErrorReason.OverwrittenChanges;
+			} else if (GitErrors.revertInProgress.test(msg) || GitErrors.revertInProgress.test(ex.stdout ?? '')) {
+				reason = RevertErrorReason.InProgress;
+			} else if (GitErrors.unresolvedConflicts.test(msg) || GitErrors.unresolvedConflicts.test(ex.stdout ?? '')) {
+				reason = RevertErrorReason.Conflicts;
+			} else if (GitErrors.revertAborted.test(msg) || GitErrors.revertAborted.test(ex.stdout ?? '')) {
+				reason = RevertErrorReason.Aborted;
+			}
+
+			throw new RevertError(reason, ex, refs, { repoPath: repoPath, args: args });
+		}
 	}
 }

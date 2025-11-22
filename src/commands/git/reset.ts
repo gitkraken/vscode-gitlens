@@ -6,7 +6,7 @@ import type { GitLog } from '../../git/models/log';
 import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { Logger } from '../../system/logger';
@@ -96,7 +96,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 					'Unable to safely reset. Your local changes would be overwritten by the reset. Please commit or stash your changes before trying again.',
 				);
 			} else {
-				void showGenericErrorMessage(ex.message);
+				void showGitErrorMessage(ex);
 			}
 		}
 	}

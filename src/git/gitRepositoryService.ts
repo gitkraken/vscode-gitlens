@@ -213,11 +213,6 @@ export class GitRepositoryService implements IGitRepositoryService {
 		return this._provider.getWorkingUri(this.path, uri);
 	}
 
-	@log({ args: false })
-	async runGitCommandViaTerminal(command: string, args: string[], options?: { execute?: boolean }): Promise<void> {
-		return this._provider.runGitCommandViaTerminal?.(this.path, command, args, options);
-	}
-
 	@debug({ exit: true })
 	supports(feature: Features): Promise<boolean> {
 		return this._provider.supports(feature);

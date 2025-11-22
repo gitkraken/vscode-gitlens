@@ -25,6 +25,7 @@ import { openComparisonChanges } from '../../git/actions/commit';
 import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../../git/actions/pausedOperation';
 import * as RepoActions from '../../git/actions/repository';
 import { revealWorktree } from '../../git/actions/worktree';
+import { PushError } from '../../git/errors';
 import type { BranchContributionsOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileChangeShape } from '../../git/models/fileChange';
@@ -47,6 +48,7 @@ import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/ut
 import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
 import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
+import { showGitErrorMessage } from '../../messages';
 import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
@@ -1402,7 +1404,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			);
 			if (confirm?.title !== 'Continue') return;
 
-			await this.container.git.getRepositoryService(ref.repoPath).ops?.checkout(mergeTargetLocalBranchName);
+			try {
+				await this.container.git.getRepositoryService(ref.repoPath).ops?.checkout(mergeTargetLocalBranchName);
+			} catch (ex) {
+				void showGitErrorMessage(ex, `Unable to switch to branch '${mergeTargetLocalBranchName}'`);
+				return;
+			}
 
 			void executeGitCommand({
 				command: 'branch',
@@ -1463,22 +1470,30 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@log<HomeWebviewProvider['pushBranch']>({
 		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
 	})
-	private pushBranch(ref: BranchRef) {
-		void this.container.git.getRepositoryService(ref.repoPath).ops?.push({
-			reference: {
-				name: ref.branchName,
-				ref: ref.branchId,
-				refType: 'branch',
-				remote: false,
-				repoPath: ref.repoPath,
-				upstream: ref.branchUpstreamName
-					? {
-							name: ref.branchUpstreamName,
-							missing: false,
-						}
-					: undefined,
-			},
-		});
+	private async pushBranch(ref: BranchRef) {
+		try {
+			await this.container.git.getRepositoryService(ref.repoPath).ops?.push({
+				reference: {
+					name: ref.branchName,
+					ref: ref.branchId,
+					refType: 'branch',
+					remote: false,
+					repoPath: ref.repoPath,
+					upstream: ref.branchUpstreamName
+						? {
+								name: ref.branchUpstreamName,
+								missing: false,
+							}
+						: undefined,
+				},
+			});
+		} catch (ex) {
+			if (PushError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to push branch');
+			}
+		}
 	}
 
 	@log<HomeWebviewProvider['mergeTargetCompare']>({

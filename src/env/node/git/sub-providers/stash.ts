@@ -41,14 +41,18 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	async applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		if (!stashName) return;
 
+		const args = ['stash', options?.deleteAfter ? 'pop' : 'apply', stashName];
+
 		try {
-			await this.git.exec({ cwd: repoPath }, 'stash', options?.deleteAfter ? 'pop' : 'apply', stashName);
+			await this.git.exec({ cwd: repoPath }, ...args);
 			this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		} catch (ex) {
+			const gitCommand = { repoPath: repoPath, args: args };
+
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
 				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex);
+					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex, gitCommand);
 				}
 
 				if (
@@ -62,10 +66,14 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					return;
 				}
 
-				throw new StashApplyError(`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`, ex);
+				throw new StashApplyError(
+					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
+					ex,
+					gitCommand,
+				);
 			}
 
-			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex);
+			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex, gitCommand);
 		}
 	}
 

@@ -785,7 +785,7 @@ class CLIInstallError extends Error {
 		super(message);
 		this.original = original;
 		this.reason = reason;
-		Error.captureStackTrace?.(this, CLIInstallError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 
 	private static buildErrorMessage(reason: CLIInstallErrorReason, details?: string): string {
@@ -852,6 +852,6 @@ class McpSetupError extends Error {
 		this.source = source;
 		this.cliVersion = cliVersion;
 		this.telemetryMessage = telemetryMessage;
-		Error.captureStackTrace?.(this, McpSetupError);
+		Error.captureStackTrace?.(this, new.target);
 	}
 }

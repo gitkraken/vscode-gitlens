@@ -4,6 +4,7 @@ import { CancellationError } from '../../../../errors';
 import {
 	ApplyPatchCommitError,
 	ApplyPatchCommitErrorReason,
+	CheckoutError,
 	CherryPickError,
 	CherryPickErrorReason,
 	StashPushError,
@@ -122,9 +123,20 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		if (options?.branchName != null && currentBranch?.name !== options.branchName) {
 			const checkoutRef = shouldCreate ? (currentBranch?.ref ?? 'HEAD') : options.branchName;
-			await this.provider.ops.checkout(targetPath, checkoutRef, {
-				createBranch: shouldCreate ? options.branchName : undefined,
-			});
+			try {
+				await this.provider.ops.checkout(targetPath, checkoutRef, {
+					createBranch: shouldCreate ? options.branchName : undefined,
+				});
+			} catch (ex) {
+				Logger.error(ex, scope);
+				throw new ApplyPatchCommitError(
+					ApplyPatchCommitErrorReason.CheckoutFailed,
+					`Unable to apply patch; failed checking out branch '${options.branchName}'${
+						ex instanceof CheckoutError ? `: ${ex.message}` : ''
+					}`,
+					ex,
+				);
+			}
 		}
 
 		// Apply the patch using a cherry pick without committing

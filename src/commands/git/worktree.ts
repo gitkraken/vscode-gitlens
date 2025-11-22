@@ -28,7 +28,7 @@ import {
 	isRevisionReference,
 } from '../../git/utils/reference.utils';
 import { isSha } from '../../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
@@ -587,7 +587,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							}
 						});
 				} else {
-					void showGenericErrorMessage(
+					void showGitErrorMessage(
+						ex,
 						`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}.`,
 					);
 				}
@@ -957,7 +958,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							}
 						}
 
-						void showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}. ex=${String(ex)}`);
+						void showGitErrorMessage(ex, `Unable to delete worktree in '${uri.fsPath}. ex=${String(ex)}`);
 					}
 
 					break;

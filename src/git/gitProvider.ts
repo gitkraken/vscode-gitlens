@@ -155,14 +155,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 
 export interface GitRepositoryProvider {
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
-
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
-	runGitCommandViaTerminal?(
-		repoPath: string,
-		command: string,
-		args: string[],
-		options?: { execute?: boolean },
-	): Promise<void>;
 
 	branches: GitBranchesSubProvider;
 	commits: GitCommitsSubProvider;
@@ -221,8 +214,8 @@ export interface GitBranchesSubProvider {
 	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void>;
-	deleteLocalBranch?(repoPath: string, name: string, options?: { force?: boolean }): Promise<void>;
-	deleteRemoteBranch?(repoPath: string, name: string, remote: string): Promise<void>;
+	deleteLocalBranch?(repoPath: string, names: string | string[], options?: { force?: boolean }): Promise<void>;
+	deleteRemoteBranch?(repoPath: string, names: string | string[], remote: string): Promise<void>;
 	/**
 	 * Returns whether a branch has been merged into another branch
 	 * @param repoPath The repository path
@@ -395,6 +388,11 @@ export interface GitOperationsSubProvider {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	merge(
+		repoPath: string,
+		ref: string,
+		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
+	): Promise<void>;
 	pull(
 		repoPath: string,
 		options?: {
@@ -411,11 +409,13 @@ export interface GitOperationsSubProvider {
 			publish?: { remote: string };
 		},
 	): Promise<void>;
+	rebase(repoPath: string, rev: string, options?: { autoStash?: boolean; interactive?: boolean }): Promise<void>;
 	reset(
 		repoPath: string,
 		rev: string,
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
 	): Promise<void>;
+	revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void>;
 }
 
 export interface GitPausedOperationsSubProvider {

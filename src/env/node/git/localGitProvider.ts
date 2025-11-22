@@ -1871,19 +1871,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log({ args: { 2: false } })
-	async runGitCommandViaTerminal(
-		repoPath: string,
-		command: string,
-		args: string[],
-		options?: { execute?: boolean },
-	): Promise<void> {
-		await this.git.runGitCommandViaTerminal(repoPath, command, args, options);
-
-		// Right now we are reliant on the Repository class to fire the change event (as a stop gap if we don't detect a change through the normal mechanisms)
-		// setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
-	}
-
 	private _branches: BranchesGitSubProvider | undefined;
 	get branches(): BranchesGitSubProvider {
 		return (this._branches ??= new BranchesGitSubProvider(this.container, this.git, this._cache, this));

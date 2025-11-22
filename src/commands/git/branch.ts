@@ -14,7 +14,7 @@ import {
 	isBranchReference,
 	isRevisionReference,
 } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGenericErrorMessage, showGitErrorMessage } from '../../messages';
 import { getIssueOwner } from '../../plus/integrations/providers/utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -480,8 +480,27 @@ export class BranchGitCommand extends QuickCommand {
 					);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					// TODO likely need some better error handling here
-					return showGenericErrorMessage('Unable to create branch');
+
+					if (BranchError.is(ex, BranchErrorReason.BranchAlreadyExists)) {
+						void window.showWarningMessage(
+							`Unable to create branch '${state.name}'. A branch with that name already exists.`,
+						);
+						return;
+					}
+
+					if (BranchError.is(ex, BranchErrorReason.InvalidBranchName)) {
+						void window.showWarningMessage(
+							`Unable to create branch '${state.name}'. The branch name is invalid.`,
+						);
+						return;
+					}
+
+					if (BranchError.is(ex)) {
+						void showGitErrorMessage(ex);
+					} else {
+						void showGitErrorMessage(ex, 'Unable to create branch');
+					}
+					return;
 				}
 			}
 
@@ -650,7 +669,7 @@ export class BranchGitCommand extends QuickCommand {
 								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
 							} catch (ex) {
 								Logger.error(ex, context.title);
-								void showGenericErrorMessage(ex);
+								void showGitErrorMessage(ex);
 							}
 						}
 
@@ -658,7 +677,7 @@ export class BranchGitCommand extends QuickCommand {
 					}
 
 					Logger.error(ex, context.title);
-					void showGenericErrorMessage(ex);
+					void showGitErrorMessage(ex);
 				}
 			}
 		}

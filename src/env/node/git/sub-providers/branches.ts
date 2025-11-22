@@ -31,7 +31,7 @@ import {
 import { createReference } from '../../../../git/utils/reference.utils';
 import { createRevisionRange } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
-import { filterMap } from '../../../../system/array';
+import { ensureArray, filterMap } from '../../../../system/array';
 import { debounce } from '../../../../system/decorators/debounce';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -472,28 +472,42 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async deleteLocalBranch(repoPath: string, name: string, options?: { force?: boolean }): Promise<void> {
+	async deleteLocalBranch(repoPath: string, names: string | string[], options?: { force?: boolean }): Promise<void> {
+		const branches = ensureArray(names);
+		const args = ['branch', options?.force ? '-D' : '-d', ...branches];
 		try {
-			await this.git.branch(repoPath, options?.force ? '-D' : '-d', name);
+			await this.git.exec({ cwd: repoPath }, ...args);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches'] });
 		} catch (ex) {
 			if (ex instanceof BranchError) {
-				throw ex.update({ branch: name, action: 'delete' });
+				throw ex.update({
+					gitCommand: { repoPath: repoPath, args: args },
+					branch: branches.join(', '),
+					action: 'delete',
+				});
 			}
 
-			throw ex;
+			throw new BranchError(undefined, ex, branches.join(', '), 'delete', { repoPath: repoPath, args: args });
 		}
 	}
 
 	@log()
-	async deleteRemoteBranch(repoPath: string, name: string, remote: string): Promise<void> {
+	async deleteRemoteBranch(repoPath: string, names: string | string[], remote: string): Promise<void> {
+		const branches = ensureArray(names);
+		const args = ['push', '-d', remote, ...branches];
 		try {
-			await this.git.exec({ cwd: repoPath }, 'push', '-d', remote, name);
+			await this.git.exec({ cwd: repoPath }, ...args);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches'] });
 		} catch (ex) {
 			if (ex instanceof BranchError) {
-				throw ex.update({ branch: name, action: 'delete' });
+				throw ex.update({
+					gitCommand: { repoPath: repoPath, args: args },
+					branch: branches.join(', '),
+					action: 'delete',
+				});
 			}
 
-			throw ex;
+			throw new BranchError(undefined, ex, branches.join(', '), 'delete', { repoPath: repoPath, args: args });
 		}
 	}
 

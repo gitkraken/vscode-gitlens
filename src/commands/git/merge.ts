@@ -1,17 +1,21 @@
-import { ThemeIcon } from 'vscode';
+import { ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
+import { MergeError, MergeErrorReason } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
+import { showGitErrorMessage } from '../../messages';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { executeCommand } from '../../system/-webview/command';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -80,8 +84,64 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	private execute(state: MergeStepState) {
-		state.repo.merge(...state.flags, state.reference.ref);
+	private async execute(state: MergeStepState) {
+		const options: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean } = {};
+
+		if (state.flags.includes('--ff-only')) {
+			options.fastForward = 'only';
+		} else if (state.flags.includes('--no-ff')) {
+			options.fastForward = false;
+		}
+		if (state.flags.includes('--squash')) {
+			options.squash = true;
+		}
+		if (state.flags.includes('--no-commit')) {
+			options.noCommit = true;
+		}
+
+		try {
+			await state.repo.git.ops?.merge(state.reference.ref, options);
+		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the merge
+			if (MergeError.is(ex, MergeErrorReason.Aborted)) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
+			Logger.error(ex, this.title);
+
+			if (
+				MergeError.is(ex, MergeErrorReason.WorkingChanges) ||
+				MergeError.is(ex, MergeErrorReason.OverwrittenChanges)
+			) {
+				void window.showWarningMessage(
+					'Unable to merge. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+				);
+				return;
+			}
+
+			if (MergeError.is(ex, MergeErrorReason.Conflicts)) {
+				void window.showWarningMessage(
+					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (MergeError.is(ex, MergeErrorReason.InProgress)) {
+				void window.showWarningMessage(
+					'Unable to merge. A merge is already in progress. Continue or abort the current merge first.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (MergeError.is(ex)) {
+				void showGitErrorMessage(ex);
+			} else {
+				void showGitErrorMessage(ex, 'Unable to merge');
+			}
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -204,7 +264,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
-			this.execute(state as MergeStepState);
+			void this.execute(state as MergeStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

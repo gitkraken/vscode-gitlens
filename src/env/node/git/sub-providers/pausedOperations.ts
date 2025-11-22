@@ -347,40 +347,10 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		const status = await this.getPausedOperationStatus(repoPath);
 		if (status == null) return;
 
+		const args = [status.type, options?.quit ? '--quit' : '--abort'];
+
 		try {
-			switch (status.type) {
-				case 'cherry-pick':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'cherry-pick',
-						options?.quit ? '--quit' : '--abort',
-					);
-					break;
-
-				case 'merge':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'merge',
-						options?.quit ? '--quit' : '--abort',
-					);
-					break;
-
-				case 'rebase':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'rebase',
-						options?.quit ? '--quit' : '--abort',
-					);
-					break;
-
-				case 'revert':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'revert',
-						options?.quit ? '--quit' : '--abort',
-					);
-					break;
-			}
+			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
 		} catch (ex) {
 			debugger;
 			Logger.error(ex);
@@ -391,10 +361,14 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					status.type,
 					`Cannot abort as there is no ${status.type} operation in progress`,
 					ex,
+					{ repoPath: repoPath, args: args },
 				);
 			}
 
-			throw new PausedOperationAbortError(undefined, status.type, `Cannot abort ${status.type}; ${msg}`, ex);
+			throw new PausedOperationAbortError(undefined, status.type, `Cannot abort ${status.type}; ${msg}`, ex, {
+				repoPath: repoPath,
+				args: args,
+			});
 		}
 	}
 
@@ -404,48 +378,28 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		const status = await this.getPausedOperationStatus(repoPath);
 		if (status == null) return;
 
+		if (status.type === 'merge' && options?.skip) {
+			throw new Error('Skipping a merge is not supported');
+		}
+
+		const args = [status.type, options?.skip ? '--skip' : status.type === 'revert' ? '--abort' : '--continue'];
+
 		try {
-			switch (status.type) {
-				case 'cherry-pick':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'cherry-pick',
-						options?.skip ? '--skip' : '--continue',
-					);
-					break;
-
-				case 'merge':
-					if (options?.skip) throw new Error('Skipping a merge is not supported');
-					await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'merge', '--continue');
-					break;
-
-				case 'rebase':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'rebase',
-						options?.skip ? '--skip' : '--continue',
-					);
-					break;
-
-				case 'revert':
-					await this.git.exec(
-						{ cwd: repoPath, errors: GitErrorHandling.Throw },
-						'revert',
-						options?.skip ? '--skip' : '--abort',
-					);
-					break;
-			}
+			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
 		} catch (ex) {
 			debugger;
 			Logger.error(ex);
 
 			const msg: string = ex?.toString() ?? '';
+			const gitCommand = { repoPath: repoPath, args: args };
+
 			if (GitErrors.emptyPreviousCherryPick.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.EmptyCommit,
 					status,
 					`Cannot continue ${status.type} as the previous cherry-pick is empty`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -455,6 +409,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					status,
 					`Cannot ${options?.skip ? 'skip' : 'continue'} as there is no ${status.type} operation in progress`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -464,6 +419,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are uncommitted changes`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -473,6 +429,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unmerged files`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -482,6 +439,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unresolved conflicts`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -491,6 +449,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unstaged changes`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -502,6 +461,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						options?.skip ? 'skip' : `continue ${status.type}`
 					} as local changes would be overwritten`,
 					ex,
+					gitCommand,
 				);
 			}
 
@@ -510,6 +470,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				status,
 				`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`}; ${msg}`,
 				ex,
+				gitCommand,
 			);
 		}
 	}
