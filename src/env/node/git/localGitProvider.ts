@@ -162,6 +162,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (e.changed(RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
 			this._cache.clearCaches(repo.path);
 		} else {
+			if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+				queueMicrotask(() => this.branches.onCurrentBranchAccessed(repo.path));
+			}
+
+			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+				queueMicrotask(() => this.branches.onCurrentBranchModified(repo.path));
+				this._cache.trackedPaths.clear();
+			}
+
 			if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
 				this._cache.repoInfo.delete(repo.path);
 			}
@@ -182,10 +191,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			) {
 				this._cache.remotes.delete(repo.path);
 				this._cache.bestRemotes.delete(repo.path);
-			}
-
-			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
-				this._cache.trackedPaths.clear();
 			}
 
 			if (

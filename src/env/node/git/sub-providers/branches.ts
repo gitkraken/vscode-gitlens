@@ -32,6 +32,7 @@ import { createReference } from '../../../../git/utils/reference.utils';
 import { createRevisionRange } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { filterMap } from '../../../../system/array';
+import { debounce } from '../../../../system/decorators/debounce';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -44,6 +45,11 @@ import { gitConfigsLog, GitError, GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
+
+interface BranchDateMetadata {
+	lastAccessedAt?: string;
+	lastModifiedAt?: string;
+}
 
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	constructor(
@@ -66,66 +72,78 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const {
 				values: [branch],
 			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
-			return branch ?? this.getCurrentBranch(repoPath, cancellation);
+			return branch ?? this.getCurrentBranch(repoPath, undefined, cancellation);
 		});
 
 		if (branchPromise == null) {
 			const {
 				values: [branch],
 			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
-			return branch ?? this.getCurrentBranch(repoPath, cancellation);
+			return branch ?? this.getCurrentBranch(repoPath, undefined, cancellation);
 		}
 
 		return branchPromise;
 	}
 
-	private async getCurrentBranch(repoPath: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
+	private async getCurrentBranch(
+		repoPath: string,
+		dateMetadataMap: Map<string, BranchDateMetadata> | undefined,
+		cancellation?: CancellationToken,
+	): Promise<GitBranch | undefined> {
 		const ref = await this.getCurrentBranchReferenceCore(repoPath, cancellation);
 		if (ref == null) return undefined;
 
 		const commitOrdering = configuration.get('advanced.commitOrdering');
 
-		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult] = await Promise.allSettled([
-			isDetachedHead(ref.name)
-				? this.provider.pausedOps.getPausedOperationStatus(repoPath, cancellation)
-				: undefined,
-			this.git
-				.exec(
-					{
-						cwd: repoPath,
-						cancellation: cancellation,
-						configs: gitConfigsLog,
-						errors: GitErrorHandling.Ignore,
-					},
-					'log',
-					'-n1',
-					'--format=%ct',
-					commitOrdering ? `--${commitOrdering}-order` : undefined,
-					'--',
-				)
-				.then(result => (result.stdout ? result.stdout.trim() : undefined)),
-			this.provider.config.getDefaultWorktreePath?.(repoPath),
-		]);
+		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult, dateMetadataMapResult] =
+			await Promise.allSettled([
+				isDetachedHead(ref.name)
+					? this.provider.pausedOps?.getPausedOperationStatus(repoPath, cancellation)
+					: undefined,
+				this.git
+					.exec(
+						{
+							cwd: repoPath,
+							cancellation: cancellation,
+							configs: gitConfigsLog,
+							errors: GitErrorHandling.Ignore,
+						},
+						'log',
+						'-n1',
+						'--format=%ct',
+						commitOrdering ? `--${commitOrdering}-order` : undefined,
+						'--',
+					)
+					.then(result => (result.stdout ? result.stdout.trim() : undefined)),
+				this.provider.config.getDefaultWorktreePath?.(repoPath),
+				dateMetadataMap != null ? Promise.resolve(dateMetadataMap) : this.getBranchDateMetadataMap(repoPath),
+			]);
 
 		const committerDate = getSettledValue(committerDateResult);
 		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 		const rebaseStatus = pausedOpStatus?.type === 'rebase' ? pausedOpStatus : undefined;
 		const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
+		dateMetadataMap ??= getSettledValue(dateMetadataMapResult);
+		const dates = dateMetadataMap?.get(ref.name);
 
 		if (cancellation?.isCancellationRequested) throw new CancellationError();
 
-		return new GitBranch(
+		const branch = new GitBranch(
 			this.container,
 			repoPath,
 			rebaseStatus?.incoming.name ?? `refs/heads/${ref.name}`,
 			true,
 			committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
+			dates?.lastAccessedAt ? new Date(dates.lastAccessedAt) : undefined,
+			dates?.lastModifiedAt ? new Date(dates.lastModifiedAt) : undefined,
 			ref.sha,
 			ref.upstream ? { ...ref.upstream, state: { ahead: 0, behind: 0 } } : undefined,
 			{ path: repoPath, isDefault: repoPath === defaultWorktreePath },
 			undefined,
 			rebaseStatus != null,
 		);
+
+		return branch;
 	}
 
 	@log({ args: { 1: false } })
@@ -149,20 +167,28 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const supported = await this.git.supported('git:for-each-ref');
 					const parser = getBranchParser(supported);
 
-					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation },
-						'for-each-ref',
-						...parser.arguments,
-						'refs/heads/',
-						'refs/remotes/',
-					);
+					const [gitResult, defaultWorktreePathResult, dateMetadataMapResult] = await Promise.allSettled([
+						this.git.exec(
+							{ cwd: repoPath, cancellation: cancellation },
+							'for-each-ref',
+							...parser.arguments,
+							'refs/heads/',
+							'refs/remotes/',
+						),
+						this.provider.config.getDefaultWorktreePath?.(repoPath),
+						this.getBranchDateMetadataMap(repoPath),
+					]);
+
+					const result = getSettledValue(gitResult);
+					const dateMetadataMap =
+						getSettledValue(dateMetadataMapResult) ?? new Map<string, BranchDateMetadata>();
+					const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
+
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-					if (!result.stdout) {
-						const current = await this.getCurrentBranch(repoPath, cancellation);
+					if (!result?.stdout) {
+						const current = await this.getCurrentBranch(repoPath, dateMetadataMap, cancellation);
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
-
-					const defaultWorktreePath = await this.provider.config.getDefaultWorktreePath?.(repoPath);
 
 					using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
 
@@ -181,6 +207,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							hasCurrent = true;
 						}
 
+						const dates = dateMetadataMap.get(entry.name);
 						const worktreePath = entry.worktreePath ? normalizePath(entry.worktreePath) : undefined;
 
 						branches.push(
@@ -190,6 +217,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								entry.name,
 								current,
 								entry.date ? new Date(entry.date) : undefined,
+								dates?.lastAccessedAt ? new Date(dates.lastAccessedAt) : undefined,
+								dates?.lastModifiedAt ? new Date(dates.lastModifiedAt) : undefined,
 								entry.sha,
 								upstream,
 								supported.includes('git:for-each-ref:worktreePath')
@@ -207,7 +236,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 					// If we don't have a current branch, check if we can find it another way (likely detached head)
 					if (!hasCurrent) {
-						const current = await this.getCurrentBranch(repoPath, cancellation);
+						const current = await this.getCurrentBranch(repoPath, dateMetadataMap, cancellation);
 						if (current != null) {
 							// replace the current branch if it already exists and add it first if not
 							const index = branches.findIndex(b => b.id === current.id);
@@ -218,6 +247,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							}
 						}
 					}
+
 					return { values: branches };
 				} catch (ex) {
 					this.cache.branches.delete(repoPath);
@@ -802,6 +832,26 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
+	/** Updates the last accessed timestamp for the current branch */
+	@debounce(1000)
+	async onCurrentBranchAccessed(repoPath: string): Promise<void> {
+		const branch = await this.getBranch(repoPath);
+		if (branch == null || branch.remote || branch.detached) return;
+
+		await this.storeBranchDateMetadata(repoPath, 'gk-last-accessed', branch.name, new Date());
+	}
+
+	/** Updates the last accessed and modified timestamp for the current branch */
+	@debounce(1000)
+	async onCurrentBranchModified(repoPath: string): Promise<void> {
+		const branch = await this.getBranch(repoPath);
+		if (branch == null || branch.remote || branch.detached) return;
+
+		const now = new Date();
+		await this.storeBranchDateMetadata(repoPath, 'gk-last-accessed', branch.name, now);
+		await this.storeBranchDateMetadata(repoPath, 'gk-last-modified', branch.name, now);
+	}
+
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		try {
@@ -845,5 +895,73 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log()
 	async storeUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
 		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target-user`, target);
+	}
+
+	/**
+	 * Gets all branch date metadata from git config in a single batch operation
+	 * @returns A map of branch name to date metadata.
+	 */
+	private async getBranchDateMetadataMap(repoPath: string): Promise<Map<string, BranchDateMetadata>> {
+		const scope = getLogScope();
+		const dateMetadataMap = new Map<string, BranchDateMetadata>();
+
+		try {
+			// Use git config --get-regexp to load all gk-* branch date metadata in one call
+			const data = await this.git.config__get_regex('^branch\\..*\\.gk-last-(accessed|modified)$', repoPath, {
+				local: true,
+			});
+			if (!data) return dateMetadataMap;
+
+			// Parse the output: "branch.{name}.gk-last-accessed {timestamp}"
+			for (const line of data.split('\n')) {
+				if (!line) continue;
+
+				// Find the last space to split key from value
+				const spaceIndex = line.lastIndexOf(' ');
+				if (spaceIndex === -1) continue;
+
+				const key = line.substring(0, spaceIndex);
+				const value = line.substring(spaceIndex + 1);
+
+				// Extract branch name and date metadata key from "branch.{name}.gk-{key}"
+				if (!key.startsWith('branch.')) continue;
+
+				const keyParts = key.split('.');
+				if (keyParts.length < 3) continue;
+
+				// Branch name is everything between "branch." and the last ".gk-*"
+				const dateKey = keyParts[keyParts.length - 1];
+				const branchName = keyParts.slice(1, -1).join('.');
+
+				let dates = dateMetadataMap.get(branchName);
+				if (dates == null) {
+					dates = {};
+					dateMetadataMap.set(branchName, dates);
+				}
+
+				if (dateKey === 'gk-last-accessed') {
+					dates.lastAccessedAt = value;
+				} else if (dateKey === 'gk-last-modified') {
+					dates.lastModifiedAt = value;
+				}
+			}
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+		}
+
+		return dateMetadataMap;
+	}
+
+	private async storeBranchDateMetadata(
+		repoPath: string,
+		key: 'gk-last-accessed' | 'gk-last-modified',
+		ref: string,
+		date: Date,
+	): Promise<void> {
+		const value = await this.provider.config.getConfig(repoPath, `branch.${ref}.${key}`);
+		if (value != null && date <= new Date(value)) return;
+
+		return this.provider.config.setConfig(repoPath, `branch.${ref}.${key}`, date.toISOString());
 	}
 }

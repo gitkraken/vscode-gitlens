@@ -34,6 +34,39 @@ export class GitWorktree {
 		return this.branch?.date;
 	}
 
+	/** @returns The most recent date among lastModifiedDate, lastAccessedDate, and branch.date */
+	@memoize()
+	get effectiveDate(): Date | undefined {
+		let maxTime: number | undefined;
+
+		const accessed = this.lastAccessedDate?.getTime();
+		if (accessed != null && (maxTime == null || accessed > maxTime)) {
+			maxTime = accessed;
+		}
+
+		const modified = this.lastModifiedDate?.getTime();
+		if (modified != null && (maxTime == null || modified > maxTime)) {
+			maxTime = modified;
+		}
+
+		const date = this.branch?.date?.getTime();
+		if (date != null && (maxTime == null || date > maxTime)) {
+			maxTime = date;
+		}
+
+		return maxTime != null ? new Date(maxTime) : undefined;
+	}
+
+	/** Timestamp when the worktree branch was last accessed or modified */
+	get lastAccessedDate(): Date | undefined {
+		return this.branch?.lastAccessedDate;
+	}
+
+	/** Timestamp when the worktree branch was last modified (working changes / index) */
+	get lastModifiedDate(): Date | undefined {
+		return this.branch?.lastModifiedDate;
+	}
+
 	get path(): string {
 		return getRepositoryOrWorktreePath(this.uri);
 	}

@@ -89,6 +89,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					`refs/heads/${status.branch}`,
 					true,
 					undefined,
+					undefined,
+					undefined,
 					status.sha,
 					status.upstream,
 					{ path: status.repoPath, isDefault: status.repoPath === defaultWorktreePath },

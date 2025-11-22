@@ -43,19 +43,34 @@ export const enum RepositoryChange {
 	Unknown = -1,
 
 	// File watching required
+
+	/** Changes to the index */
 	Index = 0,
+	/** Changes to the HEAD */
 	Head = 1,
+	/** Changes to branches */
 	Heads = 2,
+	/** Changes to tags */
 	Tags = 3,
+	/** Changes to the stash */
 	Stash = 4,
+	/** Changes to remotes */
 	Remotes = 5,
+	/** Changes to worktrees */
 	Worktrees = 6,
+	/** Changes to config */
 	Config = 7,
+
 	/** Effectively a union of Cherry, Merge, Rebase, and Revert */
 	PausedOperationStatus = 8,
+
+	/** Changes to cherry-pick operations */
 	CherryPick = 9,
+	/** Changes to merge operations */
 	Merge = 10,
+	/** Changes to rebase operations */
 	Rebase = 11,
+	/** Changes to revert operations */
 	Revert = 12,
 
 	// No file watching required
@@ -251,6 +266,11 @@ export class Repository implements Disposable {
 		if (this._orderByLastFetched) {
 			void this.getLastFetched();
 		}
+
+		// Track initial access when repository is opened (not closed)
+		if (!closed) {
+			queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
+		}
 	}
 
 	dispose(): void {
@@ -280,6 +300,9 @@ export class Repository implements Disposable {
 				// This ensures views can clean up nodes for closed repositories before VS Code tries to render them
 				this.fireChange(RepositoryChange.Closed, true);
 			} else {
+				// Track access when repository is reopened
+				queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
+
 				this.fireChange(RepositoryChange.Opened);
 			}
 		}
@@ -393,6 +416,10 @@ export class Repository implements Disposable {
 
 				case 'REVERT_HEAD':
 					this.fireChange(RepositoryChange.Revert, RepositoryChange.PausedOperationStatus);
+					return;
+
+				case 'sequencer':
+					this.fireChange(RepositoryChange.PausedOperationStatus);
 					return;
 
 				case 'refs/heads':
@@ -985,6 +1012,8 @@ export class Repository implements Disposable {
 				', ',
 			)}`,
 		);
+
+		queueMicrotask(() => this.git.branches.onCurrentBranchModified?.());
 
 		this._onDidChangeFileSystem.fire(e);
 	}

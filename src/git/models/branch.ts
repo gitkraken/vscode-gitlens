@@ -48,6 +48,10 @@ export class GitBranch implements GitBranchReference {
 		public readonly refName: string,
 		public readonly current: boolean,
 		public readonly date: Date | undefined,
+		/** Timestamp when the branch was last accessed or modified */
+		public readonly lastAccessedDate: Date | undefined,
+		/** Timestamp when the branch was last modified (working changes / index) */
+		public readonly lastModifiedDate: Date | undefined,
 		public readonly sha?: string,
 		public readonly upstream?: GitTrackingUpstream,
 		public readonly worktree?: { path: string; isDefault: boolean } | false,
@@ -69,6 +73,28 @@ export class GitBranch implements GitBranchReference {
 
 	toString(): string {
 		return `${getLoggableName(this)}(${this.id})`;
+	}
+
+	/** @returns The most recent date among lastModifiedDate, lastAccessedDate, and branch.date */
+	get effectiveDate(): Date | undefined {
+		let maxTime: number | undefined;
+
+		const accessed = this.lastAccessedDate?.getTime();
+		if (accessed != null && (maxTime == null || accessed > maxTime)) {
+			maxTime = accessed;
+		}
+
+		const modified = this.lastModifiedDate?.getTime();
+		if (modified != null && (maxTime == null || modified > maxTime)) {
+			maxTime = modified;
+		}
+
+		const date = this.date?.getTime();
+		if (date != null && (maxTime == null || date > maxTime)) {
+			maxTime = date;
+		}
+
+		return maxTime != null ? new Date(maxTime) : undefined;
 	}
 
 	get formattedDate(): string {
