@@ -1,6 +1,6 @@
 import { ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
-import { RebaseError, RebaseErrorReason } from '../../git/errors';
+import { RebaseError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
@@ -95,24 +95,21 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			await state.repo.git.ops?.rebase?.(state.destination.ref, { interactive: interactive });
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the rebase
-			if (RebaseError.is(ex, RebaseErrorReason.Aborted)) {
+			if (RebaseError.is(ex, 'aborted')) {
 				Logger.log(ex.message, this.title);
 				return;
 			}
 
 			Logger.error(ex, this.title);
 
-			if (
-				RebaseError.is(ex, RebaseErrorReason.WorkingChanges) ||
-				RebaseError.is(ex, RebaseErrorReason.OverwrittenChanges)
-			) {
+			if (RebaseError.is(ex, 'uncommittedChanges') || RebaseError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
 					'Unable to rebase. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
 				return;
 			}
 
-			if (RebaseError.is(ex, RebaseErrorReason.Conflicts)) {
+			if (RebaseError.is(ex, 'conflicts')) {
 				void window.showWarningMessage(
 					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
 				);
@@ -120,7 +117,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (RebaseError.is(ex, RebaseErrorReason.InProgress)) {
+			if (RebaseError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
 					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
 				);

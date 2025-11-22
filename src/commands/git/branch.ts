@@ -1,6 +1,6 @@
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
-import { BranchError, BranchErrorReason } from '../../git/errors';
+import { BranchError } from '../../git/errors';
 import type { IssueShape } from '../../git/models/issue';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
@@ -481,14 +481,14 @@ export class BranchGitCommand extends QuickCommand {
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
-					if (BranchError.is(ex, BranchErrorReason.BranchAlreadyExists)) {
+					if (BranchError.is(ex, 'alreadyExists')) {
 						void window.showWarningMessage(
 							`Unable to create branch '${state.name}'. A branch with that name already exists.`,
 						);
 						return;
 					}
 
-					if (BranchError.is(ex, BranchErrorReason.InvalidBranchName)) {
+					if (BranchError.is(ex, 'invalidName')) {
 						void window.showWarningMessage(
 							`Unable to create branch '${state.name}'. The branch name is invalid.`,
 						);
@@ -654,7 +654,7 @@ export class BranchGitCommand extends QuickCommand {
 						}
 					}
 				} catch (ex) {
-					if (BranchError.is(ex, BranchErrorReason.BranchNotFullyMerged)) {
+					if (BranchError.is(ex, 'notFullyMerged')) {
 						const confirm = { title: 'Delete Branch' };
 						const cancel = { title: 'Cancel', isCloseAffordance: true };
 						const result = await window.showWarningMessage(

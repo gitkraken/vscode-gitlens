@@ -1,18 +1,7 @@
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
-import {
-	CherryPickError,
-	CherryPickErrorReason,
-	MergeError,
-	MergeErrorReason,
-	PushError,
-	PushErrorReason,
-	RebaseError,
-	RebaseErrorReason,
-	RevertError,
-	RevertErrorReason,
-} from '../../../../git/errors';
+import { CherryPickError, MergeError, PushError, RebaseError, RevertError } from '../../../../git/errors';
 import type { GitOperationsSubProvider } from '../../../../git/gitProvider';
 import type { GitBranchReference, GitReference } from '../../../../git/models/reference';
 import { getShaAndDatesLogParser } from '../../../../git/parsers/logParser';
@@ -26,7 +15,7 @@ import { join } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git, PushForceOptions } from '../git';
-import { GitErrors } from '../git';
+import { getGitCommandError } from '../git';
 import type { LocalGitProviderInternal } from '../localGitProvider';
 
 export class OperationsGitSubProvider implements GitOperationsSubProvider {
@@ -95,22 +84,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
 		} catch (ex) {
 			Logger.error(ex, scope);
-			const msg: string = ex?.toString() ?? '';
-
-			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
-			if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = CherryPickErrorReason.AbortedWouldOverwrite;
-			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = CherryPickErrorReason.Conflicts;
-			} else if (GitErrors.emptyPreviousCherryPick.test(msg)) {
-				reason = CherryPickErrorReason.EmptyCommit;
-			}
-
-			debugger;
-			throw new CherryPickError(reason, ex, revs, { repoPath: repoPath, args: args });
+			throw getGitCommandError(
+				'cherry-pick',
+				ex,
+				reason => new CherryPickError(reason ?? 'other', ex, revs, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 
@@ -181,25 +159,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			const msg: string = ex?.toString() ?? '';
-
-			let reason: MergeErrorReason = MergeErrorReason.Other;
-			if (GitErrors.uncommittedChanges.test(msg) || GitErrors.uncommittedChanges.test(ex.stderr ?? '')) {
-				reason = MergeErrorReason.WorkingChanges;
-			} else if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = MergeErrorReason.OverwrittenChanges;
-			} else if (GitErrors.mergeInProgress.test(msg) || GitErrors.mergeInProgress.test(ex.stdout ?? '')) {
-				reason = MergeErrorReason.InProgress;
-			} else if (GitErrors.unresolvedConflicts.test(msg) || GitErrors.unresolvedConflicts.test(ex.stdout ?? '')) {
-				reason = MergeErrorReason.Conflicts;
-			} else if (GitErrors.mergeAborted.test(msg) || GitErrors.mergeAborted.test(ex.stdout ?? '')) {
-				reason = MergeErrorReason.Aborted;
-			}
-
-			throw new MergeError(reason, ex, ref, { repoPath: repoPath, args: args });
+			throw getGitCommandError(
+				'merge',
+				ex,
+				reason => new MergeError(reason ?? 'other', ex, ref, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 
@@ -273,7 +237,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options?.publish == null && remoteName == null && upstreamName == null) {
 			debugger;
-			throw new PushError(PushErrorReason.Other);
+			throw new PushError('other');
 		}
 
 		let forceOpts: PushForceOptions | undefined;
@@ -321,8 +285,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	@log()
 	async rebase(
 		repoPath: string,
-		rev: string,
-		options?: { autoStash?: boolean; interactive?: boolean },
+		upstream: string,
+		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string },
 	): Promise<void> {
 		const scope = getLogScope();
 
@@ -340,7 +304,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			configs = ['-c', `sequence.editor=${editor}`];
 		}
 
-		args.push(rev);
+		if (options?.onto) {
+			args.push('--onto', options.onto);
+		}
+
+		args.push(upstream);
+
+		if (options?.branch) {
+			args.push(options.branch);
+		}
 
 		try {
 			await this.git.exec(
@@ -350,26 +322,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			);
 		} catch (ex) {
 			Logger.error(ex, scope);
-			const msg: string = ex?.toString() ?? '';
-
-			let reason: RebaseErrorReason = RebaseErrorReason.Other;
-			if (GitErrors.uncommittedChanges.test(msg) || GitErrors.uncommittedChanges.test(ex.stderr ?? '')) {
-				reason = RebaseErrorReason.WorkingChanges;
-			} else if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = RebaseErrorReason.OverwrittenChanges;
-			} else if (GitErrors.rebaseInProgress.test(msg) || GitErrors.rebaseInProgress.test(ex.stdout ?? '')) {
-				reason = RebaseErrorReason.InProgress;
-			} else if (GitErrors.unresolvedConflicts.test(msg) || GitErrors.unresolvedConflicts.test(ex.stdout ?? '')) {
-				reason = RebaseErrorReason.Conflicts;
-			} else if (GitErrors.rebaseAborted.test(msg) || GitErrors.rebaseAborted.test(ex.stdout ?? '')) {
-				reason = RebaseErrorReason.Aborted;
-			}
-
-			debugger;
-			throw new RebaseError(reason, ex, rev, { repoPath: repoPath, args: args });
+			throw getGitCommandError(
+				'rebase',
+				ex,
+				reason => new RebaseError(reason ?? 'other', ex, upstream, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 
@@ -413,25 +370,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			const msg: string = ex?.toString() ?? '';
 
-			let reason: RevertErrorReason = RevertErrorReason.Other;
-			if (GitErrors.uncommittedChanges.test(msg) || GitErrors.uncommittedChanges.test(ex.stderr ?? '')) {
-				reason = RevertErrorReason.WorkingChanges;
-			} else if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = RevertErrorReason.OverwrittenChanges;
-			} else if (GitErrors.revertInProgress.test(msg) || GitErrors.revertInProgress.test(ex.stdout ?? '')) {
-				reason = RevertErrorReason.InProgress;
-			} else if (GitErrors.unresolvedConflicts.test(msg) || GitErrors.unresolvedConflicts.test(ex.stdout ?? '')) {
-				reason = RevertErrorReason.Conflicts;
-			} else if (GitErrors.revertAborted.test(msg) || GitErrors.revertAborted.test(ex.stdout ?? '')) {
-				reason = RevertErrorReason.Aborted;
-			}
-
-			throw new RevertError(reason, ex, refs, { repoPath: repoPath, args: args });
+			throw getGitCommandError(
+				'revert',
+				ex,
+				reason => new RevertError(reason ?? 'other', ex, refs, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 }

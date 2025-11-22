@@ -1,7 +1,7 @@
 import { window } from 'vscode';
 import { showGitErrorMessage } from '../../messages';
 import { executeCommand } from '../../system/-webview/command';
-import { PausedOperationContinueError, PausedOperationContinueErrorReason } from '../errors';
+import { PausedOperationContinueError } from '../errors';
 import type { GitRepositoryService } from '../gitRepositoryService';
 import type { GitPausedOperationStatus } from '../models/pausedOperationStatus';
 import { getReferenceLabel } from '../utils/reference.utils';
@@ -26,10 +26,7 @@ async function continuePausedOperationCore(svc: GitRepositoryService, skip: bool
 	try {
 		return await svc.pausedOps?.continuePausedOperation?.(skip ? { skip: true } : undefined);
 	} catch (ex) {
-		if (
-			ex instanceof PausedOperationContinueError &&
-			ex.reason === PausedOperationContinueErrorReason.EmptyCommit
-		) {
+		if (PausedOperationContinueError.is(ex, 'emptyCommit')) {
 			// Use the operation status from the error - it's already accurate
 			// The previous code tried to wait for a repo change, but that would fire on the
 			// change event from the failed continue (not the skip), resulting in stale data

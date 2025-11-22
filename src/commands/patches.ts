@@ -7,12 +7,13 @@ import type { GlCommands } from '../constants.commands';
 import type { IntegrationIds } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
-import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
+import { ApplyPatchCommitError } from '../git/errors';
 import type { GitDiff } from '../git/models/diff';
 import type { Repository } from '../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { splitCommitMessage } from '../git/utils/commit.utils';
 import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
+import { showGitErrorMessage } from '../messages';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
 import type { Draft, LocalDraft } from '../plus/drafts/models/drafts';
@@ -320,14 +321,12 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		} catch (ex) {
 			if (ex instanceof CancellationError) return;
 
-			if (ex instanceof ApplyPatchCommitError) {
-				if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
-					void window.showWarningMessage('Patch applied with conflicts');
-				} else {
-					void window.showErrorMessage(ex.message);
-				}
+			if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
+				void window.showWarningMessage('Patch applied with conflicts');
+			} else if (ApplyPatchCommitError.is(ex)) {
+				void showGitErrorMessage(ex);
 			} else {
-				void window.showErrorMessage(`Unable to apply patch: ${ex.message}`);
+				void showGitErrorMessage(ex, `Unable to apply patch: ${ex.message}`);
 			}
 		}
 	}

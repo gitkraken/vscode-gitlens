@@ -1,6 +1,6 @@
 import { window } from 'vscode';
 import type { Container } from '../../container';
-import { RevertError, RevertErrorReason } from '../../git/errors';
+import { RevertError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
@@ -90,24 +90,21 @@ export class RevertGitCommand extends QuickCommand<State> {
 			await state.repo.git.ops?.revert(refs, options);
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the revert
-			if (RevertError.is(ex, RevertErrorReason.Aborted)) {
+			if (RevertError.is(ex, 'aborted')) {
 				Logger.log(ex.message, this.title);
 				return;
 			}
 
 			Logger.error(ex, this.title);
 
-			if (
-				RevertError.is(ex, RevertErrorReason.WorkingChanges) ||
-				RevertError.is(ex, RevertErrorReason.OverwrittenChanges)
-			) {
+			if (RevertError.is(ex, 'uncommittedChanges') || RevertError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
 					'Unable to revert. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
 				return;
 			}
 
-			if (RevertError.is(ex, RevertErrorReason.Conflicts)) {
+			if (RevertError.is(ex, 'conflicts')) {
 				void window.showWarningMessage(
 					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
 				);
@@ -115,7 +112,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (RevertError.is(ex, RevertErrorReason.InProgress)) {
+			if (RevertError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
 					'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
 				);

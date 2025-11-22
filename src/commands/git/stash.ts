@@ -3,7 +3,7 @@ import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { revealStash, showStashInDetailsView } from '../../git/actions/stash';
-import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
+import { StashApplyError, StashPushError } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
@@ -362,7 +362,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (StashApplyError.is(ex, StashApplyErrorReason.WorkingChanges)) {
+				if (StashApplyError.is(ex, 'uncommittedChanges')) {
 					void window.showWarningMessage(
 						'Unable to apply stash. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 					);
@@ -555,40 +555,36 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (ex instanceof StashPushError) {
-					if (ex.reason === StashPushErrorReason.NothingToSave) {
-						if (!state.flags.includes('--include-untracked')) {
-							confirmOverride = true;
-							void window.showWarningMessage(
-								'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
-							);
-							continue;
-						}
-
-						void window.showInformationMessage('No changes to stash.');
-						return;
-					}
-					if (
-						ex.reason === StashPushErrorReason.ConflictingStagedAndUnstagedLines &&
-						state.flags.includes('--staged')
-					) {
-						const confirm = { title: 'Stash Everything' };
-						const cancel = { title: 'Cancel', isCloseAffordance: true };
-						const result = await window.showErrorMessage(
-							`Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?`,
-							{ modal: true },
-							confirm,
-							cancel,
+				if (StashPushError.is(ex, 'nothingToSave')) {
+					if (!state.flags.includes('--include-untracked')) {
+						confirmOverride = true;
+						void window.showWarningMessage(
+							'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
 						);
-
-						if (result === confirm) {
-							state.uris ??= state.onlyStagedUris;
-							state.flags.splice(state.flags.indexOf('--staged'), 1);
-							continue;
-						}
-
-						return;
+						continue;
 					}
+
+					void window.showInformationMessage('No changes to stash.');
+					return;
+				}
+
+				if (StashPushError.is(ex, 'conflictingStagedAndUnstagedLines') && state.flags.includes('--staged')) {
+					const confirm = { title: 'Stash Everything' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showErrorMessage(
+						`Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?`,
+						{ modal: true },
+						confirm,
+						cancel,
+					);
+
+					if (result === confirm) {
+						state.uris ??= state.onlyStagedUris;
+						state.flags.splice(state.flags.indexOf('--staged'), 1);
+						continue;
+					}
+
+					return;
 				}
 
 				const msg: string = ex?.message ?? ex?.toString() ?? '';

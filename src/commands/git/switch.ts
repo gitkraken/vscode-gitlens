@@ -1,6 +1,6 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
-import { MergeError, MergeErrorReason } from '../../git/errors';
+import { MergeError } from '../../git/errors';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import {
@@ -111,7 +111,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
 			} catch (ex) {
 				// Don't show an error message if the user intentionally aborted the merge
-				if (MergeError.is(ex, MergeErrorReason.Aborted)) {
+				if (MergeError.is(ex, 'aborted')) {
 					Logger.log(ex.message, this.title);
 					return;
 				}
@@ -228,7 +228,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 							await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
 						} catch (ex) {
 							// Don't show an error message if the user intentionally aborted the merge
-							if (MergeError.is(ex, MergeErrorReason.Aborted)) {
+							if (MergeError.is(ex, 'aborted')) {
 								Logger.log(ex.message, this.title);
 							} else {
 								Logger.error(ex, this.title);

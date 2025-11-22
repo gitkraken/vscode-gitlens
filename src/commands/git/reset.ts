@@ -1,6 +1,6 @@
 import { window } from 'vscode';
 import type { Container } from '../../container';
-import { ResetError, ResetErrorReason } from '../../git/errors';
+import { ResetError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
@@ -87,11 +87,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		} catch (ex) {
 			Logger.error(ex, this.title);
 
-			if (
-				mode === 'keep' &&
-				(ResetError.is(ex, ResetErrorReason.EntryNotUpToDate) ||
-					ResetError.is(ex, ResetErrorReason.ChangesWouldBeOverwritten))
-			) {
+			if (mode === 'keep' && (ResetError.is(ex, 'notUpToDate') || ResetError.is(ex, 'wouldOverwriteChanges'))) {
 				void window.showWarningMessage(
 					'Unable to safely reset. Your local changes would be overwritten by the reset. Please commit or stash your changes before trying again.',
 				);

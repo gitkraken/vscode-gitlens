@@ -7,7 +7,7 @@ import type { Sources, WebviewTelemetryContext } from '../../../constants.teleme
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
-import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../../../git/errors';
+import { ApplyPatchCommitError } from '../../../git/errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitFileChange } from '../../../git/models/fileChange';
@@ -18,6 +18,7 @@ import type { GkRepositoryId } from '../../../git/models/repositoryIdentities';
 import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
 import { createReference } from '../../../git/utils/reference.utils';
 import { shortenRevision } from '../../../git/utils/revision.utils';
+import { showGitErrorMessage } from '../../../messages';
 import { showPatchesView } from '../../../plus/drafts/actions';
 import { getDraftEntityIdentifier } from '../../../plus/drafts/draftsService';
 import type {
@@ -500,14 +501,12 @@ export class PatchDetailsWebviewProvider
 			} catch (ex) {
 				if (ex instanceof CancellationError) return;
 
-				if (ex instanceof ApplyPatchCommitError) {
-					if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
-						void window.showWarningMessage('Patch applied with conflicts');
-					} else {
-						void window.showErrorMessage(ex.message);
-					}
+				if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
+					void window.showWarningMessage('Patch applied with conflicts');
+				} else if (ApplyPatchCommitError.is(ex)) {
+					void showGitErrorMessage(ex);
 				} else {
-					void window.showErrorMessage(`Unable to apply patch onto '${patch.baseRef}': ${ex.message}`);
+					void showGitErrorMessage(ex, `Unable to apply patch onto '${patch.baseRef}': ${ex.message}`);
 				}
 			}
 		}

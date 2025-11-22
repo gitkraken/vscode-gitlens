@@ -6,12 +6,7 @@ import { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
-import {
-	WorktreeCreateError,
-	WorktreeCreateErrorReason,
-	WorktreeDeleteError,
-	WorktreeDeleteErrorReason,
-} from '../../../../git/errors';
+import { WorktreeCreateError, WorktreeDeleteError } from '../../../../git/errors';
 import type { GitWorktreesSubProvider } from '../../../../git/gitProvider';
 import type { GitWorktree } from '../../../../git/models/worktree';
 import { parseGitWorktrees } from '../../../../git/parsers/worktreeParser';
@@ -72,11 +67,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			const gitCommand = { repoPath: repoPath, args: args };
 
 			if (GitErrors.alreadyCheckedOut.test(msg)) {
-				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex, gitCommand);
+				throw new WorktreeCreateError('alreadyCheckedOut', ex, gitCommand);
 			}
 
 			if (GitErrors.alreadyExists.test(msg)) {
-				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyExists, ex, gitCommand);
+				throw new WorktreeCreateError('alreadyExists', ex, gitCommand);
 			}
 
 			throw new WorktreeCreateError(undefined, ex, { repoPath: repoPath, args: args });
@@ -199,11 +194,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			const gitCommand = { repoPath: repoPath, args: args };
 
 			if (GitErrors.mainWorkingTree.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DefaultWorkingTree, ex, gitCommand);
+				throw new WorktreeDeleteError('defaultWorkingTree', ex, gitCommand);
 			}
 
 			if (GitErrors.uncommittedChanges.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex, gitCommand);
+				throw new WorktreeDeleteError('uncommittedChanges', ex, gitCommand);
 			}
 
 			if (GitErrors.failedToDeleteDirectoryNotEmpty.test(msg)) {
@@ -255,7 +250,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 						}
 					}
 
-					throw new WorktreeDeleteError(WorktreeDeleteErrorReason.DirectoryNotEmpty, ex, gitCommand);
+					throw new WorktreeDeleteError('directoryNotEmpty', ex, gitCommand);
 				}
 			}
 

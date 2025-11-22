@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
-import { StashApplyError, StashApplyErrorReason } from '../../../../git/errors';
+import { StashApplyError } from '../../../../git/errors';
 import type { GitStashSubProvider } from '../../../../git/gitProvider';
 import type { GitStashCommit, GitStashParentInfo } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
@@ -52,7 +52,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
 				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex, gitCommand);
+					throw new StashApplyError('uncommittedChanges', ex, gitCommand);
 				}
 
 				if (

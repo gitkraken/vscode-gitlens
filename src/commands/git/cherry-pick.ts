@@ -1,7 +1,7 @@
 import { window } from 'vscode';
 import type { Container } from '../../container';
 import { skipPausedOperation } from '../../git/actions/pausedOperation';
-import { CherryPickError, CherryPickErrorReason } from '../../git/errors';
+import { CherryPickError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
@@ -98,16 +98,22 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				},
 			);
 		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the cherry-pick
+			if (CherryPickError.is(ex, 'aborted')) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
 			Logger.error(ex, this.title);
 
-			if (CherryPickError.is(ex, CherryPickErrorReason.AbortedWouldOverwrite)) {
+			if (CherryPickError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
 					'Unable to cherry-pick. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
 				return;
 			}
 
-			if (CherryPickError.is(ex, CherryPickErrorReason.Conflicts)) {
+			if (CherryPickError.is(ex, 'conflicts')) {
 				void window.showWarningMessage(
 					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
 				);
@@ -115,7 +121,15 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (CherryPickError.is(ex, CherryPickErrorReason.EmptyCommit)) {
+			if (CherryPickError.is(ex, 'alreadyInProgress')) {
+				void window.showWarningMessage(
+					'Unable to cherry-pick. A cherry-pick is already in progress. Continue or abort the current cherry-pick first.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (CherryPickError.is(ex, 'emptyCommit')) {
 				let pausedOperation: GitPausedOperationStatus | undefined;
 				try {
 					pausedOperation = await state.repo.git.pausedOps?.getPausedOperationStatus?.();

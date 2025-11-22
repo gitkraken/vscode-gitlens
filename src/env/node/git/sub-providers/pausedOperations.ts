@@ -4,12 +4,7 @@ import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
-import {
-	PausedOperationAbortError,
-	PausedOperationAbortErrorReason,
-	PausedOperationContinueError,
-	PausedOperationContinueErrorReason,
-} from '../../../../git/errors';
+import { PausedOperationAbortError, PausedOperationContinueError } from '../../../../git/errors';
 import type { GitPausedOperationsSubProvider } from '../../../../git/gitProvider';
 import type {
 	GitCherryPickStatus,
@@ -357,7 +352,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noPausedOperation.test(msg)) {
 				throw new PausedOperationAbortError(
-					PausedOperationAbortErrorReason.NothingToAbort,
+					'nothingToAbort',
 					status.type,
 					`Cannot abort as there is no ${status.type} operation in progress`,
 					ex,
@@ -393,9 +388,9 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			const msg: string = ex?.toString() ?? '';
 			const gitCommand = { repoPath: repoPath, args: args };
 
-			if (GitErrors.emptyPreviousCherryPick.test(msg)) {
+			if (GitErrors.cherryPickEmptyPrevious.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.EmptyCommit,
+					'emptyCommit',
 					status,
 					`Cannot continue ${status.type} as the previous cherry-pick is empty`,
 					ex,
@@ -405,7 +400,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 			if (GitErrors.noPausedOperation.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.NothingToContinue,
+					'nothingToContinue',
 					status,
 					`Cannot ${options?.skip ? 'skip' : 'continue'} as there is no ${status.type} operation in progress`,
 					ex,
@@ -415,7 +410,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 			if (GitErrors.uncommittedChanges.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.UncommittedChanges,
+					'uncommittedChanges',
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are uncommitted changes`,
 					ex,
@@ -425,7 +420,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 			if (GitErrors.unmergedFiles.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.UnmergedFiles,
+					'unmergedFiles',
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unmerged files`,
 					ex,
@@ -435,7 +430,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 			if (GitErrors.unresolvedConflicts.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.UnresolvedConflicts,
+					'unresolvedConflicts',
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unresolved conflicts`,
 					ex,
@@ -445,7 +440,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 			if (GitErrors.unstagedChanges.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.UnstagedChanges,
+					'unstagedChanges',
 					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unstaged changes`,
 					ex,
@@ -455,7 +450,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 			if (GitErrors.changesWouldBeOverwritten.test(msg)) {
 				throw new PausedOperationContinueError(
-					PausedOperationContinueErrorReason.WouldOverwrite,
+					'wouldOverwriteChanges',
 					status,
 					`Cannot ${
 						options?.skip ? 'skip' : `continue ${status.type}`

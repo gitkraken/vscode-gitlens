@@ -3,10 +3,8 @@ import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
 import {
 	ApplyPatchCommitError,
-	ApplyPatchCommitErrorReason,
 	CheckoutError,
 	CherryPickError,
-	CherryPickErrorReason,
 	StashPushError,
 	WorktreeCreateError,
 } from '../../../../git/errors';
@@ -61,7 +59,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 				} catch (ex) {
 					Logger.error(ex, scope);
 					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.StashFailed,
+						'stashFailed',
 						`Unable to apply patch; failed stashing working changes changes${
 							ex instanceof StashPushError ? `: ${ex.message}` : ''
 						}`,
@@ -86,7 +84,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		if (options?.createWorktreePath != null) {
 			if (options?.branchName === null || options.branchName === currentBranch?.name) {
 				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+					'createWorktreeFailed',
 					'Unable to apply patch; failed creating worktree',
 				);
 			}
@@ -103,7 +101,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 				);
 				if (worktree == null) {
 					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+						'createWorktreeFailed',
 						'Unable to apply patch; failed creating worktree',
 					);
 				}
@@ -112,7 +110,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			} catch (ex) {
 				Logger.error(ex, scope);
 				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+					'createWorktreeFailed',
 					`Unable to apply patch; failed creating worktree${
 						ex instanceof WorktreeCreateError ? `: ${ex.message}` : ''
 					}`,
@@ -130,7 +128,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			} catch (ex) {
 				Logger.error(ex, scope);
 				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CheckoutFailed,
+					'checkoutFailed',
 					`Unable to apply patch; failed checking out branch '${options.branchName}'${
 						ex instanceof CheckoutError ? `: ${ex.message}` : ''
 					}`,
@@ -144,26 +142,20 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			await this.provider.ops.cherryPick(targetPath, [rev], { noCommit: true });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (ex instanceof CherryPickError) {
-				if (ex.reason === CherryPickErrorReason.Conflicts) {
-					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.AppliedWithConflicts,
-						`Patch applied with conflicts`,
-						ex,
-					);
-				}
+			if (CherryPickError.is(ex, 'conflicts')) {
+				throw new ApplyPatchCommitError('appliedWithConflicts', `Patch applied with conflicts`, ex);
+			}
 
-				if (ex.reason === CherryPickErrorReason.AbortedWouldOverwrite) {
-					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.ApplyAbortedWouldOverwrite,
-						`Unable to apply patch as some local changes would be overwritten`,
-						ex,
-					);
-				}
+			if (CherryPickError.is(ex, 'wouldOverwriteChanges')) {
+				throw new ApplyPatchCommitError(
+					'wouldOverwriteChanges',
+					`Unable to apply patch as some local changes would be overwritten`,
+					ex,
+				);
 			}
 
 			throw new ApplyPatchCommitError(
-				ApplyPatchCommitErrorReason.ApplyFailed,
+				'applyFailed',
 				`Unable to apply patch${ex instanceof CherryPickError ? `: ${ex.message}` : ''}`,
 				ex,
 			);

@@ -1,6 +1,6 @@
 import { ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
-import { MergeError, MergeErrorReason } from '../../git/errors';
+import { MergeError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
@@ -103,24 +103,21 @@ export class MergeGitCommand extends QuickCommand<State> {
 			await state.repo.git.ops?.merge(state.reference.ref, options);
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the merge
-			if (MergeError.is(ex, MergeErrorReason.Aborted)) {
+			if (MergeError.is(ex, 'aborted')) {
 				Logger.log(ex.message, this.title);
 				return;
 			}
 
 			Logger.error(ex, this.title);
 
-			if (
-				MergeError.is(ex, MergeErrorReason.WorkingChanges) ||
-				MergeError.is(ex, MergeErrorReason.OverwrittenChanges)
-			) {
+			if (MergeError.is(ex, 'uncommittedChanges') || MergeError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
 					'Unable to merge. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 				);
 				return;
 			}
 
-			if (MergeError.is(ex, MergeErrorReason.Conflicts)) {
+			if (MergeError.is(ex, 'conflicts')) {
 				void window.showWarningMessage(
 					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
 				);
@@ -128,7 +125,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (MergeError.is(ex, MergeErrorReason.InProgress)) {
+			if (MergeError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
 					'Unable to merge. A merge is already in progress. Continue or abort the current merge first.',
 				);
