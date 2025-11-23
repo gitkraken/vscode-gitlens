@@ -34,7 +34,7 @@ export interface ShowGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type RepositoryStepState<T extends State = State> = SomeNonNullable<
+type RepositoryStepState<T extends State = State> = RequireSomeNonNullable<
 	ExcludeSome<PartialStepState<T>, 'repo', string>,
 	'repo'
 >;
@@ -45,7 +45,7 @@ function assertStateStepRepository(state: PartialStepState<State>): asserts stat
 	throw new Error('Missing repository');
 }
 
-type CommitStepState = SomeNonNullable<RepositoryStepState<State<GitCommit | GitStashCommit>>, 'reference'>;
+type CommitStepState = RequireSomeNonNullable<RepositoryStepState<State<GitCommit | GitStashCommit>>, 'reference'>;
 function assertsStateStepCommit(state: RepositoryStepState): asserts state is CommitStepState {
 	if (isCommit(state.reference)) return;
 
@@ -53,7 +53,7 @@ function assertsStateStepCommit(state: RepositoryStepState): asserts state is Co
 	throw new Error('Missing reference');
 }
 
-type FileNameStepState = SomeNonNullable<CommitStepState, 'fileName'>;
+type FileNameStepState = RequireSomeNonNullable<CommitStepState, 'fileName'>;
 function assertsStateStepFileName(state: CommitStepState): asserts state is FileNameStepState {
 	if (state.fileName) return;
 

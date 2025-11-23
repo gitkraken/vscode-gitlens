@@ -30,7 +30,7 @@ interface State {
 	openPickInView?: boolean;
 }
 
-type RepositoryStepState<T extends State = State> = SomeNonNullable<
+type RepositoryStepState<T extends State = State> = RequireSomeNonNullable<
 	ExcludeSome<PartialStepState<T>, 'repo', string>,
 	'repo'
 >;

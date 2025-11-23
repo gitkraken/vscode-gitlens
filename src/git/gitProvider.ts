@@ -910,7 +910,7 @@ type GitSubProviders = {
 export type GitSubProvidersProps = keyof GitSubProviders;
 
 export type GitSubProviderForRepo<T extends GitSubProvider> = {
-	[K in keyof T]: RemoveFirstArg<T[K]>;
+	[K in keyof T]: OmitFirstArg<T[K]>;
 };
 
 export function createSubProviderProxyForRepo<T extends GitSubProvider, U extends GitSubProviderForRepo<T>>(

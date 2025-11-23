@@ -68,7 +68,7 @@ interface DeleteState {
 }
 
 type State = CreateState | DeleteState;
-type TagStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type TagStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type CreateStepState<T extends CreateState = CreateState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 type DeleteStepState<T extends DeleteState = DeleteState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 

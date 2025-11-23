@@ -155,7 +155,7 @@ interface CopyChangesState {
 }
 
 type State = CreateState | DeleteState | OpenState | CopyChangesState;
-type WorktreeStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type WorktreeStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type CreateStepState<T extends CreateState = CreateState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type DeleteStepState<T extends DeleteState = DeleteState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type OpenStepState<T extends OpenState = OpenState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;

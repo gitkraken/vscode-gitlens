@@ -108,7 +108,7 @@ interface UpstreamState {
 }
 
 type State = CreateState | DeleteState | PruneState | RenameState | UpstreamState;
-type BranchStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type BranchStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 
 type CreateStepState<T extends CreateState = CreateState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
 function assertStateStepCreate(state: PartialStepState<State>): asserts state is CreateStepState {

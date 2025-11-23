@@ -789,4 +789,4 @@ export interface GitStashCommit extends GitCommit {
 	readonly parentTimestamps?: GitStashParentInfo[];
 }
 
-export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;
+export type GitCommitWithFullDetails = GitCommit & RequireSomeNonNullable<GitCommit, 'message' | 'fileset'>;

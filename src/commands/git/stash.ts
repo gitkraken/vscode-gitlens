@@ -95,7 +95,7 @@ interface RenameState {
 }
 
 type State = ApplyState | DropState | ListState | PopState | PushState | RenameState;
-type StashStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type StashStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type ApplyStepState<T extends ApplyState = ApplyState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type DropStepState<T extends DropState = DropState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type ListStepState<T extends ListState = ListState> = StashStepState<ExcludeSome<T, 'repo', string>>;

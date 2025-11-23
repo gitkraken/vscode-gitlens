@@ -47,7 +47,7 @@ type GitSubProvidersForRepo = {
 };
 
 type IGitRepositoryService = GitSubProvidersForRepo & {
-	[K in Exclude<keyof GitRepositoryProvider, keyof GitSubProvidersForRepo>]: RemoveFirstArg<GitRepositoryProvider[K]>;
+	[K in Exclude<keyof GitRepositoryProvider, keyof GitSubProvidersForRepo>]: OmitFirstArg<GitRepositoryProvider[K]>;
 } & {
 	[K in Extract<
 		keyof GitProviderService,
@@ -57,7 +57,7 @@ type IGitRepositoryService = GitSubProvidersForRepo & {
 		| 'getRevisionUri'
 		| 'getWorkingUri'
 		| 'supports'
-	>]: RemoveFirstArg<GitProviderService[K]>;
+	>]: OmitFirstArg<GitProviderService[K]>;
 } & {
 	[K in Extract<keyof GitProviderService, 'getAbsoluteUri' | 'getRelativePath'>]: GitProviderService[K];
 };
