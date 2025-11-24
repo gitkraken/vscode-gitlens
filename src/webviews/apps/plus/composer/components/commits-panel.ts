@@ -1371,7 +1371,7 @@ export class CommitsPanel extends LitElement {
 								<div class="composer-item__body">
 									<span class="repo-name">${this.repoName || 'Repository'}</span>
 									${this.baseCommit?.branchName
-										? html`<span>/</span
+										? html`<span>/ </span
 												><span class="branch-name">${this.baseCommit.branchName}</span>`
 										: ''}
 								</div>
