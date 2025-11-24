@@ -831,7 +831,7 @@ export class PatchDetailsWebviewProvider
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			if (commit == null) throw new Error('Unable to find commit');
 
-			const deferredResult = await this.container.ai.explainCommit(
+			const deferredResult = await this.container.ai.actions.explainCommit(
 				commit,
 				{ source: 'patchDetails', context: { type: `draft-${this._context.draft.type}` } },
 				{ progress: { location: { viewId: this.host.id } } },
@@ -847,7 +847,7 @@ export class PatchDetailsWebviewProvider
 
 			if (result == null) throw new Error('Error retrieving content');
 
-			params = { result: result.parsed };
+			params = { result: result.result };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -882,7 +882,7 @@ export class PatchDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const result = await this.container.ai.generateCreateDraft(
+			const result = await this.container.ai.actions.generateCreateDraft(
 				repo,
 				{ source: 'patchDetails', context: { type: 'patch' } },
 				{ progress: { location: { viewId: this.host.id } } },
@@ -892,8 +892,8 @@ export class PatchDetailsWebviewProvider
 			if (result == null) throw new Error('Error retrieving content');
 
 			params = {
-				title: result.parsed.summary,
-				description: result.parsed.body,
+				title: result.result.summary,
+				description: result.result.body,
 			};
 		} catch (ex) {
 			debugger;

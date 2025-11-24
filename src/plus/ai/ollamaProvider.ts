@@ -4,7 +4,7 @@ import { uuid } from '@env/crypto';
 import { ollamaProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
-import type { AIChatMessage, AIRequestResult } from './models/provider';
+import type { AIChatMessage, AIProviderResponse } from './models/provider';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 import { ensureAccount, ensureOrgConfiguredUrl, getOrgAIProviderOfType } from './utils/-webview/ai.utils';
 
@@ -207,7 +207,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
 		cancellation?: CancellationToken,
-	): Promise<AIRequestResult> {
+	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
 
@@ -262,6 +262,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 						completionTokens: data.eval_count ?? 0,
 						totalTokens: (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0),
 					},
+					result: undefined,
 				};
 			} catch (err) {
 				throw new Error(`Failed to parse Ollama response: ${err instanceof Error ? err.message : String(err)}`);

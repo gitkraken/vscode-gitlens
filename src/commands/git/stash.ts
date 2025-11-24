@@ -669,7 +669,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							() => (input.validationMessage = undefined),
 						);
 
-						const result = await this.container.ai.generateStashMessage(
+						const result = await this.container.ai.actions.generateStashMessage(
 							diff.contents,
 							{ source: 'quick-wizard' },
 							{ generating: generating },
@@ -680,7 +680,7 @@ export class StashGitCommand extends QuickCommand<State> {
 
 						if (result === 'cancelled') return;
 
-						const message = result?.parsed.summary;
+						const message = result?.result.summary;
 						if (message != null) {
 							state.message = message;
 							input.value = message;

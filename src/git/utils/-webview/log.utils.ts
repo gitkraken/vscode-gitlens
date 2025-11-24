@@ -1,6 +1,6 @@
 import type { Autolink } from '../../../autolinks/models/autolinks';
 import type { Container } from '../../../container';
-import type { AIGenerateChangelogChange, AIGenerateChangelogChanges } from '../../../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChange, AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog';
 import { filterMap, map } from '../../../system/iterable';
 import { getSettledValue } from '../../../system/promise';
 import type { IssueOrPullRequest } from '../../models/issueOrPullRequest';

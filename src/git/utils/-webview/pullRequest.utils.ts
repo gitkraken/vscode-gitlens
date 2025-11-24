@@ -29,7 +29,7 @@ export async function describePullRequestWithAI(
 	}
 
 	try {
-		const result = await container.ai.generateCreatePullRequest(
+		const result = await container.ai.actions.generateCreatePullRequest(
 			repo,
 			`${base.remote.name}/${base.branch}`,
 			`${head.remote.name}/${head.branch}`,
@@ -41,7 +41,7 @@ export async function describePullRequestWithAI(
 		);
 		if (result === 'cancelled') return undefined;
 
-		return result?.parsed ? { title: result.parsed.summary, description: result.parsed.body } : undefined;
+		return result?.result ? { title: result.result.summary, description: result.result.body } : undefined;
 	} catch (ex) {
 		void window.showErrorMessage(ex.message);
 		return undefined;

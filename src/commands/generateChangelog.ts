@@ -6,7 +6,7 @@ import type { GitReference } from '../git/models/reference';
 import { getChangesForChangelog } from '../git/utils/-webview/log.utils';
 import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
-import type { AIGenerateChangelogChanges } from '../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChanges } from '../plus/ai/actions/generateChangelog';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { command } from '../system/-webview/command';
@@ -94,8 +94,7 @@ export async function generateChangelogAndOpenMarkdownDocument(
 	source: Source,
 	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 ): Promise<void> {
-	const result = await container.ai.generateChangelog(changes, source, options);
-
+	const result = await container.ai.actions.generateChangelog(changes, source, options);
 	if (result === 'cancelled') return;
 
 	const { range, changes: { length: count } = [] } = await changes.value;
@@ -114,7 +113,7 @@ export async function generateChangelogAndOpenMarkdownDocument(
 			content += '*Your feedback helps us improve our AI features.*';
 		}
 
-		content += `\n\n----\n\n${result.content}\n`;
+		content += `\n\n----\n\n${result.result}\n`;
 	} else {
 		content += `> No changes found between ${range.head.label ?? range.head.ref} and ${
 			range.base.label ?? range.base.ref

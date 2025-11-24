@@ -94,7 +94,7 @@ export class ExplainWipCommand extends ExplainCommandBase {
 			}
 
 			// Call the AI service to explain the changes
-			const result = await this.container.ai.explainChanges(
+			const result = await this.container.ai.actions.explainChanges(
 				{
 					diff: diff.contents,
 					message: `${capitalize(label)} changes in ${repoName}`,

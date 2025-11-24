@@ -690,7 +690,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	@gate()
-	async isPushed(): Promise<boolean> {
+	isPushed(): Promise<boolean> {
 		return this.container.git.getRepositoryService(this.repoPath).commits.hasCommitBeenPushed(this.ref);
 	}
 

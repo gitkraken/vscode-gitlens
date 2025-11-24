@@ -1211,7 +1211,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const result = await this.container.ai.generateCreateDraft(
+			const result = await this.container.ai.actions.generateCreateDraft(
 				repo,
 				{ source: 'inspect', context: { type: 'suggested_pr_change' } },
 				{ progress: { location: { viewId: this.host.id } } },
@@ -1221,8 +1221,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			if (result == null) throw new Error('Error retrieving content');
 
 			params = {
-				title: result.parsed.summary,
-				description: result.parsed.body,
+				title: result.result.summary,
+				description: result.result.body,
 			};
 		} catch (ex) {
 			debugger;

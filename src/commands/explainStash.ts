@@ -64,7 +64,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				}
 			}
 
-			const result = await this.container.ai.explainCommit(
+			const result = await this.container.ai.actions.explainCommit(
 				commit,
 				{
 					...args.source,

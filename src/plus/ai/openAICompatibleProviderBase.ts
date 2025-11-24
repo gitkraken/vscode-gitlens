@@ -10,7 +10,7 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
-import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from './models/provider';
 import {
 	getActionName,
 	getOrgAIProviderOfType,
@@ -91,7 +91,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		apiKey: string,
 		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
-	): Promise<AIRequestResult | undefined> {
+	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		try {
@@ -125,7 +125,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
 		cancellation?: CancellationToken,
-	): Promise<AIRequestResult> {
+	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
 
@@ -151,7 +151,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			}
 
 			const data: ChatCompletionResponse = await rsp.json();
-			const result: AIRequestResult = {
+			const result: AIProviderResponse<void> = {
 				id: data.id ?? uuid(),
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
 				model: model,
@@ -168,6 +168,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 								}
 							: undefined,
 				},
+				result: undefined,
 			};
 			return result;
 		}

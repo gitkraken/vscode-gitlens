@@ -78,7 +78,7 @@ export class ExplainCommitCommand extends ExplainCommandBase {
 			}
 
 			// Call the AI service to explain the commit
-			const result = await this.container.ai.explainCommit(
+			const result = await this.container.ai.actions.explainCommit(
 				commit,
 				{
 					...args.source,

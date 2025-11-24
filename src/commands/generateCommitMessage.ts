@@ -66,7 +66,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
-			const result = await this.container.ai.generateCommitMessage(
+			const result = await this.container.ai.actions.generateCommitMessage(
 				repo,
 				{ source: args?.source ?? 'commandPalette' },
 				{
@@ -77,8 +77,8 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (result == null || result === 'cancelled') return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}${
-				result.parsed.body ? `\n\n${result.parsed.body}` : ''
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.result.summary}${
+				result.result.body ? `\n\n${result.result.body}` : ''
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');

@@ -6,7 +6,8 @@ import type { MarkdownContentMetadata } from '../documents/markdown';
 import { getMarkdownHeaderContent } from '../documents/markdown';
 import type { GitRepositoryService } from '../git/gitRepositoryService';
 import { GitUri } from '../git/gitUri';
-import type { AIExplainSourceContext, AIResultContext, AISummarizeResult } from '../plus/ai/aiProviderService';
+import type { AIExplainSourceContext } from '../plus/ai/actions/explainChanges';
+import type { AIResponse, AIResultContext } from '../plus/ai/aiProviderService';
 import type { AIModel } from '../plus/ai/models/model';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -62,7 +63,7 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 	 * Opens a document immediately with loading state, then updates it when AI content is ready
 	 */
 	protected openDocument(
-		aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined>,
+		aiPromise: Promise<AIResponse<{ summary: string; body: string }> | 'cancelled' | undefined>,
 		path: string,
 		model: AIModel,
 		feature: string,
@@ -99,7 +100,7 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 	 */
 	private async updateDocumentWhenReady(
 		documentUri: Uri,
-		aiPromise: Promise<AISummarizeResult | 'cancelled' | undefined>,
+		aiPromise: Promise<AIResponse<{ summary: string; body: string }> | 'cancelled' | undefined>,
 		metadata: MarkdownContentMetadata,
 	): Promise<void> {
 		try {
@@ -133,13 +134,13 @@ export abstract class ExplainCommandBase extends GlCommandBase {
 	 */
 	private updateDocumentWithResult(
 		documentUri: Uri,
-		result: AISummarizeResult,
+		result: AIResponse<{ summary: string; body: string }>,
 		metadata: MarkdownContentMetadata,
 	): void {
 		const context = getAIResultContext(result);
 		const metadataWithContext: MarkdownContentMetadata = { ...metadata, context: context };
 		const headerContent = getMarkdownHeaderContent(metadataWithContext, this.container.telemetry.enabled);
-		const content = `${headerContent}\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
+		const content = `${headerContent}\n\n${result.result.summary}\n\n${result.result.body}`;
 
 		// Store the AI result context in the feedback provider for documents that cannot store it in their URI
 		this.container.aiFeedback.setMarkdownDocument(documentUri.toString(), context);

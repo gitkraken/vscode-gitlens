@@ -10,7 +10,7 @@ import type { GitReference, GitStashReference } from '../git/models/reference';
 import { uncommitted } from '../git/models/revision';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
-import type { AIRebaseResult } from '../plus/ai/aiProviderService';
+import type { AIRebaseResult } from '../plus/ai/actions/generateRebase';
 import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { command, executeCommand } from '../system/-webview/command';
@@ -290,12 +290,12 @@ export async function generateRebase(
 	const { title, ...aiOptions } = options ?? {};
 
 	const repo = svc.getRepository()!;
-	const result = await container.ai.generateRebase(repo, base.ref, head.ref, source, aiOptions);
+	const result = await container.ai.actions.generateRebase(repo, base.ref, head.ref, source, aiOptions);
 	if (result == null || result === 'cancelled') return;
 
 	try {
 		// Extract the diff information from the reorganized commits
-		const diffInfo = extractRebaseDiffInfo(result.commits, result.diff, result.hunkMap);
+		const diffInfo = extractRebaseDiffInfo(result.result.commits, result.result.diff, result.result.hunkMap);
 
 		// Generate the markdown content that shows each commit and its diffs
 		const { content, metadata } = generateRebaseMarkdown(result, title, container.telemetry.enabled);
@@ -413,55 +413,57 @@ export async function generateRebase(
  * Extracts the diff information from reorganized commits
  */
 export function extractRebaseDiffInfo(
-	commits: AIRebaseResult['commits'],
+	commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[],
 	originalDiff: string,
 	hunkMap: { index: number; hunkHeader: string }[],
 ): RebaseDiffInfo[] {
-	return commits.map(commit => {
-		// Group hunks by file (diff header)
-		const filePatches = new Map<string, string[]>();
-		for (const { hunk: hunkIndex } of commit.hunks) {
-			if (hunkIndex < 1 || hunkIndex > hunkMap.length) continue;
-			const matchingHunk = hunkMap[hunkIndex - 1];
-			// find the index of the hunk header in the original diff
-			const hunkHeaderIndex = originalDiff.indexOf(matchingHunk.hunkHeader);
-			// extract the matching file diff header from the original diff
-			const diffLines = originalDiff.substring(0, hunkHeaderIndex).split('\n').reverse();
-			const diffHeaderIndex = diffLines.findIndex(line => line.startsWith('diff --git'));
-			const lastHunkHeaderIndex = diffLines
-				.slice(0, diffHeaderIndex)
-				.findLastIndex(line => line.startsWith('@@ -'));
-			let diffHeader = diffLines
-				.slice(lastHunkHeaderIndex > -1 ? lastHunkHeaderIndex + 1 : 0, diffHeaderIndex + 1)
-				.reverse()
-				.join('\n');
-			if (lastHunkHeaderIndex > -1) {
-				diffHeader += '\n';
-			}
-			if (diffHeader === '') continue;
-			if (!filePatches.has(diffHeader)) {
-				filePatches.set(diffHeader, []);
+	return commits.map(
+		(commit: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }) => {
+			// Group hunks by file (diff header)
+			const filePatches = new Map<string, string[]>();
+			for (const { hunk: hunkIndex } of commit.hunks) {
+				if (hunkIndex < 1 || hunkIndex > hunkMap.length) continue;
+				const matchingHunk = hunkMap[hunkIndex - 1];
+				// find the index of the hunk header in the original diff
+				const hunkHeaderIndex = originalDiff.indexOf(matchingHunk.hunkHeader);
+				// extract the matching file diff header from the original diff
+				const diffLines = originalDiff.substring(0, hunkHeaderIndex).split('\n').reverse();
+				const diffHeaderIndex = diffLines.findIndex(line => line.startsWith('diff --git'));
+				const lastHunkHeaderIndex = diffLines
+					.slice(0, diffHeaderIndex)
+					.findLastIndex(line => line.startsWith('@@ -'));
+				let diffHeader = diffLines
+					.slice(lastHunkHeaderIndex > -1 ? lastHunkHeaderIndex + 1 : 0, diffHeaderIndex + 1)
+					.reverse()
+					.join('\n');
+				if (lastHunkHeaderIndex > -1) {
+					diffHeader += '\n';
+				}
+				if (diffHeader === '') continue;
+				if (!filePatches.has(diffHeader)) {
+					filePatches.set(diffHeader, []);
+				}
+
+				// Find the hunk content in the original diff
+				const hunkContent = extractHunkContent(originalDiff, diffHeader, matchingHunk.hunkHeader);
+				if (hunkContent) {
+					filePatches.get(diffHeader)!.push(hunkContent);
+				}
 			}
 
-			// Find the hunk content in the original diff
-			const hunkContent = extractHunkContent(originalDiff, diffHeader, matchingHunk.hunkHeader);
-			if (hunkContent) {
-				filePatches.get(diffHeader)!.push(hunkContent);
+			let commitPatch = '';
+			for (const [header, hunks] of filePatches.entries()) {
+				commitPatch += `${header.trim()}${hunks.map(h => (h.startsWith('\n') ? h : `\n${h}`)).join('')}\n`;
 			}
-		}
 
-		let commitPatch = '';
-		for (const [header, hunks] of filePatches.entries()) {
-			commitPatch += `${header.trim()}${hunks.map(h => (h.startsWith('\n') ? h : `\n${h}`)).join('')}\n`;
-		}
-
-		return {
-			message: commit.message,
-			// explanation: commit.explanation,
-			filePatches: filePatches,
-			patch: commitPatch,
-		};
-	});
+			return {
+				message: commit.message,
+				// explanation: commit.explanation,
+				filePatches: filePatches,
+				patch: commitPatch,
+			};
+		},
+	);
 }
 
 /**
@@ -478,7 +480,7 @@ function generateRebaseMarkdown(
 	};
 
 	let markdown = '';
-	if (!result.commits.length) {
+	if (!result.result.commits.length) {
 		markdown = 'No Commits Generated';
 
 		return {
@@ -486,7 +488,7 @@ function generateRebaseMarkdown(
 			metadata: metadata,
 		};
 	}
-	const { commits, diff: originalDiff, hunkMap } = result;
+	const { commits, diff: originalDiff, hunkMap } = result.result;
 
 	let explanations =
 		"Okay, here's the breakdown of the commits created from the provided changes, along with explanations for each:\n\n";
@@ -517,7 +519,7 @@ function generateRebaseMarkdown(
 				.substring(0, hunkHeaderIndex)
 				.split('\n')
 				.reverse()
-				.find(line => line.startsWith('diff --git'));
+				.find((line: string) => line.startsWith('diff --git'));
 			if (diffHeader == null) continue;
 			if (!fileHunks.has(diffHeader)) {
 				fileHunks.set(diffHeader, []);

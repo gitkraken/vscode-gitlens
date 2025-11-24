@@ -1008,7 +1008,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}));
 
 			// Call the AI service
-			const result = await this.container.ai.generateCommits(
+			const result = await this.container.ai.actions.generateCommits(
 				hunks,
 				existingCommits,
 				this._hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
@@ -1175,7 +1175,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Call the AI service to generate commit message
-			const result = await this.container.ai.generateCommitMessage(
+			const result = await this.container.ai.actions.generateCommitMessage(
 				patch,
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
@@ -1195,9 +1195,9 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (result && result !== 'cancelled') {
 				// Combine summary and body into a single message
-				const message = result.parsed.body
-					? `${result.parsed.summary}\n\n${result.parsed.body}`
-					: result.parsed.summary;
+				const message = result.result.body
+					? `${result.result.summary}\n\n${result.result.body}`
+					: result.result.summary;
 
 				// Notify the webview with the generated commit message
 				this.sendTelemetryEvent('composer/action/generateCommitMessage', eventData);

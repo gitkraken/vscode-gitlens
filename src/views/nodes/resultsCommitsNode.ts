@@ -5,7 +5,7 @@ import { isStash } from '../../git/models/commit';
 import type { GitRevisionRange } from '../../git/models/revision';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getChangesForChangelog } from '../../git/utils/-webview/log.utils';
-import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChanges } from '../../plus/ai/actions/generateChangelog';
 import { configuration } from '../../system/-webview/configuration';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

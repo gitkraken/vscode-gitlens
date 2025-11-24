@@ -3,7 +3,7 @@ import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
-import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
+import { prepareCompareDataForAIRequest } from '../plus/ai/utils/-webview/ai.utils';
 import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
@@ -112,7 +112,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			};
 
 			// Call the AI service to explain the changes
-			const result = await this.container.ai.explainChanges(
+			const result = await this.container.ai.actions.explainChanges(
 				changes,
 				{
 					...args.source,
