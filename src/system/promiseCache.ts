@@ -7,8 +7,15 @@ interface CacheEntry<V> {
 	accessTTL: number | undefined;
 }
 
-export interface Cancellable {
-	cancelled(): void;
+export class CacheController {
+	#invalidated = false;
+	get invalidated(): boolean {
+		return this.#invalidated;
+	}
+
+	invalidate(): void {
+		this.#invalidated = true;
+	}
 }
 
 interface PromiseCacheOptions {
@@ -32,7 +39,7 @@ export class PromiseCache<K, V> {
 
 	async getOrCreate(
 		key: K,
-		factory: (cancellable: Cancellable) => Promise<V>,
+		factory: (cacheable: CacheController) => Promise<V>,
 		options?: {
 			/** TTL (time-to-live) in milliseconds since creation */
 			createTTL?: number;
@@ -56,10 +63,10 @@ export class PromiseCache<K, V> {
 			return entry.promise;
 		}
 
-		let cancelled = false;
-		const promise = factory({ cancelled: () => (cancelled = true) });
+		const cacheable = new CacheController();
+		const promise = factory(cacheable);
 		void promise.finally(() => {
-			if (cancelled) {
+			if (cacheable.invalidated) {
 				this.cache.delete(key);
 			}
 		});
@@ -152,15 +159,15 @@ export class PromiseMap<K, V> {
 	 * Gets a promise from the cache or creates a new one using the factory function.
 	 * Failed promises are automatically removed from the cache.
 	 */
-	getOrCreate(key: K, factory: (cancellable: Cancellable) => Promise<V>): Promise<V> {
+	getOrCreate(key: K, factory: (cacheable: CacheController) => Promise<V>): Promise<V> {
 		let promise = this.cache.get(key);
 		if (promise == null) {
-			let cancelled = false;
-			promise = factory({ cancelled: () => (cancelled = true) });
+			const cacheable = new CacheController();
+			promise = factory(cacheable);
 			// Automatically remove failed promises from the cache
 			promise.catch(() => this.cache.delete(key));
 			void promise.finally(() => {
-				if (cancelled) {
+				if (cacheable.invalidated) {
 					this.cache.delete(key);
 				}
 			});
@@ -283,7 +290,7 @@ export class RepoPromiseCacheMap<K, V> {
 	getOrCreate(
 		repoPath: string,
 		key: K,
-		factory: (cancellable: Cancellable) => Promise<V>,
+		factory: (cacheable: CacheController) => Promise<V>,
 		options?: {
 			/** TTL (time-to-live) in milliseconds since creation */
 			createTTL?: number;
@@ -358,7 +365,7 @@ export class RepoPromiseMap<K, V> {
 	 * @param key - The cache key within the repository (inner key)
 	 * @param factory - Factory function to create the value if not cached
 	 */
-	getOrCreate(repoPath: string, key: K, factory: (cancellable: Cancellable) => Promise<V>): Promise<V> {
+	getOrCreate(repoPath: string, key: K, factory: (cacheable: CacheController) => Promise<V>): Promise<V> {
 		let repoCache = this.cache.get(repoPath);
 		if (repoCache == null) {
 			repoCache = new PromiseMap<K, V>();

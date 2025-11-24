@@ -92,7 +92,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 							cursor = result.paging.cursor;
 						}
 					} catch (ex) {
-						cancellable.cancelled();
+						cancellable.invalidate();
 						Logger.error(ex, scope);
 						debugger;
 

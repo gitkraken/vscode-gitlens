@@ -12,7 +12,7 @@ import { isUserMatch } from '../../../../../git/utils/user.utils';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
-import type { Cancellable } from '../../../../../system/promiseCache';
+import type { CacheController } from '../../../../../system/promiseCache';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
@@ -40,7 +40,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable): Promise<GitContributorsResult> => {
+		const getCore = async (cacheable?: CacheController): Promise<GitContributorsResult> => {
 			const contributors: GitContributor[] = [];
 
 			try {
@@ -195,7 +195,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					cancelled: cancellation?.isCancellationRequested ? { reason: 'cancelled' } : undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				debugger;
 

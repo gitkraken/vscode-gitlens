@@ -50,7 +50,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 				);
 				return remotes;
 			} catch (ex) {
-				cancellable.cancelled();
+				cancellable.invalidate();
 				Logger.error(ex, scope);
 				return [];
 			}

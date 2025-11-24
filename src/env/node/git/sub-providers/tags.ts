@@ -80,7 +80,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 				return { values: tags };
 			} catch (ex) {
-				cancellable.cancelled();
+				cancellable.invalidate();
 				Logger.error(ex, scope);
 				if (isCancellationError(ex)) throw ex;
 

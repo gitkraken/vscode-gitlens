@@ -14,7 +14,7 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { normalizePath } from '../../../../system/path';
-import type { Cancellable } from '../../../../system/promiseCache';
+import type { CacheController } from '../../../../system/promiseCache';
 import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { Git } from '../git';
 import { gitConfigsLog } from '../git';
@@ -46,7 +46,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable): Promise<GitContributorsResult> => {
+		const getCore = async (cacheable?: CacheController): Promise<GitContributorsResult> => {
 			const contributors = new Map<string, GitContributor>();
 
 			try {
@@ -95,7 +95,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 				for await (const c of parser.parseAsync(stream)) {
 					if (signal?.aborted || cancellation?.isCancellationRequested) {
-						cancellable?.cancelled();
+						cacheable?.invalidate();
 						break;
 					}
 
@@ -176,7 +176,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 							: undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				debugger;
 
@@ -234,7 +234,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			options = { ...options, all: true };
 		}
 
-		const getCore = async (cancellable?: Cancellable) => {
+		const getCore = async (cacheable?: CacheController) => {
 			try {
 				// eventually support `--group=author --group=trailer:co-authored-by`
 				const args = ['shortlog', '-s', '-e', '-n'];
@@ -262,7 +262,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				const shortlog = parseShortlog(result.stdout, repoPath, await currentUserPromise);
 				return shortlog.contributors;
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				debugger;
 

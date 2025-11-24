@@ -54,7 +54,7 @@ import { filterMap, first, join, last, some } from '../../../../system/iterable'
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
-import type { Cancellable } from '../../../../system/promiseCache';
+import type { CacheController } from '../../../../system/promiseCache';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
@@ -183,7 +183,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable) => {
+		const getCore = async (cacheable?: CacheController) => {
 			try {
 				// Use for-each-ref with %(HEAD) to mark current branch with *
 				const result = await this.git.exec(
@@ -242,7 +242,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 				return { refs: refs };
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				debugger;
 				if (isCancellationError(ex)) throw ex;
 

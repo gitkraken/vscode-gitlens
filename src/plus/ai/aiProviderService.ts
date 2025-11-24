@@ -1101,7 +1101,7 @@ export class AIProviderService implements AIService, Disposable {
 					variables: result.data.variables as (keyof PromptTemplateContext<T>)[],
 				} satisfies PromptTemplate<T>;
 			} catch (ex) {
-				cancellable.cancelled();
+				cancellable.invalidate();
 				if (!(ex instanceof AuthenticationRequiredError)) {
 					debugger;
 					Logger.error(ex, scope, String(ex));
