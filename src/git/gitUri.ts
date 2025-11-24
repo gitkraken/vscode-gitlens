@@ -10,7 +10,7 @@ import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
 import { isVirtualUri } from '../system/-webview/vscode/uris';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
-import { basename, normalizePath } from '../system/path';
+import { arePathsEqual, basename, normalizePath } from '../system/path';
 import type { UriComponents } from '../system/uri';
 import { areUrisEqual } from '../system/uri';
 import type { RevisionUriData } from './gitProvider';
@@ -255,7 +255,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		if (uri.scheme === Schemes.File && configuration.get('advanced.resolveSymlinks')) {
 			try {
 				const realPath = await realpath(uri.fsPath);
-				if (uri.fsPath !== realPath) {
+				if (!arePathsEqual(uri.fsPath, realPath)) {
 					uri = Uri.file(realPath);
 				}
 			} catch {
