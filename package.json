@@ -5445,12 +5445,15 @@
 						"scope": "window",
 						"order": 110
 					},
-					"gitlens.advanced.realpath": {
+					"gitlens.advanced.resolveSymlinks": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "[Experimental] Specifies whether to resolve symbolic links when determining file paths for Git operations",
+						"markdownDescription": "Specifies whether to resolve symbolic links when determining file paths for Git operations",
 						"scope": "window",
-						"order": 115
+						"order": 115,
+						"tags": [
+							"experimental"
+						]
 					},
 					"gitlens.advanced.commits.delayLoadingFileDetails": {
 						"type": "boolean",
