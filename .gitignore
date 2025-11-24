@@ -11,4 +11,5 @@ images/settings
 gitlens-*.vsix
 product.json
 tsconfig*.tsbuildinfo
+*.code-workspace
 localdev*.instructions.md
