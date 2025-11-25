@@ -136,7 +136,7 @@ export const diff2htmlStyles = css`
 	}
 	.d2h-file-header.d2h-sticky-header {
 		position: sticky;
-		top: 0;
+		top: var(--file-header-sticky-top, 0);
 		z-index: 1;
 	}
 	.d2h-file-stats {

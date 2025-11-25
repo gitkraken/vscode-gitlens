@@ -56,6 +56,11 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 3.2rem;
+				--commit-message-sticky-top: 0;
+			}
+
+			.change-details gl-commit-message {
+				--sticky-top: var(--commit-message-sticky-top);
 			}
 
 			.change-details {
@@ -257,9 +262,13 @@ export class DetailsPanel extends LitElement {
 	private draggedHunkIds: string[] = [];
 	private autoScrollInterval?: number;
 	private dragOverCleanupTimeout?: number;
+	private commitMessageResizeObserver?: ResizeObserver;
 
 	@query('.details-panel')
 	private detailsPanel!: HTMLDivElement;
+
+	@query('.changes-list')
+	private changesList?: HTMLDivElement;
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		super.updated(changedProperties);
@@ -274,6 +283,33 @@ export class DetailsPanel extends LitElement {
 			this.initializeHunksSortable();
 			this.setupAutoScroll();
 		}
+
+		if (changedProperties.has('selectedCommits')) {
+			this.updateCommitMessageStickyOffset();
+		}
+	}
+
+	private updateCommitMessageStickyOffset() {
+		if (!this.commitMessageResizeObserver) {
+			this.commitMessageResizeObserver = new ResizeObserver(() => {
+				const commitMessage = this.shadowRoot?.querySelector('gl-commit-message');
+				if (commitMessage && this.changesList) {
+					const height = commitMessage.getBoundingClientRect().height;
+					this.changesList.style.setProperty('--file-header-sticky-top', `${height}px`);
+				}
+			});
+		}
+
+		this.commitMessageResizeObserver.disconnect();
+
+		const commitMessage = this.shadowRoot?.querySelector('gl-commit-message');
+		if (commitMessage) {
+			this.commitMessageResizeObserver.observe(commitMessage);
+			if (this.changesList) {
+				const height = commitMessage.getBoundingClientRect().height;
+				this.changesList.style.setProperty('--file-header-sticky-top', `${height}px`);
+			}
+		}
 	}
 
 	override disconnectedCallback() {
@@ -283,6 +319,10 @@ export class DetailsPanel extends LitElement {
 		if (this.dragOverCleanupTimeout) {
 			clearTimeout(this.dragOverCleanupTimeout);
 			this.dragOverCleanupTimeout = undefined;
+		}
+		if (this.commitMessageResizeObserver) {
+			this.commitMessageResizeObserver.disconnect();
+			this.commitMessageResizeObserver = undefined;
 		}
 	}
 
