@@ -15,6 +15,7 @@ import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.uti
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { executeCoreCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import { getSettledValue } from '../../../system/promise';
@@ -1610,5 +1611,34 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			...this.getTelemetryContext(),
 			...data,
 		});
+	}
+
+	private _panelWasVisible: boolean | undefined;
+	private _isMaximized = false;
+
+	async maximize(): Promise<void> {
+		if (this._isMaximized) {
+			// Restore panel if it was previously visible
+			if (this._panelWasVisible) {
+				await executeCoreCommand('workbench.action.togglePanel');
+			}
+			this._isMaximized = false;
+			this._panelWasVisible = undefined;
+		} else {
+			// Check panel visibility by querying the workbench state
+			// We'll use a workaround: check if the panel is focused
+			try {
+				// Try to focus the panel - if it succeeds, panel was visible
+				await executeCoreCommand('workbench.action.focusPanel');
+				this._panelWasVisible = true;
+				// Now hide it
+				await executeCoreCommand('workbench.action.togglePanel');
+			} catch {
+				// If focusing failed, panel wasn't visible
+				this._panelWasVisible = false;
+			}
+
+			this._isMaximized = true;
+		}
 	}
 }

@@ -6512,6 +6512,11 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.composer.maximize",
+				"title": "Maximize",
+				"icon": "$(screen-full)"
+			},
+			{
 				"command": "gitlens.composer.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
@@ -11765,6 +11770,10 @@
 				},
 				{
 					"command": "gitlens.composeCommits:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.composer.maximize",
 					"when": "false"
 				},
 				{
