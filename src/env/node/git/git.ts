@@ -1523,8 +1523,16 @@ export class Git implements Disposable {
 		}
 
 		try {
-			void (await this.exec({ cwd: repoPath, stdin: stdin }, ...params));
+			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
+			if (GitErrors.stashNothingToSave.test(result.stdout)) {
+				throw new StashPushError('nothingToSave', undefined, {
+					repoPath: repoPath,
+					args: params,
+				});
+			}
 		} catch (ex) {
+			if (ex instanceof StashPushError) throw ex;
+
 			throw getGitCommandError('stash-push', ex, reason => {
 				return new StashPushError(reason ?? 'other', ex, { repoPath: repoPath, args: params });
 			});
