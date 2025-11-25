@@ -612,6 +612,19 @@
 				]
 			}
 		},
+		"gitlens.composer.maximize": {
+			"label": "Maximize",
+			"icon": "$(screen-full)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.composer",
+						"group": "navigation",
+						"order": -98
+					}
+				]
+			}
+		},
 		"gitlens.composer.refresh": {
 			"label": "Refresh",
 			"icon": "$(refresh)",

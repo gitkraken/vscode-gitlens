@@ -876,6 +876,12 @@ export class WebviewController<
 			}
 		}
 	}
+
+	async maximize(): Promise<void> {
+		if (this.provider && 'maximize' in this.provider && typeof this.provider.maximize === 'function') {
+			await this.provider.maximize();
+		}
+	}
 }
 
 export function replaceWebviewHtmlTokens<SerializedState>(

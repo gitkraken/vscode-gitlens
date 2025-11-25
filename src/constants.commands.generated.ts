@@ -37,6 +37,7 @@ export type ContributedCommands =
 	| 'gitlens.composeCommits:graph'
 	| 'gitlens.composeCommits:scm'
 	| 'gitlens.composeCommits:views'
+	| 'gitlens.composer.maximize'
 	| 'gitlens.composer.refresh'
 	| 'gitlens.computingFileAnnotations'
 	| 'gitlens.connectRemoteProvider'
