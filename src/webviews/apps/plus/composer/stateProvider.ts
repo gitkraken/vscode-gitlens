@@ -105,7 +105,9 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 			}
 			case DidGenerateCommitMessageNotification.is(msg): {
 				const updatedCommits = this._state.commits.map(commit =>
-					commit.id === msg.params.commitId ? { ...commit, message: msg.params.message } : commit,
+					commit.id === msg.params.commitId
+						? { ...commit, message: { content: msg.params.message, isGenerated: true } }
+						: commit,
 				);
 
 				const updatedState = {

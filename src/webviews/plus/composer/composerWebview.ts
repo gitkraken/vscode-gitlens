@@ -470,7 +470,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const initialCommit = {
 			id: 'draft-commit-1',
-			message: '', // Empty message - user will add their own
+			message: { content: '', isGenerated: false },
 			aiExplanation: '',
 			hunkIndices: initialHunkIndices,
 		};
@@ -1063,7 +1063,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			const existingCommits = params.commits.map(commit => ({
 				id: commit.id,
-				message: commit.message,
+				message: commit.message.content,
 				aiExplanation: commit.aiExplanation,
 				hunkIndices: commit.hunkIndices,
 			}));
@@ -1115,7 +1115,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				// Transform AI result back to ComposerCommit format
 				const newCommits = result.commits.map((commit, index) => ({
 					id: `ai-commit-${index}`,
-					message: commit.message,
+					message: { content: commit.message, isGenerated: true },
 					aiExplanation: commit.explanation,
 					hunkIndices: commit.hunks.map(h => h.hunk),
 				}));
