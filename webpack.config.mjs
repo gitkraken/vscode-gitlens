@@ -344,7 +344,6 @@ function getExtensionConfig(target, mode, env) {
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-			conditionNames: ['browser', 'import', 'module', 'default'],
 		},
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
