@@ -133,11 +133,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (MergeError.is(ex)) {
-				void showGitErrorMessage(ex);
-			} else {
-				void showGitErrorMessage(ex, 'Unable to merge');
-			}
+			void showGitErrorMessage(ex, MergeError.is(ex) ? undefined : 'Unable to merge');
 		}
 	}
 

@@ -1,5 +1,6 @@
-import { QuickInputButtons } from 'vscode';
+import { QuickInputButtons, window } from 'vscode';
 import type { Container } from '../../container';
+import { TagError } from '../../git/errors';
 import type { GitReference, GitTagReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import {
@@ -299,7 +300,20 @@ export class TagGitCommand extends QuickCommand<State> {
 				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGitErrorMessage(ex);
+
+				if (TagError.is(ex, 'alreadyExists')) {
+					void window.showWarningMessage(
+						`Unable to create tag '${state.name}'. A tag with that name already exists.`,
+					);
+					return;
+				}
+
+				if (TagError.is(ex, 'invalidName')) {
+					void window.showWarningMessage(`Unable to create tag '${state.name}'. The tag name is invalid.`);
+					return;
+				}
+
+				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to create tag');
 			}
 		}
 	}
@@ -389,7 +403,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					await state.repo.git.tags.deleteTag?.(ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					void showGitErrorMessage(ex);
+					void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to delete tag');
 				}
 			}
 		}

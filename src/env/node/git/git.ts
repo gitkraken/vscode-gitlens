@@ -25,19 +25,19 @@ import type {
 	RebaseErrorReason,
 	ResetErrorReason,
 	RevertErrorReason,
+	StashApplyErrorReason,
+	StashPushErrorReason,
 	TagErrorReason,
 } from '../../../git/errors';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
-	BranchError,
 	CheckoutError,
 	FetchError,
 	PullError,
 	PushError,
 	ResetError,
 	StashPushError,
-	TagError,
 	WorkspaceUntrustedError,
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
@@ -123,6 +123,9 @@ export const GitErrors = {
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnectionFailed: /Could not read from remote repository/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	stashConflictingStagedAndUnstagedLines: /Cannot remove worktree changes/i,
+	stashNothingToSave: /No local changes to save/i,
+	stashSavedWorkingDirAndIndexState: /Saved working directory and index state/i,
 	tagAlreadyExists: /tag .* already exists/i,
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
 	tagNotFound: /tag .* not found/i,
@@ -748,21 +751,6 @@ export class Git implements Disposable {
 			}
 
 			throw ex;
-		}
-	}
-
-	async branch(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
-		const params = ['branch', ...args];
-		try {
-			const result = await this.exec({ cwd: repoPath }, ...params);
-			return result;
-		} catch (ex) {
-			throw getGitCommandError(
-				'branch',
-				ex,
-				reason =>
-					new BranchError(reason ?? 'other', ex, undefined, undefined, { repoPath: repoPath, args: params }),
-			);
 		}
 	}
 
@@ -1535,25 +1523,11 @@ export class Git implements Disposable {
 		}
 
 		try {
-			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
-			if (result.stdout.includes('No local changes to save')) {
-				throw new StashPushError('nothingToSave', undefined, {
-					repoPath: repoPath,
-					args: params,
-				});
-			}
+			void (await this.exec({ cwd: repoPath, stdin: stdin }, ...params));
 		} catch (ex) {
-			if (
-				ex instanceof GitError &&
-				ex.stdout?.includes('Saved working directory and index state') &&
-				ex.stderr?.includes('Cannot remove worktree changes')
-			) {
-				throw new StashPushError('conflictingStagedAndUnstagedLines', undefined, {
-					repoPath: repoPath,
-					args: params,
-				});
-			}
-			throw ex;
+			throw getGitCommandError('stash-push', ex, reason => {
+				return new StashPushError(reason ?? 'other', ex, { repoPath: repoPath, args: params });
+			});
 		}
 	}
 
@@ -1588,21 +1562,6 @@ export class Git implements Disposable {
 			...pathspecs,
 		);
 		return result;
-	}
-
-	async tag(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
-		const params = ['tag', ...args];
-		try {
-			const result = await this.exec({ cwd: repoPath }, ...params);
-			return result;
-		} catch (ex) {
-			throw getGitCommandError(
-				'tag',
-				ex,
-				reason =>
-					new TagError(reason ?? 'other', ex, undefined, undefined, { repoPath: repoPath, args: params }),
-			);
-		}
 	}
 
 	async readDotGitFile(
@@ -1704,6 +1663,8 @@ type GitCommand =
 	| 'rebase'
 	| 'reset'
 	| 'revert'
+	| 'stash-apply'
+	| 'stash-push'
 	| 'tag';
 type GitCommandToReasonMap = {
 	branch: BranchErrorReason;
@@ -1716,6 +1677,8 @@ type GitCommandToReasonMap = {
 	rebase: RebaseErrorReason;
 	reset: ResetErrorReason;
 	revert: RevertErrorReason;
+	'stash-apply': StashApplyErrorReason;
+	'stash-push': StashPushErrorReason;
 	tag: TagErrorReason;
 };
 
@@ -1823,6 +1786,15 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.unresolvedConflicts, 'conflicts'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	['stash-apply', [[GitErrors.changesWouldBeOverwritten, 'uncommittedChanges']]],
+	[
+		'stash-push',
+		[
+			[GitErrors.stashConflictingStagedAndUnstagedLines, 'conflictingStagedAndUnstagedLines'],
+			[GitErrors.stashNothingToSave, 'nothingToSave'],
+			[GitErrors.stashSavedWorkingDirAndIndexState, 'conflictingStagedAndUnstagedLines'],
 		],
 	],
 	[

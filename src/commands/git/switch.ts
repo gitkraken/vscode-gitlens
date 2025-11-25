@@ -117,7 +117,13 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 
 				Logger.error(ex, this.title);
-				void showGitErrorMessage(ex);
+				void showGitErrorMessage(
+					ex,
+					`Unable to fast-forward ${getReferenceLabel(state.reference, {
+						icon: false,
+						label: true,
+					})}`,
+				);
 			}
 		}
 	}
@@ -232,7 +238,13 @@ export class SwitchGitCommand extends QuickCommand<State> {
 								Logger.log(ex.message, this.title);
 							} else {
 								Logger.error(ex, this.title);
-								void showGitErrorMessage(ex);
+								void showGitErrorMessage(
+									ex,
+									`Unable to fast-forward ${getReferenceLabel(state.reference, {
+										icon: false,
+										label: true,
+									})}`,
+								);
 							}
 						}
 					}

@@ -14,7 +14,7 @@ import {
 	isBranchReference,
 	isRevisionReference,
 } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage, showGitErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import { getIssueOwner } from '../../plus/integrations/providers/utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -495,11 +495,7 @@ export class BranchGitCommand extends QuickCommand {
 						return;
 					}
 
-					if (BranchError.is(ex)) {
-						void showGitErrorMessage(ex);
-					} else {
-						void showGitErrorMessage(ex, 'Unable to create branch');
-					}
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to create branch');
 					return;
 				}
 			}
@@ -669,7 +665,10 @@ export class BranchGitCommand extends QuickCommand {
 								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
 							} catch (ex) {
 								Logger.error(ex, context.title);
-								void showGitErrorMessage(ex);
+								void showGitErrorMessage(
+									ex,
+									BranchError.is(ex) ? undefined : 'Unable to force delete branch',
+								);
 							}
 						}
 
@@ -677,7 +676,7 @@ export class BranchGitCommand extends QuickCommand {
 					}
 
 					Logger.error(ex, context.title);
-					void showGitErrorMessage(ex);
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to delete branch');
 				}
 			}
 		}
@@ -786,8 +785,7 @@ export class BranchGitCommand extends QuickCommand {
 				await state.repo.git.branches.renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				// TODO likely need some better error handling here
-				return showGenericErrorMessage('Unable to rename branch');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to rename branch');
 			}
 		}
 	}
@@ -852,7 +850,7 @@ export class BranchGitCommand extends QuickCommand {
 				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage('Unable to manage upstream tracking');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to manage upstream tracking');
 			}
 		}
 	}

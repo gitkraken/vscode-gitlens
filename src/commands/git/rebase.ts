@@ -125,11 +125,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (RebaseError.is(ex)) {
-				void showGitErrorMessage(ex);
-			} else {
-				void showGitErrorMessage(ex, 'Unable to rebase');
-			}
+			void showGitErrorMessage(ex, RebaseError.is(ex) ? undefined : 'Unable to rebase');
 		}
 	}
 

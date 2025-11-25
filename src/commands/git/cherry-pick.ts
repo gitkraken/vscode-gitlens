@@ -160,11 +160,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (CherryPickError.is(ex)) {
-				void showGitErrorMessage(ex);
-			} else {
-				void showGitErrorMessage(ex, 'Unable to cherry-pick');
-			}
+			void showGitErrorMessage(ex, CherryPickError.is(ex) ? undefined : 'Unable to cherry-pick');
 		}
 	}
 

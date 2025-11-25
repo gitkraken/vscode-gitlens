@@ -120,11 +120,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			if (RevertError.is(ex)) {
-				void showGitErrorMessage(ex);
-			} else {
-				void showGitErrorMessage(ex, 'Unable to revert');
-			}
+			void showGitErrorMessage(ex, RevertError.is(ex) ? undefined : 'Unable to revert');
 		}
 	}
 

@@ -26,7 +26,7 @@ import { log } from '../../../../system/decorators/log';
 import { min, skip } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
-import { GitError, maxGitCliLength } from '../git';
+import { getGitCommandError, GitError, maxGitCliLength } from '../git';
 import { createCommitFileset } from './commits';
 
 export class StashGitSubProvider implements GitStashSubProvider {
@@ -47,14 +47,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			await this.git.exec({ cwd: repoPath }, ...args);
 			this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		} catch (ex) {
-			const gitCommand = { repoPath: repoPath, args: args };
-
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
-				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError('uncommittedChanges', ex, gitCommand);
-				}
-
 				if (
 					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
 					(ex instanceof GitError &&
@@ -62,18 +56,13 @@ export class StashGitSubProvider implements GitStashSubProvider {
 							ex.stdout?.includes('needs merge')))
 				) {
 					void window.showInformationMessage('Stash applied with conflicts');
-
 					return;
 				}
-
-				throw new StashApplyError(
-					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
-					ex,
-					gitCommand,
-				);
 			}
 
-			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex, gitCommand);
+			throw getGitCommandError('stash-apply', ex, reason => {
+				return new StashApplyError(reason ?? 'other', ex, { repoPath: repoPath, args: args });
+			});
 		}
 	}
 

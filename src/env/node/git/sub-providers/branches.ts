@@ -41,7 +41,7 @@ import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
-import { gitConfigsLog, GitError, GitErrors } from '../git';
+import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -459,15 +459,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@log()
 	async createBranch(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void> {
+		const args = ['branch', name, sha];
+		if (options?.noTracking) {
+			args.push('--no-track');
+		}
 		try {
-			const args = options?.noTracking ? ['--no-track'] : [];
-			await this.git.branch(repoPath, name, sha, ...args);
+			await this.git.exec({ cwd: repoPath }, ...args);
 		} catch (ex) {
-			if (ex instanceof BranchError) {
-				throw ex.update({ branch: name, action: 'create' });
-			}
-
-			throw ex;
+			throw getGitCommandError(
+				'branch',
+				ex,
+				reason => new BranchError(reason ?? 'other', ex, 'create', name, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 
@@ -482,12 +485,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (ex instanceof BranchError) {
 				throw ex.update({
 					gitCommand: { repoPath: repoPath, args: args },
+					action: options?.force ? 'force delete' : 'delete',
 					branch: branches.join(', '),
-					action: 'delete',
 				});
 			}
 
-			throw new BranchError(undefined, ex, branches.join(', '), 'delete', { repoPath: repoPath, args: args });
+			throw new BranchError(undefined, ex, options?.force ? 'force delete' : 'delete', branches.join(', '), {
+				repoPath: repoPath,
+				args: args,
+			});
 		}
 	}
 
@@ -502,12 +508,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (ex instanceof BranchError) {
 				throw ex.update({
 					gitCommand: { repoPath: repoPath, args: args },
-					branch: branches.join(', '),
 					action: 'delete',
+					branch: branches.join(', '),
 				});
 			}
 
-			throw new BranchError(undefined, ex, branches.join(', '), 'delete', { repoPath: repoPath, args: args });
+			throw new BranchError(undefined, ex, 'delete', branches.join(', '), { repoPath: repoPath, args: args });
 		}
 	}
 
@@ -868,31 +874,37 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
+		const args = ['branch', '-m', oldName, newName];
 		try {
-			await this.git.branch(repoPath, '-m', oldName, newName);
+			await this.git.exec({ cwd: repoPath }, ...args);
 		} catch (ex) {
-			if (ex instanceof BranchError) {
-				throw ex.update({ branch: oldName, action: 'rename' });
-			}
-
-			throw ex;
+			throw getGitCommandError(
+				'branch',
+				ex,
+				reason => new BranchError(reason ?? 'other', ex, 'rename', oldName, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 
 	@log()
 	async setUpstreamBranch(repoPath: string, name: string, upstream: string | undefined): Promise<void> {
+		const args =
+			upstream == null ? ['branch', '--unset-upstream', name] : ['branch', '--set-upstream-to', upstream, name];
 		try {
-			if (upstream == null) {
-				await this.git.branch(repoPath, '--unset-upstream', name);
-			} else {
-				await this.git.branch(repoPath, '--set-upstream-to', upstream, name);
-			}
+			await this.git.exec({ cwd: repoPath }, ...args);
 		} catch (ex) {
-			if (ex instanceof BranchError) {
-				throw ex.update({ branch: name, action: 'set-upstream' });
-			}
-
-			throw ex;
+			throw getGitCommandError(
+				'branch',
+				ex,
+				reason =>
+					new BranchError(
+						reason ?? 'other',
+						ex,
+						upstream == null ? 'unset upstream of' : `set upstream to '${upstream}' for`,
+						name,
+						{ repoPath: repoPath, args: args },
+					),
+			);
 		}
 	}
 

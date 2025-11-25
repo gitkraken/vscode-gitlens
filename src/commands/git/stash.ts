@@ -367,7 +367,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						'Unable to apply stash. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
 					);
 				} else {
-					void showGitErrorMessage(ex);
+					void showGitErrorMessage(ex, StashApplyError.is(ex) ? undefined : 'Unable to apply stash');
 				}
 			}
 		}
@@ -594,7 +594,7 @@ export class StashGitCommand extends QuickCommand<State> {
 					return;
 				}
 
-				void showGitErrorMessage(ex, 'Unable to stash changes');
+				void showGitErrorMessage(ex, StashPushError.is(ex) ? undefined : 'Unable to stash changes');
 
 				return;
 			}
@@ -821,7 +821,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGitErrorMessage(ex);
+				void showGitErrorMessage(ex, 'Unable to rename stash');
 			}
 		}
 	}

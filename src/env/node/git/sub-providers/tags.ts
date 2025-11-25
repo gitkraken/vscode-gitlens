@@ -14,6 +14,7 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
+import { getGitCommandError } from '../git';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
@@ -125,27 +126,34 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 	@log()
 	async createTag(repoPath: string, name: string, sha: string, message?: string): Promise<void> {
-		try {
-			await this.git.tag(repoPath, name, sha, ...(message != null && message.length > 0 ? ['-m', message] : []));
-		} catch (ex) {
-			if (ex instanceof TagError) {
-				throw ex.update({ tag: name, action: 'create' });
-			}
+		const args = ['tag', name, sha];
+		if (message != null && message.length > 0) {
+			args.push('-m', message);
+		}
 
-			throw ex;
+		try {
+			await this.git.exec({ cwd: repoPath }, ...args);
+		} catch (ex) {
+			throw getGitCommandError(
+				'tag',
+				ex,
+				reason => new TagError(reason ?? 'other', ex, 'create', name, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 
 	@log()
 	async deleteTag(repoPath: string, name: string): Promise<void> {
-		try {
-			await this.git.tag(repoPath, '-d', name);
-		} catch (ex) {
-			if (ex instanceof TagError) {
-				throw ex.update({ tag: name, action: 'delete' });
-			}
+		const args = ['tag', '-d', name];
 
-			throw ex;
+		try {
+			await this.git.exec({ cwd: repoPath }, ...args);
+		} catch (ex) {
+			throw getGitCommandError(
+				'tag',
+				ex,
+				reason => new TagError(reason ?? 'other', ex, 'delete', name, { repoPath: repoPath, args: args }),
+			);
 		}
 	}
 }

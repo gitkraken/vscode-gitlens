@@ -126,28 +126,28 @@ export class BranchError extends GitCommandError {
 	}
 
 	readonly reason: BranchErrorReason | undefined;
-	private _branch?: string;
-	get branch(): string | undefined {
-		return this._branch;
-	}
 	private _action?: string;
 	get action(): string | undefined {
 		return this._action;
+	}
+	private _branch?: string;
+	get branch(): string | undefined {
+		return this._branch;
 	}
 
 	constructor(
 		reason?: BranchErrorReason,
 		original?: Error,
-		branch?: string,
 		action?: string,
+		branch?: string,
 		gitCommand?: GitCommandContext,
 	);
 	constructor(message?: string, original?: Error);
 	constructor(
 		messageOrReason: string | BranchErrorReason | undefined,
 		original?: Error,
-		branch?: string,
 		action?: string,
+		branch?: string,
 		gitCommand?: GitCommandContext,
 	) {
 		let message;
@@ -165,10 +165,10 @@ export class BranchError extends GitCommandError {
 		this._action = action;
 	}
 
-	override update(changes: { gitCommand?: GitCommandContext; branch?: string; action?: string }): this {
+	override update(changes: { gitCommand?: GitCommandContext; action?: string; branch?: string }): this {
 		super.update({ gitCommand: changes.gitCommand });
-		this._branch = changes.branch === null ? undefined : (changes.branch ?? this._branch);
 		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
+		this._branch = changes.branch === null ? undefined : (changes.branch ?? this._branch);
 		this.message = BranchError.buildErrorMessage(this.reason, this._branch, this._action);
 		return this;
 	}
@@ -842,7 +842,7 @@ export class RevertError extends GitCommandError {
 	}
 }
 
-export type StashApplyErrorReason = 'uncommittedChanges';
+export type StashApplyErrorReason = 'uncommittedChanges' | 'other';
 
 export class StashApplyError extends GitCommandError {
 	static override is(ex: unknown, reason?: StashApplyErrorReason): ex is StashApplyError {
@@ -867,8 +867,14 @@ export class StashApplyError extends GitCommandError {
 			reason = undefined;
 		} else {
 			reason = messageOrReason;
-			message =
-				'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again';
+			switch (reason) {
+				case 'uncommittedChanges':
+					message =
+						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again';
+					break;
+				default:
+					message = 'Unable to apply stash';
+			}
 		}
 		super(message, original, gitCommand);
 
@@ -876,7 +882,7 @@ export class StashApplyError extends GitCommandError {
 	}
 }
 
-export type StashPushErrorReason = 'conflictingStagedAndUnstagedLines' | 'nothingToSave';
+export type StashPushErrorReason = 'conflictingStagedAndUnstagedLines' | 'nothingToSave' | 'other';
 
 export class StashPushError extends GitCommandError {
 	static override is(ex: unknown, reason?: StashPushErrorReason): ex is StashPushError {
@@ -957,28 +963,28 @@ export class TagError extends GitCommandError {
 	}
 
 	readonly reason: TagErrorReason | undefined;
-	private _tag?: string;
-	get tag(): string | undefined {
-		return this._tag;
-	}
 	private _action?: string;
 	get action(): string | undefined {
 		return this._action;
+	}
+	private _tag?: string;
+	get tag(): string | undefined {
+		return this._tag;
 	}
 
 	constructor(
 		reason?: TagErrorReason,
 		original?: Error,
-		tag?: string,
 		action?: string,
+		tag?: string,
 		gitCommand?: GitCommandContext,
 	);
 	constructor(message?: string, original?: Error);
 	constructor(
 		messageOrReason: string | TagErrorReason | undefined,
 		original?: Error,
-		tag?: string,
 		action?: string,
+		tag?: string,
 		gitCommand?: GitCommandContext,
 	) {
 		let message;
