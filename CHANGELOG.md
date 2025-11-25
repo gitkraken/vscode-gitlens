@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the option to open a file instead of showing a diff when clicking in _Search & Compare_ ([#1651](https://github.com/gitkraken/vscode-gitlens/issues/1651))
+
 ### Changed
 
 - Changes _rebase_, _merge_, _revert_, and _branch delete_ commands no longer use/open a terminal ([#3527](https://github.com/gitkraken/vscode-gitlens/issues/3527), [#3530](https://github.com/gitkraken/vscode-gitlens/issues/3530), [#3532](https://github.com/gitkraken/vscode-gitlens/issues/3532), [#3534](https://github.com/gitkraken/vscode-gitlens/issues/3534))
