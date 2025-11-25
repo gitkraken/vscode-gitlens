@@ -167,6 +167,13 @@ export class DetailsPanel extends LitElement {
 				color: var(--color-foreground--85);
 			}
 
+			.change-details.composition-summary {
+				border: 0.1rem solid var(--vscode-panel-border);
+				border-radius: 0.3rem;
+				padding: 1.6rem;
+				gap: 0;
+			}
+
 			.empty-state {
 				margin-block: 0;
 				font-weight: bold;
@@ -710,9 +717,10 @@ export class DetailsPanel extends LitElement {
 		return html`
 			<article class="change-details" data-commit-id=${commit.id}>
 				<gl-commit-message
-					.message=${commit.message}
+					.message=${commit.message.content}
 					.commitId=${commit.id}
 					.explanation=${commit.aiExplanation}
+					?ai-generated=${commit.message.isGenerated}
 					?generating=${this.generatingCommitMessage === commit.id}
 					?ai-enabled=${this.aiEnabled}
 					.aiDisabledReason=${this.aiDisabledReason}
@@ -764,7 +772,7 @@ export class DetailsPanel extends LitElement {
 		const summaryMarkdown = generateComposerMarkdown(this.commits, this.hunks);
 
 		return html`
-			<article class="change-details">
+			<article class="change-details composition-summary">
 				<gl-markdown density="document" .markdown=${summaryMarkdown}></gl-markdown>
 			</article>
 		`;
@@ -774,7 +782,7 @@ export class DetailsPanel extends LitElement {
 		// Handle no changes state
 		if (!this.hasChanges) {
 			return html`
-				<div class="details-panel">
+				<div class="details-panel" @click=${this.handlePanelClick}>
 					<div class="changes-list scrollable">${this.renderNoChangesState()}</div>
 				</div>
 			`;
@@ -783,10 +791,27 @@ export class DetailsPanel extends LitElement {
 		const isMultiSelect = this.selectedCommits.length > 1;
 
 		return html`
-			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}">
+			<div class="details-panel ${isMultiSelect ? 'split-view' : ''}" @click=${this.handlePanelClick}>
 				<div class="changes-list scrollable">${this.renderDetails()}</div>
 			</div>
 		`;
+	}
+
+	private handlePanelClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		const tagName = target.tagName.toLowerCase();
+
+		const interactiveTags = ['input', 'textarea', 'button', 'a', 'select', 'gl-button', 'gl-commit-message'];
+		const isInteractive =
+			interactiveTags.includes(tagName) ||
+			target.closest('gl-commit-message, gl-button, button, a, input, textarea, select');
+
+		if (!isInteractive) {
+			const activeElement = this.shadowRoot?.activeElement;
+			if (activeElement && 'blur' in activeElement && typeof activeElement.blur === 'function') {
+				activeElement.blur();
+			}
+		}
 	}
 
 	private renderNoChangesState() {
