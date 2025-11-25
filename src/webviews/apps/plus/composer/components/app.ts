@@ -611,9 +611,9 @@ export class ComposerApp extends LitElement {
 		return {
 			hunks: JSON.parse(JSON.stringify(this.state?.hunks ?? [])),
 			commits: JSON.parse(JSON.stringify(this.state?.commits ?? [])),
-			selectedCommitId: this.state?.selectedCommitId ?? null,
+			selectedCommitId: this.selectedCommitId,
 			selectedCommitIds: new Set([...this.selectedCommitIds]),
-			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
+			selectedUnassignedSection: this.selectedUnassignedSection,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
 			hasUsedAutoCompose: this.state?.hasUsedAutoCompose ?? false,
 		};
@@ -622,9 +622,9 @@ export class ComposerApp extends LitElement {
 	private applyDataSnapshot(snapshot: ComposerDataSnapshot) {
 		this.state.hunks = snapshot.hunks;
 		this.state.commits = snapshot.commits;
-		this.state.selectedCommitId = snapshot.selectedCommitId;
+		this.selectedCommitId = snapshot.selectedCommitId;
 		this.selectedCommitIds = snapshot.selectedCommitIds;
-		this.state.selectedUnassignedSection = snapshot.selectedUnassignedSection;
+		this.selectedUnassignedSection = snapshot.selectedUnassignedSection;
 		this.state.hasUsedAutoCompose = snapshot.hasUsedAutoCompose;
 		this.selectedHunkIds = snapshot.selectedHunkIds;
 		this.requestUpdate();
