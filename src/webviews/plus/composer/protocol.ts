@@ -28,9 +28,14 @@ export interface ComposerHunkBase {
 	coAuthors?: GitCommitIdentityShape[]; // Co-authors of the commit this hunk belongs to, if any
 }
 
+export interface ComposerCommitMessage {
+	content: string;
+	isGenerated: boolean;
+}
+
 export interface ComposerCommit {
 	id: string;
-	message: string;
+	message: ComposerCommitMessage;
 	sha?: string; // Optional SHA for existing commits
 	aiExplanation?: string;
 	hunkIndices: number[]; // References to hunk indices in the hunk map

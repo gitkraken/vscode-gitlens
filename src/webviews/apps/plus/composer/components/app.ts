@@ -54,7 +54,7 @@ interface ComposerDataSnapshot {
 	commits: ComposerCommit[];
 	selectedCommitId: string | null;
 	selectedCommitIds: Set<string>;
-	selectedUnassignedSection: string | null;
+	selectedUnassignedSection: 'staged' | 'unstaged' | 'unassigned' | null;
 	selectedHunkIds: Set<string>;
 	hasUsedAutoCompose: boolean;
 }
@@ -823,7 +823,7 @@ export class ComposerApp extends LitElement {
 		// Create new commit
 		const newCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: '', // Empty message - user will add their own
+			message: { content: '', isGenerated: false },
 			hunkIndices: hunkIndices,
 		};
 
@@ -1037,7 +1037,7 @@ export class ComposerApp extends LitElement {
 				this.commitMessageBeingEdited = null;
 			}, 1000);
 
-			commit.message = message;
+			commit.message = { content: message, isGenerated: false };
 			this.requestUpdate();
 		}
 	}
@@ -1208,7 +1208,10 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get isReadyToFinishAndCommit(): boolean {
-		return this.state.commits.length > 0 && this.state.commits.every(commit => commit.message.trim().length > 0);
+		return (
+			this.state.commits.length > 0 &&
+			this.state.commits.every(commit => commit.message.content.trim().length > 0)
+		);
 	}
 
 	private get canGenerateCommitsWithAI(): boolean {
@@ -1301,7 +1304,7 @@ export class ComposerApp extends LitElement {
 
 		// Create Commits loading dialog
 		if (this.state.committing) {
-			const commitCount = this.state.commits.filter(c => c.message.trim() !== '').length;
+			const commitCount = this.state.commits.filter(c => c.message.content.trim() !== '').length;
 			return this.renderLoadingDialog(
 				'Creating Commits',
 				`Committing ${commitCount} commit${commitCount === 1 ? '' : 's'}.`,
@@ -1469,7 +1472,7 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
 			commitHunkIndices: commit.hunkIndices,
-			overwriteExistingMessage: commit.message.trim() !== '',
+			overwriteExistingMessage: commit.message.content.trim() !== '',
 		});
 	}
 
@@ -1488,7 +1491,7 @@ export class ComposerApp extends LitElement {
 
 		// Combine commit messages from selected commits
 		const combinedMessage = selectedCommits
-			.map(commit => commit.message)
+			.map(commit => commit.message.content)
 			.filter(message => message && message.trim() !== '')
 			.join('\n\n');
 
@@ -1498,10 +1501,13 @@ export class ComposerApp extends LitElement {
 			.filter(explanation => explanation && explanation.trim() !== '')
 			.join('\n\n');
 
+		// Determine if any of the combined commits were AI-generated
+		const isGenerated = selectedCommits.some(commit => commit.message.isGenerated);
+
 		// Create new combined commit
 		const combinedCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: combinedMessage || 'Combined commit',
+			message: { content: combinedMessage || 'Combined commit', isGenerated: isGenerated },
 			hunkIndices: combinedHunkIndices,
 			aiExplanation: combinedExplanation || undefined,
 		};
