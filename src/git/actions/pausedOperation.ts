@@ -30,7 +30,7 @@ async function continuePausedOperationCore(svc: GitRepositoryService, skip: bool
 			// Use the operation status from the error - it's already accurate
 			// The previous code tried to wait for a repo change, but that would fire on the
 			// change event from the failed continue (not the skip), resulting in stale data
-			const operation: GitPausedOperationStatus = ex.operation;
+			const operation: GitPausedOperationStatus = ex.details.operation;
 
 			const pausedAt = getReferenceLabel(operation.incoming, { icon: false, label: true, quoted: true });
 

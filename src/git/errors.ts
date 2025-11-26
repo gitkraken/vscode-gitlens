@@ -1,32 +1,38 @@
 import { pluralize } from '../system/string';
-import type { GitPausedOperation, GitPausedOperationStatus } from './models/pausedOperationStatus';
+import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
 
 export interface GitCommandContext {
 	readonly repoPath: string;
 	readonly args: readonly (string | undefined)[];
 }
 
-export abstract class GitCommandError extends Error {
-	static is(ex: unknown): ex is GitCommandError {
+export abstract class GitCommandError<Details extends { gitCommand?: GitCommandContext }> extends Error {
+	static is(ex: unknown): ex is GitCommandError<any> {
 		return ex instanceof GitCommandError;
+	}
+
+	private _details!: Details;
+	get details(): Details {
+		return this._details;
+	}
+	private set details(details: Details) {
+		this._details = details;
+		this.message = this.buildErrorMessage(details);
 	}
 
 	readonly original?: Error;
 
-	private _gitCommand?: GitCommandContext;
-	get gitCommand(): GitCommandContext | undefined {
-		return this._gitCommand;
-	}
-
-	constructor(message: string, original?: Error, gitCommand?: GitCommandContext) {
+	constructor(message: string, details: Details, original: Error | undefined) {
 		super(message);
 		this.original = original;
-		this._gitCommand = gitCommand;
+		this.details = details;
 		Error.captureStackTrace?.(this, new.target);
 	}
 
-	update(changes: { gitCommand?: GitCommandContext }): this {
-		this._gitCommand = changes.gitCommand ?? this.gitCommand;
+	protected abstract buildErrorMessage(details: Details): string;
+
+	update(changes: Details): this {
+		this.details = { ...this.details, ...changes };
 		return this;
 	}
 }
@@ -46,24 +52,45 @@ export type ApplyPatchCommitErrorReason =
 	| 'createWorktreeFailed'
 	| 'stashFailed'
 	| 'wouldOverwriteChanges';
+interface ApplyPatchCommitErrorDetails {
+	reason?: ApplyPatchCommitErrorReason;
+	branch?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class ApplyPatchCommitError extends GitCommandError {
+export class ApplyPatchCommitError extends GitCommandError<ApplyPatchCommitErrorDetails> {
 	static override is(ex: unknown, reason?: ApplyPatchCommitErrorReason): ex is ApplyPatchCommitError {
-		return ex instanceof ApplyPatchCommitError && (reason == null || ex.reason === reason);
+		return ex instanceof ApplyPatchCommitError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: ApplyPatchCommitErrorReason | undefined;
+	constructor(details: ApplyPatchCommitErrorDetails, original?: Error) {
+		super('Unable to apply patch', details, original);
+	}
 
-	constructor(
-		reason: ApplyPatchCommitErrorReason,
-		message?: string,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		message ||= 'Unable to apply patch';
-		super(message, original, gitCommand);
-
-		this.reason = reason;
+	override buildErrorMessage(details: ApplyPatchCommitErrorDetails): string {
+		const baseMessage = 'Unable to apply patch';
+		switch (details.reason) {
+			case 'applyFailed':
+				return `${baseMessage}${this.original instanceof CherryPickError ? `. ${this.original.message}` : ''}`;
+			case 'appliedWithConflicts':
+				return 'Patch applied with conflicts';
+			case 'checkoutFailed':
+				return `${baseMessage} as we were unable to checkout the branch '${details.branch}'${
+					this.original instanceof CheckoutError ? `. ${this.original.message}` : ''
+				}`;
+			case 'createWorktreeFailed':
+				return `${baseMessage} as we were unable to create a worktree${
+					this.original instanceof WorktreeCreateError ? `. ${this.original.message}` : ''
+				}`;
+			case 'stashFailed':
+				return `${baseMessage} as we were unable to stash your working changes${
+					this.original instanceof StashPushError ? `. ${this.original.message}` : ''
+				}`;
+			case 'wouldOverwriteChanges':
+				return `${baseMessage} as some local changes would be overwritten`;
+			default:
+				return baseMessage;
+		}
 	}
 }
 
@@ -98,20 +125,30 @@ export class BlameIgnoreRevsFileBadRevisionError extends Error {
 }
 
 export type BranchErrorReason = 'alreadyExists' | 'notFullyMerged' | 'invalidName' | 'noRemoteReference' | 'other';
+interface BranchErrorDetails {
+	reason?: BranchErrorReason;
+	action?: string;
+	branch?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class BranchError extends GitCommandError {
+export class BranchError extends GitCommandError<BranchErrorDetails> {
 	static override is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
-		return ex instanceof BranchError && (reason == null || ex.reason === reason);
+		return ex instanceof BranchError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: BranchErrorReason, branch?: string, action?: string): string {
+	constructor(details: BranchErrorDetails, original?: Error) {
+		super('Unable to perform action on branch', details, original);
+	}
+
+	protected override buildErrorMessage(details: BranchErrorDetails): string {
 		let baseMessage: string;
-		if (action != null) {
-			baseMessage = `Unable to ${action} branch ${branch ? `'${branch}'` : ''}`;
+		if (details.action != null) {
+			baseMessage = `Unable to ${details.action} branch ${details.branch ? `'${details.branch}'` : ''}`;
 		} else {
-			baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
+			baseMessage = `Unable to perform action ${details.branch ? `with branch '${details.branch}'` : 'on branch'}`;
 		}
-		switch (reason) {
+		switch (details.reason) {
 			case 'alreadyExists':
 				return `${baseMessage} because it already exists`;
 			case 'notFullyMerged':
@@ -124,66 +161,27 @@ export class BranchError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: BranchErrorReason | undefined;
-	private _action?: string;
-	get action(): string | undefined {
-		return this._action;
-	}
-	private _branch?: string;
-	get branch(): string | undefined {
-		return this._branch;
-	}
-
-	constructor(
-		reason?: BranchErrorReason,
-		original?: Error,
-		action?: string,
-		branch?: string,
-		gitCommand?: GitCommandContext,
-	);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | BranchErrorReason | undefined,
-		original?: Error,
-		action?: string,
-		branch?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: BranchErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = BranchError.buildErrorMessage(reason, branch, action);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._branch = branch;
-		this._action = action;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; action?: string; branch?: string }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
-		this._branch = changes.branch === null ? undefined : (changes.branch ?? this._branch);
-		this.message = BranchError.buildErrorMessage(this.reason, this._branch, this._action);
-		return this;
-	}
 }
 
 export type CheckoutErrorReason = 'invalidRef' | 'pathspecNotFound' | 'wouldOverwriteChanges' | 'other';
+interface CheckoutErrorDetails {
+	reason?: CheckoutErrorReason;
+	ref?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class CheckoutError extends GitCommandError {
+export class CheckoutError extends GitCommandError<CheckoutErrorDetails> {
 	static override is(ex: unknown, reason?: CheckoutErrorReason): ex is CheckoutError {
-		return ex instanceof CheckoutError && (reason == null || ex.reason === reason);
+		return ex instanceof CheckoutError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: CheckoutErrorReason, ref?: string): string {
-		const baseMessage = `Unable to checkout${ref ? ` '${ref}'` : ''}`;
-		switch (reason) {
+	constructor(details: CheckoutErrorDetails, original?: Error) {
+		super('Unable to checkout', details, original);
+	}
+
+	protected override buildErrorMessage(details: CheckoutErrorDetails): string {
+		const baseMessage = `Unable to checkout${details.ref ? ` '${details.ref}'` : ''}`;
+		switch (details.reason) {
 			case 'invalidRef':
 				return `${baseMessage} because the reference is invalid`;
 			case 'pathspecNotFound':
@@ -194,41 +192,6 @@ export class CheckoutError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: CheckoutErrorReason | undefined;
-	private _ref?: string;
-	get ref(): string | undefined {
-		return this._ref;
-	}
-
-	constructor(reason?: CheckoutErrorReason, original?: Error, ref?: string, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | CheckoutErrorReason | undefined,
-		original?: Error,
-		ref?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: CheckoutErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = CheckoutError.buildErrorMessage(reason, ref);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._ref = ref;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; ref?: string }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._ref = changes.ref === null ? undefined : (changes.ref ?? this._ref);
-		this.message = CheckoutError.buildErrorMessage(this.reason, this._ref);
-		return this;
-	}
 }
 
 export type CherryPickErrorReason =
@@ -238,18 +201,31 @@ export type CherryPickErrorReason =
 	| 'emptyCommit'
 	| 'wouldOverwriteChanges'
 	| 'other';
+interface CherryPickErrorDetails {
+	reason?: CherryPickErrorReason;
+	revs?: string[];
+	gitCommand?: GitCommandContext;
+}
 
-export class CherryPickError extends GitCommandError {
+export class CherryPickError extends GitCommandError<CherryPickErrorDetails> {
 	static override is(ex: unknown, reason?: CherryPickErrorReason): ex is CherryPickError {
-		return ex instanceof CherryPickError && (reason == null || ex.reason === reason);
+		return ex instanceof CherryPickError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: CherryPickErrorReason, revs?: string[]): string {
+	constructor(details: CherryPickErrorDetails, original?: Error) {
+		super('Unable to cherry-pick', details, original);
+	}
+
+	protected override buildErrorMessage(details: CherryPickErrorDetails): string {
 		const baseMessage = `Unable to cherry-pick${
-			revs?.length ? (revs.length === 1 ? ` commit '${revs[0]}'` : ` ${pluralize('commit', revs.length)}`) : ''
+			details.revs?.length
+				? details.revs.length === 1
+					? ` commit '${details.revs[0]}'`
+					: ` ${pluralize('commit', details.revs.length)}`
+				: ''
 		}`;
 
-		switch (reason) {
+		switch (details.reason) {
 			case 'aborted':
 				return `${baseMessage} as it was aborted.`;
 			case 'alreadyInProgress':
@@ -264,94 +240,39 @@ export class CherryPickError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: CherryPickErrorReason | undefined;
-	private _revs?: string[];
-	get revs(): string[] | undefined {
-		return this._revs;
-	}
-
-	constructor(reason?: CherryPickErrorReason, original?: Error, revs?: string[], gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | CherryPickErrorReason | undefined,
-		original?: Error,
-		revs?: string[],
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: CherryPickErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = CherryPickError.buildErrorMessage(reason, revs);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._revs = revs;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; revs?: string[] }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._revs = changes.revs === null ? undefined : (changes.revs ?? this._revs);
-		this.message = CherryPickError.buildErrorMessage(this.reason, this._revs);
-		return this;
-	}
 }
 
 export type FetchErrorReason = 'noFastForward' | 'noRemote' | 'remoteConnectionFailed' | 'other';
+interface FetchErrorDetails {
+	reason?: FetchErrorReason;
+	branch?: string;
+	remote?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class FetchError extends GitCommandError {
+export class FetchError extends GitCommandError<FetchErrorDetails> {
 	static override is(ex: unknown, reason?: FetchErrorReason): ex is FetchError {
-		return ex instanceof FetchError && (reason == null || ex.reason === reason);
+		return ex instanceof FetchError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: FetchErrorReason | undefined;
+	constructor(details: FetchErrorDetails, original?: Error) {
+		super('Unable to fetch', details, original);
+	}
 
-	constructor(
-		reason?: FetchErrorReason,
-		original?: Error,
-		branch?: string,
-		remote?: string,
-		gitCommand?: GitCommandContext,
-	);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | FetchErrorReason | undefined,
-		original?: Error,
-		branch?: string,
-		remote?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		const baseMessage = `Unable to fetch${branch ? ` branch '${branch}'` : ''}${remote ? ` from ${remote}` : ''}`;
-		let reason: FetchErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = baseMessage;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case 'noFastForward':
-					message = `${baseMessage} as it cannot be fast-forwarded`;
-					break;
-				case 'noRemote':
-					message = `${baseMessage} without a remote repository specified.`;
-					break;
-				case 'remoteConnectionFailed':
-					message = `${baseMessage}. Could not connect to the remote repository.`;
-					break;
-				default:
-					message = baseMessage;
-			}
+	protected override buildErrorMessage(details: FetchErrorDetails): string {
+		const baseMessage = `Unable to fetch${details.branch ? ` branch '${details.branch}'` : ''}${
+			details.remote ? ` from ${details.remote}` : ''
+		}`;
+		switch (details.reason) {
+			case 'noFastForward':
+				return `${baseMessage} as it cannot be fast-forwarded`;
+			case 'noRemote':
+				return `${baseMessage} without a remote repository specified.`;
+			case 'remoteConnectionFailed':
+				return `${baseMessage}. Could not connect to the remote repository.`;
+			default:
+				return baseMessage;
 		}
-		super(message, original, typeof branch === 'object' ? branch : gitCommand);
-
-		this.reason = reason;
 	}
 }
 
@@ -362,18 +283,26 @@ export type MergeErrorReason =
 	| 'uncommittedChanges'
 	| 'wouldOverwriteChanges'
 	| 'other';
-
-export class MergeError extends GitCommandError {
+interface MergeErrorDetails {
+	reason?: MergeErrorReason;
+	ref?: string;
+	gitCommand?: GitCommandContext;
+}
+export class MergeError extends GitCommandError<MergeErrorDetails> {
 	static override is(ex: unknown, reason?: MergeErrorReason): ex is MergeError {
-		return ex instanceof MergeError && (reason == null || ex.reason === reason);
+		return ex instanceof MergeError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: MergeErrorReason, ref?: string): string {
-		const baseMessage = `Unable to merge${ref ? ` '${ref}'` : ''}`;
+	constructor(details: MergeErrorDetails, original?: Error) {
+		super('Unable to merge', details, original);
+	}
 
-		switch (reason) {
+	protected override buildErrorMessage(details: MergeErrorDetails): string {
+		const baseMessage = `Unable to merge${details.ref ? ` '${details.ref}'` : ''}`;
+
+		switch (details.reason) {
 			case 'aborted':
-				return `Merge${ref ? ` of '${ref}'` : ''} was aborted`;
+				return `Merge${details.ref ? ` of '${details.ref}'` : ''} was aborted`;
 			case 'alreadyInProgress':
 				return `${baseMessage} because a merge is already in progress`;
 			case 'conflicts':
@@ -386,65 +315,31 @@ export class MergeError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: MergeErrorReason | undefined;
-	private _ref?: string;
-	get ref(): string | undefined {
-		return this._ref;
-	}
-
-	constructor(reason?: MergeErrorReason, original?: Error, ref?: string, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | MergeErrorReason | undefined,
-		original?: Error,
-		ref?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: MergeErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = MergeError.buildErrorMessage(reason, ref);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._ref = ref;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; ref?: string }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._ref = changes.ref === null ? undefined : (changes.ref ?? this._ref);
-		this.message = MergeError.buildErrorMessage(this.reason, this._ref);
-		return this;
-	}
 }
 
 export type PausedOperationAbortErrorReason = 'nothingToAbort';
+interface PausedOperationAbortErrorDetails {
+	reason?: PausedOperationAbortErrorReason;
+	operation: GitPausedOperationStatus;
+	gitCommand?: GitCommandContext;
+}
 
-export class PausedOperationAbortError extends GitCommandError {
+export class PausedOperationAbortError extends GitCommandError<PausedOperationAbortErrorDetails> {
 	static override is(ex: unknown, reason?: PausedOperationAbortErrorReason): ex is PausedOperationAbortError {
-		return ex instanceof PausedOperationAbortError && (reason == null || ex.reason === reason);
+		return ex instanceof PausedOperationAbortError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: PausedOperationAbortErrorReason | undefined;
-	readonly operation: GitPausedOperation;
+	constructor(details: PausedOperationAbortErrorDetails, original?: Error) {
+		super('Unable to abort operation', details, original);
+	}
 
-	constructor(
-		reason: PausedOperationAbortErrorReason | undefined,
-		operation: GitPausedOperation,
-		message?: string,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		message ||= 'Unable to abort operation';
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this.operation = operation;
+	protected override buildErrorMessage(details: PausedOperationAbortErrorDetails): string {
+		switch (details.reason) {
+			case 'nothingToAbort':
+				return `Cannot abort as there is no ${details.operation.type} operation in progress`;
+			default:
+				return `Unable to abort the ${details.operation.type} operation${this.original ? `: ${this.original.message}` : ''}`;
+		}
 	}
 }
 
@@ -456,27 +351,41 @@ export type PausedOperationContinueErrorReason =
 	| 'unresolvedConflicts'
 	| 'unstagedChanges'
 	| 'wouldOverwriteChanges';
+interface PausedOperationContinueErrorDetails {
+	reason?: PausedOperationContinueErrorReason;
+	operation: GitPausedOperationStatus;
+	skip?: boolean;
+	gitCommand?: GitCommandContext;
+}
 
-export class PausedOperationContinueError extends GitCommandError {
+export class PausedOperationContinueError extends GitCommandError<PausedOperationContinueErrorDetails> {
 	static override is(ex: unknown, reason?: PausedOperationContinueErrorReason): ex is PausedOperationContinueError {
-		return ex instanceof PausedOperationContinueError && (reason == null || ex.reason === reason);
+		return ex instanceof PausedOperationContinueError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: PausedOperationContinueErrorReason | undefined;
-	readonly operation: GitPausedOperationStatus;
+	constructor(details: PausedOperationContinueErrorDetails, original?: Error) {
+		super('Unable to continue operation', details, original);
+	}
 
-	constructor(
-		reason: PausedOperationContinueErrorReason | undefined,
-		operation: GitPausedOperationStatus,
-		message?: string,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		message ||= 'Unable to continue operation';
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this.operation = operation;
+	protected override buildErrorMessage(details: PausedOperationContinueErrorDetails): string {
+		switch (details.reason) {
+			case 'emptyCommit':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as the previous commit is empty`;
+			case 'nothingToContinue':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there is no ${details.operation.type} in progress`;
+			case 'uncommittedChanges':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are uncommitted changes`;
+			case 'unmergedFiles':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unmerged files`;
+			case 'unresolvedConflicts':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unresolved conflicts`;
+			case 'unstagedChanges':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unstaged changes`;
+			case 'wouldOverwriteChanges':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as some local changes would be overwritten`;
+			default:
+				return `Unable to ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation${this.original ? `: ${this.original.message}` : ''}`;
+		}
 	}
 }
 
@@ -492,69 +401,46 @@ export type PullErrorReason =
 	| 'unstagedChanges'
 	| 'wouldOverwriteChanges'
 	| 'other';
+interface PullErrorDetails {
+	reason?: PullErrorReason;
+	gitCommand?: GitCommandContext;
+}
 
-export class PullError extends GitCommandError {
+export class PullError extends GitCommandError<PullErrorDetails> {
 	static override is(ex: unknown, reason?: PullErrorReason): ex is PullError {
-		return ex instanceof PullError && (reason == null || ex.reason === reason);
+		return ex instanceof PullError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: PullErrorReason | undefined;
+	constructor(details: PullErrorDetails, original?: Error) {
+		super('Unable to pull', details, original);
+	}
 
-	constructor(reason?: PullErrorReason, original?: Error, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | PullErrorReason | undefined,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: PullErrorReason | undefined;
-		const baseMessage = `Unable to pull`;
-		if (messageOrReason == null) {
-			message = baseMessage;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case 'conflict':
-					message = `Unable to complete pull due to conflicts which must be resolved.`;
-					break;
-				case 'gitIdentity':
-					message = `${baseMessage} because you have not yet set up your Git identity.`;
-					break;
-				case 'rebaseMultipleBranches':
-					message = `${baseMessage} because you are trying to rebase onto multiple branches.`;
-					break;
-				case 'refLocked':
-					message = `${baseMessage} because a local ref could not be updated.`;
-					break;
-				case 'remoteConnectionFailed':
-					message = `${baseMessage} because the remote repository could not be reached.`;
-					break;
-				case 'tagConflict':
-					message = `${baseMessage} because a local tag would be overwritten.`;
-					break;
-				case 'uncommittedChanges':
-					message = `${baseMessage} because you have uncommitted changes.`;
-					break;
-				case 'unmergedFiles':
-					message = `${baseMessage} because you have unmerged files.`;
-					break;
-				case 'unstagedChanges':
-					message = `${baseMessage} because you have unstaged changes.`;
-					break;
-				case 'wouldOverwriteChanges':
-					message = `${baseMessage} because local changes to some files would be overwritten.`;
-					break;
-				default:
-					message = baseMessage;
-			}
+	protected override buildErrorMessage(details: PullErrorDetails): string {
+		const baseMessage = 'Unable to pull';
+		switch (details.reason) {
+			case 'conflict':
+				return 'Unable to complete pull due to conflicts which must be resolved.';
+			case 'gitIdentity':
+				return `${baseMessage} because you have not yet set up your Git identity.`;
+			case 'rebaseMultipleBranches':
+				return `${baseMessage} because you are trying to rebase onto multiple branches.`;
+			case 'refLocked':
+				return `${baseMessage} because a local ref could not be updated.`;
+			case 'remoteConnectionFailed':
+				return `${baseMessage} because the remote repository could not be reached.`;
+			case 'tagConflict':
+				return `${baseMessage} because a local tag would be overwritten.`;
+			case 'uncommittedChanges':
+				return `${baseMessage} because you have uncommitted changes.`;
+			case 'unmergedFiles':
+				return `${baseMessage} because you have unmerged files.`;
+			case 'unstagedChanges':
+				return `${baseMessage} because you have unstaged changes.`;
+			case 'wouldOverwriteChanges':
+				return `${baseMessage} because local changes to some files would be overwritten.`;
+			default:
+				return baseMessage;
 		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
 	}
 }
 
@@ -569,77 +455,51 @@ export type PushErrorReason =
 	| 'remoteConnectionFailed'
 	| 'tipBehind'
 	| 'other';
+interface PushErrorDetails {
+	reason?: PushErrorReason;
+	branch?: string;
+	remote?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class PushError extends GitCommandError {
+export class PushError extends GitCommandError<PushErrorDetails> {
 	static override is(ex: unknown, reason?: PushErrorReason): ex is PushError {
-		return ex instanceof PushError && (reason == null || ex.reason === reason);
+		return ex instanceof PushError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: PushErrorReason | undefined;
+	constructor(details: PushErrorDetails, original?: Error) {
+		super('Unable to push', details, original);
+	}
 
-	constructor(
-		reason?: PushErrorReason,
-		original?: Error,
-		branch?: string,
-		remote?: string,
-		gitCommand?: GitCommandContext,
-	);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | PushErrorReason | undefined,
-		original?: Error,
-		branch?: string,
-		remote?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		const baseMessage = `Unable to push${branch ? ` branch '${branch}'` : ''}${remote ? ` to ${remote}` : ''}`;
-		let reason: PushErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = baseMessage;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-
-			switch (reason) {
-				case 'noUpstream':
-					message = `${baseMessage} because it has no upstream branch.`;
-					break;
-				case 'permissionDenied':
-					message = `${baseMessage} because you don't have permission to push to this remote repository.`;
-					break;
-				case 'rejected':
-					message = `${baseMessage} because some refs failed to push or the push was rejected. Try pulling first.`;
-					break;
-				case 'rejectedRefDoesNotExist':
-					message = `Unable to delete remote branch${branch ? ` '${branch}'` : ''}${
-						remote ? ` from ${remote}` : ''
-					}, the remote reference does not exist`;
-					break;
-				case 'rejectedWithLease':
-				case 'rejectedWithLeaseIfIncludes':
-					message = `Unable to force push${branch ? ` branch '${branch}'` : ''}${
-						remote ? ` to ${remote}` : ''
-					} because some refs failed to push or the push was rejected. The tip of the remote-tracking branch has been updated since the last checkout. Try pulling first.`;
-					break;
-				case 'remoteAhead':
-					message = `${baseMessage} because the remote contains work that you do not have locally. Try fetching first.`;
-					break;
-				case 'remoteConnectionFailed':
-					message = `${baseMessage} because the remote repository could not be reached.`;
-					break;
-				case 'tipBehind':
-					message = `${baseMessage} as it is behind its remote counterpart. Try pulling first.`;
-					break;
-				default:
-					message = baseMessage;
-			}
+	protected override buildErrorMessage(details: PushErrorDetails): string {
+		const baseMessage = `Unable to push${details.branch ? ` branch '${details.branch}'` : ''}${
+			details.remote ? ` to ${details.remote}` : ''
+		}`;
+		switch (details.reason) {
+			case 'noUpstream':
+				return `${baseMessage} because it has no upstream branch.`;
+			case 'permissionDenied':
+				return `${baseMessage} because you don't have permission to push to this remote repository.`;
+			case 'rejected':
+				return `${baseMessage} because some refs failed to push or the push was rejected. Try pulling first.`;
+			case 'rejectedRefDoesNotExist':
+				return `Unable to delete remote branch${details.branch ? ` '${details.branch}'` : ''}${
+					details.remote ? ` from ${details.remote}` : ''
+				}, the remote reference does not exist`;
+			case 'rejectedWithLease':
+			case 'rejectedWithLeaseIfIncludes':
+				return `Unable to force push${details.branch ? ` branch '${details.branch}'` : ''}${
+					details.remote ? ` to ${details.remote}` : ''
+				} because some refs failed to push or the push was rejected. The tip of the remote-tracking branch has been updated since the last checkout. Try pulling first.`;
+			case 'remoteAhead':
+				return `${baseMessage} because the remote contains work that you do not have locally. Try fetching first.`;
+			case 'remoteConnectionFailed':
+				return `${baseMessage} because the remote repository could not be reached.`;
+			case 'tipBehind':
+				return `${baseMessage} as it is behind its remote counterpart. Try pulling first.`;
+			default:
+				return baseMessage;
 		}
-		super(message, original, typeof branch === 'object' ? branch : gitCommand);
-
-		this.reason = reason;
 	}
 }
 
@@ -650,18 +510,27 @@ export type RebaseErrorReason =
 	| 'uncommittedChanges'
 	| 'wouldOverwriteChanges'
 	| 'other';
+interface RebaseErrorDetails {
+	reason?: RebaseErrorReason;
+	upstream?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class RebaseError extends GitCommandError {
+export class RebaseError extends GitCommandError<RebaseErrorDetails> {
 	static override is(ex: unknown, reason?: RebaseErrorReason): ex is RebaseError {
-		return ex instanceof RebaseError && (reason == null || ex.reason === reason);
+		return ex instanceof RebaseError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: RebaseErrorReason, upstream?: string): string {
-		const baseMessage = `Unable to rebase${upstream ? ` onto '${upstream}'` : ''}`;
+	constructor(details: RebaseErrorDetails, original?: Error) {
+		super('Unable to rebase', details, original);
+	}
 
-		switch (reason) {
+	protected override buildErrorMessage(details: RebaseErrorDetails): string {
+		const baseMessage = `Unable to rebase${details.upstream ? ` onto '${details.upstream}'` : ''}`;
+
+		switch (details.reason) {
 			case 'aborted':
-				return `Rebase${upstream ? ` onto '${upstream}'` : ''} was aborted`;
+				return `Rebase${details.upstream ? ` onto '${details.upstream}'` : ''} was aborted`;
 			case 'alreadyInProgress':
 				return `${baseMessage} because a rebase is already in progress`;
 			case 'conflicts':
@@ -674,41 +543,6 @@ export class RebaseError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: RebaseErrorReason | undefined;
-	private _upstream?: string;
-	get upstream(): string | undefined {
-		return this._upstream;
-	}
-
-	constructor(reason?: RebaseErrorReason, original?: Error, upstream?: string, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | RebaseErrorReason | undefined,
-		original?: Error,
-		upstream?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: RebaseErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = RebaseError.buildErrorMessage(reason, upstream);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._upstream = upstream;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; upstream?: string }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._upstream = changes.upstream === null ? undefined : (changes.upstream ?? this._upstream);
-		this.message = RebaseError.buildErrorMessage(this.reason, this._upstream);
-		return this;
-	}
 }
 
 export type ResetErrorReason =
@@ -720,57 +554,40 @@ export type ResetErrorReason =
 	| 'unmergedChanges'
 	| 'wouldOverwriteChanges'
 	| 'other';
+interface ResetErrorDetails {
+	reason?: ResetErrorReason;
+	gitCommand?: GitCommandContext;
+}
 
-export class ResetError extends GitCommandError {
+export class ResetError extends GitCommandError<ResetErrorDetails> {
 	static override is(ex: unknown, reason?: ResetErrorReason): ex is ResetError {
-		return ex instanceof ResetError && (reason == null || ex.reason === reason);
+		return ex instanceof ResetError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: ResetErrorReason | undefined;
-	constructor(reason?: ResetErrorReason, original?: Error, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | ResetErrorReason | undefined,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: ResetErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = 'Unable to reset';
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			message = 'Unable to reset';
-			switch (reason) {
-				case 'ambiguousArgument':
-					message = `${message} because the argument is ambiguous`;
-					break;
-				case 'detachedHead':
-					message = `${message} because you are in a detached HEAD state`;
-					break;
-				case 'notUpToDate':
-					message = `${message} because the index is not up to date (you may have unresolved merge conflicts)`;
-					break;
-				case 'permissionDenied':
-					message = `${message} because you don't have permission to modify affected files`;
-					break;
-				case 'refLocked':
-					message = `${message} because the ref is locked`;
-					break;
-				case 'unmergedChanges':
-					message = `${message} because there are unmerged changes`;
-					break;
-				case 'wouldOverwriteChanges':
-					message = `${message} because your local changes would be overwritten`;
-					break;
-			}
-		}
-		super(message, original, gitCommand);
+	constructor(details: ResetErrorDetails, original?: Error) {
+		super('Unable to reset', details, original);
+	}
 
-		this.reason = reason;
+	protected override buildErrorMessage(details: ResetErrorDetails): string {
+		const baseMessage = 'Unable to reset';
+		switch (details.reason) {
+			case 'ambiguousArgument':
+				return `${baseMessage} because the argument is ambiguous`;
+			case 'detachedHead':
+				return `${baseMessage} because you are in a detached HEAD state`;
+			case 'notUpToDate':
+				return `${baseMessage} because the index is not up to date (you may have unresolved merge conflicts)`;
+			case 'permissionDenied':
+				return `${baseMessage} because you don't have permission to modify affected files`;
+			case 'refLocked':
+				return `${baseMessage} because the ref is locked`;
+			case 'unmergedChanges':
+				return `${baseMessage} because there are unmerged changes`;
+			case 'wouldOverwriteChanges':
+				return `${baseMessage} because your local changes would be overwritten`;
+			default:
+				return baseMessage;
+		}
 	}
 }
 
@@ -781,18 +598,27 @@ export type RevertErrorReason =
 	| 'uncommittedChanges'
 	| 'wouldOverwriteChanges'
 	| 'other';
+interface RevertErrorDetails {
+	reason?: RevertErrorReason;
+	refs?: string[];
+	gitCommand?: GitCommandContext;
+}
 
-export class RevertError extends GitCommandError {
+export class RevertError extends GitCommandError<RevertErrorDetails> {
 	static override is(ex: unknown, reason?: RevertErrorReason): ex is RevertError {
-		return ex instanceof RevertError && (reason == null || ex.reason === reason);
+		return ex instanceof RevertError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: RevertErrorReason, refs?: string[]): string {
-		const baseMessage = `Unable to revert${refs?.length ? ` ${refs.join(', ')}` : ''}`;
+	constructor(details: RevertErrorDetails, original?: Error) {
+		super('Unable to revert', details, original);
+	}
 
-		switch (reason) {
+	protected override buildErrorMessage(details: RevertErrorDetails): string {
+		const baseMessage = `Unable to revert${details.refs?.length ? ` ${details.refs.join(', ')}` : ''}`;
+
+		switch (details.reason) {
 			case 'aborted':
-				return `Revert${refs?.length ? ` of ${refs.join(', ')}` : ''} was aborted`;
+				return `Revert${details.refs?.length ? ` of ${details.refs.join(', ')}` : ''} was aborted`;
 			case 'alreadyInProgress':
 				return `${baseMessage} because a revert is already in progress`;
 			case 'conflicts':
@@ -805,123 +631,57 @@ export class RevertError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: RevertErrorReason | undefined;
-	private _refs?: string[];
-	get refs(): string[] | undefined {
-		return this._refs;
-	}
-
-	constructor(reason?: RevertErrorReason, original?: Error, refs?: string[], gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | RevertErrorReason | undefined,
-		original?: Error,
-		refs?: string[],
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: RevertErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = RevertError.buildErrorMessage(reason, refs);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._refs = refs;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; refs?: string[] }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._refs = changes.refs === null ? undefined : (changes.refs ?? this._refs);
-		this.message = RevertError.buildErrorMessage(this.reason, this._refs);
-		return this;
-	}
 }
 
 export type StashApplyErrorReason = 'uncommittedChanges' | 'other';
+interface StashApplyErrorDetails {
+	reason?: StashApplyErrorReason;
+	gitCommand?: GitCommandContext;
+}
 
-export class StashApplyError extends GitCommandError {
+export class StashApplyError extends GitCommandError<StashApplyErrorDetails> {
 	static override is(ex: unknown, reason?: StashApplyErrorReason): ex is StashApplyError {
-		return ex instanceof StashApplyError && (reason == null || ex.reason === reason);
+		return ex instanceof StashApplyError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: StashApplyErrorReason | undefined;
+	constructor(details: StashApplyErrorDetails, original?: Error) {
+		super('Unable to apply stash', details, original);
+	}
 
-	constructor(reason?: StashApplyErrorReason, original?: Error, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error, gitCommand?: GitCommandContext);
-	constructor(
-		messageOrReason: string | StashApplyErrorReason | undefined,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: StashApplyErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = 'Unable to apply stash';
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case 'uncommittedChanges':
-					message =
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again';
-					break;
-				default:
-					message = 'Unable to apply stash';
-			}
+	protected override buildErrorMessage(details: StashApplyErrorDetails): string {
+		switch (details.reason) {
+			case 'uncommittedChanges':
+				return 'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again';
+			default:
+				return 'Unable to apply stash';
 		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
 	}
 }
 
 export type StashPushErrorReason = 'conflictingStagedAndUnstagedLines' | 'nothingToSave' | 'other';
+interface StashPushErrorDetails {
+	reason?: StashPushErrorReason;
+	gitCommand?: GitCommandContext;
+}
 
-export class StashPushError extends GitCommandError {
+export class StashPushError extends GitCommandError<StashPushErrorDetails> {
 	static override is(ex: unknown, reason?: StashPushErrorReason): ex is StashPushError {
-		return ex instanceof StashPushError && (reason == null || ex.reason === reason);
+		return ex instanceof StashPushError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: StashPushErrorReason | undefined;
+	constructor(details: StashPushErrorDetails, original?: Error) {
+		super('Unable to stash', details, original);
+	}
 
-	constructor(reason?: StashPushErrorReason, original?: Error, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error, gitCommand?: GitCommandContext);
-	constructor(
-		messageOrReason: string | StashPushErrorReason | undefined,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: StashPushErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = 'Unable to stash';
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case 'conflictingStagedAndUnstagedLines':
-					message =
-						'Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)';
-					break;
-				case 'nothingToSave':
-					message = 'No files to stash';
-					break;
-				default:
-					message = 'Unable to stash';
-			}
+	protected override buildErrorMessage(details: StashPushErrorDetails): string {
+		switch (details.reason) {
+			case 'conflictingStagedAndUnstagedLines':
+				return 'Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)';
+			case 'nothingToSave':
+				return 'No files to stash';
+			default:
+				return 'Unable to stash';
 		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
 	}
 }
 
@@ -932,21 +692,31 @@ export type TagErrorReason =
 	| 'permissionDenied'
 	| 'remoteRejected'
 	| 'other';
+interface TagErrorDetails {
+	reason?: TagErrorReason;
+	action?: string;
+	tag?: string;
+	gitCommand?: GitCommandContext;
+}
 
-export class TagError extends GitCommandError {
+export class TagError extends GitCommandError<TagErrorDetails> {
 	static override is(ex: unknown, reason?: TagErrorReason): ex is TagError {
-		return ex instanceof TagError && (reason == null || ex.reason === reason);
+		return ex instanceof TagError && (reason == null || ex.details.reason === reason);
 	}
 
-	private static buildErrorMessage(reason?: TagErrorReason, tag?: string, action?: string): string {
+	constructor(details: TagErrorDetails, original?: Error) {
+		super('Unable to perform action on tag', details, original);
+	}
+
+	protected override buildErrorMessage(details: TagErrorDetails): string {
 		let baseMessage: string;
-		if (action != null) {
-			baseMessage = `Unable to ${action} tag ${tag ? `'${tag}'` : ''}`;
+		if (details.action != null) {
+			baseMessage = `Unable to ${details.action} tag ${details.tag ? `'${details.tag}'` : ''}`;
 		} else {
-			baseMessage = `Unable to perform action${tag ? ` with tag '${tag}'` : 'on tag'}`;
+			baseMessage = `Unable to perform action${details.tag ? ` with tag '${details.tag}'` : 'on tag'}`;
 		}
 
-		switch (reason) {
+		switch (details.reason) {
 			case 'alreadyExists':
 				return `${baseMessage} because it already exists`;
 			case 'invalidName':
@@ -961,54 +731,6 @@ export class TagError extends GitCommandError {
 				return baseMessage;
 		}
 	}
-
-	readonly reason: TagErrorReason | undefined;
-	private _action?: string;
-	get action(): string | undefined {
-		return this._action;
-	}
-	private _tag?: string;
-	get tag(): string | undefined {
-		return this._tag;
-	}
-
-	constructor(
-		reason?: TagErrorReason,
-		original?: Error,
-		action?: string,
-		tag?: string,
-		gitCommand?: GitCommandContext,
-	);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | TagErrorReason | undefined,
-		original?: Error,
-		action?: string,
-		tag?: string,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: TagErrorReason | undefined;
-		if (messageOrReason == null || typeof messageOrReason !== 'string') {
-			reason = messageOrReason;
-			message = TagError.buildErrorMessage(reason, tag, action);
-		} else {
-			message = messageOrReason;
-		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
-		this._tag = tag;
-		this._action = action;
-	}
-
-	override update(changes: { gitCommand?: GitCommandContext; tag?: string; action?: string }): this {
-		super.update({ gitCommand: changes.gitCommand });
-		this._tag = changes.tag === null ? undefined : (changes.tag ?? this._tag);
-		this._action = changes.action === null ? undefined : (changes.action ?? this._action);
-		this.message = TagError.buildErrorMessage(this.reason, this._tag, this._action);
-		return this;
-	}
 }
 
 export class WorkspaceUntrustedError extends Error {
@@ -1020,90 +742,57 @@ export class WorkspaceUntrustedError extends Error {
 }
 
 export type WorktreeCreateErrorReason = 'alreadyCheckedOut' | 'alreadyExists';
+interface WorktreeCreateErrorDetails {
+	reason?: WorktreeCreateErrorReason;
+	gitCommand?: GitCommandContext;
+}
 
-export class WorktreeCreateError extends GitCommandError {
+export class WorktreeCreateError extends GitCommandError<WorktreeCreateErrorDetails> {
 	static override is(ex: unknown, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
-		return ex instanceof WorktreeCreateError && (reason == null || ex.reason === reason);
+		return ex instanceof WorktreeCreateError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: WorktreeCreateErrorReason | undefined;
+	constructor(details: WorktreeCreateErrorDetails, original?: Error) {
+		super('Unable to create worktree', details, original);
+	}
 
-	constructor(reason?: WorktreeCreateErrorReason, original?: Error, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | WorktreeCreateErrorReason | undefined,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		let message;
-		let reason: WorktreeCreateErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = 'Unable to create worktree';
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case 'alreadyCheckedOut':
-					message = 'Unable to create worktree because it is already checked out';
-					break;
-				case 'alreadyExists':
-					message = 'Unable to create worktree because it already exists';
-					break;
-				default:
-					message = 'Unable to create worktree';
-					break;
-			}
+	protected override buildErrorMessage(details: WorktreeCreateErrorDetails): string {
+		switch (details.reason) {
+			case 'alreadyCheckedOut':
+				return 'Unable to create worktree because it is already checked out';
+			case 'alreadyExists':
+				return 'Unable to create worktree because it already exists';
+			default:
+				return 'Unable to create worktree';
 		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
 	}
 }
 
 export type WorktreeDeleteErrorReason = 'defaultWorkingTree' | 'directoryNotEmpty' | 'uncommittedChanges';
+interface WorktreeDeleteErrorDetails {
+	reason?: WorktreeDeleteErrorReason;
+	gitCommand?: GitCommandContext;
+}
 
-export class WorktreeDeleteError extends GitCommandError {
+export class WorktreeDeleteError extends GitCommandError<WorktreeDeleteErrorDetails> {
 	static override is(ex: unknown, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
-		return ex instanceof WorktreeDeleteError && (reason == null || ex.reason === reason);
+		return ex instanceof WorktreeDeleteError && (reason == null || ex.details.reason === reason);
 	}
 
-	readonly reason: WorktreeDeleteErrorReason | undefined;
+	constructor(details: WorktreeDeleteErrorDetails, original?: Error) {
+		super('Unable to delete worktree', details, original);
+	}
 
-	constructor(reason?: WorktreeDeleteErrorReason, original?: Error, gitCommand?: GitCommandContext);
-	constructor(message?: string, original?: Error);
-	constructor(
-		messageOrReason: string | WorktreeDeleteErrorReason | undefined,
-		original?: Error,
-		gitCommand?: GitCommandContext,
-	) {
-		let message: string;
-		let reason: WorktreeDeleteErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = 'Unable to delete worktree';
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
-		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case 'defaultWorkingTree':
-					message = 'Cannot delete worktree because it is the default working tree';
-					break;
-				case 'directoryNotEmpty':
-					message = 'Unable to delete worktree because the directory is not empty';
-					break;
-				case 'uncommittedChanges':
-					message = 'Unable to delete worktree because there are uncommitted changes';
-					break;
-				default:
-					message = 'Unable to delete worktree';
-					break;
-			}
+	protected override buildErrorMessage(details: WorktreeDeleteErrorDetails): string {
+		switch (details.reason) {
+			case 'defaultWorkingTree':
+				return 'Cannot delete worktree because it is the default working tree';
+			case 'directoryNotEmpty':
+				return 'Unable to delete worktree because the directory is not empty';
+			case 'uncommittedChanges':
+				return 'Unable to delete worktree because there are uncommitted changes';
+			default:
+				return 'Unable to delete worktree';
 		}
-		super(message, original, gitCommand);
-
-		this.reason = reason;
 	}
 }

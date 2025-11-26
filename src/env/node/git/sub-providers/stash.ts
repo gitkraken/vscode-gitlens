@@ -60,9 +60,15 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				}
 			}
 
-			throw getGitCommandError('stash-apply', ex, reason => {
-				return new StashApplyError(reason ?? 'other', ex, { repoPath: repoPath, args: args });
-			});
+			throw getGitCommandError(
+				'stash-apply',
+				ex,
+				reason =>
+					new StashApplyError(
+						{ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
 		}
 	}
 

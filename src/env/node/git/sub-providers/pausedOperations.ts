@@ -21,7 +21,7 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
-import { GitErrors } from '../git';
+import { getGitCommandError } from '../git';
 import type { LocalGitProviderInternal } from '../localGitProvider';
 
 type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert';
@@ -349,21 +349,19 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		} catch (ex) {
 			debugger;
 			Logger.error(ex);
-			const msg: string = ex?.toString() ?? '';
-			if (GitErrors.noPausedOperation.test(msg)) {
-				throw new PausedOperationAbortError(
-					'nothingToAbort',
-					status.type,
-					`Cannot abort as there is no ${status.type} operation in progress`,
-					ex,
-					{ repoPath: repoPath, args: args },
-				);
-			}
-
-			throw new PausedOperationAbortError(undefined, status.type, `Cannot abort ${status.type}; ${msg}`, ex, {
-				repoPath: repoPath,
-				args: args,
-			});
+			throw getGitCommandError(
+				'paused-operation-abort',
+				ex,
+				reason =>
+					new PausedOperationAbortError(
+						{
+							reason: reason,
+							operation: status,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
+			);
 		}
 	}
 
@@ -384,88 +382,19 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		} catch (ex) {
 			debugger;
 			Logger.error(ex);
-
-			const msg: string = ex?.toString() ?? '';
-			const gitCommand = { repoPath: repoPath, args: args };
-
-			if (GitErrors.cherryPickEmptyPrevious.test(msg)) {
-				throw new PausedOperationContinueError(
-					'emptyCommit',
-					status,
-					`Cannot continue ${status.type} as the previous cherry-pick is empty`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			if (GitErrors.noPausedOperation.test(msg)) {
-				throw new PausedOperationContinueError(
-					'nothingToContinue',
-					status,
-					`Cannot ${options?.skip ? 'skip' : 'continue'} as there is no ${status.type} operation in progress`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			if (GitErrors.uncommittedChanges.test(msg)) {
-				throw new PausedOperationContinueError(
-					'uncommittedChanges',
-					status,
-					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are uncommitted changes`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			if (GitErrors.unmergedFiles.test(msg)) {
-				throw new PausedOperationContinueError(
-					'unmergedFiles',
-					status,
-					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unmerged files`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			if (GitErrors.unresolvedConflicts.test(msg)) {
-				throw new PausedOperationContinueError(
-					'unresolvedConflicts',
-					status,
-					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unresolved conflicts`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			if (GitErrors.unstagedChanges.test(msg)) {
-				throw new PausedOperationContinueError(
-					'unstagedChanges',
-					status,
-					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unstaged changes`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			if (GitErrors.changesWouldBeOverwritten.test(msg)) {
-				throw new PausedOperationContinueError(
-					'wouldOverwriteChanges',
-					status,
-					`Cannot ${
-						options?.skip ? 'skip' : `continue ${status.type}`
-					} as local changes would be overwritten`,
-					ex,
-					gitCommand,
-				);
-			}
-
-			throw new PausedOperationContinueError(
-				undefined,
-				status,
-				`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`}; ${msg}`,
+			throw getGitCommandError(
+				'paused-operation-continue',
 				ex,
-				gitCommand,
+				reason =>
+					new PausedOperationContinueError(
+						{
+							reason: reason,
+							operation: status,
+							skip: options?.skip ?? false,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
 			);
 		}
 	}

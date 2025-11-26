@@ -469,7 +469,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			throw getGitCommandError(
 				'branch',
 				ex,
-				reason => new BranchError(reason ?? 'other', ex, 'create', name, { repoPath: repoPath, args: args }),
+				reason =>
+					new BranchError(
+						{
+							reason: reason ?? 'other',
+							action: 'create',
+							branch: name,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
 			);
 		}
 	}
@@ -484,16 +493,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		} catch (ex) {
 			if (ex instanceof BranchError) {
 				throw ex.update({
-					gitCommand: { repoPath: repoPath, args: args },
 					action: options?.force ? 'force delete' : 'delete',
 					branch: branches.join(', '),
+					gitCommand: { repoPath: repoPath, args: args },
 				});
 			}
 
-			throw new BranchError(undefined, ex, options?.force ? 'force delete' : 'delete', branches.join(', '), {
-				repoPath: repoPath,
-				args: args,
-			});
+			throw new BranchError(
+				{
+					action: options?.force ? 'force delete' : 'delete',
+					branch: branches.join(', '),
+					gitCommand: { repoPath: repoPath, args: args },
+				},
+				ex,
+			);
 		}
 	}
 
@@ -507,13 +520,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		} catch (ex) {
 			if (ex instanceof BranchError) {
 				throw ex.update({
-					gitCommand: { repoPath: repoPath, args: args },
 					action: 'delete',
 					branch: branches.join(', '),
+					gitCommand: { repoPath: repoPath, args: args },
 				});
 			}
 
-			throw new BranchError(undefined, ex, 'delete', branches.join(', '), { repoPath: repoPath, args: args });
+			throw new BranchError(
+				{ action: 'delete', branch: branches.join(', '), gitCommand: { repoPath: repoPath, args: args } },
+				ex,
+			);
 		}
 	}
 
@@ -881,7 +897,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			throw getGitCommandError(
 				'branch',
 				ex,
-				reason => new BranchError(reason ?? 'other', ex, 'rename', oldName, { repoPath: repoPath, args: args }),
+				reason =>
+					new BranchError(
+						{
+							reason: reason ?? 'other',
+							action: 'rename',
+							branch: oldName,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
 			);
 		}
 	}
@@ -898,11 +923,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				ex,
 				reason =>
 					new BranchError(
-						reason ?? 'other',
+						{
+							reason: reason ?? 'other',
+							action: upstream == null ? 'unset upstream of' : `set upstream to '${upstream}' for`,
+							branch: name,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
 						ex,
-						upstream == null ? 'unset upstream of' : `set upstream to '${upstream}' for`,
-						name,
-						{ repoPath: repoPath, args: args },
 					),
 			);
 		}

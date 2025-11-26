@@ -20,6 +20,8 @@ import type {
 	FetchErrorReason,
 	GitCommandError,
 	MergeErrorReason,
+	PausedOperationAbortErrorReason,
+	PausedOperationContinueErrorReason,
 	PullErrorReason,
 	PushErrorReason,
 	RebaseErrorReason,
@@ -28,6 +30,8 @@ import type {
 	StashApplyErrorReason,
 	StashPushErrorReason,
 	TagErrorReason,
+	WorktreeCreateErrorReason,
+	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
@@ -820,7 +824,11 @@ export class Git implements Disposable {
 			throw getGitCommandError(
 				'checkout',
 				ex,
-				reason => new CheckoutError(reason ?? 'other', ex, ref, { repoPath: repoPath, args: params }),
+				reason =>
+					new CheckoutError(
+						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: params } },
+						ex,
+					),
 			);
 		}
 	}
@@ -1023,12 +1031,20 @@ export class Git implements Disposable {
 		try {
 			void (await this.exec({ cwd: repoPath }, ...params));
 		} catch (ex) {
-			throw getGitCommandError('fetch', ex, reason => {
-				return new FetchError(reason ?? 'other', ex, options?.branch, options?.remote, {
-					repoPath: repoPath,
-					args: params,
-				});
-			});
+			throw getGitCommandError(
+				'fetch',
+				ex,
+				reason =>
+					new FetchError(
+						{
+							reason: reason ?? 'other',
+							branch: options?.branch,
+							remote: options?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
+						ex,
+					),
+			);
 		}
 	}
 
@@ -1083,22 +1099,26 @@ export class Git implements Disposable {
 				ex,
 				reason =>
 					new PushError(
-						reason,
+						{
+							reason: reason,
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
 						ex,
-						options?.branch || options?.delete?.branch,
-						options?.remote || options?.delete?.remote,
-						{ repoPath: repoPath, args: params },
 					),
 			);
 
-			if (options?.force?.withLease && error.reason === 'rejected') {
+			if (options?.force?.withLease && error.details.reason === 'rejected') {
 				if (ex.stderr && /! \[rejected\].*\(stale info\)/m.test(ex.stderr)) {
 					throw new PushError(
-						'rejectedWithLease',
+						{
+							reason: 'rejectedWithLease',
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
 						ex,
-						options?.branch || options?.delete?.branch,
-						options?.remote || options?.delete?.remote,
-						{ repoPath: repoPath, args: params },
 					);
 				}
 				if (
@@ -1107,20 +1127,24 @@ export class Git implements Disposable {
 					/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr)
 				) {
 					throw new PushError(
-						'rejectedWithLeaseIfIncludes',
+						{
+							reason: 'rejectedWithLeaseIfIncludes',
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
 						ex,
-						options?.branch || options?.delete?.branch,
-						options?.remote || options?.delete?.remote,
-						{ repoPath: repoPath, args: params },
 					);
 				}
 				if (ex.stderr && GitErrors.pushRejectedRefDoesNotExists.test(ex.stderr)) {
 					throw new PushError(
-						'rejectedRefDoesNotExist',
+						{
+							reason: 'rejectedRefDoesNotExist',
+							branch: options?.branch || options?.delete?.branch,
+							remote: options?.remote || options?.delete?.remote,
+							gitCommand: { repoPath: repoPath, args: params },
+						},
 						ex,
-						options?.branch || options?.delete?.branch,
-						options?.remote || options?.delete?.remote,
-						{ repoPath: repoPath, args: params },
 					);
 				}
 			}
@@ -1142,9 +1166,12 @@ export class Git implements Disposable {
 		try {
 			void (await this.exec({ cwd: repoPath, configs: gitConfigsPull }, ...params));
 		} catch (ex) {
-			throw getGitCommandError('pull', ex, reason => {
-				return new PullError(reason ?? 'other', ex, { repoPath: repoPath, args: params });
-			});
+			throw getGitCommandError(
+				'pull',
+				ex,
+				reason =>
+					new PullError({ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } }, ex),
+			);
 		}
 	}
 
@@ -1168,7 +1195,8 @@ export class Git implements Disposable {
 			throw getGitCommandError(
 				'reset',
 				ex,
-				reason => new ResetError(reason ?? 'other', ex, { repoPath: repoPath, args: params }),
+				reason =>
+					new ResetError({ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } }, ex),
 			);
 		}
 	}
@@ -1525,17 +1553,20 @@ export class Git implements Disposable {
 		try {
 			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
 			if (GitErrors.stashNothingToSave.test(result.stdout)) {
-				throw new StashPushError('nothingToSave', undefined, {
-					repoPath: repoPath,
-					args: params,
-				});
+				throw new StashPushError({ reason: 'nothingToSave', gitCommand: { repoPath: repoPath, args: params } });
 			}
 		} catch (ex) {
 			if (ex instanceof StashPushError) throw ex;
 
-			throw getGitCommandError('stash-push', ex, reason => {
-				return new StashPushError(reason ?? 'other', ex, { repoPath: repoPath, args: params });
-			});
+			throw getGitCommandError(
+				'stash-push',
+				ex,
+				reason =>
+					new StashPushError(
+						{ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } },
+						ex,
+					),
+			);
 		}
 	}
 
@@ -1666,6 +1697,8 @@ type GitCommand =
 	| 'cherry-pick'
 	| 'fetch'
 	| 'merge'
+	| 'paused-operation-abort'
+	| 'paused-operation-continue'
 	| 'pull'
 	| 'push'
 	| 'rebase'
@@ -1673,13 +1706,17 @@ type GitCommand =
 	| 'revert'
 	| 'stash-apply'
 	| 'stash-push'
-	| 'tag';
+	| 'tag'
+	| 'worktree-create'
+	| 'worktree-delete';
 type GitCommandToReasonMap = {
 	branch: BranchErrorReason;
 	checkout: CheckoutErrorReason;
 	'cherry-pick': CherryPickErrorReason;
 	fetch: FetchErrorReason;
 	merge: MergeErrorReason;
+	'paused-operation-abort': PausedOperationAbortErrorReason;
+	'paused-operation-continue': PausedOperationContinueErrorReason;
 	pull: PullErrorReason;
 	push: PushErrorReason;
 	rebase: RebaseErrorReason;
@@ -1688,6 +1725,8 @@ type GitCommandToReasonMap = {
 	'stash-apply': StashApplyErrorReason;
 	'stash-push': StashPushErrorReason;
 	tag: TagErrorReason;
+	'worktree-create': WorktreeCreateErrorReason;
+	'worktree-delete': WorktreeDeleteErrorReason;
 };
 
 const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitCommand]][]>([
@@ -1733,6 +1772,19 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.mergeInProgress, 'alreadyInProgress'],
 			[GitErrors.unresolvedConflicts, 'conflicts'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+		],
+	],
+	['paused-operation-abort', [[GitErrors.noPausedOperation, 'nothingToAbort']]],
+	[
+		'paused-operation-continue',
+		[
+			[GitErrors.cherryPickEmptyPrevious, 'emptyCommit'],
+			[GitErrors.noPausedOperation, 'nothingToContinue'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.unmergedFiles, 'unmergedFiles'],
+			[GitErrors.unresolvedConflicts, 'unresolvedConflicts'],
+			[GitErrors.unstagedChanges, 'unstagedChanges'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
 		],
 	],
@@ -1815,9 +1867,24 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.remoteRejected, 'remoteRejected'],
 		],
 	],
+	[
+		'worktree-create',
+		[
+			[GitErrors.alreadyCheckedOut, 'alreadyCheckedOut'],
+			[GitErrors.alreadyExists, 'alreadyExists'],
+		],
+	],
+	[
+		'worktree-delete',
+		[
+			[GitErrors.mainWorkingTree, 'defaultWorkingTree'],
+			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
+			[GitErrors.failedToDeleteDirectoryNotEmpty, 'directoryNotEmpty'],
+		],
+	],
 ]);
 
-export function getGitCommandError<T extends GitCommand, TReturn extends GitCommandError>(
+export function getGitCommandError<T extends GitCommand, TReturn extends GitCommandError<any>>(
 	command: T,
 	ex: GitError,
 	creator: (reason: GitCommandToReasonMap[T] | undefined) => TReturn,

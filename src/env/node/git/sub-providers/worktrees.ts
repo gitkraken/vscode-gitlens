@@ -18,7 +18,7 @@ import { joinPaths, normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
 import { interpolate } from '../../../../system/string';
 import type { Git } from '../git';
-import { GitErrors } from '../git';
+import { getGitCommandError } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 import { isWindows } from '../shell';
 
@@ -62,19 +62,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			});
 		} catch (ex) {
 			Logger.error(ex, scope);
-
-			const msg = String(ex);
-			const gitCommand = { repoPath: repoPath, args: args };
-
-			if (GitErrors.alreadyCheckedOut.test(msg)) {
-				throw new WorktreeCreateError('alreadyCheckedOut', ex, gitCommand);
-			}
-
-			if (GitErrors.alreadyExists.test(msg)) {
-				throw new WorktreeCreateError('alreadyExists', ex, gitCommand);
-			}
-
-			throw new WorktreeCreateError(undefined, ex, { repoPath: repoPath, args: args });
+			throw getGitCommandError(
+				'worktree-create',
+				ex,
+				reason =>
+					new WorktreeCreateError({ reason: reason, gitCommand: { repoPath: repoPath, args: args } }, ex),
+			);
 		}
 	}
 
@@ -189,19 +182,14 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
 		} catch (ex) {
 			Logger.error(ex, scope);
+			const gitError = getGitCommandError(
+				'worktree-delete',
+				ex,
+				reason =>
+					new WorktreeDeleteError({ reason: reason, gitCommand: { repoPath: repoPath, args: args } }, ex),
+			);
 
-			const msg = String(ex);
-			const gitCommand = { repoPath: repoPath, args: args };
-
-			if (GitErrors.mainWorkingTree.test(msg)) {
-				throw new WorktreeDeleteError('defaultWorkingTree', ex, gitCommand);
-			}
-
-			if (GitErrors.uncommittedChanges.test(msg)) {
-				throw new WorktreeDeleteError('uncommittedChanges', ex, gitCommand);
-			}
-
-			if (GitErrors.failedToDeleteDirectoryNotEmpty.test(msg)) {
+			if (gitError.details.reason === 'directoryNotEmpty') {
 				Logger.warn(
 					scope,
 					`Failed to fully delete worktree '${path}' because it is not empty. Attempting to delete it manually.`,
@@ -249,12 +237,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 							}
 						}
 					}
-
-					throw new WorktreeDeleteError('directoryNotEmpty', ex, gitCommand);
 				}
 			}
 
-			throw new WorktreeDeleteError(undefined, ex, gitCommand);
+			throw gitError;
 		} finally {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['worktrees'] });
 		}

@@ -903,12 +903,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						skipHasChangesPrompt = false;
 
 						if (WorktreeDeleteError.is(ex)) {
-							if (ex.reason === 'defaultWorkingTree') {
+							if (ex.details.reason === 'defaultWorkingTree') {
 								void window.showErrorMessage('Cannot delete the default worktree.');
 								break;
 							}
 
-							if (ex.reason === 'directoryNotEmpty') {
+							if (ex.details.reason === 'directoryNotEmpty') {
 								const openFolder: MessageItem = { title: 'Open Folder' };
 								const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 								const result = await window.showErrorMessage(
@@ -930,7 +930,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showErrorMessage(
-									ex.reason === 'uncommittedChanges'
+									ex.details.reason === 'uncommittedChanges'
 										? `Unable to delete worktree because there are UNCOMMITTED changes in '${uri.fsPath}'.\n\nForcibly deleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nWould you like to forcibly delete it?`
 										: `Unable to delete worktree in '${uri.fsPath}'.\n\nWould you like to try to forcibly delete it?`,
 									{ modal: true },
@@ -940,7 +940,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 								if (result === confirm) {
 									force = true;
-									skipHasChangesPrompt = ex.reason === 'uncommittedChanges';
+									skipHasChangesPrompt = ex.details.reason === 'uncommittedChanges';
 									continue;
 								}
 

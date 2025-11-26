@@ -87,7 +87,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			throw getGitCommandError(
 				'cherry-pick',
 				ex,
-				reason => new CherryPickError(reason ?? 'other', ex, revs, { repoPath: repoPath, args: args }),
+				reason =>
+					new CherryPickError(
+						{ reason: reason ?? 'other', revs: revs, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
 			);
 		}
 	}
@@ -162,7 +166,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			throw getGitCommandError(
 				'merge',
 				ex,
-				reason => new MergeError(reason ?? 'other', ex, ref, { repoPath: repoPath, args: args }),
+				reason =>
+					new MergeError(
+						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
 			);
 		}
 	}
@@ -237,7 +245,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options?.publish == null && remoteName == null && upstreamName == null) {
 			debugger;
-			throw new PushError('other');
+			throw new PushError({ reason: 'other' });
 		}
 
 		let forceOpts: PushForceOptions | undefined;
@@ -325,7 +333,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			throw getGitCommandError(
 				'rebase',
 				ex,
-				reason => new RebaseError(reason ?? 'other', ex, upstream, { repoPath: repoPath, args: args }),
+				reason =>
+					new RebaseError(
+						{
+							reason: reason ?? 'other',
+							upstream: upstream,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
 			);
 		}
 	}
@@ -374,7 +390,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			throw getGitCommandError(
 				'revert',
 				ex,
-				reason => new RevertError(reason ?? 'other', ex, refs, { repoPath: repoPath, args: args }),
+				reason =>
+					new RevertError(
+						{ reason: reason ?? 'other', refs: refs, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
 			);
 		}
 	}

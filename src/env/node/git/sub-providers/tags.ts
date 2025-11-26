@@ -137,7 +137,11 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			throw getGitCommandError(
 				'tag',
 				ex,
-				reason => new TagError(reason ?? 'other', ex, 'create', name, { repoPath: repoPath, args: args }),
+				reason =>
+					new TagError(
+						{ reason: reason, action: 'create', tag: name, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
 			);
 		}
 	}
@@ -152,7 +156,11 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			throw getGitCommandError(
 				'tag',
 				ex,
-				reason => new TagError(reason ?? 'other', ex, 'delete', name, { repoPath: repoPath, args: args }),
+				reason =>
+					new TagError(
+						{ reason: reason, action: 'delete', tag: name, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
 			);
 		}
 	}

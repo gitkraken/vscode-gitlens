@@ -107,7 +107,7 @@ function escapeShellArg(arg: string): string {
 	return arg;
 }
 
-function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitCommandError): void {
+function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitCommandError<any>): void {
 	const terminal = window.createTerminal({
 		cwd: gitCommand.repoPath,
 		name: 'GitLens',
@@ -121,12 +121,12 @@ function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitComma
 	terminal.show();
 }
 
-export async function showGitErrorMessage(error: Error | GitCommandError, message?: string): Promise<void> {
+export async function showGitErrorMessage(error: Error | GitCommandError<any>, message?: string): Promise<void> {
 	if (!GitCommandError.is(error)) {
 		return void showGenericErrorMessage(message ?? error.message);
 	}
 
-	const { gitCommand } = error;
+	const { gitCommand } = error.details;
 	message = message ?? error.message;
 	const loggingEnabled = Logger.enabled('error');
 
@@ -146,7 +146,7 @@ export async function showGitErrorMessage(error: Error | GitCommandError, messag
 	);
 
 	if (result === openInTerminalAction) {
-		showGitCommandInTerminal(gitCommand!, error);
+		showGitCommandInTerminal(gitCommand, error);
 		return;
 	}
 
