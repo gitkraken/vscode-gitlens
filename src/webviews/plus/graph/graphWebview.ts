@@ -2457,7 +2457,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return this.host.notify(DidChangeWorkingTreeNotification, {
-			stats: (await this.getWorkingTreeStats(hasWorkingChanges)) ?? { added: 0, deleted: 0, modified: 0 },
+			stats: (await this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges)) ?? {
+				added: 0,
+				deleted: 0,
+				modified: 0,
+			},
 		});
 	}
 
@@ -2967,7 +2971,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return item;
 	}
 
-	private async getWorkingTreeStats(
+	private async getWorkingTreeStatsAndPausedOperations(
 		hasWorkingChanges?: boolean,
 		cancellation?: CancellationToken,
 	): Promise<GraphWorkingTreeStats | undefined> {
@@ -3076,7 +3080,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
-			hasWorkingChanges ? this.getWorkingTreeStats(hasWorkingChanges, cancellation.token) : undefined,
+			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
 			this.repository.git.branches.getBranch(undefined, cancellation.token),
 			this.repository.getLastFetched(),
 		]);
