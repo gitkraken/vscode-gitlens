@@ -409,6 +409,7 @@ export class StatusBarController implements Disposable {
 				pullRequests: showPullRequests && pr != null,
 				remotes: remotes,
 				timeout: timeout,
+				sourceName: 'statusbar:hover',
 			});
 		}
 

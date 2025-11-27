@@ -45,24 +45,36 @@ export function registerCommand(
 				}
 			}
 
-			Container.instance.telemetry.sendEvent('command', {
-				command: command,
-				'context.mode': context?.mode,
-				'context.submode': context?.submode,
-			});
+			Container.instance.telemetry.sendEvent(
+				'command',
+				{
+					command: command,
+					'context.mode': context?.mode,
+					'context.submode': context?.submode,
+				},
+				args[0]?.source,
+			);
 
 			if (command.startsWith('gitlens.graph.')) {
-				Container.instance.telemetry.sendEvent('graph/command', {
-					command: command,
-					'context.mode': context?.mode,
-					'context.submode': context?.submode,
-				});
+				Container.instance.telemetry.sendEvent(
+					'graph/command',
+					{
+						command: command,
+						'context.mode': context?.mode,
+						'context.submode': context?.submode,
+					},
+					args[0]?.source,
+				);
 			} else if (command.startsWith('gitlens.home.')) {
-				Container.instance.telemetry.sendEvent('home/command', {
-					command: command,
-					'context.mode': context?.mode,
-					'context.submode': context?.submode,
-				});
+				Container.instance.telemetry.sendEvent(
+					'home/command',
+					{
+						command: command,
+						'context.mode': context?.mode,
+						'context.submode': context?.submode,
+					},
+					args[0]?.source,
+				);
 			}
 
 			void Container.instance.usage.track(`command:${command}:executed`).catch();

@@ -257,15 +257,20 @@ export async function getFileRevisionAsCommitTooltip(
 			outputFormat: 'markdown',
 		},
 	);
-	return CommitFormatter.fromTemplateAsync(tooltipWithStatusFormat.replace('{{slot-status}}', status), commit, {
-		enrichedAutolinks: enrichedAutolinks,
-		dateFormat: configuration.get('defaultDateFormat'),
-		getBranchAndTagTips: options?.getBranchAndTagTips,
-		messageAutolinks: true,
-		messageIndent: 4,
-		pullRequest: pr,
-		outputFormat: 'markdown',
-		remotes: remotes,
-		unpublished: options?.unpublished,
-	});
+	return CommitFormatter.fromTemplateAsync(
+		tooltipWithStatusFormat.replace('{{slot-status}}', status),
+		commit,
+		{ source: 'view:hover' },
+		{
+			enrichedAutolinks: enrichedAutolinks,
+			dateFormat: configuration.get('defaultDateFormat'),
+			getBranchAndTagTips: options?.getBranchAndTagTips,
+			messageAutolinks: true,
+			messageIndent: 4,
+			pullRequest: pr,
+			outputFormat: 'markdown',
+			remotes: remotes,
+			unpublished: options?.unpublished,
+		},
+	);
 }
