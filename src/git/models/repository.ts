@@ -730,12 +730,12 @@ export class Repository implements Disposable {
 
 		if (this._pendingRepoChange != null) {
 			Logger.debug(scope, `Firing pending repo ${this._pendingRepoChange.toString(true)}`);
-			this._fireChangeDebounced?.();
+			this.fireChangeCore();
 		}
 
 		if (this._pendingFileSystemChange != null) {
 			Logger.debug(scope, `Firing pending file system changes`);
-			this._fireFileSystemChangeDebounced?.();
+			void this.fireFileSystemChangeCore();
 		}
 	}
 
