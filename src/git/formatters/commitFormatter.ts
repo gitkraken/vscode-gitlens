@@ -869,9 +869,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					const prTitle = escapeMarkdown(pr.title).replace(/"/g, '\\"').trim();
 
 					const index = this._options.footnotes.size + 1;
+					const prCommandLink = createMarkdownActionCommandLink<OpenPullRequestActionContext>(
+						'openPullRequest',
+						{
+							repoPath: this._item.repoPath,
+							provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
+							pullRequest: { id: pr.id, url: pr.url },
+							source: { source: this._options.source.source, detail: 'footnote' },
+						},
+					);
 					this._options.footnotes.set(
 						index,
-						`${getIssueOrPullRequestMarkdownIcon(pr)} [**${prTitle}**](${pr.url} "Open Pull Request \\#${
+						`${getIssueOrPullRequestMarkdownIcon(pr)} [**${prTitle}**](${prCommandLink} "Open Pull Request \\#${
 							pr.id
 						} on ${pr.provider.name}")\\\n${GlyphChars.Space.repeat(4)} #${pr.id} ${
 							pr.state
