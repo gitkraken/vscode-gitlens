@@ -27,8 +27,8 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../../plus/workspaces/models/localWorkspace';
-import { gate } from '../../../system/decorators/gate';
 import { debug, logName } from '../../../system/decorators/log';
+import { sequentialize } from '../../../system/decorators/sequentialize';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';
 import type { View } from '../../viewBase';
@@ -323,7 +323,7 @@ export abstract class ViewNode<
 
 	refresh?(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }>;
 
-	@gate()
+	@sequentialize()
 	@debug()
 	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
 		if (this._disposed) return Promise.resolve();
