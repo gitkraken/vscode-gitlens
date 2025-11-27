@@ -3,7 +3,7 @@ import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
-import { PromiseMap, RepoPromiseCacheMap, RepoPromiseMap } from '../system/promiseCache';
+import { PromiseCache, PromiseMap, RepoPromiseCacheMap, RepoPromiseMap } from '../system/promiseCache';
 import { PathTrie } from '../system/trie';
 import type { GitIgnoreCache } from './gitIgnoreCache';
 import type { CachedGitTypes, GitCommitReachability, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
@@ -81,6 +81,18 @@ export class GitCache implements Disposable {
 		return (this._defaultBranchNameCache ??= new RepoPromiseMap<string, string | undefined>());
 	}
 
+	private _gitIgnoreCaches: Map<RepoPath, GitIgnoreCache> | undefined;
+	get gitIgnore(): Map<RepoPath, GitIgnoreCache> {
+		return (this._gitIgnoreCaches ??= new Map<RepoPath, GitIgnoreCache>());
+	}
+
+	private _lastFetchedCache: PromiseCache<RepoPath, number | undefined> | undefined;
+	get lastFetched(): PromiseCache<RepoPath, number | undefined> {
+		return (this._lastFetchedCache ??= new PromiseCache<RepoPath, number | undefined>({
+			createTTL: 1000 * 30, // 30 seconds
+		}));
+	}
+
 	private _pausedOperationStatusCache: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	get pausedOperationStatus(): PromiseMap<RepoPath, GitPausedOperationStatus | undefined> {
 		return (this._pausedOperationStatusCache ??= new PromiseMap<RepoPath, GitPausedOperationStatus | undefined>());
@@ -122,11 +134,6 @@ export class GitCache implements Disposable {
 	private _worktreesCache: PromiseMap<RepoPath, GitWorktree[]> | undefined;
 	get worktrees(): PromiseMap<RepoPath, GitWorktree[]> {
 		return (this._worktreesCache ??= new PromiseMap<RepoPath, GitWorktree[]>());
-	}
-
-	private _gitIgnoreCaches: Map<RepoPath, GitIgnoreCache> | undefined;
-	get gitIgnore(): Map<RepoPath, GitIgnoreCache> {
-		return (this._gitIgnoreCaches ??= new Map<RepoPath, GitIgnoreCache>());
 	}
 
 	@log({ singleLine: true })
@@ -210,6 +217,8 @@ export class GitCache implements Disposable {
 		this._contributorsLiteCache = undefined;
 		this._gitIgnoreCaches?.clear();
 		this._gitIgnoreCaches = undefined;
+		this._lastFetchedCache?.clear();
+		this._lastFetchedCache = undefined;
 		this._pausedOperationStatusCache?.clear();
 		this._pausedOperationStatusCache = undefined;
 		this._reachabilityCache?.clear();

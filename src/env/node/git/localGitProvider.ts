@@ -1709,15 +1709,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@debug()
-	async getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
-		try {
-			const gitDir = await this.config.getGitDir(repoPath);
-			const stats = await workspace.fs.stat(Uri.joinPath(gitDir.uri, 'FETCH_HEAD'));
-			// If the file is empty, assume the fetch failed, and don't update the timestamp
-			if (stats.size > 0) return stats.mtime;
-		} catch {}
+	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
+		return this._cache.lastFetched.getOrCreate(repoPath, async (_cancellable): Promise<number | undefined> => {
+			try {
+				const gitDir = await this.config.getGitDir(repoPath);
+				const stats = await workspace.fs.stat(Uri.joinPath(gitDir.uri, 'FETCH_HEAD'));
+				// If the file is empty, assume the fetch failed, and don't update the timestamp
+				if (stats.size > 0) return stats.mtime;
+			} catch {}
 
-		return undefined;
+			return undefined;
+		});
 	}
 
 	hasUnsafeRepositories(): boolean {

@@ -370,11 +370,6 @@ export class Repository implements Disposable {
 			return;
 		}
 
-		this._lastFetched = undefined;
-		if (this._orderByLastFetched) {
-			void this.getLastFetched();
-		}
-
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
@@ -398,7 +393,10 @@ export class Repository implements Disposable {
 					return;
 
 				case 'FETCH_HEAD':
-					// Ignore any changes to FETCH_HEAD as unless other things change, nothing changes that we care about
+					this._lastFetched = undefined;
+					if (this._orderByLastFetched) {
+						setTimeout(() => void this.getLastFetched(), 1);
+					}
 					return;
 
 				case 'HEAD':
@@ -589,7 +587,6 @@ export class Repository implements Disposable {
 		return this._lastFetched;
 	}
 
-	@gate()
 	async getLastFetched(): Promise<number> {
 		const lastFetched = await this.git.getLastFetchedTimestamp();
 		// If we don't get a number, assume the fetch failed, and don't update the timestamp
