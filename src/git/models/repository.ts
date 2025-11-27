@@ -37,8 +37,10 @@ const dotGitWatcherGlobWorktreeFiles =
 	'worktrees/*,worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge/**,worktrees/**/rebase-apply/**,worktrees/**/sequencer/**';
 
 const dotGitWatcherGlobRoot = `{${dotGitWatcherGlobFiles}}`;
-const dotGitWatcherGlobCommon = `{config,refs/**,${dotGitWatcherGlobWorktreeFiles}}`;
-const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,refs/**,${dotGitWatcherGlobWorktreeFiles}}`;
+const dotGitWatcherGlobCommon = `{config,refs/**,info/exclude,${dotGitWatcherGlobWorktreeFiles}}`;
+const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,refs/**,info/exclude,${dotGitWatcherGlobWorktreeFiles}}`;
+
+const gitIgnoreGlob = '.gitignore';
 
 export const enum RepositoryChange {
 	Unknown = -1,
@@ -83,7 +85,9 @@ export const enum RepositoryChange {
 }
 
 export const enum RepositoryChangeComparisonMode {
+	/** Any of the changes */
 	Any,
+	/** All of the changes */
 	Exclusive,
 }
 
@@ -347,8 +351,8 @@ export class Repository implements Disposable {
 	}
 
 	private onFileSystemChanged(uri: Uri) {
-		// Ignore node_modules and .git changes
-		if (/(?:(?:\/|\\)node_modules|\.git)(?:\/|\\|$)/.test(uri.fsPath)) return;
+		// Ignore node_modules, .git, index.lock, and watchman cookie files
+		if (/(?:(?:\/|\\)node_modules|\.git(?:\/index\.lock)?|\.watchman-cookie-)(?:\/|\\|$)/.test(uri.fsPath)) return;
 
 		this._etagFileSystem = Date.now();
 		this.fireFileSystemChange(uri);
@@ -374,7 +378,7 @@ export class Repository implements Disposable {
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
-					/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|REVERT_HEAD|config|refs\/(?:heads|remotes|stash|tags))/.exec(
+					/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|REVERT_HEAD|config|info\/exclude|refs\/(?:heads|remotes|stash|tags))/.exec(
 						this.container.git.getRelativePath(uri, base),
 					)
 				: undefined;
@@ -383,6 +387,10 @@ export class Repository implements Disposable {
 			switch (match[1]) {
 				case 'config':
 					this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
+					return;
+
+				case 'info/exclude':
+					this.fireChange(RepositoryChange.Ignores);
 					return;
 
 				case 'index':
@@ -1043,15 +1051,14 @@ export class Repository implements Disposable {
 		const disposables: Disposable[] = [];
 
 		// Limit watching to only the .gitignore file at the root of the repository for performance reasons
-		const gitIgnorePattern = '.gitignore';
-		Logger.debug(scope, `watching '${this.uri.toString(true)}/${gitIgnorePattern}' for .gitignore changes`);
+		Logger.debug(scope, `watching '${this.uri.toString(true)}/${gitIgnoreGlob}' for .gitignore changes`);
 
-		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, gitIgnorePattern));
+		const ignoreWatcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, gitIgnoreGlob));
 		disposables.push(
-			watcher,
-			watcher.onDidChange(this.onGitIgnoreChanged, this),
-			watcher.onDidCreate(this.onGitIgnoreChanged, this),
-			watcher.onDidDelete(this.onGitIgnoreChanged, this),
+			ignoreWatcher,
+			ignoreWatcher.onDidChange(this.onGitIgnoreChanged, this),
+			ignoreWatcher.onDidCreate(this.onGitIgnoreChanged, this),
+			ignoreWatcher.onDidDelete(this.onGitIgnoreChanged, this),
 		);
 
 		function watch(this: Repository, uri: Uri, pattern: string) {

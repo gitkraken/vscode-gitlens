@@ -12,8 +12,8 @@ import type { Container } from '../../../container';
 import type { Features } from '../../../features';
 import { gitMinimumVersion } from '../../../features';
 import { GitCache } from '../../../git/cache';
-import { GitErrorHandling } from '../../../git/commandOptions';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '../../../git/errors';
+import { GitIgnoreCache } from '../../../git/gitIgnoreCache';
 import type {
 	GitProvider,
 	GitProviderDescriptor,
@@ -55,7 +55,7 @@ import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function/debounce';
-import { first, join } from '../../../system/iterable';
+import { first } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
@@ -159,7 +159,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed(RepositoryChange.Unknown, RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this._cache.clearCaches(repo.path);
 		} else {
 			if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
@@ -180,6 +180,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				this._cache.branches.delete(repo.path);
 				this._cache.contributors.delete(repo.path);
 				this._cache.worktrees.delete(repo.path);
+			}
+
+			if (e.changed(RepositoryChange.Ignores, RepositoryChangeComparisonMode.Any)) {
+				this._cache.clearCaches(repo.path, 'gitignore');
 			}
 
 			if (
@@ -984,24 +988,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log<LocalGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
-		const paths = new Map<string, Uri>(uris.map(u => [normalizePath(u.fsPath), u]));
-
-		const result = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: join(paths.keys(), '\0') },
-			'check-ignore',
-			'-z',
-			'--stdin',
-		);
-		if (!result.stdout) return uris;
-
-		const ignored = result.stdout.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
-		if (ignored.length === 0) return uris;
-
-		for (const file of ignored) {
-			paths.delete(file);
+		let cache = this._cache.gitIgnore.get(repoPath);
+		if (cache == null) {
+			cache = new GitIgnoreCache(this.container, repoPath, () => this.git.config__get('core.excludesFile'));
+			this._cache.gitIgnore.set(repoPath, cache);
 		}
 
-		return [...paths.values()];
+		return cache.excludeIgnored(uris);
 	}
 
 	private readonly toCanonicalMap = new Map<string, Uri>();

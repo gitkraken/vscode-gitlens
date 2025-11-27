@@ -96,6 +96,9 @@ importers:
       iconv-lite:
         specifier: 0.6.3
         version: 0.6.3
+      ignore:
+        specifier: 7.0.5
+        version: 7.0.5
       lit:
         specifier: 3.3.1
         version: 3.3.1

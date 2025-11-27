@@ -5,6 +5,7 @@ import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import { PromiseMap, RepoPromiseCacheMap, RepoPromiseMap } from '../system/promiseCache';
 import { PathTrie } from '../system/trie';
+import type { GitIgnoreCache } from './gitIgnoreCache';
 import type { CachedGitTypes, GitCommitReachability, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
@@ -123,6 +124,11 @@ export class GitCache implements Disposable {
 		return (this._worktreesCache ??= new PromiseMap<RepoPath, GitWorktree[]>());
 	}
 
+	private _gitIgnoreCaches: Map<RepoPath, GitIgnoreCache> | undefined;
+	get gitIgnore(): Map<RepoPath, GitIgnoreCache> {
+		return (this._gitIgnoreCaches ??= new Map<RepoPath, GitIgnoreCache>());
+	}
+
 	@log({ singleLine: true })
 	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
 		type CacheType =
@@ -147,14 +153,18 @@ export class GitCache implements Disposable {
 			cachesToClear.add(this._contributorsLiteCache);
 		}
 
-		if (!types.length || types.includes('remotes')) {
-			cachesToClear.add(this._remotesCache);
-			cachesToClear.add(this._bestRemotesCache);
-			cachesToClear.add(this._defaultBranchNameCache);
+		if (!types.length || types.includes('gitignore')) {
+			cachesToClear.add(this._gitIgnoreCaches);
 		}
 
 		if (!types.length || types.includes('providers')) {
 			cachesToClear.add(this._bestRemotesCache);
+		}
+
+		if (!types.length || types.includes('remotes')) {
+			cachesToClear.add(this._remotesCache);
+			cachesToClear.add(this._bestRemotesCache);
+			cachesToClear.add(this._defaultBranchNameCache);
 		}
 
 		if (!types.length || types.includes('stashes')) {
@@ -176,6 +186,7 @@ export class GitCache implements Disposable {
 		if (!types.length) {
 			cachesToClear.add(this._repoInfoCache);
 			cachesToClear.add(this._trackedPaths);
+			cachesToClear.add(this._gitIgnoreCaches);
 		}
 
 		for (const cache of cachesToClear) {
@@ -188,7 +199,7 @@ export class GitCache implements Disposable {
 	}
 
 	@log({ singleLine: true })
-	reset(onlyConfigControlledCaches: boolean = false): void {
+	reset(): void {
 		this._branchCache?.clear();
 		this._branchCache = undefined;
 		this._branchesCache?.clear();
@@ -197,24 +208,22 @@ export class GitCache implements Disposable {
 		this._contributorsCache = undefined;
 		this._contributorsLiteCache?.clear();
 		this._contributorsLiteCache = undefined;
+		this._gitIgnoreCaches?.clear();
+		this._gitIgnoreCaches = undefined;
 		this._pausedOperationStatusCache?.clear();
 		this._pausedOperationStatusCache = undefined;
 		this._reachabilityCache?.clear();
 		this._reachabilityCache = undefined;
 		this._remotesCache?.clear();
 		this._remotesCache = undefined;
+		this._repoInfoCache?.clear();
+		this._repoInfoCache = undefined;
 		this._stashesCache?.clear();
 		this._stashesCache = undefined;
 		this._tagsCache?.clear();
 		this._tagsCache = undefined;
+		this._trackedPaths.clear();
 		this._worktreesCache?.clear();
 		this._worktreesCache = undefined;
-
-		if (!onlyConfigControlledCaches) {
-			this._repoInfoCache?.clear();
-			this._repoInfoCache = undefined;
-
-			this._trackedPaths.clear();
-		}
 	}
 }
