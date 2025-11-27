@@ -1,5 +1,6 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -27,6 +28,7 @@ export interface ShowQuickCommitFileCommandArgs {
 	fileLog?: GitLog;
 	revisionUri?: string;
 	sha?: string;
+	source?: Source;
 }
 
 @command()

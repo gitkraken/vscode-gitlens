@@ -125,6 +125,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 		const tooltip = await CommitFormatter.fromTemplateAsync(
 			configuration.get('views.formats.stashes.tooltip'),
 			this.commit,
+			{ source: 'view:hover' },
 			{
 				enrichedAutolinks: enrichedAutolinks,
 				dateFormat: configuration.get('defaultDateFormat'),

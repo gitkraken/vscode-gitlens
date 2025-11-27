@@ -288,7 +288,13 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					position.line >= hunk.current.position.start - 1 &&
 					position.line <= hunk.current.position.end - (hasMoreDeletedLines ? 0 : 1)
 				) {
-					const markdown = await localChangesMessage(commit, this.trackedDocument.uri, position.line, hunk);
+					const markdown = await localChangesMessage(
+						commit,
+						this.trackedDocument.uri,
+						position.line,
+						hunk,
+						'editor:hover',
+					);
 					if (markdown == null) return undefined;
 
 					return new Hover(

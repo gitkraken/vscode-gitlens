@@ -1,3 +1,4 @@
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';
@@ -15,18 +16,23 @@ import { isCommandContextViewNodeHasRemote } from './commandContext.utils';
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
 	repoPath: string;
+	source?: Source;
 }
 
 @command()
 export class ConnectRemoteProviderCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: ConnectRemoteProviderCommandArgs): string;
-	static createMarkdownCommandLink(remote: GitRemote): string;
-	static createMarkdownCommandLink(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
+	static createMarkdownCommandLink(remote: GitRemote, source: Source): string;
+	static createMarkdownCommandLink(
+		argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote,
+		source?: Source,
+	): string {
 		let args: ConnectRemoteProviderCommandArgs | GitCommit;
 		if (isRemote(argsOrRemote)) {
 			args = {
 				remote: argsOrRemote.name,
 				repoPath: argsOrRemote.repoPath,
+				source: source,
 			};
 		} else {
 			args = argsOrRemote;

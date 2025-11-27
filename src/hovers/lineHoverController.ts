@@ -134,6 +134,7 @@ export class LineHoverController implements Disposable {
 				format: cfg.detailsMarkdownFormat,
 				pullRequests: cfg.pullRequests.enabled,
 				timeout: 250,
+				sourceName: 'editor:hover',
 			})) ?? 'Cancelled';
 		return new Hover(message, range);
 	}
@@ -189,6 +190,7 @@ export class LineHoverController implements Disposable {
 			trackedDocument.uri,
 			position.line,
 			trackedDocument.document,
+			'editor:hover',
 		);
 		if (message == null) return undefined;
 

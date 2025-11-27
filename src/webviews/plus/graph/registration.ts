@@ -1,6 +1,7 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import type { SearchQuery } from '../../../constants.search';
+import type { Source } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { GitUri } from '../../../git/gitUri';
 import type { GitReference } from '../../../git/models/reference';
@@ -29,7 +30,7 @@ export type GraphWebviewShowingArgs = [
 ];
 
 export type ShowInCommitGraphCommandArgs =
-	| { ref: GitReference; preserveFocus?: boolean }
+	| { ref: GitReference; preserveFocus?: boolean; source?: Source }
 	| { repository: Repository; search: SearchQuery; preserveFocus?: boolean }
 	| Repository
 	| BranchNode
