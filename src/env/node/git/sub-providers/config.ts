@@ -26,10 +26,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		private readonly provider: LocalGitProvider,
 	) {}
 
+	@debug()
 	getConfig(repoPath: string, key: GitConfigKeys | DeprecatedGitConfigKeys): Promise<string | undefined> {
 		return this.git.config__get(key, repoPath);
 	}
 
+	@log()
 	async setConfig(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath ?? '', local: true },

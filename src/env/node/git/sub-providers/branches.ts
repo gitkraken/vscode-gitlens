@@ -45,6 +45,8 @@ import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
+/** Minimum time between writes to the config for last accessed/modified dates */
+const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
 
 interface BranchDateMetadata {
 	lastAccessedAt?: string;
@@ -869,7 +871,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Updates the last accessed timestamp for the current branch */
-	@debounce(1000)
+	@debounce(2.5 * 60 * 1000)
+	@log()
 	async onCurrentBranchAccessed(repoPath: string): Promise<void> {
 		const branch = await this.getBranch(repoPath);
 		if (branch == null || branch.remote || branch.detached) return;
@@ -878,7 +881,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Updates the last accessed and modified timestamp for the current branch */
-	@debounce(1000)
+	@debounce(2.5 * 60 * 1000)
+	@log()
 	async onCurrentBranchModified(repoPath: string): Promise<void> {
 		const branch = await this.getBranch(repoPath);
 		if (branch == null || branch.remote || branch.detached) return;
@@ -1013,7 +1017,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		date: Date,
 	): Promise<void> {
 		const value = await this.provider.config.getConfig(repoPath, `branch.${ref}.${key}`);
-		if (value != null && date <= new Date(value)) return;
+		// Skip if incoming date is not at least 5 minutes newer than stored date
+		if (value != null && date.getTime() - new Date(value).getTime() < dateMetadataStaleThresholdMs) {
+			return;
+		}
 
 		return this.provider.config.setConfig(repoPath, `branch.${ref}.${key}`, date.toISOString());
 	}
