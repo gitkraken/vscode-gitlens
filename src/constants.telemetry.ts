@@ -1275,10 +1275,12 @@ export type Sources =
 	| 'scm-input'
 	| 'settings'
 	| 'startWork'
+	| 'statusbar:hover'
 	| 'subscription'
 	| 'timeline'
 	| 'trial-indicator'
 	| 'view'
+	| 'view:hover'
 	| 'walkthrough'
 	| 'whatsnew'
 	| 'worktrees';

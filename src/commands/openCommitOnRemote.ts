@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -23,14 +24,16 @@ export interface OpenCommitOnRemoteCommandArgs {
 	clipboard?: boolean;
 	line?: number;
 	sha?: string;
+	source?: Source;
 }
 
 @command()
 export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
-	static createMarkdownCommandLink(sha: string): string;
+	static createMarkdownCommandLink(sha: string, source: Source): string;
 	static createMarkdownCommandLink(args: OpenCommitOnRemoteCommandArgs): string;
-	static createMarkdownCommandLink(argsOrSha: OpenCommitOnRemoteCommandArgs | string): string {
-		const args: OpenCommitOnRemoteCommandArgs = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+	static createMarkdownCommandLink(argsOrSha: OpenCommitOnRemoteCommandArgs | string, source?: Source): string {
+		const args: OpenCommitOnRemoteCommandArgs =
+			typeof argsOrSha === 'string' ? { sha: argsOrSha, source: source } : argsOrSha;
 		return createMarkdownCommandLink<OpenCommitOnRemoteCommandArgs>('gitlens.openCommitOnRemote', args);
 	}
 

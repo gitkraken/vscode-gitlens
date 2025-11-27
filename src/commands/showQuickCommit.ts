@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { revealCommit } from '../git/actions/commit';
@@ -25,14 +26,19 @@ export interface ShowQuickCommitCommandArgs {
 	commit?: GitCommit | GitStashCommit;
 	repoLog?: GitLog;
 	revealInView?: boolean;
+	source?: Source;
 }
 
 @command()
 export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
-	static createMarkdownCommandLink(sha: string, repoPath?: string): string;
+	static createMarkdownCommandLink(sha: string, repoPath?: string, source?: Source): string;
 	static createMarkdownCommandLink(args: ShowQuickCommitCommandArgs): string;
-	static createMarkdownCommandLink(argsOrSha: ShowQuickCommitCommandArgs | string, repoPath?: string): string {
-		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha, repoPath: repoPath } : argsOrSha;
+	static createMarkdownCommandLink(
+		argsOrSha: ShowQuickCommitCommandArgs | string,
+		repoPath?: string,
+		source?: Source,
+	): string {
+		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha, repoPath: repoPath, source: source } : argsOrSha;
 		return createMarkdownCommandLink<ShowQuickCommitCommandArgs>('gitlens.showQuickCommitDetails', args);
 	}
 

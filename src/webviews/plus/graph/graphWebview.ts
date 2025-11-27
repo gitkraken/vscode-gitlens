@@ -1344,17 +1344,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._getBranchesAndTagsTips ??= await svc.getBranchesAndTagsTipsLookup();
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(template, commit, {
-			enrichedAutolinks: enrichedAutolinks,
-			dateFormat: configuration.get('defaultDateFormat'),
-			getBranchAndTagTips: this._getBranchesAndTagsTips,
-			messageAutolinks: true,
-			messageIndent: 4,
-			pullRequest: pr,
-			outputFormat: 'markdown',
-			remotes: remotes,
-			// unpublished: this.unpublished,
-		});
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			template,
+			commit,
+			{ source: 'graph' },
+			{
+				enrichedAutolinks: enrichedAutolinks,
+				dateFormat: configuration.get('defaultDateFormat'),
+				getBranchAndTagTips: this._getBranchesAndTagsTips,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequest: pr,
+				outputFormat: 'markdown',
+				remotes: remotes,
+				// unpublished: this.unpublished,
+			},
+		);
 
 		return tooltip;
 	}
@@ -4215,6 +4220,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					id: pr.id,
 					url: pr.url,
 				},
+				source: { source: 'graph' },
 			});
 		}
 

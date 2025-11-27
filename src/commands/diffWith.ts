@@ -1,6 +1,7 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { ViewColumn } from 'vscode';
 import { GlyphChars } from '../constants';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { DiffRange } from '../git/gitProvider';
 import type { GitCommit } from '../git/models/commit';
@@ -30,13 +31,18 @@ export interface DiffWithCommandArgs {
 	fromComparison?: boolean;
 	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
+	source?: Source;
 }
 
 @command()
 export class DiffWithCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: DiffWithCommandArgs): string;
-	static createMarkdownCommandLink(commit: GitCommit, range?: DiffRange): string;
-	static createMarkdownCommandLink(argsOrCommit: DiffWithCommandArgs | GitCommit, range?: DiffRange): string {
+	static createMarkdownCommandLink(commit: GitCommit, range?: DiffRange, source?: Source): string;
+	static createMarkdownCommandLink(
+		argsOrCommit: DiffWithCommandArgs | GitCommit,
+		range?: DiffRange,
+		source?: Source,
+	): string {
 		let args: DiffWithCommandArgs | GitCommit;
 		if (isCommit(argsOrCommit)) {
 			const commit = argsOrCommit;
@@ -51,6 +57,7 @@ export class DiffWithCommand extends GlCommandBase {
 					lhs: { sha: 'HEAD', uri: commit.file.uri },
 					rhs: { sha: '', uri: commit.file.uri },
 					range: range,
+					source: source,
 				};
 			} else {
 				args = {
@@ -59,6 +66,7 @@ export class DiffWithCommand extends GlCommandBase {
 					lhs: { sha: commit.unresolvedPreviousSha, uri: commit.file.originalUri ?? commit.file.uri },
 					rhs: { sha: commit.sha, uri: commit.file.uri },
 					range: range,
+					source: source,
 				};
 			}
 		} else {

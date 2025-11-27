@@ -38,6 +38,7 @@ export interface OpenPullRequestActionContext {
 		readonly id: string;
 		readonly url: string;
 	};
+	readonly source?: Source;
 }
 
 export interface HoverCommandsActionContext {
@@ -58,6 +59,7 @@ export interface HoverCommandsActionContext {
 				line: number | undefined;
 		  }
 		| undefined;
+	readonly source?: Source;
 }
 
 export type ActionContext = CreatePullRequestActionContext | OpenPullRequestActionContext | HoverCommandsActionContext;
