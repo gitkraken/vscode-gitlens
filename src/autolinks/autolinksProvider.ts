@@ -1,7 +1,10 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
+import type { OpenIssueActionContext } from '../api/gitlens';
+import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote';
 import { GlyphChars } from '../constants';
 import type { IntegrationIds } from '../constants.integrations';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider';
@@ -279,6 +282,7 @@ export class AutolinksProvider implements Disposable {
 		enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 		prs?: Set<string>,
 		footnotes?: Map<number, string>,
+		source?: Source,
 	): string {
 		const includeFootnotesInText = outputFormat === 'plaintext' && footnotes == null;
 		if (includeFootnotesInText) {
@@ -291,7 +295,15 @@ export class AutolinksProvider implements Disposable {
 			for (const [, [, link]] of enrichedAutolinks) {
 				if (this.ensureAutolinkCached(link)) {
 					if (link.tokenize != null) {
-						text = link.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+						text = link.tokenize(
+							text,
+							outputFormat,
+							tokenMapping,
+							enrichedAutolinks,
+							prs,
+							footnotes,
+							source,
+						);
 					}
 				}
 			}
@@ -299,7 +311,15 @@ export class AutolinksProvider implements Disposable {
 			for (const ref of this._references) {
 				if (this.ensureAutolinkCached(ref)) {
 					if (ref.tokenize != null) {
-						text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
+						text = ref.tokenize(
+							text,
+							outputFormat,
+							tokenMapping,
+							enrichedAutolinks,
+							prs,
+							footnotes,
+							source,
+						);
 					}
 				}
 			}
@@ -323,6 +343,7 @@ export class AutolinksProvider implements Disposable {
 									enrichedAutolinks,
 									prs,
 									footnotes,
+									source,
 								);
 							}
 						}
@@ -361,6 +382,7 @@ export class AutolinksProvider implements Disposable {
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 				prs?: Set<string>,
 				footnotes?: Map<number, string>,
+				source?: Source,
 			) => {
 				let footnoteIndex: number;
 
@@ -370,7 +392,15 @@ export class AutolinksProvider implements Disposable {
 						return text.replace(
 							ref.messageMarkdownRegex,
 							(_: string, prefix: string, linkText: string, num: string) => {
-								const url = encodeUrl(ref.url.replace(numRegex, num));
+								const rawUrl = encodeUrl(ref.url.replace(numRegex, num));
+								const footnoteSource = source && { ...source, detail: 'footnote' };
+								const urlCommandContext: {
+									provider: undefined | OpenIssueActionContext['provider'];
+									issue: { url: string };
+								} = {
+									provider: undefined,
+									issue: { url: rawUrl },
+								};
 
 								let title = '';
 								if (ref.title) {
@@ -380,6 +410,10 @@ export class AutolinksProvider implements Disposable {
 									if (issueResult?.value != null) {
 										if (issueResult.paused) {
 											if (footnotes != null && !prs?.has(num)) {
+												const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+													...urlCommandContext,
+													source: footnoteSource,
+												});
 												const name =
 													ref.description?.replace(numRegex, num) ??
 													`Custom Autolink ${ref.prefix}${num}`;
@@ -395,6 +429,16 @@ export class AutolinksProvider implements Disposable {
 											const issue = issueResult.value;
 											const issueTitle = escapeMarkdown(issue.title.trim());
 											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
+
+											urlCommandContext.provider = issue.provider && {
+												id: issue.provider.id,
+												name: issue.provider.name,
+												domain: issue.provider.domain,
+											};
+											const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+												...urlCommandContext,
+												source: footnoteSource,
+											});
 
 											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
@@ -417,6 +461,10 @@ export class AutolinksProvider implements Disposable {
 											)}`;
 										}
 									} else if (footnotes != null && !prs?.has(num)) {
+										const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+											...urlCommandContext,
+											source: footnoteSource,
+										});
 										const name =
 											ref.description?.replace(numRegex, num) ??
 											`Custom Autolink ${ref.prefix}${num}`;
@@ -429,6 +477,10 @@ export class AutolinksProvider implements Disposable {
 									title += '"';
 								}
 
+								const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
+									...urlCommandContext,
+									source: source,
+								});
 								const token = `\x00${tokenMapping.size}\x00`;
 								tokenMapping.set(token, `[${linkText}](${url}${title})`);
 								return `${prefix}${token}`;
