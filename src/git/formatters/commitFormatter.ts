@@ -823,6 +823,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					? new Set([this._options.pullRequest.id])
 					: undefined,
 				this._options.footnotes,
+				this._options.source,
 			);
 		}
 

@@ -1,3 +1,4 @@
+import type { Source } from '../../constants.telemetry';
 import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { ProviderReference } from '../../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../../git/models/resourceDescriptor';
@@ -49,6 +50,7 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 				prs?: Set<string>,
 				footnotes?: Map<number, string>,
+				source?: Source,
 		  ) => string)
 		| null;
 
@@ -67,6 +69,7 @@ export interface DynamicAutolinkReference {
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 				prs?: Set<string>,
 				footnotes?: Map<number, string>,
+				source?: Source,
 		  ) => string)
 		| null;
 	parse: (text: string, autolinks: Map<string, Autolink>) => void;

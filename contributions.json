@@ -4090,6 +4090,10 @@
 				]
 			}
 		},
+		"gitlens.openIssueOnRemote": {
+			"label": "Open Issue on Remote",
+			"icon": "$(globe)"
+		},
 		"gitlens.openOnlyChangedFiles": {
 			"label": "Open Changed & Close Unchanged Files",
 			"commandPalette": "gitlens:enabled",
