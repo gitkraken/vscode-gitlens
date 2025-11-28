@@ -45,6 +45,12 @@ const graphLaneThemeColors = new Map([
 	['--vscode-gitlens-graphLane10Color', '#2ece9d'],
 ]);
 
+interface GraphSelection {
+	id: string;
+	type: GitGraphRowType;
+	hidden: boolean;
+}
+
 declare global {
 	// interface HTMLElementTagNameMap {
 	// 	'gl-graph-wrapper': GlGraphWrapper;
@@ -52,7 +58,7 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		// passing up event map
-		'gl-graph-change-selection': CustomEvent<{ selection: GraphRow[] }>;
+		'gl-graph-change-selection': CustomEvent<{ selection: GraphSelection[] }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
@@ -224,7 +230,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
-		const selection = filterMap(rows, r =>
+		const selection: GraphSelection[] = filterMap(rows, r =>
 			r != null ? { id: r.sha, type: r.type as GitGraphRowType, hidden: r.hidden } : undefined,
 		);
 
