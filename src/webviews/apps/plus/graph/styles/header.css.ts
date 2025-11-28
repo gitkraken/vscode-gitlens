@@ -191,10 +191,13 @@ export const graphHeaderControlStyles = css`
 		padding: 0.2rem 0.4rem;
 	}
 
-	sl-option[aria-selected='true']::part(base),
-	sl-option:not([aria-selected='true']):hover::part(base),
-	sl-option:not([aria-selected='true']):focus::part(base) {
+	sl-option:focus::part(base) {
 		background-color: var(--vscode-list-activeSelectionBackground);
+		color: var(--vscode-list-activeSelectionForeground);
+	}
+
+	sl-option:not(:focus):hover::part(base) {
+		background-color: var(--vscode-list-inactiveSelectionBackground);
 		color: var(--vscode-list-activeSelectionForeground);
 	}
 
@@ -203,6 +206,9 @@ export const graphHeaderControlStyles = css`
 	}
 
 	sl-select::part(listbox) {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
 		padding-block: 0.2rem 0;
 		width: max-content;
 	}
