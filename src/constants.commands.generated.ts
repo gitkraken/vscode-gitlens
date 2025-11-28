@@ -1077,4 +1077,5 @@ export type ContributedKeybindingCommands =
 export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'
+	| 'gitlens.openIssueOnRemote'
 	| 'gitlens.plus.cloudIntegrations.connect';

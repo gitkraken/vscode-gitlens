@@ -7823,6 +7823,11 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
+				"command": "gitlens.openIssueOnRemote",
+				"title": "Open Issue on Remote",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "gitlens.openOnlyChangedFiles",
 				"title": "Open Changed & Close Unchanged Files",
 				"category": "GitLens"
@@ -12798,6 +12803,10 @@
 				},
 				{
 					"command": "gitlens.openFolderHistoryInGraph:scm",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openIssueOnRemote",
 					"when": "false"
 				},
 				{
