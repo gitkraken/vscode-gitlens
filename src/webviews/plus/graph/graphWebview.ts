@@ -15,6 +15,7 @@ import type { GenerateChangelogCommandArgs } from '../../../commands/generateCha
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
 import type { GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
 import type { InspectCommandArgs } from '../../../commands/inspect';
+import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
 import type { CreatePatchCommandArgs } from '../../../commands/patches';
@@ -128,7 +129,6 @@ import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import type { StorageChangeEvent } from '../../../system/-webview/storage';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
-import { openUrl } from '../../../system/-webview/vscode/uris';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces';
 import { filterMap } from '../../../system/array';
@@ -1341,17 +1341,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._getBranchesAndTagsTips ??= await svc.getBranchesAndTagsTipsLookup();
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(template, commit, {
-			enrichedAutolinks: enrichedAutolinks,
-			dateFormat: configuration.get('defaultDateFormat'),
-			getBranchAndTagTips: this._getBranchesAndTagsTips,
-			messageAutolinks: true,
-			messageIndent: 4,
-			pullRequest: pr,
-			outputFormat: 'markdown',
-			remotes: remotes,
-			// unpublished: this.unpublished,
-		});
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			template,
+			commit,
+			{ source: 'graph' },
+			{
+				enrichedAutolinks: enrichedAutolinks,
+				dateFormat: configuration.get('defaultDateFormat'),
+				getBranchAndTagTips: this._getBranchesAndTagsTips,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequest: pr,
+				outputFormat: 'markdown',
+				remotes: remotes,
+				// unpublished: this.unpublished,
+			},
+		);
 
 		return tooltip;
 	}
@@ -4210,6 +4215,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					id: pr.id,
 					url: pr.url,
 				},
+				source: { source: 'graph' },
 			});
 		}
 
@@ -4267,8 +4273,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private openIssueOnRemote(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'issue')) {
 			const { url } = item.webviewItemValue;
-			// TODO: Add a command for this. See openPullRequestOnRemote above.
-			void openUrl(url);
+			void executeCommand<OpenIssueOnRemoteCommandArgs>('gitlens.openIssueOnRemote', {
+				issue: { url: url },
+			});
 		}
 
 		return Promise.resolve();

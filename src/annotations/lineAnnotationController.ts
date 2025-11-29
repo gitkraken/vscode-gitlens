@@ -238,7 +238,9 @@ export class LineAnnotationController implements Disposable {
 
 		let uncommittedOnly = true;
 
-		let hoverOptions: RequireSome<Parameters<typeof detailsMessage>[4], 'autolinks' | 'pullRequests'> | undefined;
+		let hoverOptions:
+			| RequireSome<Parameters<typeof detailsMessage>[4], 'autolinks' | 'pullRequests' | 'sourceName'>
+			| undefined;
 		// Live Share (vsls schemes) don't support `languages.registerHoverProvider` so we'll need to add them to the decoration directly
 		if (editor.document.uri.scheme === Schemes.Vsls || editor.document.uri.scheme === Schemes.VslsScc) {
 			const hoverCfg = configuration.get('hovers');
@@ -247,6 +249,7 @@ export class LineAnnotationController implements Disposable {
 				dateFormat: configuration.get('defaultDateFormat'),
 				format: hoverCfg.detailsMarkdownFormat,
 				pullRequests: hoverCfg.pullRequests.enabled,
+				sourceName: 'editor:hover',
 			};
 		}
 
@@ -325,6 +328,7 @@ export class LineAnnotationController implements Disposable {
 						getBranchAndTagTips: getBranchAndTagTips,
 						pullRequest: pr?.value,
 						pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,
+						source: { source: 'editor:hover' },
 					},
 					fontOptions,
 					cfg.scrollable,

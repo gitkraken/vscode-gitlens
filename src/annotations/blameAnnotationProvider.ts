@@ -184,6 +184,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 							await GitUri.fromUri(document.uri),
 							position.line,
 							document,
+							'editor:hover',
 						)
 					: undefined,
 			])
@@ -208,6 +209,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			format: cfg.detailsMarkdownFormat,
 			pullRequests: cfg.pullRequests.enabled,
 			timeout: 250,
+			sourceName: 'editor:hover',
 		});
 	}
 }

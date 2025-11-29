@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { showCommitInDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -20,16 +21,25 @@ import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface InspectCommandArgs {
 	ref?: GitRevisionReference;
+	source?: Source;
 }
 
 @command()
 export class InspectCommand extends ActiveEditorCommand {
-	static createMarkdownCommandLink(sha: string, repoPath: string): string;
+	static createMarkdownCommandLink(sha: string, repoPath: string, source?: Source): string;
 	static createMarkdownCommandLink(args: InspectCommandArgs): string;
-	static createMarkdownCommandLink(argsOrSha: InspectCommandArgs | string, repoPath?: string): string {
+	static createMarkdownCommandLink(
+		argsOrSha: InspectCommandArgs | string,
+		repoPath?: string,
+		source?: Source,
+	): string {
 		const args =
 			typeof argsOrSha === 'string'
-				? { ref: createReference(argsOrSha, repoPath!, { refType: 'revision' }), repoPath: repoPath }
+				? {
+						ref: createReference(argsOrSha, repoPath!, { refType: 'revision' }),
+						repoPath: repoPath,
+						source: source,
+					}
 				: argsOrSha;
 		return createMarkdownCommandLink<InspectCommandArgs>('gitlens.showCommitInView', args);
 	}

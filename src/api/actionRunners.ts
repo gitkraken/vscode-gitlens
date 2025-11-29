@@ -12,7 +12,7 @@ import { sortCompare } from '../system/string';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
 type Actions = ActionContext['type'];
-const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'hover.commands'];
+const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'openIssue', 'hover.commands'];
 
 // The order here determines the sorting of these actions when shown to the user
 export const enum ActionRunnerType {
@@ -287,6 +287,10 @@ export class ActionRunners implements Disposable {
 							case 'openPullRequest':
 								title = 'Open Pull Request';
 								placeholder = 'Choose how to open the pull request';
+								break;
+							case 'openIssue':
+								title = 'Open Issue';
+								placeholder = 'Choose how to open the issue';
 								break;
 							case 'hover.commands':
 								title = 'Need Help or Want to Collaborate?';

@@ -2,6 +2,7 @@ import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import type { DiffRange } from '../git/gitProvider';
@@ -29,22 +30,29 @@ export interface OpenFileAtRevisionCommandArgs {
 	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
 	annotationType?: FileAnnotationType;
+	source?: Source;
 }
 
 @command()
 export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 	static createMarkdownCommandLink(args: OpenFileAtRevisionCommandArgs): string;
-	static createMarkdownCommandLink(revisionUri: Uri, annotationType?: FileAnnotationType, range?: DiffRange): string;
+	static createMarkdownCommandLink(
+		revisionUri: Uri,
+		annotationType?: FileAnnotationType,
+		range?: DiffRange,
+		source?: Source,
+	): string;
 	static createMarkdownCommandLink(
 		argsOrUri: OpenFileAtRevisionCommandArgs | Uri,
 		annotationType?: FileAnnotationType,
 		range?: DiffRange,
+		source?: Source,
 	): string {
 		let args: OpenFileAtRevisionCommandArgs | Uri;
 		if (argsOrUri instanceof Uri) {
 			const revisionUri = argsOrUri;
 
-			args = { revisionUri: revisionUri, range: range, annotationType: annotationType };
+			args = { revisionUri: revisionUri, range: range, annotationType: annotationType, source: source };
 		} else {
 			args = argsOrUri;
 		}
