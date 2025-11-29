@@ -82,6 +82,7 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--color-background);
 		--composer-item-icon-color: var(--color-foreground--65);
 		--composer-item-color: var(--color-foreground--65);
+		cursor: default;
 	}
 
 	.composer-item__content {

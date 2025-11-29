@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
+import { splitCommitMessage } from '../../../../../git/utils/commit.utils';
 import { debounce } from '../../../../../system/function/debounce';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
@@ -20,7 +21,11 @@ export class CommitMessage extends LitElement {
 		focusableBaseStyles,
 		css`
 			:host {
-				display: contents;
+				display: block;
+				position: sticky;
+				top: var(--sticky-top, 0);
+				z-index: 2;
+				background: var(--vscode-editor-background);
 			}
 
 			.commit-message {
@@ -43,6 +48,12 @@ export class CommitMessage extends LitElement {
 				margin-block: 0;
 			}
 
+			.commit-message__text[tabindex='0']:hover {
+				border-color: color-mix(in srgb, transparent 50%, var(--vscode-input-border, #858585));
+				background: color-mix(in srgb, transparent 50%, var(--vscode-input-background, #3c3c3c));
+				cursor: text;
+			}
+
 			.commit-message__text.placeholder {
 				color: var(--vscode-input-placeholderForeground);
 				font-style: italic;
@@ -55,9 +66,21 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__text .scrollable,
 			.commit-message__input {
-				padding: 0.5rem;
+				padding: 0.8rem 1rem;
 				min-height: 1lh;
 				max-height: 10lh;
+			}
+
+			.commit-message__summary {
+				display: block;
+			}
+
+			p.commit-message__text .scrollable .commit-message__body {
+				display: block;
+				margin-top: 0.5rem;
+				font-size: 1.15rem !important;
+				line-height: 1.8rem !important;
+				color: var(--vscode-descriptionForeground) !important;
 			}
 
 			.commit-message__field {
@@ -66,9 +89,9 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input {
 				box-sizing: content-box;
-				width: calc(100% - 1rem);
-				border: 1px solid var(--vscode-input-border);
-				background: var(--vscode-input-background);
+				width: calc(100% - 2rem);
+				border: 1px solid var(--vscode-input-border, #858585);
+				background: var(--vscode-input-background, #3c3c3c);
 				vertical-align: middle;
 				field-sizing: content;
 				resize: none;
@@ -105,7 +128,7 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input:has(~ .commit-message__ai-button) {
 				padding-right: 3rem;
-				width: calc(100% - 3.5rem);
+				width: calc(100% - 4rem);
 			}
 
 			.commit-message__input.has-explanation {
@@ -116,6 +139,11 @@ export class CommitMessage extends LitElement {
 			.commit-message__input::placeholder {
 				color: var(--vscode-input-placeholderForeground);
 				-webkit-font-smoothing: auto;
+			}
+
+			.commit-message__input:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
 			}
 
 			.commit-message__input[aria-valid='false'] {
@@ -190,8 +218,8 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__ai-button {
 				position: absolute;
-				top: 0.3rem;
-				right: 0.3rem;
+				top: 0.5rem;
+				right: 0.7rem;
 				z-index: 1;
 			}
 		`,
@@ -205,6 +233,9 @@ export class CommitMessage extends LitElement {
 
 	@property({ type: String })
 	explanation?: string;
+
+	@property({ type: Boolean, attribute: 'ai-generated', reflect: true })
+	aiGenerated: boolean = false;
 
 	@property({ type: String, attribute: 'explanation-label' })
 	explanationLabel?: string = 'Auto-composition Summary:';
@@ -230,6 +261,9 @@ export class CommitMessage extends LitElement {
 	@state()
 	validityMessage?: string;
 
+	@state()
+	private isEditing: boolean = false;
+
 	protected override updated(changedProperties: PropertyValues): void {
 		if (changedProperties.has('message')) {
 			this.checkValidity();
@@ -237,9 +271,13 @@ export class CommitMessage extends LitElement {
 	}
 
 	override render() {
+		const messageContent = this.message ?? '';
+		const hasMessage = messageContent.trim().length > 0;
+		const shouldShowTextarea = this.editable && (!hasMessage || this.isEditing);
+
 		return html`<div class="commit-message">
 			${when(
-				this.editable,
+				shouldShowTextarea,
 				() => this.renderEditable(),
 				() => this.renderReadOnly(),
 			)}
@@ -258,7 +296,9 @@ export class CommitMessage extends LitElement {
 					rows="3"
 					aria-valid=${this.validityMessage ? 'false' : 'true'}
 					?invalid=${this.validityMessage ? 'true' : 'false'}
+					@focus=${() => (this.isEditing = true)}
 					@input=${this.onMessageInput}
+					@blur=${this.exitEditMode}
 				></textarea>
 				${this.renderHelpText()}
 				${when(
@@ -274,7 +314,9 @@ export class CommitMessage extends LitElement {
 							<code-icon
 								.icon=${this.generating ? 'loading' : 'sparkle'}
 								.modifier=${this.generating ? 'spin' : ''}
+								slot="prefix"
 							></code-icon>
+							${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
 						</gl-button>`,
 					() =>
 						html`<gl-button
@@ -282,7 +324,8 @@ export class CommitMessage extends LitElement {
 							appearance="toolbar"
 							.tooltip=${this.aiDisabledReason || 'AI features are disabled'}
 						>
-							<code-icon icon="sparkle"></code-icon>
+							<code-icon icon="sparkle" slot="prefix"></code-icon>
+							${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
 						</gl-button>`,
 				)}
 			</div>
@@ -294,16 +337,57 @@ export class CommitMessage extends LitElement {
 	}
 
 	private renderReadOnly() {
-		let displayMessage = 'Draft commit (add a commit message)';
-		let isPlaceholder = true;
-		if (this.message && this.message.trim().length > 0) {
-			displayMessage = this.message.replace(/\n/g, '<br/>');
-			isPlaceholder = false;
-		}
+		const messageContent = this.message ?? '';
+		const { summary, body } = splitCommitMessage(messageContent);
+		const summaryHtml = summary.replace(/\n/g, '<br/>');
+		const bodyHtml = body ? body.replace(/\n/g, '<br/>') : '';
 
-		return html`<p id="focusable" class="commit-message__text${isPlaceholder ? ' placeholder' : ''}">
-			<span class="scrollable"> ${unsafeHTML(displayMessage)} </span>
-		</p>`;
+		return html`
+			<div class="commit-message__field">
+				<p
+					id="focusable"
+					class="commit-message__text${this.explanation ? ' has-explanation' : ''}"
+					@click=${this.editable ? () => this.enterEditMode() : nothing}
+					tabindex=${this.editable ? '0' : '-1'}
+				>
+					<span class="scrollable">
+						<span class="commit-message__summary">${unsafeHTML(summaryHtml)}</span>
+						${body ? html`<span class="commit-message__body">${unsafeHTML(bodyHtml)}</span>` : nothing}
+					</span>
+				</p>
+				${this.renderHelpText()}
+				${when(
+					this.editable && this.aiEnabled,
+					() =>
+						html`<gl-button
+							class="commit-message__ai-button"
+							appearance="toolbar"
+							?disabled=${this.generating}
+							.tooltip=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
+							@click=${() => this.onGenerateCommitMessageClick()}
+						>
+							<code-icon
+								.icon=${this.generating ? 'loading' : 'sparkle'}
+								.modifier=${this.generating ? 'spin' : ''}
+								slot="prefix"
+							></code-icon>
+							${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
+						</gl-button>`,
+					() =>
+						this.editable
+							? html`<gl-button
+									class="commit-message__ai-button"
+									appearance="toolbar"
+									.tooltip=${this.aiDisabledReason || 'AI features are disabled'}
+									disabled
+								>
+									<code-icon icon="sparkle" slot="prefix"></code-icon>
+									${this.explanation || this.aiGenerated ? 'Regenerate Message' : 'Generate Message'}
+								</gl-button>`
+							: nothing,
+				)}
+			</div>
+		`;
 	}
 
 	private renderExplanation() {
@@ -328,6 +412,17 @@ export class CommitMessage extends LitElement {
 				},
 			}),
 		);
+	}
+
+	private enterEditMode() {
+		this.isEditing = true;
+		void this.updateComplete.then(() => {
+			this.focusableElement?.focus();
+		});
+	}
+
+	private exitEditMode() {
+		this.isEditing = false;
 	}
 
 	private onMessageInput(event: InputEvent) {

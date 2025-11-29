@@ -250,7 +250,7 @@ export function convertToComposerDiffInfo(
 		const { patch, filePatches } = createCombinedDiffForCommit(getHunksForCommit(commit, hunks));
 		const commitHunks = getHunksForCommit(commit, hunks);
 		const { author, coAuthors } = getAuthorAndCoAuthorsForCommit(commitHunks);
-		let message = commit.message;
+		let message = commit.message.content;
 		if (coAuthors.length > 0) {
 			message += `\n${coAuthors.map(a => `\nCo-authored-by: ${a.name} <${a.email}>`).join()}`;
 		}
@@ -279,7 +279,7 @@ export function generateComposerMarkdown(
 		"Here's the breakdown of the commits created from the provided changes, along with explanations for each:\n\n";
 	for (let i = 0; i < commits.length; i++) {
 		const commit = commits[i];
-		const commitTitle = `### Commit ${i + 1}: ${commit.message}`;
+		const commitTitle = `### Commit ${i + 1}: ${commit.message.content}`;
 
 		if (commit.aiExplanation) {
 			markdown += `${commitTitle}\n\n${commit.aiExplanation}\n\n`;
@@ -707,7 +707,7 @@ export async function createComposerCommitsFromGitCommits(
 			// Create ComposerCommit
 			const composerCommit: ComposerCommit = {
 				id: commit.sha,
-				message: commit.message || '',
+				message: { content: commit.message || '', isGenerated: false },
 				sha: commit.sha,
 				hunkIndices: commitHunkIndices,
 			};

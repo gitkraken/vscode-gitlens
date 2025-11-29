@@ -206,6 +206,8 @@ export type CoreCommands =
 	| 'workbench.action.openSettings'
 	| 'workbench.action.openWalkthrough'
 	| 'workbench.action.toggleMaximizedPanel'
+	| 'workbench.action.focusPanel'
+	| 'workbench.action.togglePanel'
 	| 'workbench.extensions.action.switchToRelease'
 	| 'workbench.extensions.installExtension'
 	| 'workbench.extensions.uninstallExtension'
