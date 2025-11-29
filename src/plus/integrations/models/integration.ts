@@ -46,7 +46,7 @@ export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extend
 export type IntegrationConnectedKey<T extends IntegrationIds = IntegrationIds> = `connected:${IntegrationKey<T>}`;
 
 export type IntegrationResult<T> =
-	| { value: T; duration?: number; error?: never }
+	| { value: T; duration?: number; error?: Error }
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
 
@@ -600,19 +600,31 @@ export abstract class IntegrationBase<
 
 		const currentAccount = await this.container.cache.getCurrentAccount(
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const account = await this.getProviderCurrentAccount?.(this._session!, opts);
 						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
+						if (ex instanceof CancellationError) {
+							cacheable.invalidate();
+							return undefined;
+						}
+
 						this.handleProviderException('getCurrentAccount', ex, { scope: scope });
-						return undefined;
+
+						// Invalidate the cache on error, except for auth errors
+						if (!(ex instanceof AuthenticationError)) {
+							cacheable.invalidate();
+						}
+
+						// Re-throw to the caller
+						throw ex;
 					}
 				})(),
 			}),
-			{ expiryOverride: expiryOverride },
+			{ expiryOverride: expiryOverride, expireOnError: false },
 		);
 		return currentAccount;
 	}
