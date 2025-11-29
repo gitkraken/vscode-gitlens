@@ -4,7 +4,7 @@
 		"incremental": false,
 		"outDir": "out/tests",
 		"paths": {
-			"@env/*": ["src/env/node/*"]
+			"@env/*": ["./src/env/node/*"]
 		}
 	},
 	"include": ["src/**/*"],
