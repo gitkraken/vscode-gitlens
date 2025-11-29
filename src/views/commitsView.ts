@@ -114,11 +114,13 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 		return e.changed(
 			RepositoryChange.Config,
+			RepositoryChange.Head,
 			RepositoryChange.Heads,
 			RepositoryChange.Index,
 			RepositoryChange.Remotes,
 			RepositoryChange.RemoteProviders,
 			RepositoryChange.PausedOperationStatus,
+			RepositoryChange.Worktrees,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
 		);

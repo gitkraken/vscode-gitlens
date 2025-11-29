@@ -1096,6 +1096,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						// RepositoryChange.Index,
 						RepositoryChange.Remotes,
 						RepositoryChange.PausedOperationStatus,
+						RepositoryChange.Starred,
+						RepositoryChange.Worktrees,
 						RepositoryChange.Unknown,
 						RepositoryChangeComparisonMode.Any,
 					)

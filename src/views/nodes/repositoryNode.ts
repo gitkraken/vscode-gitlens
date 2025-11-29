@@ -443,6 +443,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				RepositoryChange.Heads,
 				RepositoryChange.Opened,
 				RepositoryChange.PausedOperationStatus,
+				RepositoryChange.Starred,
+				RepositoryChange.Worktrees,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
 			)
