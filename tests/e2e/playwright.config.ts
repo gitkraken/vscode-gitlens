@@ -13,6 +13,7 @@ export default defineConfig({
 		timeout: 60000, // 1 minute
 	},
 	globalSetup: './setup',
+	testDir: './specs',
 	outputDir: '../../out/test-results',
 	projects: [
 		{
@@ -22,5 +23,5 @@ export default defineConfig({
 			},
 		},
 	],
-	testMatch: 'specs/*.test.ts',
+	testMatch: '*.test.ts',
 });

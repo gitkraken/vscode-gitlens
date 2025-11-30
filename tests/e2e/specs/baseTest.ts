@@ -13,6 +13,7 @@ export type TestOptions = {
 
 type TestFixtures = TestOptions & {
 	page: Page;
+	executeCommand: (command: string) => Promise<void>;
 	createTmpDir: () => Promise<string>;
 };
 
@@ -62,6 +63,18 @@ export const test = base.extend<TestFixtures>({
 			const logOutputPath = test.info().outputPath('vscode-logs');
 			await fs.promises.cp(logPath, logOutputPath, { recursive: true });
 		}
+	},
+	// Execute a VS Code command via the command palette
+	executeCommand: async ({ page }, use) => {
+		await use(async (command: string) => {
+			await page.keyboard.press('Control+Shift+P');
+			const commandPaletteInput = page.locator('.quick-input-box input');
+			await commandPaletteInput.waitFor({ state: 'visible', timeout: MaxTimeout });
+			await commandPaletteInput.fill(`> ${command}`);
+			await page.waitForTimeout(300);
+			await commandPaletteInput.press('Enter');
+			await page.waitForTimeout(500);
+		});
 	},
 	// Next line is necessary because of how Playwright works. It expect a destructured pattern here:
 	// https://github.com/microsoft/playwright/issues/14590#issuecomment-1911734641
