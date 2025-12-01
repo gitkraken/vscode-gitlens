@@ -78,6 +78,7 @@ import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from '.
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
 import { WebviewsController } from './webviews/webviewsController';
+import { registerWelcomeWebviewPanel } from './webviews/welcome/registration';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
@@ -256,6 +257,9 @@ export class Container {
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		const welcomePanels = registerWelcomeWebviewPanel(webviews);
+		this._disposables.push(welcomePanels);
 
 		this._disposables.push(new ViewFileDecorationProvider());
 
