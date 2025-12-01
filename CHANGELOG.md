@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes an issue in the _Start Review_ command where it opens the wrong branch with GitLab repos ([#4975](https://github.com/gitkraken/vscode-gitlens/issues/4975))
 - Fixes an issue where unsigned commits could incorrectly show a signature badge in tree view tooltips ([#4984](https://github.com/gitkraken/vscode-gitlens/issues/4984))
+- Fixes an issue where authentication errors were not properly displayed in _Launchpad_ when GitLab integration credentials were revoked ([#4944](https://github.com/gitkraken/vscode-gitlens/issues/4944))
 - Fixes CLI version checking and updating
 - Fixes an issue where stashing only unstaged changes could incorrectly stash everything ([#4503](https://github.com/gitkraken/vscode-gitlens/issues/4503))
 - Fixes an issue where the GitLens panel view container flickers during startup when an integration connects before repository discovery completes ([#4990](https://github.com/gitkraken/vscode-gitlens/issues/4990))
