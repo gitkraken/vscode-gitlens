@@ -95,6 +95,10 @@ export const homeStyles = css`
 	gl-repo-alerts:not([has-alerts]) {
 		display: none;
 	}
+
+	gl-welcome-overlay {
+		z-index: 5; /* to owerlay the Launchpad progress animation */
+	}
 `;
 
 export const buttonStyles = css`
