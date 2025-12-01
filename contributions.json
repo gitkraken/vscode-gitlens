@@ -5767,6 +5767,11 @@
 			"label": "Show Visual File History View",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.showWelcomePage": {
+			"label": "Show Welcome",
+			"icon": "$(heart)",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.showWorkspacesView": {
 			"label": "Show Cloud Workspaces View",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"

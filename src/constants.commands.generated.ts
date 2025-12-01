@@ -1010,6 +1010,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showTagsView'
 	| 'gitlens.showTimelinePage'
 	| 'gitlens.showTimelineView'
+	| 'gitlens.showWelcomePage'
 	| 'gitlens.showWorkspacesView'
 	| 'gitlens.showWorktreesView'
 	| 'gitlens.startWork'
