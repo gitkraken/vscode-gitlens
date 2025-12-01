@@ -84,6 +84,9 @@ export function getSuggestedActions(
 		}
 
 		actions.push('open-in-graph');
+
+		// Add chat actions for current branch
+		actions.push('chat-explain', 'chat-review-changes');
 	} else {
 		actions.push('open-worktree', 'switch');
 		if (supportsCodeSuggest(provider)) {
@@ -91,6 +94,9 @@ export function getSuggestedActions(
 		}
 
 		actions.push('open-in-graph');
+
+		// Add chat actions for non-current branch
+		actions.push('chat-explain', 'chat-create-branch', 'chat-create-worktree', 'chat-suggest-implementation');
 	}
 	return actions;
 }

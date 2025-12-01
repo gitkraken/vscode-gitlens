@@ -78,6 +78,7 @@ import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from '.
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
 import { WebviewsController } from './webviews/webviewsController';
+import { ChatService } from './ai/chat/chatService';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
@@ -380,6 +381,15 @@ export class Container {
 			this._disposables.push((this._ai = new AIProviderService(this, this._connection)));
 		}
 		return this._ai;
+	}
+
+	private _chatService: ChatService | undefined;
+	get chatService(): ChatService {
+		if (this._chatService == null) {
+			this._chatService = new ChatService(this);
+			this._disposables.push(this._chatService);
+		}
+		return this._chatService;
 	}
 
 	private _aiFeedback: AIFeedbackProvider | undefined;

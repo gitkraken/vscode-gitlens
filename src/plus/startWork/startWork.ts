@@ -2,6 +2,7 @@ import slug from 'slug';
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Uri } from 'vscode';
 import { md5 } from '@env/crypto';
+import type { ChatAction, ChatIssueContext } from '../../ai/chat/types';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations';
 import type {
 	AsyncStepResultGenerator,
@@ -71,6 +72,7 @@ interface Context {
 
 interface State {
 	item?: StartWorkItem;
+	chatAction?: 'create-branch' | 'create-worktree' | 'explain-issue' | 'skip';
 }
 
 type StartWorkStepState<T extends State = State> = RequireSome<StepState<T>, 'item'>;
@@ -266,6 +268,13 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 
 			assertsStartWorkStepState(state);
 
+			// Add chat integration step after issue selection
+			if (state.counter < 2 || state.chatAction == null) {
+				const result = yield* this.pickChatActionStep(state, context);
+				if (result === StepResultBreak) continue;
+				state.chatAction = result;
+			}
+
 			if (this.continuation) {
 				yield* this.continuation(state, context);
 			}
@@ -284,6 +293,86 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		} catch {
 			return undefined;
 		}
+	}
+
+	private async *pickChatActionStep(
+		state: StepState<State>,
+		context: Context,
+	): AsyncStepResultGenerator<'create-branch' | 'create-worktree' | 'explain-issue' | 'skip'> {
+		const items: QuickPickItem[] = [
+			{
+				label: '$(comment-discussion) Send to AI Chat',
+				description: 'Get AI assistance with this issue',
+				detail: 'Open AI Chat with contextual prompts and MCP tool integration',
+				picked: true,
+			},
+			{
+				label: '$(git-branch) Create Branch & Chat',
+				description: 'Create a branch and get AI guidance',
+				detail: 'Create a new branch and send contextual prompt to AI Chat',
+			},
+			{
+				label: '$(folder-opened) Create Worktree & Chat',
+				description: 'Create a worktree and get AI guidance',
+				detail: 'Create a new worktree and send contextual prompt to AI Chat',
+			},
+			{
+				label: '$(arrow-right) Continue without AI Chat',
+				description: 'Proceed with standard workflow',
+				detail: 'Skip AI Chat integration and continue with branch creation',
+			},
+		];
+
+		const step = createPickStep<QuickPickItem>({
+			title: context.title,
+			placeholder: 'Choose how to proceed with this issue',
+			items: items,
+		});
+
+		const selection: StepSelection<typeof step> = yield step;
+		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
+
+		const selectedItem = selection[0];
+		switch (selectedItem.label) {
+			case '$(comment-discussion) Send to AI Chat':
+				// Send explain-issue prompt to chat
+				await this.sendIssueToChatWithAction(state.item!, 'explain-issue');
+				return 'explain-issue';
+			case '$(git-branch) Create Branch & Chat':
+				// Send create-branch prompt to chat
+				await this.sendIssueToChatWithAction(state.item!, 'create-branch');
+				return 'create-branch';
+			case '$(folder-opened) Create Worktree & Chat':
+				// Send create-worktree prompt to chat
+				await this.sendIssueToChatWithAction(state.item!, 'create-worktree');
+				return 'create-worktree';
+			default:
+				return 'skip';
+		}
+	}
+
+	private async sendIssueToChatWithAction(item: StartWorkItem, action: ChatAction): Promise<void> {
+		const repository = await this.getIssueRepositoryIfExists(item.issue);
+
+		const context: ChatIssueContext = {
+			item: item.issue,
+			repository: repository,
+			source: 'start-work',
+			metadata: {
+				worktree: action === 'create-worktree',
+			},
+		};
+
+		await this.container.chatService.sendContextualPrompt({
+			context: context,
+			action: action,
+			config: {
+				includeMcpTools: true,
+				includeRepoContext: true,
+				includeFileContext: action === 'explain-issue',
+			},
+			source: 'startWork',
+		});
 	}
 
 	private async *confirmLocalIntegrationConnectStep(

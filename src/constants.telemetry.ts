@@ -908,7 +908,12 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 		| 'snooze'
 		| 'unsnooze'
 		| 'open-suggestion'
-		| 'open-suggestion-browser';
+		| 'open-suggestion-browser'
+		| 'chat-explain'
+		| 'chat-create-branch'
+		| 'chat-create-worktree'
+		| 'chat-review-changes'
+		| 'chat-suggest-implementation';
 } & Partial<Record<`item.${string}`, string | number | boolean>>;
 
 interface LaunchpadConfigurationChangedEvent {

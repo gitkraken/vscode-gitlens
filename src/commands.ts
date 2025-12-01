@@ -80,3 +80,4 @@ import './commands/toggleCodeLens';
 import './commands/toggleFileAnnotations';
 import './commands/toggleLineBlame';
 import './commands/walkthroughs';
+import './ai/chat/commands';

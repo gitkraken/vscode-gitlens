@@ -2485,7 +2485,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'soft-open' | 'code-suggest' | 'open' | 'merge' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
+  'action': 'soft-open' | 'code-suggest' | 'open' | 'merge' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser' | 'chat-explain' | 'chat-create-branch' | 'chat-create-worktree' | 'chat-review-changes' | 'chat-suggest-implementation',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,

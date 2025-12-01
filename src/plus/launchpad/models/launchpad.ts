@@ -98,7 +98,12 @@ export type LaunchpadAction =
 	| 'code-suggest'
 	| 'show-overview'
 	| 'open-changes'
-	| 'open-in-graph';
+	| 'open-in-graph'
+	| 'chat-explain'
+	| 'chat-create-branch'
+	| 'chat-create-worktree'
+	| 'chat-review-changes'
+	| 'chat-suggest-implementation';
 
 export type LaunchpadTargetAction = {
 	action: 'open-suggestion';
