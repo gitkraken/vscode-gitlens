@@ -9,10 +9,11 @@ import type { LoggerContext } from '../shared/contexts/logger';
 import type { HostIpc } from '../shared/ipc';
 import { WelcomeStateProvider } from './stateProvider';
 import '../shared/components/gitlens-logo';
+import { welcomeStyles } from './welcome.css';
 
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {
-	static override styles = [scrollableBase];
+	static override styles = [scrollableBase, welcomeStyles];
 
 	protected override createStateProvider(
 		bootstrap: string,
@@ -25,17 +26,16 @@ export class GlWelcomeApp extends GlAppHost<State> {
 	override render(): unknown {
 		return html`
 			<div class="welcome scrollable">
-				<div>
-					<h1><gitlens-logo></gitlens-logo></h1>
-					<p>Supercharge Git in Cursor with GitLens</p>
-				</div>
-
-				<div>
-					<h2>🚀 Getting Started</h2>
+				<div class="welcome__section welcome__header">
+					<gitlens-logo></gitlens-logo>
+					<h1>GitLens is now installed in Cursor</h1>
 					<p>
-						GitLens is now installed and ready to help you visualize code authorship, navigate Git history,
-						and collaborate more effectively.
+						Understand every line of code — instantly. GitLens reveals authorship, activity, and history
+						inside the editor
 					</p>
+				</div>
+				<div class="welcome__section">
+					<p>With <span class="welcome__accent">PRO</span> subscription you get more</p>
 				</div>
 
 				<div>
