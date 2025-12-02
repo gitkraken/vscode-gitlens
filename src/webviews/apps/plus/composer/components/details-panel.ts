@@ -302,27 +302,31 @@ export class DetailsPanel extends LitElement {
 		// Find all file hunks containers (could be multiple in split view)
 		const fileHunksContainers = this.shadowRoot?.querySelectorAll('.file-hunks');
 		fileHunksContainers?.forEach(hunksContainer => {
+			const commitId = (hunksContainer as HTMLElement)
+				.closest('[data-commit-id]')
+				?.getAttribute('data-commit-id');
+			const commit = this.selectedCommits.find(c => c.id === commitId);
+			const isLocked = commit?.locked === true;
+
 			const sortable = Sortable.create(hunksContainer as HTMLElement, {
 				group: {
 					name: 'hunks',
-					pull: true, // Allow pulling hunks out
-					put: false, // Allow dropping hunks between commits
+					pull: !isLocked,
+					put: false,
 				},
 				animation: 0,
 				dragClass: 'sortable-drag',
 				selectedClass: 'sortable-selected',
-				sort: false, // Don't allow reordering within the same container
+				sort: false,
+				filter: isLocked ? () => true : undefined,
 				onStart: evt => {
 					const draggedHunkId = evt.item.dataset.hunkId;
 					if (draggedHunkId && this.selectedHunkIds.has(draggedHunkId) && this.selectedHunkIds.size > 1) {
-						// Multi-hunk drag - collect all selected hunks
 						this.dispatchHunkDragStart(Array.from(this.selectedHunkIds));
 					} else {
-						// Single hunk drag
 						this.dispatchHunkDragStart(draggedHunkId ? [draggedHunkId] : []);
 					}
 
-					// Store original element for restoration if needed
 					evt.item.setAttribute('data-original-parent', evt.from.id || 'unknown');
 				},
 				onEnd: () => {
@@ -672,7 +676,7 @@ export class DetailsPanel extends LitElement {
 					?generating=${this.generatingCommitMessage === commit.id}
 					?ai-enabled=${this.aiEnabled}
 					.aiDisabledReason=${this.aiDisabledReason}
-					?editable=${this.canEditCommitMessages}
+					?editable=${this.canEditCommitMessages && commit.locked !== true}
 					@message-change=${(e: CustomEvent) => this.handleCommitMessageChange(commit.id, e.detail.message)}
 					@generate-commit-message=${(e: CustomEvent) => this.handleGenerateCommitMessage(commit.id, e)}
 				></gl-commit-message>

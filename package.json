@@ -7989,6 +7989,16 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.recomposeSelectedCommits",
+				"title": "Recompose Selected Commits (Preview)...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.recomposeSelectedCommits:graph",
+				"title": "Recompose Selected Commits (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.regenerateMarkdownDocument",
 				"title": "Regenerate",
 				"icon": "$(refresh)"
@@ -12902,6 +12912,14 @@
 				},
 				{
 					"command": "gitlens.recomposeBranch:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.recomposeSelectedCommits",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.recomposeSelectedCommits:graph",
 					"when": "false"
 				},
 				{
@@ -24917,6 +24935,11 @@
 				{
 					"command": "gitlens.graph.createCloudPatch",
 					"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
+					"group": "1_gitlens_actions_1@3"
+				},
+				{
+					"command": "gitlens.recomposeSelectedCommits:graph",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && listContiguousSelection && listUniqueBranchSelection",
 					"group": "1_gitlens_actions_1@3"
 				},
 				{

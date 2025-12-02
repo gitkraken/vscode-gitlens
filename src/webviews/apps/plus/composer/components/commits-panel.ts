@@ -369,7 +369,7 @@ export class CommitsPanel extends LitElement {
 	isPreviewMode: boolean = false;
 
 	@property({ type: Object })
-	recompose: { enabled: boolean; branchName?: string; locked: boolean } | null = null;
+	recompose: { enabled: boolean; branchName?: string; locked: boolean; commitIds?: string[] } | null = null;
 
 	@property({ type: Boolean })
 	canReorderCommits: boolean = true;
@@ -476,6 +476,12 @@ export class CommitsPanel extends LitElement {
 					name: 'commits',
 					pull: false,
 					put: false,
+				},
+				filter: (_evt, target) => {
+					const commitId = target.dataset.commitId;
+					if (!commitId) return false;
+					const commit = this.commits.find(c => c.id === commitId);
+					return commit?.locked === true;
 				},
 				onEnd: evt => {
 					if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
@@ -1149,7 +1155,9 @@ export class CommitsPanel extends LitElement {
 								${this.generating
 									? 'Generating Commits...'
 									: this.hasUsedAutoCompose || this.isRecomposeLocked
-										? 'Recompose Commits'
+										? this.selectedCommitIds.size > 1
+											? 'Recompose Selected Commits'
+											: 'Recompose Commits'
 										: 'Auto-Compose Commits'}
 							</gl-button>
 						`,
@@ -1347,10 +1355,12 @@ export class CommitsPanel extends LitElement {
 											.fileCount=${getFileCountForCommit(commit, this.hunks)}
 											.additions=${changes.additions}
 											.deletions=${changes.deletions}
-											.selected=${this.selectedCommitId === commit.id}
-											.multiSelected=${this.selectedCommitIds.has(commit.id)}
+											.selected=${this.selectedCommitIds.has(commit.id)}
+											.multiSelected=${this.selectedCommitIds.size > 1 &&
+											this.selectedCommitIds.has(commit.id)}
 											.isPreviewMode=${this.isPreviewMode}
 											.isRecomposeLocked=${this.isRecomposeLocked}
+											.locked=${commit.locked === true}
 											?first=${i === 0}
 											?last=${i === this.commits.length - 1 && !this.baseCommit}
 											@click=${(e: MouseEvent) => this.dispatchCommitSelect(commit.id, e)}

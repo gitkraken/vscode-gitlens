@@ -34,6 +34,7 @@ export interface GitGraphRow extends GraphRow {
 	remotes?: GitGraphRowRemoteHead[];
 	tags?: GitGraphRowTag[];
 	contexts?: GitGraphRowContexts;
+	reachableFromBranches?: string[];
 }
 
 export interface GitGraph {

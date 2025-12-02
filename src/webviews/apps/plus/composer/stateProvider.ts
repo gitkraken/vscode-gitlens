@@ -54,10 +54,37 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 				break;
 			}
 			case DidGenerateCommitsNotification.is(msg): {
+				// if the message params contain replaced commit ids, we only want to replace those commits in state with the new ones. Otherwise replace all of them
+				let newCommits;
+				if (msg.params.replacedCommitIds) {
+					newCommits = [...this._state.commits];
+					// Updates the replaced commits in state with the new commits replacing them
+					const firstRemovedIndex = newCommits.findIndex(c => msg.params.replacedCommitIds!.includes(c.id));
+					newCommits = newCommits.filter(c => !msg.params.replacedCommitIds!.includes(c.id));
+					newCommits.splice(firstRemovedIndex, 0, ...msg.params.commits);
+					// Updates hunk index references on all other commits to match the new hunk indices
+					const oldHunkMap = new Map(
+						this._state.hunks.map(hunk => [hunk.index, `${hunk.diffHeader}\n${hunk.hunkHeader}`]),
+					);
+					const newHunkMap = new Map(
+						msg.params.hunks!.map(hunk => [`${hunk.diffHeader}\n${hunk.hunkHeader}`, hunk.index]),
+					);
+					const newCommitIds = msg.params.commits.map(c => c.id);
+					for (const commit of newCommits) {
+						if (!newCommitIds.includes(commit.id)) {
+							commit.locked = true;
+							const commitHunkHeaders = commit.hunkIndices.map(i => oldHunkMap.get(i)!);
+							commit.hunkIndices = commitHunkHeaders.map(h => newHunkMap.get(h)).filter(i => i != null);
+						}
+					}
+				} else {
+					newCommits = msg.params.commits;
+				}
+
 				const updatedState = {
 					...this._state,
 					generatingCommits: false,
-					commits: msg.params.commits,
+					commits: newCommits,
 					hunks: (msg.params.hunks ?? this._state.hunks).map(hunk => ({
 						...hunk,
 						assigned: true,

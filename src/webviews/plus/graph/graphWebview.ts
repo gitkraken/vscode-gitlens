@@ -750,7 +750,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.ai.explainUnpushed:graph', this.aiExplainUnpushed),
 			this.host.registerWebviewCommand('gitlens.ai.explainBranch:graph', this.explainBranch),
 			this.host.registerWebviewCommand('gitlens.ai.explainCommit:graph', this.explainCommit),
-			this.host.registerWebviewCommand('gitlens.recomposeBranch:graph', this.recomposeBranch),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeBranch:graph', item =>
+				this.recomposeBranch(item),
+			),
 			this.host.registerWebviewCommand('gitlens.ai.explainStash:graph', this.explainStash),
 			this.host.registerWebviewCommand('gitlens.ai.explainWip:graph', this.explainWip),
 
@@ -763,6 +765,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.composeCommits:graph', item =>
 				this.composeCommits(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeSelectedCommits:graph', item =>
+				this.recomposeBranch(item),
 			),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
@@ -4436,13 +4441,66 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private recomposeBranch(item?: GraphItemContext) {
+	private async recomposeBranch(item?: GraphItemContext): Promise<void> {
 		const ref = this.getGraphItemRef(item, 'branch');
-		if (ref == null) return Promise.resolve();
+		if (ref != null) {
+			await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
+				repoPath: ref.repoPath,
+				branchName: ref.name,
+				source: 'graph',
+			});
+			return;
+		}
 
-		return executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
-			repoPath: ref.repoPath,
-			branchName: ref.name,
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (selection == null || selection.length < 2) return;
+
+		const repoPath = selection[0].repoPath;
+		const commitShas = selection.map(ref => ref.sha);
+
+		const graph = this._graph;
+		if (graph == null) return;
+
+		// We need to make sure commit shas are sorted in the order of the commits they are based on
+		commitShas.sort((a, b) => {
+			const rowA = graph.rows.find(r => r.sha === a);
+			const rowB = graph.rows.find(r => r.sha === b);
+			return (rowA?.date ?? 0) - (rowB?.date ?? 0);
+		});
+
+		const branchCounts = new Map<string, number>();
+
+		for (const sha of commitShas) {
+			const row = graph.rows.find(r => r.sha === sha);
+			if (row?.reachableFromBranches) {
+				for (const branchName of row.reachableFromBranches) {
+					branchCounts.set(branchName, (branchCounts.get(branchName) ?? 0) + 1);
+				}
+			}
+		}
+
+		const branchesReachingAll: string[] = [];
+		for (const [branchName, count] of branchCounts) {
+			if (count === commitShas.length) {
+				branchesReachingAll.push(branchName);
+			}
+		}
+
+		if (branchesReachingAll.length !== 1) {
+			void window.showErrorMessage(
+				branchesReachingAll.length === 0
+					? 'The selected commits are not reachable from any single branch.'
+					: 'The selected commits are reachable from multiple branches. Please select commits unique to a single branch.',
+			);
+			return;
+		}
+
+		const branchName = branchesReachingAll[0];
+
+		await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeSelectedCommits', {
+			repoPath: repoPath,
+			branchName: branchName,
+			commitShas: commitShas,
 			source: 'graph',
 		});
 	}

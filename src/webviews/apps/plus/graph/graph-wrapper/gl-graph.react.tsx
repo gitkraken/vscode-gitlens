@@ -183,6 +183,8 @@ const clientPlatform = getClientPlatform();
 interface SelectionContext {
 	listDoubleSelection?: boolean;
 	listMultiSelection?: boolean;
+	listContiguousSelection?: boolean;
+	listUniqueBranchSelection?: boolean;
 	webviewItems?: string;
 	webviewItemsValues?: GraphItemContext[];
 }
@@ -195,6 +197,8 @@ interface SelectionContexts {
 const emptySelectionContext: SelectionContext = {
 	listDoubleSelection: false,
 	listMultiSelection: false,
+	listContiguousSelection: false,
+	listUniqueBranchSelection: false,
 	webviewItems: undefined,
 	webviewItemsValues: undefined,
 };
@@ -213,6 +217,67 @@ export type GraphWrapperInitProps = GraphWrapperProps &
 	};
 
 const emptyRows: GraphRow[] = [];
+
+function checkContiguousSelection(selectedRows: GraphRow[]): boolean {
+	if (selectedRows.length <= 1) return true;
+
+	const selectedShas = new Set(selectedRows.map(r => r.sha));
+	const shaToRow = new Map<string, GraphRow>();
+	for (const row of selectedRows) {
+		shaToRow.set(row.sha, row);
+	}
+
+	const firstRow = selectedRows[0];
+	const visited = new Set<string>();
+	const queue: string[] = [firstRow.sha];
+	visited.add(firstRow.sha);
+
+	while (queue.length > 0) {
+		const sha = queue.shift()!;
+		const row = shaToRow.get(sha);
+		if (!row) continue;
+
+		for (const parentSha of row.parents ?? []) {
+			if (selectedShas.has(parentSha) && !visited.has(parentSha)) {
+				visited.add(parentSha);
+				queue.push(parentSha);
+			}
+		}
+
+		for (const [childSha, childRow] of shaToRow) {
+			if (childRow.parents?.includes(sha) && !visited.has(childSha)) {
+				visited.add(childSha);
+				queue.push(childSha);
+			}
+		}
+	}
+
+	return visited.size === selectedRows.length;
+}
+
+function checkUniqueBranchSelection(selectedRows: GraphRow[]): boolean {
+	if (selectedRows.length === 0) return false;
+
+	const branchNames = new Set<string>();
+
+	for (const row of selectedRows) {
+		const rowContext = row.contexts?.row;
+		if (rowContext == null) return false;
+
+		const contextString = typeof rowContext === 'string' ? rowContext : JSON.stringify(rowContext);
+		if (!contextString.includes('+unique')) {
+			return false;
+		}
+
+		if (row.heads && row.heads.length > 0) {
+			for (const head of row.heads) {
+				branchNames.add(head.name);
+			}
+		}
+	}
+
+	return branchNames.size <= 1;
+}
 
 export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const [graph, _graphRef] = useState<GraphContainer | null>(null);
@@ -446,9 +511,15 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			if (rows.length <= 1) return undefined;
 
 			const selectedShas = new Set<string>();
+			const selectedShasList: string[] = [];
 			for (const row of rows) {
 				selectedShas.add(row.sha);
+				selectedShasList.push(row.sha);
 			}
+
+			const isContiguous = checkContiguousSelection(rows);
+
+			const isUniqueBranch = checkUniqueBranchSelection(rows);
 
 			// Group the selected rows by their type and only include ones that have row context
 			// Use cached parsing to avoid repeated JSON.parse calls
@@ -521,6 +592,8 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				contexts.set(type, {
 					listDoubleSelection: count === 2,
 					listMultiSelection: count > 1,
+					listContiguousSelection: isContiguous,
+					listUniqueBranchSelection: isUniqueBranch,
 					webviewItems: webviewItems,
 					webviewItemsValues: count > 1 ? items : undefined,
 				});
@@ -528,7 +601,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 
 			return { contexts: contexts, selectedShas: selectedShas };
 		},
-		[getParsedSelectionContext],
+		[getParsedSelectionContext, props.rows],
 	);
 
 	const handleSelectGraphRows = useCallback(

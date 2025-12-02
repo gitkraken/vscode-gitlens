@@ -14,13 +14,14 @@ import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
 export interface RecomposeBranchCommandArgs {
 	repoPath?: string;
 	branchName?: string;
+	commitShas?: string[];
 	source?: Sources;
 }
 
 @command()
 export class RecomposeBranchCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.recomposeBranch', 'gitlens.recomposeBranch:views']);
+		super(['gitlens.recomposeBranch', 'gitlens.recomposeBranch:views', 'gitlens.recomposeSelectedCommits']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: RecomposeBranchCommandArgs): Promise<void> {
@@ -92,6 +93,7 @@ export class RecomposeBranchCommand extends GlCommandBase {
 				source: args?.source,
 				mode: 'preview',
 				branchName: branchName,
+				commitShas: args?.commitShas,
 			});
 		} catch (ex) {
 			void window.showErrorMessage(`Failed to recompose branch: ${ex}`);

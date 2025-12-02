@@ -12,6 +12,7 @@ export interface ComposerCommandArgs {
 	mode?: 'experimental' | 'preview';
 	includedUnstagedChanges?: boolean;
 	branchName?: string;
+	commitShas?: string[];
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];

@@ -87,6 +87,9 @@ export class CommitItem extends LitElement {
 	isRecomposeLocked = false;
 
 	@property({ type: Boolean })
+	locked = false;
+
+	@property({ type: Boolean })
 	first = false;
 
 	@property({ type: Boolean })
@@ -128,7 +131,7 @@ export class CommitItem extends LitElement {
 					? ' multi-selected'
 					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}${this.isRecomposeLocked
 					? ' is-recompose-locked'
-					: ''}"
+					: ''}${this.locked ? ' is-locked' : ''}"
 				tabindex="0"
 				@click=${this.handleClick}
 				@keydown=${this.handleClick}
