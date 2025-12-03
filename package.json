@@ -26784,6 +26784,7 @@
 		"@vscode/test-electron": "2.5.2",
 		"@vscode/test-web": "0.0.76",
 		"@vscode/vsce": "3.7.1",
+		"@wc-toolkit/cem-sorter": "^1.0.1",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
