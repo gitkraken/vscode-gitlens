@@ -343,6 +343,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _search: GitGraphSearch | undefined;
 	private _searchIdCounter = getScopedCounter();
 	private _selectedId?: string;
+	private _honorSelectedId = false;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _showDetailsView: Config['graph']['showDetailsView'];
 	private _theme: ColorTheme | undefined;
@@ -479,6 +480,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				id = (await this.container.git.getRepositoryService(arg.ref.repoPath).revision.resolveRevision(id)).sha;
 			}
 
+			// Make sure we honor the selection to ensure we won't override it with the default selection
+			this._honorSelectedId = true;
 			this.setSelectedRows(id);
 
 			if (this._graph != null) {
@@ -3045,9 +3048,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		let selectedId = this._selectedId;
 		let selectionChanged = false;
 
-		// Skip default row selection if we have a pending search request
-		// to avoid jumping to WIP/HEAD before the search is applied
+		// Skip default row selection if we are honoring the selected id or we have a pending search request
+		// to avoid overriding an honored selection or jumping to WIP/HEAD before the search is applied
 		if (
+			!this._honorSelectedId &&
 			searchRequest == null &&
 			selectedId !== uncommitted &&
 			hasWorkingChanges &&
@@ -3058,6 +3062,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.setSelectedRows(uncommitted);
 			selectedId = this._selectedId;
 		}
+		this._honorSelectedId = false;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
