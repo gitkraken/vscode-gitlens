@@ -483,6 +483,35 @@ export class CommitsPanel extends LitElement {
 					const commit = this.commits.find(c => c.id === commitId);
 					return commit?.locked === true;
 				},
+				onMove: evt => {
+					const draggedCommitId = evt.dragged.dataset.commitId;
+					const relatedCommitId = evt.related.dataset.commitId;
+
+					if (!draggedCommitId || !relatedCommitId) return true;
+
+					const draggedCommit = this.commits.find(c => c.id === draggedCommitId);
+					const relatedCommit = this.commits.find(c => c.id === relatedCommitId);
+
+					if (relatedCommit?.locked === true) {
+						return false;
+					}
+
+					const draggedIndex = this.commits.findIndex(c => c.id === draggedCommitId);
+					const relatedIndex = this.commits.findIndex(c => c.id === relatedCommitId);
+
+					if (draggedIndex === -1 || relatedIndex === -1) return true;
+
+					const start = Math.min(draggedIndex, relatedIndex);
+					const end = Math.max(draggedIndex, relatedIndex);
+
+					for (let i = start; i <= end; i++) {
+						if (this.commits[i].locked === true && this.commits[i].id !== draggedCommitId) {
+							return false;
+						}
+					}
+
+					return true;
+				},
 				onEnd: evt => {
 					if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
 						this.dispatchCommitReorder(evt.oldIndex, evt.newIndex);

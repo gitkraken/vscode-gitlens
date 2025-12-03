@@ -132,6 +132,7 @@ export class CommitItem extends LitElement {
 					: ''}${this.first ? ' is-first' : ''}${this.last ? ' is-last' : ''}${this.isRecomposeLocked
 					? ' is-recompose-locked'
 					: ''}${this.locked ? ' is-locked' : ''}"
+				data-commit-id=${this.commitId}
 				tabindex="0"
 				@click=${this.handleClick}
 				@keydown=${this.handleClick}
