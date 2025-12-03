@@ -115,7 +115,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private _safetyState: ComposerSafetyState;
 
 	// Branch mode state
-	private _recompose: { enabled: boolean; branchName?: string; locked: boolean } | null = null;
+	private _recompose: { enabled: boolean; branchName?: string; locked: boolean; commitShas?: string[] } | null = null;
 
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
 	private _context: ComposerContext;
@@ -300,7 +300,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		// Check if this is branch mode
 		if (args?.branchName) {
-			return this.initializeStateAndContextFromBranch(repo, args.branchName, args.mode, args.source);
+			return this.initializeStateAndContextFromBranch(
+				repo,
+				args.branchName,
+				args.mode,
+				args.source,
+				args.commitShas,
+			);
 		}
 
 		return this.initializeStateAndContextFromWorkingDirectory(
@@ -328,6 +334,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		branchName?: string,
 		mode: 'experimental' | 'preview' = 'preview',
 		source?: Sources,
+		commitShas?: string[],
 		isReload?: boolean,
 	): Promise<State> {
 		this._currentRepository = repo;
@@ -339,8 +346,18 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			this._recompose = {
 				enabled: true,
 				branchName: branchName,
-				locked: true, // Initially locked - will be unlocked after auto-compose
+				locked: true,
+				commitShas: commitShas,
 			};
+		}
+
+		if (commitShas && commitShas.length > 0) {
+			const recomposeSet = new Set(commitShas);
+			for (const commit of commits) {
+				if (commit.sha && !recomposeSet.has(commit.sha)) {
+					commit.locked = true;
+				}
+			}
 		}
 
 		const aiEnabled = this.getAiEnabled();
@@ -484,6 +501,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			undefined,
 			mode,
 			source,
+			undefined,
 			isReload,
 		);
 	}
@@ -493,6 +511,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		branchName: string,
 		mode: 'experimental' | 'preview' = 'preview',
 		source?: Sources,
+		commitShas?: string[],
 		isReload?: boolean,
 	): Promise<State> {
 		// Get the branch
@@ -541,6 +560,21 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					}
 
 					const { commits, hunks } = composerData;
+
+					// Ensure that if commitShas is provided, error out if any of the commit shas are not found in the commits
+					if (commitShas) {
+						const commitShasSet = new Set(commitShas);
+						const missingShas = [...commitShasSet].filter(sha => !commits.find(c => c.sha === sha));
+						if (missingShas.length > 0) {
+							return {
+								...this.initialState,
+								loadingError: `The following commit shas were not found in the commits for branch '${branchName}': ${missingShas.join(
+									', ',
+								)}`,
+							};
+						}
+					}
+
 					const diffs = (await getComposerDiffs(repo, { baseSha: baseCommit.sha, headSha: headCommitSha }))!;
 
 					// Return successful state with found commits
@@ -559,6 +593,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 						currentMergeTargetBranchName,
 						mode,
 						source,
+						commitShas,
 						isReload,
 					);
 				}
@@ -695,6 +730,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 						this._recompose.branchName,
 						params.mode,
 						params.source,
+						this._recompose.commitShas,
 						true,
 					)
 				: await this.initializeStateAndContextFromWorkingDirectory(
@@ -979,10 +1015,17 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (this._recompose?.enabled && this._safetyState?.hashes.commits) {
 				// In recompose mode, we need to break down the commit history and use the combined diff to generate new hunks
 				// before sending them off to the AI service to compose new commits
+				const baseSha = params.commitsToReplace?.baseShaForNewDiff ?? this._safetyState.baseSha!;
+				let headSha = this._safetyState.headSha!;
+				if (params.commitsToReplace?.commits?.length) {
+					headSha =
+						params.commitsToReplace.commits[params.commitsToReplace.commits.length - 1].sha ??
+						this._safetyState.headSha!;
+				}
 				const combinedDiff = await calculateCombinedDiffBetweenCommits(
 					this._currentRepository!,
-					this._safetyState.baseSha!,
-					this._safetyState.headSha!,
+					baseSha,
+					headSha,
 				);
 
 				const combinedHunks = createHunksFromDiffs(combinedDiff!.contents);
@@ -992,7 +1035,24 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					hunk.coAuthors = coAuthors.length ? coAuthors : undefined;
 					hunks.push({ ...hunk, assigned: true });
 				}
-				this._hunks = hunks;
+
+				// Update the hunks. Note that if params.commitsToReplace is defined, then we need to remove all the hunks with indices that match the hunkIndices of the commits to replace, then add in the new hunks and
+				// reinder all of the hunks. Otherwise, we just replace the existing hunks with the new ones
+				if (params.commitsToReplace) {
+					const hunkIndicesToRemove = new Set(params.commitsToReplace.commits.flatMap(c => c.hunkIndices));
+					this._hunks = this._hunks.filter(h => !hunkIndicesToRemove.has(h.index));
+					// Reindex the hunks
+					let newIndexCounter = 1;
+					this._hunks.forEach(hunk => {
+						hunk.index = newIndexCounter++;
+					});
+					hunks.forEach(hunk => {
+						hunk.index = newIndexCounter++;
+					});
+					this._hunks.push(...hunks);
+				} else {
+					this._hunks = hunks;
+				}
 			} else {
 				// Working directory mode: use existing hunks
 				for (const index of params.hunkIndices) {
@@ -1011,7 +1071,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			const result = await this.container.ai.actions.generateCommits(
 				hunks,
 				existingCommits,
-				this._hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
+				hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
 				{ source: 'composer', correlationId: this.host.instanceId },
 				{
 					cancellation: this._generateCommitsCancellation.token,
@@ -1075,6 +1135,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					commits: newCommits,
 					// In recompose mode, we generated a new combined diff and hunks, so we need to pass the hunks back to state
 					hunks: this._recompose?.enabled ? this._hunks : undefined,
+					replacedCommitIds: params.commitsToReplace?.commits.map(c => c.id),
 				});
 			} else if (result === 'cancelled') {
 				this._context.operations.generateCommits.cancelledCount++;

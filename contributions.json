@@ -4495,6 +4495,23 @@
 				]
 			}
 		},
+		"gitlens.recomposeSelectedCommits": {
+			"label": "Recompose Selected Commits (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.recomposeSelectedCommits:graph": {
+			"label": "Recompose Selected Commits (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && listContiguousSelection && listUniqueBranchSelection",
+						"group": "1_gitlens_actions_1",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.regenerateMarkdownDocument": {
 			"label": "Regenerate",
 			"icon": "$(refresh)",

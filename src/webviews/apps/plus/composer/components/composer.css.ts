@@ -180,6 +180,20 @@ export const composerItemCommitStyles = css`
 		border-left-style: solid;
 	}
 
+	.composer-item.is-locked {
+		opacity: 0.6;
+		cursor: default;
+	}
+	.composer-item.is-locked .drag-handle {
+		display: none;
+	}
+	.composer-item.is-locked .composer-item__commit::after {
+		border-style: solid;
+	}
+	.composer-item.is-locked .composer-item__commit::before {
+		border-left-style: solid;
+	}
+
 	.composer-item__commit.is-empty::before,
 	.composer-item__commit.is-empty::after {
 		display: none;

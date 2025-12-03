@@ -156,6 +156,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
+		const reachableFromBranches = new Map<string, Set<string>>();
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let pendingRowsStatsCount = 0;
 		let iterations = 0;
@@ -454,6 +455,31 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					}
 
+					if (refHeads.length > 0) {
+						let branches = reachableFromBranches.get(shaOrRemapped);
+						if (branches == null) {
+							branches = new Set<string>();
+							reachableFromBranches.set(shaOrRemapped, branches);
+						}
+						for (const refHead of refHeads) {
+							branches.add(refHead.name);
+						}
+					}
+
+					const currentBranches = reachableFromBranches.get(shaOrRemapped);
+					if (currentBranches != null && currentBranches.size > 0) {
+						for (parent of parents) {
+							let parentBranches = reachableFromBranches.get(parent);
+							if (parentBranches == null) {
+								parentBranches = new Set<string>();
+								reachableFromBranches.set(parent, parentBranches);
+							}
+							for (const branchName of currentBranches) {
+								parentBranches.add(branchName);
+							}
+						}
+					}
+
 					stash = gitStash?.stashes.get(shaOrRemapped);
 					if (stash != null) {
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
@@ -469,6 +495,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							},
 						});
 
+						const branches = reachableFromBranches.get(shaOrRemapped);
 						rows.push({
 							sha: shaOrRemapped,
 							// Always only return the first parent for stashes, as it is a Git implementation for the index and untracked files
@@ -482,6 +509,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							contexts: contexts,
+							reachableFromBranches: branches ? Array.from(branches) : undefined,
 						});
 
 						if (stash.stats != null) {
@@ -501,10 +529,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							}
 						}
 
+						const branches = reachableFromBranches.get(shaOrRemapped);
+						const isUniqueToBranch =
+							branches?.size === 1 && refTags.length === 0 && refRemoteHeads.length === 0;
+
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 							webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
 								reachableFromHEAD.has(shaOrRemapped) ? '+current' : ''
-							}`,
+							}${isUniqueToBranch ? '+unique' : ''}`,
 							webviewItemValue: {
 								type: 'commit',
 								ref: createReference(shaOrRemapped, repoPath, {
@@ -537,6 +569,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							remotes: refRemoteHeads,
 							tags: refTags,
 							contexts: contexts,
+							reachableFromBranches: branches ? Array.from(branches) : undefined,
 						});
 
 						if (commit.stats != null) {
