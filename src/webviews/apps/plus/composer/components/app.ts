@@ -57,6 +57,7 @@ interface ComposerDataSnapshot {
 	selectedUnassignedSection: string | null;
 	selectedHunkIds: Set<string>;
 	hasUsedAutoCompose: boolean;
+	recompose: { enabled: boolean; branchName?: string; locked: boolean; commitShas?: string[] } | null;
 }
 
 interface ComposerHistory {
@@ -618,16 +619,24 @@ export class ComposerApp extends LitElement {
 			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
 			hasUsedAutoCompose: this.state?.hasUsedAutoCompose ?? false,
+			recompose: this.state?.recompose ? JSON.parse(JSON.stringify(this.state.recompose)) : null,
 		};
 	}
 
 	private applyDataSnapshot(snapshot: ComposerDataSnapshot) {
-		this.state.hunks = snapshot.hunks;
-		this.state.commits = snapshot.commits;
-		this.state.selectedCommitId = snapshot.selectedCommitId;
+		const updatedState = {
+			...this.state,
+			hunks: snapshot.hunks,
+			commits: snapshot.commits,
+			selectedCommitId: snapshot.selectedCommitId,
+			selectedUnassignedSection: snapshot.selectedUnassignedSection,
+			hasUsedAutoCompose: snapshot.hasUsedAutoCompose,
+			recompose: snapshot.recompose,
+			timestamp: Date.now(),
+		};
+
+		(this as any).state = updatedState;
 		this.selectedCommitIds = snapshot.selectedCommitIds;
-		this.state.selectedUnassignedSection = snapshot.selectedUnassignedSection;
-		this.state.hasUsedAutoCompose = snapshot.hasUsedAutoCompose;
 		this.selectedHunkIds = snapshot.selectedHunkIds;
 		this.requestUpdate();
 	}

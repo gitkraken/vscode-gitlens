@@ -489,7 +489,6 @@ export class CommitsPanel extends LitElement {
 
 					if (!draggedCommitId || !relatedCommitId) return true;
 
-					const draggedCommit = this.commits.find(c => c.id === draggedCommitId);
 					const relatedCommit = this.commits.find(c => c.id === relatedCommitId);
 
 					if (relatedCommit?.locked === true) {
