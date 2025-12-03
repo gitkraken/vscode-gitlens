@@ -2,8 +2,8 @@ import type { Locator, Page } from '@playwright/test';
 import { MaxTimeout } from '../../baseTest';
 import type { VSCodePage } from '../vscodePage';
 
-/** Component for VS Code Sidebar interactions */
-export class Sidebar {
+/** Component for VS Code Secondary Sidebar interactions */
+export class SecondarySidebar {
 	private readonly container: Locator;
 	private readonly toggle: Locator;
 
@@ -11,8 +11,8 @@ export class Sidebar {
 		private readonly vscode: VSCodePage,
 		private readonly page: Page,
 	) {
-		this.container = page.locator('[id="workbench.parts.sidebar"]');
-		this.toggle = page.getByRole('checkbox', { name: /Toggle Primary Side Bar/i });
+		this.container = page.locator('[id="workbench.parts.auxiliarybar"]');
+		this.toggle = page.getByRole('checkbox', { name: /Toggle Secondary Side Bar/i });
 	}
 
 	get locator(): Locator {
@@ -26,7 +26,7 @@ export class Sidebar {
 	async close(): Promise<void> {
 		if (!(await this.isVisible())) return;
 
-		// await this.vscode.executeCommand('View: Close Primary Side Bar', 1);
+		// await this.vscode.executeCommand('View: Close Secondary Side Bar', 1);
 		await this.toggle.click();
 		await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
 	}
@@ -34,7 +34,7 @@ export class Sidebar {
 	async open(): Promise<void> {
 		if (await this.isVisible()) return;
 
-		// await this.vscode.executeCommand('View: Focus into Primary Side Bar', 1);
+		// await this.vscode.executeCommand('View: Focus into Secondary Side Bar', 1);
 		await this.toggle.click();
 		await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
 	}
@@ -92,7 +92,7 @@ export class Sidebar {
 	/**
 	 * Get a tree view within the sidebar
 	 */
-	getTree(name?: string | RegExp): Locator {
+	getTree(name?: string): Locator {
 		if (name) {
 			return this.container.getByRole('tree', { name: name });
 		}
@@ -111,12 +111,5 @@ export class Sidebar {
 	 */
 	getTreeItem(name: string | RegExp): Locator {
 		return this.container.getByRole('treeitem', { name: name });
-	}
-
-	/**
-	 * Get the body of a section by name pattern
-	 */
-	getSectionBody(name: string | RegExp): Locator {
-		return this.getSection(name).locator('xpath=ancestor::div[contains(@class, "pane")]');
 	}
 }

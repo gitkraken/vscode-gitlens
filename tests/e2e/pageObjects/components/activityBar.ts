@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
-import { MaxTimeout } from '../../specs/baseTest';
+import { MaxTimeout } from '../../baseTest';
+import type { VSCodePage } from '../vscodePage';
 
 /**
  * Component for VS Code Activity Bar interactions.
@@ -8,7 +9,10 @@ import { MaxTimeout } from '../../specs/baseTest';
 export class ActivityBar {
 	private readonly container: Locator;
 
-	constructor(private readonly page: Page) {
+	constructor(
+		private readonly vscode: VSCodePage,
+		private readonly page: Page,
+	) {
 		this.container = page.locator('[id="workbench.parts.activitybar"]');
 	}
 

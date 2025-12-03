@@ -26757,6 +26757,7 @@
 		"reset": "pnpm run clean && pnpm install --force",
 		"test": "vscode-test",
 		"test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+		"test:e2e:insiders": "set VSCODE_VERSION=insiders && playwright test -c tests/e2e/playwright.config.ts",
 		"watch": "webpack --watch --mode development",
 		"watch:extension": "webpack --watch --mode development --config-name extension",
 		"watch:quick": "webpack --watch --mode development --env quick",

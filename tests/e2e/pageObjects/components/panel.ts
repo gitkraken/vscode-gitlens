@@ -1,22 +1,42 @@
 import type { Locator, Page } from '@playwright/test';
-import { MaxTimeout } from '../../specs/baseTest';
+import { MaxTimeout } from '../../baseTest';
+import type { VSCodePage } from '../vscodePage';
 
-/**
- * Component for VS Code Bottom Panel interactions.
- * The panel contains Problems, Output, Debug Console, Terminal, and custom views.
- */
+/** Component for VS Code Bottom Panel interactions */
 export class Panel {
 	private readonly container: Locator;
+	private readonly toggle: Locator;
 
-	constructor(private readonly page: Page) {
+	constructor(
+		private readonly vscode: VSCodePage,
+		private readonly page: Page,
+	) {
 		this.container = page.locator('[id="workbench.parts.panel"]');
+		this.toggle = page.getByRole('checkbox', { name: /Toggle Panel/i });
 	}
 
-	/**
-	 * Get the panel container
-	 */
 	get locator(): Locator {
 		return this.container;
+	}
+
+	async isVisible(): Promise<boolean> {
+		return this.container.isVisible();
+	}
+
+	async close(): Promise<void> {
+		if (!(await this.isVisible())) return;
+
+		// await this.vscode.executeCommand('View: Hide Panel', 1);
+		await this.toggle.click();
+		await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
+	}
+
+	async open(): Promise<void> {
+		if (await this.isVisible()) return;
+
+		// await this.vscode.executeCommand('View: Focus into Panel', 1);
+		await this.toggle.click();
+		await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
 	}
 
 	/**
@@ -65,6 +85,23 @@ export class Panel {
 	}
 
 	/**
+	 * Get the body of a section by name pattern
+	 */
+	getSectionBody(name: string | RegExp): Locator {
+		return this.getSection(name).locator('xpath=ancestor::div[contains(@class, "pane")]');
+	}
+
+	/**
+	 * Get the content area of a panel tab (for webview views)
+	 * This returns the pane container that holds the webview iframe
+	 */
+	getTabContent(name: string | RegExp, exact = false): Locator {
+		return this.getTab(name, exact).locator(
+			'xpath=ancestor::div[contains(@class, "composite")]//div[contains(@class, "pane-body")]',
+		);
+	}
+
+	/**
 	 * Wait for a section to appear
 	 */
 	async waitForSection(name: string | RegExp, timeout = MaxTimeout): Promise<void> {
@@ -93,27 +130,5 @@ export class Panel {
 
 	get terminalTab(): Locator {
 		return this.getTab(/Terminal/);
-	}
-
-	/**
-	 * Open the panel if it's hidden
-	 */
-	async open(): Promise<void> {
-		const isVisible = await this.container.isVisible();
-		if (!isVisible) {
-			await this.page.keyboard.press('Control+J');
-			await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
-		}
-	}
-
-	/**
-	 * Close the panel
-	 */
-	async close(): Promise<void> {
-		const isVisible = await this.container.isVisible();
-		if (isVisible) {
-			await this.page.keyboard.press('Control+J');
-			await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
-		}
 	}
 }

@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import type { VSCodePage } from '../vscodePage';
 
 /**
  * Component for VS Code Status Bar interactions.
@@ -7,7 +8,10 @@ import type { Locator, Page } from '@playwright/test';
 export class StatusBar {
 	private readonly container: Locator;
 
-	constructor(private readonly page: Page) {
+	constructor(
+		private readonly vscode: VSCodePage,
+		private readonly page: Page,
+	) {
 		this.container = page.locator('footer[role="status"]');
 	}
 

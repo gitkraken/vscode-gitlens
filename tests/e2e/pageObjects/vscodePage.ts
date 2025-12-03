@@ -1,8 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
-import { MaxTimeout } from '../specs/baseTest';
+import { MaxTimeout } from '../baseTest';
 import { ActivityBar } from './components/activityBar';
 import { CommandPalette } from './components/commandPalette';
 import { Panel } from './components/panel';
+import { SecondarySidebar } from './components/secondarySidebar';
 import { Sidebar } from './components/sidebar';
 import { StatusBar } from './components/statusBar';
 
@@ -15,6 +16,8 @@ export class VSCodePage {
 	readonly activityBar: ActivityBar;
 	/** Primary sidebar component */
 	readonly sidebar: Sidebar;
+	/** Secondary sidebar component */
+	readonly secondarySidebar: SecondarySidebar;
 	/** Bottom panel component (terminal, output, problems, etc.) */
 	readonly panel: Panel;
 	/** Status bar component */
@@ -23,11 +26,12 @@ export class VSCodePage {
 	readonly commandPalette: CommandPalette;
 
 	constructor(protected readonly page: Page) {
-		this.activityBar = new ActivityBar(page);
-		this.sidebar = new Sidebar(page);
-		this.panel = new Panel(page);
-		this.statusBar = new StatusBar(page);
-		this.commandPalette = new CommandPalette(page);
+		this.activityBar = new ActivityBar(this, page);
+		this.sidebar = new Sidebar(this, page);
+		this.secondarySidebar = new SecondarySidebar(this, page);
+		this.panel = new Panel(this, page);
+		this.statusBar = new StatusBar(this, page);
+		this.commandPalette = new CommandPalette(this, page);
 	}
 
 	/** The editor area */
@@ -35,21 +39,34 @@ export class VSCodePage {
 		return this.page.locator('[id="workbench.parts.editor"]');
 	}
 
-	// ============================================================================
-	// Command Palette
-	// ============================================================================
+	/** Close all open editors */
+	async closeAllEditors(): Promise<void> {
+		await this.page.keyboard.press('Control+K');
+		await this.page.keyboard.press('Control+W');
+		// await this.executeCommand('View: Close All Editors');
+	}
 
-	/**
-	 * Execute a command via the command palette with retry logic.
-	 * Convenience method that delegates to commandPalette.execute()
-	 */
+	/** Execute a command via the command palette with retry logic */
 	async executeCommand(command: string, maxRetries = 3): Promise<void> {
 		await this.commandPalette.execute(command, maxRetries);
 	}
 
-	// ============================================================================
-	// Wait Helpers
-	// ============================================================================
+	/** Open a file via the command palette */
+	async openFile(filename: string): Promise<void> {
+		await this.commandPalette.openFile(filename);
+	}
+
+	/**
+	 * Reset the UI to a clean state
+	 * Closes all editors, the panel, and sidebars
+	 */
+	async resetUI(): Promise<void> {
+		await this.closeAllEditors();
+		await this.panel.close();
+		await this.sidebar.close();
+		await this.secondarySidebar.close();
+		await this.page.waitForTimeout(500);
+	}
 
 	/**
 	 * Wait for an element to be visible

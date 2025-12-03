@@ -4,6 +4,7 @@
 **/.vscode-clean/**
 **/.vscode-test/**
 **/.vscode-test-web/**
+**/test-results/**
 dist
 out
 node_modules

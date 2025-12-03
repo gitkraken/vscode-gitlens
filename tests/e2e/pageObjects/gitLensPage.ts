@@ -1,5 +1,5 @@
 import type { FrameLocator, Locator } from '@playwright/test';
-import { MaxTimeout } from '../specs/baseTest';
+import { MaxTimeout } from '../baseTest';
 import { VSCodePage } from './vscodePage';
 
 /**
@@ -7,9 +7,25 @@ import { VSCodePage } from './vscodePage';
  * Extends VSCodePage with GitLens views, commands, and components.
  */
 export class GitLensPage extends VSCodePage {
-	// ============================================================================
-	// GitLens Activity Bar
-	// ============================================================================
+	async isActivated(): Promise<boolean> {
+		return this.gitlensTab.isVisible();
+	}
+
+	/**
+	 * Get the count of GitLens-related tabs in the activity bar
+	 * Should be 2: GitLens and GitLens Inspect
+	 */
+	async getActivityBarTabCount(): Promise<number> {
+		return this.activityBar.countTabs(/GitLens/);
+	}
+
+	/**
+	 * Wait for GitLens extension to fully activate
+	 * This is indicated by the GitLens activity bar icon becoming visible
+	 */
+	async waitForActivation(timeout = MaxTimeout): Promise<void> {
+		await this.gitlensTab.waitFor({ state: 'visible', timeout: timeout });
+	}
 
 	/** The GitLens activity bar tab */
 	get gitlensTab(): Locator {
@@ -22,20 +38,12 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	/**
-	 * Wait for GitLens extension to fully activate
-	 * This is indicated by the GitLens activity bar icon becoming visible
-	 */
-	async waitForActivation(timeout = MaxTimeout): Promise<void> {
-		await this.gitlensTab.waitFor({ state: 'visible', timeout: timeout });
-	}
-
-	/**
 	 * Open the GitLens sidebar and ensure it's visible.
 	 * Handles the case where the sidebar may be hidden.
 	 * Only clicks the tab if it's not already active (to avoid closing it).
 	 */
 	async openGitLensSidebar(): Promise<void> {
-		await this.sidebar.ensureVisible();
+		await this.sidebar.open();
 		await this.activityBar.openTab('GitLens', true);
 	}
 
@@ -44,7 +52,7 @@ export class GitLensPage extends VSCodePage {
 	 * Only clicks the tab if it's not already active (to avoid closing it).
 	 */
 	async openGitLensInspect(): Promise<void> {
-		await this.sidebar.ensureVisible();
+		await this.sidebar.open();
 		await this.activityBar.openTab('GitLens Inspect', true);
 	}
 
@@ -52,23 +60,32 @@ export class GitLensPage extends VSCodePage {
 	// GitLens Sidebar Views
 	// ============================================================================
 
-	/**
-	 * Home section in GitLens sidebar
-	 * Note: We search the entire page because the section may appear in
-	 * different sidebar containers depending on VS Code's layout state
-	 */
-	get homeSection(): Locator {
-		return this.page.getByRole('button', { name: /Home Section/i });
+	/** Home section in GitLens sidebar */
+	get homeViewSection(): Locator {
+		return this.sidebar.getSection(/Home Section/i);
+	}
+
+	/** Home webview in GitLens sidebar */
+	get homeViewWebview(): Promise<FrameLocator | null> {
+		return this.getGitLensWebview('Home');
+	}
+
+	async showHomeView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Home View');
 	}
 
 	/** Launchpad section in GitLens sidebar */
-	get launchpadSection(): Locator {
+	get launchpadViewSection(): Locator {
 		return this.sidebar.getSection(/Launchpad.*Section/i);
 	}
 
-	/** Cloud Patches section in GitLens sidebar */
-	get cloudPatchesSection(): Locator {
-		return this.sidebar.getSection(/Cloud Patches.*Section/i);
+	/** Launchpad tree in GitLens sidebar */
+	get launchpadViewTreeView(): Locator {
+		return this.sidebar.getTree(/^Launchpad/i);
+	}
+
+	async showLaunchpadView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Launchpad');
 	}
 
 	// ============================================================================
@@ -76,50 +93,105 @@ export class GitLensPage extends VSCodePage {
 	// ============================================================================
 
 	/** Inspect section in GitLens Inspect sidebar */
-	get inspectSection(): Locator {
-		return this.sidebar.getSectionExact('Inspect Section');
+	get inspectViewSection(): Locator {
+		return this.sidebar.getSection(/^Inspect/);
+	}
+
+	/** Inspect webview in GitLens Inspect sidebar */
+	get inspectViewWebview(): Promise<FrameLocator | null> {
+		return this.getGitLensWebview('Inspect');
 	}
 
 	/** Line History section in GitLens Inspect sidebar */
-	get lineHistorySection(): Locator {
-		return this.sidebar.getSection(/Line History Section/i);
+	get lineHistoryViewSection(): Locator {
+		return this.sidebar.getSection(/^Line History/i);
+	}
+
+	/** Line History tree in GitLens Inspect sidebar */
+	get lineHistoryViewTreeView(): Locator {
+		return this.sidebar.getTree(/^Line History/i);
+	}
+
+	async showLineHistoryView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Line History View');
 	}
 
 	/** File History section in GitLens Inspect sidebar */
-	get fileHistorySection(): Locator {
-		return this.sidebar.getSection(/File History Section/i);
+	get fileHistoryViewSection(): Locator {
+		return this.sidebar.getSection(/^File History/i);
 	}
 
-	/** Visual File History section in GitLens Inspect sidebar */
-	get visualFileHistorySection(): Locator {
-		return this.sidebar.getSection(/Visual File History.*Section/i);
+	/** File History tree in GitLens Inspect sidebar */
+	get fileHistoryViewTreeView(): Locator {
+		return this.sidebar.getTree(/^File History/i);
+	}
+
+	async showFileHistoryView(): Promise<void> {
+		await this.executeCommand('GitLens: Show File History View');
+	}
+
+	/** Visual History section in GitLens Inspect sidebar */
+	get visualHistoryViewSection(): Locator {
+		return this.sidebar.getSection(/^Visual File History/i);
+	}
+
+	/** Visual History webview in GitLens Inspect sidebar */
+	get visualHistoryViewWebview(): Promise<FrameLocator | null> {
+		return this.getGitLensWebview('Visual File History');
+	}
+
+	async showVisualFileHistoryView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Visual File History View');
 	}
 
 	/** Search & Compare section in GitLens Inspect sidebar */
-	get searchCompareSection(): Locator {
-		return this.sidebar.getSection(/Search & Compare Section/i);
+	get searchCompareViewSection(): Locator {
+		return this.sidebar.getSection(/^Search & Compare/i);
+	}
+
+	/** Search & Compare tree in GitLens Inspect sidebar */
+	get searchCompareViewTreeView(): Locator {
+		return this.sidebar.getTree(/^Search & Compare/i);
+	}
+
+	async showSearchAndCompareView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Search & Compare View');
 	}
 
 	// ============================================================================
 	// GitLens Panel Views (Bottom Panel)
 	// ============================================================================
 
-	/**
-	 * Get the Commit Graph section button in the panel
-	 * Uses anchored regex to avoid matching "Commit Graph Inspect Section"
-	 */
-	get commitGraphSection(): Locator {
-		return this.panel.getSection(/^Commit Graph:.*Section$/i);
-	}
-
-	/** Commit Graph Inspect section in the panel */
-	get commitGraphInspectSection(): Locator {
-		return this.panel.getSection(/Commit Graph Inspect.*Section/i);
-	}
-
 	/** GitLens tab in the bottom panel */
 	get gitlensPanel(): Locator {
 		return this.panel.getTab('GitLens', true);
+	}
+
+	/** Commit Graph tab in the panel */
+	get commitGraphViewSection(): Locator {
+		// The Graph view shows as a tab in the panel with text content "Graph"
+		return this.panel.locator.locator('text=Graph').first();
+	}
+
+	/** Commit Graph webview in the panel */
+	get commitGraphViewWebview(): Promise<FrameLocator | null> {
+		// Find the GitLens webview with title "Graph"
+		return this.getGitLensWebview('Graph');
+	}
+
+	async showCommitGraphView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Commit Graph View');
+	}
+
+	/** Commit Graph Details tab in the panel */
+	get commitGraphDetailsViewSection(): Locator {
+		return this.panel.getTab(/^Graph Details$/i, false);
+	}
+
+	/** Commit Graph Details webview in the panel */
+	get commitGraphDetailsViewWebview(): Promise<FrameLocator | null> {
+		// Find the GitLens webview with title "Graph Details"
+		return this.getGitLensWebview('Graph Details');
 	}
 
 	// ============================================================================
@@ -137,170 +209,112 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	// ============================================================================
-	// GitLens Commands
+	// GitLens View/WebviewView Commands
 	// ============================================================================
 
-	/**
-	 * Open the GitLens Home view via command palette
-	 */
-	async showHomeView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Home View');
+	async showGitLensView(): Promise<void> {
+		await this.executeCommand('Source Control: Focus on GitLens View');
 	}
 
-	/**
-	 * Open the Commit Graph via command palette
-	 */
-	async showCommitGraphView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Commit Graph');
+	get gitlensViewSection(): Locator {
+		return this.sidebar.getSection(/GitLens/i);
 	}
 
-	/**
-	 * Open the Visual File History via command palette
-	 */
-	async showVisualFileHistoryView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Visual File History View');
+	get gitlensViewTreeView(): Locator {
+		return this.sidebar.getTree(/GitLens/i);
 	}
 
-	/**
-	 * Open the Commits view via command palette
-	 */
 	async showCommitsView(): Promise<void> {
 		await this.executeCommand('GitLens: Show Commits View');
 	}
 
-	/**
-	 * Open the Branches view via command palette
-	 */
 	async showBranchesView(): Promise<void> {
 		await this.executeCommand('GitLens: Show Branches View');
 	}
 
-	/**
-	 * Open the Stashes view via command palette
-	 */
+	async showRemotesView(): Promise<void> {
+		await this.executeCommand('GitLens: Show Remotes View');
+	}
+
 	async showStashesView(): Promise<void> {
 		await this.executeCommand('GitLens: Show Stashes View');
 	}
 
-	/**
-	 * Open the Tags view via command palette
-	 */
 	async showTagsView(): Promise<void> {
 		await this.executeCommand('GitLens: Show Tags View');
 	}
 
-	/**
-	 * Open the Worktrees view via command palette
-	 */
 	async showWorktreesView(): Promise<void> {
 		await this.executeCommand('GitLens: Show Worktrees View');
 	}
 
-	/**
-	 * Open the Contributors view via command palette
-	 */
 	async showContributorsView(): Promise<void> {
 		await this.executeCommand('GitLens: Show Contributors View');
 	}
 
 	/**
-	 * Open the Search & Compare view via command palette
+	 * Get a webview frame locator within a specific parent.
+	 * This avoids needing to know specific content inside the webview.
+	 *
+	 * @param parent - The parent locator to search within
+	 * @param timeout - Timeout in ms (default: 5000)
+	 * @returns A FrameLocator for the webview content, or null if not found
 	 */
-	async showSearchAndCompareView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Search & Compare View');
-	}
+	async getWebview(parent: Locator, timeout = 5000): Promise<FrameLocator | null> {
+		const startTime = Date.now();
+		while (Date.now() - startTime < timeout) {
+			const iframes = parent.locator('iframe');
+			const count = await iframes.count();
 
-	// ============================================================================
-	// GitLens Webview Helpers
-	// ============================================================================
-
-	/**
-	 * Get a GitLens webview frame locator by index.
-	 *
-	 * VS Code webviews use nested iframes:
-	 * - Outer iframe: The webview container
-	 * - Inner iframe#active-frame: The actual webview content
-	 * - Inner iframe#pending-frame: Used during webview transitions (ignored)
-	 *
-	 * WARNING: Index-based access is fragile - prefer content-based methods like
-	 * `getWebviewByContent()` when possible.
-	 *
-	 * @param index - The 0-based index of the webview iframe
-	 * @returns A FrameLocator for the webview content
-	 * @deprecated Prefer getWebviewByContent() for more reliable webview access
-	 */
-	getWebviewFrame(index = 0): FrameLocator {
-		const outerFrame = this.page.locator('iframe').nth(index).contentFrame();
-		return outerFrame.locator('iframe#active-frame').contentFrame();
-	}
-
-	/**
-	 * Find a webview by looking for specific content inside it.
-	 * This is more reliable than index-based access since it doesn't depend on DOM order.
-	 *
-	 * @param contentText - Text that uniquely identifies the webview content
-	 * @param timeout - Timeout in ms for checking each iframe (default: 5000)
-	 * @returns A FrameLocator for the matching webview, or null if not found
-	 *
-	 * @example
-	 * // Find the Home webview by its welcome heading
-	 * const home = await gitlens.getWebviewByContent('Welcome to the GitLens Home');
-	 *
-	 * // Find the Commit Graph by its column headers
-	 * const graph = await gitlens.getWebviewByContent('BRANCH / TAG');
-	 */
-	async getWebviewByContent(contentText: string, timeout = 5000): Promise<FrameLocator | null> {
-		const iframes = this.page.locator('iframe');
-		const count = await iframes.count();
-
-		for (let i = 0; i < count; i++) {
-			try {
-				const outerFrame = iframes.nth(i).contentFrame();
-				const innerFrame = outerFrame.locator('iframe#active-frame').contentFrame();
-
-				// Check if this webview contains the content we're looking for
-				const hasContent = await innerFrame.getByText(contentText).first().isVisible({ timeout: timeout });
-				if (hasContent) {
-					return innerFrame;
+			for (let i = 0; i < count; i++) {
+				try {
+					const outerFrame = iframes.nth(i).contentFrame();
+					const activeFrame = outerFrame.locator('iframe#active-frame');
+					if ((await activeFrame.count()) > 0) {
+						return activeFrame.contentFrame();
+					}
+				} catch {
+					continue;
 				}
-			} catch {
-				// This iframe might not be a webview or might not be ready, skip it
-				continue;
 			}
+			await this.page.waitForTimeout(500);
 		}
 		return null;
 	}
 
 	/**
-	 * Get the Home webview by finding the one with the welcome heading.
+	 * Find a GitLens webview by its title.
+	 * VS Code renders webviews outside their logical containers, so we search all webviews
+	 * and identify the correct one by:
+	 * 1. The outer iframe src containing extensionId=eamodio.gitlens and purpose=webviewView
+	 * 2. The inner iframe#active-frame having the specified title attribute
+	 *
+	 * @param title - The title of the webview (e.g., "Graph", "Graph Details", "Home")
+	 * @param timeout - Timeout in ms (default: 5000)
+	 * @returns A FrameLocator for the matching webview content, or null if not found
 	 */
-	async getHomeWebview(): Promise<FrameLocator | null> {
-		return this.getWebviewByContent('Welcome to the GitLens Home');
-	}
+	async getGitLensWebview(title: string, timeout = 5000): Promise<FrameLocator | null> {
+		const startTime = Date.now();
+		while (Date.now() - startTime < timeout) {
+			// Find GitLens webviewView iframes
+			const iframes = this.page.locator(
+				'iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=webviewView"]',
+			);
+			const count = await iframes.count();
 
-	/**
-	 * Get the Commit Graph webview by finding the one with graph column headers.
-	 */
-	async getCommitGraphWebview(): Promise<FrameLocator | null> {
-		return this.getWebviewByContent('BRANCH / TAG');
-	}
-
-	// ============================================================================
-	// Assertion Helpers
-	// ============================================================================
-
-	/**
-	 * Check if GitLens is activated (activity bar icon visible)
-	 */
-	async isActivated(): Promise<boolean> {
-		return this.gitlensTab.isVisible();
-	}
-
-	/**
-	 * Get the count of GitLens-related tabs in the activity bar
-	 * Should be 2: GitLens and GitLens Inspect
-	 */
-	async getActivityBarTabCount(): Promise<number> {
-		return this.activityBar.countTabs(/GitLens/);
+			for (let i = 0; i < count; i++) {
+				try {
+					const outerFrame = iframes.nth(i).contentFrame();
+					const activeFrame = outerFrame.locator(`iframe#active-frame[title="${title}"]`);
+					if ((await activeFrame.count()) > 0) {
+						return activeFrame.contentFrame();
+					}
+				} catch {
+					continue;
+				}
+			}
+			await this.page.waitForTimeout(500);
+		}
+		return null;
 	}
 }
