@@ -1,95 +1,46 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import type { Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
+import { GitLensPage } from '../pageObjects/gitLensPage';
 
 export { expect } from '@playwright/test';
 
-export type TestOptions = {
-	vscodeVersion: string;
-};
-
-type TestFixtures = TestOptions & {
-	page: Page;
-	executeCommand: (command: string) => Promise<void>;
-	createTmpDir: () => Promise<string>;
-};
-
 export const MaxTimeout = 10000;
 
-let testProjectPath: string;
-export const test = base.extend<TestFixtures>({
-	vscodeVersion: ['insiders', { option: true }],
-	page: async ({ vscodeVersion, createTmpDir }, use) => {
-		const defaultCachePath = await createTmpDir();
-		const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
-		testProjectPath = path.join(__dirname, '..', '..', '..');
+export interface VSCodeInstance {
+	page: Page;
+	electronApp: ElectronApplication;
+	gitlens: GitLensPage;
+}
 
-		const electronApp = await _electron.launch({
-			executablePath: vscodePath,
-			// Got it from https://github.com/microsoft/vscode-test/blob/0ec222ef170e102244569064a12898fb203e5bb7/lib/runTest.ts#L126-L160
-			args: [
-				'--no-sandbox', // https://github.com/microsoft/vscode/issues/84238
-				'--disable-gpu-sandbox', // https://github.com/microsoft/vscode-test/issues/221
-				'--disable-updates', // https://github.com/microsoft/vscode-test/issues/120
-				'--skip-welcome',
-				'--skip-release-notes',
-				'--disable-workspace-trust',
-				`--extensionDevelopmentPath=${path.join(__dirname, '..', '..', '..')}`,
-				`--extensions-dir=${path.join(defaultCachePath, 'extensions')}`,
-				`--user-data-dir=${path.join(defaultCachePath, 'user-data')}`,
-				testProjectPath,
-			],
-		});
+export async function launchVSCode(vscodeVersion = 'stable'): Promise<VSCodeInstance> {
+	const tempDir = await fs.promises.realpath(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'gltest-')));
+	const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
+	const testProjectPath = path.join(__dirname, '..', '..', '..');
 
-		const page = await electronApp.firstWindow();
-		await page.context().tracing.start({
-			screenshots: true,
-			snapshots: true,
-			title: test.info().title,
-		});
+	const electronApp = await _electron.launch({
+		executablePath: vscodePath,
+		args: [
+			'--no-sandbox',
+			'--disable-gpu-sandbox',
+			'--disable-updates',
+			'--skip-welcome',
+			'--skip-release-notes',
+			'--disable-workspace-trust',
+			`--extensionDevelopmentPath=${testProjectPath}`,
+			`--extensions-dir=${path.join(tempDir, 'extensions')}`,
+			`--user-data-dir=${path.join(tempDir, 'user-data')}`,
+			testProjectPath,
+		],
+	});
 
-		await use(page);
+	const page = await electronApp.firstWindow();
+	const gitlens = new GitLensPage(page);
 
-		const tracePath = test.info().outputPath('trace.zip');
-		await page.context().tracing.stop({ path: tracePath });
-		test.info().attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
-		await electronApp.close();
+	return { page: page, electronApp: electronApp, gitlens: gitlens };
+}
 
-		const logPath = path.join(defaultCachePath, 'user-data');
-		if (fs.existsSync(logPath)) {
-			const logOutputPath = test.info().outputPath('vscode-logs');
-			await fs.promises.cp(logPath, logOutputPath, { recursive: true });
-		}
-	},
-	// Execute a VS Code command via the command palette
-	executeCommand: async ({ page }, use) => {
-		await use(async (command: string) => {
-			await page.keyboard.press('Control+Shift+P');
-			const commandPaletteInput = page.locator('.quick-input-box input');
-			await commandPaletteInput.waitFor({ state: 'visible', timeout: MaxTimeout });
-			await commandPaletteInput.fill(`> ${command}`);
-			await page.waitForTimeout(300);
-			await commandPaletteInput.press('Enter');
-			await page.waitForTimeout(500);
-		});
-	},
-	// Next line is necessary because of how Playwright works. It expect a destructured pattern here:
-	// https://github.com/microsoft/playwright/issues/14590#issuecomment-1911734641
-	// https://github.com/microsoft/playwright/issues/21566#issuecomment-1464858235
-
-	// eslint-disable-next-line no-empty-pattern
-	createTmpDir: async ({}, use) => {
-		const tempDirs: string[] = [];
-		await use(async () => {
-			const tempDir = await fs.promises.realpath(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'gltest-')));
-			tempDirs.push(tempDir);
-			return tempDir;
-		});
-		for (const tempDir of tempDirs) {
-			await fs.promises.rm(tempDir, { recursive: true });
-		}
-	},
-});
+export const test = base;

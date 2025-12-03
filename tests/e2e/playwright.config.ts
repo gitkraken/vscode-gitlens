@@ -15,6 +15,7 @@ export default defineConfig({
 	globalSetup: './setup',
 	testDir: './specs',
 	outputDir: '../../out/test-results',
+	cacheDir: '../../out/test-results/.cache',
 	projects: [
 		{
 			name: 'VSCode stable',
