@@ -349,7 +349,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 				if (step.quickpick != null) {
 					const active = step.quickpick.activeItems;
-					step.quickpick.items = [...notices, ...items];
+					step.quickpick.items = [
+						...notices,
+						...items,
+						createQuickPickSeparator(),
+						createDirectiveQuickPickItem(Directive.Cancel),
+					];
 					step.quickpick.activeItems = active;
 				}
 			});
