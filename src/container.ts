@@ -489,6 +489,10 @@ export class Container {
 		return this._eventBus;
 	}
 
+	get extensionMode(): ExtensionMode {
+		return this._context.extensionMode;
+	}
+
 	private readonly _fileAnnotationController: FileAnnotationController;
 	get fileAnnotations(): FileAnnotationController {
 		return this._fileAnnotationController;

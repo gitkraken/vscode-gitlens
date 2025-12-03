@@ -10,6 +10,7 @@
 {
   'env': string,
   'extensionId': string,
+  'extensionMode': string,
   'extensionVersion': string,
   'language': string,
   'machineId': string,

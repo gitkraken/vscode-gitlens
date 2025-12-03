@@ -1,5 +1,5 @@
 import type { ColorTheme, ThemeIcon } from 'vscode';
-import { version as codeVersion, ColorThemeKind, env, Uri, window, workspace } from 'vscode';
+import { version as codeVersion, ColorThemeKind, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { getPlatform } from '@env/platform';
 import type { IconPath } from '../../@types/vscode.iconpath';
 import type { Container } from '../../container';
@@ -11,6 +11,20 @@ import { configuration } from './configuration';
 import { exists } from './vscode/uris';
 
 export const deviceCohortGroup = getDistributionGroup(env.machineId);
+
+export function getExtensionModeLabel(mode: ExtensionMode): string {
+	switch (mode) {
+		case ExtensionMode.Production:
+			return 'production';
+		case ExtensionMode.Development:
+			return 'dev';
+		case ExtensionMode.Test:
+			return 'test';
+		default:
+			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			return `unknown (${mode})`;
+	}
+}
 
 let _hostAppName: string | undefined | null;
 export async function getHostAppName(): Promise<string | undefined> {

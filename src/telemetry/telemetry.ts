@@ -6,10 +6,12 @@ import { getPlatform } from '@env/platform';
 import type { Source, TelemetryEventData, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
+import { getExtensionModeLabel } from '../system/-webview/vscode';
 
 export interface TelemetryContext {
 	env: string;
 	extensionId: string;
+	extensionMode: string;
 	extensionVersion: string;
 	machineId: string;
 	sessionId: string;
@@ -98,6 +100,7 @@ export class TelemetryService implements Disposable {
 			{
 				env: container.env,
 				extensionId: container.id,
+				extensionMode: getExtensionModeLabel(container.extensionMode),
 				extensionVersion: container.version,
 				machineId: env.machineId,
 				sessionId: env.sessionId,

@@ -29,7 +29,7 @@ import { executeCommand, registerCommands } from './system/-webview/command';
 import { configuration, Configuration } from './system/-webview/configuration';
 import { setContext } from './system/-webview/context';
 import { Storage } from './system/-webview/storage';
-import { deviceCohortGroup } from './system/-webview/vscode';
+import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode';
 import { isTextDocument } from './system/-webview/vscode/documents';
 import { isTextEditor } from './system/-webview/vscode/editors';
 import { isWorkspaceFolder } from './system/-webview/vscode/workspaces';
@@ -59,7 +59,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 					channel.appendLine(
 						`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion} activating in ${
 							env.appName
-						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
+							context.extensionMode,
+						)}, language='${
 							env.language
 						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 							env.sessionId
@@ -113,12 +115,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
-			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
+				context.extensionMode,
+			)},language='${
 				env.language
 			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 				env.sessionId
 			})`,
-			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
 	});
 

@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
-import { Disposable, env, window } from 'vscode';
+import { Disposable, env, ExtensionMode, window } from 'vscode';
 import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import type { GitContributor } from '../git/models/contributor';
@@ -132,7 +132,12 @@ export class Views implements Disposable {
 			}
 		}
 
-		if (showGitLensView && !env.remoteName && env.appHost === 'desktop') {
+		if (
+			showGitLensView &&
+			!env.remoteName &&
+			env.appHost === 'desktop' &&
+			container.extensionMode === ExtensionMode.Production
+		) {
 			const disposable = once(container.onReady)(() => {
 				disposable?.dispose();
 				setTimeout(() => {
