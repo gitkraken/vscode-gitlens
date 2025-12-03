@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { basename, dirname } from 'path';
 import { FileType, Uri, workspace } from 'vscode';
+import { isLinux } from '@env/platform';
 import { Schemes } from '../../constants';
 import { commonBaseIndex, isFolderGlob, normalizePath } from '../path';
 
@@ -46,10 +47,10 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 	);
 }
 
-export function isDescendant(path: string, base: string | Uri): boolean;
-export function isDescendant(uri: Uri, base: string | Uri): boolean;
-export function isDescendant(pathOrUri: string | Uri, base: string | Uri): boolean;
-export function isDescendant(pathOrUri: string | Uri, baseOrUri: string | Uri): boolean {
+export function isDescendant(path: string, base: string | Uri, ignoreCase?: boolean): boolean;
+export function isDescendant(uri: Uri, base: string | Uri, ignoreCase?: boolean): boolean;
+export function isDescendant(pathOrUri: string | Uri, base: string | Uri, ignoreCase?: boolean): boolean;
+export function isDescendant(pathOrUri: string | Uri, baseOrUri: string | Uri, ignoreCase?: boolean): boolean {
 	// If both are URIs, ensure the scheme and authority match
 	if (typeof pathOrUri !== 'string' && typeof baseOrUri !== 'string') {
 		if (pathOrUri.scheme !== baseOrUri.scheme || pathOrUri.authority !== baseOrUri.authority) {
@@ -72,6 +73,11 @@ export function isDescendant(pathOrUri: string | Uri, baseOrUri: string | Uri): 
 	let path = getBestPath(pathOrUri);
 	if (!path.startsWith('/')) {
 		path = `${path}/`;
+	}
+
+	if (ignoreCase ?? !isLinux) {
+		base = base.toLowerCase();
+		path = path.toLowerCase();
 	}
 
 	return path.startsWith(base);
