@@ -12629,6 +12629,22 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.soloBranch",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.graph.soloBranch:views",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.graph.soloTag",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.graph.soloTag:views",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.graph.split",
 					"when": "gitlens:enabled && config.gitlens.graph.allowMultiple"
 				},

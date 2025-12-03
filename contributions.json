@@ -3463,7 +3463,7 @@
 		},
 		"gitlens.graph.soloBranch": {
 			"label": "Solo Branch",
-			"commandPalette": true,
+			"commandPalette": "gitlens:enabled",
 			"menus": {
 				"webview/context": [
 					{
@@ -3476,7 +3476,7 @@
 		},
 		"gitlens.graph.soloBranch:views": {
 			"label": "Solo Branch in Commit Graph",
-			"commandPalette": true,
+			"commandPalette": "gitlens:enabled",
 			"menus": {
 				"view/item/context": [
 					{
@@ -3489,7 +3489,7 @@
 		},
 		"gitlens.graph.soloTag": {
 			"label": "Solo Tag",
-			"commandPalette": true,
+			"commandPalette": "gitlens:enabled",
 			"menus": {
 				"webview/context": [
 					{
@@ -3502,7 +3502,7 @@
 		},
 		"gitlens.graph.soloTag:views": {
 			"label": "Solo Tag in Commit Graph",
-			"commandPalette": true,
+			"commandPalette": "gitlens:enabled",
 			"menus": {
 				"view/item/context": [
 					{
