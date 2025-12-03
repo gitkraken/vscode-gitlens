@@ -10,6 +10,7 @@ import type {
 	IpcMessage,
 	IpcRequest,
 	WebviewFocusChangedParams,
+	WebviewState,
 } from '../../protocol';
 import {
 	DidChangeWebviewFocusNotification,
@@ -21,6 +22,8 @@ import { ipcContext } from './contexts/ipc';
 import { loggerContext, LoggerContext } from './contexts/logger';
 import { PromosContext, promosContext } from './contexts/promos';
 import { telemetryContext, TelemetryContext } from './contexts/telemetry';
+import type { WebviewContext } from './contexts/webview';
+import { webviewContext } from './contexts/webview';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';
@@ -30,16 +33,16 @@ import type { ThemeChangeEvent } from './theme';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
 export abstract class App<
-	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
-		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
-		timestamp: number;
-	},
+	State extends WebviewState<CustomEditorIds | WebviewIds | WebviewViewIds> = WebviewState<
+		CustomEditorIds | WebviewIds | WebviewViewIds
+	>,
 > {
 	private readonly _api: HostIpcApi;
 	private readonly _hostIpc: HostIpc;
 	private readonly _logger: LoggerContext;
 	private readonly _promos: PromosContext;
 	protected readonly _telemetry: TelemetryContext;
+	private readonly _webview: WebviewContext;
 
 	protected state: State;
 	protected readonly placement: 'editor' | 'view';
@@ -71,19 +74,16 @@ export abstract class App<
 		this._telemetry = new TelemetryContext(this._hostIpc);
 		disposables.push(this._telemetry);
 
+		this._webview = {
+			webviewId: this.state.webviewId,
+			webviewInstanceId: this.state.webviewInstanceId,
+		};
+
 		new ContextProvider(document.body, { context: ipcContext, initialValue: this._hostIpc });
-		new ContextProvider(document.body, {
-			context: loggerContext,
-			initialValue: this._logger,
-		});
-		new ContextProvider(document.body, {
-			context: promosContext,
-			initialValue: this._promos,
-		});
-		new ContextProvider(document.body, {
-			context: telemetryContext,
-			initialValue: this._telemetry,
-		});
+		new ContextProvider(document.body, { context: loggerContext, initialValue: this._logger });
+		new ContextProvider(document.body, { context: promosContext, initialValue: this._promos });
+		new ContextProvider(document.body, { context: telemetryContext, initialValue: this._telemetry });
+		new ContextProvider(document.body, { context: webviewContext, initialValue: this._webview });
 
 		if (this.state != null) {
 			const state = this.getState();

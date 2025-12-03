@@ -62,6 +62,7 @@ import { actionButton, linkBase } from './styles/graph.css';
 import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '../../shared/components/branch-name';
 import '../../shared/components/button';
 import '../../shared/components/checkbox/checkbox';
 import '../../shared/components/code-icon';
@@ -985,8 +986,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<div slot="tooltip">
 								Switch Branch...
 								<hr />
-								<code-icon icon="git-branch" aria-hidden="true"></code-icon>
-								<span class="inline-code">${branch?.name}</span>${this.graphState.branchState?.worktree
+								<gl-branch-name .name=${branch?.name}></gl-branch-name>${branchState?.worktree
 									? html`<i> (in a worktree)</i> `
 									: ''}
 							</div>
@@ -1046,9 +1046,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						<code-icon class="action-button__icon" icon="custom-start-work"></code-icon>
 					</a>
 					<span slot="content">
-						Create New Branch from
-						<code-icon icon="git-branch"></code-icon>
-						<span class="inline-code">${branch?.name}</span>
+						Create New Branch from <gl-branch-name .name=${branch?.name}></gl-branch-name>
 					</span>
 				</gl-tooltip>
 				<gl-tooltip placement="bottom">
@@ -1119,7 +1117,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private renderTitlebarStatusRow() {
-		const { allowed, workingTreeStats, webviewId, webviewInstanceId } = this.graphState;
+		const { allowed, workingTreeStats } = this.graphState;
 		if (
 			!allowed ||
 			workingTreeStats == null ||
@@ -1133,11 +1131,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				class="merge-conflict-warning__content"
 				?conflicts=${workingTreeStats?.hasConflicts}
 				.pausedOpStatus=${workingTreeStats?.pausedOpStatus}
-				skipCommand="gitlens.graph.skipPausedOperation"
-				continueCommand="gitlens.graph.continuePausedOperation"
-				abortCommand="gitlens.graph.abortPausedOperation"
-				openEditorCommand="gitlens.graph.openRebaseEditor"
-				.webviewCommandContext=${{ webview: webviewId, webviewInstance: webviewInstanceId }}
 			></gl-merge-rebase-status>
 		</div>`;
 	}

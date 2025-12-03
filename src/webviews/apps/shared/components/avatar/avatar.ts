@@ -65,10 +65,10 @@ export class GlAvatar extends LitElement {
 
 	private renderAvatar() {
 		if (this.href) {
-			return html`<a href=${this.href} class="avatar">${this.renderContent()}</a>`;
+			return html`<a href=${this.href} class="avatar" part="avatar">${this.renderContent()}</a>`;
 		}
 
-		return html`<span class="avatar">${this.renderContent()}</span>`;
+		return html`<span class="avatar" part="avatar">${this.renderContent()}</span>`;
 	}
 
 	private renderContent() {

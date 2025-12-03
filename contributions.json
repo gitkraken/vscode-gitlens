@@ -6412,24 +6412,6 @@
 				]
 			}
 		},
-		"gitlens.views.abortPausedOperation": {
-			"label": "Abort",
-			"icon": "$(circle-slash)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
-						"group": "inline",
-						"order": 3
-					},
-					{
-						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
-						"group": "1_gitlens_actions",
-						"order": 3
-					}
-				]
-			}
-		},
 		"gitlens.views.addAuthor": {
 			"label": "Add as Co-author",
 			"icon": "$(person-add)",
@@ -8249,24 +8231,6 @@
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "4_gitlens_compare",
 						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.views.continuePausedOperation": {
-			"label": "Continue",
-			"icon": "$(debug-continue)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
-						"group": "inline",
-						"order": 1
-					},
-					{
-						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
-						"group": "1_gitlens_actions",
-						"order": 1
 					}
 				]
 			}
@@ -11253,24 +11217,6 @@
 				]
 			}
 		},
-		"gitlens.views.openPausedOperationInRebaseEditor": {
-			"label": "Open in Rebase Editor",
-			"icon": "$(edit)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
-						"group": "inline",
-						"order": 4
-					},
-					{
-						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
-						"group": "2_gitlens",
-						"order": 1
-					}
-				]
-			}
-		},
 		"gitlens.views.openPreviousChangesWithWorking": {
 			"label": "Open Previous Changes with Working File",
 			"menus": {
@@ -11501,6 +11447,78 @@
 						"when": "view == gitlens.views.patchDetails",
 						"group": "navigation",
 						"order": 98
+					}
+				]
+			}
+		},
+		"gitlens.views.pausedOperation.abort": {
+			"label": "Abort",
+			"icon": "$(circle-slash)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 3
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.pausedOperation.continue": {
+			"label": "Continue",
+			"icon": "$(debug-continue)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 1
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.pausedOperation.open": {
+			"label": "Open in Rebase Editor",
+			"icon": "$(edit)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": -1
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.pausedOperation.skip": {
+			"label": "Skip",
+			"icon": "$(debug-step-over)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 2
 					}
 				]
 			}
@@ -15724,24 +15742,6 @@
 						"when": "view == gitlens.views.worktrees && !config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 4
-					}
-				]
-			}
-		},
-		"gitlens.views.skipPausedOperation": {
-			"label": "Skip",
-			"icon": "$(debug-step-over)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
-						"group": "inline",
-						"order": 2
-					},
-					{
-						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
-						"group": "1_gitlens_actions",
-						"order": 2
 					}
 				]
 			}

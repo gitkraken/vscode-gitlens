@@ -5,7 +5,7 @@ import { property } from 'lit/decorators.js';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
-import type { WebviewFocusChangedParams } from '../../protocol';
+import type { WebviewFocusChangedParams, WebviewState } from '../../protocol';
 import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
@@ -16,6 +16,8 @@ import { ipcContext } from './contexts/ipc';
 import { loggerContext, LoggerContext } from './contexts/logger';
 import { promosContext, PromosContext } from './contexts/promos';
 import { telemetryContext, TelemetryContext } from './contexts/telemetry';
+import type { WebviewContext } from './contexts/webview';
+import { webviewContext } from './contexts/webview';
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
 import type { ThemeChangeEvent } from './theme';
@@ -28,10 +30,9 @@ export interface StateProvider<State> extends Disposable {
 }
 
 export abstract class GlAppHost<
-	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
-		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
-		timestamp: number;
-	},
+	State extends WebviewState<CustomEditorIds | WebviewIds | WebviewViewIds> = WebviewState<
+		CustomEditorIds | WebviewIds | WebviewViewIds
+	>,
 	Provider extends StateProvider<State> = StateProvider<State>,
 > extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
@@ -53,6 +54,9 @@ export abstract class GlAppHost<
 
 	@provide({ context: telemetryContext })
 	protected _telemetry!: TelemetryContext;
+
+	@provide({ context: webviewContext })
+	protected _webview!: WebviewContext;
 
 	@property({ type: String, noAccessor: true })
 	private bootstrap!: string;
@@ -84,6 +88,10 @@ export abstract class GlAppHost<
 		this.bootstrap = undefined!;
 
 		this._stateProvider = this.createStateProvider(bootstrap, this._ipc, this._logger);
+		this._webview = {
+			webviewId: this._stateProvider.state.webviewId,
+			webviewInstanceId: this._stateProvider.state.webviewInstanceId,
+		};
 
 		const themeEvent = computeThemeColors();
 		if (this.onThemeUpdated != null) {

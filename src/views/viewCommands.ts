@@ -598,7 +598,7 @@ export class ViewCommands implements Disposable {
 		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}
 
-	@command('gitlens.views.abortPausedOperation')
+	@command('gitlens.views.pausedOperation.abort')
 	@log()
 	private async abortPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -606,7 +606,7 @@ export class ViewCommands implements Disposable {
 		await abortPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
-	@command('gitlens.views.continuePausedOperation')
+	@command('gitlens.views.pausedOperation.continue')
 	@log()
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -614,7 +614,7 @@ export class ViewCommands implements Disposable {
 		await continuePausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
-	@command('gitlens.views.skipPausedOperation')
+	@command('gitlens.views.pausedOperation.skip')
 	@log()
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -622,7 +622,7 @@ export class ViewCommands implements Disposable {
 		await skipPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
-	@command('gitlens.views.openPausedOperationInRebaseEditor')
+	@command('gitlens.views.pausedOperation.open')
 	@log()
 	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;

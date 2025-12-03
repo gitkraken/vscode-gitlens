@@ -1,6 +1,12 @@
 export type CustomEditorTypes = 'rebase';
 export type CustomEditorIds = `gitlens.${CustomEditorTypes}`;
 
+export type CustomEditorTypeFromId<T extends CustomEditorIds> = T extends `gitlens.${infer U}`
+	? U extends CustomEditorTypes
+		? U
+		: never
+	: never;
+
 export type TreeViewTypes =
 	| 'branches'
 	| 'commits'
@@ -53,11 +59,14 @@ export type WebviewViewTypeFromId<T extends WebviewViewIds> = T extends `gitlens
 		? U
 		: never
 	: never;
-export type WebviewOrWebviewViewTypeFromId<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
-	? WebviewTypeFromId<T>
-	: T extends WebviewViewIds
-		? WebviewViewTypeFromId<T>
-		: never;
+export type WebviewOrWebviewViewOrCustomEditorTypeFromId<T extends WebviewIds | WebviewViewIds | CustomEditorIds> =
+	T extends WebviewIds
+		? WebviewTypeFromId<T>
+		: T extends WebviewViewIds
+			? WebviewViewTypeFromId<T>
+			: T extends CustomEditorIds
+				? CustomEditorTypeFromId<T>
+				: never;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
 export type ViewIds = TreeViewIds | WebviewViewIds;

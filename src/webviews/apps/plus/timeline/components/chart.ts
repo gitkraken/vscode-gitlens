@@ -9,7 +9,6 @@ import { debounce } from '../../../../../system/function/debounce';
 import { defer } from '../../../../../system/promise';
 import { pluralize, truncateMiddle } from '../../../../../system/string';
 import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol';
-import { renderCommitSha } from '../../../shared/components/commit-sha';
 import { GlElement } from '../../../shared/components/element';
 import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date';
 import { timelineChartStyles } from './chart.css';
@@ -17,6 +16,7 @@ import type { SliderChangeEventDetail } from './slider';
 import { GlChartSlider } from './slider';
 import '@shoelace-style/shoelace/dist/components/resize-observer/resize-observer.js';
 import './scroller';
+import '../../../shared/components/commit-sha';
 import '../../../shared/components/indicators/watermark-loader';
 
 export const tagName = 'gl-timeline-chart';
@@ -224,8 +224,8 @@ export class GlTimelineChart extends GlElement {
 				@mouseout=${this.onSliderMouseOut}
 			></gl-chart-slider>
 			<span @mouseover=${this.onFooterShaMouseOver} @mouseout=${this.onFooterShaMouseOut}
-				>${renderCommitSha(sha, 16)}</span
-			>
+				><gl-commit-sha-copy .sha=${sha} .size=${16}></gl-commit-sha-copy
+			></span>
 			${this.renderActions()}
 		</footer>`;
 	}

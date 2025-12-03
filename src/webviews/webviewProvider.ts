@@ -1,7 +1,7 @@
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
 import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
-import type { WebviewIds, WebviewOrWebviewViewTypeFromId, WebviewViewIds } from '../constants.views';
+import type { WebviewIds, WebviewOrWebviewViewOrCustomEditorTypeFromId, WebviewViewIds } from '../constants.views';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,
@@ -58,7 +58,7 @@ export interface WebviewStateProvier<State, SerializedState, ShowingArgs extends
 export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
 	readonly id: ID;
 	readonly instanceId: string;
-	readonly type: WebviewOrWebviewViewTypeFromId<ID>;
+	readonly type: WebviewOrWebviewViewOrCustomEditorTypeFromId<ID>;
 
 	readonly originalTitle: string;
 	title: string;

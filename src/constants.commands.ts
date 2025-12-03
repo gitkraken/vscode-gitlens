@@ -31,10 +31,10 @@ export type GlCommandsDeprecated =
 	| 'gitlens.showFileHistoryInView';
 
 type InternalGraphWebviewCommands =
-	| 'gitlens.graph.abortPausedOperation'
-	| 'gitlens.graph.continuePausedOperation'
-	| 'gitlens.graph.openRebaseEditor'
-	| 'gitlens.graph.skipPausedOperation'
+	| 'gitlens.pausedOperation.abort:graph'
+	| 'gitlens.pausedOperation.continue:graph'
+	| 'gitlens.pausedOperation.open:graph'
+	| 'gitlens.pausedOperation.skip:graph'
 	| 'gitlens.visualizeHistory.repo:graph';
 
 type InternalHomeWebviewCommands =
@@ -60,10 +60,10 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.rebaseCurrentOnto'
 	| 'gitlens.home.startWork'
 	| 'gitlens.home.createCloudPatch'
-	| 'gitlens.home.skipPausedOperation'
-	| 'gitlens.home.continuePausedOperation'
-	| 'gitlens.home.abortPausedOperation'
-	| 'gitlens.home.openRebaseEditor'
+	| 'gitlens.pausedOperation.abort:home'
+	| 'gitlens.pausedOperation.continue:home'
+	| 'gitlens.pausedOperation.open:home'
+	| 'gitlens.pausedOperation.skip:home'
 	| 'gitlens.home.enableAi'
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';

@@ -752,10 +752,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.ai.explainWip:graph', this.explainWip),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
-			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
-			this.host.registerWebviewCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation),
-			this.host.registerWebviewCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor),
-			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.abort:graph', this.abortPausedOperation),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.continue:graph', this.continuePausedOperation),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.open:graph', this.openRebaseEditor),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.skip:graph', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.composeCommits:graph', item =>

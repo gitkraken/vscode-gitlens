@@ -8,7 +8,7 @@ import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type {
 	CustomEditorTypes,
 	WebviewIds,
-	WebviewOrWebviewViewTypeFromId,
+	WebviewOrWebviewViewOrCustomEditorTypeFromId,
 	WebviewTypes,
 	WebviewViewIds,
 	WebviewViewTypes,
@@ -159,8 +159,8 @@ export class WebviewController<
 
 	readonly id: ID;
 
-	get type(): WebviewOrWebviewViewTypeFromId<ID> {
-		return this.descriptor.type as WebviewOrWebviewViewTypeFromId<ID>;
+	get type(): WebviewOrWebviewViewOrCustomEditorTypeFromId<ID> {
+		return this.descriptor.type as WebviewOrWebviewViewOrCustomEditorTypeFromId<ID>;
 	}
 
 	private _ready: boolean = false;

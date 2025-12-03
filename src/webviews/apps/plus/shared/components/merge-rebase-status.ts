@@ -1,13 +1,21 @@
+import { consume } from '@lit/context';
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { GlCommands } from '../../../../../constants.commands';
+import type { WebviewCommands } from '../../../../../constants.commands';
+import type { WebviewOrWebviewViewOrCustomEditorTypeFromId } from '../../../../../constants.views';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
+import type { GitReference } from '../../../../../git/models/reference';
 import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
-import { createCommandLink } from '../../../../../system/commands';
-import { getReferenceLabel } from '../../../shared/git-utils';
+import { createWebviewCommandLink } from '../../../../../system/webview';
+import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration';
+import type { WebviewContext } from '../../../shared/contexts/webview';
+import { webviewContext } from '../../../shared/contexts/webview';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
+import '../../../shared/components/branch-name';
+import '../../../shared/components/commit-sha';
 import '../../../shared/components/overlays/tooltip';
 
 @customElement('gl-merge-rebase-status')
@@ -55,8 +63,17 @@ export class GlMergeConflictWarning extends LitElement {
 				padding: 0px 4px 2px 4px;
 				font-family: var(--vscode-editor-font-family);
 			}
+
+			.ref-link {
+				color: inherit;
+				cursor: pointer;
+				text-decoration: none !important;
+			}
 		`,
 	];
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	@property({ type: Boolean, reflect: true })
 	conflicts = false;
@@ -64,47 +81,38 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
 
-	@property()
-	skipCommand = 'gitlens.home.skipPausedOperation';
-
-	@property()
-	continueCommand = 'gitlens.home.continuePausedOperation';
-
-	@property()
-	abortCommand = 'gitlens.home.abortPausedOperation';
-
-	@property()
-	openEditorCommand = 'gitlens.home.openRebaseEditor';
-
-	@property({ type: Object })
-	webviewCommandContext?: { webview: string; webviewInstance: string | undefined };
-
 	private get onSkipUrl() {
-		return this.createCommandLink(this.skipCommand as GlCommands, this.pausedOpStatus);
+		return this.createPausedOperationCommandLink('skip');
 	}
 
 	private get onContinueUrl() {
-		return this.createCommandLink(this.continueCommand as GlCommands, this.pausedOpStatus);
+		return this.createPausedOperationCommandLink('continue');
 	}
 
 	private get onAbortUrl() {
-		return this.createCommandLink(this.abortCommand as GlCommands, this.pausedOpStatus);
+		return this.createPausedOperationCommandLink('abort');
 	}
 
 	private get onOpenEditorUrl() {
-		return this.createCommandLink(this.openEditorCommand as GlCommands, this.pausedOpStatus);
+		return this.createPausedOperationCommandLink('open');
 	}
 
-	private createCommandLink(command: string, args?: any) {
-		if (this.webviewCommandContext != null) {
-			if (args == null) {
-				args = this.webviewCommandContext;
-			} else {
-				args = { ...args, ...this.webviewCommandContext };
-			}
+	private createPausedOperationCommandLink(command: 'abort' | 'continue' | 'open' | 'skip'): string {
+		const { webviewId, webviewInstanceId } = this._webview;
+		const webviewType = webviewId.split('.').at(-1) as WebviewOrWebviewViewOrCustomEditorTypeFromId<
+			typeof webviewId
+		>;
+		if (webviewType !== 'graph' && webviewType !== 'home') {
+			debugger;
+			return '';
 		}
 
-		return createCommandLink(command as GlCommands, args);
+		return createWebviewCommandLink(
+			`gitlens.pausedOperation.${command}:${webviewType}` as const,
+			webviewId,
+			webviewInstanceId,
+			this.pausedOpStatus,
+		);
 	}
 
 	override render(): unknown {
@@ -122,13 +130,8 @@ export class GlMergeConflictWarning extends LitElement {
 		if (pausedOpStatus.type !== 'rebase') {
 			const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
 			return html`<span class="label"
-				>${this.conflicts ? strings.conflicts : strings.label}
-				<code-icon
-					icon="${pausedOpStatus.incoming.refType === 'branch' ? 'git-branch' : 'git-commit'}"
-					class="icon"
-				></code-icon>
-				${getReferenceLabel(pausedOpStatus.incoming, { expand: false, icon: false })} ${strings.directionality}
-				${getReferenceLabel(pausedOpStatus.current, { expand: false, icon: false })}</span
+				>${this.conflicts ? strings.conflicts : strings.label} ${this.renderReference(pausedOpStatus.incoming)}
+				${strings.directionality} ${this.renderReference(pausedOpStatus.current)}</span
 			>`;
 		}
 
@@ -136,20 +139,45 @@ export class GlMergeConflictWarning extends LitElement {
 		const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
 		return html`<span class="label"
 				>${this.conflicts ? strings.conflicts : started ? strings.label : strings.pending}
-				<code-icon
-					icon="${pausedOpStatus.incoming.refType === 'branch' ? 'git-branch' : 'git-commit'}"
-					class="icon"
-				></code-icon>
-				${getReferenceLabel(pausedOpStatus.incoming, { expand: false, icon: false })} ${strings.directionality}
-				${getReferenceLabel(pausedOpStatus.current ?? pausedOpStatus.onto, {
-					expand: false,
-					icon: false,
-				})}</span
+				${this.renderReference(pausedOpStatus.incoming)} ${strings.directionality}
+				${this.renderReference(pausedOpStatus.current ?? pausedOpStatus.onto)}</span
 			>${started
 				? html`<span class="steps"
 						>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
 					>`
 				: nothing}`;
+	}
+
+	private renderReference(ref: GitReference): TemplateResult {
+		const webviewId = this._webview.webviewId;
+		const isInGraph = webviewId === 'gitlens.graph' || webviewId === 'gitlens.views.graph';
+
+		const isBranch = ref.refType === 'branch';
+		const tooltip = isInGraph
+			? isBranch
+				? 'Jump to Branch'
+				: 'Jump to Commit'
+			: isBranch
+				? 'Open Branch in Commit Graph'
+				: 'Open Commit in Commit Graph';
+		const jumpUrl = this.createJumpUrl(ref);
+
+		return html`<gl-tooltip hoist content=${tooltip}>
+			<a href=${jumpUrl} class="ref-link">
+				${isBranch
+					? html`<gl-branch-name .name=${ref.name} .size=${12}></gl-branch-name>`
+					: html`<gl-commit-sha .sha=${ref.ref} .size=${12}></gl-commit-sha>`}
+			</a>
+		</gl-tooltip>`;
+	}
+
+	private createJumpUrl(ref: GitReference): string {
+		return createWebviewCommandLink<ShowInCommitGraphCommandArgs>(
+			'gitlens.showInCommitGraph' as WebviewCommands,
+			this._webview.webviewId,
+			this._webview.webviewInstanceId,
+			{ ref: ref },
+		);
 	}
 
 	private renderActions() {
@@ -158,6 +186,15 @@ export class GlMergeConflictWarning extends LitElement {
 		const status = this.pausedOpStatus.type;
 
 		return html`<action-nav class="actions">
+			${when(
+				status === 'rebase',
+				() =>
+					html`<action-item
+						label="Open in Rebase Editor"
+						href=${this.onOpenEditorUrl}
+						icon="edit"
+					></action-item>`,
+			)}
 			${when(
 				status !== 'revert' && !(status === 'rebase' && this.conflicts),
 				() => html`
@@ -169,15 +206,6 @@ export class GlMergeConflictWarning extends LitElement {
 				() => html`<action-item label="Skip" icon="debug-step-over" href=${this.onSkipUrl}></action-item>`,
 			)}
 			<action-item label="Abort" href=${this.onAbortUrl} icon="circle-slash"></action-item>
-			${when(
-				status === 'rebase',
-				() =>
-					html`<action-item
-						label="Open in Rebase Editor"
-						href=${this.onOpenEditorUrl}
-						icon="edit"
-					></action-item>`,
-			)}
 		</action-nav>`;
 	}
 }

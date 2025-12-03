@@ -197,6 +197,10 @@ const mergeTargetStyles = css`
 		text-decoration: underline dotted;
 		text-underline-offset: 0.3rem;
 	}
+
+	.target-edit gl-branch-name {
+		margin: 0;
+	}
 `;
 
 @customElement('gl-merge-target-status')
@@ -337,7 +341,9 @@ export class GlMergeTargetStatus extends LitElement {
 									'gitlens.home.pushBranch',
 									mergeTargetRef! satisfies BranchRef,
 								)}"
-								>Push ${renderBranchName(this.mergedStatus.localBranchOnly.name)}</gl-button
+								><span
+									>Push ${renderBranchName(this.mergedStatus.localBranchOnly.name)}</span
+								></gl-button
 							>
 							<gl-button
 								full
@@ -346,11 +352,13 @@ export class GlMergeTargetStatus extends LitElement {
 									this.branchRef,
 									mergeTargetRef,
 								])}"
-								>Delete
-								${this.branch.worktree != null && !this.branch.worktree.isDefault
-									? 'Worktree'
-									: 'Branch'}
-								${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
+								><span
+									>Delete
+									${this.branch.worktree != null && !this.branch.worktree.isDefault
+										? 'Worktree'
+										: 'Branch'}
+									${renderBranchName(this.branch.name, this.branch.worktree != null)}</span
+								></gl-button
 							>
 						</div>
 					</div>`;
@@ -373,9 +381,13 @@ export class GlMergeTargetStatus extends LitElement {
 								this.branchRef,
 								mergeTargetRef,
 							])}"
-							>Delete
-							${this.branch.worktree != null && !this.branch.worktree.isDefault ? 'Worktree' : 'Branch'}
-							${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
+							><span
+								>Delete
+								${this.branch.worktree != null && !this.branch.worktree.isDefault
+									? 'Worktree'
+									: 'Branch'}
+								${renderBranchName(this.branch.name, this.branch.worktree != null)}</span
+							></gl-button
 						>
 					</div>
 				</div>`;
@@ -395,13 +407,13 @@ export class GlMergeTargetStatus extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
-							>Rebase ${renderBranchName(this.conflicts.branch)} onto ${target}</gl-button
+							><span>Rebase ${renderBranchName(this.conflicts.branch)} onto ${target}</span></gl-button
 						>
 						<gl-button
 							full
 							appearance="secondary"
 							href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
-							>Merge ${target} into ${renderBranchName(this.conflicts.branch)}</gl-button
+							><span>Merge ${target} into ${renderBranchName(this.conflicts.branch)}</span></gl-button
 						>
 					</div>
 					<p class="status--merge-conflict">
@@ -429,13 +441,13 @@ export class GlMergeTargetStatus extends LitElement {
 							<gl-button
 								full
 								href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
-								>Rebase ${renderBranchName(this.branch.name)} onto ${target}</gl-button
+								><span>Rebase ${renderBranchName(this.branch.name)} onto ${target}</span></gl-button
 							>
 							<gl-button
 								full
 								appearance="secondary"
 								href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
-								>Merge ${target} into ${renderBranchName(this.branch.name)}</gl-button
+								><span>Merge ${target} into ${renderBranchName(this.branch.name)}</span></gl-button
 							>
 						</div>
 						<p class="status--merge-clean">
