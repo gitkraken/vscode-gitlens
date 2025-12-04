@@ -1,4 +1,5 @@
 /* eslint-disable no-empty-pattern */
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,6 +16,15 @@ export { GitFixture } from './fixtures/git';
 export type { VSCode } from './fixtures/vscodeEvaluator';
 
 export const MaxTimeout = 10000;
+
+/** Ensures the E2E runner is built before tests run */
+function ensureRunnerBuilt(): void {
+	const runnerDist = path.join(__dirname, 'runner', 'dist', 'index.js');
+	if (!fs.existsSync(runnerDist)) {
+		const rootDir = path.resolve(__dirname, '../..');
+		execSync('pnpm run build:e2e-runner', { cwd: rootDir, stdio: 'inherit' });
+	}
+}
 
 /** Default VS Code settings applied to all E2E tests */
 const defaultUserSettings: Record<string, unknown> = {
@@ -52,23 +62,17 @@ export interface LaunchOptions {
 }
 
 export interface VSCodeInstance {
-	page: Page;
-	electronApp: ElectronApplication;
+	electron: {
+		app: ElectronApplication;
+		/** Path to the VS Code executable for this test instance */
+		executablePath: string;
+		/** Launch arguments used for this VS Code instance (for reuse in sequence editor, etc.) */
+		args: string[];
+		/** Path to the workspace opened in VS Code */
+		workspacePath: string;
+	};
 	gitlens: GitLensPage;
-	/**
-	 * Evaluate a function in the VS Code Extension Host context.
-	 * The function receives the `vscode` module as its first argument.
-	 *
-	 * @example
-	 * ```ts
-	 * await vscode.evaluate(vscode => {
-	 *   vscode.commands.executeCommand('gitlens.showCommitGraph');
-	 * });
-	 *
-	 * const version = await vscode.evaluate(vscode => vscode.version);
-	 * ```
-	 */
-	evaluate: VSCodeEvaluator['evaluate'];
+	page: Page;
 }
 
 /** Base fixtures for all E2E tests */
@@ -94,6 +98,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 	// vscode launches VS Code with GitLens extension (shared per worker)
 	vscode: [
 		async ({ vscodeOptions }, use) => {
+			// Ensure the E2E runner is built (handles VS Code extension skipping globalSetup)
+			ensureRunnerBuilt();
+
 			const tempDir = await createTmpDir();
 			const vscodePath = await downloadAndUnzipVSCode(vscodeOptions.vscodeVersion ?? 'stable');
 			const extensionPath = path.join(__dirname, '..', '..');
@@ -112,7 +119,7 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Run setup callback if provided, otherwise open extension folder
 			const workspacePath = vscodeOptions.setup ? await vscodeOptions.setup() : extensionPath;
 
-			const electronApp = await _electron.launch({
+			const options: { executablePath: string; args: string[] } = {
 				executablePath: vscodePath,
 				args: [
 					'--no-sandbox',
@@ -127,7 +134,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					`--user-data-dir=${userDataDir}`,
 					workspacePath,
 				],
-			});
+			} satisfies Parameters<typeof _electron.launch>[0];
+
+			const electronApp = await _electron.launch(options);
 
 			// Connect to the VS Code test server using Playwright's internal API
 			const evaluator = await VSCodeEvaluator.connect(electronApp);
@@ -140,10 +149,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			await gitlens.waitForActivation();
 
 			await use({
-				page: page,
-				electronApp: electronApp,
+				electron: { app: electronApp, ...options, workspacePath: workspacePath },
 				gitlens: gitlens,
-				evaluate: evaluate,
+				page: page,
 			} satisfies VSCodeInstance);
 
 			// Cleanup

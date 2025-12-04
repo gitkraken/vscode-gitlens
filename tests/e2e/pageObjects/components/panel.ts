@@ -24,19 +24,21 @@ export class Panel {
 	}
 
 	async close(): Promise<void> {
-		if (!(await this.isVisible())) return;
+		await this.vscode.executeCommand('workbench.action.closePanel', 'View: Hide Panel');
 
-		// await this.vscode.executeCommand('View: Hide Panel', 1);
-		await this.toggle.click();
-		await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
+		// if (!(await this.isVisible())) return;
+
+		// await this.toggle.click();
+		// await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
 	}
 
 	async open(): Promise<void> {
-		if (await this.isVisible()) return;
+		await this.vscode.executeCommand('workbench.action.focusPanel', 'View: Focus into Panel');
 
-		// await this.vscode.executeCommand('View: Focus into Panel', 1);
-		await this.toggle.click();
-		await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
+		// if (await this.isVisible()) return;
+
+		// await this.toggle.click();
+		// await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
 	}
 
 	/**
