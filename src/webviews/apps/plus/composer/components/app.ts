@@ -1669,7 +1669,7 @@ export class ComposerApp extends LitElement {
 					.canReorderCommits=${this.canReorderCommits}
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
-					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name}
+					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name ?? null}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
 					.hasChanges=${this.state.hasChanges}
