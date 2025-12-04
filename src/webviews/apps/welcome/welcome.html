@@ -21,6 +21,11 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<gl-welcome-app name="WelcomeView" placement="#{placement}" bootstrap="#{state}"></gl-welcome-app>
+		<gl-welcome-app
+			name="WelcomeView"
+			placement="#{placement}"
+			bootstrap="#{state}"
+			webroot="#{webroot}"
+		></gl-welcome-app>
 	</body>
 </html>

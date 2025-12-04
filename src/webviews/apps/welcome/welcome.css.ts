@@ -1,6 +1,12 @@
 import { css } from 'lit';
 
-export const welcomeStyles = css`
+const colorScheme = css`
+	:host {
+		--accent-color: #cb64ff;
+	}
+`;
+
+const heroGradient = css`
 	.welcome::before {
 		content: ' ';
 		position: absolute;
@@ -18,33 +24,45 @@ export const welcomeStyles = css`
 		mix-blend-mode: color;
 		filter: blur(53px);
 	}
-	.welcome__section {
+`;
+
+const section = css`
+	.section {
 		display: flex;
 		flex-flow: column;
 		justify-content: center;
 		align-items: center;
 		text-align: center;
 	}
-	.welcome__section p {
+	.section p {
 		font-size: larger;
 		max-width: calc(620px * 0.75);
 	}
+`;
 
-	.welcome__header {
+const header = css`
+	.header {
 		margin-top: 5rem;
 		margin-bottom: 2rem;
 		max-width: 620px;
 		margin-left: auto;
 		margin-right: auto;
 	}
-	.welcome__header gitlens-logo {
+	.header gitlens-logo {
 		transform: translateX(-0.75rem);
 	}
-	.welcome__header h1 {
+	.header h1 {
 		margin-bottom: 0;
 	}
+`;
 
-	.welcome__accent {
-		color: #cb64ff;
+const typography = css`
+	.accent {
+		color: var(--accent-color);
 	}
+`;
+
+export const welcomeStyles = css`
+	${colorScheme}
+	${heroGradient} ${section} ${header} ${typography}
 `;
