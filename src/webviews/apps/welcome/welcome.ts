@@ -31,7 +31,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 		return html`
 			<div class="welcome scrollable">
 				<div class="section header">
-					<gitlens-logo></gitlens-logo>
+					<div class="logo"><gitlens-logo></gitlens-logo></div>
 					<h1>GitLens is now installed in Cursor</h1>
 					<p>
 						Understand every line of code — instantly. GitLens reveals authorship, activity, and history
