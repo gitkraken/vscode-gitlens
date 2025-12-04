@@ -71,7 +71,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showHomeView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Home View');
+		await this.executeCommand('gitlens.showHomeView', 'GitLens: Show Home View');
 	}
 
 	/** Launchpad section in GitLens sidebar */
@@ -85,7 +85,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showLaunchpadView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Launchpad');
+		await this.executeCommand('gitlens.showLaunchpad', 'GitLens: Show Launchpad');
 	}
 
 	// ============================================================================
@@ -113,7 +113,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showLineHistoryView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Line History View');
+		await this.executeCommand('gitlens.showLineHistoryView', 'GitLens: Show Line History View');
 	}
 
 	/** File History section in GitLens Inspect sidebar */
@@ -127,7 +127,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showFileHistoryView(): Promise<void> {
-		await this.executeCommand('GitLens: Show File History View');
+		await this.executeCommand('gitlens.showFileHistoryView', 'GitLens: Show File History View');
 	}
 
 	/** Visual History section in GitLens Inspect sidebar */
@@ -141,7 +141,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showVisualFileHistoryView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Visual File History View');
+		await this.executeCommand('gitlens.showTimelineView', 'GitLens: Show Visual File History View');
 	}
 
 	/** Search & Compare section in GitLens Inspect sidebar */
@@ -155,7 +155,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showSearchAndCompareView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Search & Compare View');
+		await this.executeCommand('gitlens.showSearchAndCompareView', 'GitLens: Show Search & Compare View');
 	}
 
 	// ============================================================================
@@ -180,7 +180,7 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showCommitGraphView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Commit Graph View');
+		await this.executeCommand('gitlens.showGraphView', 'GitLens: Show Commit Graph View');
 	}
 
 	/** Commit Graph Details tab in the panel */
@@ -213,7 +213,7 @@ export class GitLensPage extends VSCodePage {
 	// ============================================================================
 
 	async showGitLensView(): Promise<void> {
-		await this.executeCommand('Source Control: Focus on GitLens View');
+		await this.executeCommand('gitlens.views.scm.grouped.focus', 'Source Control: Focus on GitLens View');
 	}
 
 	get gitlensViewSection(): Locator {
@@ -225,31 +225,31 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	async showCommitsView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Commits View');
+		await this.executeCommand('gitlens.showCommitsView', 'GitLens: Show Commits View');
 	}
 
 	async showBranchesView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Branches View');
+		await this.executeCommand('gitlens.showBranchesView', 'GitLens: Show Branches View');
 	}
 
 	async showRemotesView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Remotes View');
+		await this.executeCommand('gitlens.showRemotesView', 'GitLens: Show Remotes View');
 	}
 
 	async showStashesView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Stashes View');
+		await this.executeCommand('gitlens.showStashesView', 'GitLens: Show Stashes View');
 	}
 
 	async showTagsView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Tags View');
+		await this.executeCommand('gitlens.showTagsView', 'GitLens: Show Tags View');
 	}
 
 	async showWorktreesView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Worktrees View');
+		await this.executeCommand('gitlens.showWorktreesView', 'GitLens: Show Worktrees View');
 	}
 
 	async showContributorsView(): Promise<void> {
-		await this.executeCommand('GitLens: Show Contributors View');
+		await this.executeCommand('gitlens.showContributorsView', 'GitLens: Show Contributors View');
 	}
 
 	/**

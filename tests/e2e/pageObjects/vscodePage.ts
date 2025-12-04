@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { MaxTimeout } from '../baseTest';
+import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator';
 import { ActivityBar } from './components/activityBar';
 import { CommandPalette } from './components/commandPalette';
 import { Panel } from './components/panel';
@@ -25,7 +26,10 @@ export class VSCodePage {
 	/** Command palette component */
 	readonly commandPalette: CommandPalette;
 
-	constructor(protected readonly page: Page) {
+	constructor(
+		protected readonly page: Page,
+		private readonly evaluate: VSCodeEvaluator['evaluate'],
+	) {
 		this.activityBar = new ActivityBar(this, page);
 		this.sidebar = new Sidebar(this, page);
 		this.secondarySidebar = new SecondarySidebar(this, page);
@@ -41,19 +45,31 @@ export class VSCodePage {
 
 	/** Close all open editors */
 	async closeAllEditors(): Promise<void> {
-		await this.page.keyboard.press('Control+K');
-		await this.page.keyboard.press('Control+W');
-		// await this.executeCommand('View: Close All Editors');
+		// await this.page.keyboard.press('Control+K');
+		// await this.page.keyboard.press('Control+W');
+
+		await this.executeCommand('workbench.action.closeAllEditors', 'View: Close All Editors');
 	}
 
-	/** Execute a command via the command palette with retry logic */
-	async executeCommand(command: string, maxRetries = 3): Promise<void> {
-		await this.commandPalette.execute(command, maxRetries);
+	/** Execute a command via the VS Code API */
+	async executeCommand(command: string, _label: string, _maxRetries = 3): Promise<void> {
+		// await this.commandPalette.execute(command, maxRetries);
+
+		await this.evaluate((vscode, cmd) => vscode.commands.executeCommand(cmd), command);
 	}
 
-	/** Open a file via the command palette */
+	/** Open a file via the VS Code API */
 	async openFile(filename: string): Promise<void> {
-		await this.commandPalette.openFile(filename);
+		// await this.commandPalette.openFile(filename);
+
+		await this.evaluate(async (vscode, file) => {
+			// Find the file in the workspace
+			const files = await vscode.workspace.findFiles(`**/${file}`, null, 1);
+			if (!files.length) throw new Error(`File not found: ${file}`);
+
+			// Open the file in the editor
+			await vscode.window.showTextDocument(files[0]);
+		}, filename);
 	}
 
 	/**
