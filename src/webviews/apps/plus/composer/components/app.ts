@@ -123,6 +123,10 @@ export class ComposerApp extends LitElement {
 				opacity: 0.8;
 			}
 
+			gl-repo-button-group {
+				transform: translateY(1px);
+			}
+
 			.header-actions {
 				flex: none;
 				display: flex;
