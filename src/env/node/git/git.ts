@@ -1783,7 +1783,7 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.noPausedOperation, 'nothingToContinue'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
 			[GitErrors.unmergedFiles, 'unmergedFiles'],
-			[GitErrors.unresolvedConflicts, 'unresolvedConflicts'],
+			[GitErrors.unresolvedConflicts, 'conflicts'],
 			[GitErrors.unstagedChanges, 'unstagedChanges'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
 		],

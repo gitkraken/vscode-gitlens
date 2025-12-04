@@ -344,11 +344,11 @@ export class PausedOperationAbortError extends GitCommandError<PausedOperationAb
 }
 
 export type PausedOperationContinueErrorReason =
+	| 'conflicts'
 	| 'emptyCommit'
 	| 'nothingToContinue'
 	| 'uncommittedChanges'
 	| 'unmergedFiles'
-	| 'unresolvedConflicts'
 	| 'unstagedChanges'
 	| 'wouldOverwriteChanges';
 interface PausedOperationContinueErrorDetails {
@@ -369,6 +369,8 @@ export class PausedOperationContinueError extends GitCommandError<PausedOperatio
 
 	protected override buildErrorMessage(details: PausedOperationContinueErrorDetails): string {
 		switch (details.reason) {
+			case 'conflicts':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unresolved conflicts`;
 			case 'emptyCommit':
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as the previous commit is empty`;
 			case 'nothingToContinue':
@@ -377,8 +379,6 @@ export class PausedOperationContinueError extends GitCommandError<PausedOperatio
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are uncommitted changes`;
 			case 'unmergedFiles':
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unmerged files`;
-			case 'unresolvedConflicts':
-				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unresolved conflicts`;
 			case 'unstagedChanges':
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unstaged changes`;
 			case 'wouldOverwriteChanges':

@@ -54,6 +54,21 @@ async function continuePausedOperationCore(svc: GitRepositoryService, skip: bool
 			return;
 		}
 
+		if (
+			PausedOperationContinueError.is(ex, 'uncommittedChanges') ||
+			PausedOperationContinueError.is(ex, 'unstagedChanges') ||
+			PausedOperationContinueError.is(ex, 'wouldOverwriteChanges')
+		) {
+			void window.showWarningMessage(ex.message);
+			return;
+		}
+
+		if (PausedOperationContinueError.is(ex, 'conflicts') || PausedOperationContinueError.is(ex, 'unmergedFiles')) {
+			void window.showWarningMessage(ex.message);
+			void executeCommand('gitlens.showCommitsView');
+			return;
+		}
+
 		void showGitErrorMessage(ex);
 	}
 }
