@@ -1,7 +1,8 @@
 /* eslint-disable no-empty-pattern */
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import * as process from 'node:process';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
@@ -88,7 +89,6 @@ interface WorkerFixtures {
 
 export const test = base.extend<BaseFixtures, WorkerFixtures>({
 	// Default options (can be overridden per-file)
-	// eslint-disable-next-line no-restricted-globals
 	vscodeOptions: [{ vscodeVersion: process.env.VSCODE_VERSION ?? 'stable' }, { scope: 'worker', option: true }],
 
 	// vscode launches VS Code with GitLens extension (shared per worker)

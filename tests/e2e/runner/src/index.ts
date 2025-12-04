@@ -5,9 +5,10 @@
  * It exposes an HTTP server that allows Playwright tests to execute
  * code with access to the VS Code API.
  */
-import type { IncomingMessage, ServerResponse } from 'http';
-import { createServer } from 'http';
-import type { AddressInfo } from 'net';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import * as process from 'node:process';
 import * as vscode from 'vscode';
 
 interface InvokeRequest {
@@ -74,7 +75,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 export async function run(): Promise<void> {
 	const server = createServer((req, res) => {
-		handleRequest(req, res).catch(err => {
+		handleRequest(req, res).catch((err: unknown) => {
 			res.writeHead(500);
 			res.end(String(err));
 		});
@@ -84,7 +85,7 @@ export async function run(): Promise<void> {
 	const address = server.address() as AddressInfo;
 
 	// This message is parsed by the Playwright test to get the server URL
-	// eslint-disable-next-line no-restricted-globals
+
 	process.stderr.write(`VSCodeTestServer listening on http://localhost:${address.port}\n`);
 
 	// Keep running until process exits (VS Code closes)
