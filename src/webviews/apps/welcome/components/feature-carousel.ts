@@ -15,6 +15,10 @@ export class GlFeatureCarousel extends LitElement {
 	static override styles = [
 		css`
 			:host {
+				--gl-carousel-border-radius: 0;
+				--gl-carousel-background-color: transparent;
+				--gl-carousel-padding: 1rem;
+
 				display: block;
 				width: 100%;
 			}
@@ -36,8 +40,11 @@ export class GlFeatureCarousel extends LitElement {
 				display: flex;
 				align-items: center;
 				justify-content: center;
-			}
 
+				border-radius: var(--gl-carousel-border-radius);
+				background-color: var(--gl-carousel-background-color);
+				padding: var(--gl-carousel-padding);
+			}
 
 			::slotted(*) {
 				display: none;
@@ -117,19 +124,20 @@ export class GlFeatureCard extends LitElement {
 		css`
 			:host {
 				display: flex;
+				gap: 1rem;
 			}
 
 			.image {
+				flex: 1 1 50%;
+				width: 50%;
 			}
+
 			.content {
-			}
-			::slotted(img) {
-			}
-
-			::slotted(h1) {
-			}
-
-			::slotted(p) {
+				margin-top: 0.5rem;
+				flex: 1 0 50%;
+				display: flex;
+				flex-direction: column;
+				gap: 0.5rem;
 			}
 		`,
 	];
