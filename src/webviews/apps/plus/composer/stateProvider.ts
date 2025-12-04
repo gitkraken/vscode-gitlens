@@ -163,11 +163,6 @@ export class ComposerStateProvider extends StateProviderBase<State['webviewId'],
 					loadingError: msg.params.loadingError,
 					hasChanges: msg.params.hasChanges,
 					safetyError: null, // Clear any existing safety errors
-					// Reset UI state to defaults
-					selectedCommitId: null,
-					selectedCommitIds: new Set<string>(),
-					selectedUnassignedSection: null,
-					selectedHunkIds: new Set<string>(),
 					// Clear any ongoing operations
 					generatingCommits: false,
 					generatingCommitMessage: null,

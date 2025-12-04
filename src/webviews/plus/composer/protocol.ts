@@ -80,10 +80,6 @@ export interface State extends WebviewState<'gitlens.composer'> {
 	baseCommit: ComposerBaseCommit | null;
 
 	// UI state
-	selectedCommitId: string | null;
-	selectedCommitIds: Set<string>;
-	selectedUnassignedSection: string | null;
-	selectedHunkIds: Set<string>;
 	detailsSectionExpanded: {
 		commitMessage: boolean;
 		aiExplanation: boolean;
@@ -133,10 +129,6 @@ export const initialState: Omit<State, keyof WebviewState<'gitlens.composer'>> =
 	hunks: [],
 	commits: [],
 	baseCommit: null,
-	selectedCommitId: null,
-	selectedCommitIds: new Set<string>(),
-	selectedUnassignedSection: null,
-	selectedHunkIds: new Set<string>(),
 	detailsSectionExpanded: {
 		commitMessage: true,
 		aiExplanation: true,
