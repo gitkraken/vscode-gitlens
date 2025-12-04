@@ -15,6 +15,7 @@ import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.uti
 import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
 import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { executeCoreCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
 import { getSettledValue } from '../../../system/promise';
@@ -469,7 +470,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const initialCommit = {
 			id: 'draft-commit-1',
-			message: '', // Empty message - user will add their own
+			message: { content: '', isGenerated: false },
 			aiExplanation: '',
 			hunkIndices: initialHunkIndices,
 		};
@@ -1062,7 +1063,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			const existingCommits = params.commits.map(commit => ({
 				id: commit.id,
-				message: commit.message,
+				message: commit.message.content,
 				aiExplanation: commit.aiExplanation,
 				hunkIndices: commit.hunkIndices,
 			}));
@@ -1114,7 +1115,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				// Transform AI result back to ComposerCommit format
 				const newCommits = result.commits.map((commit, index) => ({
 					id: `ai-commit-${index}`,
-					message: commit.message,
+					message: { content: commit.message, isGenerated: true },
 					aiExplanation: commit.explanation,
 					hunkIndices: commit.hunks.map(h => h.hunk),
 				}));
@@ -1610,5 +1611,34 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			...this.getTelemetryContext(),
 			...data,
 		});
+	}
+
+	private _panelWasVisible: boolean | undefined;
+	private _isMaximized = false;
+
+	async maximize(): Promise<void> {
+		if (this._isMaximized) {
+			// Restore panel if it was previously visible
+			if (this._panelWasVisible) {
+				await executeCoreCommand('workbench.action.togglePanel');
+			}
+			this._isMaximized = false;
+			this._panelWasVisible = undefined;
+		} else {
+			// Check panel visibility by querying the workbench state
+			// We'll use a workaround: check if the panel is focused
+			try {
+				// Try to focus the panel - if it succeeds, panel was visible
+				await executeCoreCommand('workbench.action.focusPanel');
+				this._panelWasVisible = true;
+				// Now hide it
+				await executeCoreCommand('workbench.action.togglePanel');
+			} catch {
+				// If focusing failed, panel wasn't visible
+				this._panelWasVisible = false;
+			}
+
+			this._isMaximized = true;
+		}
 	}
 }

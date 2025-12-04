@@ -54,10 +54,11 @@ interface ComposerDataSnapshot {
 	commits: ComposerCommit[];
 	selectedCommitId: string | null;
 	selectedCommitIds: Set<string>;
-	selectedUnassignedSection: string | null;
+	selectedUnassignedSection: 'staged' | 'unstaged' | 'unassigned' | null;
 	selectedHunkIds: Set<string>;
 	hasUsedAutoCompose: boolean;
 	recompose: { enabled: boolean; branchName?: string; locked: boolean; commitShas?: string[] } | null;
+	compositionSummarySelected: boolean;
 }
 
 interface ComposerHistory {
@@ -410,13 +411,13 @@ export class ComposerApp extends LitElement {
 	private lastMouseEvent?: MouseEvent;
 
 	override firstUpdated() {
-		this.initializeResetStateIfNeeded();
 		// Delay initialization to ensure DOM is ready
 		setTimeout(() => this.initializeSortable(), 200);
 		this.initializeDragTracking();
 		if (this.state.commits.length > 0) {
 			this.selectCommit(this.state.commits[0].id);
 		}
+		this.initializeResetStateIfNeeded();
 		if (!this.state.onboardingDismissed) {
 			this.openOnboarding();
 		}
@@ -614,12 +615,13 @@ export class ComposerApp extends LitElement {
 		return {
 			hunks: JSON.parse(JSON.stringify(this.state?.hunks ?? [])),
 			commits: JSON.parse(JSON.stringify(this.state?.commits ?? [])),
-			selectedCommitId: this.state?.selectedCommitId ?? null,
+			selectedCommitId: this.selectedCommitId,
 			selectedCommitIds: new Set([...this.selectedCommitIds]),
-			selectedUnassignedSection: this.state?.selectedUnassignedSection ?? null,
+			selectedUnassignedSection: this.selectedUnassignedSection,
 			selectedHunkIds: new Set([...this.selectedHunkIds]),
 			hasUsedAutoCompose: this.state?.hasUsedAutoCompose ?? false,
 			recompose: this.state?.recompose ? JSON.parse(JSON.stringify(this.state.recompose)) : null,
+			compositionSummarySelected: this.compositionSummarySelected,
 		};
 	}
 
@@ -628,16 +630,17 @@ export class ComposerApp extends LitElement {
 			...this.state,
 			hunks: snapshot.hunks,
 			commits: snapshot.commits,
-			selectedCommitId: snapshot.selectedCommitId,
-			selectedUnassignedSection: snapshot.selectedUnassignedSection,
 			hasUsedAutoCompose: snapshot.hasUsedAutoCompose,
 			recompose: snapshot.recompose,
 			timestamp: Date.now(),
 		};
 
 		(this as any).state = updatedState;
+		this.selectedCommitId = snapshot.selectedCommitId;
 		this.selectedCommitIds = snapshot.selectedCommitIds;
+		this.selectedUnassignedSection = snapshot.selectedUnassignedSection;
 		this.selectedHunkIds = snapshot.selectedHunkIds;
+		this.compositionSummarySelected = snapshot.compositionSummarySelected;
 		this.requestUpdate();
 	}
 
@@ -834,7 +837,7 @@ export class ComposerApp extends LitElement {
 		// Create new commit
 		const newCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: '', // Empty message - user will add their own
+			message: { content: '', isGenerated: false },
 			hunkIndices: hunkIndices,
 		};
 
@@ -1070,7 +1073,7 @@ export class ComposerApp extends LitElement {
 				this.commitMessageBeingEdited = null;
 			}, 1000);
 
-			commit.message = message;
+			commit.message = { content: message, isGenerated: false };
 			this.requestUpdate();
 		}
 	}
@@ -1241,7 +1244,10 @@ export class ComposerApp extends LitElement {
 	}
 
 	private get isReadyToFinishAndCommit(): boolean {
-		return this.state.commits.length > 0 && this.state.commits.every(commit => commit.message.trim().length > 0);
+		return (
+			this.state.commits.length > 0 &&
+			this.state.commits.every(commit => commit.message.content.trim().length > 0)
+		);
 	}
 
 	private get canGenerateCommitsWithAI(): boolean {
@@ -1334,7 +1340,7 @@ export class ComposerApp extends LitElement {
 
 		// Create Commits loading dialog
 		if (this.state.committing) {
-			const commitCount = this.state.commits.filter(c => c.message.trim() !== '').length;
+			const commitCount = this.state.commits.filter(c => c.message.content.trim() !== '').length;
 			return this.renderLoadingDialog(
 				'Creating Commits',
 				`Committing ${commitCount} commit${commitCount === 1 ? '' : 's'}.`,
@@ -1538,7 +1544,7 @@ export class ComposerApp extends LitElement {
 		this._ipc.sendCommand(GenerateCommitMessageCommand, {
 			commitId: commitId,
 			commitHunkIndices: commit.hunkIndices,
-			overwriteExistingMessage: commit.message.trim() !== '',
+			overwriteExistingMessage: commit.message.content.trim() !== '',
 		});
 	}
 
@@ -1557,7 +1563,7 @@ export class ComposerApp extends LitElement {
 
 		// Combine commit messages from selected commits
 		const combinedMessage = selectedCommits
-			.map(commit => commit.message)
+			.map(commit => commit.message.content)
 			.filter(message => message && message.trim() !== '')
 			.join('\n\n');
 
@@ -1567,10 +1573,13 @@ export class ComposerApp extends LitElement {
 			.filter(explanation => explanation && explanation.trim() !== '')
 			.join('\n\n');
 
+		// Determine if any of the combined commits were AI-generated
+		const isGenerated = selectedCommits.some(commit => commit.message.isGenerated);
+
 		// Create new combined commit
 		const combinedCommit: ComposerCommit = {
 			id: `commit-${Date.now()}`,
-			message: combinedMessage || 'Combined commit',
+			message: { content: combinedMessage || 'Combined commit', isGenerated: isGenerated },
 			hunkIndices: combinedHunkIndices,
 			aiExplanation: combinedExplanation || undefined,
 		};

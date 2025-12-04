@@ -65,6 +65,7 @@ export interface WebviewPanelProxy<
 	): boolean | undefined;
 	close(): void;
 	refresh(force?: boolean): Promise<void>;
+	maximize(): Promise<void>;
 	show(options?: WebviewPanelShowOptions, ...args: WebviewShowingArgs<ShowingArgs, SerializedState>): Promise<void>;
 }
 
@@ -500,6 +501,9 @@ function convertToWebviewPanelProxy<
 		},
 		show: function (options?: WebviewPanelShowOptions, ...args: WebviewShowingArgs<ShowingArgs, SerializedState>) {
 			return controller.show(false, options, ...args);
+		},
+		maximize: function () {
+			return controller.maximize();
 		},
 	};
 }

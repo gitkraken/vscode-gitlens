@@ -304,8 +304,8 @@ export class CommitsPanel extends LitElement {
 				background: var(--vscode-input-background);
 				color: var(--vscode-input-foreground);
 				font-family: inherit;
-				font-size: 1rem;
-				line-height: 1.6rem;
+				font-size: 1.3rem;
+				line-height: 1.8rem;
 			}
 			textarea.auto-compose__instructions-input {
 				box-sizing: content-box;
@@ -727,7 +727,9 @@ export class CommitsPanel extends LitElement {
 
 	private get firstCommitWithoutMessage(): ComposerCommit | null {
 		// Find the first commit that doesn't have a message
-		return this.commits.find(commit => !commit.message || commit.message.trim().length === 0) || null;
+		return (
+			this.commits.find(commit => !commit.message.content || commit.message.content.trim().length === 0) || null
+		);
 	}
 
 	private get shouldShowAddToDraftButton(): boolean {
@@ -1379,7 +1381,7 @@ export class CommitsPanel extends LitElement {
 									return html`
 										<gl-commit-item
 											.commitId=${commit.id}
-											.message=${commit.message}
+											.message=${commit.message.content}
 											.fileCount=${getFileCountForCommit(commit, this.hunks)}
 											.additions=${changes.additions}
 											.deletions=${changes.deletions}

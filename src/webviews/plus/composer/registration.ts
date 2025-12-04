@@ -52,5 +52,6 @@ export function registerComposerWebviewCommands<T>(
 ): Disposable {
 	return Disposable.from(
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
+		registerCommand(`${panels.id}.maximize`, () => void (panels.getActiveInstance() as any)?.maximize()),
 	);
 }

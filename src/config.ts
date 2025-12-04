@@ -1121,6 +1121,9 @@ export type CoreConfig = {
 	};
 	readonly workbench: {
 		readonly editorAssociations: Record<string, string> | { viewType: string; filenamePattern: string }[];
+		readonly panel: {
+			readonly visible: boolean;
+		};
 		readonly tree: {
 			readonly renderIndentGuides: 'always' | 'none' | 'onHover';
 			readonly indent: number;

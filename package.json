@@ -6512,6 +6512,11 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "gitlens.composer.maximize",
+				"title": "Maximize",
+				"icon": "$(screen-full)"
+			},
+			{
 				"command": "gitlens.composer.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
@@ -11768,6 +11773,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.composer.maximize",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.composer.refresh",
 					"when": "false"
 				},
@@ -15532,24 +15541,19 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.graph.refresh",
-					"when": "activeWebviewPanelId === gitlens.graph",
-					"group": "navigation@-99"
-				},
-				{
 					"command": "gitlens.timeline.refresh",
 					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
 				},
 				{
-					"submenu": "gitlens/graph/configuration",
-					"when": "activeWebviewPanelId === gitlens.graph",
+					"command": "gitlens.composer.maximize",
+					"when": "activeWebviewPanelId === gitlens.composer",
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.graph.split",
-					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
-					"group": "navigation@-97"
+					"submenu": "gitlens/graph/configuration",
+					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-98"
 				},
 				{
 					"command": "gitlens.timeline.split",
@@ -15579,6 +15583,32 @@
 					"alt": "gitlens.toggleFileBlame:editor/title"
 				},
 				{
+					"command": "gitlens.diffWithPrevious:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@97",
+					"alt": "gitlens.diffWithRevision"
+				},
+				{
+					"command": "gitlens.diffWithNext:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.diffWithWorking:editor/title",
+					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.graph.refresh",
+					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.graph.split",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
+					"group": "navigation@-97"
+				},
+				{
 					"command": "gitlens.toggleFileHeatmap:editor/title",
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
 					"group": "navigation@100",
@@ -15590,30 +15620,14 @@
 					"group": "navigation@100"
 				},
 				{
-					"command": "gitlens.diffWithPrevious:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@97",
-					"alt": "gitlens.diffWithRevision"
-				},
-				{
 					"command": "gitlens.showQuickRevisionDetails:editor/title",
 					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.diffWithNext:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@99"
-				},
-				{
 					"command": "gitlens.openWorkingFile:editor/title",
 					"when": "resourceScheme == git && gitlens:enabled && !isInDiffEditor",
 					"group": "navigation@-98"
-				},
-				{
-					"command": "gitlens.diffWithWorking:editor/title",
-					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",

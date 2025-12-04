@@ -327,21 +327,21 @@ return user;`,
 export const mockCommits: ComposerCommit[] = [
 	{
 		id: 'commit-1',
-		message: 'Add user authentication system',
+		message: { content: 'Add user authentication system', isGenerated: true },
 		aiExplanation:
 			'This commit introduces a comprehensive user authentication system with login validation, user types, and session management. The changes include creating a validateUser function for credential checking, defining User and LoginCredentials interfaces with role-based access control, and implementing secure session management with UUID-based session IDs and expiration handling.',
 		hunkIndices: [1, 10, 2, 3],
 	},
 	{
 		id: 'commit-2',
-		message: 'Implement database integration with PostgreSQL',
+		message: { content: 'Implement database integration with PostgreSQL', isGenerated: true },
 		aiExplanation:
 			'This commit establishes database connectivity using PostgreSQL with connection pooling for optimal performance. It includes database connection configuration with environment variable support, a reusable query function with proper connection management, and initial database schema migration for the users table with appropriate indexes for efficient querying.',
 		hunkIndices: [4, 5],
 	},
 	{
 		id: 'commit-3',
-		message: 'Add error handling and logging',
+		message: { content: 'Add error handling and logging', isGenerated: true },
 		aiExplanation:
 			'This commit establishes a robust error handling and logging infrastructure. It introduces custom error classes (AuthError, ValidationError, NetworkError) for better error categorization and a comprehensive Logger class with different log levels (ERROR, WARN, INFO, DEBUG) to replace basic console logging with structured, configurable logging throughout the application.',
 		hunkIndices: [6, 7, 11],
