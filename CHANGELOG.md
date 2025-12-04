@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes performance of _Show Branches and Tags_ command
 
+### Fixed
+
+- Fixes [#4776](https://github.com/gitkraken/vscode-gitlens/issues/4776) Azure DevOps Work Item autolinks pointing to wrong project when the Work Item belongs to a different project in the same organization &mdash; thanks to [PR #4777](https://github.com/gitkraken/vscode-gitlens/pull/4777) by Daniel Asher ([@danielasher115](https://github.com/danielasher115))
+
 ## [17.7.0] - 2025-11-11
 
 ### Added
