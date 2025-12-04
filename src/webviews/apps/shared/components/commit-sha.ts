@@ -20,6 +20,10 @@ const styles = css`
 		outline-offset: 2px;
 	}
 
+	.label--uncommitted {
+		cursor: default;
+	}
+
 	.icon {
 		margin-right: 0.3rem;
 		align-self: center;
@@ -46,10 +50,11 @@ export class GlCommitSha extends LitElement {
 		if (this.sha == null) return nothing;
 
 		if (!this.sha || isUncommitted(this.sha)) {
-			return html`<span style="cursor:default;">${this.label}</span>`;
+			return html`<span part="label" class="label--uncommitted">${this.label}</span>`;
 		}
 
-		return html`<code-icon class="icon" icon="git-commit" size="${this.size}"></code-icon>${this.label}`;
+		return html`<code-icon part="icon" class="icon" icon="git-commit" size="${this.size}"></code-icon
+			><span part="label">${this.label}</span>`;
 	}
 }
 
@@ -67,7 +72,7 @@ export class GlCommitShaCopy extends LitElement {
 		if (this.sha == null) return nothing;
 
 		return html`<gl-copy-container .content=${this.sha} placement="top">
-			<gl-commit-sha .sha=${this.sha} .size=${this.size}></gl-commit-sha>
+			<gl-commit-sha exportparts="icon, label" .sha=${this.sha} .size=${this.size}></gl-commit-sha>
 		</gl-copy-container>`;
 	}
 }

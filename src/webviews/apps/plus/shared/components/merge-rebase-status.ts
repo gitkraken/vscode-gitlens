@@ -64,6 +64,10 @@ export class GlMergeConflictWarning extends LitElement {
 				font-family: var(--vscode-editor-font-family);
 			}
 
+			gl-commit-sha::part(label) {
+				font-weight: bold;
+			}
+
 			.ref-link {
 				color: inherit;
 				cursor: pointer;
