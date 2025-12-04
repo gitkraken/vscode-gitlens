@@ -1,7 +1,7 @@
 /*global*/
 import './welcome.scss';
 import { html } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import type { State } from '../../welcome/protocol';
 import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
@@ -10,6 +10,7 @@ import type { HostIpc } from '../shared/ipc';
 import { WelcomeStateProvider } from './stateProvider';
 import '../shared/components/gitlens-logo';
 import { welcomeStyles } from './welcome.css';
+import './components/feature-carousel';
 
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {
@@ -23,10 +24,13 @@ export class GlWelcomeApp extends GlAppHost<State> {
 		return new WelcomeStateProvider(this, bootstrap, ipc, logger);
 	}
 
+	@property({ type: String })
+	webroot?: string;
+
 	override render(): unknown {
 		return html`
 			<div class="welcome scrollable">
-				<div class="welcome__section welcome__header">
+				<div class="section header">
 					<gitlens-logo></gitlens-logo>
 					<h1>GitLens is now installed in Cursor</h1>
 					<p>
@@ -34,8 +38,29 @@ export class GlWelcomeApp extends GlAppHost<State> {
 						inside the editor
 					</p>
 				</div>
-				<div class="welcome__section">
-					<p>With <span class="welcome__accent">PRO</span> subscription you get more</p>
+				<div class="section">
+					<p>With <span class="accent">PRO</span> subscription you get more</p>
+				</div>
+
+				<div class="section">
+					<gl-feature-carousel>
+						<gl-feature-card>
+							<img slot="image" src="${this.webroot ?? ''}/media/feature-graph.webp" alt="Commit Graph" />
+							<h1>Commit Graph</h1>
+							<p>Visualize your repository's history and interact with commits</p>
+							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
+						</gl-feature-card>
+						<gl-feature-card>
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-timeline.webp"
+								alt="Visual File History"
+							/>
+							<h1>Visual File History</h1>
+							<p>Track changes to any file over time</p>
+							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
+						</gl-feature-card>
+					</gl-feature-carousel>
 				</div>
 
 				<div>
