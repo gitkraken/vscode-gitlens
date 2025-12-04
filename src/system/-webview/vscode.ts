@@ -101,8 +101,15 @@ export async function getHostExecutablePath(): Promise<string> {
 	return _hostExecutablePath;
 }
 
-export async function getHostEditorCommand(): Promise<string> {
+export async function getHostEditorCommand(includeWorkspaceUri: boolean = false): Promise<string> {
 	const path = normalizePath(await getHostExecutablePath()).replace(/ /g, '\\ ');
+	if (includeWorkspaceUri) {
+		const uri = workspace.workspaceFile ?? workspace.workspaceFolders?.[0]?.uri;
+		if (uri != null) {
+			return `${path} --wait --reuse-window --folder-uri="${uri.toString()}"`;
+		}
+	}
+
 	return `${path} --wait --reuse-window`;
 }
 

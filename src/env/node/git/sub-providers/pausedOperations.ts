@@ -256,7 +256,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					}
 
 					const [mergeBaseResult, branchTipsResult, tagTipsResult] = await Promise.allSettled([
-						rebaseHead != null
+						rebaseHead
 							? this.provider.refs.getMergeBase(repoPath, rebaseHead, 'HEAD', undefined, cancellation)
 							: this.provider.refs.getMergeBase(repoPath, onto, origHead, undefined, cancellation),
 						this.provider.branches.getBranchesWithCommits(
@@ -318,13 +318,12 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						steps: {
 							current: {
 								number: getSettledValue(stepsNumberResult) ?? 0,
-								commit:
-									rebaseHead != null
-										? createReference(rebaseHead, repoPath, {
-												refType: 'revision',
-												message: getSettledValue(stepsMessageResult),
-											})
-										: undefined,
+								commit: rebaseHead
+									? createReference(rebaseHead, repoPath, {
+											refType: 'revision',
+											message: getSettledValue(stepsMessageResult),
+										})
+									: undefined,
 							},
 							total: getSettledValue(stepsTotalResult) ?? 0,
 						},
