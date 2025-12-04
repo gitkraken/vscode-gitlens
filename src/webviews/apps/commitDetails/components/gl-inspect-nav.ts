@@ -44,6 +44,10 @@ export class GlInspectNav extends LitElement {
 				max-width: 100%;
 			}
 
+			.group:last-child {
+				margin-inline-start: auto;
+			}
+
 			.sha {
 				margin: 0 0.5rem 0 0.25rem;
 			}
