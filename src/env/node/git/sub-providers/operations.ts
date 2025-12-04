@@ -308,7 +308,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		if (options?.interactive) {
 			args.push('--interactive');
 
-			const editor = await getHostEditorCommand();
+			const editor = await getHostEditorCommand(true);
 			configs = ['-c', `sequence.editor=${editor}`];
 		}
 

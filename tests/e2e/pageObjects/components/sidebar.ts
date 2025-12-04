@@ -24,19 +24,21 @@ export class Sidebar {
 	}
 
 	async close(): Promise<void> {
-		if (!(await this.isVisible())) return;
+		await this.vscode.executeCommand('workbench.action.closeSidebar', 'View: Close Primary Side Bar');
 
-		// await this.vscode.executeCommand('View: Close Primary Side Bar', 1);
-		await this.toggle.click();
-		await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
+		// if (!(await this.isVisible())) return;
+
+		// await this.toggle.click();
+		// await this.container.waitFor({ state: 'hidden', timeout: MaxTimeout });
 	}
 
 	async open(): Promise<void> {
-		if (await this.isVisible()) return;
+		await this.vscode.executeCommand('workbench.action.focusSideBar', 'View: Focus into Primary Side Bar');
 
-		// await this.vscode.executeCommand('View: Focus into Primary Side Bar', 1);
-		await this.toggle.click();
-		await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
+		// if (await this.isVisible()) return;
+
+		// await this.toggle.click();
+		// await this.container.waitFor({ state: 'visible', timeout: MaxTimeout });
 	}
 
 	/**

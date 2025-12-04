@@ -123,6 +123,10 @@ export class ComposerApp extends LitElement {
 				opacity: 0.8;
 			}
 
+			gl-repo-button-group {
+				transform: translateY(1px);
+			}
+
 			.header-actions {
 				flex: none;
 				display: flex;
@@ -1669,7 +1673,7 @@ export class ComposerApp extends LitElement {
 					.canReorderCommits=${this.canReorderCommits}
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
-					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name}
+					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name ?? null}
 					.customInstructions=${this.customInstructions}
 					.hasUsedAutoCompose=${this.state.hasUsedAutoCompose}
 					.hasChanges=${this.state.hasChanges}

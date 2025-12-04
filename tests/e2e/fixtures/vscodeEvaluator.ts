@@ -11,7 +11,6 @@ import type { ChildProcess } from 'child_process';
 import type { EventEmitter } from 'events';
 import readline from 'readline';
 import type { ElectronApplication } from '@playwright/test';
-import { _electron } from '@playwright/test';
 
 // Re-export vscode types for use in evaluate callbacks
 export type VSCode = typeof import('vscode');
@@ -52,9 +51,9 @@ export class VSCodeEvaluator {
 	 */
 	static async connect(electronApp: ElectronApplication, timeout = 30000): Promise<VSCodeEvaluator> {
 		// Access Playwright's internal implementation to get the process
-		// The _electron._connection.toImpl() method converts public API objects to internal implementations
+		// The electronApp._connection.toImpl() method converts public API objects to internal implementations
 
-		const connection = (_electron as any)._connection;
+		const connection = (electronApp as any)._connection;
 		const electronAppImpl = connection.toImpl(electronApp) as ElectronAppImpl;
 		const process = electronAppImpl._process;
 
