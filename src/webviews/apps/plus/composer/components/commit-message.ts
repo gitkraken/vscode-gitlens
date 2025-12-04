@@ -89,7 +89,7 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input {
 				box-sizing: content-box;
-				width: calc(100% - 2rem);
+				width: calc(100% - 2.2rem);
 				border: 1px solid var(--vscode-input-border, #858585);
 				background: var(--vscode-input-background, #3c3c3c);
 				vertical-align: middle;
@@ -128,7 +128,7 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__input:has(~ .commit-message__ai-button) {
 				padding-right: 3rem;
-				width: calc(100% - 4rem);
+				width: calc(100% - 4.2rem);
 			}
 
 			.commit-message__input.has-explanation {
