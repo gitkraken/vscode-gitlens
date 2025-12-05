@@ -71,8 +71,23 @@ const section = css`
 		align-items: center;
 		text-align: center;
 	}
+	.section h1 {
+		color: var(--em-color);
+	}
+	.section h2 {
+		color: var(--em-color);
+		font-weight: normal;
+		font-size: var(--p-font-size);
+	}
+	.section p {
+		color: var(--text-color);
+	}
 	.section .accent {
 		color: var(--accent-color);
+	}
+	.section a {
+		color: var(--link-color);
+		text-decoration: none;
 	}
 
 	.section.plain p {
@@ -122,12 +137,7 @@ const header = css`
 	}
 	.header h1 {
 		margin-bottom: 0;
-
 		font-size: var(--h1-font-size);
-		color: var(--em-text-color);
-	}
-	.header p {
-		color: var(--text-color);
 	}
 `;
 
@@ -154,23 +164,16 @@ const carousel = css`
 	gl-feature-carousel h1 {
 		margin: 0;
 		font-size: var(--card-font-size);
-		color: var(--em-color);
 	}
 
 	gl-feature-carousel p {
 		margin: 0.4em 0 0;
 		font-size: var(--card-font-size);
-		color: var(--text-color);
 	}
 
 	gl-feature-carousel img {
 		max-width: 100%;
 		height: auto;
-	}
-
-	gl-feature-carousel a {
-		color: var(--link-color);
-		text-decoration: none;
 	}
 `;
 

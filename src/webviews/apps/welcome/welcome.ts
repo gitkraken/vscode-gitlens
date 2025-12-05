@@ -56,7 +56,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 					</p>
 				</div>
 				<div class="section plain">
-					<p>With <span class="accent">PRO</span> subscription you get more</p>
+					<h2>With <span class="accent">PRO</span> subscription you get more</h2>
 				</div>
 
 				<div class="section">
