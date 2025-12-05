@@ -8,6 +8,7 @@ const colorScheme = css`
 		--link-color: var(--vscode-textLink-foreground);
 
 		--hero-gradient: radial-gradient(76.32% 76.32% at 50% 7.24%, #7b00ff 29.72%, rgba(255, 0, 242, 0) 100%);
+		--trial-button-gradient: linear-gradient(90deg, #7900c9 0%, #196fff 100%);
 	}
 `;
 
@@ -77,6 +78,25 @@ const section = css`
 	.section.plain p {
 		max-width: 30em;
 		font-size: var(--p-font-size);
+	}
+
+	.section.start-trial {
+		margin: 2em 3.1em;
+	}
+	.section.start-trial p {
+		width: 100%;
+	}
+	.section.start-trial gl-button {
+		background: var(--trial-button-gradient);
+		border: none;
+		width: 100%;
+	}
+
+	@media (min-width: 640px) {
+		.section.start-trial gl-button {
+			--button-padding: 0.4em 4em;
+			width: initial;
+		}
 	}
 `;
 
