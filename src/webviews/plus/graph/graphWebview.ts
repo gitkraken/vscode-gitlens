@@ -126,7 +126,7 @@ import {
 	registerCommand,
 } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
-import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
 import type { StorageChangeEvent } from '../../../system/-webview/storage';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
@@ -638,6 +638,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.compareAncestryWithWorking',
 				this.compareAncestryWithWorking,
 			),
+
+			this.host.registerWebviewCommand('gitlens.views.selectForCompare:graph', this.selectForCompare),
+			this.host.registerWebviewCommand('gitlens.views.compareWithSelected:graph', this.compareWithSelected),
 
 			this.host.registerWebviewCommand('gitlens.graph.copy', this.copy),
 			this.host.registerWebviewCommand('gitlens.graph.copyMessage', this.copyMessage),
@@ -4395,6 +4398,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', ref.ref);
+	}
+
+	@log()
+	private selectForCompare(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return;
+
+		void setContext('gitlens:views:canCompare', { label: ref.name, ref: ref.ref, repoPath: ref.repoPath });
+	}
+
+	@log()
+	private compareWithSelected(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return;
+
+		const selectedRef = getContext('gitlens:views:canCompare');
+		if (selectedRef == null) return;
+
+		void setContext('gitlens:views:canCompare', undefined);
+
+		if (selectedRef.repoPath !== ref.repoPath) {
+			this.selectForCompare(item);
+			return;
+		}
+
+		void this.container.views.searchAndCompare.compare(ref.repoPath, selectedRef, {
+			label: ref.name,
+			ref: ref.ref,
+		});
 	}
 
 	@log()

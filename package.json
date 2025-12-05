@@ -8972,6 +8972,10 @@
 				"title": "Compare with Selected"
 			},
 			{
+				"command": "gitlens.views.compareWithSelected:graph",
+				"title": "Compare with Selected"
+			},
+			{
 				"command": "gitlens.views.compareWithUpstream",
 				"title": "Compare with Upstream"
 			},
@@ -10569,6 +10573,10 @@
 			},
 			{
 				"command": "gitlens.views.selectForCompare",
+				"title": "Select for Compare"
+			},
+			{
+				"command": "gitlens.views.selectForCompare:graph",
 				"title": "Select for Compare"
 			},
 			{
@@ -13689,6 +13697,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.compareWithSelected:graph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.compareWithUpstream",
 					"when": "false"
 				},
@@ -15022,6 +15034,10 @@
 				},
 				{
 					"command": "gitlens.views.selectForCompare",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.selectForCompare:graph",
 					"when": "false"
 				},
 				{
@@ -24870,6 +24886,16 @@
 					"command": "gitlens.graph.compareAncestryWithWorking",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "4_gitlens_compare@5"
+				},
+				{
+					"command": "gitlens.views.compareWithSelected:graph",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection && gitlens:views:canCompare",
+					"group": "4_gitlens_compare@98"
+				},
+				{
+					"command": "gitlens.views.selectForCompare:graph",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
+					"group": "4_gitlens_compare@99"
 				},
 				{
 					"submenu": "gitlens/share",

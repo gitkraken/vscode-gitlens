@@ -8234,6 +8234,18 @@
 				]
 			}
 		},
+		"gitlens.views.compareWithSelected:graph": {
+			"label": "Compare with Selected",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection && gitlens:views:canCompare",
+						"group": "4_gitlens_compare",
+						"order": 98
+					}
+				]
+			}
+		},
 		"gitlens.views.compareWithUpstream": {
 			"label": "Compare with Upstream",
 			"menus": {
@@ -15159,6 +15171,18 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
+						"group": "4_gitlens_compare",
+						"order": 99
+					}
+				]
+			}
+		},
+		"gitlens.views.selectForCompare:graph": {
+			"label": "Select for Compare",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
 						"group": "4_gitlens_compare",
 						"order": 99
 					}
