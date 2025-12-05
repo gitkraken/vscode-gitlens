@@ -272,9 +272,9 @@ export interface GitLogOptions extends GitLogOptionsBase {
 	all?: boolean;
 	authors?: GitUser[];
 	merges?: boolean | 'first-parent';
-	since?: string;
+	since?: number | string;
 	stashes?: boolean | Map<string, GitStashCommit>;
-	until?: number;
+	until?: number | string;
 }
 
 export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
@@ -289,7 +289,7 @@ export interface GitLogShasOptions extends GitLogOptionsBase {
 	authors?: GitUser[];
 	merges?: boolean | 'first-parent';
 	pathOrUri?: string | Uri;
-	since?: string;
+	since?: number | string;
 }
 
 export interface GitSearchCommitsOptions extends GitLogOptionsBase {
@@ -453,7 +453,7 @@ export interface GitContributorsSubProvider {
 			all?: boolean;
 			merges?: boolean | 'first-parent';
 			pathspec?: string;
-			since?: string;
+			since?: number | string;
 			stats?: boolean;
 		},
 		cancellation?: CancellationToken,
@@ -462,12 +462,12 @@ export interface GitContributorsSubProvider {
 	getContributorsLite(
 		repoPath: string,
 		rev?: string | undefined,
-		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: string },
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: number | string },
 		cancellation?: CancellationToken,
 	): Promise<GitContributor[]>;
 	getContributorsStats(
 		repoPath: string,
-		options?: { merges?: boolean | 'first-parent'; since?: string },
+		options?: { merges?: boolean | 'first-parent'; since?: number | string },
 		cancellation?: CancellationToken,
 		timeout?: number,
 	): Promise<GitContributorsStats | undefined>;
