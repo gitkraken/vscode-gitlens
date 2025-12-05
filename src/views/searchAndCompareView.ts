@@ -7,12 +7,10 @@ import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
 import { getSearchQuery } from '../git/search';
-import { getRevisionRangeParts, isRevisionRange, shortenRevision } from '../git/utils/revision.utils';
-import { showReferencePicker2 } from '../quickpicks/referencePicker';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { createReference } from '../git/utils/reference.utils';
+import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
 import { filterMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -20,7 +18,6 @@ import { updateRecordValue } from '../system/object';
 import { isPromise } from '../system/promise';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import { ContextValues, ViewNode } from './nodes/abstract/viewNode';
-import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compareResultsNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
@@ -29,8 +26,6 @@ import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
-	private comparePicker: ComparePickerNode | undefined;
-
 	constructor(view: SearchAndCompareView) {
 		super('search-compare', unknownGitUri, view);
 	}
@@ -40,8 +35,8 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		disposeChildren(this._children);
 	}
 
-	private _children: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined;
-	private get children(): (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] {
+	private _children: (CompareResultsNode | SearchResultsNode)[] | undefined;
+	private get children(): (CompareResultsNode | SearchResultsNode)[] {
 		if (this._children == null) {
 			const children = [];
 
@@ -57,7 +52,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 
 		return this._children;
 	}
-	private set children(value: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined) {
+	private set children(value: (CompareResultsNode | SearchResultsNode)[] | undefined) {
 		if (this.children === value) return;
 
 		disposeChildren(this.children, value);
@@ -96,7 +91,6 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	async clear(): Promise<void> {
 		if (this.children.length === 0) return;
 
-		this.removeComparePicker(true);
 		this.children = [];
 
 		await this.view.clearStorage();
@@ -105,16 +99,8 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	@log<SearchAndCompareViewNode['dismiss']>({ args: { 0: n => n.toString() } })
-	dismiss(node: ComparePickerNode | CompareResultsNode | SearchResultsNode): void {
-		if (node === this.comparePicker) {
-			this.removeComparePicker();
-
-			return;
-		}
-
-		if (node instanceof CompareResultsNode || node instanceof SearchResultsNode) {
-			node.dismiss();
-		}
+	dismiss(node: CompareResultsNode | SearchResultsNode): void {
+		node.dismiss();
 
 		const children = [...this.children];
 		if (children.length === 0) return;
@@ -140,132 +126,6 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 				return isPromise<{ cancel: boolean } | void>(result) ? result : undefined;
 			}),
 		);
-	}
-
-	async compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef): Promise<void> {
-		const selectedRef = this.comparePicker?.selectedRef;
-		if (selectedRef == null) return;
-
-		if (repoPath == null) {
-			repoPath = selectedRef.repoPath;
-		} else if (repoPath !== selectedRef.repoPath) {
-			// If we don't have a matching repoPath, then start over
-			void this.selectForCompare(repoPath, ref);
-
-			return;
-		}
-
-		if (ref == null) {
-			const result = await showReferencePicker2(
-				repoPath,
-				`Compare ${this.getRefName(selectedRef.ref)} with`,
-				'Choose a reference (branch, tag, etc) to compare with',
-				{
-					allowedAdditionalInput: { rev: true },
-					picked: typeof selectedRef.ref === 'string' ? selectedRef.ref : selectedRef.ref.ref,
-					// checkmarks: true,
-					include: ['branches', 'tags', 'HEAD'],
-					sort: { branches: { current: true } },
-				},
-			);
-			if (result.value == null) {
-				if (this.comparePicker != null) {
-					await this.view.show();
-					await this.view.reveal(this.comparePicker, { focus: true, select: true });
-				}
-
-				return;
-			}
-
-			ref = result.value.ref;
-		}
-
-		this.removeComparePicker();
-		await this.view.compare(repoPath, selectedRef.ref, ref);
-	}
-
-	async selectForCompare(
-		repoPath?: string,
-		ref?: string | StoredNamedRef,
-		options?: { prompt?: boolean },
-	): Promise<void> {
-		repoPath ??= (await getRepositoryOrShowPicker(this.view.container, 'Compare'))?.path;
-		if (repoPath == null) return;
-
-		this.removeComparePicker(true);
-
-		let prompt = options?.prompt ?? false;
-		let ref2;
-		if (ref == null) {
-			const result = await showReferencePicker2(
-				repoPath,
-				'Compare',
-				'Choose a reference (branch, tag, etc) to compare',
-				{
-					allowedAdditionalInput: { range: true, rev: true },
-					include: ['branches', 'tags', 'workingTree', 'HEAD'],
-					sort: { branches: { current: true }, tags: {} },
-				},
-			);
-			if (result.value == null) {
-				await this.triggerChange();
-
-				return;
-			}
-
-			ref = result.value.ref;
-
-			if (isRevisionRange(ref)) {
-				const range = getRevisionRangeParts(ref);
-				if (range != null) {
-					ref = range.left || 'HEAD';
-					ref2 = range.right || 'HEAD';
-				}
-			}
-
-			prompt = true;
-		}
-
-		this.comparePicker = new ComparePickerNode(this.view, this, {
-			label: this.getRefName(ref),
-			repoPath: repoPath,
-			ref: ref,
-		});
-
-		const children = [...this.children];
-		children.unshift(this.comparePicker);
-		this.children = children;
-
-		void setContext('gitlens:views:canCompare', true);
-
-		await this.triggerChange();
-
-		if (prompt) {
-			await this.compareWithSelected(repoPath, ref2);
-		}
-	}
-
-	private getRefName(ref: string | StoredNamedRef): string {
-		return typeof ref === 'string'
-			? shortenRevision(ref, { strings: { working: 'Working Tree' } })
-			: (ref.label ?? shortenRevision(ref.ref));
-	}
-
-	private removeComparePicker(silent: boolean = false) {
-		void setContext('gitlens:views:canCompare', false);
-		if (this.comparePicker != null) {
-			const children = [...this.children];
-			const index = children.indexOf(this.comparePicker);
-			if (index !== -1) {
-				children.splice(index, 1);
-				this.children = children;
-
-				if (!silent) {
-					void this.triggerChange();
-				}
-			}
-			this.comparePicker = undefined;
-		}
 	}
 }
 
@@ -317,7 +177,6 @@ export class SearchAndCompareView extends ViewBase<
 
 			registerViewCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
 			registerViewCommand(this.getQualifiedCommand('selectForCompare'), () => this.selectForCompare()),
-			registerViewCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
 		];
 	}
 
@@ -344,18 +203,14 @@ export class SearchAndCompareView extends ViewBase<
 	}
 
 	dismissNode(node: ViewNode): void {
-		if (
-			this.root == null ||
-			(!(node instanceof ComparePickerNode) &&
-				!(node instanceof CompareResultsNode) &&
-				!(node instanceof SearchResultsNode))
-		) {
+		if (this.root == null || !node.isAny('compare-results', 'search-results')) {
 			return;
 		}
 
 		this.root.dismiss(node);
 	}
 
+	@log()
 	async compare(
 		repoPath: string,
 		ref1: string | StoredNamedRef,
@@ -379,12 +234,14 @@ export class SearchAndCompareView extends ViewBase<
 		);
 	}
 
-	compareWithSelected(repoPath?: string, ref?: string | StoredNamedRef): void {
-		void this.ensureRoot().compareWithSelected(repoPath, ref);
-	}
+	@log()
+	private async selectForCompare(repoPath?: string, ref1?: string | StoredNamedRef): Promise<void> {
+		const result = await showComparisonPicker(this.container, repoPath, {
+			head: ref1 != null ? createReference(typeof ref1 === 'string' ? ref1 : ref1.ref, repoPath!) : undefined,
+		});
+		if (result == null) return;
 
-	selectForCompare(repoPath?: string, ref?: string | StoredNamedRef, options?: { prompt?: boolean }): void {
-		void this.ensureRoot().selectForCompare(repoPath, ref, options);
+		await this.compare(result.repoPath, result.head.ref, result.base.ref);
 	}
 
 	async search(
@@ -515,7 +372,7 @@ export class SearchAndCompareView extends ViewBase<
 	}
 
 	private swapComparison(node: CompareResultsNode) {
-		if (!(node instanceof CompareResultsNode)) return undefined;
+		if (!node.is('compare-results')) return undefined;
 
 		return node.swap();
 	}

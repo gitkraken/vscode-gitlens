@@ -151,7 +151,6 @@ export type TreeViewNodeTypes =
 	| 'autolink'
 	| 'branch-tag-folder'
 	| 'branches'
-	| 'compare-picker'
 	| 'contributor'
 	| 'contributors'
 	| 'conflict-files'

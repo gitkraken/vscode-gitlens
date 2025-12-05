@@ -8169,7 +8169,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && webview == gitlens.views.commitDetails",
 						"group": "4_gitlens_compare",
-						"order": 99
+						"order": 98
 					}
 				]
 			}
@@ -8181,7 +8181,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && webview == gitlens.views.graphDetails",
 						"group": "4_gitlens_compare",
-						"order": 99
+						"order": 98
 					}
 				]
 			}

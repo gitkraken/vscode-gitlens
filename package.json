@@ -25124,12 +25124,12 @@
 				{
 					"command": "gitlens.views.compareFileWithSelected:commitDetails",
 					"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && webview == gitlens.views.commitDetails",
-					"group": "4_gitlens_compare@99"
+					"group": "4_gitlens_compare@98"
 				},
 				{
 					"command": "gitlens.views.compareFileWithSelected:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && webview == gitlens.views.graphDetails",
-					"group": "4_gitlens_compare@99"
+					"group": "4_gitlens_compare@98"
 				},
 				{
 					"command": "gitlens.views.selectFileForCompare:commitDetails",

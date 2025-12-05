@@ -9,6 +9,12 @@ import type { OrgAIProviders } from './plus/gk/models/organization';
 import type { PromoKeys } from './plus/gk/models/promo';
 import type { SubscriptionPlanIds } from './plus/gk/models/subscription';
 
+interface CompareSelectedInfo {
+	label: string;
+	ref: string;
+	repoPath: string;
+}
+
 interface CompareSelectedFileInfo {
 	ref: string;
 	repoPath: string | undefined;
@@ -54,7 +60,7 @@ export type ContextKeys = {
 	'gitlens:tabs:blameable': Uri[];
 	'gitlens:tabs:tracked': Uri[];
 	'gitlens:untrusted': boolean;
-	'gitlens:views:canCompare': boolean;
+	'gitlens:views:canCompare': CompareSelectedInfo;
 	'gitlens:views:canCompare:file': CompareSelectedFileInfo;
 	'gitlens:views:commits:filtered': boolean;
 	'gitlens:views:commits:hideMergeCommits': boolean;

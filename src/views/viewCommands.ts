@@ -1298,7 +1298,20 @@ export class ViewCommands implements Disposable {
 	private compareWithSelected(node: ViewRefNode | ViewRefFileNode) {
 		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
 
-		this.container.views.searchAndCompare.compareWithSelected(node.repoPath, node.ref);
+		const selectedRef = getContext('gitlens:views:canCompare');
+		if (selectedRef == null) return;
+
+		void setContext('gitlens:views:canCompare', undefined);
+
+		if (selectedRef.repoPath !== node.repoPath) {
+			this.selectForCompare(node);
+			return;
+		}
+
+		void this.container.views.searchAndCompare.compare(node.repoPath, selectedRef, {
+			label: node.ref.name,
+			ref: node.ref.ref,
+		});
 	}
 
 	@command('gitlens.views.selectForCompare')
@@ -1306,7 +1319,11 @@ export class ViewCommands implements Disposable {
 	private selectForCompare(node: ViewRefNode | ViewRefFileNode) {
 		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
 
-		this.container.views.searchAndCompare.selectForCompare(node.repoPath, node.ref);
+		void setContext('gitlens:views:canCompare', {
+			label: node.ref.name,
+			ref: node.ref.ref,
+			repoPath: node.repoPath,
+		});
 	}
 
 	private async compareFileWith(

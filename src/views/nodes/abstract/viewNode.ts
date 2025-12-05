@@ -55,8 +55,6 @@ export const enum ContextValues {
 	CommitsCurrentBranch = 'gitlens:commits:current-branch',
 	Compare = 'gitlens:compare',
 	CompareBranch = 'gitlens:compare:branch',
-	ComparePicker = 'gitlens:compare:picker',
-	ComparePickerWithRef = 'gitlens:compare:picker:ref',
 	CompareResults = 'gitlens:compare:results',
 	CompareResultsCommits = 'gitlens:compare:results:commits',
 	Contributor = 'gitlens:contributor',

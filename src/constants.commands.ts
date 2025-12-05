@@ -90,8 +90,6 @@ type InternalScmGroupedViewCommands =
 	| 'gitlens.views.scm.grouped.welcome.dismiss'
 	| 'gitlens.views.scm.grouped.welcome.restore';
 
-type InternalSearchAndCompareViewCommands = 'gitlens.views.searchAndCompare.compareWithSelected';
-
 type InternalTimelineWebviewViewCommands = 'gitlens.views.timeline.openInTab';
 
 type InternalViewCommands = 'gitlens.views.loadMoreChildren';
@@ -165,7 +163,6 @@ type InternalGlCommands =
 	| InternalPlusCommands
 	| InternalPullRequestViewCommands
 	| InternalScmGroupedViewCommands
-	| InternalSearchAndCompareViewCommands
 	| InternalTimelineWebviewViewCommands
 	| InternalViewCommands
 	| InternalWalkthroughCommands;

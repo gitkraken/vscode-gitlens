@@ -20,7 +20,6 @@ import type { CommitNode } from '../../commitNode';
 import type { PagerNode } from '../../common';
 import { MessageNode } from '../../common';
 import type { CompareBranchNode } from '../../compareBranchNode';
-import type { ComparePickerNode } from '../../comparePickerNode';
 import type { CompareResultsNode } from '../../compareResultsNode';
 import type { ContributorNode } from '../../contributorNode';
 import type { ContributorsNode } from '../../contributorsNode';
@@ -82,8 +81,6 @@ export type TreeViewNodesByType = {
 		? CommitsCurrentBranchNode
 		: T extends 'compare-branch'
 		? CompareBranchNode
-		: T extends 'compare-picker'
-		? ComparePickerNode
 		: T extends 'compare-results'
 		? CompareResultsNode
 		: T extends 'conflict-current-changes'
