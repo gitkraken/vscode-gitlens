@@ -11,6 +11,7 @@ import { WelcomeStateProvider } from './stateProvider';
 import '../shared/components/gitlens-logo';
 import { welcomeStyles } from './welcome.css';
 import './components/feature-carousel';
+import './components/feature-card';
 
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {
