@@ -1322,14 +1322,8 @@ export class ViewCommands implements Disposable {
 
 		return executeCommand<DiffWithCommandArgs, void>('gitlens.diffWith', {
 			repoPath: repoPath,
-			lhs: {
-				sha: lhsRef,
-				uri: lhsUri,
-			},
-			rhs: {
-				sha: rhsRef,
-				uri: rhsUri ?? lhsUri,
-			},
+			lhs: { sha: lhsRef, uri: lhsUri },
+			rhs: { sha: rhsRef, uri: rhsUri ?? lhsUri },
 		});
 	}
 
@@ -1356,11 +1350,7 @@ export class ViewCommands implements Disposable {
 	private selectFileForCompare(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode) || node.ref == null) return;
 
-		void setContext('gitlens:views:canCompare:file', {
-			ref: node.ref.ref,
-			repoPath: node.repoPath,
-			uri: node.uri,
-		});
+		void setContext('gitlens:views:canCompare:file', { ref: node.ref.ref, repoPath: node.repoPath, uri: node.uri });
 	}
 
 	@command('gitlens.views.openChangedFileDiffs', { args: (n, o) => [n, o] })
@@ -1404,14 +1394,8 @@ export class ViewCommands implements Disposable {
 	private openChanges(node: ViewRefFileNode | MergeConflictFileNode) {
 		if (node.is('conflict-file')) {
 			void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
-				lhs: {
-					sha: node.status.HEAD.ref,
-					uri: GitUri.fromFile(node.file, node.repoPath, undefined, true),
-				},
-				rhs: {
-					sha: 'HEAD',
-					uri: GitUri.fromFile(node.file, node.repoPath),
-				},
+				lhs: { sha: node.status.HEAD.ref, uri: GitUri.fromFile(node.file, node.repoPath, undefined, true) },
+				rhs: { sha: 'HEAD', uri: GitUri.fromFile(node.file, node.repoPath) },
 				repoPath: node.repoPath,
 				range: editorLineToDiffRange(0),
 				showOptions: { preserveFocus: false, preview: false },
@@ -1497,11 +1481,7 @@ export class ViewCommands implements Disposable {
 		const nodeUri = await repo.git.getBestRevisionUri(node.file.path, node.ref.ref);
 		if (nodeUri == null) return Promise.resolve();
 
-		const input1: MergeEditorInputs['input1'] = {
-			uri: nodeUri,
-			title: `Incoming`,
-			detail: ` ${node.ref.name}`,
-		};
+		const input1: MergeEditorInputs['input1'] = { uri: nodeUri, title: `Incoming`, detail: ` ${node.ref.name}` };
 
 		const [mergeBaseResult, workingUriResult] = await Promise.allSettled([
 			repo.git.refs.getMergeBase(node.ref.ref, 'HEAD'),
@@ -1514,11 +1494,7 @@ export class ViewCommands implements Disposable {
 			return Promise.resolve();
 		}
 
-		const input2: MergeEditorInputs['input2'] = {
-			uri: workingUri,
-			title: 'Current',
-			detail: ' Working Tree',
-		};
+		const input2: MergeEditorInputs['input2'] = { uri: workingUri, title: 'Current', detail: ' Working Tree' };
 
 		const headUri = await repo.git.getBestRevisionUri(node.file.path, 'HEAD');
 		if (headUri != null) {
@@ -1554,11 +1530,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openChanges(
 			node.file,
 			{ repoPath: node.repoPath, lhs: mergeBase, rhs: node.ref1 },
-			{
-				preserveFocus: true,
-				preview: true,
-				lhsTitle: `${basename(node.uri.fsPath)} (Base)`,
-			},
+			{ preserveFocus: true, preview: true, lhsTitle: `${basename(node.uri.fsPath)} (Base)` },
 		);
 	}
 
