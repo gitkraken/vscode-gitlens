@@ -2,6 +2,8 @@
 import './welcome.scss';
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { GlCommands } from '../../../constants.commands';
+import { ExecuteCommand } from '../../protocol';
 import type { State } from '../../welcome/protocol';
 import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
@@ -27,6 +29,20 @@ export class GlWelcomeApp extends GlAppHost<State> {
 
 	@property({ type: String })
 	webroot?: string;
+
+	private onStartTrial() {
+		const command: GlCommands = 'gitlens.plus.signUp';
+		this._telemetry.sendEvent({
+			name: 'welcome/action',
+			data: {
+				type: 'command',
+				name: 'plus/sign-up',
+				command: command,
+			},
+			source: { source: 'welcome' },
+		});
+		this._ipc.sendCommand(ExecuteCommand, { command: command, args: [{ source: 'welcome' }] });
+	}
 
 	override render(): unknown {
 		return html`
@@ -62,6 +78,10 @@ export class GlWelcomeApp extends GlAppHost<State> {
 							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
 						</gl-feature-card>
 					</gl-feature-carousel>
+				</div>
+
+				<div class="section start-trial">
+					<gl-button @click=${() => this.onStartTrial()}>Start GitLens Pro Trial</gl-button>
 				</div>
 
 				<div>
