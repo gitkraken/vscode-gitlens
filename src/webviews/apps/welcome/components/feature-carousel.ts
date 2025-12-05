@@ -6,7 +6,6 @@ import '../../shared/components/code-icon';
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-feature-carousel': GlFeatureCarousel;
-		'gl-feature-card': GlFeatureCard;
 	}
 }
 
@@ -113,61 +112,6 @@ export class GlFeatureCarousel extends LitElement {
 				<gl-button class="button" appearance="input" @click=${this.handleNext} aria-label="Next feature">
 					<code-icon icon="chevron-right" size="20"></code-icon>
 				</gl-button>
-			</div>
-		`;
-	}
-}
-
-@customElement('gl-feature-card')
-export class GlFeatureCard extends LitElement {
-	static override styles = [
-		css`
-			:host {
-				display: flex;
-				gap: 1em;
-			}
-
-			.image {
-				width: 50%;
-			}
-
-			.content {
-				margin-top: 0.5em;
-				flex: 1;
-				display: flex;
-				flex-direction: column;
-				gap: 0.5em;
-			}
-
-			@media (max-width: 640px) {
-				:host {
-					flex-direction: column;
-				}
-
-				.image {
-					width: 100%;
-				}
-
-				.content {
-					margin-top: 0;
-					margin-left: 0.3em;
-					margin-right: 0.3em;
-				}
-
-				::slotted(*) {
-					width: 100%;
-				}
-			}
-		`,
-	];
-
-	override render(): unknown {
-		return html`
-			<div class="image">
-				<slot name="image"></slot>
-			</div>
-			<div class="content">
-				<slot></slot>
 			</div>
 		`;
 	}
