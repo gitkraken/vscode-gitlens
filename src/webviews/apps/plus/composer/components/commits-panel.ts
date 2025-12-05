@@ -389,6 +389,9 @@ export class CommitsPanel extends LitElement {
 	@property({ type: Boolean })
 	hasChanges: boolean = true;
 
+	@property({ type: Boolean })
+	hasLockedCommits: boolean = false;
+
 	@property({ type: Object })
 	aiModel?: AIModel = undefined;
 
@@ -1094,6 +1097,11 @@ export class CommitsPanel extends LitElement {
 	}
 
 	private renderAutoComposeContainer(disabled = false) {
+		const recomposeCount = this.hasLockedCommits
+			? this.commits.filter(c => !c.locked).length
+			: this.recompose?.enabled && this.selectedCommitIds.size > 1
+				? this.selectedCommitIds.size
+				: null;
 		return html`
 			<div class="auto-compose${this.hasUsedAutoCompose ? ' is-used' : ''}">
 				${when(
@@ -1184,9 +1192,10 @@ export class CommitsPanel extends LitElement {
 								></code-icon>
 								${this.generating
 									? 'Generating Commits...'
-									: this.hasUsedAutoCompose || this.isRecomposeLocked
-										? this.selectedCommitIds.size > 1
-											? 'Recompose Selected Commits'
+									: this.hasUsedAutoCompose || this.recompose?.enabled
+										? recomposeCount
+											? html`Recompose ${recomposeCount}
+												${recomposeCount === 1 ? 'Commit' : 'Commits'}`
 											: 'Recompose Commits'
 										: 'Auto-Compose Commits'}
 							</gl-button>

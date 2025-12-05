@@ -1023,36 +1023,49 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 						params.commitsToReplace.commits[params.commitsToReplace.commits.length - 1].sha ??
 						this._safetyState.headSha!;
 				}
-				const combinedDiff = await calculateCombinedDiffBetweenCommits(
-					this._currentRepository!,
-					baseSha,
-					headSha,
-				);
 
-				const combinedHunks = createHunksFromDiffs(combinedDiff!.contents);
-				for (const hunk of combinedHunks) {
-					const { author, coAuthors } = getAuthorAndCoAuthorsForCombinedDiffHunk(this._hunks, hunk);
-					hunk.author = author;
-					hunk.coAuthors = coAuthors.length ? coAuthors : undefined;
-					hunks.push({ ...hunk, assigned: true });
-				}
-
-				// Update the hunks. Note that if params.commitsToReplace is defined, then we need to remove all the hunks with indices that match the hunkIndices of the commits to replace, then add in the new hunks and
-				// reinder all of the hunks. Otherwise, we just replace the existing hunks with the new ones
-				if (params.commitsToReplace) {
-					const hunkIndicesToRemove = new Set(params.commitsToReplace.commits.flatMap(c => c.hunkIndices));
-					this._hunks = this._hunks.filter(h => !hunkIndicesToRemove.has(h.index));
-					// Reindex the hunks
-					let newIndexCounter = 1;
-					this._hunks.forEach(hunk => {
-						hunk.index = newIndexCounter++;
-					});
-					hunks.forEach(hunk => {
-						hunk.index = newIndexCounter++;
-					});
-					this._hunks.push(...hunks);
+				const shouldSkipDiffCalculation =
+					params.commitsToReplace?.commits?.length && params.commitsToReplace.commits.every(c => !c.sha);
+				if (shouldSkipDiffCalculation) {
+					// just set hunks to the existing hunks and move on
+					const hunkIndices = new Set(params.commitsToReplace!.commits.flatMap(c => c.hunkIndices));
+					for (const index of hunkIndices) {
+						hunks.push({ ...this._hunks.find(m => m.index === index)!, assigned: true });
+					}
 				} else {
-					this._hunks = hunks;
+					const combinedDiff = await calculateCombinedDiffBetweenCommits(
+						this._currentRepository!,
+						baseSha,
+						headSha,
+					);
+
+					const combinedHunks = createHunksFromDiffs(combinedDiff!.contents);
+					for (const hunk of combinedHunks) {
+						const { author, coAuthors } = getAuthorAndCoAuthorsForCombinedDiffHunk(this._hunks, hunk);
+						hunk.author = author;
+						hunk.coAuthors = coAuthors.length ? coAuthors : undefined;
+						hunks.push({ ...hunk, assigned: true });
+					}
+
+					// Update the hunks. Note that if params.commitsToReplace is defined, then we need to remove all the hunks with indices that match the hunkIndices of the commits to replace, then add in the new hunks and
+					// reinder all of the hunks. Otherwise, we just replace the existing hunks with the new ones
+					if (params.commitsToReplace) {
+						const hunkIndicesToRemove = new Set(
+							params.commitsToReplace.commits.flatMap(c => c.hunkIndices),
+						);
+						this._hunks = this._hunks.filter(h => !hunkIndicesToRemove.has(h.index));
+						// Reindex the hunks
+						let newIndexCounter = 1;
+						this._hunks.forEach(hunk => {
+							hunk.index = newIndexCounter++;
+						});
+						hunks.forEach(hunk => {
+							hunk.index = newIndexCounter++;
+						});
+						this._hunks.push(...hunks);
+					} else {
+						this._hunks = hunks;
+					}
 				}
 			} else {
 				// Working directory mode: use existing hunks

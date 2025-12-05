@@ -1381,14 +1381,26 @@ export class ComposerApp extends LitElement {
 		// Reset feedback state and create new session ID for new composition
 		this.compositionFeedback = null;
 		this.compositionSessionId = `composer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-		let selectedCommitIdsForGenerate = !this.state.hasUsedAutoCompose ? [...this.selectedCommitIds] : [];
+		const hasLockedCommits = this.state.commits.some(c => c.locked);
+		let selectedCommitIdsForGenerate: string[] = [];
+		if (hasLockedCommits) {
+			selectedCommitIdsForGenerate = this.state.commits.filter(c => !c.locked).map(c => c.id);
+		}
+
+		if (!selectedCommitIdsForGenerate.length) {
+			selectedCommitIdsForGenerate =
+				this.state.recompose?.enabled && !this.state.hasUsedAutoCompose && !hasLockedCommits
+					? [...this.selectedCommitIds]
+					: [];
+		}
+
 		if (selectedCommitIdsForGenerate.length === 1) {
 			selectedCommitIdsForGenerate = [];
 		}
 
 		if (!selectedCommitIdsForGenerate.length && this.state.recompose?.commitShas?.length) {
 			const recomposeCommits = this.state.commits.filter(
-				c => c.sha && this.state.recompose!.commitShas!.includes(c.sha),
+				c => c.sha && !c.locked && this.state.recompose!.commitShas!.includes(c.sha),
 			);
 			selectedCommitIdsForGenerate = recomposeCommits.map(c => c.id);
 		}
@@ -1627,6 +1639,8 @@ export class ComposerApp extends LitElement {
 		// Get hunks with updated assignments
 		const hunks = this.hunksWithAssignments;
 
+		const hasLockedCommits = this.state.commits.some(c => c.locked);
+
 		return html`
 			<header class="header">
 				<div class="header__group">
@@ -1671,6 +1685,7 @@ export class ComposerApp extends LitElement {
 					.canMoveHunks=${this.canMoveHunks}
 					.canGenerateCommitsWithAI=${this.canGenerateCommitsWithAI}
 					.canReorderCommits=${this.canReorderCommits}
+					.hasLockedCommits=${hasLockedCommits}
 					.isPreviewMode=${this.isPreviewMode}
 					.baseCommit=${this.state.baseCommit}
 					.repoName=${this.state.baseCommit?.repoName ?? this.state.repositoryState?.current.name ?? null}
