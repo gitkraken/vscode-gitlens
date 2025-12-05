@@ -5,46 +5,44 @@ import '../../shared/components/code-icon';
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-feature-card': GlFeatureCard;
+		'gl-feature-narrow-card': GlFeatureNarrowCard;
 	}
 }
 
-@customElement('gl-feature-card')
-export class GlFeatureCard extends LitElement {
+@customElement('gl-feature-narrow-card')
+export class GlFeatureNarrowCard extends LitElement {
 	static override styles = [
 		css`
 			:host {
 				display: flex;
-				gap: 1em;
+				flex-direction: column;
+				gap: 0.7em;
+				width: 12em;
+				min-width: 12em;
+				text-align: initial;
 			}
 
-			.image {
-				width: 50%;
+			.image ::slotted(img) {
+				max-height: 2.23em;
+				border-radius: 0.6em;
+			}
+
+			::slotted(p:last-child) {
+				margin-top: 0.5em;
 			}
 
 			.content {
-				margin-top: 0.5em;
 				display: block;
 			}
 
 			@media (max-width: 400px) {
-				:host {
-					flex-direction: column;
-				}
-
-				.image {
-					width: 100%;
-				}
-
 				.content {
-					margin-top: 0;
 					margin-left: 0.3em;
 					margin-right: 0.3em;
 				}
+			}
 
-				::slotted(*) {
-					width: 100%;
-				}
+			@media (max-width: 300px) {
 			}
 		`,
 	];

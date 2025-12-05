@@ -55,7 +55,7 @@ const heroGradient = css`
 		height: 517px;
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 400px) {
 		.welcome::before {
 			width: 328px;
 			height: 273px;
@@ -167,8 +167,12 @@ const cards = css`
 	}
 
 	.card p {
-		margin: 0.4em 0 0;
+		margin: 0.5em 0 0;
 		font-size: var(--card-font-size);
+	}
+
+	.card p:last-child {
+		margin: 1em 0 0;
 	}
 
 	.card img {
@@ -176,8 +180,20 @@ const cards = css`
 	}
 `;
 
+const scrollableFeatures = css`
+	gl-scrollable-features {
+		display: flex;
+		gap: 1em;
+		max-width: 100%;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: none;
+	}
+`;
+
 export const welcomeStyles = css`
 	${colorScheme} ${typography}
 	${heroGradient} ${section} ${header}
+	${scrollableFeatures}
 	${cards}
 `;
