@@ -13,16 +13,25 @@ const colorScheme = css`
 
 const typography = css`
 	:host {
-		--h1-font-size: 1.4rem;
-		--p-font-size: 1rem;
-		--card-font-size: var(--vscode-font-size);
+		font-size: var(--vscode-font-size);
+
+		--h1-font-size: 1.7em;
+		--p-font-size: 1.23em;
+		--card-font-size: 1em;
 	}
 
 	@media (max-width: 640px) {
 		:host {
-			--h1-font-size: 0.75rem;
-			--p-font-size: 0.7rem;
-			--card-font-size: var(--vscode-editor-font-size);
+			font-size: var(--vscode-editor-font-size);
+			--h1-font-size: 1em;
+			--p-font-size: 1em;
+			--card-font-size: 1em;
+		}
+	}
+
+	@media (max-width: 300px) {
+		:host {
+			font-size: calc(var(--vscode-editor-font-size) * 0.8);
 		}
 	}
 `;
@@ -60,13 +69,14 @@ const section = css`
 		justify-content: center;
 		align-items: center;
 		text-align: center;
-		font-size: var(--p-font-size);
-	}
-	.section p {
-		max-width: 30em;
 	}
 	.section .accent {
 		color: var(--accent-color);
+	}
+
+	.section.plain p {
+		max-width: 30em;
+		font-size: var(--p-font-size);
 	}
 `;
 
@@ -104,8 +114,21 @@ const header = css`
 const carousel = css`
 	gl-feature-carousel {
 		text-align: initial;
-		--gl-carousel-border-radius: 0.65rem;
+		--gl-carousel-border-radius: 0.63em;
+		--gl-carousel-padding: 1.8em;
 		--gl-carousel-background-color: var(--vscode-textBlockQuote-background);
+	}
+
+	@media (max-width: 640px) {
+		gl-feature-carousel {
+			--gl-carousel-padding: 1em;
+		}
+	}
+
+	@media (max-width: 300px) {
+		gl-feature-carousel {
+			--gl-carousel-padding: 0.5em;
+		}
 	}
 
 	gl-feature-carousel h1 {
@@ -115,7 +138,7 @@ const carousel = css`
 	}
 
 	gl-feature-carousel p {
-		margin: 0.4em 0;
+		margin: 0.4em 0 0;
 		font-size: var(--card-font-size);
 		color: var(--text-color);
 	}
@@ -123,7 +146,6 @@ const carousel = css`
 	gl-feature-carousel img {
 		max-width: 100%;
 		height: auto;
-		border-radius: 0.4rem;
 	}
 
 	gl-feature-carousel a {
