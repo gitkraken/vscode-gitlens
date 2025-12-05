@@ -14,6 +14,7 @@ import '../shared/components/gitlens-logo';
 import { welcomeStyles } from './welcome.css';
 import './components/feature-carousel';
 import './components/feature-card';
+import './components/feature-narrow-card';
 
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {
@@ -84,8 +85,85 @@ export class GlWelcomeApp extends GlAppHost<State> {
 					<gl-button @click=${() => this.onStartTrial()}>Start GitLens Pro Trial</gl-button>
 				</div>
 
-				<div>
-					<p>GitLens ${this.state?.version ?? ''} is ready to use!</p>
+				<div class="section plain">
+					<h2>You also get these free features</h2>
+				</div>
+
+				<div class="section">
+					<gl-scrollable-features>
+						<gl-feature-narrow-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-graph.webp"
+								alt="Commit Graph"
+								width="100"
+								height="100"
+							/>
+							<h1>Commit Graph</h1>
+							<p>Visualize your repository's history and interact with commits</p>
+							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
+						</gl-feature-narrow-card>
+						<gl-feature-narrow-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-timeline.webp"
+								alt="Visual File History"
+								width="32"
+								height="32"
+							/>
+							<h1>Visual File History</h1>
+							<p>Track changes to any file over time</p>
+							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
+						</gl-feature-narrow-card>
+						<gl-feature-narrow-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-graph.webp"
+								alt="Commit Graph"
+								width="100"
+								height="100"
+							/>
+							<h1>Commit Graph</h1>
+							<p>Visualize your repository's history and interact with commits</p>
+							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
+						</gl-feature-narrow-card>
+						<gl-feature-narrow-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-timeline.webp"
+								alt="Visual File History"
+								width="32"
+								height="32"
+							/>
+							<h1>Visual File History</h1>
+							<p>Track changes to any file over time</p>
+							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
+						</gl-feature-narrow-card>
+						<gl-feature-narrow-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-graph.webp"
+								alt="Commit Graph"
+								width="100"
+								height="100"
+							/>
+							<h1>Commit Graph</h1>
+							<p>Visualize your repository's history and interact with commits</p>
+							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
+						</gl-feature-narrow-card>
+						<gl-feature-narrow-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-timeline.webp"
+								alt="Visual File History"
+								width="32"
+								height="32"
+							/>
+							<h1>Visual File History</h1>
+							<p>Track changes to any file over time</p>
+							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
+						</gl-feature-narrow-card>
+					</gl-scrollable-features>
 				</div>
 			</div>
 		`;
