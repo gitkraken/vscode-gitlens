@@ -186,6 +186,7 @@ export async function showRepositoriesPicker2(
 	placeholder?: string,
 	repositories?: readonly Repository[],
 	options?: {
+		additionalItems?: DirectiveQuickPickItem[];
 		excludeWorktrees?: boolean;
 		filter?: (r: Repository) => Promise<boolean>;
 		picked?: readonly Repository[];
@@ -208,21 +209,69 @@ export async function showRepositoriesPicker2(
 		repos = sortRepositoriesGrouped(grouped);
 	}
 
-	const items = await Promise.all<Promise<RepositoryQuickPickItem>>(
-		map(repos, r => createRepositoryQuickPickItem(r, options?.picked?.includes(r), { branch: true, status: true })),
+	const items = await Promise.all<Promise<RepositoryQuickPickItem | DirectiveQuickPickItem>>(
+		map(repos, r =>
+			createRepositoryQuickPickItem(r, options?.picked?.includes(r), {
+				branch: true,
+				status: true,
+			}),
+		),
 	);
 	if (!items.length) return { value: undefined };
 
-	const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
+	if (options?.additionalItems?.length) {
+		items.unshift(...options.additionalItems, createQuickPickSeparator());
+	}
+
+	const quickpick = window.createQuickPick<RepositoryQuickPickItem | DirectiveQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 	const disposables: Disposable[] = [];
+
+	let selected: readonly (RepositoryQuickPickItem | DirectiveQuickPickItem)[] = [];
 
 	try {
 		const pick = await new Promise<QuickPickResult<Repository[]>>(resolve => {
 			disposables.push(
 				quickpick.onDidHide(() => resolve({ value: undefined })),
-				quickpick.onDidAccept(() => resolve({ value: quickpick.selectedItems.map(i => i.item) })),
+				quickpick.onDidChangeSelection(e => {
+					const directives = e.filter(isDirectiveQuickPickItem);
+					const prevDirectives = new Set(selected.filter(isDirectiveQuickPickItem));
+
+					if (directives.length > 1) {
+						// Multiple directives selected - keep only the newly added one, unless there are also non-directive items selected
+						if (e.some(i => !isDirectiveQuickPickItem(i))) {
+							selected = e.filter(i => !isDirectiveQuickPickItem(i));
+						} else {
+							const newDirective = directives.find(d => !prevDirectives.has(d));
+							selected = newDirective != null ? [newDirective] : [directives[0]];
+						}
+					} else if (directives.length > prevDirectives.size) {
+						// A directive was selected, clear other selections
+						selected = directives;
+					} else if (directives.length && e.length > directives.length) {
+						// A directive was already selected and user selected something else, clear directives
+						selected = e.filter(i => !isDirectiveQuickPickItem(i));
+					} else {
+						selected = e;
+					}
+
+					if (selected !== e) {
+						quickpick.selectedItems = selected;
+					}
+				}),
+				quickpick.onDidAccept(() => {
+					const selected = quickpick.selectedItems;
+					if (selected.length === 1 && isDirectiveQuickPickItem(selected[0])) {
+						resolve({ directive: selected[0].directive });
+					} else {
+						resolve({
+							value: selected
+								.filter((i): i is RepositoryQuickPickItem => !isDirectiveQuickPickItem(i))
+								.map(i => i.item),
+						});
+					}
+				}),
 			);
 
 			quickpick.title = title;
@@ -234,7 +283,8 @@ export async function showRepositoriesPicker2(
 
 			const picked = items.filter(i => i.picked);
 			// Select all the repositories by default
-			quickpick.selectedItems = picked.length ? picked : items;
+			selected = picked.length ? picked : items;
+			quickpick.selectedItems = selected;
 
 			quickpick.show();
 		});
