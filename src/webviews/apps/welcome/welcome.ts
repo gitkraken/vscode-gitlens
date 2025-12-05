@@ -85,54 +85,6 @@ export class GlWelcomeApp extends GlAppHost<State> {
 				</div>
 
 				<div>
-					<h2>✨ Key Features</h2>
-					<ul>
-						<li>
-							<span>📝</span>
-							<strong>Blame Annotations</strong> - See who changed each line and when
-						</li>
-						<li>
-							<span>📊</span>
-							<strong>Commit Graph</strong> - Visualize your repository's history
-						</li>
-						<li>
-							<span>🔍</span>
-							<strong>File History</strong> - Track changes to any file over time
-						</li>
-						<li>
-							<span>🌿</span>
-							<strong>Branch Management</strong> - Easily manage branches and remotes
-						</li>
-						<li>
-							<span>🤖</span>
-							<strong>AI Features</strong> - Generate commit messages and explanations
-						</li>
-					</ul>
-				</div>
-
-				<div>
-					<h2>🎯 Next Steps</h2>
-					<ul>
-						<li>
-							<span>1.</span>
-							Open the <strong>GitLens Home</strong> view in the sidebar to see your active work
-						</li>
-						<li>
-							<span>2.</span>
-							Try the <strong>Commit Graph</strong> to visualize your repository
-						</li>
-						<li>
-							<span>3.</span>
-							Hover over any line to see <strong>inline blame</strong> information
-						</li>
-						<li>
-							<span>4.</span>
-							Explore the <strong>Command Palette</strong> (Cmd/Ctrl+Shift+P) and search for "GitLens"
-						</li>
-					</ul>
-				</div>
-
-				<div>
 					<p>GitLens ${this.state?.version ?? ''} is ready to use!</p>
 				</div>
 			</div>
