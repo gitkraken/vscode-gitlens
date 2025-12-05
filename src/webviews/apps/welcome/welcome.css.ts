@@ -141,44 +141,43 @@ const header = css`
 	}
 `;
 
-const carousel = css`
-	gl-feature-carousel {
+const cards = css`
+	.card {
+		border-radius: 0.63em;
+		background-color: var(--vscode-textBlockQuote-background);
+		padding: 1.8em;
 		text-align: initial;
-		--gl-carousel-border-radius: 0.63em;
-		--gl-carousel-padding: 1.8em;
-		--gl-carousel-background-color: var(--vscode-textBlockQuote-background);
 	}
 
 	@media (max-width: 640px) {
-		gl-feature-carousel {
-			--gl-carousel-padding: 1em;
+		.card {
+			padding: 1em;
 		}
 	}
 
 	@media (max-width: 300px) {
-		gl-feature-carousel {
-			--gl-carousel-padding: 0.5em;
+		.card {
+			padding: 0.5em;
 		}
 	}
 
-	gl-feature-carousel h1 {
+	.card h1 {
 		margin: 0;
 		font-size: var(--card-font-size);
 	}
 
-	gl-feature-carousel p {
+	.card p {
 		margin: 0.4em 0 0;
 		font-size: var(--card-font-size);
 	}
 
-	gl-feature-carousel img {
+	.card img {
 		max-width: 100%;
-		height: auto;
 	}
 `;
 
 export const welcomeStyles = css`
 	${colorScheme} ${typography}
 	${heroGradient} ${section} ${header}
-	${carousel}
+	${cards}
 `;
