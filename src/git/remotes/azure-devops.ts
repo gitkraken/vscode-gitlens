@@ -70,8 +70,10 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected override get issueLinkPattern(): string {
-		const workUrl = this.baseUrl.replace(gitRegex, '/');
-		return `${workUrl}/_workitems/edit/<num>`;
+		if (isVsts(this.domain)) {
+			return `${this.protocol}://${this.domain}/_workitems/edit/<num>`;
+		}
+		return `${this.protocol}://${this.domain}/${this.owner}/_workitems/edit/<num>`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
