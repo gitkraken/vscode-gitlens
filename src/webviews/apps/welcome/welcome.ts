@@ -30,7 +30,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 	override render(): unknown {
 		return html`
 			<div class="welcome scrollable">
-				<div class="section header">
+				<div class="section plain header">
 					<div class="logo"><gitlens-logo></gitlens-logo></div>
 					<h1>GitLens is now installed in Cursor</h1>
 					<p>
@@ -38,7 +38,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 						inside the editor
 					</p>
 				</div>
-				<div class="section">
+				<div class="section plain">
 					<p>With <span class="accent">PRO</span> subscription you get more</p>
 				</div>
 

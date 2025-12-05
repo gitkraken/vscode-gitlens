@@ -17,7 +17,7 @@ export class GlFeatureCarousel extends LitElement {
 			:host {
 				--gl-carousel-border-radius: 0;
 				--gl-carousel-background-color: transparent;
-				--gl-carousel-padding: 1rem;
+				--gl-carousel-padding: 1em;
 
 				display: block;
 				width: 100%;
@@ -25,7 +25,7 @@ export class GlFeatureCarousel extends LitElement {
 
 			.carousel {
 				display: flex;
-				gap: 1rem;
+				gap: 1em;
 				justify-content: center;
 			}
 
@@ -124,7 +124,7 @@ export class GlFeatureCard extends LitElement {
 		css`
 			:host {
 				display: flex;
-				gap: 1rem;
+				gap: 1em;
 			}
 
 			.image {
@@ -132,11 +132,31 @@ export class GlFeatureCard extends LitElement {
 			}
 
 			.content {
-				margin-top: 0.5rem;
+				margin-top: 0.5em;
 				flex: 1;
 				display: flex;
 				flex-direction: column;
-				gap: 0.5rem;
+				gap: 0.5em;
+			}
+
+			@media (max-width: 640px) {
+				:host {
+					flex-direction: column;
+				}
+
+				.image {
+					width: 100%;
+				}
+
+				.content {
+					margin-top: 0;
+					margin-left: 0.3em;
+					margin-right: 0.3em;
+				}
+
+				::slotted(*) {
+					width: 100%;
+				}
 			}
 		`,
 	];
