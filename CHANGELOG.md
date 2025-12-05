@@ -15,6 +15,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes _rebase_, _merge_, _revert_, and _branch delete_ commands no longer use/open a terminal ([#3527](https://github.com/gitkraken/vscode-gitlens/issues/3527), [#3530](https://github.com/gitkraken/vscode-gitlens/issues/3530), [#3532](https://github.com/gitkraken/vscode-gitlens/issues/3532), [#3534](https://github.com/gitkraken/vscode-gitlens/issues/3534))
 - Improves telemetry tracking for hover actions by adding source and detail attributes to events from editor hovers ([#4764](https://github.com/gitkraken/vscode-gitlens/issues/4764))
 
+## [17.7.1] - 2025-11-13
+
+### Changed
+
+- Updates the OpenAI model selection
+- Improves positioning of the "Recompose Commits" command in context menus
+- Ensures Git streams are closed eagerly to prevent resource leaks and potential `SIGPIPE` errors
+
+### Fixed
+
+- Fixes performance of _Show Branches and Tags_ command
+
 ## [17.7.0] - 2025-11-11
 
 ### Added
@@ -6501,7 +6513,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.1...HEAD
+[17.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.0...gitkraken:v17.7.1
 [17.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.2...gitkraken:v17.7.0
 [17.6.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.1...gitkraken:v17.6.2
 [17.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.0...gitkraken:v17.6.1
