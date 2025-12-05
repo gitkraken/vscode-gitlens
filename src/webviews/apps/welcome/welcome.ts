@@ -61,13 +61,13 @@ export class GlWelcomeApp extends GlAppHost<State> {
 
 				<div class="section">
 					<gl-feature-carousel>
-						<gl-feature-card>
+						<gl-feature-card class="card">
 							<img slot="image" src="${this.webroot ?? ''}/media/feature-graph.webp" alt="Commit Graph" />
 							<h1>Commit Graph</h1>
 							<p>Visualize your repository's history and interact with commits</p>
 							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
 						</gl-feature-card>
-						<gl-feature-card>
+						<gl-feature-card class="card">
 							<img
 								slot="image"
 								src="${this.webroot ?? ''}/media/feature-timeline.webp"

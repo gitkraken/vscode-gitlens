@@ -14,10 +14,6 @@ export class GlFeatureCarousel extends LitElement {
 	static override styles = [
 		css`
 			:host {
-				--gl-carousel-border-radius: 0;
-				--gl-carousel-background-color: transparent;
-				--gl-carousel-padding: 1em;
-
 				display: block;
 				width: 100%;
 			}
@@ -39,10 +35,6 @@ export class GlFeatureCarousel extends LitElement {
 				display: flex;
 				align-items: center;
 				justify-content: center;
-
-				border-radius: var(--gl-carousel-border-radius);
-				background-color: var(--gl-carousel-background-color);
-				padding: var(--gl-carousel-padding);
 			}
 
 			::slotted(*) {
