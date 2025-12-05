@@ -338,6 +338,18 @@ export interface ChooseRefParams {
 }
 export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
 
+export interface ChooseComparisonParams {
+	title: string;
+	placeholder: string;
+}
+export interface DidChooseComparisonParams {
+	range: string | undefined;
+}
+export const ChooseComparisonRequest = new IpcRequest<ChooseComparisonParams, DidChooseComparisonParams>(
+	scope,
+	'chooseComparison',
+);
+
 export interface ChooseAuthorParams {
 	title: string;
 	placeholder: string;

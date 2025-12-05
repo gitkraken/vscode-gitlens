@@ -10,7 +10,7 @@ export type SearchCompletionItem = CompletionItem<
 export type SearchCompletionCommand =
 	| { command: 'toggle-natural-language-mode' }
 	| { command: 'pick-author' | 'pick-file'; multi?: boolean }
-	| { command: 'pick-folder' | 'pick-ref'; multi?: never };
+	| { command: 'pick-folder' | 'pick-ref' | 'pick-comparison'; multi?: never };
 
 export interface SearchCompletionValue {
 	/** The operator this value belongs to */
@@ -75,10 +75,16 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 			<code>@me</code> for your own commits`,
 		values: [
 			{
+				value: '@me',
+				label: '@me',
+				description: 'Filter to only show your own commits',
+				icon: 'person',
+			},
+			{
 				value: { command: 'pick-author', multi: true },
 				label: 'Choose authors\u2026',
 				description: 'Select one or more contributors to filter by',
-				icon: 'person',
+				icon: 'organization',
 			},
 		],
 	},
@@ -99,9 +105,15 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 		values: [
 			{
 				value: { command: 'pick-ref' },
-				label: 'Choose a branch, tag, or range\u2026',
-				description: 'Select a branch, tag, or range to filter by',
+				label: 'Choose a branch or tag\u2026',
+				description: 'Select a branch or tag to filter by',
 				icon: 'git-branch',
+			},
+			{
+				value: { command: 'pick-comparison' },
+				label: 'Choose a comparison range\u2026',
+				description: 'Select two refs to compare (e.g. main..feature)',
+				icon: 'git-compare',
 			},
 		],
 	},

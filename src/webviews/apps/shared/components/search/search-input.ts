@@ -11,6 +11,7 @@ import { filterMap } from '../../../../../system/array';
 import { fuzzyFilter } from '../../../../../system/fuzzy';
 import {
 	ChooseAuthorRequest,
+	ChooseComparisonRequest,
 	ChooseFileRequest,
 	ChooseRefRequest,
 	SearchHistoryDeleteRequest,
@@ -776,15 +777,27 @@ export class GlSearchInput extends GlElement {
 
 				case 'pick-ref': {
 					const result = await this._ipc.sendRequest(ChooseRefRequest, {
-						title: 'Search by Reference or Range',
-						placeholder: 'Choose a reference to search',
-						allowedAdditionalInput: { range: true, rev: false },
+						title: 'Search by Branch or Tag',
+						placeholder: 'Choose a branch or tag to filter by',
+						allowedAdditionalInput: { range: false, rev: false },
 						include: ['branches', 'tags', 'HEAD'],
 						picked: currentValue || undefined,
 					});
 
 					if (result?.name) {
 						this.insertPickerValues([result.name], operator, command.multi ?? false);
+					}
+					break;
+				}
+
+				case 'pick-comparison': {
+					const result = await this._ipc.sendRequest(ChooseComparisonRequest, {
+						title: 'Search by Comparison Range',
+						placeholder: 'Choose two refs to compare',
+					});
+
+					if (result?.range) {
+						this.insertPickerValues([result.range], operator, false);
 					}
 					break;
 				}

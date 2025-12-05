@@ -116,6 +116,7 @@ import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
+import { showComparisonPicker } from '../../../quickpicks/comparisonPicker';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
@@ -209,6 +210,7 @@ import type {
 } from './protocol';
 import {
 	ChooseAuthorRequest,
+	ChooseComparisonRequest,
 	ChooseFileRequest,
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
@@ -830,6 +832,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case ChooseRefRequest.is(e):
 				void this.onChooseRef(ChooseRefRequest, e);
+				break;
+			case ChooseComparisonRequest.is(e):
+				void this.onChooseComparison(ChooseComparisonRequest, e);
 				break;
 			case ChooseFileRequest.is(e):
 				void this.onChooseFile(ChooseFileRequest, e);
@@ -2072,6 +2077,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				: undefined,
 		);
+	}
+
+	private async onChooseComparison<T extends typeof ChooseComparisonRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, { range: undefined });
+		}
+
+		const result = await showComparisonPicker(this.container, this.repository.path, {
+			getTitleAndPlaceholder: step => {
+				switch (step) {
+					case 1:
+						return {
+							title: msg.params.title,
+							placeholder: 'Choose a branch or tag to show commits from',
+						};
+					case 2:
+						return {
+							title: msg.params.title,
+							placeholder: 'Choose a base to compare against (e.g., main)',
+						};
+				}
+			},
+		});
+
+		return this.host.respond(requestType, msg, {
+			range: result != null ? `${result.base.ref}..${result.head.ref}` : undefined,
+		});
 	}
 
 	private async onChooseAuthor<T extends typeof ChooseAuthorRequest>(requestType: T, msg: IpcCallMessageType<T>) {

@@ -104,11 +104,14 @@ export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQu
 	}${search.matchRegex ? 'R' : ''}${search.matchWholeWord ? 'W' : ''}${search.naturalLanguage ? 'NL' : ''}`;
 }
 
+/** Operators plus special tokens that can be highlighted */
+export type HighlightableOperator = SearchOperators | '@me';
+
 export interface ParsedSearchQuery {
 	operations: Map<SearchOperatorsLongForm, Set<string>>;
 	errors?: string[];
 	/** Positions of operators in the original query string */
-	operatorRanges?: { start: number; end: number; operator: SearchOperators }[];
+	operatorRanges?: { start: number; end: number; operator: HighlightableOperator }[];
 }
 
 export function createSearchQueryForCommit(ref: string): string;
@@ -128,7 +131,7 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 	const query = search.query.trim();
 
 	let errors: string[] | undefined;
-	let operatorRanges: Array<{ start: number; end: number; operator: SearchOperators }> | undefined;
+	let operatorRanges: Array<{ start: number; end: number; operator: HighlightableOperator }> | undefined;
 	let pos = 0;
 
 	while (pos < query.length) {
@@ -192,6 +195,7 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 
 		if (!matchedOperator) {
 			// No operator found, parse as text
+			const textStart = pos;
 			let text: string;
 
 			// Check if text is quoted
@@ -214,7 +218,18 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 			}
 
 			// Handle special text tokens (@me, SHA)
-			op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
+			if (text === '@me') {
+				op = 'author:';
+				// Track @me position for highlighting
+				operatorRanges ??= [];
+				operatorRanges.push({
+					start: textStart,
+					end: textStart + text.length,
+					operator: '@me',
+				});
+			} else {
+				op = isSha(text) ? 'commit:' : 'message:';
+			}
 			value = text;
 		}
 
