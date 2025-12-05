@@ -999,9 +999,10 @@ export class GlSearchInput extends GlElement {
 				e.preventDefault();
 				e.stopPropagation();
 
-				// Accept autocomplete selection if visible
-				if (this.autocompleteOpen && this.autocompleteItems.length) {
-					void this.acceptAutocomplete(this.autocomplete?.selectedIndex ?? 0);
+				// Accept autocomplete selection if visible AND an item is selected
+				const selectedIndex = this.autocomplete?.selectedIndex ?? -1;
+				if (this.autocompleteOpen && this.autocompleteItems.length && selectedIndex >= 0) {
+					void this.acceptAutocomplete(selectedIndex);
 					return true;
 				}
 
