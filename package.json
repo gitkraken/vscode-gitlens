@@ -8365,6 +8365,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showWelcomePage",
+				"title": "Show Welcome",
+				"category": "GitLens",
+				"icon": "$(heart)"
+			},
+			{
 				"command": "gitlens.showWorkspacesView",
 				"title": "Show Cloud Workspaces View",
 				"category": "GitLens"
@@ -13214,6 +13220,10 @@
 				},
 				{
 					"command": "gitlens.showTimelineView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showWelcomePage",
 					"when": "gitlens:enabled"
 				},
 				{
