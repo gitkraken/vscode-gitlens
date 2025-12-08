@@ -278,6 +278,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when we've loaded all the git providers and their repositories */
 	'providers/registrationComplete': ProvidersRegistrationCompleteEvent;
 
+	/** Sent when the Rebase Editor is shown */
+	'rebaseEditor/shown': RebaseEditorShownEvent;
+	// /** Sent when the user selects (clicks on) a commit on the Rebase Editor */
+	// 'rebaseEditor/commit/selected': RebaseEditorContextEventData;
+	// /** Sent when the user changes the configuration of the Rebase Editor (e.g. period, show all branches, etc) */
+	// 'rebaseEditor/config/changed': RebaseEditorConfigChangedEvent;
+
 	/** Sent when a local (Git remote-based) hosting provider is connected */
 	'remoteProviders/connected': RemoteProvidersConnectedEvent;
 	/** Sent when a local (Git remote-based) hosting provider is disconnected */
@@ -359,17 +366,17 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 }
 
 type WebviewShowAbortedEvents = {
-	[K in `${WebviewTypes | WebviewViewTypes}/showAborted`]: WebviewShownEventData;
+	[K in `${WebviewTypes | WebviewViewTypes | CustomEditorTypes}/showAborted`]: WebviewShownEventData;
 };
 type WebviewShownEvents = {
 	[K in `${Exclude<
-		WebviewTypes | WebviewViewTypes,
-		'commitDetails' | 'graph' | 'graphDetails' | 'timeline'
+		WebviewTypes | WebviewViewTypes | CustomEditorTypes,
+		'commitDetails' | 'graph' | 'graphDetails' | 'rebaseEditor' | 'timeline'
 	>}/shown`]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
 type WebviewClosedEvents = {
-	[K in `${WebviewTypes | WebviewViewTypes}/closed`]: WebviewContextEventData &
+	[K in `${WebviewTypes | WebviewViewTypes | CustomEditorTypes}/closed`]: WebviewContextEventData &
 		Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
@@ -984,6 +991,16 @@ interface ProvidersRegistrationCompleteEvent {
 	'config.git.autoRepositoryDetection': boolean | 'subFolders' | 'openEditors' | undefined;
 }
 
+type RebaseEditorContextEventData = WebviewTelemetryContext & {
+	'context.ascending': boolean;
+};
+export type RebaseEditorTelemetryContext = RebaseEditorContextEventData;
+
+type RebaseEditorShownEventData = RebaseEditorContextEventData & FlattenedContextConfig<Config['rebaseEditor']>;
+export type RebaseEditorShownTelemetryContext = RebaseEditorShownEventData;
+
+type RebaseEditorShownEvent = WebviewShownEventData & RebaseEditorShownEventData;
+
 interface RemoteProvidersConnectedEvent {
 	'hostingProvider.provider': IntegrationIds;
 	'hostingProvider.key': string;
@@ -1227,7 +1244,9 @@ export type TelemetryEventsFromWebviewApp = {
 					? TimelineTelemetryContext
 					: K extends `composer/${string}`
 						? ComposerTelemetryContext
-						: WebviewTelemetryContext)
+						: K extends `rebaseEditor/${string}`
+							? RebaseEditorTelemetryContext
+							: WebviewTelemetryContext)
 	>;
 };
 

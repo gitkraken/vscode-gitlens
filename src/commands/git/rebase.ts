@@ -5,6 +5,7 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
 import { showGitErrorMessage } from '../../messages';
@@ -17,6 +18,7 @@ import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { executeCommand } from '../../system/-webview/command';
 import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
+import { createDisposable } from '../../system/unifiedDisposable';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -87,9 +89,19 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 	private async execute(state: RebaseStepState) {
 		const interactive = state.flags.includes('--interactive');
-		if (interactive) {
-			await this.container.rebaseEditor.enableForNextUse();
-		}
+
+		// If the editor is not enabled, listen for the rebase todo file to be opened and then reopen it with our editor
+		const disposable =
+			interactive && !isRebaseTodoEditorEnabled()
+				? window.onDidChangeActiveTextEditor(async e => {
+						if (e?.document.uri.path.endsWith('git-rebase-todo')) {
+							await reopenRebaseTodoEditor('gitlens.rebase');
+							disposable?.dispose();
+						}
+					})
+				: undefined;
+
+		using _ = createDisposable(() => void disposable?.dispose());
 
 		try {
 			await state.repo.git.ops?.rebase?.(state.destination.ref, { interactive: interactive });
@@ -113,6 +125,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
 				);
+				// TODO: open the rebase editor, if its not already open?
 				void executeCommand('gitlens.showCommitsView');
 				return;
 			}
@@ -121,6 +134,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
 				);
+				// TODO: open the rebase editor, if its not already open?
 				void executeCommand('gitlens.showCommitsView');
 				return;
 			}

@@ -143,6 +143,13 @@ export class GlButton extends LitElement {
 				width: max-content;
 			}
 
+			:host([appearance='danger']) {
+				--button-background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+				--button-foreground: var(--vscode-errorForeground, #f48771);
+				--button-hover-background: var(--vscode-inputValidation-errorBorder, #be1100);
+				--button-border: var(--vscode-inputValidation-errorBorder, #be1100);
+			}
+
 			:host-context(.vscode-light):host([appearance='alert']:not(:hover)),
 			:host-context(.vscode-high-contrast-light):host([appearance='alert']:not(:hover)) {
 				--button-foreground: var(--color-foreground);
@@ -213,7 +220,7 @@ export class GlButton extends LitElement {
 	protected control!: HTMLElement;
 
 	@property({ reflect: true })
-	appearance?: 'alert' | 'secondary' | 'toolbar' | 'input';
+	appearance?: 'alert' | 'danger' | 'secondary' | 'toolbar' | 'input';
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;

@@ -53,6 +53,7 @@ import * as ContributorActions from '../../../git/actions/contributor';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
+	showPausedOperationStatus,
 	skipPausedOperation,
 } from '../../../git/actions/pausedOperation';
 import * as RepoActions from '../../../git/actions/repository';
@@ -67,6 +68,7 @@ import { isStash } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type { IssueShape } from '../../../git/models/issue';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
@@ -765,6 +767,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.pausedOperation.abort:graph', this.abortPausedOperation),
 			this.host.registerWebviewCommand('gitlens.pausedOperation.continue:graph', this.continuePausedOperation),
 			this.host.registerWebviewCommand('gitlens.pausedOperation.open:graph', this.openRebaseEditor),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.showConflicts:graph', this.showConflicts as any),
 			this.host.registerWebviewCommand('gitlens.pausedOperation.skip:graph', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
@@ -3951,6 +3954,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.repository == null) return;
 
 		await skipPausedOperation(this.repository.git);
+	}
+
+	@log()
+	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { openRebaseEditor: true });
 	}
 
 	@log()

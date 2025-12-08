@@ -1,5 +1,4 @@
 import { consume } from '@lit/context';
-import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -68,6 +67,22 @@ export class GlMergeConflictWarning extends LitElement {
 				font-weight: bold;
 			}
 
+			.link {
+				color: inherit;
+				text-decoration: underline dotted;
+				text-underline-offset: 0.3rem;
+				opacity: 0.9;
+
+				&:hover {
+					text-decoration: none;
+					opacity: 1;
+				}
+			}
+
+			.link--conflicts {
+				margin-left: 1rem;
+			}
+
 			.ref-link {
 				color: inherit;
 				cursor: pointer;
@@ -101,7 +116,13 @@ export class GlMergeConflictWarning extends LitElement {
 		return this.createPausedOperationCommandLink('open');
 	}
 
-	private createPausedOperationCommandLink(command: 'abort' | 'continue' | 'open' | 'skip'): string {
+	private get onShowConflictsUrl() {
+		return this.createPausedOperationCommandLink('showConflicts');
+	}
+
+	private createPausedOperationCommandLink(
+		command: 'abort' | 'continue' | 'open' | 'showConflicts' | 'skip',
+	): string {
 		const { webviewId, webviewInstanceId } = this._webview;
 		const webviewType = webviewId.split('.').at(-1) as WebviewOrWebviewViewOrCustomEditorTypeFromId<
 			typeof webviewId
@@ -133,18 +154,19 @@ export class GlMergeConflictWarning extends LitElement {
 	private renderStatus(pausedOpStatus: GitPausedOperationStatus) {
 		if (pausedOpStatus.type !== 'rebase') {
 			const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
+			const label = this.conflicts ? strings.conflicts : strings.label;
 			return html`<span class="label"
-				>${this.conflicts ? strings.conflicts : strings.label} ${this.renderReference(pausedOpStatus.incoming)}
+				>${this.renderConflictsLink(label)} ${this.renderReference(pausedOpStatus.incoming)}
 				${strings.directionality} ${this.renderReference(pausedOpStatus.current)}</span
 			>`;
 		}
 
 		const started = pausedOpStatus.steps.total > 0;
 		const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
+		const label = this.conflicts ? strings.conflicts : started ? strings.label : strings.pending;
 		return html`<span class="label"
-				>${this.conflicts ? strings.conflicts : started ? strings.label : strings.pending}
-				${this.renderReference(pausedOpStatus.incoming)} ${strings.directionality}
-				${this.renderReference(pausedOpStatus.current ?? pausedOpStatus.onto)}</span
+				>${this.renderConflictsLink(label)} ${this.renderReference(pausedOpStatus.incoming)}
+				${strings.directionality} ${this.renderReference(pausedOpStatus.current ?? pausedOpStatus.onto)}</span
 			>${started
 				? html`<span class="steps"
 						>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
@@ -152,7 +174,15 @@ export class GlMergeConflictWarning extends LitElement {
 				: nothing}`;
 	}
 
-	private renderReference(ref: GitReference): TemplateResult {
+	private renderConflictsLink(label: string) {
+		if (!this.conflicts) return label;
+
+		return html`<gl-tooltip hoist content="Show Conflicts">
+			<a href="${this.onShowConflictsUrl}" class="link">${label}</a>
+		</gl-tooltip>`;
+	}
+
+	private renderReference(ref: GitReference) {
 		const webviewId = this._webview.webviewId;
 		const isInGraph = webviewId === 'gitlens.graph' || webviewId === 'gitlens.views.graph';
 

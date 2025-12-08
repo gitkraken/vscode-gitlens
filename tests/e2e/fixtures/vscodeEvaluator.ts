@@ -141,14 +141,11 @@ export class VSCodeEvaluator {
 	 * ```
 	 */
 	evaluate<R>(fn: (vscode: VSCode) => R | Promise<R>): Promise<R>;
-	evaluate<R, A>(fn: (vscode: VSCode, arg: A) => R | Promise<R>, arg: A): Promise<R>;
-	async evaluate<R, A>(fn: (vscode: VSCode, arg?: A) => R | Promise<R>, arg?: A): Promise<R> {
-		const params = arg !== undefined ? [arg] : [];
+	evaluate<R, A extends any[]>(fn: (vscode: VSCode, ...args: A) => R | Promise<R>, ...args: A): Promise<R>;
+	async evaluate<R, A extends any[]>(fn: (vscode: VSCode, ...args: A) => R | Promise<R>, ...args: A): Promise<R> {
+		const params = args != null ? (Array.isArray(args) ? args : [args]) : [];
 
-		const request: InvokeRequest = {
-			fn: fn.toString(),
-			params: params,
-		};
+		const request: InvokeRequest = { fn: fn.toString(), params: params };
 
 		const res = await fetch(`${this.serverUrl}/invoke`, {
 			method: 'POST',

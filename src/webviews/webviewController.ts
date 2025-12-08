@@ -3,9 +3,10 @@ import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState 
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { base64 } from '@env/base64';
 import { getNonce } from '@env/crypto';
-import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
+import type { CustomEditorCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type {
+	CustomEditorIds,
 	CustomEditorTypes,
 	WebviewIds,
 	WebviewOrWebviewViewOrCustomEditorTypeFromId,
@@ -51,22 +52,27 @@ import {
 	WebviewReadyRequest,
 } from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
+import type { CustomEditorDescriptor, WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
-import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
+import type { WebviewShowOptions } from './webviewsController';
 
 const ipcSequencer = getScopedCounter();
 
-type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
+type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds | CustomEditorIds> = T extends WebviewIds
 	? WebviewPanelDescriptor<T>
 	: T extends WebviewViewIds
 		? WebviewViewDescriptor<T>
-		: never;
+		: T extends CustomEditorIds
+			? CustomEditorDescriptor<T>
+			: never;
 
-type GetWebviewParent<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
+type GetWebviewParent<T extends WebviewIds | WebviewViewIds | CustomEditorIds> = T extends WebviewIds
 	? WebviewPanel
 	: T extends WebviewViewIds
 		? WebviewView
-		: never;
+		: T extends CustomEditorIds
+			? WebviewPanel
+			: never;
 
 type WebviewPanelController<
 	ID extends WebviewIds,
@@ -81,11 +87,11 @@ type WebviewViewController<
 	ShowingArgs extends unknown[] = unknown[],
 > = WebviewController<ID, State, SerializedState, ShowingArgs>;
 
-@logName<WebviewController<WebviewIds | WebviewViewIds, any>>(
+@logName<WebviewController<WebviewIds | WebviewViewIds | CustomEditorIds, any>>(
 	c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`,
 )
 export class WebviewController<
-		ID extends WebviewIds | WebviewViewIds,
+		ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
 		State,
 		SerializedState = State,
 		ShowingArgs extends unknown[] = unknown[],
@@ -125,7 +131,24 @@ export class WebviewController<
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>>;
 	static async create<
-		ID extends WebviewIds | WebviewViewIds,
+		ID extends CustomEditorIds,
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+	>(
+		container: Container,
+		commandRegistrar: WebviewCommandRegistrar,
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		descriptor: CustomEditorDescriptor<ID>,
+		instanceId: string,
+		parent: WebviewPanel,
+		resolveProvider: (
+			container: Container,
+			host: WebviewHost<ID>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>>;
+	static async create<
+		ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
 		State,
 		SerializedState = State,
 		ShowingArgs extends unknown[] = unknown[],
@@ -248,7 +271,7 @@ export class WebviewController<
 	}
 
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: WebviewCommands | WebviewViewCommands,
+		command: WebviewCommands | WebviewViewCommands | CustomEditorCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
 		return this._commandRegistrar.registerCommand(

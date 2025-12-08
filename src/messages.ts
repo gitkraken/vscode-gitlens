@@ -245,14 +245,6 @@ export function showNoRepositoryWarningMessage(message: string): Promise<Message
 	return showMessage('warn', `${message}. No repository could be found.`, 'suppressNoRepositoryWarning');
 }
 
-export function showRebaseSwitchToTextWarningMessage(): Promise<MessageItem | undefined> {
-	return showMessage(
-		'warn',
-		'Closing either the git-rebase-todo file or the Rebase Editor will start the rebase.',
-		'suppressRebaseSwitchToTextWarning',
-	);
-}
-
 export function showGkDisconnectedTooManyFailedRequestsWarningMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',

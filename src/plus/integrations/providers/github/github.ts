@@ -410,6 +410,9 @@ export class GitHubApi implements Disposable {
 			};
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
+			if (ex.message.includes('Variable $rev of type GitObjectID! was provided invalid value')) {
+				return undefined;
+			}
 
 			throw this.handleException(ex, provider, scope);
 		}

@@ -3720,23 +3720,35 @@
 						"scope": "window",
 						"order": 10
 					},
-					"gitlens.rebaseEditor.showDetailsView": {
-						"type": [
-							"boolean",
-							"string"
-						],
-						"default": "selection",
+					"gitlens.rebaseEditor.revealLocation": {
+						"type": "string",
+						"default": "graph",
 						"enum": [
-							false,
-							"open",
-							"selection"
+							"graph",
+							"inspect"
 						],
 						"enumDescriptions": [
-							"Never shows the _Commit Details_ view automatically",
-							"Shows the _Commit Details_ view automatically only when opening the _Interactive Rebase Editor_",
-							"Shows the _Commit Details_ view automatically when selection changes in the _Interactive Rebase Editor_"
+							"Reveals commits in the _Commit Graph_",
+							"Reveals commits in the _Inspect_ view"
 						],
-						"markdownDescription": "Specifies when to show the _Commit Details_ view for the selected row in the _Interactive Rebase Editor_",
+						"markdownDescription": "Specifies where to reveal commits and references",
+						"scope": "window",
+						"order": 15
+					},
+					"gitlens.rebaseEditor.revealBehavior": {
+						"type": "string",
+						"default": "onOpen",
+						"enum": [
+							"never",
+							"onOpen",
+							"onSelection"
+						],
+						"enumDescriptions": [
+							"Never automatically reveals commits",
+							"Automatically reveals commits only when opening the editor",
+							"Automatically reveals commits when selection changes"
+						],
+						"markdownDescription": "Specifies when to automatically reveal commits in the preferred location",
 						"scope": "window",
 						"order": 20
 					}
@@ -6891,11 +6903,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.disableRebaseEditor",
-				"title": "Disable Interactive Rebase Editor",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.disconnectRemoteProvider",
 				"title": "Disconnect Remote Integration",
 				"category": "GitLens",
@@ -6904,11 +6911,6 @@
 			{
 				"command": "gitlens.enableDebugLogging",
 				"title": "Enable Debug Logging",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.enableRebaseEditor",
-				"title": "Enable Interactive Rebase Editor",
 				"category": "GitLens"
 			},
 			{
@@ -7982,6 +7984,44 @@
 			{
 				"command": "gitlens.quickOpenFileHistory:graphDetails",
 				"title": "Quick Open File History"
+			},
+			{
+				"command": "gitlens.rebase.abort:editor/title",
+				"title": "Abort Rebase",
+				"icon": "$(circle-slash)"
+			},
+			{
+				"command": "gitlens.rebase.continue:editor/title",
+				"title": "Start/Continue Rebase",
+				"icon": "$(check)"
+			},
+			{
+				"command": "gitlens.rebase.disableEditor",
+				"title": "Disable Interactive Rebase Editor",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.rebase.disableEditor:editor/title",
+				"title": "Disable Interactive Editor"
+			},
+			{
+				"command": "gitlens.rebase.enableEditor",
+				"title": "Enable Interactive Rebase Editor",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.rebase.enableEditor:editor/title",
+				"title": "Enable Interactive Editor"
+			},
+			{
+				"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
+				"title": "Switch to Interactive Editor",
+				"icon": "$(gitlens-gitlens)"
+			},
+			{
+				"command": "gitlens.rebase.reopenAsTextEditor:editor/title",
+				"title": "Switch to Text Editor",
+				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "gitlens.recomposeBranch",
@@ -12077,20 +12117,12 @@
 					"when": "config.gitlens.outputLevel == debug"
 				},
 				{
-					"command": "gitlens.disableRebaseEditor",
-					"when": "gitlens:enabled"
-				},
-				{
 					"command": "gitlens.disconnectRemoteProvider",
 					"when": "config.gitlens.integrations.enabled && gitlens:repos:withHostingIntegrationsConnected"
 				},
 				{
 					"command": "gitlens.enableDebugLogging",
 					"when": "config.gitlens.outputLevel != debug"
-				},
-				{
-					"command": "gitlens.enableRebaseEditor",
-					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.externalDiff",
@@ -12942,6 +12974,38 @@
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.abort:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.continue:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.disableEditor",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.rebase.disableEditor:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.enableEditor",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.rebase.enableEditor:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.rebase.reopenAsTextEditor:editor/title",
 					"when": "false"
 				},
 				{
@@ -15567,11 +15631,6 @@
 					"group": "navigation@-98"
 				},
 				{
-					"submenu": "gitlens/graph/configuration",
-					"when": "activeWebviewPanelId === gitlens.graph",
-					"group": "navigation@-98"
-				},
-				{
 					"command": "gitlens.timeline.split",
 					"when": "activeWebviewPanelId == gitlens.timeline && resourceScheme == webview-panel && config.gitlens.visualHistory.allowMultiple",
 					"group": "navigation@-97"
@@ -15593,16 +15652,20 @@
 					"alt": "gitlens.toggleFileHeatmap:editor/title"
 				},
 				{
-					"command": "gitlens.toggleFileChanges:editor/title",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:hasVirtualFolders && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes",
-					"group": "navigation@100",
-					"alt": "gitlens.toggleFileBlame:editor/title"
+					"submenu": "gitlens/editor/annotations",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
+					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.diffWithPrevious:editor/title",
 					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@97",
 					"alt": "gitlens.diffWithRevision"
+				},
+				{
+					"command": "gitlens.showQuickRevisionDetails:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.diffWithNext:editor/title",
@@ -15625,20 +15688,16 @@
 					"group": "navigation@-97"
 				},
 				{
+					"command": "gitlens.toggleFileChanges:editor/title",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:hasVirtualFolders && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes",
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileBlame:editor/title"
+				},
+				{
 					"command": "gitlens.toggleFileHeatmap:editor/title",
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
 					"group": "navigation@100",
 					"alt": "gitlens.toggleFileBlame"
-				},
-				{
-					"submenu": "gitlens/editor/annotations",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.showQuickRevisionDetails:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -15648,6 +15707,11 @@
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
 					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+					"group": "navigation@-98"
+				},
+				{
+					"submenu": "gitlens/graph/configuration",
+					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-98"
 				},
 				{
@@ -15696,9 +15760,39 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "gitlens.rebase.continue:editor/title",
+					"when": "resourceFilename == git-rebase-todo",
+					"group": "navigation@1"
+				},
+				{
 					"command": "gitlens.ai.feedback.unhelpful",
 					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:unhelpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
 					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.rebase.abort:editor/title",
+					"when": "resourceFilename == git-rebase-todo",
+					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
+					"when": "resourceFilename == git-rebase-todo && activeCustomEditorId != gitlens.rebase",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.rebase.reopenAsTextEditor:editor/title",
+					"when": "resourceFilename == git-rebase-todo && activeCustomEditorId == gitlens.rebase",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.rebase.enableEditor:editor/title",
+					"when": "resourceFilename == git-rebase-todo && (activeCustomEditorId != gitlens.rebase || !gitlens:rebase:editor:enabled)",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.rebase.disableEditor:editor/title",
+					"when": "resourceFilename == git-rebase-todo && (activeCustomEditorId == gitlens.rebase || gitlens:rebase:editor:enabled)",
+					"group": "9_gitlens@2"
 				},
 				{
 					"command": "gitlens.openPatch",

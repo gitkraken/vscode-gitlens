@@ -433,6 +433,24 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return node;
 	}
 
+	@gate(() => '')
+	async revealPausedOperationStatus(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
+		const node = await this.findNode(
+			n => n.is('paused-operation-status') && n.pausedOpStatus.repoPath === repoPath,
+			{
+				maxDepth: 3,
+				canTraverse: n =>
+					n instanceof CommitsViewNode || n instanceof RepositoryFolderNode || n instanceof BranchNode,
+			},
+		);
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}

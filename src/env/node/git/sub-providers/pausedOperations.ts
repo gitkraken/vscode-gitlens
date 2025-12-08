@@ -309,6 +309,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						mergeBase: mergeBase,
 						HEAD: createReference(rebaseHead ?? origHead, repoPath, { refType: 'revision' }),
 						onto: createReference(onto, repoPath, { refType: 'revision' }),
+						source: createReference(origHead, repoPath, { refType: 'revision' }),
 						current: ontoRef,
 						incoming: createReference(branch, repoPath, {
 							refType: 'branch',

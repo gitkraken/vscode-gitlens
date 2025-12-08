@@ -43,6 +43,12 @@ const defaultUserSettings: Record<string, unknown> = {
 	// Use custom dialogs for consistent behavior
 	'files.simpleDialog.enable': true,
 	'window.dialogStyle': 'custom',
+
+	// Associate git-rebase-todo files with GitLens rebase editor
+	// TODO: is this needed?
+	'workbench.editorAssociations': {
+		'git-rebase-todo': 'gitlens.rebase',
+	},
 };
 
 export interface LaunchOptions {

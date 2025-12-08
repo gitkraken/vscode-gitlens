@@ -47,6 +47,7 @@ export type ContextKeys = {
 	'gitlens:prerelease': boolean;
 	'gitlens:promo': PromoKeys;
 	'gitlens:readonly': boolean;
+	'gitlens:rebase:editor:enabled': boolean;
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];
 	'gitlens:repos:withHostingIntegrationsConnected': string[];

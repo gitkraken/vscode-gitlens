@@ -6,6 +6,7 @@ import type { CodeLensCommands } from '../../config';
 import type {
 	CoreCommands,
 	CoreGitCommands,
+	CustomEditorCommands,
 	GlCommands,
 	GlCommandsDeprecated,
 	WebviewCommands,
@@ -85,7 +86,7 @@ export function registerCommand(
 }
 
 export function registerWebviewCommand(
-	command: WebviewCommands | WebviewViewCommands,
+	command: WebviewCommands | WebviewViewCommands | CustomEditorCommands,
 	callback: CommandCallback,
 	thisArg?: any,
 ): Disposable {

@@ -1,6 +1,7 @@
 import type { ContributedCommands, ContributedPaletteCommands } from './constants.commands.generated';
 import type {
 	CoreViewContainerIds,
+	CustomEditorTypes,
 	TreeViewIds,
 	TreeViewTypes,
 	ViewContainerIds,
@@ -34,6 +35,7 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.pausedOperation.abort:graph'
 	| 'gitlens.pausedOperation.continue:graph'
 	| 'gitlens.pausedOperation.open:graph'
+	| 'gitlens.pausedOperation.showConflicts:graph'
 	| 'gitlens.pausedOperation.skip:graph'
 	| 'gitlens.visualizeHistory.repo:graph';
 
@@ -63,6 +65,7 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.pausedOperation.abort:home'
 	| 'gitlens.pausedOperation.continue:home'
 	| 'gitlens.pausedOperation.open:home'
+	| 'gitlens.pausedOperation.showConflicts:home'
 	| 'gitlens.pausedOperation.skip:home'
 	| 'gitlens.home.enableAi'
 	| 'gitlens.visualizeHistory.repo:home'
@@ -85,6 +88,8 @@ type InternalPlusCommands =
 	| 'gitlens.plus.validate';
 
 type InternalPullRequestViewCommands = 'gitlens.views.addPullRequestRemote';
+
+type InternalRebaseEditorCommands = 'gitlens.pausedOperation.showConflicts:rebase';
 
 type InternalScmGroupedViewCommands =
 	| 'gitlens.views.scm.grouped.welcome.dismiss'
@@ -162,6 +167,7 @@ type InternalGlCommands =
 	| InternalLaunchPadCommands
 	| InternalPlusCommands
 	| InternalPullRequestViewCommands
+	| InternalRebaseEditorCommands
 	| InternalScmGroupedViewCommands
 	| InternalTimelineWebviewViewCommands
 	| InternalViewCommands
@@ -180,6 +186,7 @@ export type CoreCommands =
 	| 'list.collapseAllToFocus'
 	| 'openInIntegratedTerminal'
 	| 'openInTerminal'
+	| 'reopenActiveEditorWith' // Requires VS Code 1.100 or later
 	| 'revealFileInOS'
 	| 'revealInExplorer'
 	| 'revealLine'
@@ -202,6 +209,8 @@ export type CoreCommands =
 	| 'workbench.action.newGroupRight'
 	| 'workbench.action.openSettings'
 	| 'workbench.action.openWalkthrough'
+	| 'workbench.action.reopenTextEditor'
+	| 'workbench.action.reopenWithEditor'
 	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.action.focusPanel'
 	| 'workbench.action.togglePanel'
@@ -251,6 +260,11 @@ export type WebviewViewCommands<T extends WebviewViewTypes = WebviewViewTypes> =
 	| FilterCommands<`gitlens.views.${T}`, GlCommands>
 	| FilterCommands<'gitlens.views.', GlCommands, `:${T}`>
 	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
+export type CustomEditorCommands<T extends CustomEditorTypes = CustomEditorTypes> = FilterCommands<
+	'gitlens.',
+	GlCommands,
+	`:${T}`
+>;
 
 /**
  * Extracts all possible prefixes (before the colon) from a union of commands.

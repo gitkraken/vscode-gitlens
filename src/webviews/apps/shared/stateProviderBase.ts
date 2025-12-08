@@ -75,13 +75,17 @@ export abstract class StateProviderBase<
 			const response = await this.ipc.sendRequest(WebviewReadyRequest, { bootstrap: true });
 			if (response.state != null) {
 				const state: State = (isPromise(response.state) ? await response.state : response.state) as State;
-				this._state = { ...state, timestamp: Date.now() };
-				this.provider.setValue(this._state as ContextType<TContext>, true);
-				this.host.requestUpdate();
+				this.onDeferredBootstrapStateReceived(state);
 			}
 		} else {
 			void this.ipc.sendRequest(WebviewReadyRequest, { bootstrap: false });
 		}
+	}
+
+	protected onDeferredBootstrapStateReceived(state: State): void {
+		this._state = { ...state, timestamp: Date.now() };
+		this.provider.setValue(this._state as ContextType<TContext>, true);
+		this.host.requestUpdate();
 	}
 
 	protected abstract onMessageReceived(msg: IpcMessage): void;

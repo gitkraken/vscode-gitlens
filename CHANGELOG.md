@@ -2969,8 +2969,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a quick-access button to the _Interactive Rebase Editor_ to disable it &mdash; closes [#1153](https://github.com/gitkraken/vscode-gitlens/issues/1153)
 - Adds shortcut keys to start and abort a rebase in the _Interactive Rebase Editor_
-- Adds a _Disable Interactive Rebase Editor_ command (`gitlens.disableRebaseEditor`) to disable the interactive rebase editor
-- Adds an _Enable Interactive Rebase Editor_ command (`gitlens.enableRebaseEditor`) to enable the interactive rebase editor
+- Adds a _Disable Interactive Rebase Editor_ command (`gitlens.rebase.disableEditor`) to disable the interactive rebase editor
+- Adds an _Enable Interactive Rebase Editor_ command (`gitlens.rebase.enableEditor`) to enable the interactive rebase editor
 - Adds an _Interactive Rebase Editor_ section to the GitLens Interactive Settings
 
 ### Changes

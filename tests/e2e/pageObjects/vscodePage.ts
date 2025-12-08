@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import type { Uri } from 'vscode';
 import { MaxTimeout } from '../baseTest';
 import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator';
 import { ActivityBar } from './components/activityBar';
@@ -59,17 +60,27 @@ export class VSCodePage {
 	}
 
 	/** Open a file via the VS Code API */
-	async openFile(filename: string): Promise<void> {
+	async openFile(filename: string, exact = false): Promise<void> {
 		// await this.commandPalette.openFile(filename);
 
-		await this.evaluate(async (vscode, file) => {
-			// Find the file in the workspace
-			const files = await vscode.workspace.findFiles(`**/${file}`, null, 1);
-			if (!files.length) throw new Error(`File not found: ${file}`);
+		await this.evaluate(
+			async (vscode, file, exact) => {
+				let uri: Uri;
+				if (exact) {
+					uri = vscode.Uri.file(file);
+					vscode.commands.executeCommand('vscode.open', uri);
+				} else {
+					// Find the file in the workspace
+					const files = await vscode.workspace.findFiles(`**/${file}`, null, 1);
+					if (!files.length) throw new Error(`File not found: ${file}`);
+					uri = files[0];
+				}
 
-			// Open the file in the editor
-			await vscode.window.showTextDocument(files[0]);
-		}, filename);
+				vscode.commands.executeCommand('vscode.open', uri);
+			},
+			filename,
+			exact,
+		);
 	}
 
 	/**

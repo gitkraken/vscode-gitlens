@@ -1,7 +1,12 @@
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
-import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
+import type { CustomEditorCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
-import type { WebviewIds, WebviewOrWebviewViewOrCustomEditorTypeFromId, WebviewViewIds } from '../constants.views';
+import type {
+	CustomEditorIds,
+	WebviewIds,
+	WebviewOrWebviewViewOrCustomEditorTypeFromId,
+	WebviewViewIds,
+} from '../constants.views';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,
@@ -55,7 +60,7 @@ export interface WebviewStateProvier<State, SerializedState, ShowingArgs extends
 	canReceiveMessage?(e: IpcMessage): boolean;
 }
 
-export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
+export interface WebviewHost<ID extends WebviewIds | WebviewViewIds | CustomEditorIds> {
 	readonly id: ID;
 	readonly instanceId: string;
 	readonly type: WebviewOrWebviewViewOrCustomEditorTypeFromId<ID>;
@@ -99,7 +104,7 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
 		params: IpcCallResponseParamsType<T>,
 	): Promise<boolean>;
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: WebviewCommands | WebviewViewCommands,
+		command: WebviewCommands | WebviewViewCommands | CustomEditorCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable;
 	show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]): Promise<void>;

@@ -77,6 +77,7 @@ import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/r
 import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from './webviews/plus/timeline/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
+import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar';
 import { WebviewsController } from './webviews/webviewsController';
 
 export type Environment = 'dev' | 'staging' | 'production';
@@ -234,7 +235,10 @@ export class Container {
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
-		const webviews = new WebviewsController(this);
+		const webviewCommandRegistrar = new WebviewCommandRegistrar();
+		this._disposables.push(webviewCommandRegistrar);
+
+		const webviews = new WebviewsController(this, webviewCommandRegistrar);
 		this._disposables.push(webviews);
 		this._disposables.push((this._views = new Views(this, webviews)));
 
@@ -251,7 +255,7 @@ export class Container {
 		this._disposables.push(timelinePanels);
 		this._disposables.push(registerTimelineWebviewCommands(this, timelinePanels));
 
-		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
+		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this, webviewCommandRegistrar)));
 
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);

@@ -161,7 +161,7 @@ function createOrUpdateAvatar(
 	let avatar = avatarCache!.get(key);
 	if (avatar == null) {
 		avatar = {
-			uri: email != null && email.length !== 0 ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
+			uri: email?.length ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
 			fallback: getAvatarUriFromGravatar(hash, size, defaultStyle),
 			timestamp: 0,
 			retries: 0,
@@ -204,6 +204,10 @@ export function getAvatarUriFromGravatarEmail(email: string, size: number, defau
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
+	if (email === 'noreply@github.com') {
+		return Uri.parse('https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png');
+	}
+
 	const parts = getGitHubNoReplyAddressParts(email);
 	if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
 

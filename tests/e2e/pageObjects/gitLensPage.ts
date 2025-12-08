@@ -67,7 +67,7 @@ export class GitLensPage extends VSCodePage {
 
 	/** Home webview in GitLens sidebar */
 	get homeViewWebview(): Promise<FrameLocator | null> {
-		return this.getGitLensWebview('Home');
+		return this.getGitLensWebview('Home', 'webviewView');
 	}
 
 	async showHomeView(): Promise<void> {
@@ -99,7 +99,7 @@ export class GitLensPage extends VSCodePage {
 
 	/** Inspect webview in GitLens Inspect sidebar */
 	get inspectViewWebview(): Promise<FrameLocator | null> {
-		return this.getGitLensWebview('Inspect');
+		return this.getGitLensWebview('Inspect', 'webviewView');
 	}
 
 	/** Line History section in GitLens Inspect sidebar */
@@ -137,7 +137,7 @@ export class GitLensPage extends VSCodePage {
 
 	/** Visual History webview in GitLens Inspect sidebar */
 	get visualHistoryViewWebview(): Promise<FrameLocator | null> {
-		return this.getGitLensWebview('Visual File History');
+		return this.getGitLensWebview('Visual File History', 'webviewView');
 	}
 
 	async showVisualFileHistoryView(): Promise<void> {
@@ -176,7 +176,7 @@ export class GitLensPage extends VSCodePage {
 	/** Commit Graph webview in the panel */
 	get commitGraphViewWebview(): Promise<FrameLocator | null> {
 		// Find the GitLens webview with title "Graph"
-		return this.getGitLensWebview('Graph');
+		return this.getGitLensWebview('Graph', 'webviewView');
 	}
 
 	async showCommitGraphView(): Promise<void> {
@@ -191,7 +191,7 @@ export class GitLensPage extends VSCodePage {
 	/** Commit Graph Details webview in the panel */
 	get commitGraphDetailsViewWebview(): Promise<FrameLocator | null> {
 		// Find the GitLens webview with title "Graph Details"
-		return this.getGitLensWebview('Graph Details');
+		return this.getGitLensWebview('Graph Details', 'webviewView');
 	}
 
 	// ============================================================================
@@ -252,6 +252,14 @@ export class GitLensPage extends VSCodePage {
 		await this.executeCommand('gitlens.showContributorsView', 'GitLens: Show Contributors View');
 	}
 
+	// ============================================================================
+	// GitLens Webviews
+	// ============================================================================
+
+	async getRebaseWebview(): Promise<FrameLocator | null> {
+		return this.getGitLensWebview('Interactive Rebase', 'customEditor');
+	}
+
 	/**
 	 * Get a webview frame locator within a specific parent.
 	 * This avoids needing to know specific content inside the webview.
@@ -286,26 +294,34 @@ export class GitLensPage extends VSCodePage {
 	 * Find a GitLens webview by its title.
 	 * VS Code renders webviews outside their logical containers, so we search all webviews
 	 * and identify the correct one by:
-	 * 1. The outer iframe src containing extensionId=eamodio.gitlens and purpose=webviewView
+	 * 1. The outer iframe src containing extensionId=eamodio.gitlens and purpose=webviewView/webviewPanel
 	 * 2. The inner iframe#active-frame having the specified title attribute
 	 *
 	 * @param title - The title of the webview (e.g., "Graph", "Graph Details", "Home")
+	 * @param purpose - The purpose of the webview (e.g., "webviewView", "webviewPanel")
 	 * @param timeout - Timeout in ms (default: 5000)
 	 * @returns A FrameLocator for the matching webview content, or null if not found
 	 */
-	async getGitLensWebview(title: string, timeout = 5000): Promise<FrameLocator | null> {
+	async getGitLensWebview(
+		title: string,
+		purpose: 'webviewView' | 'webviewPanel' | 'customEditor',
+		timeout = 5000,
+	): Promise<FrameLocator | null> {
 		const startTime = Date.now();
 		while (Date.now() - startTime < timeout) {
 			// Find GitLens webviewView iframes
 			const iframes = this.page.locator(
-				'iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=webviewView"]',
+				purpose === 'webviewView'
+					? `iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=${purpose}"]`
+					: `iframe.webview[src*="extensionId=eamodio.gitlens"]`,
 			);
 			const count = await iframes.count();
 
 			for (let i = 0; i < count; i++) {
 				try {
 					const outerFrame = iframes.nth(i).contentFrame();
-					const activeFrame = outerFrame.locator(`iframe#active-frame[title="${title}"]`);
+					// Use partial match for title to handle cases where branch name is appended (e.g. "Interactive Rebase (main)")
+					const activeFrame = outerFrame.locator(`iframe#active-frame[title*="${title}"]`);
 					if ((await activeFrame.count()) > 0) {
 						return activeFrame.contentFrame();
 					}

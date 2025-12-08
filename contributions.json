@@ -1864,10 +1864,6 @@
 			"label": "Disable Debug Logging",
 			"commandPalette": "config.gitlens.outputLevel == debug"
 		},
-		"gitlens.disableRebaseEditor": {
-			"label": "Disable Interactive Rebase Editor",
-			"commandPalette": "gitlens:enabled"
-		},
 		"gitlens.disconnectRemoteProvider": {
 			"label": "Disconnect Remote Integration",
 			"icon": "$(gitlens-unplug)",
@@ -1890,10 +1886,6 @@
 		"gitlens.enableDebugLogging": {
 			"label": "Enable Debug Logging",
 			"commandPalette": "config.gitlens.outputLevel != debug"
-		},
-		"gitlens.enableRebaseEditor": {
-			"label": "Enable Interactive Rebase Editor",
-			"commandPalette": "gitlens:enabled"
 		},
 		"gitlens.externalDiff": {
 			"label": "Open Changes (difftool)",
@@ -4474,6 +4466,90 @@
 						"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.graphDetails",
 						"group": "1_gitlens_quick",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.rebase.abort:editor/title": {
+			"label": "Abort Rebase",
+			"icon": "$(circle-slash)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo",
+						"group": "navigation",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.rebase.continue:editor/title": {
+			"label": "Start/Continue Rebase",
+			"icon": "$(check)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo",
+						"group": "navigation",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.rebase.disableEditor": {
+			"label": "Disable Interactive Rebase Editor",
+			"commandPalette": "gitlens:enabled"
+		},
+		"gitlens.rebase.disableEditor:editor/title": {
+			"label": "Disable Interactive Editor",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo && (activeCustomEditorId == gitlens.rebase || gitlens:rebase:editor:enabled)",
+						"group": "9_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.rebase.enableEditor": {
+			"label": "Enable Interactive Rebase Editor",
+			"commandPalette": "gitlens:enabled"
+		},
+		"gitlens.rebase.enableEditor:editor/title": {
+			"label": "Enable Interactive Editor",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo && (activeCustomEditorId != gitlens.rebase || !gitlens:rebase:editor:enabled)",
+						"group": "9_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.rebase.reopenAsInteractiveEditor:editor/title": {
+			"label": "Switch to Interactive Editor",
+			"icon": "$(gitlens-gitlens)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo && activeCustomEditorId != gitlens.rebase",
+						"group": "navigation",
+						"order": 10
+					}
+				]
+			}
+		},
+		"gitlens.rebase.reopenAsTextEditor:editor/title": {
+			"label": "Switch to Text Editor",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resourceFilename == git-rebase-todo && activeCustomEditorId == gitlens.rebase",
+						"group": "navigation",
+						"order": 10
 					}
 				]
 			}

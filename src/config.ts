@@ -165,7 +165,6 @@ export type SuppressedMessages =
 	| 'suppressGitVersionWarning'
 	| 'suppressLineUncommittedWarning'
 	| 'suppressNoRepositoryWarning'
-	| 'suppressRebaseSwitchToTextWarning'
 	| 'suppressGkDisconnectedTooManyFailedRequestsWarningMessage'
 	| 'suppressGkRequestFailed500Warning'
 	| 'suppressGkRequestTimedOutWarning'
@@ -665,7 +664,8 @@ interface ProxyConfig {
 
 interface RebaseEditorConfig {
 	readonly ordering: 'asc' | 'desc';
-	readonly showDetailsView: 'open' | 'selection' | false;
+	readonly revealLocation: 'graph' | 'inspect';
+	readonly revealBehavior: 'never' | 'onOpen' | 'onSelection';
 }
 
 export type RemotesConfig =

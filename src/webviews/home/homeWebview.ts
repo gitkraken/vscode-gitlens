@@ -22,7 +22,12 @@ import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { revealBranch } from '../../git/actions/branch';
 import { openComparisonChanges } from '../../git/actions/commit';
-import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../../git/actions/pausedOperation';
+import {
+	abortPausedOperation,
+	continuePausedOperation,
+	showPausedOperationStatus,
+	skipPausedOperation,
+} from '../../git/actions/pausedOperation';
 import * as RepoActions from '../../git/actions/repository';
 import { revealWorktree } from '../../git/actions/worktree';
 import { PushError } from '../../git/errors';
@@ -401,6 +406,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.pausedOperation.continue:home', this.continuePausedOperation, this),
 			registerCommand('gitlens.pausedOperation.abort:home', this.abortPausedOperation, this),
 			registerCommand('gitlens.pausedOperation.open:home', this.openRebaseEditor, this),
+			registerCommand('gitlens.pausedOperation.showConflicts:home', this.showConflicts, this),
 			registerCommand('gitlens.home.enableAi', this.enableAi, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
@@ -696,6 +702,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
 		});
+	}
+
+	@log<HomeWebviewProvider['showConflicts']>({ args: { 0: op => op.type } })
+	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { openRebaseEditor: true });
 	}
 
 	@log<HomeWebviewProvider['createCloudPatch']>({ args: { 0: r => r.branchId } })

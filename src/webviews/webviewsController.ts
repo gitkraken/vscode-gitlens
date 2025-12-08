@@ -1,16 +1,8 @@
-import type {
-	CancellationToken,
-	WebviewOptions,
-	WebviewPanel,
-	WebviewPanelOptions,
-	WebviewView,
-	WebviewViewResolveContext,
-} from 'vscode';
+import type { CancellationToken, WebviewPanel, WebviewView, WebviewViewResolveContext } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { GlCommands } from '../constants.commands';
-import type { TrackedUsageFeatures } from '../constants.telemetry';
-import type { WebviewIds, WebviewTypeFromId, WebviewViewIds, WebviewViewTypeFromId } from '../constants.views';
+import type { WebviewIds, WebviewViewIds } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCoreCommand, registerCommand } from '../system/-webview/command';
@@ -19,25 +11,10 @@ import { debug } from '../system/decorators/log';
 import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { startLogScope } from '../system/logger.scope';
-import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
+import type { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import { WebviewController } from './webviewController';
+import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
-
-export interface WebviewPanelDescriptor<ID extends WebviewIds> {
-	id: ID;
-	readonly fileName: string;
-	readonly iconPath: string;
-	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypeFromId<ID>}`;
-	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewTypeFromId<ID>;
-	readonly plusFeature: boolean;
-	readonly column?: ViewColumn;
-	readonly webviewOptions?: WebviewOptions;
-	readonly webviewHostOptions?: WebviewPanelOptions;
-
-	readonly allowMultipleInstances?: boolean;
-}
 
 interface WebviewPanelRegistration<
 	ID extends WebviewIds,
@@ -85,22 +62,6 @@ export interface WebviewPanelsProxy<
 	splitActiveInstance(options?: WebviewPanelsShowOptions): Promise<void>;
 }
 
-export interface WebviewViewDescriptor<ID extends WebviewViewIds = WebviewViewIds> {
-	id: ID;
-	readonly fileName: string;
-	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypeFromId<ID>}`;
-	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewViewTypeFromId<ID>;
-	readonly plusFeature: boolean;
-	readonly webviewOptions?: WebviewOptions;
-	readonly webviewHostOptions?: {
-		readonly retainContextWhenHidden?: boolean;
-	};
-
-	readonly allowMultipleInstances?: never;
-}
-
 interface WebviewViewRegistration<
 	ID extends WebviewViewIds,
 	State,
@@ -125,13 +86,13 @@ export interface WebviewViewProxy<ID extends WebviewViewIds, ShowingArgs extends
 
 export class WebviewsController implements Disposable {
 	private readonly disposables: Disposable[] = [];
-	private readonly _commandRegistrar: WebviewCommandRegistrar;
 	private readonly _panels = new Map<string, WebviewPanelRegistration<WebviewIds, any>>();
 	private readonly _views = new Map<string, WebviewViewRegistration<WebviewViewIds, any>>();
 
-	constructor(private readonly container: Container) {
-		this.disposables.push((this._commandRegistrar = new WebviewCommandRegistrar()));
-	}
+	constructor(
+		private readonly container: Container,
+		private readonly commandRegistrar: WebviewCommandRegistrar,
+	) {}
 
 	dispose(): void {
 		this.disposables.forEach(d => void d.dispose());
@@ -195,7 +156,7 @@ export class WebviewsController implements Disposable {
 
 						const controller = await WebviewController.create<ID, State, SerializedState, ShowingArgs>(
 							this.container,
-							this._commandRegistrar,
+							this.commandRegistrar,
 							descriptor,
 							instanceId,
 							webviewView,
@@ -303,7 +264,7 @@ export class WebviewsController implements Disposable {
 		this._panels.set(descriptor.id, registration);
 
 		const disposables: Disposable[] = [];
-		const { container, _commandRegistrar: commandRegistrar } = this;
+		const { container, commandRegistrar } = this;
 
 		let serializedPanel: WebviewPanel | undefined;
 
