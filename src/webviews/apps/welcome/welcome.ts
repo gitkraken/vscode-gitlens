@@ -17,6 +17,11 @@ import './components/feature-card';
 import './components/feature-narrow-card';
 import './components/scrollable-features';
 
+const helpBlameUrl =
+	'https://www.gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links#Visual-Repository-Intelligence';
+const helpLaunchpadUrl =
+	'https://www.gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links#Visual-Repository-Intelligence';
+
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {
 	static override styles = [scrollableBase, welcomeStyles];
@@ -65,8 +70,8 @@ export class GlWelcomeApp extends GlAppHost<State> {
 					<gl-feature-carousel>
 						<gl-feature-card class="card">
 							<img slot="image" src="${this.webroot ?? ''}/media/feature-graph.webp" alt="Commit Graph" />
-							<h1>Commit Graph</h1>
-							<p>Visualize your repository's history and interact with commits</p>
+							<h1>Navigate Complex Repository Structures</h1>
+							<p>by unlocking the full potential of the interactive Commit Graph.</p>
 							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
 						</gl-feature-card>
 						<gl-feature-card class="card">
@@ -75,9 +80,19 @@ export class GlWelcomeApp extends GlAppHost<State> {
 								src="${this.webroot ?? ''}/media/feature-timeline.webp"
 								alt="Visual File History"
 							/>
-							<h1>Visual File History</h1>
-							<p>Track changes to any file over time</p>
+							<h1>Accelereate Code Reviews</h1>
+							<p>Visual File History provides context into the most important changes.</p>
 							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
+						</gl-feature-card>
+						<gl-feature-card class="card">
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-launchpad.webp"
+								alt="Launchpad"
+							/>
+							<h1>Streamline Pull Request Management</h1>
+							<p>Launchpad integrates PR workflows directly into your editor.</p>
+							<p><a href="command:gitlens.showLaunchpad">Open Launchpad</a></p>
 						</gl-feature-card>
 					</gl-feature-carousel>
 				</div>
@@ -95,74 +110,20 @@ export class GlWelcomeApp extends GlAppHost<State> {
 						<gl-feature-narrow-card class="card">
 							<img
 								slot="image"
-								src="${this.webroot ?? ''}/media/feature-graph.webp"
-								alt="Commit Graph"
-								width="100"
-								height="100"
+								src="${this.webroot ?? ''}/media/feature-icon-compass.webp"
+								alt="Git Blame"
 							/>
-							<h1>Commit Graph</h1>
-							<p>Visualize your repository's history and interact with commits</p>
-							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
+							<h1>Git Blame</h1>
+							<p>Understand the context behind every line with inline blame annotations</p>
+							<p>
+								<a href="${helpBlameUrl}">Learn more</a>
+							</p>
 						</gl-feature-narrow-card>
 						<gl-feature-narrow-card class="card">
-							<img
-								slot="image"
-								src="${this.webroot ?? ''}/media/feature-timeline.webp"
-								alt="Visual File History"
-								width="32"
-								height="32"
-							/>
-							<h1>Visual File History</h1>
-							<p>Track changes to any file over time</p>
-							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
-						</gl-feature-narrow-card>
-						<gl-feature-narrow-card class="card">
-							<img
-								slot="image"
-								src="${this.webroot ?? ''}/media/feature-graph.webp"
-								alt="Commit Graph"
-								width="100"
-								height="100"
-							/>
-							<h1>Commit Graph</h1>
-							<p>Visualize your repository's history and interact with commits</p>
-							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
-						</gl-feature-narrow-card>
-						<gl-feature-narrow-card class="card">
-							<img
-								slot="image"
-								src="${this.webroot ?? ''}/media/feature-timeline.webp"
-								alt="Visual File History"
-								width="32"
-								height="32"
-							/>
-							<h1>Visual File History</h1>
-							<p>Track changes to any file over time</p>
-							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
-						</gl-feature-narrow-card>
-						<gl-feature-narrow-card class="card">
-							<img
-								slot="image"
-								src="${this.webroot ?? ''}/media/feature-graph.webp"
-								alt="Commit Graph"
-								width="100"
-								height="100"
-							/>
-							<h1>Commit Graph</h1>
-							<p>Visualize your repository's history and interact with commits</p>
-							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
-						</gl-feature-narrow-card>
-						<gl-feature-narrow-card class="card">
-							<img
-								slot="image"
-								src="${this.webroot ?? ''}/media/feature-timeline.webp"
-								alt="Visual File History"
-								width="32"
-								height="32"
-							/>
-							<h1>Visual File History</h1>
-							<p>Track changes to any file over time</p>
-							<p><a href="command:gitlens.showTimelineView">Open Visual File History</a></p>
+							<img slot="image" src="${this.webroot ?? ''}//media/feature-icon-pr.webp" alt="Launchpad" />
+							<h1>Launchpad</h1>
+							<p>Your personalized command center for managing pull requests and issues</p>
+							<p><a href="${helpLaunchpadUrl}">Learn more</a></p>
 						</gl-feature-narrow-card>
 					</gl-scrollable-features>
 				</div>
