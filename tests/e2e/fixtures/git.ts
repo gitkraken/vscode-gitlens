@@ -79,7 +79,7 @@ export class GitFixture {
 		signalEditorDone: () => Promise<void>;
 		signalEditorAbort: () => Promise<void>;
 	} {
-		const waitEditorPath = path.join(__dirname, 'waitEditor.js');
+		const waitEditorPath = path.join(__dirname, '../../../scripts/tests/waitEditor.mjs');
 		const sequenceEditor = `"${process.execPath}" "${waitEditorPath}"`;
 
 		const configs: string[] = ['-c', `sequence.editor=${sequenceEditor}`];

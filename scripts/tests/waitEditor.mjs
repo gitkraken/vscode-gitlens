@@ -10,12 +10,11 @@
  * 2. Waits for <todo-file>.done to exist
  * 3. Exits with code 0
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
 
 const todoFile = process.argv[2];
 if (!todoFile) {
-	console.error('Usage: node waitEditor.js <todo-file>');
+	console.error('Usage: node waitEditor.mjs <todo-file>');
 	process.exit(1);
 }
 
