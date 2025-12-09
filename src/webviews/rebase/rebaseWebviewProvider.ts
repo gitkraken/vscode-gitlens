@@ -34,7 +34,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { closeTab } from '../../system/-webview/vscode/tabs';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
-import { concat, filterMap, find, first, join, map } from '../../system/iterable';
+import { concat, filterMap, find, first, join, last, map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import type { ComposerWebviewShowingArgs } from '../plus/composer/registration';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
@@ -318,7 +318,13 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onRecompose(): Promise<void> {
 		// Get commit SHAs from the rebase entries
 		const { processed } = this.getParsedTodo();
-		const commitShas = [...processed.commits.values()].map(e => e.sha);
+
+		// Get the base commit SHA from the onto commit (the commit we're rebasing onto)
+		const startShortSha = last(processed.commits.keys())!;
+		const baseShortSha = this._enrichment.onto!.sha;
+		const { commits } = await this.getAndUpdateCommits([startShortSha, baseShortSha]);
+		const startCommitSha = commits.get(startShortSha)!.sha;
+		const baseCommitSha = commits.get(baseShortSha)!.sha;
 
 		// Open the Commit Composer with the commits
 		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
@@ -329,7 +335,7 @@ export class RebaseWebviewProvider implements Disposable {
 				source: 'rebaseEditor',
 				mode: 'preview',
 				branchName: this._branchName ?? undefined,
-				commitShas: commitShas,
+				range: { base: baseCommitSha, head: startCommitSha },
 			},
 		);
 
@@ -399,13 +405,24 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onGetMissingCommits(params: GetMissingCommitsParams): Promise<void> {
 		if (!params.shas.length || !this.repoPath) return;
 
+		const { commits, authors } = await this.getAndUpdateCommits(params.shas);
+		if (commits.size) {
+			this.notifyDidChangeCommits(commits, authors);
+		}
+	}
+
+	private async getAndUpdateCommits(
+		shas: string[],
+	): Promise<{ commits: Map<string, GitCommit>; authors: Map<string, Author> }> {
+		if (!shas.length || !this.repoPath) return { commits: new Map(), authors: new Map() };
+
 		const requestedCommits = new Map<string, GitCommit>();
 		const requestedAuthors = new Map<string, Author>();
 
 		const { authors, commits } = this._enrichment;
 
-		const shas = new Set(params.shas);
-		const shasToLoad = new Set(shas);
+		const shasRequested = new Set(shas);
+		const shasToLoad = new Set(shasRequested);
 		for (const sha of shasToLoad) {
 			const commit = commits.get(sha);
 			if (commit == null) continue;
@@ -416,7 +433,7 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const results = shasToLoad.size ? await this.getCommitsByShas(shasToLoad) : [];
 		for (const commit of concat(requestedCommits.values(), results)) {
-			const requestedSha = find(shas, s => commit.sha.startsWith(s));
+			const requestedSha = find(shasRequested, s => commit.sha.startsWith(s));
 			if (requestedSha == null) {
 				debugger;
 				continue;
@@ -457,9 +474,7 @@ export class RebaseWebviewProvider implements Disposable {
 			requestedAuthors.set(committerName, committer);
 		}
 
-		if (requestedCommits.size) {
-			this.notifyDidChangeCommits(requestedCommits, requestedAuthors);
-		}
+		return { commits: requestedCommits, authors: requestedAuthors };
 	}
 
 	/** Handles request for potential rebase conflicts (Pro feature) */

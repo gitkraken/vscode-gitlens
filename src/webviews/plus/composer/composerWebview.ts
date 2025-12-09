@@ -116,7 +116,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private _safetyState: ComposerSafetyState;
 
 	// Branch mode state
-	private _recompose: { enabled: boolean; branchName?: string; locked: boolean; commitShas?: string[] } | null = null;
+	private _recompose: {
+		enabled: boolean;
+		branchName?: string;
+		locked: boolean;
+		commitShas?: string[];
+		range?: { base: string; head: string };
+	} | null = null;
 
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
 	private _context: ComposerContext;
@@ -299,7 +305,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			};
 		}
 
-		// Check if this is branch mode
+		// If range is explicitly provided, use it directly (skips merge target resolution)
+		if (args?.range) {
+			return this.initializeStateFromExplicitRange(
+				repo,
+				args.branchName,
+				args.range,
+				args.mode,
+				args.source,
+				args.commitShas,
+			);
+		}
+
+		// Check if this is branch mode (requires merge target resolution)
 		if (args?.branchName) {
 			return this.initializeStateAndContextFromBranch(
 				repo,
@@ -310,6 +328,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			);
 		}
 
+		// Default to working directory mode
 		return this.initializeStateAndContextFromWorkingDirectory(
 			repo,
 			args?.includedUnstagedChanges,
@@ -630,6 +649,109 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
+	/**
+	 * Initializes state when an explicit range is provided.
+	 * This bypasses merge target resolution and uses the provided range directly.
+	 */
+	private async initializeStateFromExplicitRange(
+		repo: Repository,
+		branchName: string | undefined,
+		range: { base: string; head: string },
+		mode: 'experimental' | 'preview' = 'preview',
+		source?: Sources,
+		commitShas?: string[],
+		isReload?: boolean,
+	): Promise<State> {
+		const { base: baseCommitSha, head: headCommitSha } = range;
+
+		// Get the base commit
+		const baseCommitResult = await repo.git.commits.getCommit(baseCommitSha);
+		if (!baseCommitResult) {
+			return {
+				...this.initialState,
+				loadingError: `Base commit '${baseCommitSha}' not found.`,
+			};
+		}
+
+		// Validate head commit exists
+		const headCommitResult = await repo.git.commits.getCommit(headCommitSha);
+		if (!headCommitResult) {
+			return {
+				...this.initialState,
+				loadingError: `Head commit '${headCommitSha}' not found.`,
+			};
+		}
+
+		const log = await repo.git.commits.getLog(`${baseCommitSha}..${headCommitSha}`, { limit: 0 });
+		if (!log?.commits?.size) {
+			return {
+				...this.initialState,
+				loadingError: `No commits found between base commit and head commit.`,
+			};
+		}
+
+		// Convert Map to Array and reverse to oldest first for processing
+		const branchCommits = Array.from(log.commits.values()).reverse();
+
+		// Create composer commits and hunks from branch commits
+		const composerData = await createComposerCommitsFromGitCommits(repo, branchCommits);
+		if (!composerData) {
+			return {
+				...this.initialState,
+				loadingError: branchName
+					? `Failed to process commits for branch '${branchName}'.`
+					: 'Failed to process commits in range.',
+			};
+		}
+
+		const { commits, hunks } = composerData;
+
+		// Validate that all provided commitShas are found in the commits (if provided)
+		if (commitShas && commitShas.length > 0) {
+			const commitShasSet = new Set(commitShas);
+			const missingShas = [...commitShasSet].filter(sha => !commits.find(c => c.sha === sha));
+			if (missingShas.length > 0) {
+				return {
+					...this.initialState,
+					loadingError: branchName
+						? `The following commit shas were not found in the commits for branch '${branchName}': ${missingShas.join(', ')}`
+						: `The following commit shas were not found in the commits: ${missingShas.join(', ')}`,
+				};
+			}
+		}
+
+		const diffs = (await getComposerDiffs(repo, { baseSha: baseCommitSha, headSha: headCommitSha }))!;
+
+		const baseCommit: ComposerBaseCommit = {
+			sha: baseCommitSha,
+			message: baseCommitResult.message ?? '',
+			repoName: repo.name,
+			branchName: branchName,
+		};
+
+		// Initialize state and context, then store range in _recompose
+		const state = await this.initializeStateAndContext(
+			repo,
+			hunks,
+			commits,
+			diffs,
+			baseCommit,
+			headCommitSha,
+			branchName,
+			mode,
+			source,
+			commitShas,
+			isReload,
+		);
+
+		// Store range in _recompose for reload scenarios
+		if (this._recompose) {
+			this._recompose.range = range;
+		}
+
+		return state;
+	}
+
 	private getRepositoryState() {
 		if (this._currentRepository == null) return undefined;
 
@@ -725,22 +847,36 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			// Initialize composer data from the repository
-			const composerData = this._recompose?.branchName
-				? await this.initializeStateAndContextFromBranch(
-						repo,
-						this._recompose.branchName,
-						params.mode,
-						params.source,
-						this._recompose.commitShas,
-						true,
-					)
-				: await this.initializeStateAndContextFromWorkingDirectory(
-						repo,
-						this._context.diff.unstagedIncluded,
-						params.mode,
-						params.source,
-						true,
-					);
+			let composerData: State;
+			// If range is stored, use explicit range initialization
+			if (this._recompose?.range) {
+				composerData = await this.initializeStateFromExplicitRange(
+					repo,
+					this._recompose.branchName,
+					this._recompose.range,
+					params.mode,
+					params.source,
+					this._recompose.commitShas,
+					true,
+				);
+			} else if (this._recompose?.branchName) {
+				composerData = await this.initializeStateAndContextFromBranch(
+					repo,
+					this._recompose.branchName,
+					params.mode,
+					params.source,
+					this._recompose.commitShas,
+					true,
+				);
+			} else {
+				composerData = await this.initializeStateAndContextFromWorkingDirectory(
+					repo,
+					this._context.diff.unstagedIncluded,
+					params.mode,
+					params.source,
+					true,
+				);
+			}
 
 			// Check if there was a loading error
 			if (composerData.loadingError) {

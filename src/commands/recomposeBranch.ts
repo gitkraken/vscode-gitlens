@@ -15,7 +15,10 @@ import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
 export interface RecomposeBranchCommandArgs {
 	repoPath?: string;
 	branchName?: string;
+	/** Optional filter: if provided, only these commits are selectable for composition */
 	commitShas?: string[];
+	/** If provided, defines the commit range directly (skips merge target resolution) */
+	range?: { base: string; head: string };
 	source?: Sources;
 }
 
@@ -98,6 +101,7 @@ export class RecomposeBranchCommand extends GlCommandBase {
 					mode: 'preview',
 					branchName: branchName,
 					commitShas: args?.commitShas,
+					range: args?.range,
 				},
 			);
 		} catch (ex) {

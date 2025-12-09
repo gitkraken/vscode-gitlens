@@ -12,7 +12,10 @@ export interface ComposerCommandArgs {
 	mode?: 'experimental' | 'preview';
 	includedUnstagedChanges?: boolean;
 	branchName?: string;
+	/** Optional filter: if provided, only these commits are selectable for composition */
 	commitShas?: string[];
+	/** If provided, defines the commit range directly (skips merge target resolution) */
+	range?: { base: string; head: string };
 }
 
 export type ComposerWebviewShowingArgs = [ComposerCommandArgs];

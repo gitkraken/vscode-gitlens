@@ -48,7 +48,7 @@ export interface ComposerBaseCommit {
 	sha: string;
 	message: string;
 	repoName: string;
-	branchName: string;
+	branchName?: string;
 }
 
 export interface ComposerSafetyState {

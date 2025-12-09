@@ -4579,10 +4579,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const branchName = branchesReachingAll[0];
 
+		// Get the base commit (parent of the oldest selected commit) and head commit (newest selected commit)
+		const oldestCommitSha = commitShas[0];
+		const newestCommitSha = commitShas[commitShas.length - 1];
+		const oldestRow = graph.rows.find(r => r.sha === oldestCommitSha);
+		const baseCommitSha = oldestRow?.parents?.[0];
+
 		await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeSelectedCommits', {
 			repoPath: repoPath,
 			branchName: branchName,
 			commitShas: commitShas,
+			range: baseCommitSha ? { base: baseCommitSha, head: newestCommitSha } : undefined,
 			source: 'graph',
 		});
 	}
