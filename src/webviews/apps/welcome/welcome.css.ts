@@ -113,6 +113,11 @@ const section = css`
 			width: initial;
 		}
 	}
+
+	.section.wide {
+		margin-left: -20px;
+		margin-right: -20px;
+	}
 `;
 
 const header = css`
@@ -182,12 +187,7 @@ const cards = css`
 
 const scrollableFeatures = css`
 	gl-scrollable-features {
-		display: flex;
-		gap: 1em;
-		max-width: 100%;
-		overflow-x: auto;
-		overflow-y: hidden;
-		scrollbar-width: none;
+		--side-shadowed-padding: 20px;
 	}
 `;
 

@@ -15,6 +15,7 @@ import { welcomeStyles } from './welcome.css';
 import './components/feature-carousel';
 import './components/feature-card';
 import './components/feature-narrow-card';
+import './components/scrollable-features';
 
 @customElement('gl-welcome-app')
 export class GlWelcomeApp extends GlAppHost<State> {
@@ -89,7 +90,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 					<h2>You also get these free features</h2>
 				</div>
 
-				<div class="section">
+				<div class="section wide">
 					<gl-scrollable-features>
 						<gl-feature-narrow-card class="card">
 							<img
