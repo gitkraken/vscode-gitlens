@@ -25,7 +25,6 @@ export class GlFeatureNarrowCard extends LitElement {
 			.image ::slotted(img) {
 				max-height: 2.23em;
 				border-radius: 0.6em;
-				/* background: rgba(255, 255, 255, 0.04);*/
 			}
 
 			::slotted(p:last-child) {

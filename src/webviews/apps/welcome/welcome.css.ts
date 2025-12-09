@@ -9,6 +9,30 @@ const colorScheme = css`
 
 		--hero-gradient: radial-gradient(76.32% 76.32% at 50% 7.24%, #7b00ff 29.72%, rgba(255, 0, 242, 0) 100%);
 		--trial-button-gradient: linear-gradient(90deg, #7900c9 0%, #196fff 100%);
+		--trial-button-border: none;
+		--trial-button-text-color: #fff;
+	}
+
+	:host-context(.vscode-light) {
+		--hero-gradient: radial-gradient(62.4% 62.4% at 50% 7.24%, #7b00ff 29.72%, rgba(255, 0, 242, 0) 100%);
+	}
+
+	:host-context(.vscode-dark) {
+		--hero-gradient: radial-gradient(76.32% 76.32% at 50% 7.24%, #7b00ff 29.72%, rgba(255, 0, 242, 0) 100%);
+	}
+
+	:host-context(.vscode-high-contrast) {
+		--hero-gradient: transparent;
+		--trial-button-gradient: var(--color-button-background);
+		--trial-button-border: 1px solid var(--vscode-button-border);
+		--trial-button-text-color: var(--color-button-foreground);
+	}
+
+	:host-context(.vscode-high-contrast-light) {
+		--accent-color: #500070;
+	}
+	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) {
+		--accent-color: #ffc0ff;
 	}
 `;
 
@@ -103,7 +127,8 @@ const section = css`
 	}
 	.section.start-trial gl-button {
 		background: var(--trial-button-gradient);
-		border: none;
+		border: var(--trial-button-border);
+		color: var(--trial-button-text-color);
 		width: 100%;
 	}
 

@@ -15,6 +15,7 @@ export class GlScrollableFeatures extends LitElement {
 		css`
 			:host {
 				--side-shadowed-padding: 1em;
+				--background-color: var(--vscode-editor-background);
 
 				position: relative;
 				max-width: 100%;
@@ -31,11 +32,11 @@ export class GlScrollableFeatures extends LitElement {
 
 			:host::before {
 				left: 0;
-				background: linear-gradient(to left, transparent 0%, var(--vscode-editor-background) 83%);
+				background: linear-gradient(to left, transparent 0%, var(--background-color) 83%);
 			}
 			:host::after {
 				right: 0;
-				background: linear-gradient(to right, transparent 0%, var(--vscode-editor-background) 83%);
+				background: linear-gradient(to right, transparent 0%, var(--background-color) 83%);
 			}
 
 			.content {

@@ -1,7 +1,7 @@
 /*global*/
 import './welcome.scss';
 import { html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { GlCommands } from '../../../constants.commands';
 import { ExecuteCommand } from '../../protocol';
 import type { State } from '../../welcome/protocol';
@@ -9,6 +9,7 @@ import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { LoggerContext } from '../shared/contexts/logger';
 import type { HostIpc } from '../shared/ipc';
+import type { ThemeChangeEvent } from '../shared/theme';
 import { WelcomeStateProvider } from './stateProvider';
 import '../shared/components/gitlens-logo';
 import { welcomeStyles } from './welcome.css';
@@ -37,6 +38,13 @@ export class GlWelcomeApp extends GlAppHost<State> {
 	@property({ type: String })
 	webroot?: string;
 
+	@state()
+	private isLightTheme = false;
+
+	protected override onThemeUpdated(e: ThemeChangeEvent): void {
+		this.isLightTheme = e.isLightTheme;
+	}
+
 	private onStartTrial() {
 		const command: GlCommands = 'gitlens.plus.signUp';
 		this._telemetry.sendEvent({
@@ -52,6 +60,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 	}
 
 	override render(): unknown {
+		const themeSuffix = this.isLightTheme ? 'light' : 'dark';
 		return html`
 			<div class="welcome scrollable">
 				<div class="section plain header">
@@ -69,7 +78,11 @@ export class GlWelcomeApp extends GlAppHost<State> {
 				<div class="section">
 					<gl-feature-carousel>
 						<gl-feature-card class="card">
-							<img slot="image" src="${this.webroot ?? ''}/media/feature-graph.webp" alt="Commit Graph" />
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-graph-${themeSuffix}.webp"
+								alt="Commit Graph"
+							/>
 							<h1>Navigate Complex Repository Structures</h1>
 							<p>by unlocking the full potential of the interactive Commit Graph.</p>
 							<p><a href="command:gitlens.showGraph">Open Commit Graph</a></p>
@@ -77,7 +90,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 						<gl-feature-card class="card">
 							<img
 								slot="image"
-								src="${this.webroot ?? ''}/media/feature-timeline.webp"
+								src="${this.webroot ?? ''}/media/feature-timeline-${themeSuffix}.webp"
 								alt="Visual File History"
 							/>
 							<h1>Accelereate Code Reviews</h1>
@@ -87,7 +100,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 						<gl-feature-card class="card">
 							<img
 								slot="image"
-								src="${this.webroot ?? ''}/media/feature-launchpad.webp"
+								src="${this.webroot ?? ''}/media/feature-launchpad-${themeSuffix}.webp"
 								alt="Launchpad"
 							/>
 							<h1>Streamline Pull Request Management</h1>
@@ -110,7 +123,7 @@ export class GlWelcomeApp extends GlAppHost<State> {
 						<gl-feature-narrow-card class="card">
 							<img
 								slot="image"
-								src="${this.webroot ?? ''}/media/feature-icon-compass.webp"
+								src="${this.webroot ?? ''}/media/feature-icon-compass-${themeSuffix}.webp"
 								alt="Git Blame"
 							/>
 							<h1>Git Blame</h1>
@@ -120,7 +133,11 @@ export class GlWelcomeApp extends GlAppHost<State> {
 							</p>
 						</gl-feature-narrow-card>
 						<gl-feature-narrow-card class="card">
-							<img slot="image" src="${this.webroot ?? ''}//media/feature-icon-pr.webp" alt="Launchpad" />
+							<img
+								slot="image"
+								src="${this.webroot ?? ''}/media/feature-icon-pr-${themeSuffix}.webp"
+								alt="Launchpad"
+							/>
 							<h1>Launchpad</h1>
 							<p>Your personalized command center for managing pull requests and issues</p>
 							<p><a href="${helpLaunchpadUrl}">Learn more</a></p>
