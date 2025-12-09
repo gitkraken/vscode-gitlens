@@ -26,7 +26,7 @@ import type {
 import type { State } from './protocol';
 
 export type GraphWebviewShowingArgs = [
-	Repository | { ref: GitReference } | { repository: Repository; search: SearchQuery },
+	Repository | { ref: GitReference } | { repository: Repository; search: SearchQuery } | undefined,
 ];
 
 export type ShowInCommitGraphCommandArgs =
@@ -194,7 +194,10 @@ export function registerGraphWebviewCommands<T>(
 		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
-			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage'));
+			queueMicrotask(
+				() =>
+					void executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>('gitlens.showGraphPage'),
+			);
 		}),
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');

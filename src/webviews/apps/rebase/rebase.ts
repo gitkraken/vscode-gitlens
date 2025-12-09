@@ -6,6 +6,7 @@ import type { PropertyValues } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction } from '../../../git/models/rebase';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
@@ -23,6 +24,7 @@ import {
 	isCommitEntry,
 	MoveEntriesCommand,
 	MoveEntryCommand,
+	RecomposeCommitsCommand,
 	ReorderCommand,
 	RevealRefCommand,
 	SearchCommand,
@@ -46,6 +48,7 @@ import '../shared/components/branch-name';
 import '../shared/components/button';
 import '../shared/components/checkbox/checkbox';
 import '../shared/components/commit-sha';
+import '../shared/components/overlays/popover-confirm';
 import '../shared/components/overlays/tooltip';
 
 const scrollZonePx = 80;
@@ -939,6 +942,10 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		this._ipc.sendCommand(SearchCommand, undefined);
 	}
 
+	private onRecomposeCommitsClicked() {
+		this._ipc.sendCommand(RecomposeCommitsCommand, undefined);
+	}
+
 	private onDocumentKeyDown = (e: KeyboardEvent) => {
 		// Global shortcuts with Ctrl/Cmd
 		if (e.ctrlKey || e.metaKey) {
@@ -1489,6 +1496,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<span class="shortcut"><kbd>/</kbd><span class="label">search</span></span>
 			</div>
 			<div class="actions">
+				${this.renderRecomposeAction(isActive)}
 				${isActive ? this.renderActiveRebaseActions(hasConflicts) : this.renderStartRebaseActions()}
 			</div>
 		</footer>`;
@@ -1505,6 +1513,23 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.onAbortClicked}>Abort</gl-button>
 		`;
+	}
+
+	private renderRecomposeAction(isActive: boolean) {
+		return html`<gl-popover-confirm
+			heading="Abort Rebase &amp; Recompose"
+			message="This will abort the rebase and open the Commit Composer to recompose all commits using AI."
+			confirm=${isActive ? 'Abort & Recompose' : 'Recompose Commits'}
+			confirm-appearance=${ifDefined(isActive ? 'danger' : undefined)}
+			initial-focus=${isActive ? 'cancel' : 'confirm'}
+			icon=${isActive ? 'error' : 'warning'}
+			@gl-confirm=${this.onRecomposeCommitsClicked}
+		>
+			<gl-button slot="anchor" appearance="secondary" tooltip="Open Commit Composer &amp; Recompose using AI">
+				<code-icon slot=${ifDefined(isActive ? undefined : 'prefix')} icon="sparkle"></code-icon>
+				${isActive ? nothing : 'Recompose Commits...'}
+			</gl-button>
+		</gl-popover-confirm>`;
 	}
 
 	private renderActiveRebaseActions(hasConflicts: boolean) {

@@ -33,10 +33,11 @@ import { closeTab } from '../../system/-webview/vscode/tabs';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { filterMap, find, first, join, map } from '../../system/iterable';
+import type { ComposerWebviewShowingArgs } from '../plus/composer/registration';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost } from '../webviewProvider';
-import type { WebviewShowOptions } from '../webviewsController';
+import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../webviewsController';
 import type {
 	Author,
 	ChangeEntriesParams,
@@ -63,6 +64,7 @@ import {
 	GetMissingAvatarsCommand,
 	MoveEntriesCommand,
 	MoveEntryCommand,
+	RecomposeCommitsCommand,
 	ReorderCommand,
 	RevealRefCommand,
 	SearchCommand,
@@ -255,6 +257,10 @@ export class RebaseWebviewProvider implements Disposable {
 
 			case GetMissingAvatarsCommand.is(e):
 				void this.onGetMissingAvatars(e.params);
+				break;
+
+			case RecomposeCommitsCommand.is(e):
+				void this.onRecomposeCommits();
 				break;
 		}
 	}
@@ -664,6 +670,27 @@ export class RebaseWebviewProvider implements Disposable {
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await abortPausedOperation(svc);
 		await closeTab(this.document.uri);
+	}
+
+	private async onRecomposeCommits(): Promise<void> {
+		// Get commit SHAs from the rebase entries
+		const { processed } = this.getParsedTodo();
+		const commitShas = [...processed.commits.values()].map(e => e.sha);
+
+		// Open the Commit Composer with the commits
+		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
+			'gitlens.showComposerPage',
+			undefined,
+			{
+				repoPath: this.repoPath,
+				source: 'rebaseEditor',
+				mode: 'preview',
+				branchName: this.branchName ?? undefined,
+				commitShas: commitShas,
+			},
+		);
+
+		await this.onAbort();
 	}
 
 	private async onContinue(): Promise<void> {

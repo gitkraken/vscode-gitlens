@@ -542,7 +542,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				registerCommand(
 					`${this.host.id}.openInTab`,
 					() =>
-						void executeCommand<WebviewPanelShowCommandArgs>(
+						void executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>(
 							'gitlens.showGraphPage',
 							undefined,
 							this.repository,

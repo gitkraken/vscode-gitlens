@@ -3,7 +3,7 @@ import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { Logger } from '../system/logger';
-import type { ComposerCommandArgs } from '../webviews/plus/composer/registration';
+import type { ComposerCommandArgs, ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration';
 import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
@@ -61,12 +61,16 @@ export class ComposeCommand extends GlCommandBase {
 
 	async execute(args?: ComposerCommandArgs): Promise<void> {
 		try {
-			await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showComposerPage', undefined, {
-				repoPath: args?.repoPath,
-				source: args?.source,
-				mode: args?.mode,
-				includedUnstagedChanges: args?.includedUnstagedChanges,
-			});
+			await executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
+				'gitlens.showComposerPage',
+				undefined,
+				{
+					repoPath: args?.repoPath,
+					source: args?.source,
+					mode: args?.mode,
+					includedUnstagedChanges: args?.includedUnstagedChanges,
+				},
+			);
 		} catch (ex) {
 			Logger.error(ex, 'ComposeCommand', 'execute');
 			void showGenericErrorMessage('Unable to compose commits');

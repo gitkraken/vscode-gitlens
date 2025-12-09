@@ -6,6 +6,7 @@ import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
+import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration';
 import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
@@ -88,13 +89,17 @@ export class RecomposeBranchCommand extends GlCommandBase {
 			}
 
 			// Open the composer with branch mode
-			await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showComposerPage', undefined, {
-				repoPath: repoPath,
-				source: args?.source,
-				mode: 'preview',
-				branchName: branchName,
-				commitShas: args?.commitShas,
-			});
+			await executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
+				'gitlens.showComposerPage',
+				undefined,
+				{
+					repoPath: repoPath,
+					source: args?.source,
+					mode: 'preview',
+					branchName: branchName,
+					commitShas: args?.commitShas,
+				},
+			);
 		} catch (ex) {
 			void window.showErrorMessage(`Failed to recompose branch: ${ex}`);
 		}

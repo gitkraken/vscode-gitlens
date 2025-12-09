@@ -157,6 +157,8 @@ export interface GetMissingAvatarsParams {
 }
 export const GetMissingAvatarsCommand = new IpcCommand<GetMissingAvatarsParams>(scope, 'avatars/get');
 
+export const RecomposeCommitsCommand = new IpcCommand(scope, 'recomposeCommits');
+
 // NOTIFICATIONS
 
 export interface DidChangeParams {

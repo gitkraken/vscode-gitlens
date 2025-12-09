@@ -421,7 +421,10 @@ interface WebviewPanelsShowOptions extends WebviewPanelShowOptions {
 	preserveInstance?: string | boolean;
 }
 
-export type WebviewPanelShowCommandArgs = [WebviewPanelsShowOptions | undefined, ...args: unknown[]];
+export type WebviewPanelShowCommandArgs<ShowingArgs extends unknown[] = unknown[]> = [
+	WebviewPanelsShowOptions | undefined,
+	...args: ShowingArgs,
+];
 
 export interface WebviewViewShowOptions {
 	column?: never;
