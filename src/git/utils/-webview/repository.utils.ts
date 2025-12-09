@@ -52,8 +52,19 @@ export async function groupRepositories(
 			continue;
 		}
 
+		// If the common repo is the repo itself, it's a main repo
+		if (commonRepo === repo) {
+			// Only add if not already present (could have been added by a worktree)
+			if (!result.has(repo.id)) {
+				result.set(repo.id, { repo: repo, worktrees: new Map() });
+			}
+			continue;
+		}
+
+		// This is a worktree, so find its common repo in the repos map
 		commonRepo = repos.get(commonRepo.id);
 		if (commonRepo == null) {
+			// Common repo not in the list, treat this worktree as standalone
 			if (result.has(repo.id)) {
 				debugger;
 			}
@@ -61,13 +72,13 @@ export async function groupRepositories(
 			continue;
 		}
 
+		// Add the worktree to its common repo's worktrees map
 		let r = result.get(commonRepo.id);
 		if (r == null) {
 			r = { repo: commonRepo, worktrees: new Map() };
 			result.set(commonRepo.id, r);
-		} else {
-			r.worktrees.set(repo.path, repo);
 		}
+		r.worktrees.set(repo.path, repo);
 	}
 
 	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
