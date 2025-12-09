@@ -422,7 +422,7 @@ export class ComposerApp extends LitElement {
 			this.selectCommit(this.state.commits[0].id);
 		}
 		this.initializeResetStateIfNeeded();
-		if (!this.state.onboardingDismissed) {
+		if (!this.state.onboardingDismissed && !this.hasAnyError()) {
 			this.openOnboarding();
 		}
 	}
@@ -435,6 +435,11 @@ export class ComposerApp extends LitElement {
 		// Reinitialize drop zones when commits change
 		if (changedProperties.has('commits')) {
 			setTimeout(() => this.initializeCommitDropZones(), 100);
+		}
+
+		// Dismiss onboarding if any error popover is shown
+		if (this.hasAnyError() && this.onboarding) {
+			this.dismissOnboarding();
 		}
 
 		if (changedProperties.size === 0) {
@@ -1213,6 +1218,12 @@ export class ComposerApp extends LitElement {
 			return 'AI features are disabled in your settings';
 		}
 		return null;
+	}
+
+	private hasAnyError(): boolean {
+		return (
+			this.state?.safetyError != null || this.state?.loadingError != null || this.state?.aiOperationError != null
+		);
 	}
 
 	private get canFinishAndCommit(): boolean {
