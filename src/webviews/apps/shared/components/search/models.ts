@@ -28,6 +28,15 @@ export const naturalLanguageSearchAutocompleteCommand: CompletionItem<SearchComp
 	alwaysVisible: true,
 };
 
+export const structuredSearchAutocompleteCommand: CompletionItem<SearchCompletionCommand> = {
+	label: 'Search using filters',
+	detail: 'Combine filters to build powerful searches, e.g. @me after:1.week.ago file:*.ts.',
+	icon: 'search',
+	item: { command: 'toggle-natural-language-mode' },
+	score: 0,
+	alwaysVisible: true,
+};
+
 export interface SearchCompletionOperatorValue {
 	/** The value to suggest or command to execute when this value is selected */
 	value: string | SearchCompletionCommand;

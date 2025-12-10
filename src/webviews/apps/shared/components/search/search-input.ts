@@ -27,7 +27,11 @@ import type {
 	SearchCompletionOperator,
 	SearchCompletionOperatorValue,
 } from './models';
-import { naturalLanguageSearchAutocompleteCommand, searchCompletionOperators } from './models';
+import {
+	naturalLanguageSearchAutocompleteCommand,
+	searchCompletionOperators,
+	structuredSearchAutocompleteCommand,
+} from './models';
 import '../button';
 import '../autocomplete/autocomplete';
 import '../code-icon';
@@ -500,8 +504,10 @@ export class GlSearchInput extends GlElement {
 		// In natural language mode, always show welcome message (unless searching or have processed query)
 		// Don't show operator suggestions in NL mode
 		if (this.naturalLanguage) {
-			this.autocompleteItems = [];
+			this.autocompleteItems = [structuredSearchAutocompleteCommand];
 			this.cursorOperator = undefined;
+			this.cursorPosition = [0, 0];
+			this.autocomplete?.resetSelection();
 			this.autocompleteOpen = this.inputFocused;
 			return;
 		}
@@ -771,6 +777,7 @@ export class GlSearchInput extends GlElement {
 
 					if (result.authors?.length) {
 						this.insertPickerValues(result.authors, operator, command.multi ?? false);
+						return;
 					}
 					break;
 				}
@@ -786,6 +793,7 @@ export class GlSearchInput extends GlElement {
 
 					if (result?.name) {
 						this.insertPickerValues([result.name], operator, command.multi ?? false);
+						return;
 					}
 					break;
 				}
@@ -798,6 +806,7 @@ export class GlSearchInput extends GlElement {
 
 					if (result?.range) {
 						this.insertPickerValues([result.range], operator, false);
+						return;
 					}
 					break;
 				}
@@ -813,14 +822,15 @@ export class GlSearchInput extends GlElement {
 
 					if (result.files?.length) {
 						this.insertPickerValues(result.files, operator, command.multi ?? false);
+						return;
 					}
 					break;
 				}
 			}
-		} catch {
-			// User cancelled or error occurred - just return focus to input
-			this.input.focus();
-		}
+		} catch {}
+
+		// User cancelled or error occurred - just return focus to input
+		this.input.focus();
 	}
 
 	/**
@@ -1053,10 +1063,19 @@ export class GlSearchInput extends GlElement {
 
 				return true;
 			}
-			case 'Tab':
-				// Let Tab work normally for focus management
-				// User must press Enter to accept autocomplete selection
+			case 'Tab': {
+				// If autocomplete is open AND an item is selected, accept the selection
+				const tabSelectedIndex = this.autocomplete?.selectedIndex ?? -1;
+				if (this.autocompleteOpen && this.autocompleteItems.length && tabSelectedIndex >= 0) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					void this.acceptAutocomplete(tabSelectedIndex);
+					return true;
+				}
+				// Otherwise, let Tab work normally for focus management
 				break;
+			}
 
 			case 'PageUp':
 				if (this.autocompleteOpen && this.autocompleteItems.length) {
@@ -1459,7 +1478,7 @@ export class GlSearchInput extends GlElement {
 
 		return html`<gl-autocomplete
 			id="autocomplete-list"
-			.items="${this.naturalLanguage ? [] : this.autocompleteItems}"
+			.items="${this.autocompleteItems}"
 			?open="${this.autocompleteOpen && hasDescription && !this.errorMessage}"
 			@gl-autocomplete-select="${this.handleAutocompleteSelect}"
 			@gl-autocomplete-cancel="${this.hideAutocomplete}"
@@ -1470,7 +1489,7 @@ export class GlSearchInput extends GlElement {
 							? html`${this.cursorOperator.description}${this.renderOperatorExample(this.cursorOperator)}`
 							: this.naturalLanguage
 								? this.renderNaturalLanguageDescription()
-								: html`Combine operators to build powerful searches, e.g.
+								: html`Combine filters to build powerful searches, e.g.
 										<code>@me after:1.week.ago file:*.ts</code>`}
 					</div>`
 				: nothing}
