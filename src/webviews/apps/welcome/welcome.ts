@@ -12,6 +12,8 @@ import type { HostIpc } from '../shared/ipc';
 import type { ThemeChangeEvent } from '../shared/theme';
 import { WelcomeStateProvider } from './stateProvider';
 import '../shared/components/gitlens-logo';
+import '../shared/components/button';
+import '../shared/components/code-icon';
 import { welcomeStyles } from './welcome.css';
 import './components/feature-carousel';
 import './components/feature-card';
@@ -38,6 +40,9 @@ export class GlWelcomeApp extends GlAppHost<State> {
 	@property({ type: String })
 	webroot?: string;
 
+	@property({ type: Boolean })
+	closeable = false;
+
 	@state()
 	private isLightTheme = false;
 
@@ -59,10 +64,23 @@ export class GlWelcomeApp extends GlAppHost<State> {
 		this._ipc.sendCommand(ExecuteCommand, { command: command, args: [{ source: 'welcome' }] });
 	}
 
+	private onClose() {
+		this.dispatchEvent(new CustomEvent('close'));
+	}
+
 	override render(): unknown {
 		const themeSuffix = this.isLightTheme ? 'light' : 'dark';
 		return html`
 			<div class="welcome scrollable">
+				${this.closeable
+					? html`<gl-button
+							class="close-button"
+							appearance="toolbar"
+							tooltip="Dismiss Welcome"
+							@click=${() => this.onClose()}
+							><code-icon icon="close"></code-icon
+						></gl-button>`
+					: ''}
 				<div class="section plain header">
 					<div class="logo"><gitlens-logo></gitlens-logo></div>
 					<h1>GitLens is now installed in Cursor</h1>

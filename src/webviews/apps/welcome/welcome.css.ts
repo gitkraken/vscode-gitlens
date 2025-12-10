@@ -2,6 +2,7 @@ import { css } from 'lit';
 
 const colorScheme = css`
 	:host {
+		--side-shadow-color: transparent;
 		--accent-color: #cb64ff;
 		--text-color: var(--vscode-descriptionForeground);
 		--em-color: var(--vscode-editor-foreground);
@@ -58,6 +59,20 @@ const typography = css`
 		:host {
 			font-size: calc(var(--vscode-editor-font-size) * 0.8);
 		}
+	}
+`;
+
+const main = css`
+	:host {
+		--page-margin: 0px;
+		max-width: 100%;
+	}
+
+	.close-button {
+		position: absolute;
+		right: 1em;
+		top: 1em;
+		z-index: 1;
 	}
 `;
 
@@ -140,8 +155,8 @@ const section = css`
 	}
 
 	.section.wide {
-		margin-left: -20px;
-		margin-right: -20px;
+		margin-left: calc(-1 * var(--page-margin));
+		margin-right: calc(-1 * var(--page-margin));
 	}
 `;
 
@@ -212,12 +227,13 @@ const cards = css`
 
 const scrollableFeatures = css`
 	gl-scrollable-features {
-		--side-shadowed-padding: 20px;
+		--side-shadow-padding: var(--page-margin);
+		--side-shadow-color: var(--page-background-color);
 	}
 `;
 
 export const welcomeStyles = css`
-	${colorScheme} ${typography}
+	${colorScheme} ${typography} ${main}
 	${heroGradient} ${section} ${header}
 	${scrollableFeatures}
 	${cards}

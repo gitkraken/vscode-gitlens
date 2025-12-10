@@ -12,3 +12,7 @@
 // @include utils.light-theme() {
 // 	--bg-color: yellow;
 // }
+gl-welcome-app {
+	--page-margin: 20px;
+	--page-background-color: var(--vscode-editor-background);
+}

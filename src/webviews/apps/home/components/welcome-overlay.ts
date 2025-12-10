@@ -6,6 +6,7 @@ import { CollapseSectionCommand } from '../../../home/protocol';
 import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
+import '../../welcome/welcome';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -22,6 +23,9 @@ export class GlWelcomeOverlay extends LitElement {
 
 	static override styles = [
 		css`
+			:host {
+				--background-color: var(--vscode-editor-background);
+			}
 			.overlay {
 				position: fixed;
 				top: 0;
@@ -29,11 +33,12 @@ export class GlWelcomeOverlay extends LitElement {
 				right: 0;
 				bottom: 0;
 				z-index: 1000;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				background-color: #007acc;
-				color: white;
+				display: block;
+				background-color: var(--background-color);
+			}
+
+			gl-welcome-app {
+				--page-background-color: var(--background-color);
 			}
 		`,
 	];
@@ -57,8 +62,14 @@ export class GlWelcomeOverlay extends LitElement {
 
 		return html`
 			<div class="overlay">
-				<h1 class="title">Welcome!!!</h1>
-				<button class="close-button" @click=${() => this.onClose()}>Dismiss</button>
+				<gl-welcome-app
+					name="WelcomeView"
+					placement="#{placement}"
+					bootstrap="#{state}"
+					webroot="#{webroot}"
+					closeable
+					@close=${() => this.onClose()}
+				></gl-welcome-app>
 			</div>
 		`;
 	}

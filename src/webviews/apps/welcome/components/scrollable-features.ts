@@ -14,9 +14,10 @@ export class GlScrollableFeatures extends LitElement {
 	static override styles = [
 		css`
 			:host {
-				--side-shadowed-padding: 1em;
-				--background-color: var(--vscode-editor-background);
+				--side-shadow-padding: 1em;
+				--side-shadow-color: transparent;
 
+				--final-side-shadow-padding: max(var(--side-shadow-padding), 1em);
 				position: relative;
 				max-width: 100%;
 			}
@@ -26,22 +27,22 @@ export class GlScrollableFeatures extends LitElement {
 				content: ' ';
 				position: absolute;
 				top: 0;
-				width: var(--side-shadowed-padding);
+				width: var(--final-side-shadow-padding);
 				height: 100%;
 			}
 
 			:host::before {
 				left: 0;
-				background: linear-gradient(to left, transparent 0%, var(--background-color) 83%);
+				background: linear-gradient(to left, transparent 0%, var(--side-shadow-color) 83%);
 			}
 			:host::after {
 				right: 0;
-				background: linear-gradient(to right, transparent 0%, var(--background-color) 83%);
+				background: linear-gradient(to right, transparent 0%, var(--side-shadow-color) 83%);
 			}
 
 			.content {
 				box-sizing: border-box;
-				padding: 0 var(--side-shadowed-padding);
+				padding: 0 var(--final-side-shadow-padding);
 				display: flex;
 				gap: 1em;
 				overflow-x: auto;
