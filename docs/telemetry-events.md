@@ -3015,6 +3015,7 @@ void
 ```typescript
 {
   'context.ascending': boolean,
+  'context.config.openOnPausedRebase': boolean,
   'context.config.ordering': 'asc' | 'desc',
   'context.config.revealBehavior': 'never' | 'onOpen' | 'onSelection',
   'context.config.revealLocation': 'graph' | 'inspect',
