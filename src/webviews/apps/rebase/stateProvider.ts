@@ -1,10 +1,22 @@
 import { ContextProvider } from '@lit/context';
 import type { RebaseTodoCommitAction } from '../../../git/models/rebase';
+import type { Deferrable } from '../../../system/function/debounce';
+import { debounce } from '../../../system/function/debounce';
 import type { IpcSerialized } from '../../../system/ipcSerialize';
 import type { IpcMessage } from '../../protocol';
-import type { State as _State } from '../../rebase/protocol';
-import { DidChangeAvatarsNotification, DidChangeNotification, isCommitEntry } from '../../rebase/protocol';
+import type { State as _State, Commit } from '../../rebase/protocol';
+import {
+	DidChangeAvatarsNotification,
+	DidChangeCommitsNotification,
+	DidChangeNotification,
+	DidChangeSubscriptionNotification,
+	GetMissingAvatarsCommand,
+	GetMissingCommitsCommand,
+	isCommitEntry,
+} from '../../rebase/protocol';
 import type { ReactiveElementHost } from '../shared/appHost';
+import type { LoggerContext } from '../shared/contexts/logger';
+import type { HostIpc } from '../shared/ipc';
 import { StateProviderBase } from '../shared/stateProviderBase';
 import { stateContext } from './context';
 
@@ -20,12 +32,78 @@ type State = IpcSerialized<_State>;
  * - Optimistic updates are applied locally for responsiveness, then reconciled with host state
  */
 export class RebaseStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
+	/** Pending avatar requests - collected from entry events, batched and sent (email → sha) */
+	private _pendingAvatarEmails = new Map<string, string>();
+	/** Emails we've already requested (to avoid duplicates during batching) */
+	private _requestedAvatarEmails = new Set<string>();
+	/** Debounced function to send pending avatar requests */
+	private _sendPendingAvatarRequestsDebounced: Deferrable<() => void> | undefined;
+
+	/** Pending commit enrichment requests - collected from entry events, batched and sent */
+	private _pendingCommitShas = new Set<string>();
+	/** SHAs we've already requested (to avoid duplicates during batching) */
+	private _requestedCommitShas = new Set<string>();
+	/** Debounced function to send pending commit requests */
+	private _sendPendingCommitRequestsDebounced: Deferrable<() => void> | undefined;
+
+	constructor(host: ReactiveElementHost, bootstrap: string, ipc: HostIpc, logger: LoggerContext) {
+		super(host, bootstrap, ipc, logger);
+
+		// Listen for missing data events from entry components
+		this.host.addEventListener('missing-avatar', this.onMissingAvatar.bind(this) as EventListener);
+		this.host.addEventListener('missing-commit', this.onMissingCommit.bind(this) as EventListener);
+	}
+
 	protected override get deferBootstrap(): boolean {
 		return true;
 	}
 
 	protected override createContextProvider(state: State): ContextProvider<typeof stateContext, ReactiveElementHost> {
 		return new ContextProvider(this.host, { context: stateContext, initialValue: state });
+	}
+
+	/** Handles missing-avatar events from entry components */
+	private onMissingAvatar(e: CustomEvent<{ email: string; sha?: string }>): void {
+		const { email, sha } = e.detail;
+		if (!email || !sha) return;
+		if (this._requestedAvatarEmails.has(email)) return;
+
+		this._pendingAvatarEmails.set(email, sha);
+		this._requestedAvatarEmails.add(email);
+
+		this._sendPendingAvatarRequestsDebounced ??= debounce(this.sendPendingAvatarRequests.bind(this), 50);
+		this._sendPendingAvatarRequestsDebounced();
+	}
+
+	private sendPendingAvatarRequests(): void {
+		if (!this._pendingAvatarEmails.size) return;
+
+		const emails = Object.fromEntries(this._pendingAvatarEmails);
+		this._pendingAvatarEmails.clear();
+
+		this.ipc.sendCommand(GetMissingAvatarsCommand, { emails: emails });
+	}
+
+	/** Handles missing-commit events from entry components */
+	private onMissingCommit(e: CustomEvent<{ sha: string }>): void {
+		const { sha } = e.detail;
+		if (!sha) return;
+		if (this._requestedCommitShas.has(sha)) return;
+
+		this._pendingCommitShas.add(sha);
+		this._requestedCommitShas.add(sha);
+
+		this._sendPendingCommitRequestsDebounced ??= debounce(this.sendPendingCommitRequests.bind(this), 50);
+		this._sendPendingCommitRequestsDebounced();
+	}
+
+	private sendPendingCommitRequests(): void {
+		if (!this._pendingCommitShas.size) return;
+
+		const shas = Array.from(this._pendingCommitShas);
+		this._pendingCommitShas.clear();
+
+		this.ipc.sendCommand(GetMissingCommitsCommand, { shas: shas });
 	}
 
 	protected override onMessageReceived(msg: IpcMessage): void {
@@ -39,31 +117,110 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 
 			case DidChangeAvatarsNotification.is(msg):
 				this.updateAvatars(msg.params.avatars);
+				// Clear requested emails so they can be requested again if needed
+				for (const email of Object.keys(msg.params.avatars)) {
+					this._requestedAvatarEmails.delete(email);
+				}
+				break;
+
+			case DidChangeCommitsNotification.is(msg):
+				this.updateCommits(msg.params.commits, msg.params.authors);
+				// Clear requested SHAs so they can be requested again if needed
+				for (const sha of Object.keys(msg.params.commits)) {
+					this._requestedCommitShas.delete(sha);
+				}
+				break;
+
+			case DidChangeSubscriptionNotification.is(msg):
+				this._state = { ...this._state, subscription: msg.params.subscription, timestamp: Date.now() };
+				this.provider.setValue(this._state, true);
+				// Request update to re-render with new subscription state
+				this.host.requestUpdate();
 				break;
 		}
 	}
 
-	/**
-	 * Updates author avatars from enhanced avatar data received from the host.
-	 * This is called when the host fetches higher-quality avatars from Git providers.
-	 */
+	/** Updates author avatars from enhanced avatar data received from the host */
 	private updateAvatars(avatars: Record<string, string>): void {
 		if (!this._state?.authors) return;
 
-		// Create updated authors object with new avatar URLs
-		const updatedAuthors = { ...this._state.authors };
 		let hasChanges = false;
 
 		for (const [name, avatarUrl] of Object.entries(avatars)) {
-			if (updatedAuthors[name] && updatedAuthors[name].avatarUrl !== avatarUrl) {
-				updatedAuthors[name] = { ...updatedAuthors[name], avatarUrl: avatarUrl };
+			const author = this._state.authors[name];
+			if (author && author.avatarUrl !== avatarUrl) {
+				author.avatarUrl = avatarUrl;
 				hasChanges = true;
 			}
 		}
 
 		if (hasChanges) {
-			this._state = { ...this._state, authors: updatedAuthors, timestamp: Date.now() };
+			this._state.timestamp = Date.now();
 			this.provider.setValue(this._state, true);
+
+			this.host.requestUpdate();
+		}
+	}
+
+	/** Updates commit data from enriched commit data received from the host */
+	private updateCommits(
+		commits: Record<string, IpcSerialized<Commit>>,
+		authors: Record<string, IpcSerialized<_State>['authors'][string]>,
+	): void {
+		if (!this._state) return;
+
+		let hasChanges = false;
+
+		// Enrich base commit (onto)
+		if (this._state.onto && !this._state.onto.commit) {
+			const commit = commits[this._state.onto.sha];
+			if (commit) {
+				this._state.onto = { ...this._state.onto, commit: commit };
+				hasChanges = true;
+			}
+		}
+
+		// Create new entry objects when enriching to trigger Lit reactivity
+		this._state.entries = this._state.entries.map(entry => {
+			if (!isCommitEntry(entry) || entry.commit != null) return entry;
+
+			const commit = commits[entry.sha];
+			if (commit) {
+				hasChanges = true;
+				return { ...entry, commit: commit };
+			}
+			return entry;
+		});
+
+		if (this._state.doneEntries) {
+			this._state.doneEntries = this._state.doneEntries.map(entry => {
+				if (!isCommitEntry(entry) || entry.commit != null) return entry;
+
+				const commit = commits[entry.sha];
+				if (commit) {
+					hasChanges = true;
+					return { ...entry, commit: commit };
+				}
+				return entry;
+			});
+		}
+
+		// Merge new authors, preserving existing avatar URLs if already fetched
+		for (const [name, author] of Object.entries(authors)) {
+			const existing = this._state.authors[name];
+			if (existing) {
+				// Preserve avatarUrl if it was already fetched
+				this._state.authors[name] = { ...author, avatarUrl: existing.avatarUrl ?? author.avatarUrl };
+			} else {
+				this._state.authors[name] = author;
+			}
+			hasChanges = true;
+		}
+
+		if (hasChanges) {
+			this._state = { ...this._state, timestamp: Date.now() };
+			this.provider.setValue(this._state, true);
+
 			this.host.requestUpdate();
 		}
 	}

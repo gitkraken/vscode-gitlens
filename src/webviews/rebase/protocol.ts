@@ -4,6 +4,7 @@ import type {
 	ProcessedRebaseCommitEntry,
 	RebaseTodoCommitAction,
 } from '../../git/models/rebase';
+import type { Subscription } from '../../plus/gk/models/subscription';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification } from '../protocol';
 
@@ -39,6 +40,9 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 
 	/** Repository path for the rebase */
 	repoPath: string;
+
+	/** Subscription state for Pro feature gating */
+	subscription?: Subscription;
 }
 
 /** Reason the rebase is paused */
@@ -58,7 +62,9 @@ export interface RebaseActiveStatus {
 	pauseReason?: RebasePauseReason;
 }
 
-export type RebaseCommandEntry = ProcessedRebaseCommandEntry;
+export interface RebaseCommandEntry extends ProcessedRebaseCommandEntry {
+	commit?: never;
+}
 /** Commit-based rebase entry (pick, reword, edit, squash, fixup, drop) */
 export interface RebaseCommitEntry extends ProcessedRebaseCommitEntry {
 	commit?: Commit;
@@ -78,7 +84,7 @@ export function isCommandEntry(entry: RebaseEntry): entry is ProcessedRebaseComm
 
 export interface Author {
 	readonly author: string;
-	readonly avatarUrl: string | undefined;
+	avatarUrl: string | undefined;
 	readonly avatarFallbackUrl?: string | undefined;
 	readonly email: string | undefined;
 }
@@ -88,7 +94,7 @@ export interface Commit {
 	readonly author: string;
 	readonly committer: string;
 	readonly date: string;
-	readonly dateFromNow: string;
+	readonly formattedDate: string;
 	readonly message: string;
 }
 
@@ -157,7 +163,14 @@ export interface GetMissingAvatarsParams {
 }
 export const GetMissingAvatarsCommand = new IpcCommand<GetMissingAvatarsParams>(scope, 'avatars/get');
 
-export const RecomposeCommitsCommand = new IpcCommand(scope, 'recomposeCommits');
+// Commit enrichment commands - on-demand loading pattern
+export interface GetMissingCommitsParams {
+	/** Array of commit SHAs that need enrichment */
+	shas: string[];
+}
+export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(scope, 'commits/get');
+
+export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
 
 // NOTIFICATIONS
 
@@ -171,3 +184,19 @@ export interface DidChangeAvatarsParams {
 	avatars: Record<string, string>;
 }
 export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
+
+export interface DidChangeCommitsParams {
+	/** Map of commit SHA → enriched commit data */
+	commits: Record<string, Commit>;
+	/** Map of author name → author info (for new authors from fetched commits) */
+	authors: Record<string, Author>;
+}
+export const DidChangeCommitsNotification = new IpcNotification<DidChangeCommitsParams>(scope, 'commits/didChange');
+
+export interface DidChangeSubscriptionParams {
+	subscription: Subscription;
+}
+export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSubscriptionParams>(
+	scope,
+	'subscription/didChange',
+);

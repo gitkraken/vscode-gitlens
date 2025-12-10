@@ -8,8 +8,6 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction } from '../../../git/models/rebase';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
 import { filterMap } from '../../../system/iterable';
 import { pluralize } from '../../../system/string';
 import { createWebviewCommandLink } from '../../../system/webview';
@@ -19,12 +17,11 @@ import {
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
-	GetMissingAvatarsCommand,
 	isCommandEntry,
 	isCommitEntry,
 	MoveEntriesCommand,
 	MoveEntryCommand,
-	RecomposeCommitsCommand,
+	RecomposeCommand,
 	ReorderCommand,
 	RevealRefCommand,
 	SearchCommand,
@@ -107,11 +104,6 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	 * In descending mode, they are at the end (reversed), so this is 0 for index calculations.
 	 */
 	private _editableStartOffset = 0;
-
-	/** Pending avatar requests - collected from entry events, batched and sent */
-	private _pendingAvatarEmails = new Map<string, string>(); // email → sha
-	/** Emails we've already requested (to avoid duplicates) */
-	private _requestedAvatarEmails = new Set<string>();
 
 	private get ascending(): boolean {
 		return this.state?.ascending ?? false;
@@ -674,42 +666,6 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		}
 	};
 
-	/**
-	 * Handles missing-avatar events from entry components.
-	 * Collects requests and sends them in a debounced batch.
-	 */
-	private readonly onMissingAvatar = (e: CustomEvent<{ email: string; sha?: string }>): void => {
-		const { email, sha } = e.detail;
-		if (!email || !sha) return;
-
-		// Skip if already requested
-		if (this._requestedAvatarEmails.has(email)) return;
-
-		// Add to pending batch
-		this._pendingAvatarEmails.set(email, sha);
-
-		this._sendPendingAvatarRequestsDebounced ??= debounce(this.sendPendingAvatarRequests.bind(this), 50);
-		this._sendPendingAvatarRequestsDebounced();
-	};
-
-	private _sendPendingAvatarRequestsDebounced: Deferrable<GlRebaseEditor['sendPendingAvatarRequests']> | undefined =
-		undefined;
-
-	private sendPendingAvatarRequests(): void {
-		if (!this._pendingAvatarEmails.size) return;
-
-		// Mark as requested and build request
-		const emails: Record<string, string> = {};
-		for (const [email, sha] of this._pendingAvatarEmails) {
-			this._requestedAvatarEmails.add(email);
-			emails[email] = sha;
-		}
-		this._pendingAvatarEmails.clear();
-
-		// Send to host
-		this._ipc.sendCommand(GetMissingAvatarsCommand, { emails: emails });
-	}
-
 	private readonly onActionChanged = (e: CustomEvent<{ sha: string; action: RebaseTodoCommitAction }>): void => {
 		const { sha, action } = e.detail;
 
@@ -943,7 +899,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private onRecomposeCommitsClicked() {
-		this._ipc.sendCommand(RecomposeCommitsCommand, undefined);
+		this._ipc.sendCommand(RecomposeCommand, undefined);
 	}
 
 	private onDocumentKeyDown = (e: KeyboardEvent) => {
@@ -1224,7 +1180,6 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 							@dragover=${this.onDragOver}
 							@dragleave=${this.onDragLeave}
 							@drop=${this.onDrop}
-							@missing-avatar=${this.onMissingAvatar}
 							scroller
 							.items=${this._sortedEntries}
 							.keyFunction=${this.virtualizerKeyFn}

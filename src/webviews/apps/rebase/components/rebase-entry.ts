@@ -3,9 +3,9 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { ProcessedRebaseEntry, RebaseTodoCommitAction } from '../../../../git/models/rebase';
+import type { RebaseTodoCommitAction } from '../../../../git/models/rebase';
 import { commitRebaseActions } from '../../../../git/utils/rebase.utils';
-import type { Author } from '../../../rebase/protocol';
+import type { Author, RebaseEntry } from '../../../rebase/protocol';
 import { isCommitEntry } from '../../../rebase/protocol';
 import type { AvatarShape } from '../../shared/components/avatar/avatar-list';
 import { entryStyles } from './rebase-entry.css';
@@ -48,15 +48,19 @@ export class GlRebaseEntryElement extends LitElement {
 
 	@property({
 		type: Object,
-		// Custom hasChanged to detect action changes even if same object reference
-		hasChanged: (newVal: ProcessedRebaseEntry | undefined, oldVal: ProcessedRebaseEntry | undefined) => {
+		// Custom hasChanged to detect changes even if same object reference
+		hasChanged: (newVal: RebaseEntry | undefined, oldVal: RebaseEntry | undefined) => {
 			if (newVal === oldVal) return false;
 			if (!newVal || !oldVal) return true;
-			// Also trigger update if entry ID or action changed (important for virtualizer recycling)
-			return newVal.id !== oldVal.id || newVal.action !== oldVal.action;
+
+			// Trigger update if entry ID, action, or commit data changed (important for virtualizer recycling)
+			if (newVal.id !== oldVal.id || newVal.action !== oldVal.action || newVal.commit !== oldVal.commit) {
+				return true;
+			}
+			return false;
 		},
 	})
-	entry!: ProcessedRebaseEntry;
+	entry!: RebaseEntry;
 	@property({ type: Object }) authors?: Record<string, Author>;
 	@property({ type: String }) revealLocation: 'graph' | 'inspect' = 'graph';
 	@property({ type: Boolean, reflect: true }) isBase = false;
@@ -159,13 +163,20 @@ export class GlRebaseEntryElement extends LitElement {
 
 		const {
 			authors,
-			entry: { action, commit, message, updateRefs, sha },
+			entry: { action, commit, message: entryMessage, updateRefs, sha },
 			isBase,
 			isCurrent,
 			isDone,
 		} = this;
+
+		// Emit event for missing commit data so parent can fetch it
+		if (!commit) {
+			this.emitMissingCommit(sha);
+		}
+
 		const author = commit && authors?.[commit.author];
 		const committer = commit && authors?.[commit.committer];
+		const message = commit?.message ?? entryMessage;
 
 		// Determine the type for data attribute
 		let type = 'commit';
@@ -175,7 +186,7 @@ export class GlRebaseEntryElement extends LitElement {
 			type = 'done';
 		}
 
-		const ariaLabel = `${action}, ${commit?.message ?? message}, ${sha.substring(0, 7)}`;
+		const ariaLabel = `${action}, ${message}, ${sha.substring(0, 7)}`;
 
 		return html`
 			<div
@@ -216,21 +227,15 @@ export class GlRebaseEntryElement extends LitElement {
 						</div>`
 					: nothing}
 
-				<gl-tooltip
-					class="entry-message"
-					hoist
-					hide-on-click
-					placement="bottom-start"
-					.content=${commit?.message ?? message}
-				>
+				<gl-tooltip class="entry-message" hoist hide-on-click placement="bottom-start" .content=${message}>
 					<span class="entry-message-content">${message}</span>
 				</gl-tooltip>
 
 				${!isBase && updateRefs?.length ? this.renderUpdateRefBadges(updateRefs) : nothing}
 				${this.renderAvatar(author, committer)}
-				${commit?.dateFromNow
+				${commit?.formattedDate
 					? html`<gl-tooltip class="entry-date" hoist hide-on-click .content=${commit.date ?? ''}>
-							<span class="entry-date-content">${commit.dateFromNow}</span>
+							<span class="entry-date-content">${commit.formattedDate}</span>
 						</gl-tooltip>`
 					: nothing}
 
@@ -345,13 +350,19 @@ export class GlRebaseEntryElement extends LitElement {
 	}
 
 	private emitMissingAvatar(email: string) {
+		if (!isCommitEntry(this.entry)) return;
+
 		this.dispatchEvent(
 			new CustomEvent('missing-avatar', {
-				detail: { email: email, sha: isCommitEntry(this.entry) ? this.entry.sha : undefined },
+				detail: { email: email, sha: this.entry.sha },
 				bubbles: true,
 				composed: true,
 			}),
 		);
+	}
+
+	private emitMissingCommit(sha: string) {
+		this.dispatchEvent(new CustomEvent('missing-commit', { detail: { sha: sha }, bubbles: true, composed: true }));
 	}
 }
 

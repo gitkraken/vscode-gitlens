@@ -27,12 +27,14 @@ import {
 } from '../../git/utils/-webview/rebase.parsing.utils';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
 import { createReference } from '../../git/utils/reference.utils';
+import type { Subscription } from '../../plus/gk/models/subscription';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { closeTab } from '../../system/-webview/vscode/tabs';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
-import { filterMap, find, first, join, map } from '../../system/iterable';
+import { concat, filterMap, find, first, join, map } from '../../system/iterable';
+import { getSettledValue } from '../../system/promise';
 import type { ComposerWebviewShowingArgs } from '../plus/composer/registration';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { IpcMessage } from '../protocol';
@@ -42,7 +44,9 @@ import type {
 	Author,
 	ChangeEntriesParams,
 	ChangeEntryParams,
+	Commit,
 	GetMissingAvatarsParams,
+	GetMissingCommitsParams,
 	MoveEntriesParams,
 	MoveEntryParams,
 	RebaseActiveStatus,
@@ -60,11 +64,14 @@ import {
 	ChangeEntryCommand,
 	ContinueCommand,
 	DidChangeAvatarsNotification,
+	DidChangeCommitsNotification,
 	DidChangeNotification,
+	DidChangeSubscriptionNotification,
 	GetMissingAvatarsCommand,
+	GetMissingCommitsCommand,
 	MoveEntriesCommand,
 	MoveEntryCommand,
-	RecomposeCommitsCommand,
+	RecomposeCommand,
 	ReorderCommand,
 	RevealRefCommand,
 	SearchCommand,
@@ -77,27 +84,20 @@ import {
 
 const maxSmallIntegerV8 = 2 ** 30 - 1;
 
-interface CommitsResult {
-	commits: GitCommit[];
+interface Enrichment {
+	commits: Map<string, GitCommit>;
 	authors: Map<string, Author>;
 	onto: GitCommit | undefined;
 	from: GitCommit | undefined;
 }
 
 export class RebaseWebviewProvider implements Disposable {
-	private readonly _disposables: Disposable[] = [];
+	private _branchName?: string | null;
 	private _closing: boolean = false;
-
-	// State
-	private branchName?: string | null;
-	private commitsResult?: CommitsResult;
-
+	private readonly _disposables: Disposable[] = [];
+	private _enrichment: Enrichment;
 	/** Cached parsed/processed todo file, invalidated when document version changes */
-	private _parsedCache?: {
-		version: number;
-		parsed: ParsedRebaseTodo;
-		processed: ProcessedRebaseTodo;
-	};
+	private _parsedCache?: { version: number; parsed: ParsedRebaseTodo; processed: ProcessedRebaseTodo };
 
 	private get ascending() {
 		return configuration.get('rebaseEditor.ordering') === 'asc';
@@ -119,6 +119,8 @@ export class RebaseWebviewProvider implements Disposable {
 		private readonly document: TextDocument,
 		private readonly repoPath: string,
 	) {
+		this._enrichment = { commits: new Map(), authors: new Map(), onto: undefined, from: undefined };
+
 		this._disposables.push(
 			workspace.onDidChangeTextDocument(e => {
 				if (!this._closing && e.document === document && e.contentChanges.length) {
@@ -139,6 +141,9 @@ export class RebaseWebviewProvider implements Disposable {
 					void closeTab(document.uri);
 				}
 			}),
+			this.container.subscription.onDidChange(e => {
+				this.onSubscriptionChanged(e.current);
+			}),
 		);
 
 		// Subscribe to repository changes
@@ -158,6 +163,13 @@ export class RebaseWebviewProvider implements Disposable {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
+	getTelemetryContext(): RebaseEditorTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+			'context.ascending': this.ascending,
+		};
+	}
+
 	async includeBootstrap(deferrable?: boolean): Promise<State> {
 		if (deferrable) {
 			return Promise.resolve({
@@ -170,31 +182,20 @@ export class RebaseWebviewProvider implements Disposable {
 		return this.parseState();
 	}
 
-	onShowing(loading: boolean, _options: WebviewShowOptions): [boolean, undefined] {
-		// Reveal branch tip on initial load if behavior is 'onOpen'
-		if (loading) {
-			void this.revealBranchTipOnOpen();
-		}
-		return [true, undefined];
-	}
-
-	getTelemetryContext(): RebaseEditorTelemetryContext {
-		return {
-			...this.host.getTelemetryContext(),
-			'context.ascending': this.ascending,
-		};
-	}
-
-	onRefresh(_force?: boolean): void {
-		this.updateState(true);
-	}
-
 	registerCommands(): Disposable[] {
 		return [
 			this.host.registerWebviewCommand('gitlens.pausedOperation.showConflicts:rebase', () =>
 				this.onShowConflicts(),
 			),
 		];
+	}
+
+	onShowing(loading: boolean, _options: WebviewShowOptions): [boolean, undefined] {
+		// Reveal branch tip on initial load if behavior is 'onOpen'
+		if (loading) {
+			void this.revealBranchTipOnOpen();
+		}
+		return [true, undefined];
 	}
 
 	onMessageReceived(e: IpcMessage): void {
@@ -259,10 +260,18 @@ export class RebaseWebviewProvider implements Disposable {
 				void this.onGetMissingAvatars(e.params);
 				break;
 
-			case RecomposeCommitsCommand.is(e):
-				void this.onRecomposeCommits();
+			case GetMissingCommitsCommand.is(e):
+				void this.onGetMissingCommits(e.params);
+				break;
+
+			case RecomposeCommand.is(e):
+				void this.onRecompose();
 				break;
 		}
+	}
+
+	onRefresh(_force?: boolean): void {
+		this.updateState(true);
 	}
 
 	onVisibilityChanged(visible: boolean): void {
@@ -272,106 +281,288 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
-	private async revealBranchTipOnOpen(): Promise<void> {
-		const revealBehavior = configuration.get('rebaseEditor.revealBehavior');
-		if (revealBehavior !== 'onOpen') return;
+	private onSubscriptionChanged(subscription: Subscription): void {
+		if (!this.host.visible) return;
 
-		const revealLocation = configuration.get('rebaseEditor.revealLocation');
-		const branchName =
-			this.branchName ??
-			(await this.container.git.getRepositoryService(this.repoPath).branches.getBranch())?.name;
-		if (branchName == null) return;
+		void this.host.notify(DidChangeSubscriptionNotification, { subscription: subscription });
+	}
 
-		const ref = createReference(branchName, this.repoPath, {
-			refType: 'branch',
-			name: branchName,
-			remote: false,
-		});
+	private async onAbort(): Promise<void> {
+		this._closing = true;
 
-		if (revealLocation === 'graph') {
+		// Delete the contents to abort the rebase
+		const edit = new WorkspaceEdit();
+		edit.delete(this.document.uri, new Range(0, 0, this.document.lineCount, 0));
+		await workspace.applyEdit(edit);
+		await this.document.save();
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		await abortPausedOperation(svc);
+		await closeTab(this.document.uri);
+	}
+
+	private async onContinue(): Promise<void> {
+		// Save the document first to ensure any changes are persisted
+		await this.document.save();
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		await continuePausedOperation(svc);
+	}
+
+	private async onRecompose(): Promise<void> {
+		// Get commit SHAs from the rebase entries
+		const { processed } = this.getParsedTodo();
+		const commitShas = [...processed.commits.values()].map(e => e.sha);
+
+		// Open the Commit Composer with the commits
+		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
+			'gitlens.showComposerPage',
+			undefined,
+			{
+				repoPath: this.repoPath,
+				source: 'rebaseEditor',
+				mode: 'preview',
+				branchName: this._branchName ?? undefined,
+				commitShas: commitShas,
+			},
+		);
+
+		await this.onAbort();
+	}
+
+	private async onShowConflicts(): Promise<void> {
+		await showPausedOperationStatus(this.container, this.repoPath);
+	}
+
+	private async onSkip(): Promise<void> {
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+		await skipPausedOperation(svc);
+	}
+
+	private async onStart(): Promise<void> {
+		this._closing = true;
+
+		await this.document.save();
+		await closeTab(this.document.uri);
+	}
+
+	private async onSwapOrdering(params: ReorderParams): Promise<void> {
+		await configuration.updateEffective('rebaseEditor.ordering', (params.ascending ?? false) ? 'asc' : 'desc');
+		this.updateState(true);
+	}
+
+	private onSwitchToText(): Promise<void> {
+		return reopenRebaseTodoEditor('default');
+	}
+
+	/** Fetches enhanced avatars (from GitHub/GitLab/etc.) for the requested emails */
+	private async onGetMissingAvatars(params: GetMissingAvatarsParams): Promise<void> {
+		if (!this._enrichment?.authors.size || !this.repoPath) return;
+
+		const { authors } = this._enrichment;
+
+		const promises: Promise<void>[] = [];
+		let hasUpdates = false;
+
+		for (const [email, sha] of Object.entries(params.emails)) {
+			// Find the author by email to update their avatar
+			const author = find(authors.values(), a => a.email === email);
+			if (!author) continue;
+
+			const avatarUrlOrPromise = author.avatarUrl ?? getAvatarUri(email, { ref: sha, repoPath: this.repoPath });
+			if (avatarUrlOrPromise instanceof Promise) {
+				promises.push(
+					avatarUrlOrPromise.then(uri => {
+						authors.set(author.author, { ...author, avatarUrl: uri.toString(true) });
+					}),
+				);
+				continue;
+			}
+
+			authors.set(author.author, { ...author, avatarUrl: avatarUrlOrPromise.toString(true) });
+			hasUpdates = true;
+		}
+
+		if (hasUpdates || promises.length) {
+			await Promise.allSettled(promises);
+			this.notifyDidChangeAvatars();
+		}
+	}
+
+	/** Fetches commit data for the requested SHAs and sends enriched commit data to webview */
+	private async onGetMissingCommits(params: GetMissingCommitsParams): Promise<void> {
+		if (!params.shas.length || !this.repoPath) return;
+
+		const requestedCommits = new Map<string, GitCommit>();
+		const requestedAuthors = new Map<string, Author>();
+
+		const { authors, commits } = this._enrichment;
+
+		const shas = new Set(params.shas);
+		const shasToLoad = new Set(shas);
+		for (const sha of shasToLoad) {
+			const commit = commits.get(sha);
+			if (commit == null) continue;
+
+			shasToLoad.delete(sha);
+			requestedCommits.set(sha, commit);
+		}
+
+		const results = shasToLoad.size ? await this.getCommitsByShas(shasToLoad) : [];
+		for (const commit of concat(requestedCommits.values(), results)) {
+			const requestedSha = find(shas, s => commit.sha.startsWith(s));
+			if (requestedSha == null) {
+				debugger;
+				continue;
+			}
+
+			commits.set(requestedSha, commit);
+			requestedCommits.set(requestedSha, commit);
+
+			const authorName = commit.author.name;
+			let author = authors.get(authorName);
+			if (author == null) {
+				author = {
+					author: authorName,
+					email: commit.author.email ?? '',
+					avatarUrl: undefined,
+					avatarFallbackUrl: getAvatarUriFromGravatarEmail(commit.author.email ?? '', 16).toString(true),
+				};
+				authors.set(authorName, author);
+			}
+			requestedAuthors.set(authorName, author);
+
+			const committerName = commit.committer.name;
+			if (committerName === authorName) continue;
+
+			let committer = authors.get(committerName);
+			if (committer == null) {
+				committer = {
+					author: committerName,
+					email: commit.committer.email ?? '',
+					avatarUrl: undefined,
+					avatarFallbackUrl: getAvatarUriFromGravatarEmail(commit.committer.email ?? '', 16).toString(true),
+				};
+				authors.set(committerName, committer);
+			}
+			requestedAuthors.set(committerName, committer);
+		}
+
+		if (requestedCommits.size) {
+			this.notifyDidChangeCommits(requestedCommits, requestedAuthors);
+		}
+	}
+
+	private async onRevealRef(params: RevealRefParams): Promise<void> {
+		const revealIn = configuration.get('rebaseEditor.revealLocation');
+
+		// For branches, always use the graph since commit details doesn't support branches
+		if (params.type === 'branch') {
+			const ref = createReference(params.ref, this.repoPath, {
+				refType: 'branch',
+				name: params.ref,
+				remote: false,
+			});
+			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
+			return;
+		}
+
+		const ref = createReference(params.ref, this.repoPath, { refType: 'revision' });
+		if (revealIn === 'graph') {
 			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
 		} else {
-			// For inspect view, get the branch tip commit
-			const branch = await this.container.git.getRepositoryService(this.repoPath).branches.getBranch(branchName);
-			if (branch?.sha != null) {
-				const commit = await this.container.git
-					.getRepositoryService(this.repoPath)
-					.commits.getCommit(branch.sha);
-				if (commit != null) {
-					await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: commit });
-				}
-			}
+			await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: ref });
+		}
+	}
+
+	private fireSelectionChangedDebounced?: Deferrable<RebaseWebviewProvider['fireSelectionChanged']>;
+	private onSelectionChanged(params: UpdateSelectionParams): void {
+		this.fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 250);
+		void this.fireSelectionChangedDebounced(params);
+	}
+
+	private async fireSelectionChanged(params: UpdateSelectionParams): Promise<void> {
+		const revealBehavior = configuration.get('rebaseEditor.revealBehavior');
+		// Only auto-reveal on selection if behavior is 'onSelection'
+		if (revealBehavior !== 'onSelection') return;
+
+		const { processed } = this.getParsedTodo();
+		const commits = processed.commits.values();
+		const entry = find(commits, e => e.sha === params.sha);
+		if (entry == null) return;
+
+		let commit = this._enrichment?.commits.get(entry.sha);
+		if (commit == null) {
+			commit = await this.container.git.getRepositoryService(this.repoPath).commits.getCommit(entry.sha);
+			if (commit == null) return;
+
+			this._enrichment.commits.set(entry.sha, commit);
+		}
+
+		// Reveal in the preferred location
+		const revealLocation = configuration.get('rebaseEditor.revealLocation');
+		if (revealLocation === 'graph') {
+			const ref = createReference(commit.sha, this.repoPath, { refType: 'revision' });
+			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
+		} else {
+			// Fire event for commit details view to pick up
+			this.container.events.fire(
+				'commit:selected',
+				{ commit: commit, interaction: 'passive', preserveFocus: true, preserveVisibility: false },
+				{ source: 'gitlens.rebase' },
+			);
 		}
 	}
 
 	private async parseState(): Promise<State> {
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 
-		if (this.branchName === undefined) {
-			const branch = await svc.branches.getBranch();
-			this.branchName = branch?.name ?? null;
-		}
-
 		const { parsed, processed } = this.getParsedTodo();
 
-		// Get active rebase status and done entries separately
-		const { status: rebaseStatus, doneEntries } = await this.getRebaseStatus(svc);
+		// Fetch branch, rebase status, and subscription
+		const [branchResult, rebaseStatusResult, subscriptionResult] = await Promise.allSettled([
+			this._branchName === undefined ? svc.branches.getBranch() : undefined,
+			this.getRebaseStatus(svc),
+			this.container.subscription.getSubscription(),
+		]);
 
-		// Get onto and source from parsed header or active rebase status
-		let onto = parsed.info?.onto ?? rebaseStatus?.onto ?? '';
-		const from = parsed.info?.from ?? rebaseStatus?.source ?? '';
-
-		let commitsResult: CommitsResult;
-		if (this.commitsResult == null) {
-			const shas = new Set<string>([
-				...map(processed.commits.values(), e => e.sha),
-				...filterMap(doneEntries ?? [], e => (e.type === 'commit' ? e.sha : undefined)),
-			]);
-			commitsResult = await this.getCommits(onto, from, shas);
-			this.commitsResult = commitsResult;
-		} else {
-			commitsResult = this.commitsResult;
+		if (this._branchName === undefined) {
+			this._branchName = getSettledValue(branchResult)?.name ?? null;
 		}
 
-		const { commits, authors, onto: ontoCommit, from: fromCommit } = commitsResult;
+		const { status: rebaseStatus, doneEntries } = getSettledValue(rebaseStatusResult, {
+			status: undefined,
+			doneEntries: undefined,
+		});
+
+		const subscription = getSettledValue(subscriptionResult);
+
+		// Get onto and source from parsed header or active rebase status
+		// onto = new base where commits will be applied
+		// to = tip of the original branch (HEAD before rebase)
+		// source = original HEAD (from rebase status during active rebase)
+		let onto = parsed.info?.onto ?? rebaseStatus?.onto ?? '';
+		const to = parsed.info?.to ?? rebaseStatus?.source ?? '';
+
+		const { entries } = processed;
+		const { authors, commits, onto: ontoCommit, from: toCommit } = this._enrichment;
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 
-		// Build entries array from flat processed list (already in file order)
-		const entries: RebaseEntry[] = processed.entries.map(parsedEntry => {
-			if (parsedEntry.type === 'commit') {
-				return {
-					type: 'commit' as const,
-					id: parsedEntry.id,
-					line: parsedEntry.line,
-					action: parsedEntry.action,
-					sha: parsedEntry.sha,
-					message: parsedEntry.message,
-					updateRefs: parsedEntry.updateRefs,
-				};
+		// Only enrich entries if we we have commits already
+		if (commits.size) {
+			this.enrichEntries(entries, commits, defaultDateFormat);
+			if (doneEntries) {
+				this.enrichEntries(doneEntries, commits, defaultDateFormat);
 			}
-			return {
-				type: 'command' as const,
-				id: parsedEntry.id,
-				line: parsedEntry.line,
-				action: parsedEntry.action,
-				command: parsedEntry.command,
-			};
-		});
-
-		// Enrich all entries with commit data (mutates in place)
-		this.enrichEntries(entries, commits, defaultDateFormat);
-		if (doneEntries) {
-			this.enrichEntries(doneEntries, commits, defaultDateFormat);
 		}
 
 		// If the onto commit is contained in the list of commits, remove it and clear the 'onto' value — See #1201
 		// Don't do this during an active rebase since done entries are handled separately
 		if (
-			ontoCommit != null &&
+			rebaseStatus == null &&
 			// Don't use commits, as we include the onto commit in that set
-			entries.some(e => e.type === 'commit' && ontoCommit.sha.startsWith(e.sha)) &&
-			rebaseStatus == null
+			entries.some(e => e.type === 'commit' && onto.startsWith(e.sha))
 		) {
 			onto = '';
 		}
@@ -380,38 +571,12 @@ export class RebaseWebviewProvider implements Disposable {
 			webviewId: 'gitlens.rebase',
 			webviewInstanceId: this.host.instanceId,
 			timestamp: Date.now(),
-			branch: this.branchName ?? '',
+			branch: this._branchName ?? '',
 			onto: onto
-				? {
-						sha: onto,
-						commit:
-							ontoCommit != null
-								? {
-										sha: ontoCommit.sha,
-										author: ontoCommit.author.name,
-										committer: ontoCommit.committer.name,
-										date: ontoCommit.formatDate(defaultDateFormat),
-										dateFromNow: ontoCommit.formatDateFromNow(),
-										message: emojify(ontoCommit.message || 'root'),
-									}
-								: undefined,
-					}
+				? { sha: onto, commit: ontoCommit != null ? convertCommit(ontoCommit, defaultDateFormat) : undefined }
 				: undefined,
-			source: from
-				? {
-						sha: from,
-						commit:
-							fromCommit != null
-								? {
-										sha: fromCommit.sha,
-										author: fromCommit.author.name,
-										committer: fromCommit.committer.name,
-										date: fromCommit.formatDate(defaultDateFormat),
-										dateFromNow: fromCommit.formatDateFromNow(),
-										message: emojify(fromCommit.message || 'root'),
-									}
-								: undefined,
-					}
+			source: to
+				? { sha: to, commit: toCommit != null ? convertCommit(toCommit, defaultDateFormat) : undefined }
 				: undefined,
 			entries: entries,
 			doneEntries: doneEntries,
@@ -422,7 +587,67 @@ export class RebaseWebviewProvider implements Disposable {
 			revealBehavior: configuration.get('rebaseEditor.revealBehavior'),
 			rebaseStatus: rebaseStatus,
 			repoPath: this.repoPath,
+			subscription: subscription,
 		};
+	}
+
+	/** Detects the reason the rebase is paused based on the last done entry's action */
+	private detectPauseReason(lastAction: RebaseTodoAction | undefined): RebasePauseReason | undefined {
+		switch (lastAction) {
+			case 'edit':
+				return 'edit';
+			case 'reword':
+				return 'reword';
+			case 'break':
+				return 'break';
+			case 'exec':
+				return 'exec';
+			default:
+				return undefined;
+		}
+	}
+
+	/** Enriches entries with commit data */
+	private enrichEntries(
+		entries: RebaseEntry[],
+		commits: Map<string, GitCommit>,
+		defaultDateFormat: string | null,
+	): void {
+		for (const entry of entries) {
+			if (entry.type !== 'commit' || entry.commit != null) continue;
+
+			const commit = commits.get(entry.sha);
+			if (commit == null) continue;
+
+			entry.commit = convertCommit(commit, defaultDateFormat);
+		}
+	}
+
+	private async getCommitsByShas(shas: Iterable<string>): Promise<Iterable<GitCommit>> {
+		const query = join(
+			map(shas, sha => `#:${sha}`),
+			' ',
+		);
+
+		const result = await this.container.git
+			.getRepositoryService(this.repoPath)
+			.commits.searchCommits({ query: query }, { source: 'rebaseEditor' }, { limit: 0 });
+		return result.log?.commits.values() ?? [];
+	}
+
+	/**
+	 * Parses the 'done' file and transforms entries for display
+	 * @returns processed entries for display and the last action for pause detection
+	 */
+	private async getDoneEntries(): Promise<{ entries: RebaseEntry[]; lastAction?: RebaseTodoAction }> {
+		const parsed = await readAndParseRebaseDoneFile(this.document.uri);
+		if (!parsed?.entries.length) return { entries: [] };
+
+		const lastAction = parsed.entries.at(-1)?.action;
+		// Add a 'done:' prefix to the ID to prevent collisions with todo entries
+		const processed = processRebaseEntries(parsed.entries, 'done:');
+
+		return { entries: processed.entries, lastAction: lastAction };
 	}
 
 	/** Gets the active rebase status and done entries separately */
@@ -460,187 +685,57 @@ export class RebaseWebviewProvider implements Disposable {
 		};
 	}
 
-	/**
-	 * Parses the 'done' file and transforms entries for display
-	 * Returns processed entries for display and the last action for pause detection
-	 */
-	private async getDoneEntries(): Promise<{ entries: RebaseEntry[]; lastAction?: RebaseTodoAction }> {
-		const parsed = await readAndParseRebaseDoneFile(this.document.uri);
-		if (!parsed?.entries.length) return { entries: [] };
+	private async revealBranchTipOnOpen(): Promise<void> {
+		const revealBehavior = configuration.get('rebaseEditor.revealBehavior');
+		if (revealBehavior !== 'onOpen') return;
 
-		const lastAction = parsed.entries.at(-1)?.action;
-		const processed = processRebaseEntries(parsed.entries);
+		const revealLocation = configuration.get('rebaseEditor.revealLocation');
+		const branchName =
+			this._branchName ??
+			(await this.container.git.getRepositoryService(this.repoPath).branches.getBranch())?.name;
+		if (branchName == null) return;
 
-		let lineIndex = -1;
-		const entries: RebaseEntry[] = processed.entries.map(entry => {
-			if (entry.type === 'commit') {
-				return {
-					type: entry.type,
-					id: entry.id,
-					action: entry.action,
-					sha: entry.sha,
-					message: entry.message,
-					line: lineIndex--,
-					updateRefs: entry.updateRefs,
-				};
-			}
-			return {
-				type: entry.type,
-				id: entry.id,
-				action: entry.action,
-				command: entry.command,
-				line: lineIndex--,
-			};
+		const ref = createReference(branchName, this.repoPath, {
+			refType: 'branch',
+			name: branchName,
+			remote: false,
 		});
 
-		return { entries: entries, lastAction: lastAction };
-	}
-
-	/** Detects the reason the rebase is paused based on the last done entry's action */
-	private detectPauseReason(lastAction: RebaseTodoAction | undefined): RebasePauseReason | undefined {
-		switch (lastAction) {
-			case 'edit':
-				return 'edit';
-			case 'reword':
-				return 'reword';
-			case 'break':
-				return 'break';
-			case 'exec':
-				return 'exec';
-			default:
-				return undefined;
-		}
-	}
-
-	/** Enriches entries with full commit data (mutates in place) */
-	private enrichEntries(entries: RebaseEntry[], commits: GitCommit[], defaultDateFormat: string | null): void {
-		for (const entry of entries) {
-			if (entry.type !== 'commit') continue;
-
-			const commit = commits.find(c => c.sha.startsWith(entry.sha));
-			if (commit != null) {
-				entry.commit = {
-					sha: commit.sha,
-					author: commit.author.name,
-					committer: commit.committer.name,
-					date: commit.formatDate(defaultDateFormat),
-					dateFromNow: commit.formattedDate,
-					message: emojify(commit.message ?? commit.summary),
-				};
-			}
-		}
-	}
-
-	private async getCommits(onto: string, from: string, shas: Iterable<string>): Promise<CommitsResult> {
-		const commits = [];
-		const authors = new Map<string, Author>();
-		let ontoCommit: GitCommit | undefined;
-		let fromCommit: GitCommit | undefined;
-
-		const result = await this.container.git.getRepositoryService(this.repoPath).commits.searchCommits(
-			{
-				query: `${onto ? `#:${onto} ` : ''}${from ? `#:${from} ` : ''}${join(
-					map(shas, sha => `#:${sha}`),
-					' ',
-				)}`,
-			},
-			{ source: 'rebaseEditor' },
-			{ limit: 0 },
-		);
-
-		if (result.log != null) {
-			for (const c of result.log.commits.values()) {
-				commits.push(c);
-				if (onto && c.sha.startsWith(onto)) {
-					ontoCommit = c;
-				}
-				if (from && c.sha.startsWith(from)) {
-					fromCommit = c;
-				}
-
-				if (!authors.has(c.author.name)) {
-					authors.set(c.author.name, {
-						author: c.author.name,
-						avatarUrl: undefined,
-						avatarFallbackUrl: c.author.email
-							? getAvatarUriFromGravatarEmail(c.author.email, 32).toString(true)
-							: undefined,
-						email: c.author.email,
-					});
-				}
-				if (!authors.has(c.committer.name)) {
-					authors.set(c.committer.name, {
-						author: c.committer.name,
-						avatarUrl: undefined,
-						avatarFallbackUrl: c.committer.email
-							? getAvatarUriFromGravatarEmail(c.committer.email, 32).toString(true)
-							: undefined,
-						email: c.committer.email,
-					});
+		if (revealLocation === 'graph') {
+			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
+		} else {
+			// For inspect view, get the branch tip commit
+			const branch = await this.container.git.getRepositoryService(this.repoPath).branches.getBranch(branchName);
+			if (branch?.sha != null) {
+				const commit = await this.container.git
+					.getRepositoryService(this.repoPath)
+					.commits.getCommit(branch.sha);
+				if (commit != null) {
+					await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: commit });
 				}
 			}
-		}
-
-		return { commits: commits, authors: authors, onto: ontoCommit, from: fromCommit };
-	}
-
-	/** Fetches enhanced avatars (from GitHub/GitLab/etc.) for the requested emails */
-	private async onGetMissingAvatars(params: GetMissingAvatarsParams): Promise<void> {
-		if (!this.commitsResult?.authors.size || !this.repoPath) return;
-
-		const { authors } = this.commitsResult;
-
-		const promises: Promise<void>[] = [];
-		let hasUpdates = false;
-
-		for (const [email, sha] of Object.entries(params.emails)) {
-			// Find the author by email to update their avatar
-			const author = find(authors.values(), a => a.email === email);
-			if (!author) continue;
-
-			const avatarUrlOrPromise = author.avatarUrl ?? getAvatarUri(email, { ref: sha, repoPath: this.repoPath });
-			if (avatarUrlOrPromise instanceof Promise) {
-				promises.push(
-					avatarUrlOrPromise.then(uri => {
-						authors.set(author.author, { ...author, avatarUrl: uri.toString(true) });
-					}),
-				);
-				continue;
-			}
-
-			authors.set(author.author, { ...author, avatarUrl: avatarUrlOrPromise.toString(true) });
-			hasUpdates = true;
-		}
-
-		if (hasUpdates || promises.length) {
-			await Promise.allSettled(promises);
-			this.notifyDidChangeAvatars();
 		}
 	}
 
 	private notifyDidChangeAvatars(): void {
-		if (!this.commitsResult?.authors.size || !this.host.visible) return;
+		if (!this._enrichment?.authors.size || !this.host.visible) return;
 
-		const avatars: Record<string, string> = {};
-		for (const [name, author] of this.commitsResult.authors) {
-			if (!author.avatarUrl) continue;
-
-			avatars[name] = author.avatarUrl;
-		}
+		const avatars = Object.fromEntries(
+			filterMap(this._enrichment.authors, ([k, v]) => (v.avatarUrl ? [k, v.avatarUrl] : undefined)),
+		);
 
 		void this.host.notify(DidChangeAvatarsNotification, { avatars: avatars });
 	}
 
-	private notifyDidChangeStateDebounced?: Deferrable<RebaseWebviewProvider['notifyDidChangeState']>;
-	private updateState(immediate: boolean = false): void {
-		if (immediate) {
-			this.notifyDidChangeStateDebounced?.cancel();
-			void this.notifyDidChangeState();
-			return;
-		}
+	private notifyDidChangeCommits(commits: Map<string, GitCommit>, authors: Map<string, Author>): void {
+		if (!this.host.visible) return;
 
-		this.notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 250);
-		void this.notifyDidChangeStateDebounced();
+		const defaultDateFormat = configuration.get('defaultDateFormat');
+
+		void this.host.notify(DidChangeCommitsNotification, {
+			commits: Object.fromEntries(map(commits, ([k, v]) => [k, convertCommit(v, defaultDateFormat)])),
+			authors: Object.fromEntries(authors),
+		});
 	}
 
 	private async notifyDidChangeState(): Promise<void> {
@@ -658,68 +753,16 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.host.notify(DidChangeNotification, { state: state });
 	}
 
-	private async onAbort(): Promise<void> {
-		this._closing = true;
+	private notifyDidChangeStateDebounced?: Deferrable<RebaseWebviewProvider['notifyDidChangeState']>;
+	private updateState(immediate: boolean = false): void {
+		if (immediate) {
+			this.notifyDidChangeStateDebounced?.cancel();
+			void this.notifyDidChangeState();
+			return;
+		}
 
-		// Delete the contents to abort the rebase
-		const edit = new WorkspaceEdit();
-		edit.delete(this.document.uri, new Range(0, 0, this.document.lineCount, 0));
-		await workspace.applyEdit(edit);
-		await this.document.save();
-
-		const svc = this.container.git.getRepositoryService(this.repoPath);
-		await abortPausedOperation(svc);
-		await closeTab(this.document.uri);
-	}
-
-	private async onRecomposeCommits(): Promise<void> {
-		// Get commit SHAs from the rebase entries
-		const { processed } = this.getParsedTodo();
-		const commitShas = [...processed.commits.values()].map(e => e.sha);
-
-		// Open the Commit Composer with the commits
-		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-			'gitlens.showComposerPage',
-			undefined,
-			{
-				repoPath: this.repoPath,
-				source: 'rebaseEditor',
-				mode: 'preview',
-				branchName: this.branchName ?? undefined,
-				commitShas: commitShas,
-			},
-		);
-
-		await this.onAbort();
-	}
-
-	private async onContinue(): Promise<void> {
-		// Save the document first to ensure any changes are persisted
-		await this.document.save();
-
-		const svc = this.container.git.getRepositoryService(this.repoPath);
-		await continuePausedOperation(svc);
-	}
-
-	private async onSkip(): Promise<void> {
-		const svc = this.container.git.getRepositoryService(this.repoPath);
-		await skipPausedOperation(svc);
-	}
-
-	private async onStart(): Promise<void> {
-		this._closing = true;
-
-		await this.document.save();
-		await closeTab(this.document.uri);
-	}
-
-	private async onSwapOrdering(params: ReorderParams): Promise<void> {
-		await configuration.updateEffective('rebaseEditor.ordering', (params.ascending ?? false) ? 'asc' : 'desc');
-		this.updateState(true);
-	}
-
-	private onSwitchToText(): Promise<void> {
-		return reopenRebaseTodoEditor('default');
+		this.notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 250);
+		void this.notifyDidChangeStateDebounced();
 	}
 
 	private async onEntryChanged(params: ChangeEntryParams): Promise<void> {
@@ -899,84 +942,6 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	/**
-	 * Calculates the target index for a move operation
-	 * @returns Target index, or null if the move is invalid/no-op
-	 */
-	private calculateMoveTargetIndex(params: MoveEntryParams, currentIndex: number, entryCount: number): number | null {
-		if (params.relative) {
-			// Relative move: +1 (down) or -1 (up)
-			const targetIndex = currentIndex + params.to;
-			// Boundary check
-			if (targetIndex < 0 || targetIndex >= entryCount) return null;
-			return targetIndex;
-		}
-
-		// Absolute move (drag)
-		if (currentIndex === params.to) return null;
-		return params.to;
-	}
-
-	/** Checks if the move would leave a squash/fixup as the oldest commit entry */
-	private wouldLeaveSquashAsOldest(entries: ProcessedRebaseEntry[], fromIndex: number, toIndex: number): boolean {
-		// Simulate the move
-		const entry = entries[fromIndex];
-		const newEntries = [...entries];
-		newEntries.splice(fromIndex, 1);
-		newEntries.splice(toIndex, 0, entry);
-
-		// Find the oldest commit entry
-		const oldestCommit = newEntries.find(e => e.type === 'commit');
-		if (!oldestCommit) return false;
-
-		return oldestCommit.action === 'squash' || oldestCommit.action === 'fixup';
-	}
-
-	/** Re-reads the file and fixes the oldest commit entry if it's squash/fixup */
-	private async fixOldestCommitIfSquash(): Promise<void> {
-		const processed = this.getParsedTodo().processed;
-		// First commit in the todo file is the oldest
-		const oldestCommit = first(processed.commits.values());
-		if (!oldestCommit) return;
-
-		if (oldestCommit.action !== 'squash' && oldestCommit.action !== 'fixup') return;
-
-		const range = this.document.validateRange(
-			new Range(new Position(oldestCommit.line, 0), new Position(oldestCommit.line, maxSmallIntegerV8)),
-		);
-		const edit = new WorkspaceEdit();
-		edit.replace(this.document.uri, range, `pick ${oldestCommit.sha} ${oldestCommit.message}`);
-		await workspace.applyEdit(edit);
-	}
-
-	/** Rewrites all entry lines in the new order */
-	private async rewriteEntries(
-		originalEntries: ProcessedRebaseEntry[],
-		newEntries: ProcessedRebaseEntry[],
-		fixOldestCommit?: ProcessedRebaseCommitEntry,
-	): Promise<void> {
-		const edit = new WorkspaceEdit();
-
-		for (let i = 0; i < originalEntries.length; i++) {
-			const original = originalEntries[i];
-			const newEntry = newEntries[i];
-
-			// Check if this entry changed position or needs action fix
-			const needsUpdate = original.id !== newEntry.id || (fixOldestCommit && newEntry.id === fixOldestCommit.id);
-
-			if (needsUpdate) {
-				const range = this.document.validateRange(
-					new Range(new Position(original.line, 0), new Position(original.line, maxSmallIntegerV8)),
-				);
-				// If this is the oldest commit that needs fixing, use 'pick'
-				const overrideAction = fixOldestCommit && newEntry.id === fixOldestCommit.id ? 'pick' : undefined;
-				edit.replace(this.document.uri, range, formatRebaseTodoEntryLine(newEntry, overrideAction));
-			}
-		}
-
-		await workspace.applyEdit(edit);
-	}
-
-	/**
 	 * Applies the file edit to move an entry
 	 *
 	 * VS Code's WorkspaceEdit uses ORIGINAL line numbers, so we must order
@@ -1016,6 +981,34 @@ export class RebaseWebviewProvider implements Disposable {
 		await workspace.applyEdit(edit);
 	}
 
+	/** Rewrites all entry lines in the new order */
+	private async rewriteEntries(
+		originalEntries: ProcessedRebaseEntry[],
+		newEntries: ProcessedRebaseEntry[],
+		fixOldestCommit?: ProcessedRebaseCommitEntry,
+	): Promise<void> {
+		const edit = new WorkspaceEdit();
+
+		for (let i = 0; i < originalEntries.length; i++) {
+			const original = originalEntries[i];
+			const newEntry = newEntries[i];
+
+			// Check if this entry changed position or needs action fix
+			const needsUpdate = original.id !== newEntry.id || (fixOldestCommit && newEntry.id === fixOldestCommit.id);
+
+			if (needsUpdate) {
+				const range = this.document.validateRange(
+					new Range(new Position(original.line, 0), new Position(original.line, maxSmallIntegerV8)),
+				);
+				// If this is the oldest commit that needs fixing, use 'pick'
+				const overrideAction = fixOldestCommit && newEntry.id === fixOldestCommit.id ? 'pick' : undefined;
+				edit.replace(this.document.uri, range, formatRebaseTodoEntryLine(newEntry, overrideAction));
+			}
+		}
+
+		await workspace.applyEdit(edit);
+	}
+
 	/**
 	 * Calculates the insert line for downward moves
 	 * - Drop at end: insert AFTER the last entry
@@ -1029,63 +1022,64 @@ export class RebaseWebviewProvider implements Disposable {
 		return targetLine; // Insert at target's position
 	}
 
-	private fireSelectionChangedDebounced?: Deferrable<RebaseWebviewProvider['fireSelectionChanged']>;
-	private onSelectionChanged(params: UpdateSelectionParams): void {
-		this.fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 250);
-		void this.fireSelectionChangedDebounced(params);
-	}
-
-	private async fireSelectionChanged(params: UpdateSelectionParams): Promise<void> {
-		const revealBehavior = configuration.get('rebaseEditor.revealBehavior');
-		// Only auto-reveal on selection if behavior is 'onSelection'
-		if (revealBehavior !== 'onSelection') return;
-
-		const { processed } = this.getParsedTodo();
-		const commits = processed.commits.values();
-		const entry = find(commits, e => e.sha === params.sha);
-		if (entry == null) return;
-
-		const commit = this.commitsResult?.commits.find(c => c.sha.startsWith(entry.sha));
-		if (commit == null) return;
-
-		// Reveal in the preferred location
-		const revealLocation = configuration.get('rebaseEditor.revealLocation');
-		if (revealLocation === 'graph') {
-			const ref = createReference(commit.sha, this.repoPath, { refType: 'revision' });
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
-		} else {
-			// Fire event for commit details view to pick up
-			this.container.events.fire(
-				'commit:selected',
-				{ commit: commit, interaction: 'passive', preserveFocus: true, preserveVisibility: false },
-				{ source: 'gitlens.rebase' },
-			);
-		}
-	}
-
-	private async onRevealRef(params: RevealRefParams): Promise<void> {
-		const revealIn = configuration.get('rebaseEditor.revealLocation');
-
-		// For branches, always use the graph since commit details doesn't support branches
-		if (params.type === 'branch') {
-			const ref = createReference(params.ref, this.repoPath, {
-				refType: 'branch',
-				name: params.ref,
-				remote: false,
-			});
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
-			return;
+	/**
+	 * Calculates the target index for a move operation
+	 * @returns Target index, or null if the move is invalid/no-op
+	 */
+	private calculateMoveTargetIndex(params: MoveEntryParams, currentIndex: number, entryCount: number): number | null {
+		if (params.relative) {
+			// Relative move: +1 (down) or -1 (up)
+			const targetIndex = currentIndex + params.to;
+			// Boundary check
+			if (targetIndex < 0 || targetIndex >= entryCount) return null;
+			return targetIndex;
 		}
 
-		const ref = createReference(params.ref, this.repoPath, { refType: 'revision' });
-		if (revealIn === 'graph') {
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
-		} else {
-			await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: ref });
-		}
+		// Absolute move (drag)
+		if (currentIndex === params.to) return null;
+		return params.to;
 	}
 
-	private async onShowConflicts(): Promise<void> {
-		await showPausedOperationStatus(this.container, this.repoPath);
+	/** Re-reads the file and fixes the oldest commit entry if it's squash/fixup */
+	private async fixOldestCommitIfSquash(): Promise<void> {
+		const processed = this.getParsedTodo().processed;
+		// First commit in the todo file is the oldest
+		const oldestCommit = first(processed.commits.values());
+		if (!oldestCommit) return;
+
+		if (oldestCommit.action !== 'squash' && oldestCommit.action !== 'fixup') return;
+
+		const range = this.document.validateRange(
+			new Range(new Position(oldestCommit.line, 0), new Position(oldestCommit.line, maxSmallIntegerV8)),
+		);
+		const edit = new WorkspaceEdit();
+		edit.replace(this.document.uri, range, `pick ${oldestCommit.sha} ${oldestCommit.message}`);
+		await workspace.applyEdit(edit);
 	}
+
+	/** Checks if the move would leave a squash/fixup as the oldest commit entry */
+	private wouldLeaveSquashAsOldest(entries: ProcessedRebaseEntry[], fromIndex: number, toIndex: number): boolean {
+		// Simulate the move
+		const entry = entries[fromIndex];
+		const newEntries = [...entries];
+		newEntries.splice(fromIndex, 1);
+		newEntries.splice(toIndex, 0, entry);
+
+		// Find the oldest commit entry
+		const oldestCommit = newEntries.find(e => e.type === 'commit');
+		if (!oldestCommit) return false;
+
+		return oldestCommit.action === 'squash' || oldestCommit.action === 'fixup';
+	}
+}
+
+function convertCommit(commit: GitCommit, defaultDateFormat: string | null): Commit {
+	return {
+		sha: commit.sha,
+		author: commit.author.name,
+		committer: commit.committer.name,
+		date: commit.formatDate(defaultDateFormat),
+		formattedDate: commit.formattedDate,
+		message: emojify(commit.message ?? commit.summary),
+	};
 }

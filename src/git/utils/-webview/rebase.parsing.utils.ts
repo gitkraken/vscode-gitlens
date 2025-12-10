@@ -59,7 +59,7 @@ function isUpdateRefEntry(entry: RebaseTodoEntry): entry is RebaseTodoUpdateRefE
  * - Attaches update-ref entries to their preceding commits
  * - Detects rebases that preserve merges (--rebase-merges with label/reset/merge)
  */
-export function processRebaseEntries(entries: RebaseTodoEntry[]): ProcessedRebaseTodo {
+export function processRebaseEntries(entries: RebaseTodoEntry[], idPrefix?: string): ProcessedRebaseTodo {
 	const preservesMerges = isRebasingMerges(entries);
 
 	// For rebases that preserve merges, return empty - the UI will show read-only mode
@@ -90,7 +90,7 @@ export function processRebaseEntries(entries: RebaseTodoEntry[]): ProcessedRebas
 		}
 
 		if (isCommandEntry(entry)) {
-			result.push({ ...entry, type: 'command', id: `line:${entry.line}` });
+			result.push({ ...entry, type: 'command', id: `${idPrefix ?? ''}line:${entry.line}` });
 			continue;
 		}
 	}
