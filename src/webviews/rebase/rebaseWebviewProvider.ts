@@ -90,8 +90,7 @@ const maxSmallIntegerV8 = 2 ** 30 - 1;
 interface Enrichment {
 	commits: Map<string, GitCommit>;
 	authors: Map<string, Author>;
-	onto: GitCommit | undefined;
-	from: GitCommit | undefined;
+	onto: { sha: string; commit?: GitCommit | undefined } | undefined;
 }
 
 export class RebaseWebviewProvider implements Disposable {
@@ -122,7 +121,7 @@ export class RebaseWebviewProvider implements Disposable {
 		private readonly document: TextDocument,
 		private readonly repoPath: string,
 	) {
-		this._enrichment = { commits: new Map(), authors: new Map(), onto: undefined, from: undefined };
+		this._enrichment = { commits: new Map(), authors: new Map(), onto: undefined };
 
 		this._disposables.push(
 			workspace.onDidChangeTextDocument(e => {
@@ -425,6 +424,9 @@ export class RebaseWebviewProvider implements Disposable {
 
 			commits.set(requestedSha, commit);
 			requestedCommits.set(requestedSha, commit);
+			if (requestedSha === this._enrichment.onto?.sha) {
+				this._enrichment.onto.commit = commit;
+			}
 
 			const authorName = commit.author.name;
 			let author = authors.get(authorName);
@@ -569,15 +571,12 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const subscription = getSettledValue(subscriptionResult);
 
-		// Get onto and source from parsed header or active rebase status
-		// onto = new base where commits will be applied
-		// to = tip of the original branch (HEAD before rebase)
-		// source = original HEAD (from rebase status during active rebase)
-		let onto = parsed.info?.onto ?? rebaseStatus?.onto ?? '';
-		const to = parsed.info?.to ?? rebaseStatus?.source ?? '';
+		// Get onto from parsed header or active rebase status
+		const onto = parsed.info?.onto ?? rebaseStatus?.onto ?? '';
+		this._enrichment.onto ??= { sha: onto };
 
 		const { entries } = processed;
-		const { authors, commits, onto: ontoCommit, from: toCommit } = this._enrichment;
+		const { authors, commits, onto: ontoCommit } = this._enrichment;
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 
@@ -589,26 +588,19 @@ export class RebaseWebviewProvider implements Disposable {
 			}
 		}
 
-		// If the onto commit is contained in the list of commits, remove it and clear the 'onto' value — See #1201
-		// Don't do this during an active rebase since done entries are handled separately
-		if (
-			rebaseStatus == null &&
-			// Don't use commits, as we include the onto commit in that set
-			entries.some(e => e.type === 'commit' && onto.startsWith(e.sha))
-		) {
-			onto = '';
-		}
-
 		return {
 			webviewId: 'gitlens.rebase',
 			webviewInstanceId: this.host.instanceId,
 			timestamp: Date.now(),
 			branch: this._branchName ?? '',
 			onto: onto
-				? { sha: onto, commit: ontoCommit != null ? convertCommit(ontoCommit, defaultDateFormat) : undefined }
-				: undefined,
-			source: to
-				? { sha: to, commit: toCommit != null ? convertCommit(toCommit, defaultDateFormat) : undefined }
+				? {
+						sha: ontoCommit.sha ?? onto,
+						commit:
+							ontoCommit?.commit != null
+								? convertCommit(ontoCommit.commit, defaultDateFormat)
+								: undefined,
+					}
 				: undefined,
 			entries: entries,
 			doneEntries: doneEntries,
@@ -683,7 +675,7 @@ export class RebaseWebviewProvider implements Disposable {
 
 	/** Gets the active rebase status and done entries separately */
 	private async getRebaseStatus(svc: ReturnType<Container['git']['getRepositoryService']>): Promise<{
-		status: (RebaseActiveStatus & { onto: string; source: string }) | undefined;
+		status: (RebaseActiveStatus & { onto: string }) | undefined;
 		doneEntries: RebaseEntry[] | undefined;
 	}> {
 		// Get paused operation status to check if we're in an active rebase
@@ -710,7 +702,6 @@ export class RebaseWebviewProvider implements Disposable {
 				hasConflicts: hasConflicts,
 				pauseReason: pauseReason,
 				onto: pausedStatus.onto.ref,
-				source: pausedStatus.source.ref,
 			},
 			doneEntries: entries,
 		};
@@ -726,11 +717,7 @@ export class RebaseWebviewProvider implements Disposable {
 			(await this.container.git.getRepositoryService(this.repoPath).branches.getBranch())?.name;
 		if (branchName == null) return;
 
-		const ref = createReference(branchName, this.repoPath, {
-			refType: 'branch',
-			name: branchName,
-			remote: false,
-		});
+		const ref = createReference(branchName, this.repoPath, { refType: 'branch', name: branchName, remote: false });
 
 		if (revealLocation === 'graph') {
 			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });

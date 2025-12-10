@@ -14,8 +14,6 @@ export const scope: IpcScope = 'rebase';
 export interface State extends WebviewState<'gitlens.rebase'> {
 	branch: string;
 	onto: { sha: string; commit?: Commit } | undefined;
-	/** The original HEAD of the branch being rebased (before rebase started) */
-	source: { sha: string; commit?: Commit } | undefined;
 
 	/** Pending entries that can still be edited */
 	entries: RebaseEntry[];

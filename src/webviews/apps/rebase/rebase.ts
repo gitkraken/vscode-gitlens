@@ -507,8 +507,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	/**
-	 * Returns entry IDs in array order (suitable for moveEntries) given a set of IDs.
-	 * Entries are gathered in display order and reversed if descending to get array order.
+	 * Returns entry IDs in array order (suitable for moveEntries) given a set of IDs
+	 * Entries are gathered in display order and reversed if descending to get array order
 	 */
 	private getIdsInArrayOrder(ids: Set<string>): string[] {
 		const entries: RebaseEntry[] = [];
@@ -525,8 +525,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	/**
-	 * Executes a move operation using display order indices (for drag operations).
-	 * Converts display indices to array indices accounting for ascending/descending order.
+	 * Executes a move operation using display order indices (for drag operations)
+	 * Converts display indices to array indices accounting for ascending/descending order
 	 * @param fromSortedIndex - Source index in display/sorted order
 	 * @param toSortedIndex - Target entry index in display/sorted order
 	 * @param insertAfter - If true, insert after the target; if false, insert before
@@ -581,7 +581,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	/**
-	 * Moves an entry to the start or end of the list (for dropping on base entry).
+	 * Moves an entry to the start or end of the list (for dropping on base entry)
 	 * @param fromSortedIndex - Source index in display/sorted order
 	 * @param toEnd - If true, move to end of array; if false, move to start
 	 */
@@ -607,9 +607,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		this.executeMoveEntry(fromIndex, toIndex);
 	}
 
-	/**
-	 * Moves multiple entries to the start or end of the list (for dropping on base entry).
-	 */
+	/** Moves multiple entries to the start or end of the list (for dropping on base entry) */
 	private executeMoveEntriesToEdge(ids: string[], toEnd: boolean): void {
 		if (ids.length === 0) return;
 
@@ -637,7 +635,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	/**
-	 * Executes a move operation with optimistic update and host notification.
+	 * Executes a move operation with optimistic update and host notification
 	 * @param fromIndex - Source index in entries array
 	 * @param toIndex - Target index in entries array (may equal entries.length for "move to end")
 	 */
@@ -665,8 +663,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	/**
-	 * Executes a batch move operation for multiple entries.
-	 * Entries maintain their relative display order and are moved as a group to the target position.
+	 * Executes a batch move operation for multiple entries
+	 * Entries maintain their relative display order and are moved as a group to the target position
 	 * @param ids - Entry IDs to move (order doesn't matter, will be sorted by display order)
 	 * @param toSortedIndex - Target entry index in display/sorted order
 	 * @param insertAfter - If true, insert after the target; if false, insert before
@@ -834,8 +832,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	};
 
 	/**
-	 * Finds squash/fixup entries that would become orphaned if the given SHAs are dropped.
-	 * An entry is orphaned if it's squash/fixup and there's no valid target before it.
+	 * Finds squash/fixup entries that would become orphaned if the given SHAs are dropped
+	 * An entry is orphaned if it's squash/fixup and there's no valid target before it
 	 */
 	private findOrphanedSquashEntries(droppingShas: string[]): string[] {
 		const dropping = new Set(droppingShas);
@@ -1052,8 +1050,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	};
 
 	/**
-	 * Computes which entries are squash targets and which are in the squash path.
-	 * In raw entries (line order), squash/fixup merges into the commit above it.
+	 * Computes which entries are squash targets and which are in the squash path
+	 * In raw entries (line order), squash/fixup merges into the commit above it
 	 */
 	private computeSquashInfo(entries: RebaseEntry[]): { targets: Set<string>; squashing: Set<string> } {
 		const targets = new Set<string>();
@@ -1085,9 +1083,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	/**
-	 * Rebuilds `_sortedEntries` and `_idToSortedIndex` synchronously from current state.
-	 * This must be called immediately after any optimistic state mutation to ensure
-	 * subsequent operations (like rapid keyboard moves) use correct indices.
+	 * Rebuilds `_sortedEntries` and `_idToSortedIndex` synchronously from current state
+	 * This must be called immediately after any optimistic state mutation to ensure subsequent operations (like rapid keyboard moves) use correct indices
 	 *
 	 * Note: This is separate from willUpdate() because willUpdate() runs asynchronously
 	 * after requestUpdate(). We need indices to be correct immediately after mutation.
@@ -1103,8 +1100,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		// Build list: base (if present) + done entries + pending entries
 		const allEntries = doneEntries.length > 0 ? [...doneEntries, ...entries] : entries;
 
-		// Add base entry at the appropriate end
-		if (onto) {
+		// Add base entry at the appropriate end, but only if it's not already in the list — See #1201
+		if (onto && !allEntries.some(e => e.sha === onto.sha)) {
 			const base: RebaseCommitEntry = {
 				type: 'commit',
 				id: onto.sha,
