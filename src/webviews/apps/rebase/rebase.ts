@@ -39,6 +39,7 @@ import type { GlRebaseEntryElement } from './components/rebase-entry';
 import { rebaseStyles } from './rebase.css';
 import { RebaseStateProvider } from './stateProvider';
 import '@lit-labs/virtualizer';
+import './components/conflict-indicator';
 import './components/rebase-entry';
 import '../shared/components/banner/banner';
 import '../shared/components/branch-name';
@@ -76,6 +77,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private readonly virtualizerKeyFn = (entry: RebaseEntry) => entry.id;
 	private readonly virtualizerRenderFn = (entry: RebaseEntry, index: number) => this.renderEntry(entry, index);
 
+	@query('#header-conflict-indicator')
+	private readonly _conflictIndicator?: any;
+
 	/** Drag state - uses direct DOM manipulation to avoid re-renders during drag */
 	private draggedId: string | undefined;
 	private dragOverId: string | undefined;
@@ -91,6 +95,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	/** Selection state for multi-select - uses @state for automatic updates */
 	@state() private selectedIds: Set<string> = new Set();
+
+	/** Conflict detection stale state - set when commits are dropped */
+	@state() private conflictDetectionStale = false;
 
 	/** Cached values computed in willUpdate for performance */
 	private _idToSortedIndex = new Map<string, number>();
@@ -815,6 +822,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			this._stateProvider.changeEntryActions(entries);
 			this._ipc.sendCommand(ChangeEntriesCommand, { entries: entries });
 		}
+
+		// Only mark conflicts as stale if we're dropping commits (which changes what gets applied)
+		if (action === 'drop') {
+			this.markConflictDetectionStale();
+		}
 	};
 
 	/**
@@ -980,6 +992,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private onStartClicked() {
 		this._ipc.sendCommand(StartCommand, undefined);
+	}
+
+	/** Mark conflict detection as stale when the rebase plan is modified */
+	private markConflictDetectionStale(): void {
+		this.conflictDetectionStale = true;
 	}
 
 	private onAbortClicked() {
@@ -1215,6 +1232,21 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		></gl-banner>`;
 	}
 
+	private renderConflictIndicator() {
+		// Only show for new rebases (not active ones)
+		if (this.isActiveRebase || !this.state?.branch || !this.state?.onto) {
+			return nothing;
+		}
+
+		return html`<gl-rebase-conflict-indicator
+			id="header-conflict-indicator"
+			class="conflict-indicator"
+			.branch=${this.state.branch}
+			.onto=${this.state.onto.sha}
+			.stale=${this.conflictDetectionStale}
+		></gl-rebase-conflict-indicator>`;
+	}
+
 	private renderRebaseBanner() {
 		const status = this.rebaseStatus;
 		if (!status) return nothing;
@@ -1361,6 +1393,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<h1 class="header-title">GitLens Interactive Rebase</h1>
 				<div class="header-info">${this.renderSubhead()}</div>
 				<div class="header-actions">
+					${this.renderConflictIndicator()}
 					<gl-button
 						class="header-toggle"
 						appearance="toolbar"
@@ -1470,16 +1503,50 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private renderStartRebaseActions() {
-		return html`
-			<gl-button
-				@click=${this.onStartClicked}
+		let variant: 'warning' | 'success' | undefined;
+		let icon: 'check' | 'warning' | 'loading' | undefined;
+		let tooltip: string | undefined;
+
+		if (this._conflictIndicator) {
+			const isLoading = this._conflictIndicator.isLoading;
+			const hasConflicts = this._conflictIndicator.hasConflicts;
+			const isStale = this.conflictDetectionStale;
+
+			if (!isLoading) {
+				if (hasConflicts) {
+					variant = 'warning';
+					icon = 'warning';
+					tooltip = 'Start Rebase (Conflicts Detected)';
+				} else if (!isStale) {
+					variant = 'success';
+					icon = 'check';
+					tooltip = 'Start Rebase (No Conflicts Detected)';
+				}
+			} else {
+				icon = 'loading';
+				tooltip = 'Checking for conflicts...';
+			}
+		}
+
+		return html`<gl-button
 				?disabled=${!this.state?.entries?.length || this.state?.isReadOnly}
+				variant=${ifDefined(variant)}
+				tooltip=${ifDefined(tooltip)}
+				@click=${this.onStartClicked}
 			>
-				<span>Start Rebase</span>
+				<span
+					>Start Rebase
+					${icon
+						? html`<code-icon
+								slot="label"
+								icon=${icon}
+								modifier=${ifDefined(icon === 'loading' ? 'spin' : undefined)}
+							></code-icon>`
+						: nothing}</span
+				>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
 			</gl-button>
-			<gl-button appearance="secondary" @click=${this.onAbortClicked}>Abort</gl-button>
-		`;
+			<gl-button appearance="secondary" @click=${this.onAbortClicked}>Abort</gl-button>`;
 	}
 
 	private renderRecomposeAction(isActive: boolean) {
@@ -1487,7 +1554,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			heading="Abort Rebase &amp; Recompose"
 			message="This will abort the rebase and open the Commit Composer to recompose all commits using AI."
 			confirm=${isActive ? 'Abort & Recompose' : 'Recompose Commits'}
-			confirm-appearance=${ifDefined(isActive ? 'danger' : undefined)}
+			confirm-variant=${ifDefined(isActive ? 'danger' : undefined)}
 			initial-focus=${isActive ? 'cancel' : 'confirm'}
 			icon=${isActive ? 'error' : 'warning'}
 			@gl-confirm=${this.onRecomposeCommitsClicked}
@@ -1506,7 +1573,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.onSkipClicked}>Skip</gl-button>
-			<gl-button appearance="danger" @click=${this.onAbortClicked}>Abort</gl-button>
+			<gl-button variant="danger" @click=${this.onAbortClicked}>Abort</gl-button>
 		`;
 	}
 }

@@ -1,3 +1,4 @@
+import type { MergeConflict } from '../../git/models/mergeConflict';
 import type {
 	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
 	ProcessedRebaseCommandEntry,
@@ -6,7 +7,7 @@ import type {
 } from '../../git/models/rebase';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { IpcScope, WebviewState } from '../protocol';
-import { IpcCommand, IpcNotification } from '../protocol';
+import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
 export const scope: IpcScope = 'rebase';
 
@@ -171,6 +172,20 @@ export interface GetMissingCommitsParams {
 export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(scope, 'commits/get');
 
 export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
+
+// REQUESTS
+
+export interface GetPotentialConflictsParams {
+	branch: string;
+	onto: string;
+}
+export interface DidGetPotentialConflictsParams {
+	conflicts?: MergeConflict;
+}
+export const GetPotentialConflictsRequest = new IpcRequest<GetPotentialConflictsParams, DidGetPotentialConflictsParams>(
+	scope,
+	'conflicts/get',
+);
 
 // NOTIFICATIONS
 

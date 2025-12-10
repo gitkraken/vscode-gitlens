@@ -28,6 +28,7 @@ import {
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
 import { createReference } from '../../git/utils/reference.utils';
 import type { Subscription } from '../../plus/gk/models/subscription';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { closeTab } from '../../system/-webview/vscode/tabs';
@@ -47,6 +48,7 @@ import type {
 	Commit,
 	GetMissingAvatarsParams,
 	GetMissingCommitsParams,
+	GetPotentialConflictsParams,
 	MoveEntriesParams,
 	MoveEntryParams,
 	RebaseActiveStatus,
@@ -69,6 +71,7 @@ import {
 	DidChangeSubscriptionNotification,
 	GetMissingAvatarsCommand,
 	GetMissingCommitsCommand,
+	GetPotentialConflictsRequest,
 	MoveEntriesCommand,
 	MoveEntryCommand,
 	RecomposeCommand,
@@ -264,6 +267,10 @@ export class RebaseWebviewProvider implements Disposable {
 				void this.onGetMissingCommits(e.params);
 				break;
 
+			case GetPotentialConflictsRequest.is(e):
+				void this.onGetPotentialConflicts(GetPotentialConflictsRequest, e);
+				break;
+
 			case RecomposeCommand.is(e):
 				void this.onRecompose();
 				break;
@@ -451,6 +458,31 @@ export class RebaseWebviewProvider implements Disposable {
 		if (requestedCommits.size) {
 			this.notifyDidChangeCommits(requestedCommits, requestedAuthors);
 		}
+	}
+
+	/** Handles request for potential rebase conflicts (Pro feature) */
+	private async onGetPotentialConflicts(
+		requestType: typeof GetPotentialConflictsRequest,
+		msg: IpcMessage<GetPotentialConflictsParams>,
+	): Promise<void> {
+		const { branch, onto } = msg.params;
+
+		// Check subscription status
+		const subscription = await this.container.subscription.getSubscription();
+		if (!isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			await this.host.respond(requestType, msg, { conflicts: undefined });
+			return;
+		}
+
+		const svc = this.container.git.getRepositoryService(this.repoPath);
+
+		// For rebase: swap parameters because git merge-tree simulates merging branch into onto
+		// (rebasing branch onto target means applying branch's commits on top of target)
+		// Note: When rebasing a branch onto itself (e.g., git rebase -i HEAD~5), git merge-tree
+		// will correctly detect this as a fast-forward with no conflicts.
+		const conflicts = await svc.branches.getPotentialMergeOrRebaseConflict?.(onto, branch);
+
+		await this.host.respond(requestType, msg, { conflicts: conflicts });
 	}
 
 	private async onRevealRef(params: RevealRefParams): Promise<void> {

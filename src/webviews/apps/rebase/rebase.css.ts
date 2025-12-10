@@ -442,6 +442,11 @@ export const rebaseStyles = css`
 		flex-shrink: 0;
 	}
 
+	gl-rebase-conflict-indicator {
+		margin-right: auto;
+		margin-left: 1.6rem;
+	}
+
 	gl-button .button-shortcut {
 		display: block;
 		margin-top: 0.2rem;

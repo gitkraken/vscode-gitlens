@@ -122,6 +122,10 @@ export class GlPopoverConfirm extends LitElement {
 	@property({ attribute: 'confirm-appearance' })
 	confirmAppearance?: GlButton['appearance'];
 
+	/** The variant for the confirm button */
+	@property({ attribute: 'confirm-variant' })
+	confirmVariant?: GlButton['variant'];
+
 	/** The text for the cancel button */
 	@property()
 	cancel = 'Cancel';
@@ -175,6 +179,7 @@ export class GlPopoverConfirm extends LitElement {
 						<gl-button
 							class="confirm-button"
 							appearance=${ifDefined(this.confirmAppearance)}
+							variant=${ifDefined(this.confirmVariant)}
 							tabindex=${this.initialFocus === 'confirm' ? 1 : 2}
 							@click=${(e: Event) => this.onConfirm(e)}
 							>${this.confirm}</gl-button
