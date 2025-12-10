@@ -366,11 +366,11 @@ async function showWhatsNew(
 	if (previousVersion == null) {
 		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
 
-		// Show welcome webview on first install for IDEs that don't support walkthroughs (e.g., Cursor)
-		// For IDEs that support walkthroughs, the walkthrough will be shown instead
-		if (window.state.focused && !container.walkthrough.isWalkthroughSupported) {
-			void executeCommand('gitlens.showWelcomePage');
-		}
+		// // Show welcome webview on first install for IDEs that don't support walkthroughs (e.g., Cursor)
+		// // For IDEs that support walkthroughs, the walkthrough will be shown instead
+		// if (window.state.focused && !container.walkthrough.isWalkthroughSupported) {
+		// 	void executeCommand('gitlens.showWelcomePage');
+		// }
 
 		return;
 	}

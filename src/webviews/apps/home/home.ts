@@ -29,6 +29,7 @@ import './components/ai-all-access-banner';
 import './components/ama-banner';
 import './components/integration-banner';
 import './components/preview-banner';
+import './components/welcome-overlay';
 import '../shared/components/mcp-banner';
 import './components/repo-alerts';
 import '../shared/components/banner/banner';
@@ -111,6 +112,7 @@ export class GlHomeApp extends GlAppHost<State> {
 						`,
 					)}
 				</main>
+				<gl-welcome-overlay></gl-welcome-overlay>
 			</div>
 		`;
 	}
