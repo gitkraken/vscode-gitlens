@@ -3720,6 +3720,13 @@
 						"scope": "window",
 						"order": 10
 					},
+					"gitlens.rebaseEditor.openOnPausedRebase": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically open the _Interactive Rebase Editor_ when a paused rebase is detected",
+						"scope": "window",
+						"order": 11
+					},
 					"gitlens.rebaseEditor.revealLocation": {
 						"type": "string",
 						"default": "graph",

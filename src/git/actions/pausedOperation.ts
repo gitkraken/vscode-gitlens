@@ -1,10 +1,11 @@
-import { Uri, window } from 'vscode';
+import { window } from 'vscode';
 import type { Container } from '../../container';
 import { showGitErrorMessage } from '../../messages';
-import { executeCommand, executeCoreCommand } from '../../system/-webview/command';
+import { executeCommand } from '../../system/-webview/command';
 import { PausedOperationContinueError } from '../errors';
 import type { GitRepositoryService } from '../gitRepositoryService';
 import type { GitPausedOperationStatus } from '../models/pausedOperationStatus';
+import { openRebaseEditor } from '../utils/-webview/rebase.utils';
 import { getReferenceLabel } from '../utils/reference.utils';
 
 export async function abortPausedOperation(svc: GitRepositoryService, options?: { quit?: boolean }): Promise<void> {
@@ -72,18 +73,6 @@ async function continuePausedOperationCore(svc: GitRepositoryService, skip: bool
 
 		void showGitErrorMessage(ex);
 	}
-}
-
-export async function openRebaseEditor(container: Container, repoPath: string): Promise<void> {
-	const svc = container.git.getRepositoryService(repoPath);
-	const status = await svc.pausedOps?.getPausedOperationStatus?.();
-	if (status?.type !== 'rebase') return;
-
-	const gitDir = await svc.config.getGitDir?.();
-	if (gitDir == null) return;
-
-	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
-	await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', { preview: false });
 }
 
 export interface ShowPausedOperationStatusOptions {

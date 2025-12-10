@@ -8,15 +8,18 @@ import type {
 import { Disposable, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
+import type { GitRebaseStatus } from '../../git/models/pausedOperationStatus';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import {
 	getRepoUriFromRebaseTodo,
 	isRebaseTodoEditorEnabled,
+	openRebaseEditor,
 	reopenRebaseTodoEditor,
 	setRebaseTodoEditorEnablement,
 } from '../../git/utils/-webview/rebase.utils';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
-import { debug } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar';
@@ -51,6 +54,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				webviewOptions: descriptor.webviewHostOptions,
 			}),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+			container.git.onDidChangeRepository(e => {
+				if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
+					void this.onRebaseChanged(e.repository.path);
+				}
+			}),
 		);
 		void setContext('gitlens:rebase:editor:enabled', this.enabled);
 	}
@@ -93,6 +101,19 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		if (!configuration.changedCore(e, 'workbench.editorAssociations')) return;
 
 		void setContext('gitlens:rebase:editor:enabled', this.enabled);
+	}
+
+	@log()
+	private async onRebaseChanged(repoPath: string): Promise<void> {
+		if (!configuration.get('rebaseEditor.openOnPausedRebase')) return;
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const status = (await svc.pausedOps?.getPausedOperationStatus?.()) as GitRebaseStatus | undefined;
+
+		// Open the editor if we're in a paused rebase (step > 0 means rebase has started and is now paused)
+		if (status?.type === 'rebase' && status.steps?.current.number != null && status.steps.current.number > 0) {
+			await openRebaseEditor(this.container, repoPath);
+		}
 	}
 
 	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })

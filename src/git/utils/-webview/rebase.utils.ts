@@ -1,7 +1,21 @@
-import { version as codeVersion, ConfigurationTarget, Uri, workspace } from 'vscode';
+import type { Tab } from 'vscode';
+import { version as codeVersion, ConfigurationTarget, Uri, window, workspace } from 'vscode';
+import type { Container } from '../../../container';
 import { executeCoreCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
+import { getTabUri } from '../../../system/-webview/vscode/tabs';
+import { areUrisEqual } from '../../../system/uri';
 import { compare } from '../../../system/version';
+
+export function getOpenRebaseEditorTab(todoUri: Uri): Tab | undefined {
+	for (const group of window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			if (areUrisEqual(getTabUri(tab), todoUri)) return tab;
+		}
+	}
+
+	return undefined;
+}
 
 /**
  * Gets the repository URI from a git-rebase-todo
@@ -50,6 +64,20 @@ export function isRebaseTodoEditorEnabled(): boolean {
 
 	const association = associations['git-rebase-todo'];
 	return association != null ? association === 'gitlens.rebase' : true;
+}
+
+export async function openRebaseEditor(container: Container, repoPath: string): Promise<void> {
+	const svc = container.git.getRepositoryService(repoPath);
+	const status = await svc.pausedOps?.getPausedOperationStatus?.();
+	if (status?.type !== 'rebase') return;
+
+	const gitDir = await svc.config.getGitDir?.();
+	if (gitDir == null) return;
+
+	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+	if (getOpenRebaseEditorTab(rebaseTodoUri) != null) return;
+
+	await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', { preview: false });
 }
 
 export async function setRebaseTodoEditorEnablement(enabled: boolean): Promise<void> {
