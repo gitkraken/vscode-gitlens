@@ -188,7 +188,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		if (!focusedEntry) return;
 
 		if (e.key === 'Enter' || e.key === ' ') {
-			if (e.target instanceof HTMLAnchorElement) return;
+			// Only handle when the entry row itself has focus, not interactive elements within it
+			const target = e.composedPath()[0];
+			if (!(target instanceof HTMLElement && target.classList.contains('entry'))) return;
 
 			e.preventDefault();
 
