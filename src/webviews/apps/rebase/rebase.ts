@@ -80,6 +80,10 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	@query('#header-conflict-indicator')
 	private readonly _conflictIndicator?: any;
 
+	/** Track conflict indicator state for reactive updates */
+	@state() private _conflictIndicatorLoading = false;
+	@state() private _conflictIndicatorHasConflicts = false;
+
 	/** Drag state - uses direct DOM manipulation to avoid re-renders during drag */
 	private draggedId: string | undefined;
 	private dragOverId: string | undefined;
@@ -1144,15 +1148,26 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		// Set initial focus and selection when entries first arrive
 		if (this.focusedEntryId == null && this._sortedEntries.length > 0) {
-			// Find first non-base entry (base entry is not focusable)
 			const baseId = this.state?.onto?.sha;
-			const firstFocusable = this._sortedEntries.find(e => e.id !== baseId);
-			if (firstFocusable) {
-				const firstId = firstFocusable.id;
-				this.focusedEntryId = firstId;
-				this.selectedIds = new Set([firstId]);
-				this.anchoredEntryId = firstId;
-				this.pendingFocusId = firstId;
+			let targetId: string | undefined;
+
+			// If in an active rebase, auto-select the last done entry (the paused entry)
+			if (this.isActiveRebase && this.doneEntries.length > 0) {
+				const lastDoneEntry = this.doneEntries[this.doneEntries.length - 1];
+				targetId = lastDoneEntry.id;
+			}
+
+			// Otherwise, find first non-base entry (base entry is not focusable)
+			if (!targetId) {
+				const firstFocusable = this._sortedEntries.find(e => e.id !== baseId);
+				targetId = firstFocusable?.id;
+			}
+
+			if (targetId) {
+				this.focusedEntryId = targetId;
+				this.selectedIds = new Set([targetId]);
+				this.anchoredEntryId = targetId;
+				this.pendingFocusId = targetId;
 			}
 		}
 
@@ -1165,6 +1180,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	protected override updated(_changedProperties: PropertyValues): void {
+		// Sync conflict indicator state for reactive updates to the footer
+		if (this._conflictIndicator) {
+			this._conflictIndicatorLoading = this._conflictIndicator.isLoading ?? false;
+			this._conflictIndicatorHasConflicts = this._conflictIndicator.hasConflicts ?? false;
+		}
+
 		if (!this.pendingFocusId) return;
 
 		const idToFocus = this.pendingFocusId;
@@ -1348,8 +1369,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const entryId = entry.id;
 		const isFirst = index === 0;
 		const isLast = index === this._sortedEntries.length - 1;
-		// Done entries have negative line numbers
-		const isDone = entry.line < 0;
+		// Check if this entry is done (already applied during active rebase)
+		const isDone = entry.done ?? false;
 		// Check if this is the current commit being processed
 		const currentCommit = this.rebaseStatus?.currentCommit;
 		const isCurrent = 'sha' in entry && currentCommit != null && entry.sha?.startsWith(currentCommit);
@@ -1508,8 +1529,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		let tooltip: string | undefined;
 
 		if (this._conflictIndicator) {
-			const isLoading = this._conflictIndicator.isLoading;
-			const hasConflicts = this._conflictIndicator.hasConflicts;
+			const isLoading = this._conflictIndicatorLoading;
+			const hasConflicts = this._conflictIndicatorHasConflicts;
 			const isStale = this.conflictDetectionStale;
 
 			if (!isLoading) {

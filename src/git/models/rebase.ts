@@ -29,6 +29,7 @@ export interface ParsedRebaseTodo {
 export interface ProcessedRebaseCommitEntry extends RebaseTodoEntry<RebaseTodoCommitAction> {
 	readonly type: 'commit';
 	readonly id: string;
+	readonly done?: boolean;
 	readonly sha: string;
 	readonly message: string;
 
@@ -39,6 +40,7 @@ export interface ProcessedRebaseCommitEntry extends RebaseTodoEntry<RebaseTodoCo
 export interface ProcessedRebaseCommandEntry extends RebaseTodoEntry<RebaseTodoCommandAction> {
 	readonly type: 'command';
 	readonly id: string;
+	readonly done?: boolean;
 }
 
 export type ProcessedRebaseEntry = ProcessedRebaseCommitEntry | ProcessedRebaseCommandEntry;

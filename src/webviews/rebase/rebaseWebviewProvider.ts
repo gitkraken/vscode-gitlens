@@ -676,8 +676,7 @@ export class RebaseWebviewProvider implements Disposable {
 		if (!parsed?.entries.length) return { entries: [] };
 
 		const lastAction = parsed.entries.at(-1)?.action;
-		// Add a 'done:' prefix to the ID to prevent collisions with todo entries
-		const processed = processRebaseEntries(parsed.entries, 'done:');
+		const processed = processRebaseEntries(parsed.entries, true);
 
 		return { entries: processed.entries, lastAction: lastAction };
 	}
