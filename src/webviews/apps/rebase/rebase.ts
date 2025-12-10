@@ -143,7 +143,111 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		super.disconnectedCallback?.();
 	}
 
-	private onVirtualizerClick(e: MouseEvent): void {
+	private onListKeyDown = (e: KeyboardEvent) => {
+		// Ctrl/Cmd+A: select all entries
+		if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+			e.preventDefault();
+			// Select all entries (excluding base commit if present)
+			const baseId = this.state?.onto?.sha;
+			const selectableIds = this._sortedEntries.filter(entry => entry.id !== baseId).map(entry => entry.id);
+			this.selectedIds = new Set(selectableIds);
+			return;
+		}
+
+		// Escape: return focus to the entry row from any inner element (select, link, etc.)
+		if (e.key === 'Escape') {
+			const entryEl = e
+				.composedPath()
+				.find((el): el is GlRebaseEntryElement => el instanceof Element && el.localName === 'gl-rebase-entry');
+			const entryRow = entryEl?.shadowRoot?.querySelector<HTMLElement>('.entry');
+			if (entryRow) {
+				e.preventDefault();
+				entryRow.focus();
+			}
+			return;
+		}
+
+		// If focus is inside a select, let it handle the event
+		if (e.composedPath().some(el => el instanceof Element && el.matches('.action-select'))) return;
+
+		const id = this.focusedEntryId;
+		if (!id) return;
+
+		const focusedEntry = this.shadowRoot?.querySelector<GlRebaseEntryElement>(`gl-rebase-entry[data-id="${id}"]`);
+		if (!focusedEntry) return;
+
+		if (e.key === 'Enter' || e.key === ' ') {
+			if (e.target instanceof HTMLAnchorElement) return;
+
+			e.preventDefault();
+
+			// If focused entry is not selected, select it (clearing other selections)
+			if (!this.selectedIds.has(id)) {
+				this.selectedIds = new Set([id]);
+				this.anchoredEntryId = id;
+				return;
+			}
+
+			// If already selected, open the action dropdown
+			const actionSelect = focusedEntry.shadowRoot?.querySelector<SlSelect>('.action-select');
+			if (actionSelect != null) {
+				actionSelect.focus();
+				// Use requestAnimationFrame to ensure focus is processed before show
+				requestAnimationFrame(() => void actionSelect.show());
+			}
+
+			return;
+		}
+
+		const sortedIndex = this._idToSortedIndex.get(id) ?? -1;
+		if (sortedIndex === -1) return;
+
+		const entry = this._sortedEntries[sortedIndex];
+
+		// Single letter action shortcuts (only for commit entries, no modifiers)
+		if (isCommitEntry(entry) && e.key in actionKeyMap && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			this.onActionChanged(
+				new CustomEvent('action-changed', {
+					detail: { sha: entry.sha, action: actionKeyMap[e.key] },
+				}),
+			);
+			return;
+		}
+
+		// Home/End: jump to first/last entry
+		if (e.key === 'Home' || e.key === 'End') {
+			e.preventDefault();
+
+			const targetIndex = e.key === 'Home' ? 0 : this._sortedEntries.length - 1;
+			if (targetIndex >= 0 && targetIndex < this._sortedEntries.length) {
+				this.focusEntry(this._sortedEntries[targetIndex].id);
+			}
+			return;
+		}
+
+		// Only process navigation keys from here on
+		if (!this.isNavigationKey(e.key)) return;
+
+		// Alt+Arrow/J/K: move entry (only if not read-only)
+		if (e.altKey && !this.state?.isReadOnly) {
+			this.handleKeyboardMove(e, sortedIndex, e.key);
+			return;
+		}
+
+		// Shift+Arrow/J/K: extend selection
+		if (e.shiftKey) {
+			this.handleKeyboardMultiSelect(e, sortedIndex, e.key);
+			return;
+		}
+
+		// Arrow keys or j/k: navigate between entries
+		this.handleKeyboardNavigate(e, sortedIndex, e.key);
+	};
+
+	private onListClick(e: MouseEvent): void {
 		// Only handle clicks directly on the virtualizer (empty space), not on entries
 		const entry = (e.target as HTMLElement).closest('gl-rebase-entry');
 		if (entry) return;
@@ -923,100 +1027,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		if (e.key === '/') {
 			e.preventDefault();
 			this.onSearch();
-			return;
 		}
-
-		// Escape: return focus to the entry row from any inner element (select, link, etc.)
-		if (e.key === 'Escape') {
-			const entryEl = e
-				.composedPath()
-				.find((el): el is GlRebaseEntryElement => el instanceof Element && el.localName === 'gl-rebase-entry');
-			const entryRow = entryEl?.shadowRoot?.querySelector<HTMLElement>('.entry');
-			if (entryRow) {
-				e.preventDefault();
-				entryRow.focus();
-			}
-			return;
-		}
-
-		// If focus is inside a select, let it handle the event
-		if (e.composedPath().some(el => el instanceof Element && el.matches('.action-select'))) return;
-
-		const id = this.focusedEntryId;
-		if (!id) return;
-
-		const focusedEntry = this.shadowRoot?.querySelector<GlRebaseEntryElement>(`gl-rebase-entry[data-id="${id}"]`);
-		if (!focusedEntry) return;
-
-		if (e.key === 'Enter' || e.key === ' ') {
-			if (e.target instanceof HTMLAnchorElement) return;
-
-			e.preventDefault();
-
-			// If focused entry is not selected, select it (clearing other selections)
-			if (!this.selectedIds.has(id)) {
-				this.selectedIds = new Set([id]);
-				this.anchoredEntryId = id;
-				return;
-			}
-
-			// If already selected, open the action dropdown
-			const actionSelect = focusedEntry.shadowRoot?.querySelector<SlSelect>('.action-select');
-			if (actionSelect != null) {
-				actionSelect.focus();
-				// Use requestAnimationFrame to ensure focus is processed before show
-				requestAnimationFrame(() => void actionSelect.show());
-			}
-
-			return;
-		}
-
-		const sortedIndex = this._idToSortedIndex.get(id) ?? -1;
-		if (sortedIndex === -1) return;
-
-		const entry = this._sortedEntries[sortedIndex];
-
-		// Single letter action shortcuts (only for commit entries, no modifiers)
-		if (isCommitEntry(entry) && e.key in actionKeyMap && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-			e.preventDefault();
-			e.stopPropagation();
-
-			this.onActionChanged(
-				new CustomEvent('action-changed', {
-					detail: { sha: entry.sha, action: actionKeyMap[e.key] },
-				}),
-			);
-			return;
-		}
-
-		// Home/End: jump to first/last entry
-		if (e.key === 'Home' || e.key === 'End') {
-			e.preventDefault();
-
-			const targetIndex = e.key === 'Home' ? 0 : this._sortedEntries.length - 1;
-			if (targetIndex >= 0 && targetIndex < this._sortedEntries.length) {
-				this.focusEntry(this._sortedEntries[targetIndex].id);
-			}
-			return;
-		}
-
-		// Only process navigation keys from here on
-		if (!this.isNavigationKey(e.key)) return;
-
-		// Alt+Arrow/J/K: move entry (only if not read-only)
-		if (e.altKey && !this.state?.isReadOnly) {
-			this.handleKeyboardMove(e, sortedIndex, e.key);
-			return;
-		}
-
-		// Shift+Arrow/J/K: extend selection
-		if (e.shiftKey) {
-			this.handleKeyboardMultiSelect(e, sortedIndex, e.key);
-			return;
-		}
-
-		// Arrow keys or j/k: navigate between entries
-		this.handleKeyboardNavigate(e, sortedIndex, e.key);
 	};
 
 	/**
@@ -1174,7 +1185,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 								? ' has-conflicts'
 								: ''}"
 							autofocus
-							@click=${this.onVirtualizerClick}
+							@click=${this.onListClick}
+							@keydown=${this.onListKeyDown}
 							@dragstart=${this.onDragStart}
 							@dragend=${this.onDragEnd}
 							@dragover=${this.onDragOver}
@@ -1314,12 +1326,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			return html`<gl-rebase-entry
 				data-id=${entryId}
 				.entry=${entry}
-				.isFirst=${isFirst}
-				.isLast=${isLast}
-				.isDone=${isDone}
-				.isCurrent=${isCurrent}
-				.isSelected=${this.selectedIds.has(entryId)}
-				.isSquashing=${this._squashingIds.has(entryId)}
+				?isFirst=${isFirst}
+				?isLast=${isLast}
+				?isDone=${isDone}
+				?isCurrent=${isCurrent ?? false}
+				?isSelected=${this.selectedIds.has(entryId)}
+				?isSquashing=${this._squashingIds.has(entryId)}
 				@entry-select=${this.onEntrySelect}
 			></gl-rebase-entry>`;
 		}
@@ -1344,7 +1356,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private renderHeader() {
-		return html`<header>
+		return html`<header tabindex="-1">
 			<div class="header__row">
 				<h1 class="header-title">GitLens Interactive Rebase</h1>
 				<div class="header-info">${this.renderSubhead()}</div>
