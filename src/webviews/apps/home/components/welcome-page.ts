@@ -65,7 +65,7 @@ export class GlWelcomePage extends LitElement {
 	override render(): unknown {
 		const themeSuffix = this.isLightTheme ? 'light' : 'dark';
 		return html`
-			<div class="welcome scrollable">
+			<div part="page" class="welcome scrollable">
 				${this.closeable
 					? html`<gl-button
 							class="close-button"

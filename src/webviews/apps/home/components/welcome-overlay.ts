@@ -39,6 +39,12 @@ export class GlWelcomeOverlay extends LitElement {
 
 			gl-welcome-page {
 				--page-background-color: var(--background-color);
+				--page-margin-left: 1rem;
+				--page-margin-right: 0.5rem;
+			}
+
+			gl-welcome-page::part(page) {
+				padding: 0 0.5rem 0 1rem;
 			}
 		`,
 	];
@@ -73,7 +79,7 @@ export class GlWelcomeOverlay extends LitElement {
 					.isLightTheme=${this.isLightTheme}
 					closeable
 					@close=${() => this.onClose()}
-				></gl-welcome-app>
+				></gl-welcome-page>
 			</div>
 		`;
 	}

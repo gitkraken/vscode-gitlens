@@ -64,7 +64,8 @@ const typography = css`
 
 const main = css`
 	:host {
-		--page-margin: 0px;
+		--page-margin-left: 0px;
+		--page-margin-right: 0px;
 		max-width: 100%;
 	}
 
@@ -161,8 +162,8 @@ const section = css`
 	}
 
 	.section.wide {
-		margin-left: calc(-1 * var(--page-margin));
-		margin-right: calc(-1 * var(--page-margin));
+		margin-left: calc(-1 * var(--page-margin-left));
+		margin-right: calc(-1 * var(--page-margin-right));
 	}
 `;
 
@@ -233,7 +234,7 @@ const cards = css`
 
 const scrollableFeatures = css`
 	gl-scrollable-features {
-		--side-shadow-padding: var(--page-margin);
+		--side-shadow-padding: max(var(--page-margin-left), var(--page-margin-right));
 		--side-shadow-color: var(--page-background-color);
 	}
 `;
