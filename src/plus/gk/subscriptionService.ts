@@ -1535,7 +1535,7 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
 					? `**GitLens Pro — verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.`
-					: `**GitLens Pro — verify your email**\n\nYou must verify your email before you can use Pro features on privately-hosted repos.`,
+					: `**GitLens Pro — verify your email**\n\nYou must verify your email before you can unlock Pro features.`,
 				true,
 			);
 		} else {

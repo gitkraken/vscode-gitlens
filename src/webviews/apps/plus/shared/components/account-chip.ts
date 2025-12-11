@@ -532,7 +532,7 @@ export class GlAccountChip extends LitElement {
 			case SubscriptionState.TrialExpired:
 				return html`<div class="account-status">
 					<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
-					<p>Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.</p>
+					<p>Continue leveraging Pro features and workflows for privately hosted repos by upgrading today.</p>
 					<button-container layout="editor">
 						<gl-button
 							full
@@ -573,7 +573,7 @@ export class GlAccountChip extends LitElement {
 			default:
 				return html`<div class="account-status">
 					<p>
-						Unlock advanced features and workflows on private repos, accelerate reviews, and streamline
+						Unlock advanced features and workflows for private repos, accelerate reviews, and streamline
 						collaboration with
 						<a href="${urls.communityVsPro}">GitLens Pro</a>.
 					</p>
@@ -656,7 +656,7 @@ export class GlAccountChip extends LitElement {
 						<li>Unlimited cloud integrations</li>
 						<li>Smart AI features &mdash; 250K tokens/week</li>
 						<li>
-							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees on private repos
+							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees for private repos
 						</li>
 						<li>Streamlined workflows &mdash; start work from issues, pull request reviews</li>
 					</ul>

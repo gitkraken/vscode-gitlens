@@ -2,9 +2,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { MergeConflict } from '../../../../git/models/mergeConflict';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils';
-import { createCommandLink } from '../../../../system/commands';
 import { pluralize } from '../../../../system/string';
 import type { State } from '../../../rebase/protocol';
 import { GetPotentialConflictsRequest } from '../../../rebase/protocol';
@@ -12,9 +10,9 @@ import { elementBase, scrollableBase } from '../../shared/components/styles/lit/
 import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
-import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/popover';
+import '../../plus/shared/components/feature-gate-plus-state';
 
 @customElement('gl-rebase-conflict-indicator')
 export class GlRebaseConflictIndicator extends LitElement {
@@ -140,29 +138,10 @@ export class GlRebaseConflictIndicator extends LitElement {
 				font-size: 1.1rem;
 			}
 
-			.upgrade-content {
-				padding: 1.2rem;
-				display: flex;
-				flex-direction: column;
-				gap: 1.2rem;
-				max-width: 40rem;
-			}
-
-			.upgrade-content p {
-				margin: 0;
-			}
-
-			.upgrade-content .button-container {
-				display: flex;
-				flex-direction: column;
-				gap: 0.8rem;
-				align-items: center;
-				justify-content: center;
-				width: 100%;
-			}
-
-			.upgrade-content .button-container gl-button {
-				max-width: 30rem;
+			gl-feature-gate-plus-state {
+				display: block;
+				margin-inline: 0.5rem;
+				margin-block: -0.5rem;
 			}
 		`,
 	];
@@ -396,24 +375,17 @@ export class GlRebaseConflictIndicator extends LitElement {
 					<code-icon class="indicator__icon" icon="lock" size="16"></code-icon>
 					${this.compact ? nothing : html`<span class="indicator__content">Conflict Detection (Pro)</span>`}
 				</div>
-				<div slot="content">
-					<div class="upgrade-content">
-						<p>
-							Upgrade to GitLens Pro to detect potential conflicts before starting your rebase and take
-							action to resolve them.
-						</p>
-						<div class="button-container">
-							<gl-button
-								full
-								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-									plan: 'pro',
-									source: 'rebaseEditor',
-								})}"
-								>Upgrade to Pro</gl-button
-							>
-						</div>
-					</div>
-				</div>
+				<gl-feature-gate-plus-state
+					slot="content"
+					appearance="default"
+					featureRestriction="all"
+					.source=${{ source: 'rebaseEditor', detail: 'conflict-detection' } as const}
+					.state=${this._state?.subscription?.state}
+				>
+					<p slot="feature">
+						Detect potential conflicts before starting your rebase and take action to resolve them.
+					</p>
+				</gl-feature-gate-plus-state>
 			</gl-popover>
 		`;
 	}

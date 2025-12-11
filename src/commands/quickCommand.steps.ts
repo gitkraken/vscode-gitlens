@@ -2701,14 +2701,14 @@ export async function* ensureAccessStep<
 			case 'worktrees':
 				placeholder =
 					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
-						? 'Pro feature — requires GitLens Pro for use on privately-hosted repos'
-						: 'Pro feature — requires a trial or GitLens Pro for use on privately-hosted repos';
+						? 'Unlock this feature for privately hosted repos with GitLens Pro'
+						: 'Try GitLens Pro to unlock this feature for privately hosted repos';
 				break;
 			default:
 				placeholder =
 					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
-						? 'Pro feature — requires GitLens Pro'
-						: 'Pro feature — requires a trial or GitLens Pro';
+						? 'Unlock this feature with GitLens Pro'
+						: 'Try GitLens Pro to unlock this feature';
 				break;
 		}
 

@@ -889,7 +889,10 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	protected renderMergeTargetStatus(): TemplateResult | NothingType {
 		if (this.showUpgrade) {
-			return html`<gl-merge-target-upgrade class="branch-item__merge-target"></gl-merge-target-upgrade>`;
+			return html`<gl-merge-target-upgrade
+				class="branch-item__merge-target"
+				.state=${this._homeState.subscription.state}
+			></gl-merge-target-upgrade>`;
 		}
 
 		if (!this.branch.mergeTarget) return nothing;

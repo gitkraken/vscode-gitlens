@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
+import type { SubscriptionState } from '../../../../../constants.subscription';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol';
@@ -14,6 +14,7 @@ import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/ref-button';
+import '../../shared/components/feature-gate-plus-state';
 
 const mergeTargetStyles = css`
 	.header__actions {
@@ -570,7 +571,27 @@ export class GlMergeTargetUpgrade extends LitElement {
 		delegatesFocus: true,
 	};
 
-	static override styles = [elementBase, linkBase, chipStyles, scrollableBase, mergeTargetStyles];
+	static override styles = [
+		elementBase,
+		linkBase,
+		chipStyles,
+		scrollableBase,
+		mergeTargetStyles,
+		css`
+			gl-feature-gate-plus-state {
+				display: block;
+				margin-inline: 0.5rem;
+
+				p {
+					margin-block: 1rem;
+					margin-inline: 0;
+				}
+			}
+		`,
+	];
+
+	@property({ attribute: false, type: Number })
+	state?: SubscriptionState;
 
 	override render(): unknown {
 		const icon = 'warning';
@@ -581,27 +602,22 @@ export class GlMergeTargetUpgrade extends LitElement {
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
 			</span>
-			<div slot="content" class="content">
-				<div class="header">
+			<gl-feature-gate-plus-state
+				slot="content"
+				appearance="default"
+				featureRestriction="all"
+				.source=${{ source: 'home', detail: 'marge-target' } as const}
+				.state=${this.state}
+			>
+				<div slot="feature">
 					<span class="header__title">Detect potential merge conflicts</span>
-				</div>
-				<div class="body">
+
 					<p>
-						Upgrade to GitLens Pro to see when your current branch has potential conflicts with its merge
-						target branch and take action to resolve them.
+						See when your current branch has potential conflicts with its merge target branch and take
+						action to resolve them.
 					</p>
-					<div class="button-container">
-						<gl-button
-							full
-							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: 'pro',
-								source: 'merge-target',
-							})}"
-							>Upgrade to Pro</gl-button
-						>
-					</div>
 				</div>
-			</div>
+			</gl-feature-gate-plus-state>
 		</gl-popover>`;
 	}
 }

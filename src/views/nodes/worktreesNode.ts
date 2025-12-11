@@ -85,7 +85,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  Use on privately-hosted repos requires GitLens Pro`;
+			: ` ${GlyphChars.Warning}  Unlock this feature for privately hosted repos with GitLens Pro`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

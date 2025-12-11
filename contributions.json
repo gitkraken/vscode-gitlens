@@ -19194,6 +19194,10 @@
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders"
 				},
 				{
+					"contents": "Unlock this feature for privately hosted repos with [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
+					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && gitlens:plus:state != 6"
+				},
+				{
 					"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && !gitlens:plus:required && !gitlens:feature:unsupported:git:worktrees"
 				},
@@ -19224,10 +19228,6 @@
 				{
 					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 5"
-				},
-				{
-					"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
-					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && gitlens:plus:state != 6"
 				},
 				{
 					"contents": "⚠ Worktrees are not supported by your version of Git. Please upgrade to a more recent version.",
@@ -19328,6 +19328,10 @@
 					"contents": "[Worktrees](https://help.gitkraken.com/gitlens/side-bar/#worktrees-view-pro) ᴾᴿᴼ — minimize context switching by working on multiple branches simultaneously."
 				},
 				{
+					"contents": "Unlock this feature for privately hosted repos with [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
+					"when": "gitlens:plus:state != 6"
+				},
+				{
 					"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
 					"when": "!gitlens:plus:required && !gitlens:feature:unsupported:git:worktrees"
 				},
@@ -19358,10 +19362,6 @@
 				{
 					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
 					"when": "gitlens:plus:required && gitlens:plus:state == 5"
-				},
-				{
-					"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
-					"when": "gitlens:plus:state != 6"
 				},
 				{
 					"contents": "⚠ Worktrees are not supported by your version of Git. Please upgrade to a more recent version.",

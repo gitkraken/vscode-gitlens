@@ -40,6 +40,7 @@ export class GlGraphGate extends SignalWatcher(GlElement) {
 					: undefined,
 			)}
 			appearance="alert"
+			featureRestriction="private-repos"
 			featureWithArticleIfNeeded="the Commit Graph"
 			?hidden=${this.graphState.allowed !== false}
 			.source=${{ source: 'graph', detail: 'gate' } as const}

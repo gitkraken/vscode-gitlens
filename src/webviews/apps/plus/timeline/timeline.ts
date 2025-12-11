@@ -113,6 +113,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 		if (this.placement === 'editor') {
 			return html`<gl-feature-gate
 				?hidden=${this.allowed !== false}
+				featureRestriction="private-repos"
 				.source=${{ source: 'timeline' as const, detail: 'gate' }}
 				.state=${this.subscription?.state}
 				><p slot="feature">
@@ -129,6 +130,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 
 		return html`<gl-feature-gate
 			?hidden=${this.allowed !== false}
+			featureRestriction="private-repos"
 			.source=${{ source: 'timeline' as const, detail: 'gate' }}
 			.state=${this.subscription?.state}
 			><p slot="feature">
