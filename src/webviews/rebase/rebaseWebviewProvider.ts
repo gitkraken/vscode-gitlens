@@ -319,12 +319,22 @@ export class RebaseWebviewProvider implements Disposable {
 		// Get commit SHAs from the rebase entries
 		const { processed } = this.getParsedTodo();
 
+		const firstShortSha = first(processed.commits.keys())!;
+		const ontoShortSha = this._enrichment.onto!.sha;
+
 		// Get the base commit SHA from the onto commit (the commit we're rebasing onto)
-		const startShortSha = last(processed.commits.keys())!;
-		const baseShortSha = this._enrichment.onto!.sha;
-		const { commits } = await this.getAndUpdateCommits([startShortSha, baseShortSha]);
-		const startCommitSha = commits.get(startShortSha)!.sha;
-		const baseCommitSha = commits.get(baseShortSha)!.sha;
+		const headShortSha = last(processed.commits.keys())!;
+		const { commits } = await this.getAndUpdateCommits([headShortSha, ontoShortSha, firstShortSha]);
+
+		const ontoCommit = commits.get(ontoShortSha)!;
+		const firstCommit = commits.get(firstShortSha)!;
+
+		let baseCommitSha = ontoCommit.sha;
+		if (!firstCommit.parents.includes(baseCommitSha)) {
+			baseCommitSha = firstCommit.parents[0];
+		}
+
+		const headCommitSha = commits.get(headShortSha)!.sha;
 
 		// Open the Commit Composer with the commits
 		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
@@ -335,7 +345,7 @@ export class RebaseWebviewProvider implements Disposable {
 				source: 'rebaseEditor',
 				mode: 'preview',
 				branchName: this._branchName ?? undefined,
-				range: { base: baseCommitSha, head: startCommitSha },
+				range: { base: baseCommitSha, head: headCommitSha },
 			},
 		);
 
