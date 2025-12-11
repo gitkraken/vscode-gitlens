@@ -48,6 +48,25 @@ export class GlFeatureCarousel extends LitElement {
 				display: flex;
 				width: 100%;
 			}
+
+			@media (max-width: 400px) {
+				.carousel {
+					display: grid;
+					grid-template-columns: 1fr auto;
+					grid-template-rows: 1fr 1fr;
+					gap: 0.5em;
+				}
+				.content {
+					grid-column: 1;
+					grid-row: 1 / span 2;
+				}
+				.button {
+					grid-column: 2;
+				}
+				.button code-icon {
+					transform: rotate(90deg);
+				}
+			}
 		`,
 	];
 
