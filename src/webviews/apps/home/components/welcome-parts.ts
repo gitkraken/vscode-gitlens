@@ -249,6 +249,7 @@ export class GlScrollableFeatures extends LitElement {
 			:host::after {
 				content: ' ';
 				position: absolute;
+				display: block;
 				top: 0;
 				width: var(--final-side-shadow-padding);
 				height: 100%;
@@ -271,6 +272,36 @@ export class GlScrollableFeatures extends LitElement {
 				overflow-x: auto;
 				overflow-y: hidden;
 				scrollbar-width: none;
+			}
+
+			@media (max-width: 400px) {
+				:host {
+					--final-side-shadow-padding: max(var(--side-shadow-padding), 2em);
+					margin-top: -1em;
+				}
+				:host::before,
+				:host::after {
+					height: var(--final-side-shadow-padding);
+					width: 100%;
+					left: 0;
+					right: 0;
+				}
+				:host::before {
+					position: sticky;
+					top: 0;
+					background: linear-gradient(to top, transparent 0%, var(--side-shadow-color) 83%);
+				}
+				:host::after {
+					position: fixed;
+					top: auto;
+					bottom: 0;
+					background: linear-gradient(to bottom, transparent 0%, var(--side-shadow-color) 83%);
+				}
+				.content {
+					flex-direction: column;
+					gap: 0.5em;
+					padding: 0;
+				}
 			}
 		`,
 	];
