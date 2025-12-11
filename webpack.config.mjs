@@ -22,7 +22,7 @@ import path from 'path';
 import { defineReactCompilerLoaderOption, reactCompilerLoader } from 'react-compiler-webpack';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import webpack from 'webpack';
 import WebpackRequireFromPlugin from 'webpack-require-from';
 
@@ -51,7 +51,7 @@ if (useNpm) {
 const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
 /**
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string } | undefined } env
  * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
  * @returns { WebpackConfig[] }
  */
@@ -65,6 +65,14 @@ export default function (env, argv) {
 		quick: false,
 		...env,
 	};
+
+	if (env.quick) {
+		if (env.quick === 'turbo') {
+			console.log('Turbo mode enabled — skipping type checking and linting');
+		} else {
+			console.log('Quick mode enabled — skipping linting');
+		}
+	}
 
 	return [
 		getCommonConfig(mode, env),
@@ -110,7 +118,7 @@ function getCacheConfig(name, target, mode) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
  * @returns { WebpackConfig }
  */
 function getCommonConfig(mode, env) {
@@ -163,7 +171,7 @@ function getCommonConfig(mode, env) {
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -178,15 +186,20 @@ function getExtensionConfig(target, mode, env) {
 			DEBUG: mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
-		new ForkTsCheckerPlugin({
-			async: useAsyncTypeChecking,
-			formatter: 'basic',
-			typescript: {
-				configFile: tsConfigPath,
-				memoryLimit: 4096,
-			},
-		}),
 	];
+
+	if (env.quick !== 'turbo') {
+		plugins.push(
+			new ForkTsCheckerPlugin({
+				async: useAsyncTypeChecking,
+				formatter: 'basic',
+				typescript: {
+					configFile: tsConfigPath,
+					memoryLimit: 4096,
+				},
+			}),
+		);
+	}
 
 	if (!env.quick) {
 		plugins.push(
@@ -354,32 +367,33 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string }} env
  * @returns { WebpackConfig[] }
  */
 function getWebviewsConfigs(mode, env) {
-	return [
-		getWebviewConfig(
-			{
-				commitDetails: { entry: './commitDetails/commitDetails.ts' },
-				composer: { entry: './plus/composer/composer.ts', plus: true },
-				graph: { entry: './plus/graph/graph.ts', plus: true },
-				home: { entry: './home/home.ts' },
-				rebase: { entry: './rebase/rebase.ts' },
-				settings: { entry: './settings/settings.ts' },
-				timeline: { entry: './plus/timeline/timeline.ts', plus: true },
-				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
-			},
-			{},
-			mode,
-			env,
-		),
-	];
+	/** @type {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} */
+	let webviews = {
+		commitDetails: { entry: './commitDetails/commitDetails.ts' },
+		composer: { entry: './plus/composer/composer.ts', plus: true },
+		graph: { entry: './plus/graph/graph.ts', plus: true },
+		home: { entry: './home/home.ts' },
+		rebase: { entry: './rebase/rebase.ts' },
+		settings: { entry: './settings/settings.ts' },
+		timeline: { entry: './plus/timeline/timeline.ts', plus: true },
+		patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
+	};
+
+	if (env.webviews) {
+		const chosen = env.webviews.split(',');
+		webviews = Object.fromEntries(Object.entries(webviews).filter(([key]) => chosen.includes(key)));
+	}
+
+	return [getWebviewConfig(webviews, {}, mode, env)];
 }
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewsCommonConfig(mode, env) {
@@ -477,7 +491,7 @@ function getWebviewsCommonConfig(mode, env) {
  * @param {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} webviews
  * @param {{ alias?: { [key:string]: string }}} overrides
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewConfig(webviews, overrides, mode, env) {
@@ -490,14 +504,6 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			DEBUG: mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
-		new ForkTsCheckerPlugin({
-			async: useAsyncTypeChecking,
-			formatter: 'basic',
-			typescript: {
-				configFile: tsConfigPath,
-				memoryLimit: 4096,
-			},
-		}),
 		new WebpackRequireFromPlugin({
 			variableName: 'webpackResourceBasePath',
 		}),
@@ -505,6 +511,24 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		...Object.entries(webviews).map(([name, config]) => getHtmlPlugin(name, Boolean(config.plus), mode, env)),
 		getCspHtmlPlugin(mode, env),
 	];
+
+	// Add composer template compilation plugin when building composer webview
+	if ('composer' in webviews) {
+		plugins.push(new CompileComposerTemplatesPlugin());
+	}
+
+	if (env.quick !== 'turbo') {
+		plugins.push(
+			new ForkTsCheckerPlugin({
+				async: useAsyncTypeChecking,
+				formatter: 'basic',
+				typescript: {
+					configFile: tsConfigPath,
+					memoryLimit: 4096,
+				},
+			}),
+		);
+	}
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
@@ -1134,5 +1158,102 @@ class FantasticonPlugin {
 		compiler.hooks.beforeRun.tapPromise(this.pluginName, generateFn);
 		// @ts-ignore
 		compiler.hooks.watchRun.tapPromise(this.pluginName, generateFn);
+	}
+}
+
+/**
+ * Webpack plugin to precompile Composer custom diff2html Hogan templates.
+ * This avoids runtime eval and ensures templates are compiled at build time.
+ */
+class CompileComposerTemplatesPlugin {
+	static name = 'CompileComposerTemplatesPlugin';
+
+	/** @type {Promise<void> | undefined} */
+	static _compilationPromise;
+
+	/**
+	 * @param {import('webpack').Compiler} compiler
+	 */
+	apply(compiler) {
+		compiler.hooks.beforeCompile.tapPromise(CompileComposerTemplatesPlugin.name, async () => {
+			// Deduplicate compilation across parallel builds
+			if (!CompileComposerTemplatesPlugin._compilationPromise) {
+				CompileComposerTemplatesPlugin._compilationPromise = this._compile();
+			}
+			return CompileComposerTemplatesPlugin._compilationPromise;
+		});
+	}
+
+	async _compile() {
+		/** @type {typeof import('hogan.js')} */
+		let Hogan;
+		try {
+			// Prefer root-level hogan.js if hoisted
+			// @ts-ignore
+			Hogan = await import('hogan.js');
+		} catch {
+			// Fallback: resolve from diff2html's nested dependency to support pnpm non-hoisted layout
+			const diff2htmlPkg = require.resolve('diff2html/package.json');
+			const hoganPath = require.resolve('hogan.js', {
+				paths: [path.join(path.dirname(diff2htmlPkg), 'node_modules')],
+			});
+			// @ts-ignore
+			Hogan = await import(pathToFileURL(hoganPath).href);
+		}
+		// @ts-ignore
+		Hogan = Hogan?.default || Hogan;
+
+		const srcPath = path.join(__dirname, 'src/webviews/apps/plus/composer/components/diff/diff-templates.ts');
+		const outPath = path.join(
+			__dirname,
+			'src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts',
+		);
+
+		const source = fs.readFileSync(srcPath, 'utf8');
+
+		/**
+		 * @param {string} name
+		 * @returns {string}
+		 */
+		function extractTemplate(name) {
+			const re = new RegExp(`export const ${name} = \`([\\s\\S]*?)\`;`);
+			const m = source.match(re);
+			if (!m) throw new Error(`Template ${name} not found in ${srcPath}`);
+			return m[1];
+		}
+
+		const blockHeader = extractTemplate('blockHeaderTemplate');
+		const lineByLineFile = extractTemplate('lineByLineFileTemplate');
+		const sideBySideFile = extractTemplate('sideBySideFileTemplate');
+		const genericFilePath = extractTemplate('genericFilePathTemplate');
+
+		/**
+		 * @param {string} name
+		 * @param {string} tpl
+		 * @returns {string}
+		 */
+		function precompile(name, tpl) {
+			const code = Hogan.compile(tpl, { asString: true });
+			return `  "${name}": new Hogan.Template(${code})`;
+		}
+
+		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils';\nimport * as Hogan from 'hogan.js';\n`;
+
+		const body = `export const compiledComposerTemplates: CompiledTemplates = {\n${precompile(
+			'generic-block-header',
+			blockHeader,
+		)},\n${precompile('line-by-line-file-diff', lineByLineFile)},\n${precompile(
+			'side-by-side-file-diff',
+			sideBySideFile,
+		)},\n${precompile('generic-file-path', genericFilePath)}\n};\n`;
+
+		const newContent = header + body;
+		const existingContent = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : '';
+
+		// Only write if content changed to avoid unnecessary rebuilds
+		if (newContent !== existingContent) {
+			fs.writeFileSync(outPath, newContent, 'utf8');
+			console.log(`[CompileComposerTemplatesPlugin] Wrote ${outPath}`);
+		}
 	}
 }
