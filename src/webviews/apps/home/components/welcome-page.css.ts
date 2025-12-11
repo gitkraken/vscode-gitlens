@@ -68,10 +68,16 @@ const main = css`
 		max-width: 100%;
 	}
 
+	.welcome {
+		max-height: 100%;
+		overflow: auto;
+		position: relative;
+	}
+
 	.close-button {
 		position: absolute;
-		right: 1em;
-		top: 1em;
+		right: 2px;
+		top: 2px;
 		z-index: 1;
 	}
 `;

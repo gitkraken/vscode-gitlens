@@ -1,12 +1,12 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand } from '../../../home/protocol';
 import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
-import '../../welcome/welcome';
+import './welcome-page';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -37,11 +37,17 @@ export class GlWelcomeOverlay extends LitElement {
 				background-color: var(--background-color);
 			}
 
-			gl-welcome-app {
+			gl-welcome-page {
 				--page-background-color: var(--background-color);
 			}
 		`,
 	];
+
+	@property({ type: String })
+	webroot?: string;
+
+	@property({ type: Boolean })
+	private isLightTheme = false;
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
@@ -62,11 +68,9 @@ export class GlWelcomeOverlay extends LitElement {
 
 		return html`
 			<div class="overlay">
-				<gl-welcome-app
-					name="WelcomeView"
-					placement="#{placement}"
-					bootstrap="#{state}"
-					webroot="#{webroot}"
+				<gl-welcome-page
+					.webroot=${this.webroot}
+					.isLightTheme=${this.isLightTheme}
 					closeable
 					@close=${() => this.onClose()}
 				></gl-welcome-app>

@@ -1,54 +1,48 @@
-/*global*/
-import './welcome.scss';
-import { html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import type { GlCommands } from '../../../constants.commands';
-import { ExecuteCommand } from '../../protocol';
-import type { State } from '../../welcome/protocol';
-import { GlAppHost } from '../shared/appHost';
-import { scrollableBase } from '../shared/components/styles/lit/base.css';
-import type { LoggerContext } from '../shared/contexts/logger';
-import type { HostIpc } from '../shared/ipc';
-import type { ThemeChangeEvent } from '../shared/theme';
-import { WelcomeStateProvider } from './stateProvider';
-import '../shared/components/gitlens-logo';
-import '../shared/components/button';
-import '../shared/components/code-icon';
-import { welcomeStyles } from './welcome.css';
-import './components/feature-carousel';
-import './components/feature-card';
-import './components/feature-narrow-card';
-import './components/scrollable-features';
+import { consume } from '@lit/context';
+import { html, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import type { GlCommands } from '../../../../constants.commands';
+import { ExecuteCommand } from '../../../protocol';
+import { scrollableBase } from '../../shared/components/styles/lit/base.css';
+import { ipcContext } from '../../shared/contexts/ipc';
+import type { TelemetryContext } from '../../shared/contexts/telemetry';
+import { telemetryContext } from '../../shared/contexts/telemetry';
+import { welcomeStyles } from './welcome-page.css';
+import '../../shared/components/gitlens-logo';
+import '../../shared/components/button';
+import '../../shared/components/code-icon';
+import './welcome-parts';
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-welcome-page': GlWelcomePage;
+	}
+}
 
 const helpBlameUrl =
 	'https://www.gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links#Visual-Repository-Intelligence';
 const helpLaunchpadUrl =
 	'https://www.gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links#Visual-Repository-Intelligence';
 
-@customElement('gl-welcome-app')
-export class GlWelcomeApp extends GlAppHost<State> {
+@customElement('gl-welcome-page')
+export class GlWelcomePage extends LitElement {
 	static override styles = [scrollableBase, welcomeStyles];
+	//static override styles = welcomeStyles;
 
-	protected override createStateProvider(
-		bootstrap: string,
-		ipc: HostIpc,
-		logger: LoggerContext,
-	): WelcomeStateProvider {
-		return new WelcomeStateProvider(this, bootstrap, ipc, logger);
-	}
+	@property({ type: Boolean })
+	closeable = false;
 
 	@property({ type: String })
 	webroot?: string;
 
 	@property({ type: Boolean })
-	closeable = false;
-
-	@state()
 	private isLightTheme = false;
 
-	protected override onThemeUpdated(e: ThemeChangeEvent): void {
-		this.isLightTheme = e.isLightTheme;
-	}
+	@consume({ context: ipcContext })
+	_ipc!: typeof ipcContext.__context__;
+
+	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
+	_telemetry!: TelemetryContext;
 
 	private onStartTrial() {
 		const command: GlCommands = 'gitlens.plus.signUp';
