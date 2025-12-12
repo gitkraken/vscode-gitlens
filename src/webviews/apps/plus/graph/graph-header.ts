@@ -122,6 +122,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		repoHeaderStyles,
 		graphHeaderControlStyles,
 		css`
+			:focus,
+			:focus-within,
+			:focus-visible {
+				outline-color: var(--vscode-focusBorder);
+			}
+
 			progress-indicator {
 				top: 0;
 			}

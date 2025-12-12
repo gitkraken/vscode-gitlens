@@ -33,6 +33,12 @@ type Counts = Record<IconTypes, number | undefined>;
 @customElement('gl-graph-sidebar')
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
+		:focus,
+		:focus-within,
+		:focus-visible {
+			outline-color: var(--vscode-focusBorder);
+		}
+
 		.sidebar {
 			box-sizing: border-box;
 			display: flex;

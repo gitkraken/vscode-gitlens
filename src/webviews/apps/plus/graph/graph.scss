@@ -144,6 +144,17 @@ body {
 	}
 }
 
+:focus,
+:focus-within,
+:focus-visible {
+	outline-color: var(--vscode-focusBorder);
+}
+
+.gk-graph .graph-container:focus,
+.gk-graph .graph-container:focus-within {
+	outline: none;
+}
+
 ::-webkit-scrollbar {
 	width: var(--graph-column-scrollbar-thickness);
 	height: var(--graph-column-scrollbar-thickness);
