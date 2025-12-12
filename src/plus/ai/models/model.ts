@@ -48,17 +48,33 @@ export interface AIProviderDescriptor<T extends AIProviders = AIProviders> {
 	readonly type?: never;
 }
 
-export interface AIProviderDescriptorWithConfiguration<T extends AIProviders = AIProviders>
-	extends AIProviderDescriptor<T> {
+export interface AIProviderDescriptorWithConfiguration<
+	T extends AIProviders = AIProviders,
+> extends AIProviderDescriptor<T> {
 	readonly configured: boolean;
 }
 
-export interface AIProviderDescriptorWithType<T extends AIProviders = AIProviders>
-	extends Omit<AIProviderDescriptor<T>, 'type'> {
+export interface AIProviderDescriptorWithType<T extends AIProviders = AIProviders> extends Omit<
+	AIProviderDescriptor<T>,
+	'type'
+> {
 	readonly type: Lazy<Promise<AIProviderConstructor<T>>>;
 }
 
 export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDescriptor<T>): AIModel<T>[] => [
+	{
+		id: 'gpt-5.2',
+		name: 'GPT-5.2',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-5.2-2025-12-11',
+		name: 'GPT-5.2 (2025-12-11)',
+		maxTokens: { input: 400000, output: 128000 },
+		provider: provider,
+		hidden: true,
+	},
 	{
 		id: 'gpt-5.1',
 		name: 'GPT-5.1',
