@@ -1573,7 +1573,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		return html`<gl-popover-confirm
 			heading="Abort Rebase &amp; Recompose"
 			message="This will abort the rebase and open the Commit Composer to recompose all commits using AI."
-			confirm=${isActive ? 'Abort & Recompose' : 'Recompose Commits'}
+			confirm=${isActive ? 'Abort & Recompose' : 'Recompose'}
 			confirm-variant=${ifDefined(isActive ? 'danger' : undefined)}
 			initial-focus=${isActive ? 'cancel' : 'confirm'}
 			icon=${isActive ? 'error' : 'warning'}
@@ -1581,7 +1581,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		>
 			<gl-button slot="anchor" appearance="secondary" tooltip="Open Commit Composer &amp; Recompose using AI">
 				<code-icon slot=${ifDefined(isActive ? undefined : 'prefix')} icon="sparkle"></code-icon>
-				${isActive ? nothing : 'Recompose Commits...'}
+				${isActive ? nothing : 'Recompose...'}
 			</gl-button>
 		</gl-popover-confirm>`;
 	}
