@@ -169,6 +169,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		></gl-graph>`;
 	}
 
+	override focus(): void {
+		this.ref?.focus();
+	}
+
 	getCommits(shas: string[]): ReadonlyGraphRow[] {
 		return this.ref?.getCommits(shas) ?? [];
 	}

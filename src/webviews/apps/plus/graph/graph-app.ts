@@ -65,6 +65,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		this._hoverTrackingCounter.reset();
 		this._selectionTrackingCounter.reset();
+
+		// Auto-focus the graph rows for keyboard navigation
+		this.graph?.focus();
 	}
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {

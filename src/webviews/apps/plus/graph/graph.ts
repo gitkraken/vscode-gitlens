@@ -19,6 +19,8 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	@query('gl-graph-app')
 	private appElement!: GraphApp;
 
+	private _initialRowsLoaded = false;
+
 	@state()
 	searching: string = '';
 
@@ -38,6 +40,12 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			onStateUpdate: partial => {
 				if ('rows' in partial) {
 					this.appElement.resetHover();
+
+					// Focus the graph after initial rows are loaded
+					if (!this._initialRowsLoaded && partial.rows?.length) {
+						this._initialRowsLoaded = true;
+						requestAnimationFrame(() => this.appElement?.graph?.focus());
+					}
 				}
 			},
 		});
