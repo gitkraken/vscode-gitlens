@@ -164,8 +164,20 @@ async function analyze(testData: ReturnType<typeof generateGitTestData>): Promis
 		await bench.run();
 
 		const splitResult = bench.tasks.find(t => t.name === 'split')?.result;
+		if (splitResult?.state !== 'completed') {
+			console.log(`  ${test.name} | Winner: unknown | split() did not complete`);
+			continue;
+		}
 		const iterResult = bench.tasks.find(t => t.name === 'iterator')?.result;
+		if (iterResult?.state !== 'completed') {
+			console.log(`  ${test.name} | Winner: unknown | iterateByDelimiter() did not complete`);
+			continue;
+		}
 		const genResult = bench.tasks.find(t => t.name === 'generator')?.result;
+		if (genResult?.state !== 'completed') {
+			console.log(`  ${test.name} | Winner: unknown | iterateByDelimiterGenerator() did not complete`);
+			continue;
+		}
 
 		// Find the fastest method
 		let fastest: 'split' | 'iterator' | 'generator' = 'split';

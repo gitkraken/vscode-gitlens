@@ -505,7 +505,15 @@ async function analyzeOverall(): Promise<void> {
 		await bench.run();
 
 		const genResult = bench.tasks.find(t => t.name === 'generator')?.result;
+		if (genResult?.state !== 'completed') {
+			console.log(`  ${op.padEnd(10)} | Winner: unknown | Generator did not complete`);
+			continue;
+		}
 		const iterResult = bench.tasks.find(t => t.name === 'iterator')?.result;
+		if (iterResult?.state !== 'completed') {
+			console.log(`  ${op.padEnd(10)} | Winner: unknown | Iterator did not complete`);
+			continue;
+		}
 
 		const winner =
 			(iterResult?.throughput.mean ?? 0) > (genResult?.throughput.mean ?? 0) ? 'iterator' : 'generator';

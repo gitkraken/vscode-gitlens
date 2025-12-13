@@ -129,7 +129,15 @@ async function analyze(testData: ReturnType<typeof generateGitTestData>): Promis
 		await bench.run();
 
 		const iterResult = bench.tasks.find(t => t.name === 'iterator')?.result;
+		if (iterResult?.state !== 'completed') {
+			console.log(`  ${test.name} | Winner: unknown | Iterator did not complete`);
+			continue;
+		}
 		const genResult = bench.tasks.find(t => t.name === 'generator')?.result;
+		if (genResult?.state !== 'completed') {
+			console.log(`  ${test.name} | Winner: unknown | Generator did not complete`);
+			continue;
+		}
 
 		// Find the fastest method
 		let fastest: 'iterator' | 'generator' = 'iterator';
@@ -170,6 +178,11 @@ async function analyzeChunkSizes(testData: ReturnType<typeof generateGitTestData
 		await bench.run();
 
 		const result = bench.tasks[0].result;
+		if (result?.state !== 'completed') {
+			console.log(`  ${formatBytes(chunkSize)} | Winner: unknown | Did not complete`);
+			continue;
+		}
+
 		results.push({
 			chunkSize: chunkSize,
 			opsPerSec: result?.throughput.mean ?? 0,

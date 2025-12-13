@@ -39,12 +39,17 @@ export interface BenchmarkResult {
  * Extract results from tinybench tasks
  */
 export function extractResults(tasks: Task[]): BenchmarkResult[] {
-	return tasks.map(task => ({
-		name: task.name,
-		opsPerSec: task.result?.throughput.mean ?? 0,
-		avgTime: task.result?.latency.mean ? task.result.latency.mean * 1000 : 0, // Convert to ms
-		margin: task.result?.latency.rme ?? 0,
-	}));
+	return tasks.map(task => {
+		if (task.result.state === 'completed') {
+			return {
+				name: task.name,
+				opsPerSec: task.result?.throughput.mean ?? 0,
+				avgTime: task.result?.latency.mean ? task.result.latency.mean * 1000 : 0, // Convert to ms
+				margin: task.result?.latency.rme ?? 0,
+			};
+		}
+		return { name: task.name, opsPerSec: -1, avgTime: -1, margin: -1 };
+	});
 }
 
 /**
