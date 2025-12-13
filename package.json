@@ -5426,6 +5426,13 @@
 						"scope": "window",
 						"order": 70
 					},
+					"gitlens.advanced.skipOnboarding": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to skip onboarding experiences, such as welcome views and walkthroughs. Useful for ephemeral environments like containers or sandboxes",
+						"scope": "window",
+						"order": 75
+					},
 					"gitlens.advanced.gitTimeout": {
 						"type": "number",
 						"default": 60,
@@ -26293,12 +26300,12 @@
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "GitLens groups many related views—Commits, Branches, Stashes, etc—here for easier view management.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.",
-				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:welcome && gitlens:install:new"
+				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:welcome && gitlens:install:new && !config.gitlens.advanced.skipOnboarding"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "GitLens groups many related views—Commits, Branches, Stashes, etc—here for easier view management.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nPrefer them separate? [Restore views to previous locations](command:gitlens.views.scm.grouped.welcome.restore)\n\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.",
-				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:welcome && !gitlens:install:new"
+				"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:welcome && !gitlens:install:new && !config.gitlens.advanced.skipOnboarding"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",

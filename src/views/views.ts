@@ -116,21 +116,28 @@ export class Views implements Disposable {
 
 		this._welcomeDismissed = container.storage.get('views:scm:grouped:welcome:dismissed', false);
 
+		let newInstall = false;
+		let showGitLensView = false;
+		if (!configuration.get('advanced.skipOnboarding')) {
+			// If this is a new install, expand the GitLens view and show the home view by default, unless we are skipping onboarding
+			newInstall = getContext('gitlens:install:new', false);
+			showGitLensView = newInstall;
+			if (!showGitLensView) {
+				const upgradedFrom = getContext('gitlens:install:upgradedFrom');
+				if (upgradedFrom && compare(upgradedFrom, '16.0.2') === -1) {
+					showGitLensView = !this._welcomeDismissed;
+				}
+			}
+		} else if (!this._welcomeDismissed) {
+			void container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+			this._welcomeDismissed = true;
+		}
+
 		this._lastSelectedScmGroupedView = this.container.storage.getWorkspace(
 			'views:scm:grouped:selected',
 			configuration.get('views.scm.grouped.default'),
 		);
 		this.updateScmGroupedViewsRegistration();
-
-		// If this is a new install, expand the GitLens view and show the home view by default
-		const newInstall = getContext('gitlens:install:new', false);
-		let showGitLensView = newInstall;
-		if (!showGitLensView) {
-			const upgradedFrom = getContext('gitlens:install:upgradedFrom');
-			if (upgradedFrom && compare(upgradedFrom, '16.0.2') === -1) {
-				showGitLensView = !container.storage.get('views:scm:grouped:welcome:dismissed', false);
-			}
-		}
 
 		if (
 			showGitLensView &&
@@ -524,7 +531,7 @@ export class Views implements Disposable {
 	private async showWelcomeNotification() {
 		this._welcomeDismissed = true;
 
-		const newInstall = getContext('gitlens:install:new', false);
+		const newInstall = !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false);
 
 		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 		const Restore: MessageItem = { title: 'Restore Previous Locations' };
@@ -584,7 +591,7 @@ export class Views implements Disposable {
 		if (this._scmGroupedViews.size) {
 			if (this._welcomeDismissed || bypassWelcomeView) {
 				// If we are bypassing the welcome view, show it as a notification -- since we can't block the view from loading
-				if (!this._welcomeDismissed && bypassWelcomeView) {
+				if (!this._welcomeDismissed && bypassWelcomeView && !configuration.get('advanced.skipOnboarding')) {
 					void this.showWelcomeNotification();
 				}
 

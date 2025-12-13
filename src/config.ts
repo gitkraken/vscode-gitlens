@@ -211,6 +211,7 @@ export interface AdvancedConfig {
 	readonly resolveSymlinks: boolean;
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
+	readonly skipOnboarding: boolean;
 }
 
 interface AIConfig {

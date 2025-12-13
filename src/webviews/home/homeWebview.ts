@@ -918,7 +918,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			walkthroughSupported: this.container.walkthrough.isWalkthroughSupported,
 			walkthroughProgress: this.getWalkthroughProgress(),
 			previewEnabled: this.getPreviewEnabled(),
-			newInstall: getContext('gitlens:install:new', false),
+			newInstall: !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false),
 			amaBannerCollapsed: this.getAmaBannerCollapsed(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			mcpCanAutoRegister: this.getMcpCanAutoRegister(),
