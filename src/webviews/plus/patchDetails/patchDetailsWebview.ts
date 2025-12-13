@@ -128,9 +128,11 @@ interface Context {
 	orgSettings: State['orgSettings'];
 }
 
-export class PatchDetailsWebviewProvider
-	implements WebviewProvider<State, Serialized<State>, PatchDetailsWebviewShowingArgs>
-{
+export class PatchDetailsWebviewProvider implements WebviewProvider<
+	State,
+	Serialized<State>,
+	PatchDetailsWebviewShowingArgs
+> {
 	private _context: Context;
 	private readonly _disposable: Disposable;
 

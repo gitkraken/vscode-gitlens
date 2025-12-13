@@ -31,9 +31,9 @@ export function getEditorCorrelationKeyFromTab(tab: Tab): TextEditorCorrelationK
 
 export type DidChangeStatusCallback = (e: { editor?: TextEditor; status?: AnnotationStatus }) => void;
 
-export abstract class AnnotationProviderBase<TContext extends AnnotationContext = AnnotationContext>
-	implements Disposable
-{
+export abstract class AnnotationProviderBase<
+	TContext extends AnnotationContext = AnnotationContext,
+> implements Disposable {
 	private decorations: Decoration[] | undefined;
 	protected disposable: Disposable;
 	private _computing: Deferred<void> | undefined;

@@ -21,8 +21,7 @@ export abstract class StateProviderBase<
 	ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
 	State extends WebviewState<ID>,
 	TContext extends Context<unknown, State>,
-> implements Disposable
-{
+> implements Disposable {
 	protected readonly disposable: Disposable;
 	protected readonly provider: ContextProvider<TContext, ReactiveElementHost>;
 

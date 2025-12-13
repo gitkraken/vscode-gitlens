@@ -75,8 +75,11 @@ interface WebviewViewRegistration<
 		| undefined;
 }
 
-export interface WebviewViewProxy<ID extends WebviewViewIds, ShowingArgs extends unknown[], SerializedState = unknown>
-	extends Disposable {
+export interface WebviewViewProxy<
+	ID extends WebviewViewIds,
+	ShowingArgs extends unknown[],
+	SerializedState = unknown,
+> extends Disposable {
 	readonly id: ID;
 	readonly ready: boolean;
 	readonly visible: boolean;

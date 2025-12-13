@@ -1091,7 +1091,8 @@ export type SubscriptionFeaturePreviewsEventData = {
 }[FeaturePreviews];
 
 export interface SubscriptionCurrentEventData
-	extends Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'account', true>,
+	extends
+		Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'account', true>,
 		Omit<
 			Flatten<Subscription['plan'], 'subscription', true>,
 			'subscription.actual.name' | 'subscription.effective.name'
@@ -1099,7 +1100,8 @@ export interface SubscriptionCurrentEventData
 		SubscriptionFeaturePreviewsEventData {}
 
 export interface SubscriptionPreviousEventData
-	extends Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'previous.account', true>,
+	extends
+		Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'previous.account', true>,
 		Omit<
 			Flatten<Subscription['plan'], 'previous.subscription', true>,
 			'previous.subscription.actual.name' | 'previous.subscription.effective.name'
@@ -1144,8 +1146,7 @@ type SubscriptionActionEventData =
 	| FeaturePreviewActionEventData;
 
 export interface SubscriptionEventDataWithPrevious
-	extends SubscriptionEventData,
-		Partial<SubscriptionPreviousEventData> {}
+	extends SubscriptionEventData, Partial<SubscriptionPreviousEventData> {}
 
 type TimelineContextEventData = WebviewTelemetryContext & {
 	'context.period': TimelinePeriod | undefined;

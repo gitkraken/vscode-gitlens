@@ -76,8 +76,7 @@ type SyncReqUsecase = Exclude<
 export abstract class IntegrationBase<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> implements Disposable
-{
+> implements Disposable {
 	abstract readonly type: IntegrationType;
 
 	private readonly _onDidChange = new EventEmitter<void>();

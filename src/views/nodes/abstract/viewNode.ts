@@ -223,8 +223,7 @@ export abstract class ViewNode<
 	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
 	TView extends View = View,
 	State extends object = any,
-> implements Disposable
-{
+> implements Disposable {
 	is<T extends keyof TreeViewNodesByType>(type: T): this is TreeViewNodesByType[T] {
 		return this.type === (type as unknown as Type);
 	}

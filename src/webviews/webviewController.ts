@@ -91,11 +91,11 @@ type WebviewViewController<
 	c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`,
 )
 export class WebviewController<
-		ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
-		State,
-		SerializedState = State,
-		ShowingArgs extends unknown[] = unknown[],
-	>
+	ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
+	State,
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+>
 	implements WebviewHost<ID>, Disposable
 {
 	static async create<

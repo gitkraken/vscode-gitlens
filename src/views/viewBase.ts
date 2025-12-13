@@ -191,24 +191,24 @@ export interface GroupedViewContext {
 }
 
 export abstract class ViewBase<
-		Type extends TreeViewTypes,
-		RootNode extends ViewNode,
-		ViewConfig extends
-			| BranchesViewConfig
-			| CommitsViewConfig
-			| ContributorsViewConfig
-			| DraftsViewConfig
-			| FileHistoryViewConfig
-			| LaunchpadViewConfig
-			| LineHistoryViewConfig
-			| PullRequestViewConfig
-			| RemotesViewConfig
-			| RepositoriesViewConfig
-			| SearchAndCompareViewConfig
-			| StashesViewConfig
-			| TagsViewConfig
-			| WorktreesViewConfig,
-	>
+	Type extends TreeViewTypes,
+	RootNode extends ViewNode,
+	ViewConfig extends
+		| BranchesViewConfig
+		| CommitsViewConfig
+		| ContributorsViewConfig
+		| DraftsViewConfig
+		| FileHistoryViewConfig
+		| LaunchpadViewConfig
+		| LineHistoryViewConfig
+		| PullRequestViewConfig
+		| RemotesViewConfig
+		| RepositoriesViewConfig
+		| SearchAndCompareViewConfig
+		| StashesViewConfig
+		| TagsViewConfig
+		| WorktreesViewConfig,
+>
 	implements TreeDataProvider<ViewNode>, Disposable
 {
 	is<T extends keyof TreeViewByType>(type: T): this is TreeViewByType[T] {

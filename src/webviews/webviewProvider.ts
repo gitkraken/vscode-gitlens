@@ -22,8 +22,11 @@ import type { WebviewShowOptions } from './webviewsController';
 
 export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
 
-export interface WebviewProvider<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>
-	extends Disposable {
+export interface WebviewProvider<
+	State,
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> extends Disposable {
 	/**
 	 * Determines whether the webview instance can be reused
 	 * @returns `true` if the webview should be reused, `false` if it should NOT be reused, and `undefined` if it *could* be reused but not ideal
@@ -55,8 +58,11 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 	onWindowFocusChanged?(focused: boolean): void;
 }
 
-export interface WebviewStateProvier<State, SerializedState, ShowingArgs extends unknown[] = unknown[]>
-	extends WebviewProvider<State, SerializedState, ShowingArgs> {
+export interface WebviewStateProvier<
+	State,
+	SerializedState,
+	ShowingArgs extends unknown[] = unknown[],
+> extends WebviewProvider<State, SerializedState, ShowingArgs> {
 	canReceiveMessage?(e: IpcMessage): boolean;
 }
 
