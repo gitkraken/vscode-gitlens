@@ -2,7 +2,7 @@
 import './home.scss';
 import { provide } from '@lit/context';
 import { html } from 'lit';
-import { customElement, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
 import { DidChangeSubscription, DidFocusAccount } from '../../home/protocol';
@@ -17,6 +17,7 @@ import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { LoggerContext } from '../shared/contexts/logger';
 import type { HostIpc } from '../shared/ipc';
+import type { ThemeChangeEvent } from '../shared/theme';
 import type { GlAiAllAccessBanner } from './components/ai-all-access-banner';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
@@ -29,6 +30,7 @@ import './components/ai-all-access-banner';
 import './components/ama-banner';
 import './components/integration-banner';
 import './components/preview-banner';
+import './components/welcome-overlay';
 import '../shared/components/mcp-banner';
 import './components/repo-alerts';
 import '../shared/components/banner/banner';
@@ -76,6 +78,16 @@ export class GlHomeApp extends GlAppHost<State> {
 		);
 	}
 
+	@property({ type: String })
+	webroot?: string;
+
+	@state()
+	private isLightTheme = false;
+
+	protected override onThemeUpdated(e: ThemeChangeEvent): void {
+		this.isLightTheme = e.isLightTheme;
+	}
+
 	override render(): unknown {
 		return html`
 			<div class="home scrollable">
@@ -111,6 +123,7 @@ export class GlHomeApp extends GlAppHost<State> {
 						`,
 					)}
 				</main>
+				<gl-welcome-overlay .isLightTheme=${this.isLightTheme} .webroot=${this.webroot}></gl-welcome-overlay>
 			</div>
 		`;
 	}
