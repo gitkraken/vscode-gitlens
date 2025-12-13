@@ -26931,7 +26931,7 @@
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.19",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.26",
 		"@gitkraken/provider-apis": "0.29.7",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -26964,8 +26964,8 @@
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "19.2.0",
-		"react-dom": "19.2.0",
+		"react": "19.2.3",
+		"react-dom": "19.2.3",
 		"signal-utils": "0.21.1",
 		"slug": "11.0.1",
 		"sortablejs": "1.15.6",
@@ -26982,7 +26982,7 @@
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
 		"@types/node": "20.16.15",
-		"@types/react": "19.2.5",
+		"@types/react": "19.2.7",
 		"@types/react-dom": "19.2.3",
 		"@types/sinon": "17.0.4",
 		"@types/slug": "5.0.9",

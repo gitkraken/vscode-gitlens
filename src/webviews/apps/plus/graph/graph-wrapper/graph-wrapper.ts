@@ -1,6 +1,12 @@
 /*global document window*/
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import type { CssVariables, GraphRow, GraphZoneType, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
+import type {
+	CssVariables,
+	GraphRow,
+	GraphZoneType,
+	ReadonlyGraphRow,
+	SelectCommitsOptions,
+} from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';
@@ -10,6 +16,7 @@ import type { GitGraphRowType } from '../../../../../git/models/graph';
 import { filterMap } from '../../../../../system/array';
 import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '../../../../../system/color';
 import { debounce } from '../../../../../system/function/debounce';
+import type { GraphSelection } from '../../../../plus/graph/protocol';
 import {
 	DoubleClickedCommandType,
 	GetMissingAvatarsCommand,
@@ -44,12 +51,6 @@ const graphLaneThemeColors = new Map([
 	['--vscode-gitlens-graphLane9Color', '#7bd938'],
 	['--vscode-gitlens-graphLane10Color', '#2ece9d'],
 ]);
-
-interface GraphSelection {
-	id: string;
-	type: GitGraphRowType;
-	hidden: boolean;
-}
 
 declare global {
 	// interface HTMLElementTagNameMap {
@@ -172,8 +173,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return this.ref?.getCommits(shas) ?? [];
 	}
 
-	selectCommits(shas: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean): ReadonlyGraphRow[] {
-		return this.ref?.selectCommits(shas, includeToPrevSel, isAutoOrKeyScroll) ?? [];
+	selectCommits(shas: string[], options?: SelectCommitsOptions): ReadonlyGraphRow[] {
+		return this.ref?.selectCommits(shas, options) ?? [];
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
@@ -229,15 +230,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-row-unhover', { detail: detail }));
 	}
 
-	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
+	private onSelectionChanged({ detail: { rows, focusedRow } }: CustomEventType<'graph-changeselection'>) {
 		const selection: GraphSelection[] = filterMap(rows, r =>
-			r != null ? { id: r.sha, type: r.type as GitGraphRowType, hidden: r.hidden } : undefined,
+			r != null
+				? ({
+						id: r.sha,
+						type: r.type as GitGraphRowType,
+						active: r === focusedRow,
+						hidden: r.hidden,
+					} satisfies GraphSelection)
+				: undefined,
 		);
 
-		const active = rows[rows.length - 1];
-		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
+		const activeKey = focusedRow != null ? `${focusedRow.sha}|${focusedRow.date}` : undefined;
 		this.graphState.activeRow = activeKey;
-		this.graphState.activeDay = active?.date;
+		this.graphState.activeDay = focusedRow?.date;
 
 		this.dispatchEvent(new CustomEvent('gl-graph-change-selection', { detail: { selection: selection } }));
 		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });

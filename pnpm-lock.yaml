@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 13.0.0-vnext.19
-        version: 13.0.0-vnext.19(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: 13.0.0-vnext.26
+        version: 13.0.0-vnext.26(@types/react@19.2.7)(dragula@3.7.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@gitkraken/provider-apis':
         specifier: 0.29.7
         version: 0.29.7(encoding@0.1.13)
@@ -38,7 +38,7 @@ importers:
         version: 1.1.6
       '@lit/react':
         specifier: 1.0.8
-        version: 1.0.8(@types/react@19.2.5)
+        version: 1.0.8(@types/react@19.2.7)
       '@lit/task':
         specifier: 1.0.3
         version: 1.0.3
@@ -71,7 +71,7 @@ importers:
         version: 1.38.0
       '@shoelace-style/shoelace':
         specifier: 2.20.1
-        version: 2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.5)
+        version: 2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.7)
       '@vscode/codicons':
         specifier: 0.0.44
         version: 0.0.44
@@ -115,11 +115,11 @@ importers:
         specifier: 1.0.1
         version: 1.0.1
       react:
-        specifier: 19.2.0
-        version: 19.2.0
+        specifier: 19.2.3
+        version: 19.2.3
       react-dom:
-        specifier: 19.2.0
-        version: 19.2.0(react@19.2.0)
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
       signal-utils:
         specifier: 0.21.1
         version: 0.21.1(signal-polyfill@0.2.2)
@@ -164,11 +164,11 @@ importers:
         specifier: 20.16.15
         version: 20.16.15
       '@types/react':
-        specifier: 19.2.5
-        version: 19.2.5
+        specifier: 19.2.7
+        version: 19.2.7
       '@types/react-dom':
         specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.5)
+        version: 19.2.3(@types/react@19.2.7)
       '@types/sinon':
         specifier: 17.0.4
         version: 17.0.4
@@ -797,13 +797,13 @@ packages:
   '@github/catalyst@1.7.0':
     resolution: {integrity: sha512-qOAxrDdRZz9+v4y2WoAfh11rpRY/x4FRofPNmJyZFzAjubtzE3sCa/tAycWWufmQGoYiwwzL/qJBBgyg7avxPw==}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.19':
-    resolution: {integrity: sha512-RELT/TeSlAiCBrwjrjNVs3fja44f31vloffODgy+IiO1d+Zu/P/5O8Qy3A2u+kgq8C2wtkTrT616UCcGewDEeg==}
+  '@gitkraken/gitkraken-components@13.0.0-vnext.26':
+    resolution: {integrity: sha512-JPhW7pHbM2fBtrgsOiuGfRhw6mI9f1maxK0S/V1V+n8UxDjU3PDbiRAZWAjLi4KWAPZyGETj70YHZOlpDR7uSg==}
     engines: {node: '>= 22.12.0', pnpm: '>= 10.0.0'}
     peerDependencies:
       dragula: 3.7.3
-      react: 19.2.0
-      react-dom: 19.2.0
+      react: 19.2.3
+      react-dom: 19.2.3
 
   '@gitkraken/provider-apis@0.29.7':
     resolution: {integrity: sha512-i1StvQ0L5UPnVNnnud6vN+E80SAIXp/iX1UxlCIXXibYiw088x+cGBsfvzopx6rtkacuDd0rJTN75CMbEKsGwA==}
@@ -1885,8 +1885,8 @@ packages:
     peerDependencies:
       '@types/react': '*'
 
-  '@types/react@19.2.5':
-    resolution: {integrity: sha512-keKxkZMqnDicuvFoJbzrhbtdLSPhj/rZThDlKWCDbgXmUg0rEUFtRssDXKYmtXluZlIqiC5VqkCgRwzuyLHKHw==}
+  '@types/react@19.2.7':
+    resolution: {integrity: sha512-MWtvHrGZLFttgeEj28VXHxpmwYbor/ATPYbBfSFZEIRK0ecCFLl2Qo55z52Hss+UV9CRN7trSeq1zbgx7YDWWg==}
 
   '@types/sarif@2.1.7':
     resolution: {integrity: sha512-kRz0VEkJqWLf1LLVN4pT1cg1Z9wAuvI6L97V3m2f5B76Tg8d413ddvLBPTEHAZJlnn4XSvu0FkZtViCQGVyrXQ==}
@@ -5493,10 +5493,10 @@ packages:
     peerDependencies:
       babel-plugin-react-compiler: '*'
 
-  react-dom@19.2.0:
-    resolution: {integrity: sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==}
+  react-dom@19.2.3:
+    resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
     peerDependencies:
-      react: ^19.2.0
+      react: ^19.2.3
 
   react-dragula@1.1.17:
     resolution: {integrity: sha512-gJdY190sPWAyV8jz79vyK9SGk97bVOHjUguVNIYIEVosvt27HLxnbJo4qiuEkb/nAuGY13Im2CHup92fUyO3fw==}
@@ -5519,8 +5519,8 @@ packages:
       react: '>=16.6.0'
       react-dom: '>=16.6.0'
 
-  react@19.2.0:
-    resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
+  react@19.2.3:
+    resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
     engines: {node: '>=0.10.0'}
 
   read-installed-packages@2.0.1:
@@ -6698,15 +6698,15 @@ packages:
 
 snapshots:
 
-  '@axosoft/react-virtualized@9.22.3-gitkraken.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@axosoft/react-virtualized@9.22.3-gitkraken.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@babel/runtime': 7.28.4
       clsx: 1.2.1
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
-      react: 19.2.0
-      react-dom: 19.2.0(react@19.2.0)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
       react-lifecycles-compat: 3.0.4
 
   '@azu/format-text@1.0.2': {}
@@ -7163,17 +7163,17 @@ snapshots:
 
   '@github/catalyst@1.7.0': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.19(@types/react@19.2.5)(dragula@3.7.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.26(@types/react@19.2.7)(dragula@3.7.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       classnames: 2.5.1
       dragula: 3.7.3
-      re-resizable: 6.11.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      react: 19.2.0
-      react-bootstrap: 2.10.10(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      react-dom: 19.2.0(react@19.2.0)
+      re-resizable: 6.11.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react: 19.2.3
+      react-bootstrap: 2.10.10(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react-dom: 19.2.3(react@19.2.3)
       react-dragula: 1.1.17
-      react-onclickoutside: 6.13.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react-onclickoutside: 6.13.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
     transitivePeerDependencies:
       - '@types/react'
 
@@ -7394,9 +7394,9 @@ snapshots:
     dependencies:
       '@lit/reactive-element': 2.1.1
 
-  '@lit/react@1.0.8(@types/react@19.2.5)':
+  '@lit/react@1.0.8(@types/react@19.2.7)':
     dependencies:
-      '@types/react': 19.2.5
+      '@types/react': 19.2.7
 
   '@lit/reactive-element@2.1.1':
     dependencies:
@@ -7815,33 +7815,33 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
-  '@react-aria/ssr@3.9.10(react@19.2.0)':
+  '@react-aria/ssr@3.9.10(react@19.2.3)':
     dependencies:
       '@swc/helpers': 0.5.17
-      react: 19.2.0
+      react: 19.2.3
 
-  '@restart/hooks@0.4.16(react@19.2.0)':
+  '@restart/hooks@0.4.16(react@19.2.3)':
     dependencies:
       dequal: 2.0.3
-      react: 19.2.0
+      react: 19.2.3
 
-  '@restart/hooks@0.5.1(react@19.2.0)':
+  '@restart/hooks@0.5.1(react@19.2.3)':
     dependencies:
       dequal: 2.0.3
-      react: 19.2.0
+      react: 19.2.3
 
-  '@restart/ui@1.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@restart/ui@1.9.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@babel/runtime': 7.28.4
       '@popperjs/core': 2.11.8
-      '@react-aria/ssr': 3.9.10(react@19.2.0)
-      '@restart/hooks': 0.5.1(react@19.2.0)
+      '@react-aria/ssr': 3.9.10(react@19.2.3)
+      '@restart/hooks': 0.5.1(react@19.2.3)
       '@types/warning': 3.0.3
       dequal: 2.0.3
       dom-helpers: 5.2.1
-      react: 19.2.0
-      react-dom: 19.2.0(react@19.2.0)
-      uncontrollable: 8.0.4(react@19.2.0)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      uncontrollable: 8.0.4(react@19.2.3)
       warning: 4.0.3
 
   '@secretlint/config-creator@10.2.2':
@@ -7922,11 +7922,11 @@ snapshots:
 
   '@shoelace-style/localize@3.2.1': {}
 
-  '@shoelace-style/shoelace@2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.5)':
+  '@shoelace-style/shoelace@2.20.1(@floating-ui/utils@0.2.10)(@types/react@19.2.7)':
     dependencies:
       '@ctrl/tinycolor': 4.2.0
       '@floating-ui/dom': 1.7.4
-      '@lit/react': 1.0.8(@types/react@19.2.5)
+      '@lit/react': 1.0.8(@types/react@19.2.7)
       '@shoelace-style/animations': 1.2.0
       '@shoelace-style/localize': 3.2.1
       composed-offset-position: 0.0.6(@floating-ui/utils@0.2.10)
@@ -8120,15 +8120,15 @@ snapshots:
 
   '@types/prop-types@15.7.15': {}
 
-  '@types/react-dom@19.2.3(@types/react@19.2.5)':
+  '@types/react-dom@19.2.3(@types/react@19.2.7)':
     dependencies:
-      '@types/react': 19.2.5
+      '@types/react': 19.2.7
 
-  '@types/react-transition-group@4.4.12(@types/react@19.2.5)':
+  '@types/react-transition-group@4.4.12(@types/react@19.2.7)':
     dependencies:
-      '@types/react': 19.2.5
+      '@types/react': 19.2.7
 
-  '@types/react@19.2.5':
+  '@types/react@19.2.7':
     dependencies:
       csstype: 3.2.3
 
@@ -12036,9 +12036,9 @@ snapshots:
       err-code: 2.0.3
       retry: 0.12.0
 
-  prop-types-extra@1.1.1(react@19.2.0):
+  prop-types-extra@1.1.1(react@19.2.3):
     dependencies:
-      react: 19.2.0
+      react: 19.2.3
       react-is: 16.13.1
       warning: 4.0.3
 
@@ -12114,30 +12114,30 @@ snapshots:
       strip-json-comments: 2.0.1
     optional: true
 
-  re-resizable@6.11.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  re-resizable@6.11.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
-      react: 19.2.0
-      react-dom: 19.2.0(react@19.2.0)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
-  react-bootstrap@2.10.10(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  react-bootstrap@2.10.10(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       '@babel/runtime': 7.28.4
-      '@restart/hooks': 0.4.16(react@19.2.0)
-      '@restart/ui': 1.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@restart/hooks': 0.4.16(react@19.2.3)
+      '@restart/ui': 1.9.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@types/prop-types': 15.7.15
-      '@types/react-transition-group': 4.4.12(@types/react@19.2.5)
+      '@types/react-transition-group': 4.4.12(@types/react@19.2.7)
       classnames: 2.5.1
       dom-helpers: 5.2.1
       invariant: 2.2.4
       prop-types: 15.8.1
-      prop-types-extra: 1.1.1(react@19.2.0)
-      react: 19.2.0
-      react-dom: 19.2.0(react@19.2.0)
-      react-transition-group: 4.4.5(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      uncontrollable: 7.2.1(react@19.2.0)
+      prop-types-extra: 1.1.1(react@19.2.3)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      react-transition-group: 4.4.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      uncontrollable: 7.2.1(react@19.2.3)
       warning: 4.0.3
     optionalDependencies:
-      '@types/react': 19.2.5
+      '@types/react': 19.2.7
 
   react-compiler-webpack@1.0.0(babel-plugin-react-compiler@1.0.0):
     dependencies:
@@ -12148,9 +12148,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  react-dom@19.2.0(react@19.2.0):
+  react-dom@19.2.3(react@19.2.3):
     dependencies:
-      react: 19.2.0
+      react: 19.2.3
       scheduler: 0.27.0
 
   react-dragula@1.1.17:
@@ -12162,21 +12162,21 @@ snapshots:
 
   react-lifecycles-compat@3.0.4: {}
 
-  react-onclickoutside@6.13.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  react-onclickoutside@6.13.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
-      react: 19.2.0
-      react-dom: 19.2.0(react@19.2.0)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
-  react-transition-group@4.4.5(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  react-transition-group@4.4.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       '@babel/runtime': 7.28.4
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
-      react: 19.2.0
-      react-dom: 19.2.0(react@19.2.0)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
-  react@19.2.0: {}
+  react@19.2.3: {}
 
   read-installed-packages@2.0.1:
     dependencies:
@@ -13191,17 +13191,17 @@ snapshots:
       which-boxed-primitive: 1.1.1
     optional: true
 
-  uncontrollable@7.2.1(react@19.2.0):
+  uncontrollable@7.2.1(react@19.2.3):
     dependencies:
       '@babel/runtime': 7.28.4
-      '@types/react': 19.2.5
+      '@types/react': 19.2.7
       invariant: 2.2.4
-      react: 19.2.0
+      react: 19.2.3
       react-lifecycles-compat: 3.0.4
 
-  uncontrollable@8.0.4(react@19.2.0):
+  uncontrollable@8.0.4(react@19.2.3):
     dependencies:
-      react: 19.2.0
+      react: 19.2.3
 
   underscore@1.13.7: {}
 

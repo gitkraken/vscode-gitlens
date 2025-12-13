@@ -70,6 +70,13 @@ export type GraphPullRequestMetadata = PullRequestMetadata;
 export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
 export type GraphSearchMode = 'normal' | 'filter';
 
+export interface GraphSelection {
+	id: string;
+	type: GitGraphRowType;
+	active: boolean;
+	hidden: boolean;
+}
+
 export type GraphScrollMarkerTypes =
 	| 'selection'
 	| 'head'
@@ -317,7 +324,7 @@ export interface UpdateIncludedRefsParams {
 export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
 
 export interface UpdateSelectionParams {
-	selection: { id: string; type: GitGraphRowType; hidden: boolean }[];
+	selection: GraphSelection[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 

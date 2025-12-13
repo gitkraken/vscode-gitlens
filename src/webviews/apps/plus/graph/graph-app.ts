@@ -1,4 +1,4 @@
-import type { GraphRow } from '@gitkraken/gitkraken-components';
+import type { GraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
 import { refZone } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
@@ -134,8 +134,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private selectCommits = (shas: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) => {
-		return this.graph.selectCommits(shas, includeToPrevSel, isAutoOrKeyScroll);
+	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {
+		return this.graph.selectCommits(shas, options);
 	};
 
 	private getCommits = (shas: string[]) => {
@@ -157,7 +157,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			sha = closest.sha;
 		}
 
-		this.graph.selectCommits([sha], false, true);
+		this.graph.selectCommits([sha], { ensureVisible: true });
 
 		if (e.target != null) {
 			const { target } = e;

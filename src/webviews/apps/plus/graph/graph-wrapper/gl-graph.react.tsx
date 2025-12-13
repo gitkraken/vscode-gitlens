@@ -13,6 +13,7 @@ import type {
 	GraphRefGroup,
 	GraphRefOptData,
 	GraphRow,
+	GraphSelectionState,
 	GraphZoneType,
 	OnFormatCommitDateTime,
 	ReadonlyGraphRow,
@@ -69,7 +70,11 @@ export type GraphWrapperProps = Pick<
 export interface GraphWrapperEvents {
 	onChangeColumns?: (columns: GraphColumnsConfig) => void;
 	onChangeRefsVisibility?: (detail: { refs: GraphExcludedRef[]; visible: boolean }) => void;
-	onChangeSelection?: (rows: ReadonlyGraphRow[]) => void;
+	onChangeSelection?: (
+		rows: ReadonlyGraphRow[],
+		focusedRow: ReadonlyGraphRow | undefined,
+		state: GraphSelectionState,
+	) => void;
 	onChangeVisibleDays?: (detail: { top: number; bottom: number }) => void;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
@@ -217,43 +222,6 @@ export type GraphWrapperInitProps = GraphWrapperProps &
 	};
 
 const emptyRows: GraphRow[] = [];
-
-function checkContiguousSelection(selectedRows: GraphRow[]): boolean {
-	if (selectedRows.length <= 1) return true;
-
-	const selectedShas = new Set(selectedRows.map(r => r.sha));
-	const shaToRow = new Map<string, GraphRow>();
-	for (const row of selectedRows) {
-		shaToRow.set(row.sha, row);
-	}
-
-	const firstRow = selectedRows[0];
-	const visited = new Set<string>();
-	const queue: string[] = [firstRow.sha];
-	visited.add(firstRow.sha);
-
-	while (queue.length > 0) {
-		const sha = queue.shift()!;
-		const row = shaToRow.get(sha);
-		if (!row) continue;
-
-		for (const parentSha of row.parents ?? []) {
-			if (selectedShas.has(parentSha) && !visited.has(parentSha)) {
-				visited.add(parentSha);
-				queue.push(parentSha);
-			}
-		}
-
-		for (const [childSha, childRow] of shaToRow) {
-			if (childRow.parents?.includes(sha) && !visited.has(childSha)) {
-				visited.add(childSha);
-				queue.push(childSha);
-			}
-		}
-	}
-
-	return visited.size === selectedRows.length;
-}
 
 function checkUniqueBranchSelection(selectedRows: GraphRow[]): boolean {
 	if (selectedRows.length === 0) return false;
@@ -506,7 +474,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	 * 3. Computed imperatively when selection changes for immediate availability
 	 */
 	const computeSelectionContext = useCallback(
-		(rows: GraphRow[]) => {
+		(rows: GraphRow[], _focusedRow: GraphRow | undefined, state: GraphSelectionState) => {
 			// Early exit: check if we have at least 2 selected rows
 			if (rows.length <= 1) return undefined;
 
@@ -517,8 +485,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				selectedShasList.push(row.sha);
 			}
 
-			const isContiguous = checkContiguousSelection(rows);
-
+			const isContiguous = state.isContiguous;
 			const isUniqueBranch = checkUniqueBranchSelection(rows);
 
 			// Group the selected rows by their type and only include ones that have row context
@@ -605,12 +572,12 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	);
 
 	const handleSelectGraphRows = useCallback(
-		(rows: ReadonlyGraphRow[]) => {
+		(rows: ReadonlyGraphRow[], focusedRow: ReadonlyGraphRow | undefined, state: GraphSelectionState) => {
 			// Compute context synchronously when selection changes
-			const newContext = rows.length > 1 ? computeSelectionContext(rows) : undefined;
+			const newContext = rows.length > 1 ? computeSelectionContext(rows, focusedRow, state) : undefined;
 			setSelectionContexts(newContext);
 
-			initProps.onChangeSelection?.(rows);
+			initProps.onChangeSelection?.(rows, focusedRow, state);
 		},
 		[computeSelectionContext, initProps.onChangeSelection],
 	);
@@ -825,7 +792,11 @@ declare global {
 		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;
 		'graph-changegraphconfiguration': CustomEvent<UpdateGraphConfigurationParams['changes']>;
 		'graph-changerefsvisibility': CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
-		'graph-changeselection': CustomEvent<ReadonlyGraphRow[]>;
+		'graph-changeselection': CustomEvent<{
+			rows: ReadonlyGraphRow[];
+			focusedRow: ReadonlyGraphRow | undefined;
+			state: GraphSelectionState;
+		}>;
 		'graph-doubleclickref': CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
 		'graph-doubleclickrow': CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
 		'graph-missingavatars': CustomEvent<GraphAvatars>;

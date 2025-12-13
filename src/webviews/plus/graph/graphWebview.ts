@@ -197,6 +197,7 @@ import type {
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
 	GraphSelectedRows,
+	GraphSelection,
 	GraphWorkingTreeStats,
 	OpenPullRequestDetailsParams,
 	SearchOpenInViewParams,
@@ -2198,8 +2199,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onSelectionChanged(e: UpdateSelectionParams) {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
-		const item = e.selection[0];
-		this.setSelectedRows(item?.id, { selected: true, hidden: item?.hidden });
+		const item = e.selection.find(r => r.active) ?? e.selection[0];
+		this.setSelectedRows(item?.id, e.selection, { selected: true, hidden: item?.hidden });
 
 		// Track when user explicitly selects
 		this._lastUserSelectionTime = Date.now();
@@ -3510,7 +3511,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.cancelOperation('search');
 	}
 
-	private setSelectedRows(id: string | undefined, state?: SelectedRowState) {
+	private setSelectedRows(id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) {
 		// _selectedId should always be a "real" SHA
 		let selectedId = id;
 		if (id === ('work-dir-changes' satisfies GitGraphRowType)) {
@@ -3524,7 +3525,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (id === uncommitted) {
 			id = 'work-dir-changes' satisfies GitGraphRowType;
 		}
-		this._selectedRows = id != null ? { [id]: state ?? { selected: true } } : undefined;
+
+		if (selection != null) {
+			this._selectedRows = Object.fromEntries(selection.map(r => [r.id, { selected: true, hidden: r.hidden }]));
+			if (id != null && !selection.some(r => r.id === id)) {
+				this._selectedRows[id] = state ?? { selected: true };
+			}
+		} else {
+			this._selectedRows = id != null ? { [id]: state ?? { selected: true } } : undefined;
+		}
 	}
 
 	private setGraph(graph: GitGraph | undefined) {

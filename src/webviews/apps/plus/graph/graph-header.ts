@@ -1,4 +1,4 @@
-import type { GraphRefOptData, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
+import type { GraphRefOptData, ReadonlyGraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
 import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
@@ -170,7 +170,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	// Function to get commits without modifying selection, passed from graph-app
 	getCommits?: (shas: string[]) => ReadonlyGraphRow[];
 	// Function to select commits on the graph, passed from graph-app
-	selectCommits?: (shas: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) => ReadonlyGraphRow[];
+	selectCommits?: (shas: string[], options?: SelectCommitsOptions) => ReadonlyGraphRow[];
 
 	get hasFilters() {
 		if (this.graphState.config?.onlyFollowFirstParent) return true;
@@ -225,7 +225,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			if (id == null) return;
 
 			// Select the commit and check if it's filtered out
-			const rows = this.selectCommits?.([id], false, false);
+			const rows = this.selectCommits?.([id], { ensureVisible: true });
 
 			// If loaded but filtered out, show warning
 			if (rows?.[0]?.hidden) {
@@ -668,14 +668,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 				if (isHidden === false) {
 					// Row is loaded and visible - select it and done!
-					this.selectCommits?.([id], false, false);
+					this.selectCommits?.([id], { ensureVisible: true });
 					this._searchResultHidden = false;
 					break;
 				}
 
 				if (isHidden === true) {
 					// Row is loaded but hidden from graph - select it anyway and show warning
-					this.selectCommits?.([id], false, false);
+					this.selectCommits?.([id], { ensureVisible: true });
 					this._searchResultHidden = true;
 					break;
 				}
@@ -683,7 +683,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				// Row not loaded yet - need to load it
 				// Re-select last visible to keep position stable during loading
 				if (lastVisibleId != null) {
-					this.selectCommits?.([lastVisibleId], false, false);
+					this.selectCommits?.([lastVisibleId], { ensureVisible: true });
 				}
 
 				// Load the row
@@ -691,7 +691,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 				if (ensuredId != null) {
 					// Row loaded - select it and check if filtered out
-					const rows = this.selectCommits?.([ensuredId], false, false);
+					const rows = this.selectCommits?.([ensuredId], { ensureVisible: true });
 					if (rows?.[0]?.hidden) {
 						this._searchResultHidden = true;
 					} else {
@@ -704,7 +704,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 				// Row couldn't be loaded - re-select last visible and try next
 				if (lastVisibleId != null) {
-					this.selectCommits?.([lastVisibleId], false, false);
+					this.selectCommits?.([lastVisibleId], { ensureVisible: true });
 				}
 
 				// Clear id to get next index

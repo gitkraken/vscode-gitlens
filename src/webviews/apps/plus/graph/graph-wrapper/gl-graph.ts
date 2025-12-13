@@ -1,5 +1,11 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import type { GraphRef, GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
+import type {
+	GraphRef,
+	GraphRow,
+	GraphSelectionState,
+	GraphZoneType,
+	ReadonlyGraphRow,
+} from '@gitkraken/gitkraken-components';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createElement } from 'react';
@@ -203,7 +209,10 @@ export class GlGraph extends LitElement {
 	};
 
 	private handleChangeSelection = debounce(
-		(rows: GraphRow[]): void => void this.dispatchEvent(new CustomEvent('changeselection', { detail: rows })),
+		(rows: ReadonlyGraphRow[], focusedRow: ReadonlyGraphRow | undefined, state: GraphSelectionState): void =>
+			void this.dispatchEvent(
+				new CustomEvent('changeselection', { detail: { rows: rows, focusedRow: focusedRow, state: state } }),
+			),
 		50,
 		{ edges: 'both' },
 	);
