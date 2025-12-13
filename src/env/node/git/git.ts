@@ -50,6 +50,7 @@ import { rootSha } from '../../../git/models/revision';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { getCancellationTokenId } from '../../../system/-webview/cancellation';
+import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
 import { getScopedCounter } from '../../../system/counter';
 import { Logger } from '../../../system/logger';
@@ -274,9 +275,10 @@ export class Git implements Disposable {
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, local, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
+		const defaultTimeout = configuration.get('advanced.gitTimeout') * 1000;
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
-			timeout: opts.timeout === 0 ? undefined : (opts.timeout ?? 1000 * 60),
+			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
 			// Shouldn't *really* be needed but better safe than sorry

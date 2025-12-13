@@ -5426,6 +5426,13 @@
 						"scope": "window",
 						"order": 70
 					},
+					"gitlens.advanced.gitTimeout": {
+						"type": "number",
+						"default": 60,
+						"markdownDescription": "Specifies the timeout (in seconds) for Git commands. Use 0 to disable the timeout. Some long-running operations like merge, rebase, and revert always have the timeout disabled",
+						"scope": "window",
+						"order": 79
+					},
 					"gitlens.advanced.maxListItems": {
 						"type": "number",
 						"default": 200,
