@@ -15,18 +15,20 @@ pnpm install              # Install dependencies (requires Node >= 22.12.0, pnpm
 ```bash
 pnpm run rebuild          # Complete rebuild from scratch
 pnpm run build            # Full development build
-pnpm run build:quick      # Fast build without linting
-pnpm run build:extension  # Build only the extension (Node.js)
+pnpm run build:quick      # Fast build (no linting)
+pnpm run build:turbo      # Turbo build (no typechecking or linting)
+pnpm run build:extension  # Build only the extension (no webviews)
 pnpm run build:webviews   # Build only webviews
 pnpm run bundle           # Production bundle
-pnpm run bundle:extension # Production bundle (extension only)
+pnpm run bundle:turbo     # Turbo production bundle (no typechecking or linting)
 ```
 
 ### Watch Mode
 
 ```bash
 pnpm run watch            # Watch mode for development
-pnpm run watch:quick      # Fast watch mode without linting
+pnpm run watch:quick      # Fast watch mode (no linting)
+pnpm run watch:turbo      # Turbo watch mode (no typechecking or linting)
 pnpm run watch:extension  # Watch extension only
 pnpm run watch:webviews   # Watch webviews only
 pnpm run watch:tests      # Watch test files

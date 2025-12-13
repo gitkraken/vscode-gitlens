@@ -50,9 +50,14 @@ if (useNpm) {
 
 const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
+/** @typedef {'production' | 'development' | 'none'} GlMode */
+/** @typedef { 'node' | 'webworker' } GlTarget */
+/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string }} GlEnv */
+/** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
+
 /**
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string } | undefined } env
- * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
+ * @param {GlEnv | undefined } env
+ * @param {{ mode: GlMode | undefined }} argv
  * @returns { WebpackConfig[] }
  */
 export default function (env, argv) {
@@ -68,9 +73,9 @@ export default function (env, argv) {
 
 	if (env.quick) {
 		if (env.quick === 'turbo') {
-			console.log('Turbo mode enabled — skipping type checking and linting');
+			console.log('Turbo mode enabled — skipping type checking, linting, and docs generation');
 		} else {
-			console.log('Quick mode enabled — skipping linting');
+			console.log('Quick mode enabled — skipping linting and docs generation');
 		}
 	}
 
@@ -99,8 +104,8 @@ const stats = {
 
 /**
  * @param {string} name
- * @param { 'node' | 'webworker' } target
- * @param { 'production' | 'development' | 'none' } mode
+ * @param { GlTarget } target
+ * @param { GlMode } mode
  * @returns { WebpackConfig['cache'] }
  */
 function getCacheConfig(name, target, mode) {
@@ -117,8 +122,8 @@ function getCacheConfig(name, target, mode) {
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getCommonConfig(mode, env) {
@@ -131,30 +136,34 @@ function getCommonConfig(mode, env) {
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
-	const plugins = env.quick
-		? []
-		: [
-				new DocsPlugin(),
-				new LicensesPlugin(),
-				new FantasticonPlugin({
-					configPath: '.fantasticonrc.js',
-					onBefore:
-						mode !== 'production'
-							? undefined
-							: () =>
-									spawnSync(pkgMgr, ['run', 'icons:svgo'], {
-										cwd: __dirname,
-										encoding: 'utf8',
-										shell: true,
-									}),
-					onComplete: () =>
-						spawnSync(pkgMgr, ['run', 'icons:apply'], {
-							cwd: __dirname,
-							encoding: 'utf8',
-							shell: true,
-						}),
-				}),
-			];
+	const plugins = [];
+	if (!env.quick && mode !== 'production') {
+		plugins.push(new DocsPlugin());
+	}
+
+	if (!env.quick || mode === 'production') {
+		plugins.push(
+			new LicensesPlugin(),
+			new FantasticonPlugin({
+				configPath: '.fantasticonrc.js',
+				onBefore:
+					mode !== 'production'
+						? undefined
+						: () =>
+								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
+									cwd: __dirname,
+									encoding: 'utf8',
+									shell: true,
+								}),
+				onComplete: () =>
+					spawnSync(pkgMgr, ['run', 'icons:apply'], {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					}),
+			}),
+		);
+	}
 
 	return {
 		name: 'common',
@@ -169,9 +178,9 @@ function getCommonConfig(mode, env) {
 }
 
 /**
- * @param { 'node' | 'webworker' } target
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
+ * @param { GlTarget } target
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -366,12 +375,12 @@ function getExtensionConfig(target, mode, env) {
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig[] }
  */
 function getWebviewsConfigs(mode, env) {
-	/** @type {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} */
+	/** @type GlWebviews */
 	let webviews = {
 		commitDetails: { entry: './commitDetails/commitDetails.ts' },
 		composer: { entry: './plus/composer/composer.ts', plus: true },
@@ -392,61 +401,57 @@ function getWebviewsConfigs(mode, env) {
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getWebviewsCommonConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 	/** @type WebpackConfig['plugins'] | any */
-	const plugins = env.quick
-		? []
-		: [
-				new CleanPlugin(
-					mode === 'production'
-						? {
-								cleanOnceBeforeBuildPatterns: [
-									path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
-								],
-								dangerouslyAllowCleanPatternsOutsideProject: true,
-								dry: false,
-							}
+	const plugins = [];
+	// If we are only building a subset of webviews, don't clean
+	if (!env.webviews) {
+		plugins.push(
+			new CleanPlugin(
+				mode === 'production'
+					? {
+							cleanOnceBeforeBuildPatterns: [
+								path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
+							],
+							dangerouslyAllowCleanPatternsOutsideProject: true,
+							dry: false,
+						}
+					: env.webviews
+						? { cleanStaleWebpackAssets: false }
 						: undefined,
-				),
-				new CopyPlugin({
-					patterns: [
-						{
-							from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.*'),
-							to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
-						},
-						{
-							from: path.posix.join(
-								__dirname.replace(/\\/g, '/'),
-								'node_modules',
-								'@vscode',
-								'codicons',
-								'dist',
-								'codicon.ttf',
-							),
-							to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
-						},
-					],
-				}),
-			];
+			),
+		);
+	}
 
-	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
+	plugins.push(
+		new CopyPlugin({
+			patterns: [
+				{
+					from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.*'),
+					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
+				},
+				{
+					from: path.posix.join(
+						__dirname.replace(/\\/g, '/'),
+						'node_modules',
+						'@vscode',
+						'codicons',
+						'dist',
+						'codicon.ttf',
+					),
+					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
+				},
+			],
+		}),
+	);
 
 	if (!env.quick) {
-		if (mode !== 'production') {
-			plugins.push(
-				new ImageMinimizerPlugin({
-					deleteOriginalAssets: true,
-					generator: [imageGeneratorConfig],
-				}),
-			);
-		}
-
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
@@ -455,6 +460,18 @@ function getWebviewsCommonConfig(mode, env) {
 					...eslintOptions,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
 				},
+			}),
+		);
+	}
+
+	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
+
+	if (!env.quick && mode !== 'production') {
+		// Only need to add the plugin for dev mode, as prod is handled by the minimization
+		plugins.push(
+			new ImageMinimizerPlugin({
+				deleteOriginalAssets: true,
+				generator: [imageGeneratorConfig],
 			}),
 		);
 	}
@@ -488,10 +505,10 @@ function getWebviewsCommonConfig(mode, env) {
 }
 
 /**
- * @param {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} webviews
+ * @param {GlWebviews} webviews
  * @param {{ alias?: { [key:string]: string }}} overrides
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getWebviewConfig(webviews, overrides, mode, env) {
@@ -530,18 +547,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		);
 	}
 
-	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
-
 	if (!env.quick) {
-		if (mode !== 'production') {
-			plugins.push(
-				new ImageMinimizerPlugin({
-					deleteOriginalAssets: true,
-					generator: [imageGeneratorConfig],
-				}),
-			);
-		}
-
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
@@ -550,6 +556,18 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 					...eslintOptions,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
 				},
+			}),
+		);
+	}
+
+	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
+
+	if (!env.quick && mode !== 'production') {
+		// Only need to add the plugin for dev mode, as prod is handled by the minimization
+		plugins.push(
+			new ImageMinimizerPlugin({
+				deleteOriginalAssets: true,
+				generator: [imageGeneratorConfig],
 			}),
 		);
 	}
@@ -743,8 +761,8 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { CspHtmlPlugin }
  */
 function getCspHtmlPlugin(mode, env) {
@@ -783,8 +801,8 @@ function getCspHtmlPlugin(mode, env) {
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { ImageMinimizerPlugin.Generator<any> }
  */
 function getImageMinimizerConfig(mode, env) {
@@ -800,8 +818,8 @@ function getImageMinimizerConfig(mode, env) {
 /**
  * @param { string } name
  * @param { boolean } plus
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { HtmlPlugin }
  */
 function getHtmlPlugin(name, plus, mode, env) {
