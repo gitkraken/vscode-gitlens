@@ -136,6 +136,13 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		return this.rebaseStatus != null;
 	}
 
+	private get isEmptyOrNoop(): boolean {
+		const { entries } = this;
+		return (
+			!entries.length || (entries.length === 1 && entries[0].type === 'command' && entries[0].action === 'noop')
+		);
+	}
+
 	protected override createStateProvider(
 		bootstrap: string,
 		ipc: HostIpc,
@@ -1154,6 +1161,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		const isReadOnly = this.state.isReadOnly ?? false;
 		const isActive = this.isActiveRebase;
+		const isEmptyOrNoop = this.isEmptyOrNoop;
 
 		return html`
 			<div class="container ${isReadOnly ? 'read-only' : ''} ${isActive ? 'active-rebase' : ''}">
@@ -1169,7 +1177,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					() => this.renderHeader(),
 				)}
 				${isReadOnly ? this.renderReadOnlyBanner() : nothing}
-				${this._sortedEntries.length > 0
+				${!isEmptyOrNoop
 					? html`<lit-virtualizer
 							role="list"
 							class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${this.rebaseStatus

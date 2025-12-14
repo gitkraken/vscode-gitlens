@@ -340,10 +340,9 @@ export const rebaseStyles = css`
 	.entries-empty {
 		grid-area: entries;
 		display: flex;
-		align-items: center;
 		justify-content: center;
-		height: 100%;
-		color: var(--color-foreground--50);
+		color: var(--color-foreground--85);
+		margin-top: 3rem;
 		font-style: italic;
 	}
 
