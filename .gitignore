@@ -9,6 +9,7 @@ dist
 out
 node_modules
 images/settings
+.gitkraken-components.version
 gitlens-*.vsix
 product.json
 tsconfig*.tsbuildinfo
