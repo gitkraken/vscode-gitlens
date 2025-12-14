@@ -275,7 +275,7 @@ export class Git implements Disposable {
 		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, local, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
-		const defaultTimeout = configuration.get('advanced.gitTimeout') * 1000;
+		const defaultTimeout = (configuration.get('advanced.gitTimeout') ?? 60) * 1000;
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
