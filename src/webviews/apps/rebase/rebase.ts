@@ -411,7 +411,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		}
 	}
 
-	/** Handles drop on base entry - moves to the position adjacent to base */
+	/** Handles drop on base entry - moves to the position adjacent to base (index 0) */
 	private handleBaseDrop(draggedId?: string): void {
 		const id = draggedId ?? this.draggedId;
 		if (!id) {
@@ -419,18 +419,27 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			return;
 		}
 
-		// Dropping on base = move to the position adjacent to base
-		const toEnd = !this.ascending; // Ascending: base at top → move to start; Descending: base at bottom → move to end
+		this.clearDragState();
 
 		// Check if we're dragging a multi-selection
 		if (this.selectedIds.has(id) && this.selectedIds.size > 1) {
-			this.clearDragState();
-			this.executeMoveEntriesToEdge(Array.from(this.selectedIds), toEnd);
+			// Get entry IDs in array order (preserves relative order)
+			const orderedIds = this.getIdsInArrayOrder(this.selectedIds);
+
+			// Preserve focus
+			this.pendingFocusId =
+				this.focusedEntryId && this.selectedIds.has(this.focusedEntryId) ? this.focusedEntryId : orderedIds[0];
+
+			// Move all selected entries to the start (index 0)
+			this._stateProvider.moveEntries(orderedIds, 0);
+			this.refreshIndices();
+			this._ipc.sendCommand(MoveEntriesCommand, { ids: orderedIds, to: 0 });
 		} else {
-			const fromSortedIndex = this._idToSortedIndex.get(id) ?? -1;
-			this.clearDragState();
-			if (fromSortedIndex === -1) return;
-			this.executeMoveEntryToEdge(fromSortedIndex, toEnd);
+			const fromIndex = this.entries.findIndex(e => e.id === id);
+			if (fromIndex === -1) return;
+
+			// Move single entry to the start (index 0)
+			this.executeMoveEntry(fromIndex, 0);
 		}
 	}
 
@@ -580,60 +589,6 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		if (toIndex < 0 || toIndex > editableCount) return;
 
 		this.executeMoveEntry(fromIndex, toIndex);
-	}
-
-	/**
-	 * Moves an entry to the start or end of the list (for dropping on base entry)
-	 * @param fromSortedIndex - Source index in display/sorted order
-	 * @param toEnd - If true, move to end of array; if false, move to start
-	 */
-	private executeMoveEntryToEdge(fromSortedIndex: number, toEnd: boolean): void {
-		const sortedCount = this._sortedEntries.length;
-		const editableCount = this.entries.length;
-		const offset = this._editableStartOffset;
-
-		if (fromSortedIndex < 0 || fromSortedIndex >= sortedCount) return;
-
-		// Convert sorted index to entries array index
-		let fromIndex: number;
-		if (this.ascending) {
-			fromIndex = fromSortedIndex - offset;
-		} else {
-			fromIndex = editableCount - 1 - fromSortedIndex;
-		}
-
-		// Validate index is within editable range
-		if (fromIndex < 0 || fromIndex >= editableCount) return;
-
-		const toIndex = toEnd ? editableCount : 0;
-		this.executeMoveEntry(fromIndex, toIndex);
-	}
-
-	/** Moves multiple entries to the start or end of the list (for dropping on base entry) */
-	private executeMoveEntriesToEdge(ids: string[], toEnd: boolean): void {
-		if (ids.length === 0) return;
-
-		const editableCount = this.entries.length;
-		const idSet = new Set(ids);
-
-		// Calculate target index in entries array (after selected entries are removed)
-		const remainingCount = editableCount - ids.length;
-		const toIndex = toEnd ? remainingCount : 0;
-
-		// Get entry IDs in array order (preserves display order, converted to array order)
-		const orderedIds = this.getIdsInArrayOrder(idSet);
-
-		// Preserve focus
-		this.pendingFocusId =
-			this.focusedEntryId && idSet.has(this.focusedEntryId) ? this.focusedEntryId : orderedIds[0];
-
-		// Apply optimistic update
-		this._stateProvider.moveEntries(orderedIds, toIndex);
-		// Synchronously rebuild indices so subsequent operations use correct state
-		this.refreshIndices();
-
-		// Send command to host
-		this._ipc.sendCommand(MoveEntriesCommand, { ids: orderedIds, to: toIndex });
 	}
 
 	/**
