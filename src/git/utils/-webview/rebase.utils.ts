@@ -1,4 +1,4 @@
-import type { Tab } from 'vscode';
+import type { Tab, ViewColumn } from 'vscode';
 import { version as codeVersion, ConfigurationTarget, Uri, window, workspace } from 'vscode';
 import type { Container } from '../../../container';
 import { executeCoreCommand } from '../../../system/-webview/command';
@@ -66,7 +66,15 @@ export function isRebaseTodoEditorEnabled(): boolean {
 	return association != null ? association === 'gitlens.rebase' : true;
 }
 
-export async function openRebaseEditor(container: Container, repoPath: string): Promise<void> {
+export interface OpenRebaseEditorOptions {
+	viewColumn?: ViewColumn;
+}
+
+export async function openRebaseEditor(
+	container: Container,
+	repoPath: string,
+	options?: OpenRebaseEditorOptions,
+): Promise<void> {
 	const svc = container.git.getRepositoryService(repoPath);
 	const status = await svc.pausedOps?.getPausedOperationStatus?.();
 	if (status?.type !== 'rebase') return;
@@ -77,7 +85,10 @@ export async function openRebaseEditor(container: Container, repoPath: string): 
 	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
 	if (getOpenRebaseEditorTab(rebaseTodoUri) != null) return;
 
-	await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', { preview: false });
+	await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+		preview: false,
+		viewColumn: options?.viewColumn,
+	});
 }
 
 export async function setRebaseTodoEditorEnablement(enabled: boolean): Promise<void> {

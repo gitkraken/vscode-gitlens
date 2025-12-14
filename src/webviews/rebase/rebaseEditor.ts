@@ -5,7 +5,7 @@ import type {
 	TextDocument,
 	WebviewPanel,
 } from 'vscode';
-import { Disposable, Uri, window } from 'vscode';
+import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import type { GitRebaseStatus } from '../../git/models/pausedOperationStatus';
@@ -112,7 +112,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		// Open the editor if we're in a paused rebase (step > 0 means rebase has started and is now paused)
 		if (status?.type === 'rebase' && status.steps?.current.number != null && status.steps.current.number > 0) {
-			await openRebaseEditor(this.container, repoPath);
+			// Open beside the current editor (e.g., commit message editor) during active rebase
+			await openRebaseEditor(this.container, repoPath, { viewColumn: ViewColumn.Beside });
 		}
 	}
 
