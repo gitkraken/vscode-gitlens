@@ -152,9 +152,18 @@ export class RebaseWebviewProvider implements Disposable {
 		const repo = this.container.git.getRepository(this.repoPath);
 		if (repo != null) {
 			this._disposables.push(
-				repo.onDidChange(e => {
+				repo.onDidChange(async e => {
 					if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
-						this.updateState();
+						// Check if the rebase todo file still exists, if not close the editor
+						try {
+							await workspace.fs.stat(this.document.uri);
+							this.updateState();
+						} catch {
+							if (!this._closing) {
+								this._closing = true;
+								void closeTab(this.document.uri);
+							}
+						}
 					}
 				}),
 			);
