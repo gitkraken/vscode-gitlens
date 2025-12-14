@@ -18,7 +18,7 @@ async function generateThirdpartyNotices(packages) {
 			{
 				licenses: 'MIT',
 				repository: 'https://github.com/microsoft/vscode',
-				licenseFile: 'https://raw.github.com/microsoft/vscode/main/LICENSE.txt',
+				licenseFile: 'https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/LICENSE.txt',
 			},
 		],
 	];

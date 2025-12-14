@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri } from 'vscode';
 import type { Container } from '../../container';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import { pluralize } from '../../system/string';
 import type { DiffRange } from '../gitProvider';
 import type { GitFileStatus } from './fileStatus';

@@ -10,13 +10,14 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
@@ -170,6 +171,12 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				() => this.setFilesLayout('tree'),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setSortByCount'), () => this.setSortByCount(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByScore'), () => this.setSortByScore(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 
 			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOn'),
@@ -289,6 +296,30 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByCount() {
+		return updateSorting('sortContributorsBy', 'count', 'desc');
+	}
+
+	private setSortByDate() {
+		return updateSorting('sortContributorsBy', 'date', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortContributorsBy', 'name', 'asc');
+	}
+
+	private setSortByScore() {
+		return updateSorting('sortContributorsBy', 'score', 'desc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortContributorsBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortContributorsBy', 'asc');
 	}
 
 	private setShowAllBranches(enabled: boolean) {

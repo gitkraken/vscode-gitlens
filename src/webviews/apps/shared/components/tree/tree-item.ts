@@ -51,12 +51,24 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	showIcon = true;
 
+	@property({ type: Boolean, reflect: true })
+	matched = false;
+
+	@property({ type: Number })
+	override tabIndex = -1;
+
+	@property({ type: String, attribute: 'vscode-context' })
+	vscodeContext?: string;
+
 	// state
 	@state()
 	selected = false;
 
-	@state()
+	@property({ type: Boolean, reflect: true })
 	focused = false;
+
+	@property({ type: Boolean, reflect: true, attribute: 'focused-inactive' })
+	focusedInactive = false;
 
 	@query('#button')
 	buttonEl!: HTMLButtonElement;
@@ -80,12 +92,16 @@ export class GlTreeItem extends GlElement {
 			dblClick: false,
 			altKey: e.altKey,
 		});
-		this.buttonEl.focus();
 	};
 
 	private updateAttrs(changedProperties: Map<string, any>, force = false) {
-		if (changedProperties.has('expanded') || force) {
-			this.setAttribute('aria-expanded', this.expanded.toString());
+		// Only set aria-expanded on branch (parent) nodes, not end nodes
+		if (changedProperties.has('expanded') || changedProperties.has('branch') || force) {
+			if (this.branch) {
+				this.setAttribute('aria-expanded', this.expanded.toString());
+			} else {
+				this.removeAttribute('aria-expanded');
+			}
 		}
 
 		if (changedProperties.has('parentExpanded') || force) {
@@ -170,8 +186,10 @@ export class GlTreeItem extends GlElement {
 				id="button"
 				class="item"
 				type="button"
+				tabindex=${this.tabIndex}
 				@click=${this.onButtonClick}
 				@dblclick=${this.onButtonDblClick}
+				@contextmenu=${this.onButtonContextMenu}
 			>
 				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
 				<span class="text">
@@ -188,9 +206,6 @@ export class GlTreeItem extends GlElement {
 		quiet = false,
 	) {
 		this.emit('gl-tree-item-select');
-		if (this.branch) {
-			this.expanded = !this.expanded;
-		}
 		this.selected = true;
 
 		if (!quiet) {
@@ -219,7 +234,6 @@ export class GlTreeItem extends GlElement {
 	}
 
 	private onButtonClick(e: MouseEvent) {
-		console.log('onButtonClick', e);
 		e.stopPropagation();
 		this.selectCore({
 			dblClick: false,
@@ -228,7 +242,6 @@ export class GlTreeItem extends GlElement {
 	}
 
 	private onButtonDblClick(e: MouseEvent) {
-		console.log('onButtonDblClick', e);
 		e.stopPropagation();
 		this.selectCore({
 			dblClick: true,
@@ -238,13 +251,34 @@ export class GlTreeItem extends GlElement {
 		});
 	}
 
+	private onButtonContextMenu(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Create a new contextmenu event that can cross shadow DOM boundaries
+		const evt = new MouseEvent('contextmenu', {
+			bubbles: true,
+			composed: true, // This is key - allows event to cross shadow DOM boundaries
+			cancelable: true,
+			clientX: e.clientX,
+			clientY: e.clientY,
+			button: e.button,
+			buttons: e.buttons,
+			ctrlKey: e.ctrlKey,
+			shiftKey: e.shiftKey,
+			altKey: e.altKey,
+			metaKey: e.metaKey,
+		});
+
+		// Dispatch from the host element (outside shadow DOM)
+		this.dispatchEvent(evt);
+	}
+
 	private onCheckboxClick(e: Event) {
-		console.log('onCheckboxClick', e);
 		e.stopPropagation();
 	}
 
 	private onCheckboxChange(e: Event) {
-		console.log('onCheckboxChange', e);
 		e.preventDefault();
 		e.stopPropagation();
 		this.checked = (e.target as HTMLInputElement).checked;

@@ -7,7 +7,7 @@ import { isBranchReference } from '../../git/utils/reference.utils';
 import { isSha } from '../../git/utils/revision.utils';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { setContext } from '../../system/-webview/context';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { debounce } from '../../system/function/debounce';
@@ -181,7 +181,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			'Change Line History Base',
 			'Choose a reference to set as the new base',
 			{
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true },
 				picked: this._base,
 				sort: { branches: { current: true }, tags: {} },
 			},

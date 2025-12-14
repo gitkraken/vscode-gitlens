@@ -1,6 +1,6 @@
 /*global document window*/
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import type { CssVariables, GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
+import type { CssVariables, GraphRow, GraphZoneType, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';
@@ -26,7 +26,7 @@ import { telemetryContext } from '../../../shared/contexts/telemetry';
 import type { Disposable } from '../../../shared/events';
 import type { ThemeChangeEvent } from '../../../shared/theme';
 import { onDidChangeTheme } from '../../../shared/theme';
-import { graphStateContext } from '../stateProvider';
+import { graphStateContext } from '../context';
 import type { GlGraph } from './gl-graph';
 import type { GraphWrapperTheming } from './gl-graph.react';
 import './gl-graph';
@@ -45,6 +45,12 @@ const graphLaneThemeColors = new Map([
 	['--vscode-gitlens-graphLane10Color', '#2ece9d'],
 ]);
 
+interface GraphSelection {
+	id: string;
+	type: GitGraphRowType;
+	hidden: boolean;
+}
+
 declare global {
 	// interface HTMLElementTagNameMap {
 	// 	'gl-graph-wrapper': GlGraphWrapper;
@@ -52,7 +58,7 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		// passing up event map
-		'gl-graph-change-selection': CustomEvent<{ selection: GraphRow[] }>;
+		'gl-graph-change-selection': CustomEvent<{ selection: GraphSelection[] }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
@@ -132,7 +138,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.downstreams=${graphState.downstreams}
 			.excludeRefs=${graphState.excludeRefs}
 			.excludeTypes=${graphState.excludeTypes}
-			.filter=${graphState.filter}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
 			?loading=${graphState.loading}
 			nonce=${ifDefined(graphState.nonce)}
@@ -140,6 +145,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.refsMetadata=${graphState.refsMetadata}
 			.rows=${graphState.rows}
 			.rowsStats=${graphState.rowsStats}
+			?rowsStatsLoading=${graphState.rowsStatsLoading}
+			.searchMode=${graphState.searchMode}
 			.searchResults=${graphState.searchResults}
 			.selectedRows=${graphState.selectedRows}
 			.theming=${this.theming}
@@ -161,8 +168,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		></gl-graph>`;
 	}
 
-	selectCommits(shaList: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) {
-		this.ref?.selectCommits(shaList, includeToPrevSel, isAutoOrKeyScroll);
+	getCommits(shas: string[]): ReadonlyGraphRow[] {
+		return this.ref?.getCommits(shas) ?? [];
+	}
+
+	selectCommits(shas: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean): ReadonlyGraphRow[] {
+		return this.ref?.selectCommits(shas, includeToPrevSel, isAutoOrKeyScroll) ?? [];
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
@@ -219,8 +230,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
-		const selection = filterMap(rows, r =>
-			r != null ? { id: r.sha, type: r.type as GitGraphRowType } : undefined,
+		const selection: GraphSelection[] = filterMap(rows, r =>
+			r != null ? { id: r.sha, type: r.type as GitGraphRowType, hidden: r.hidden } : undefined,
 		);
 
 		const active = rows[rows.length - 1];

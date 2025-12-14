@@ -68,8 +68,17 @@ export function setLogScope(scopeId: number, scope: LogScope): LogScope {
 export function setLogScopeExit(scope: LogScope | undefined, details: string | undefined, failed?: string): void {
 	if (scope == null) return;
 
-	scope.exitDetails = details;
+	if (scope.exitDetails != null && details != null) {
+		scope.exitDetails += details;
+	} else {
+		scope.exitDetails = details;
+	}
+
 	if (failed != null) {
-		scope.exitFailed = failed;
+		if (scope.exitFailed != null) {
+			scope.exitFailed += failed;
+		} else {
+			scope.exitFailed = failed;
+		}
 	}
 }

@@ -4,14 +4,17 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import type { GenerateCommitsCommandArgs } from '../../../../commands/generateRebase';
+import { uncommitted } from '../../../../git/models/revision';
 import { createCommandLink } from '../../../../system/commands';
 import { equalsIgnoreCase } from '../../../../system/string';
-import type { DraftState, Wip } from '../../../commitDetails/protocol';
+import { serializeWebviewItemContext } from '../../../../system/webview';
+import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol';
+import type { ComposerCommandArgs } from '../../../plus/composer/registration';
+import type { Change } from '../../../plus/patchDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
-import type { GenerateState } from './gl-inspect-patch';
+import type { CreatePatchState, GenerateState } from './gl-inspect-patch';
 import '../../shared/components/button';
 import '../../shared/components/button-container';
 import '../../shared/components/code-icon';
@@ -38,6 +41,9 @@ export class GlWipDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	generate?: GenerateState;
+
+	@property({ type: Boolean })
+	experimentalComposerEnabled = false;
 
 	@state()
 	get inReview(): boolean {
@@ -73,16 +79,17 @@ export class GlWipDetails extends GlDetailsBase {
 		description: undefined,
 	};
 
-	get patchCreateState() {
+	get patchCreateState(): CreatePatchState {
 		const wip = this.wip!;
 		const key = wip.repo.uri;
-		const change = {
+		const change: Change = {
 			type: 'wip',
 			repository: {
 				name: wip.repo.name,
 				path: wip.repo.path,
 				uri: wip.repo.uri,
 			},
+			revision: { to: uncommitted, from: 'HEAD' },
 			files: wip.changes?.files ?? [],
 			checked: true,
 		};
@@ -126,29 +133,22 @@ export class GlWipDetails extends GlDetailsBase {
 	protected override renderChangedFilesActions(): TemplateResult<1> | undefined {
 		if (!this.files?.length) return undefined;
 
-		if (this.preferences?.aiEnabled && this.orgSettings?.ai) {
-			return html`<div class="section section--actions">
-				<button-container>
-					<gl-button
-						full
-						.href=${createCommandLink('gitlens.ai.generateCommits', {
-							repoPath: this.wip?.repo.path,
-							source: { source: 'inspect' },
-						} as GenerateCommitsCommandArgs)}
-						tooltip="Generate Commits with AI (Preview) — organize working changes into meaningful commits"
-						.tooltipPlacement=${'top'}
-						>Commit with AI (Preview)<code-icon icon="sparkle" slot="prefix"></code-icon
-					></gl-button>
-					<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
-						><code-icon rotate="45" icon="arrow-up"></code-icon
-					></gl-button>
-				</button-container>
-			</div>`;
-		}
 		return html`<div class="section section--actions">
 			<button-container>
-				<gl-button full href="command:workbench.view.scm"
-					>Commit via SCM <code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon
+				<gl-button
+					full
+					.href=${createCommandLink<ComposerCommandArgs>('gitlens.composeCommits', {
+						repoPath: this.wip?.repo.path,
+						source: 'inspect',
+					})}
+					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
+						><strong>Compose Commits</strong> (Preview)<br /><i
+							>Automatically or interactively organize changes into meaningful commits</i
+						></span
+					></gl-button
+				>
+				<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
+					><code-icon rotate="45" icon="arrow-up"></code-icon
 				></gl-button>
 			</button-container>
 		</div>`;
@@ -160,7 +160,7 @@ export class GlWipDetails extends GlDetailsBase {
 		let label = 'Share as Cloud Patch';
 		let action = 'create-patch';
 		const pr = this.wip?.pullRequest;
-		if (pr != null && pr.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
+		if (pr?.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
 			// const isMe = pr.author.name.endsWith('(you)');
 			// if (isMe) {
 			// 	label = 'Share with PR Participants';
@@ -233,22 +233,25 @@ export class GlWipDetails extends GlDetailsBase {
 	}
 
 	private renderPrimaryAction() {
-		const canShare = this.draftsEnabled;
-		if (this.isUnpublished && canShare) {
+		if (this.isUnpublished) {
 			return html`
 				<gl-button full data-action="publish-branch" @click=${() => this.onDataActionClick('publish-branch')}>
-					<code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch
+					<code-icon icon="cloud-upload" slot="prefix"></code-icon>Publish Branch<span slot="tooltip"
+						>Publish (push) <strong>${this.wip?.branch?.name}</strong> to
+						${this.wip?.branch?.upstream?.name ?? 'a remote'}</span
+					>
 				</gl-button>
 			`;
 		}
 
-		if ((!this.isUnpublished && !canShare) || this.branchState == null) return undefined;
+		if (this.branchState == null) return undefined;
 
 		const { ahead, behind } = this.branchState;
 		if (ahead === 0 && behind === 0) return undefined;
 
 		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
 		const fetchIcon = behind > 0 ? 'repo-pull' : ahead > 0 ? 'repo-push' : 'repo-fetch';
+		const fetchTooltip = behind > 0 ? 'Pull from' : ahead > 0 ? 'Push to' : 'Fetch from';
 
 		return html`
 			<gl-button
@@ -258,6 +261,7 @@ export class GlWipDetails extends GlDetailsBase {
 			>
 				<code-icon icon="${fetchIcon}" slot="prefix"></code-icon> ${fetchLabel}
 				<gl-tracking-pill .ahead=${ahead} .behind=${behind} slot="suffix"></gl-tracking-pill>
+				<span slot="tooltip">${fetchTooltip} <strong>${this.wip?.branch?.upstream?.name}</strong></span>
 			</gl-button>
 		`;
 	}
@@ -413,6 +417,24 @@ export class GlWipDetails extends GlDetailsBase {
 			return [openFile, { icon: 'remove', label: 'Unstage changes', action: 'file-unstage' }];
 		}
 		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
+	}
+
+	override getFileContextData(file: File): string | undefined {
+		if (!this.wip?.repo?.path) return undefined;
+
+		const context: DetailsItemTypedContext = {
+			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+			webviewItemValue: {
+				type: 'file',
+				path: file.path,
+				repoPath: this.wip.repo.path,
+				sha: uncommitted,
+				staged: file.staged,
+				status: file.status,
+			},
+		};
+
+		return serializeWebviewItemContext(context);
 	}
 
 	private onDataActionClick(name: string) {

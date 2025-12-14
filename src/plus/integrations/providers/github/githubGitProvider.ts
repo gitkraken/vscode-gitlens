@@ -50,7 +50,7 @@ import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { setContext } from '../../../../system/-webview/context';
 import { relative } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
@@ -166,7 +166,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
 			if (workspaceUri == null) return [];
 
-			return this.openRepository(undefined, workspaceUri, true, undefined, options?.silent);
+			return this.openRepository(undefined, workspaceUri, true, options?.silent);
 		} catch (ex) {
 			if (ex.message.startsWith('No provider registered with')) {
 				Logger.error(
@@ -218,13 +218,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		void setContext('gitlens:hasVirtualFolders', this.container.git.hasOpenRepositories(this.descriptor.id));
 	}
 
-	openRepository(
-		folder: WorkspaceFolder | undefined,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository[] {
+	openRepository(folder: WorkspaceFolder | undefined, uri: Uri, root: boolean, closed?: boolean): Repository[] {
 		return [
 			new Repository(
 				this.container,
@@ -236,7 +230,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
 				root,
-				suspended ?? !window.state.focused,
 				closed,
 			),
 		];
@@ -789,11 +782,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log({
-		args: {
-			1: _contents => '<contents>',
-		},
-	})
+	@log<GitHubGitProvider['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	async getDiffForFileContents(
 		_uri: GitUri,
 		_ref: string,

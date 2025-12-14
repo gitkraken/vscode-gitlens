@@ -42,7 +42,7 @@ export function ensureArray<T>(source: NonNullable<T> | NonNullable<T>[] | undef
 }
 
 export function filterMap<T, TMapped>(
-	source: T[],
+	source: readonly T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
 ): TMapped[] {
 	let index = 0;

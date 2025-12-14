@@ -6,7 +6,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { log } from '../../../system/decorators/log';
 import { supportedIntegrationIds } from '../utils/-webview/integration.utils';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService';
@@ -147,6 +147,11 @@ export class IntegrationAuthenticationService implements Disposable {
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './jira')
 					).JiraAuthenticationProvider(this.container, this, this.configuredIntegrationService);
+					break;
+				case IssuesCloudHostIntegrationId.Linear:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './linear')
+					).LinearAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				default:
 					provider = new BuiltInAuthenticationProvider(

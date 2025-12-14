@@ -8,9 +8,10 @@ import type { Features } from '../features';
 import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
 import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
 import type { GitUri } from './gitUri';
+import type { GitConflictFile } from './models';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
-import type { GitCommit, GitCommitStats, GitStashCommit } from './models/commit';
+import type { GitCommit, GitCommitIdentityShape, GitCommitStats, GitStashCommit } from './models/commit';
 import type { GitContributor, GitContributorsStats } from './models/contributor';
 import type {
 	GitDiff,
@@ -40,12 +41,13 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
-import type { GitGraphSearch } from './search';
+import type { GitGraphSearch, GitGraphSearchCursor, GitGraphSearchProgress, GitGraphSearchResults } from './search';
 import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting';
 
 export type CachedGitTypes =
 	| 'branches'
 	| 'contributors'
+	| 'gitignore'
 	| 'providers'
 	| 'remotes'
 	| 'stashes'
@@ -153,47 +155,8 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 export interface GitRepositoryProvider {
-	checkout?(
-		repoPath: string,
-		ref: string,
-		options?: { createBranch?: string | undefined } | { path?: string | undefined },
-	): Promise<void>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
-	fetch?(
-		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			branch?: GitBranchReference | undefined;
-			prune?: boolean | undefined;
-			pull?: boolean | undefined;
-			remote?: string | undefined;
-		},
-	): Promise<void>;
-	pull?(
-		repoPath: string,
-		options?: {
-			branch?: GitBranchReference | undefined;
-			rebase?: boolean | undefined;
-			tags?: boolean | undefined;
-		},
-	): Promise<void>;
-	push?(
-		repoPath: string,
-		options?: {
-			reference?: GitReference | undefined;
-			force?: boolean | undefined;
-			publish?: { remote: string };
-		},
-	): Promise<void>;
-	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
-
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
-	runGitCommandViaTerminal?(
-		repoPath: string,
-		command: string,
-		args: string[],
-		options?: { execute?: boolean },
-	): Promise<void>;
 
 	branches: GitBranchesSubProvider;
 	commits: GitCommitsSubProvider;
@@ -201,7 +164,9 @@ export interface GitRepositoryProvider {
 	contributors: GitContributorsSubProvider;
 	diff: GitDiffSubProvider;
 	graph: GitGraphSubProvider;
+	ops?: GitOperationsSubProvider;
 	patch?: GitPatchSubProvider;
+	pausedOps?: GitPausedOperationsSubProvider;
 	refs: GitRefsSubProvider;
 	remotes: GitRemotesSubProvider;
 	revision: GitRevisionSubProvider;
@@ -250,8 +215,8 @@ export interface GitBranchesSubProvider {
 	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, sha: string, options?: { noTracking?: boolean }): Promise<void>;
-	deleteLocalBranch?(repoPath: string, name: string, options?: { force?: boolean }): Promise<void>;
-	deleteRemoteBranch?(repoPath: string, name: string, remote: string): Promise<void>;
+	deleteLocalBranch?(repoPath: string, names: string | string[], options?: { force?: boolean }): Promise<void>;
+	deleteRemoteBranch?(repoPath: string, names: string | string[], remote: string): Promise<void>;
 	/**
 	 * Returns whether a branch has been merged into another branch
 	 * @param repoPath The repository path
@@ -288,6 +253,8 @@ export interface GitBranchesSubProvider {
 	getStoredDetectedMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	/** Gets the stored user merge target branch name */
 	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	onCurrentBranchAccessed?(repoPath: string): Promise<void>;
+	onCurrentBranchModified?(repoPath: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 	setUpstreamBranch?(repoPath: string, name: string, upstream: string | undefined): Promise<void>;
 	storeBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
@@ -305,9 +272,9 @@ export interface GitLogOptions extends GitLogOptionsBase {
 	all?: boolean;
 	authors?: GitUser[];
 	merges?: boolean | 'first-parent';
-	since?: string;
+	since?: number | string;
 	stashes?: boolean | Map<string, GitStashCommit>;
-	until?: number;
+	until?: number | string;
 }
 
 export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
@@ -322,7 +289,7 @@ export interface GitLogShasOptions extends GitLogOptionsBase {
 	authors?: GitUser[];
 	merges?: boolean | 'first-parent';
 	pathOrUri?: string | Uri;
-	since?: string;
+	since?: number | string;
 }
 
 export interface GitSearchCommitsOptions extends GitLogOptionsBase {
@@ -335,8 +302,14 @@ export interface IncomingActivityOptions extends GitLogOptionsBase {
 	skip?: number;
 }
 
+export interface GitCommitReachability {
+	readonly refs: (
+		| { readonly refType: 'branch'; readonly name: string; readonly remote: boolean; readonly current?: boolean }
+		| { readonly refType: 'tag'; readonly name: string; readonly current?: never }
+	)[];
+}
+
 export interface GitCommitsSubProvider {
-	cherryPick?(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
 	getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined>;
 	getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined>;
 	getCommitFiles(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitFileChange[]>;
@@ -392,6 +365,71 @@ export interface GitCommitsSubProvider {
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
 	): Promise<SearchCommitsResult>;
+	getCommitReachability?(
+		repoPath: string,
+		rev: string,
+		cancellation?: CancellationToken,
+	): Promise<GitCommitReachability | undefined>;
+}
+
+export interface GitOperationsSubProvider {
+	checkout(
+		repoPath: string,
+		ref: string,
+		options?: { createBranch?: string | undefined } | { path?: string | undefined },
+	): Promise<void>;
+	cherryPick(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
+	fetch(
+		repoPath: string,
+		options?: {
+			all?: boolean | undefined;
+			branch?: GitBranchReference | undefined;
+			prune?: boolean | undefined;
+			pull?: boolean | undefined;
+			remote?: string | undefined;
+		},
+	): Promise<void>;
+	merge(
+		repoPath: string,
+		ref: string,
+		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
+	): Promise<void>;
+	pull(
+		repoPath: string,
+		options?: {
+			branch?: GitBranchReference | undefined;
+			rebase?: boolean | undefined;
+			tags?: boolean | undefined;
+		},
+	): Promise<void>;
+	push(
+		repoPath: string,
+		options?: {
+			reference?: GitReference | undefined;
+			force?: boolean | undefined;
+			publish?: { remote: string };
+		},
+	): Promise<void>;
+	rebase(
+		repoPath: string,
+		upstream: string,
+		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string },
+	): Promise<void>;
+	reset(
+		repoPath: string,
+		rev: string,
+		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
+	): Promise<void>;
+	revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void>;
+}
+
+export interface GitPausedOperationsSubProvider {
+	getPausedOperationStatus(
+		repoPath: string,
+		cancellation?: CancellationToken,
+	): Promise<GitPausedOperationStatus | undefined>;
+	abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void>;
+	continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 }
 
 export interface GitConfigSubProvider {
@@ -415,7 +453,7 @@ export interface GitContributorsSubProvider {
 			all?: boolean;
 			merges?: boolean | 'first-parent';
 			pathspec?: string;
-			since?: string;
+			since?: number | string;
 			stats?: boolean;
 		},
 		cancellation?: CancellationToken,
@@ -424,12 +462,12 @@ export interface GitContributorsSubProvider {
 	getContributorsLite(
 		repoPath: string,
 		rev?: string | undefined,
-		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: string },
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: number | string },
 		cancellation?: CancellationToken,
 	): Promise<GitContributor[]>;
 	getContributorsStats(
 		repoPath: string,
-		options?: { merges?: boolean | 'first-parent'; since?: string },
+		options?: { merges?: boolean | 'first-parent'; since?: number | string },
 		cancellation?: CancellationToken,
 		timeout?: number,
 	): Promise<GitContributorsStats | undefined>;
@@ -447,7 +485,7 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; includeUntracked?: boolean; notation?: GitRevisionRangeNotation; uris?: Uri[] },
+		options?: { context?: number; notation?: GitRevisionRangeNotation; uris?: Uri[] },
 		cancellation?: CancellationToken,
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(
@@ -500,6 +538,23 @@ export interface GitDiffSubProvider {
 }
 
 export interface GitGraphSubProvider {
+	/**
+	 * Gets the commit graph for a repository.
+	 *
+	 * @param repoPath - The repository path
+	 * @param rev - Optional revision/SHA to start from or find
+	 * @param asWebviewUri - Function to convert URIs for webview usage
+	 * @param options - Options including stats and limit (page size)
+	 * @param cancellation - Cancellation token
+	 *
+	 * **Behavior when `rev` is provided:**
+	 * - Finds the commit with the given revision/SHA
+	 * - Ensures at least `options.limit` commits are loaded (fills the page)
+	 * - If the SHA is found early, continues loading to reach the limit
+	 * - If the SHA is found late, loads all commits up to and including it
+	 *
+	 * This ensures the initial graph load always provides a full page of commits for good UX.
+	 */
 	getGraph(
 		repoPath: string,
 		rev: string | undefined,
@@ -512,7 +567,14 @@ export interface GitGraphSubProvider {
 		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 		cancellation?: CancellationToken,
-	): Promise<GitGraphSearch>;
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
+	continueSearchGraph(
+		repoPath: string,
+		cursor: GitGraphSearchCursor,
+		existingResults: GitGraphSearchResults,
+		options?: { limit?: number },
+		cancellation?: CancellationToken,
+	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
 }
 
 export interface GitPatchSubProvider {
@@ -534,9 +596,10 @@ export interface GitPatchSubProvider {
 	): Promise<GitCommit | undefined>;
 	createUnreachableCommitsFromPatches(
 		repoPath: string,
-		base: string,
-		patches: { message: string; patch: string }[],
+		base: string | undefined,
+		patches: { message: string; patch: string; author?: GitCommitIdentityShape }[],
 	): Promise<string[]>;
+	createEmptyInitialCommit(repoPath: string): Promise<string>;
 
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
 }
@@ -571,6 +634,7 @@ export interface GitRefsSubProvider {
 		pathOrUri?: string | Uri,
 		cancellation?: CancellationToken,
 	): Promise<boolean>;
+	updateReference(repoPath: string, ref: string, newRef: string, cancellation?: CancellationToken): Promise<void>;
 }
 
 export interface GitRemotesSubProvider {
@@ -651,10 +715,10 @@ export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 }
 
 export interface GitStagingSubProvider {
-	createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex>;
-	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	createTemporaryIndex(repoPath: string, base: string | undefined): Promise<DisposableTemporaryGitIndex>;
+	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
-	stageDirectory(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	unstageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void>;
 	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
@@ -677,6 +741,12 @@ export interface GitStashSubProvider {
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void>;
 	saveSnapshot(repoPath: string, message?: string): Promise<void>;
+}
+
+export interface GitWorkingChangesState {
+	staged: boolean;
+	unstaged: boolean;
+	untracked: boolean;
 }
 
 export interface GitStatusSubProvider {
@@ -719,12 +789,55 @@ export interface GitStatusSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitStatusFile[] | undefined>;
 
-	getPausedOperationStatus?(
+	/**
+	 * Quickly check if the repository has any working changes
+	 * @param repoPath Repository path
+	 * @param options Options to control which types of changes to check for
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to true if any of the requested change types exist
+	 */
+	hasWorkingChanges(
 		repoPath: string,
+		options?: {
+			/** Check for staged changes (default: true) */
+			staged?: boolean;
+			/** Check for unstaged changes (default: true) */
+			unstaged?: boolean;
+			/** Check for untracked files (default: true) */
+			untracked?: boolean;
+			/** Throw errors rather than returning false */
+			throwOnError?: boolean;
+		},
 		cancellation?: CancellationToken,
-	): Promise<GitPausedOperationStatus | undefined>;
-	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
-	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
+	): Promise<boolean>;
+	/**
+	 * Get detailed information about all types of working changes in a single optimized call
+	 * @param repoPath The repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to an object with boolean flags for each change type
+	 */
+	getWorkingChangesState(repoPath: string, cancellation?: CancellationToken): Promise<GitWorkingChangesState>;
+	/**
+	 * Quickly check if the repository has any conflicting files
+	 * @param repoPath Repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to true if there are any unmerged files
+	 */
+	hasConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<boolean>;
+	/**
+	 * Get all conflicting files in the repository with detailed stage information
+	 * @param repoPath Repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to an array of conflicting files with stage information
+	 */
+	getConflictingFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitConflictFile[]>;
+	/**
+	 * Get all untracked files in the repository
+	 * @param repoPath Repository path
+	 * @param cancellation Cancellation token
+	 * @returns A promise that resolves to an array of untracked file paths (relative to repo root)
+	 */
+	getUntrackedFiles(repoPath: string, cancellation?: CancellationToken): Promise<GitFile[]>;
 }
 
 export interface GitTagsSubProvider {
@@ -780,7 +893,9 @@ export type GitSubProvider =
 	| GitContributorsSubProvider
 	| GitDiffSubProvider
 	| GitGraphSubProvider
+	| GitOperationsSubProvider
 	| GitPatchSubProvider
+	| GitPausedOperationsSubProvider
 	| GitRefsSubProvider
 	| GitRemotesSubProvider
 	| GitRevisionSubProvider
@@ -796,7 +911,7 @@ type GitSubProviders = {
 export type GitSubProvidersProps = keyof GitSubProviders;
 
 export type GitSubProviderForRepo<T extends GitSubProvider> = {
-	[K in keyof T]: RemoveFirstArg<T[K]>;
+	[K in keyof T]: OmitFirstArg<T[K]>;
 };
 
 export function createSubProviderProxyForRepo<T extends GitSubProvider, U extends GitSubProviderForRepo<T>>(
@@ -830,13 +945,7 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
 	): Promise<Repository[]>;
 	updateContext?(): void;
-	openRepository(
-		folder: WorkspaceFolder | undefined,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository[];
+	openRepository(folder: WorkspaceFolder | undefined, uri: Uri, root: boolean, closed?: boolean): Repository[];
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 
 	supports(feature: Features): Promise<boolean>;

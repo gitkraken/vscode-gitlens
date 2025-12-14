@@ -14,6 +14,7 @@ export enum DeepLinkType {
 	Comparison = 'compare',
 	Draft = 'drafts',
 	File = 'f',
+	Integrations = 'integrations',
 	Repository = 'r',
 	Tag = 't',
 	Workspace = 'workspace',
@@ -24,7 +25,10 @@ export enum DeepLinkCommandType {
 	Graph = 'graph',
 	Home = 'home',
 	Inspect = 'inspect',
+	InstallMCP = 'install-mcp',
 	Launchpad = 'launchpad',
+	Login = 'login',
+	SignUp = 'signup',
 	Walkthrough = 'walkthrough',
 	Worktrees = 'worktrees',
 }
@@ -39,8 +43,11 @@ export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlComma
 	[DeepLinkCommandType.Home, 'gitlens.showHomeView'],
 	[DeepLinkCommandType.Inspect, 'gitlens.showCommitDetailsView'],
 	[DeepLinkCommandType.Launchpad, 'gitlens.showLaunchpad'],
+	[DeepLinkCommandType.Login, 'gitlens.plus.login'],
+	[DeepLinkCommandType.SignUp, 'gitlens.plus.signUp'],
 	[DeepLinkCommandType.Walkthrough, 'gitlens.getStarted'],
 	[DeepLinkCommandType.Worktrees, 'gitlens.showWorktreesView'],
+	[DeepLinkCommandType.InstallMCP, 'gitlens.ai.mcp.install'],
 ]);
 
 export enum DeepLinkActionType {
@@ -68,6 +75,8 @@ export function deepLinkTypeToString(type: DeepLinkType): string {
 			return 'Cloud Patch';
 		case DeepLinkType.File:
 			return 'File';
+		case DeepLinkType.Integrations:
+			return 'Integrations';
 		case DeepLinkType.Repository:
 			return 'Repository';
 		case DeepLinkType.Tag:
@@ -214,6 +223,14 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				params: urlParams,
 			};
 		}
+		case DeepLinkType.Integrations: {
+			if (mainId !== 'connect') return undefined;
+
+			return {
+				type: DeepLinkType.Integrations,
+				params: urlParams,
+			};
+		}
 		default:
 			return undefined;
 	}
@@ -246,6 +263,7 @@ export const enum DeepLinkServiceState {
 	RunCommand,
 	OpenAllPrChanges,
 	DeleteBranch,
+	ConnectCloudIntegrations,
 }
 
 export const enum DeepLinkServiceAction {
@@ -256,6 +274,7 @@ export const enum DeepLinkServiceAction {
 	DeepLinkStored,
 	DeepLinkErrored,
 	LinkIsCommandType,
+	LinkIsIntegrationsType,
 	LinkIsRepoType,
 	LinkIsDraftType,
 	LinkIsWorkspaceType,
@@ -326,6 +345,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.LinkIsCommandType]: DeepLinkServiceState.RunCommand,
+		[DeepLinkServiceAction.LinkIsIntegrationsType]: DeepLinkServiceState.ConnectCloudIntegrations,
 		[DeepLinkServiceAction.LinkIsRepoType]: DeepLinkServiceState.RepoMatch,
 		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.LinkIsWorkspaceType]: DeepLinkServiceState.OpenWorkspace,
@@ -454,6 +474,11 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
+	[DeepLinkServiceState.ConnectCloudIntegrations]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
 };
 
 export interface DeepLinkProgress {
@@ -485,4 +510,7 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.OpenInspect]: { message: 'Opening inspect...', increment: 90 },
 	[DeepLinkServiceState.SwitchToRef]: { message: 'Switching to ref...', increment: 90 },
 	[DeepLinkServiceState.RunCommand]: { message: 'Running command...', increment: 90 },
+	[DeepLinkServiceState.OpenAllPrChanges]: { message: 'Opening all PR changes...', increment: 90 },
+	[DeepLinkServiceState.DeleteBranch]: { message: 'Deleting branch...', increment: 90 },
+	[DeepLinkServiceState.ConnectCloudIntegrations]: { message: 'Connecting cloud integrations...', increment: 90 },
 };

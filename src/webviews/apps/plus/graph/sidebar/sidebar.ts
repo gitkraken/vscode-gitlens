@@ -9,7 +9,7 @@ import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry';
-import { graphStateContext } from '../stateProvider';
+import { graphStateContext } from '../context';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 
@@ -33,6 +33,12 @@ type Counts = Record<IconTypes, number | undefined>;
 @customElement('gl-graph-sidebar')
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
+		:focus,
+		:focus-within,
+		:focus-visible {
+			outline-color: var(--vscode-focusBorder);
+		}
+
 		.sidebar {
 			box-sizing: border-box;
 			display: flex;

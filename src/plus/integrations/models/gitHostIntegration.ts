@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { CancellationToken } from 'vscode';
 import type { IntegrationIds } from '../../../constants.integrations';
 import { GitCloudHostIntegrationId } from '../../../constants.integrations';
@@ -10,7 +9,7 @@ import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pu
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import { first } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';

@@ -1,60 +1,142 @@
 import type { TreeViewNodeTypes } from '../../../../constants.views';
 import { treeViewFileNodeTypes, treeViewRefFileNodeTypes, treeViewRefNodeTypes } from '../../../../constants.views';
 import type { GitCommit } from '../../../../git/models/commit';
-import type { LaunchpadItemNode } from '../../../launchpadView';
+import type { DraftsViewNode } from '../../../draftsView';
+import type { LaunchpadItemNode, LaunchpadViewNode } from '../../../launchpadView';
+import type { SearchAndCompareViewNode } from '../../../searchAndCompareView';
+import type { WorkspacesViewNode } from '../../../workspacesView';
 import type { RepositoryFolderNode } from '../../abstract/repositoryFolderNode';
 import { ContextValues, ViewNode } from '../../abstract/viewNode';
-import type { BranchNode } from '../../branchNode';
+import type { AutolinkedItemNode } from '../../autolinkedItemNode';
+import type { AutolinkedItemsNode } from '../../autolinkedItemsNode';
+import type { BranchesNode } from '../../branchesNode';
+import type { BranchNode, CommitsCurrentBranchNode } from '../../branchNode';
+import type { BranchOrTagFolderNode } from '../../branchOrTagFolderNode';
 import type { BranchTrackingStatusFilesNode } from '../../branchTrackingStatusFilesNode';
 import type { BranchTrackingStatusNode } from '../../branchTrackingStatusNode';
 import type { CodeSuggestionsNode } from '../../codeSuggestionsNode';
 import type { CommitFileNode } from '../../commitFileNode';
 import type { CommitNode } from '../../commitNode';
+import type { PagerNode } from '../../common';
 import { MessageNode } from '../../common';
 import type { CompareBranchNode } from '../../compareBranchNode';
 import type { CompareResultsNode } from '../../compareResultsNode';
+import type { ContributorNode } from '../../contributorNode';
+import type { ContributorsNode } from '../../contributorsNode';
+import type { DraftNode } from '../../draftNode';
+import type { FileHistoryNode } from '../../fileHistoryNode';
+import type { FileHistoryTrackerNode } from '../../fileHistoryTrackerNode';
 import type { FileRevisionAsCommitNode } from '../../fileRevisionAsCommitNode';
 import type { FolderNode } from '../../folderNode';
+import type { GroupingNode } from '../../groupingNode';
+import type { LineHistoryNode } from '../../lineHistoryNode';
 import type { LineHistoryTrackerNode } from '../../lineHistoryTrackerNode';
+import type { MergeConflictCurrentChangesNode } from '../../mergeConflictCurrentChangesNode';
 import type { MergeConflictFileNode } from '../../mergeConflictFileNode';
+import type { MergeConflictFilesNode } from '../../mergeConflictFilesNode';
+import type { MergeConflictIncomingChangesNode } from '../../mergeConflictIncomingChangesNode';
+import type { PausedOperationStatusNode } from '../../pausedOperationStatusNode';
 import type { PullRequestNode } from '../../pullRequestNode';
+import type { ReflogNode } from '../../reflogNode';
+import type { ReflogRecordNode } from '../../reflogRecordNode';
+import type { RemoteNode } from '../../remoteNode';
+import type { RemotesNode } from '../../remotesNode';
+import type { RepositoriesNode } from '../../repositoriesNode';
 import type { RepositoryNode } from '../../repositoryNode';
 import type { ResultsCommitsNode } from '../../resultsCommitsNode';
 import type { ResultsFileNode } from '../../resultsFileNode';
 import type { ResultsFilesNode } from '../../resultsFilesNode';
+import type { SearchResultsNode } from '../../searchResultsNode';
+import type { StashesNode } from '../../stashesNode';
 import type { StashFileNode } from '../../stashFileNode';
 import type { StashNode } from '../../stashNode';
 import type { StatusFileNode } from '../../statusFileNode';
+import type { StatusFilesNode } from '../../statusFilesNode';
 import type { TagNode } from '../../tagNode';
+import type { TagsNode } from '../../tagsNode';
 import type { UncommittedFileNode } from '../../UncommittedFileNode';
+import type { UncommittedFilesNode } from '../../UncommittedFilesNode';
+import type { WorkspaceMissingRepositoryNode } from '../../workspaceMissingRepositoryNode';
+import type { WorkspaceNode } from '../../workspaceNode';
 import type { WorktreeNode } from '../../worktreeNode';
+import type { WorktreesNode } from '../../worktreesNode';
 
 // prettier-ignore
 export type TreeViewNodesByType = {
-	[T in TreeViewNodeTypes]: T extends 'branch'
+	[T in TreeViewNodeTypes]: T extends 'autolink'
+		? AutolinkedItemNode
+		: T extends 'autolinks'
+		? AutolinkedItemsNode
+		: T extends 'branch'
 		? BranchNode
+		: T extends 'branch-tag-folder'
+		? BranchOrTagFolderNode
+		: T extends 'branches'
+		? BranchesNode
 		: T extends 'commit'
 		? CommitNode
 		: T extends 'commit-file'
 		? CommitFileNode
+		: T extends 'commits-current-branch'
+		? CommitsCurrentBranchNode
 		: T extends 'compare-branch'
 		? CompareBranchNode
 		: T extends 'compare-results'
 		? CompareResultsNode
+		: T extends 'conflict-current-changes'
+		? MergeConflictCurrentChangesNode
 		: T extends 'conflict-file'
 		? MergeConflictFileNode
+		: T extends 'conflict-files'
+		? MergeConflictFilesNode
+		: T extends 'conflict-incoming-changes'
+		? MergeConflictIncomingChangesNode
+		: T extends 'contributor'
+		? ContributorNode
+		: T extends 'contributors'
+		? ContributorsNode
+		: T extends 'draft'
+		? DraftNode
+		: T extends 'drafts'
+		? DraftsViewNode
 		: T extends 'drafts-code-suggestions'
 		? CodeSuggestionsNode
 		: T extends 'file-commit'
 		? FileRevisionAsCommitNode
+		: T extends 'file-history'
+		? FileHistoryNode
+		: T extends 'file-history-tracker'
+		? FileHistoryTrackerNode
 		: T extends 'folder'
 		? FolderNode
+		: T extends 'grouping'
+		? GroupingNode
+		: T extends 'launchpad'
+		? LaunchpadViewNode
 		: T extends 'launchpad-item'
 		? LaunchpadItemNode
+		: T extends 'line-history'
+		? LineHistoryNode
 		: T extends 'line-history-tracker'
 		? LineHistoryTrackerNode
+		: T extends 'message'
+		? MessageNode
+		: T extends 'pager'
+		? PagerNode
+		: T extends 'paused-operation-status'
+		? PausedOperationStatusNode
 		: T extends 'pullrequest'
 		? PullRequestNode
+		: T extends 'reflog'
+		? ReflogNode
+		: T extends 'reflog-record'
+		? ReflogRecordNode
+		: T extends 'remote'
+		? RemoteNode
+		: T extends 'remotes'
+		? RemotesNode
+		: T extends 'repositories'
+		? RepositoriesNode
 		: T extends 'repository'
 		? RepositoryNode
 		: T extends 'repo-folder'
@@ -65,22 +147,42 @@ export type TreeViewNodesByType = {
 		? ResultsFileNode
 		: T extends 'results-files'
 		? ResultsFilesNode
+		: T extends 'search-compare'
+		? SearchAndCompareViewNode
+		: T extends 'search-results'
+		? SearchResultsNode
 		: T extends 'stash'
 		? StashNode
 		: T extends 'stash-file'
 		? StashFileNode
+		: T extends 'stashes'
+		? StashesNode
 		: T extends 'status-file'
 		? StatusFileNode
+		: T extends 'status-files'
+		? StatusFilesNode
 		: T extends 'tag'
 		? TagNode
+		: T extends 'tags'
+		? TagsNode
 		: T extends 'tracking-status'
 		? BranchTrackingStatusNode
 		: T extends 'tracking-status-files'
 		? BranchTrackingStatusFilesNode
 		: T extends 'uncommitted-file'
 		? UncommittedFileNode
+		: T extends 'uncommitted-files'
+		? UncommittedFilesNode
+		: T extends 'workspace'
+		? WorkspaceNode
+		: T extends 'workspace-missing-repository'
+		? WorkspaceMissingRepositoryNode
+		: T extends 'workspaces'
+		? WorkspacesViewNode
 		: T extends 'worktree'
 		? WorktreeNode
+		: T extends 'worktrees'
+		? WorktreesNode
 		: ViewNode<T>;
 };
 

@@ -166,6 +166,7 @@ export class GlFeatureNav extends GlElement {
 						.subscription=${this._state.subscription}
 						placement="left"
 						class="nav-list__access"
+						cloud
 					></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
@@ -226,6 +227,7 @@ export class GlFeatureNav extends GlElement {
 								.subscription=${this._state.subscription}
 								placement="left"
 								class="nav-list__access"
+								cloud
 								preview
 							></gl-feature-badge>
 						</div>
@@ -243,6 +245,8 @@ export class GlFeatureNav extends GlElement {
 								>
 							</a>
 							<gl-feature-badge
+								.source=${this.badgeSource}
+								.subscription=${this._state.subscription}
 								placement="left"
 								class="nav-list__access"
 								cloud
@@ -316,7 +320,14 @@ export class GlFeatureNav extends GlElement {
 							<span>Cloud Workspaces</span></gl-tooltip
 						>
 					</a>
-					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>
+					<gl-feature-badge
+						.source=${this.badgeSource}
+						.subscription=${this._state.subscription}
+						placement="left"
+						class="nav-list__access"
+						cloud
+						preview
+					></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
 					<a

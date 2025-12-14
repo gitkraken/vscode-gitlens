@@ -140,10 +140,7 @@ export class GitDocumentTracker implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		// Only rest the cached state if we aren't initializing
-		if (
-			e != null &&
-			(configuration.changed(e, 'blame.ignoreWhitespace') || configuration.changed(e, 'advanced.caching.enabled'))
-		) {
+		if (e != null && configuration.changed(e, 'blame.ignoreWhitespace')) {
 			void this.refreshDocuments();
 		}
 

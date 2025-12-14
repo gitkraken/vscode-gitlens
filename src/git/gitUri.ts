@@ -1,14 +1,17 @@
 import { Uri } from 'vscode';
+import { realpath } from '@env/fs';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
+import { configuration } from '../system/-webview/configuration';
 import { formatPath } from '../system/-webview/formatPath';
 import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
 import { isVirtualUri } from '../system/-webview/vscode/uris';
-import { memoize } from '../system/decorators/-webview/memoize';
 import { debug } from '../system/decorators/log';
-import { basename, normalizePath } from '../system/path';
+import { memoize } from '../system/decorators/memoize';
+import { arePathsEqual, basename, normalizePath } from '../system/path';
+import type { UriComponents } from '../system/uri';
 import { areUrisEqual } from '../system/uri';
 import type { RevisionUriData } from './gitProvider';
 import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
@@ -24,20 +27,12 @@ export interface GitCommitish {
 	sha?: string;
 }
 
-interface UriComponents {
-	scheme?: string;
-	authority?: string;
-	path?: string;
-	query?: string;
-	fragment?: string;
-}
-
 interface UriEx {
 	new (): Uri;
 	new (scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
 	// Use this ctor, because vscode doesn't validate it
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
-	new (components: UriComponents): Uri;
+	new (components: Partial<UriComponents>): Uri;
 }
 
 export class GitUri extends (Uri as any as UriEx) {
@@ -255,6 +250,19 @@ export class GitUri extends (Uri as any as UriEx) {
 	@debug({ exit: true })
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (isGitUri(uri)) return uri;
+
+		// Check for symbolic links
+		if (uri.scheme === Schemes.File && configuration.get('advanced.resolveSymlinks')) {
+			try {
+				const realPath = await realpath(uri.fsPath);
+				if (!arePathsEqual(uri.fsPath, realPath)) {
+					uri = Uri.file(realPath);
+				}
+			} catch {
+				// Ignore errors (e.g., if path doesn't exist)
+			}
+		}
+
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
 		if (uri.scheme === Schemes.GitLens) return new GitUri(uri);
 

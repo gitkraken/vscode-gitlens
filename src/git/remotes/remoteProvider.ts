@@ -3,7 +3,7 @@ import { env } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
 import { openUrl } from '../../system/-webview/vscode/uris';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { getSettledValue } from '../../system/promise';
 import type { ProviderReference } from '../models/remoteProvider';
@@ -234,6 +234,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		} else {
 			urlPromises.push(this.url(resource));
 		}
+		// eslint-disable-next-line @typescript-eslint/await-thenable
 		const urls: string[] = (await Promise.allSettled(urlPromises))
 			.map(r => getSettledValue(r))
 			.filter(r => r != null);

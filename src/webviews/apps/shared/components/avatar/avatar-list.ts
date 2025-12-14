@@ -1,6 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import '../code-icon';
 import '../overlays/popover';
 import './avatar';
 
@@ -30,21 +31,24 @@ export class GlAvatarList extends LitElement {
 
 		return html`
 			${avatars.map(
-				avatar => html`<gl-avatar .src=${avatar.src} .name=${avatar.name} .href=${avatar.href}></gl-avatar>`,
+				avatar =>
+					html`<gl-avatar exportparts="avatar" .src=${avatar.src} .name=${avatar.name} .href=${avatar.href}
+						>${!avatar.src ? html`<code-icon icon="account"></code-icon>` : ''}</gl-avatar
+					>`,
 			)}
 			${when(
-				overflowAvatars.length > 0,
+				overflowAvatars.length,
 				() =>
 					html`<gl-popover>
-						<gl-avatar slot="anchor" class="overflow">+${overflowAvatars.length}</gl-avatar>
+						<gl-avatar exportparts="avatar" slot="anchor" class="overflow"
+							>+${overflowAvatars.length}</gl-avatar
+						>
 						<div slot="content" class="overflow-list">
 							${overflowAvatars.map(
 								avatar =>
-									html`<gl-avatar
-										.src=${avatar.src}
-										.name=${avatar.name}
-										.href=${avatar.href}
-									></gl-avatar>`,
+									html`<gl-avatar .src=${avatar.src} .name=${avatar.name} .href=${avatar.href}
+										>${!avatar.src ? html`<code-icon icon="account"></code-icon>` : ''}</gl-avatar
+									>`,
 							)}
 						</div>
 					</gl-popover>`,

@@ -38,15 +38,15 @@ export class ExplainWipCommand extends ExplainCommandBase {
 			args = { ...args };
 			args.repoPath = context.node.worktree.repoPath;
 			args.worktreePath = context.node.worktree.path;
-			args.source = args.source ?? { source: 'view', type: 'wip' };
+			args.source = args.source ?? { source: 'view', context: { type: 'wip' } };
 		} else if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repo.path;
-			args.source = args.source ?? { source: 'view', type: 'wip' };
+			args.source = args.source ?? { source: 'view', context: { type: 'wip' } };
 		} else if (isCommandContextViewNodeHasRepoPath(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repoPath;
-			args.source = args.source ?? { source: 'view', type: 'wip' };
+			args.source = args.source ?? { source: 'view', context: { type: 'wip' } };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -94,7 +94,7 @@ export class ExplainWipCommand extends ExplainCommandBase {
 			}
 
 			// Call the AI service to explain the changes
-			const result = await this.container.ai.explainChanges(
+			const result = await this.container.ai.actions.explainChanges(
 				{
 					diff: diff.contents,
 					message: `${capitalize(label)} changes in ${repoName}`,
@@ -102,7 +102,7 @@ export class ExplainWipCommand extends ExplainCommandBase {
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'wip',
+					context: { type: 'wip' },
 				},
 				{
 					progress: {
@@ -119,12 +119,8 @@ export class ExplainWipCommand extends ExplainCommandBase {
 				return;
 			}
 
-			const {
-				aiPromise,
-				info: { model },
-			} = result;
-
-			this.openDocument(aiPromise, `/explain/wip/${svc.path}/${model.id}`, model, 'explain-wip', {
+			const { promise, model } = result;
+			this.openDocument(promise, `/explain/wip/${svc.path}/${model.id}`, model, 'explain-wip', {
 				header: {
 					title: `${capitalize(label)} Changes Summary`,
 					subtitle: `${capitalize(label)} Changes (${repoName})`,

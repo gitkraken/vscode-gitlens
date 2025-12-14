@@ -4,14 +4,16 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
+import type { GitCommitReachability } from '../../../../git/gitProvider';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import { createCommandLink } from '../../../../system/commands';
-import type { Serialized } from '../../../../system/serialize';
-import type { State } from '../../../commitDetails/protocol';
+import type { IpcSerialized } from '../../../../system/ipcSerialize';
+import { serializeWebviewItemContext } from '../../../../system/webview';
+import type { State as _State, DetailsItemContext, DetailsItemTypedContext } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
-import { uncommittedSha } from './commit-details-app';
+import { uncommittedSha } from '../commitDetails';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
 import '../../shared/components/button';
@@ -25,6 +27,7 @@ import '../../shared/components/markdown/markdown';
 import '../../shared/components/panes/pane-group';
 import '../../shared/components/rich/issue-pull-request';
 
+type State = IpcSerialized<_State>;
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
@@ -36,7 +39,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	override readonly tab = 'commit';
 
 	@property({ type: Object })
-	state?: Serialized<State>;
+	state?: State;
 
 	@state()
 	get isStash(): boolean {
@@ -53,6 +56,41 @@ export class GlCommitDetails extends GlDetailsBase {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	@property({ type: Object })
+	reachability?: GitCommitReachability;
+
+	@property({ type: String })
+	reachabilityState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
+
+	private _commit: State['commit'];
+	get commit(): State['commit'] {
+		return this._commit;
+	}
+	set commit(value: State['commit']) {
+		this._commit = value;
+		this.enrichedPromise = value?.enriched;
+	}
+
+	@state()
+	private _enriched!: Awaited<NonNullable<State['commit']>['enriched']>;
+	get enriched(): Awaited<NonNullable<State['commit']>['enriched']> {
+		return this._enriched;
+	}
+
+	private _enrichedPromise!: NonNullable<State['commit']>['enriched'];
+	get enrichedPromise(): NonNullable<State['commit']>['enriched'] {
+		return this._enrichedPromise;
+	}
+	set enrichedPromise(value: NonNullable<State['commit']>['enriched']) {
+		if (this._enrichedPromise === value) return;
+
+		this._enrichedPromise = value;
+		void this._enrichedPromise?.then(
+			r => (this._enriched = r),
+			() => (this._enriched = undefined),
+		);
+	}
 
 	get navigation() {
 		if (this.state?.navigationStack == null) {
@@ -86,6 +124,46 @@ export class GlCommitDetails extends GlDetailsBase {
 			this.explainBusy = false;
 			this.querySelector('[data-region="commit-explanation"]')?.scrollIntoView();
 		}
+
+		if (changedProperties.has('state')) {
+			this.commit = this.state?.commit;
+			// Reset reachability when commit changes (different commit sha)
+			if (changedProperties.get('state')?.commit?.sha !== this.state?.commit?.sha) {
+				this.reachabilityState = 'idle';
+				this.reachability = undefined;
+			}
+		}
+	}
+
+	override render(): unknown {
+		if (this.state?.commit == null) {
+			return this.renderEmptyContent();
+		}
+
+		return html`
+			${this.renderHiddenNotice()} ${this.renderCommitMessage()}
+			<webview-pane-group flexible>
+				${this.renderChangedFiles(
+					this.isStash ? 'stash' : 'commit',
+					this.renderCommitStats(this.state.commit.stats),
+				)}
+			</webview-pane-group>
+		`;
+	}
+
+	private renderHiddenNotice() {
+		if (!this.searchContext?.hiddenFromGraph) return nothing;
+
+		return html`
+			<div class="section">
+				<div class="alert alert--warning">
+					<code-icon icon="warning"></code-icon>
+					<p class="alert__content">
+						This ${this.isStash ? 'stash' : 'commit'} is not currently visible in the Commit Graph.
+					</p>
+				</div>
+			</div>
+		`;
 	}
 
 	private renderEmptyContent() {
@@ -145,7 +223,8 @@ export class GlCommitDetails extends GlDetailsBase {
 		const details = this.state?.commit;
 		if (details == null) return undefined;
 
-		const message = details.message;
+		// Use formatted message from promise if available, otherwise use basic message
+		const message = this._enriched?.formattedMessage ?? details.message;
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
@@ -185,14 +264,15 @@ export class GlCommitDetails extends GlDetailsBase {
 							!this.isStash,
 							() => html`
 								<gl-commit-date
-									date=${details.author.date}
-									.dateFormat="${this.preferences?.dateFormat}"
-									.dateStyle="${this.preferences?.dateStyle}"
+									.date=${details.author.date}
+									.dateFormat="${this.preferences?.dateFormat ?? 'absolute'}"
+									.dateStyle="${this.preferences?.dateStyle ?? 'relative'}"
 									.actionLabel="${details.sha === uncommittedSha ? 'Modified' : 'Committed'}"
 								></gl-commit-date>
 							`,
 						)}
 					</div>
+					<div class="message-block-row message-block-row--actions">${this.renderReachability()}</div>
 				</div>
 			</div>
 		`;
@@ -203,9 +283,9 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		const deduped = new Map<
 			string,
-			| { type: 'autolink'; value: Serialized<Autolink> }
-			| { type: 'issue'; value: Serialized<IssueOrPullRequest> }
-			| { type: 'pr'; value: Serialized<PullRequestShape> }
+			| { type: 'autolink'; value: Autolink }
+			| { type: 'issue'; value: IssueOrPullRequest }
+			| { type: 'pr'; value: PullRequestShape }
 		>();
 
 		const autolinkIdsByUrl = new Map<string, string>();
@@ -217,8 +297,10 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
-		if (this.state?.autolinkedIssues != null) {
-			for (const issue of this.state.autolinkedIssues) {
+		// Use resolved enriched autolinks from promise
+		const enrichedAutolinks = this._enriched?.autolinkedIssues ?? this.state?.autolinkedIssues;
+		if (enrichedAutolinks != null) {
+			for (const issue of enrichedAutolinks) {
 				if (issue.url != null) {
 					const autoLinkId = autolinkIdsByUrl.get(issue.url);
 					if (autoLinkId != null) {
@@ -229,19 +311,21 @@ export class GlCommitDetails extends GlDetailsBase {
 			}
 		}
 
-		if (this.state?.pullRequest != null) {
-			if (this.state.pullRequest.url != null) {
-				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
+		// Use resolved pull request from promise
+		const pullRequest = this._enriched?.associatedPullRequest ?? this.state?.pullRequest;
+		if (pullRequest != null) {
+			if (pullRequest.url != null) {
+				const autoLinkId = autolinkIdsByUrl.get(pullRequest.url);
 				if (autoLinkId != null) {
 					deduped.delete(autoLinkId);
 				}
 			}
-			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
+			deduped.set(pullRequest.id, { type: 'pr', value: pullRequest });
 		}
 
-		const autolinks: Serialized<Autolink>[] = [];
-		const issues: Serialized<IssueOrPullRequest>[] = [];
-		const prs: Serialized<PullRequestShape>[] = [];
+		const autolinks: Autolink[] = [];
+		const issues: IssueOrPullRequest[] = [];
+		const prs: PullRequestShape[] = [];
 
 		for (const item of deduped.values()) {
 			switch (item.type) {
@@ -364,20 +448,117 @@ export class GlCommitDetails extends GlDetailsBase {
 		</div>`;
 	}
 
-	override render(): unknown {
-		if (this.state?.commit == null) {
-			return this.renderEmptyContent();
+	private renderReachability() {
+		if (this.isUncommitted) return nothing;
+
+		if (this.reachabilityState === 'loading') {
+			return html`<gl-action-chip icon="loading" label="Loading branches and tags which contain this commit"
+				>Loading...</gl-action-chip
+			>`;
 		}
 
-		return html`
-			${this.renderCommitMessage()}
-			<webview-pane-group flexible>
-				${this.renderChangedFiles(
-					this.isStash ? 'stash' : 'commit',
-					this.renderCommitStats(this.state.commit.stats),
-				)}
-			</webview-pane-group>
-		`;
+		if (this.reachabilityState === 'error') {
+			return html`<gl-action-chip
+				class="error"
+				icon="error"
+				label="Failed to load branches and tags. Click to retry."
+				overlay="tooltip"
+				@click=${() => this.dispatchEvent(new CustomEvent('refresh-reachability'))}
+				><span class="mq-hide-sm">Failed to load</span></gl-action-chip
+			>`;
+		}
+
+		if (this.reachabilityState === 'idle') {
+			return html`<gl-action-chip
+				icon="git-branch"
+				label="Show which branches and tags contain this commit"
+				overlay="tooltip"
+				@click=${() => this.dispatchEvent(new CustomEvent('load-reachability'))}
+				><span class="mq-hide-sm">Show Branches &amp; Tags</span></gl-action-chip
+			>`;
+		}
+
+		if (this.reachability == null) return nothing;
+
+		const { refs } = this.reachability;
+		if (!refs.length) {
+			return html`<gl-action-chip
+				class="warning"
+				icon="git-branch"
+				label="Commit is not on any branch or tag"
+				overlay="tooltip"
+				><span class="mq-hide-sm">Not on any branch or tag</span></gl-action-chip
+			>`;
+		}
+
+		const branches = refs.filter(r => r.refType === 'branch');
+		const tags = refs.filter(r => r.refType === 'tag');
+
+		return html`<div class="reachability-summary">
+			${this.renderReachabilityChip('branch', branches)} ${this.renderReachabilityChip('tag', tags)}
+		</div>`;
+	}
+
+	private renderReachabilityChip(type: 'branch' | 'tag', refs: NonNullable<typeof this.reachability>['refs']) {
+		if (!refs.length) return nothing;
+
+		const icon = type === 'branch' ? 'git-branch' : 'tag';
+		const count = refs.length;
+		const [first] = refs;
+
+		// Single ref - just show it
+		if (count === 1) {
+			const refTypeLabel = first.refType === 'branch' ? (first.remote ? 'remote branch' : 'branch') : 'tag';
+			return html`<gl-action-chip
+				icon="${icon}"
+				label="Commit on 1 ${refTypeLabel}: ${first.name}"
+				overlay="tooltip"
+				class="reachability-range-chip reachability-range-chip--${first.refType === 'branch'
+					? first.remote
+						? 'remote-branch'
+						: 'local-branch'
+					: 'tag'}${first.current ? ' reachability-range-chip--current' : ''}"
+				>${first.name}</gl-action-chip
+			>`;
+		}
+
+		// Multiple refs - show range with popover
+		const last = refs.at(-1)!;
+
+		return html`<gl-popover placement="bottom" trigger="hover focus click" class="reachability-range-chip-wrapper">
+			<gl-action-chip
+				slot="anchor"
+				class="reachability-range-chip reachability-range-chip--range reachability-range-chip--${type ===
+				'branch'
+					? 'local-branch'
+					: 'tag'}"
+				><span class="reachability-range-chip__label">
+					<code-icon icon="${icon}"></code-icon>${first.name}
+					<span class="reachability-range-chip__ellipsis">...</span>
+					<code-icon icon="${icon}"></code-icon>${last.name}
+				</span>
+				<span class="reachability-range-chip__count">+${count}</span></gl-action-chip
+			>
+			<div slot="content" class="reachability-popover">
+				<div class="reachability-popover__header">
+					Commit is on ${count} ${type === 'branch' ? 'branches' : 'tags'}
+				</div>
+				<div class="reachability-popover__list scrollable">
+					${refs.map(
+						r =>
+							html`<div
+								class="reachability-list-item${r.current ? ' reachability-list-item--current' : ''}"
+							>
+								<code-icon
+									icon="${type === 'branch' ? 'git-branch' : 'tag'}"
+									class="reachability-list-item__icon"
+								></code-icon>
+								<span class="reachability-list-item__label">${r.name}</span>
+							</div>`,
+					)}
+				</div>
+			</div>
+		</gl-popover>`;
 	}
 
 	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
@@ -394,11 +575,17 @@ export class GlCommitDetails extends GlDetailsBase {
 		if (stats?.files == null) return undefined;
 
 		if (typeof stats.files === 'number') {
-			return html`<commit-stats added="?" modified="${stats.files}" removed="?"></commit-stats>`;
+			return html`<commit-stats modified="${stats.files}" symbol="icons" appearance="pill"></commit-stats>`;
 		}
 
 		const { added, deleted, changed } = stats.files;
-		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
+		return html`<commit-stats
+			added="${added}"
+			modified="${changed}"
+			removed="${deleted}"
+			symbol="icons"
+			appearance="pill"
+		></commit-stats>`;
 	}
 
 	override getFileActions(_file: File, _options?: Partial<TreeItemBase>): TreeItemAction[] {
@@ -427,11 +614,36 @@ export class GlCommitDetails extends GlDetailsBase {
 				action: 'file-open-on-remote',
 			});
 		}
-		actions.push({
-			icon: 'ellipsis',
-			label: 'Show more actions',
-			action: 'file-more-actions',
-		});
 		return actions;
+	}
+
+	override getFileContextData(file: File): string | undefined {
+		if (!this.state?.commit) return undefined;
+
+		// Build webviewItem with modifiers matching view context values
+		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished]
+		const commit = this.state.commit;
+		const isStash = commit.stashNumber != null;
+
+		let webviewItem: DetailsItemContext['webviewItem'];
+		if (isStash) {
+			webviewItem = 'gitlens:file+stashed';
+		} else {
+			webviewItem = 'gitlens:file+committed';
+		}
+
+		const context: DetailsItemTypedContext = {
+			webviewItem: webviewItem,
+			webviewItemValue: {
+				type: 'file',
+				path: file.path,
+				repoPath: commit.repoPath,
+				sha: commit.sha,
+				stashNumber: commit.stashNumber,
+				status: file.status,
+			},
+		};
+
+		return serializeWebviewItemContext(context);
 	}
 }

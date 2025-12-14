@@ -1,6 +1,6 @@
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
-import { BranchError, BranchErrorReason } from '../../git/errors';
+import { BranchError } from '../../git/errors';
 import type { IssueShape } from '../../git/models/issue';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
@@ -14,7 +14,7 @@ import {
 	isBranchReference,
 	isRevisionReference,
 } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import { getIssueOwner } from '../../plus/integrations/providers/utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
@@ -108,7 +108,7 @@ interface UpstreamState {
 }
 
 type State = CreateState | DeleteState | PruneState | RenameState | UpstreamState;
-type BranchStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type BranchStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 
 type CreateStepState<T extends CreateState = CreateState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
 function assertStateStepCreate(state: PartialStepState<State>): asserts state is CreateStepState {
@@ -480,8 +480,23 @@ export class BranchGitCommand extends QuickCommand {
 					);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					// TODO likely need some better error handling here
-					return showGenericErrorMessage('Unable to create branch');
+
+					if (BranchError.is(ex, 'alreadyExists')) {
+						void window.showWarningMessage(
+							`Unable to create branch '${state.name}'. A branch with that name already exists.`,
+						);
+						return;
+					}
+
+					if (BranchError.is(ex, 'invalidName')) {
+						void window.showWarningMessage(
+							`Unable to create branch '${state.name}'. The branch name is invalid.`,
+						);
+						return;
+					}
+
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to create branch');
+					return;
 				}
 			}
 
@@ -635,7 +650,7 @@ export class BranchGitCommand extends QuickCommand {
 						}
 					}
 				} catch (ex) {
-					if (BranchError.is(ex, BranchErrorReason.BranchNotFullyMerged)) {
+					if (BranchError.is(ex, 'notFullyMerged')) {
 						const confirm = { title: 'Delete Branch' };
 						const cancel = { title: 'Cancel', isCloseAffordance: true };
 						const result = await window.showWarningMessage(
@@ -650,7 +665,10 @@ export class BranchGitCommand extends QuickCommand {
 								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
 							} catch (ex) {
 								Logger.error(ex, context.title);
-								void showGenericErrorMessage(ex);
+								void showGitErrorMessage(
+									ex,
+									BranchError.is(ex) ? undefined : 'Unable to force delete branch',
+								);
 							}
 						}
 
@@ -658,7 +676,7 @@ export class BranchGitCommand extends QuickCommand {
 					}
 
 					Logger.error(ex, context.title);
-					void showGenericErrorMessage(ex);
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to delete branch');
 				}
 			}
 		}
@@ -767,8 +785,7 @@ export class BranchGitCommand extends QuickCommand {
 				await state.repo.git.branches.renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				// TODO likely need some better error handling here
-				return showGenericErrorMessage('Unable to rename branch');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to rename branch');
 			}
 		}
 	}
@@ -833,7 +850,7 @@ export class BranchGitCommand extends QuickCommand {
 				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage('Unable to manage upstream tracking');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to manage upstream tracking');
 			}
 		}
 	}

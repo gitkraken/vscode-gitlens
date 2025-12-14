@@ -1,6 +1,57 @@
 import { GlyphChars } from '../../constants';
 import { pluralize } from '../../system/string';
 import type { GitTrackingUpstream } from '../models/branch';
+import type { GitDiffFileStats } from '../models/diff';
+
+export function getFormattedDiffStatus(
+	stats: GitDiffFileStats,
+	options?: {
+		compact?: boolean;
+		empty?: string;
+		expand?: boolean;
+		prefix?: string;
+		separator?: string;
+		suffix?: string;
+	},
+): string {
+	const { added, changed, deleted } = stats;
+	if (added === 0 && changed === 0 && deleted === 0) return options?.empty ?? '';
+
+	const prefix = options?.prefix ?? '';
+	const separator = options?.separator ?? ' ';
+	const suffix = options?.suffix ?? '';
+
+	if (options?.expand) {
+		let status = '';
+		if (added) {
+			status += `${pluralize('file', added)} added`;
+		}
+		if (changed) {
+			status += `${status.length === 0 ? '' : separator}${pluralize('file', changed)} changed`;
+		}
+		if (deleted) {
+			status += `${status.length === 0 ? '' : separator}${pluralize('file', deleted)} deleted`;
+		}
+		return `${prefix}${status}${suffix}`;
+	}
+
+	let status = '';
+	if (options?.compact) {
+		if (added !== 0) {
+			status += `+${added}`;
+		}
+		if (changed !== 0) {
+			status += `${status.length === 0 ? '' : separator}~${changed}`;
+		}
+		if (deleted !== 0) {
+			status += `${status.length === 0 ? '' : separator}-${deleted}`;
+		}
+	} else {
+		status += `+${added}${separator}~${changed}${separator}-${deleted}`;
+	}
+
+	return `${prefix}${status}${suffix}`;
+}
 
 export function getUpstreamStatus(
 	upstream: GitTrackingUpstream | undefined,

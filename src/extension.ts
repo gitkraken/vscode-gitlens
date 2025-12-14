@@ -4,8 +4,14 @@ import { hrtime } from '@env/hrtime';
 import { loggingJsonReplacer } from '@env/json';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
-import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
+import type {
+	CreatePullRequestActionContext,
+	GitLensApi,
+	OpenIssueActionContext,
+	OpenPullRequestActionContext,
+} from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
+import type { OpenIssueOnRemoteCommandArgs } from './commands/openIssueOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
 import { trackableSchemes } from './constants';
@@ -18,13 +24,18 @@ import { isRepository } from './git/models/repository';
 import { isTag } from './git/models/tag';
 import { getBranchNameWithoutRemote } from './git/utils/branch.utils';
 import { setAbbreviatedShaLength } from './git/utils/revision.utils';
-import { showDebugLoggingWarningMessage, showPreReleaseExpiredErrorMessage, showWhatsNewMessage } from './messages';
+import {
+	showDebugLoggingWarningMessage,
+	showMcpMessage,
+	showPreReleaseExpiredErrorMessage,
+	showWhatsNewMessage,
+} from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { executeCommand, registerCommands } from './system/-webview/command';
 import { configuration, Configuration } from './system/-webview/configuration';
 import { setContext } from './system/-webview/context';
 import { Storage } from './system/-webview/storage';
-import { deviceCohortGroup } from './system/-webview/vscode';
+import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode';
 import { isTextDocument } from './system/-webview/vscode/documents';
 import { isTextEditor } from './system/-webview/vscode/editors';
 import { isWorkspaceFolder } from './system/-webview/vscode/workspaces';
@@ -54,9 +65,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 					channel.appendLine(
 						`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion} activating in ${
 							env.appName
-						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+						} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
+							context.extensionMode,
+						)}, language='${
 							env.language
-						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.machineId}|${
+						}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 							env.sessionId
 						})`,
 					);
@@ -108,12 +121,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
-			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; mode=${getExtensionModeLabel(
+				context.extensionMode,
+			)},language='${
 				env.language
 			}', logLevel='${logLevel}', defaultDateLocale='${defaultDateLocale}' (${env.uriScheme}|${env.machineId}|${
 				env.sessionId
 			})`,
-			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
 	});
 
@@ -200,6 +214,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
+		showMcp(gitlensVersion, previousVersion);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
@@ -329,6 +344,16 @@ function registerBuiltInActionRunners(container: Container): void {
 				}));
 			},
 		}),
+		container.actionRunners.registerBuiltIn<OpenIssueActionContext>('openIssue', {
+			label: ctx => `Open Issue on ${ctx.provider?.name ?? 'Remote'}`,
+			run: async ctx => {
+				if (ctx.type !== 'openIssue') return;
+
+				void (await executeCommand<OpenIssueOnRemoteCommandArgs>('gitlens.openIssueOnRemote', {
+					issue: { url: ctx.issue.url },
+				}));
+			},
+		}),
 	);
 }
 
@@ -385,4 +410,18 @@ async function showWhatsNew(
 			container.context.subscriptions.push(disposable);
 		}
 	}
+}
+
+function showMcp(version: string, previousVersion: string | undefined): void {
+	if (
+		isWeb ||
+		previousVersion == null ||
+		version === previousVersion ||
+		compare(version, previousVersion) !== 1 ||
+		satisfies(fromString(previousVersion), '>= 17.5')
+	) {
+		return;
+	}
+
+	void showMcpMessage(version);
 }

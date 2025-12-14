@@ -65,7 +65,7 @@ interface PruneState {
 }
 
 type State = AddState | RemoveState | PruneState;
-type RemoteStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type RemoteStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 
 type AddStepState<T extends AddState = AddState> = RemoteStepState<ExcludeSome<T, 'repo', string>>;
 function assertStateStepAdd(state: PartialStepState<State>): asserts state is AddStepState {

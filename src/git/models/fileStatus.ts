@@ -12,6 +12,7 @@ export const enum GitFileConflictStatus {
 
 export const enum GitFileIndexStatus {
 	Modified = 'M',
+	TypeChanged = 'T',
 	Added = 'A',
 	Deleted = 'D',
 	Renamed = 'R',

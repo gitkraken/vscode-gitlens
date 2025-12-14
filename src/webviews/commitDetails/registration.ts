@@ -1,5 +1,4 @@
 import type { CommitSelectedEvent } from '../../eventBus';
-import type { Serialized } from '../../system/serialize';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController';
 import type { ShowWipArgs, State } from './protocol';
 
@@ -7,13 +6,8 @@ export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data
 
 export function registerCommitDetailsWebviewView(
 	controller: WebviewsController,
-): WebviewViewProxy<'gitlens.views.commitDetails', CommitDetailsWebviewShowingArgs, Serialized<State>> {
-	return controller.registerWebviewView<
-		'gitlens.views.commitDetails',
-		State,
-		Serialized<State>,
-		CommitDetailsWebviewShowingArgs
-	>(
+): WebviewViewProxy<'gitlens.views.commitDetails', CommitDetailsWebviewShowingArgs, State> {
+	return controller.registerWebviewView<'gitlens.views.commitDetails', State, State, CommitDetailsWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.commitDetails',
 			fileName: 'commitDetails.html',
@@ -37,13 +31,8 @@ export function registerCommitDetailsWebviewView(
 
 export function registerGraphDetailsWebviewView(
 	controller: WebviewsController,
-): WebviewViewProxy<'gitlens.views.graphDetails', CommitDetailsWebviewShowingArgs, Serialized<State>> {
-	return controller.registerWebviewView<
-		'gitlens.views.graphDetails',
-		State,
-		Serialized<State>,
-		CommitDetailsWebviewShowingArgs
-	>(
+): WebviewViewProxy<'gitlens.views.graphDetails', CommitDetailsWebviewShowingArgs, State> {
+	return controller.registerWebviewView<'gitlens.views.graphDetails', State, State, CommitDetailsWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graphDetails',
 			fileName: 'commitDetails.html',

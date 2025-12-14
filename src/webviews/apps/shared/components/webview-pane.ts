@@ -65,6 +65,12 @@ export class WebviewPane extends LitElement {
 			.title {
 				font-weight: bold;
 				text-transform: uppercase;
+				flex: 1;
+				min-width: 0;
+				width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 
 			:host(:not([collapsable])) .title {
@@ -73,6 +79,9 @@ export class WebviewPane extends LitElement {
 
 			.subtitle {
 				margin-left: 1rem;
+			}
+
+			.subtitle::slotted(*) {
 				opacity: 0.6;
 			}
 

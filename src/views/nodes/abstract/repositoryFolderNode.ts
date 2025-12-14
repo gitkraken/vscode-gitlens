@@ -6,7 +6,7 @@ import type { Repository, RepositoryChangeEvent } from '../../../git/models/repo
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { formatLastFetched } from '../../../git/utils/-webview/repository.utils';
 import { getHighlanderProviders } from '../../../git/utils/remote.utils';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import { basename } from '../../../system/path';
@@ -29,7 +29,7 @@ export abstract class RepositoryFolderNode<
 	) {
 		super('repo-folder', uri, view, parent);
 
-		this.updateContext({ repository: this.repo });
+		this.updateContext({ repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 

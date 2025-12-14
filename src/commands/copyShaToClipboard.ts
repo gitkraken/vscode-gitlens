@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/utils/revision.utils';
@@ -20,14 +21,15 @@ import {
 
 export interface CopyShaToClipboardCommandArgs {
 	sha?: string;
+	source?: Source;
 }
 
 @command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
-	static createMarkdownCommandLink(sha: string): string;
+	static createMarkdownCommandLink(sha: string, source: Source): string;
 	static createMarkdownCommandLink(args: CopyShaToClipboardCommandArgs): string;
-	static createMarkdownCommandLink(argsOrSha: CopyShaToClipboardCommandArgs | string): string {
-		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+	static createMarkdownCommandLink(argsOrSha: CopyShaToClipboardCommandArgs | string, source?: Source): string {
+		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha, source: source } : argsOrSha;
 		return createMarkdownCommandLink<CopyShaToClipboardCommandArgs>('gitlens.copyShaToClipboard', args);
 	}
 

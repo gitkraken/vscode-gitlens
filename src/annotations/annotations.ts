@@ -32,7 +32,8 @@ export type Decoration<T extends Range[] | DecorationOptions[] = Range[] | Decor
 };
 
 interface RenderOptions
-	extends DecorationInstanceRenderOptions,
+	extends
+		DecorationInstanceRenderOptions,
 		ThemableDecorationRenderOptions,
 		ThemableDecorationAttachmentRenderOptions {
 	height?: string;

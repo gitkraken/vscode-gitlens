@@ -64,7 +64,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 
 		const pausedOpStatus = await this.view.container.git
 			.getRepositoryService(this.commit.repoPath)
-			.status.getPausedOperationStatus?.();
+			.pausedOps?.getPausedOperationStatus?.();
 		if (pausedOpStatus == null) return [];
 
 		return [
@@ -167,7 +167,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		}
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-			'gitlens.diffWithPrevious',
+			'gitlens.diffWithPrevious:views',
 			'Open Changes with Previous Revision',
 			undefined,
 			{
@@ -257,15 +257,20 @@ export async function getFileRevisionAsCommitTooltip(
 			outputFormat: 'markdown',
 		},
 	);
-	return CommitFormatter.fromTemplateAsync(tooltipWithStatusFormat.replace('{{slot-status}}', status), commit, {
-		enrichedAutolinks: enrichedAutolinks,
-		dateFormat: configuration.get('defaultDateFormat'),
-		getBranchAndTagTips: options?.getBranchAndTagTips,
-		messageAutolinks: true,
-		messageIndent: 4,
-		pullRequest: pr,
-		outputFormat: 'markdown',
-		remotes: remotes,
-		unpublished: options?.unpublished,
-	});
+	return CommitFormatter.fromTemplateAsync(
+		tooltipWithStatusFormat.replace('{{slot-status}}', status),
+		commit,
+		{ source: 'view:hover' },
+		{
+			enrichedAutolinks: enrichedAutolinks,
+			dateFormat: configuration.get('defaultDateFormat'),
+			getBranchAndTagTips: options?.getBranchAndTagTips,
+			messageAutolinks: true,
+			messageIndent: 4,
+			pullRequest: pr,
+			outputFormat: 'markdown',
+			remotes: remotes,
+			unpublished: options?.unpublished,
+		},
+	);
 }

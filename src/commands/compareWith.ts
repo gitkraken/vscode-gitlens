@@ -1,6 +1,8 @@
 import type { TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
+import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
+import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
@@ -68,10 +70,19 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			const repoPath = (await getBestRepositoryOrShowPicker(this.container, uri, editor, title))?.path;
 			if (!repoPath) return;
 
+			if (args.ref1 == null || args.ref2 == null) {
+				const result = await showComparisonPicker(this.container, repoPath, {
+					head: args.ref1 != null ? createReference(args.ref1, repoPath) : undefined,
+					base: args.ref2 != null ? createReference(args.ref2, repoPath) : undefined,
+				});
+				if (result == null) return;
+
+				args.ref1 = result.head.ref;
+				args.ref2 = result.base.ref;
+			}
+
 			if (args.ref1 != null && args.ref2 != null) {
 				await this.container.views.searchAndCompare.compare(repoPath, args.ref1, args.ref2);
-			} else {
-				this.container.views.searchAndCompare.selectForCompare(repoPath, args.ref1, { prompt: true });
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');

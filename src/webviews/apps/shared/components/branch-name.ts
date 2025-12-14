@@ -7,22 +7,23 @@ import './code-icon';
 export class GlBranchName extends LitElement {
 	static override styles = css`
 		:host {
-			display: inline-block;
+			display: inline-flex;
+			align-items: baseline;
 			max-width: 100%;
-			align-content: center;
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			vertical-align: middle;
-			margin-top: -3px;
+			margin-inline: 0.2rem;
+		}
+
+		:host(:focus) {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 2px;
 		}
 
 		.icon {
-			margin: 0 0.3rem 0.1rem 0.2rem;
-		}
-
-		.worktree .icon {
-			margin-right: 0.4rem;
+			margin-right: 0.3rem;
+			align-self: center;
 		}
 
 		.label {
@@ -40,14 +41,12 @@ export class GlBranchName extends LitElement {
 	worktree = false;
 
 	override render(): unknown {
-		return html`<span class="${this.worktree ? 'worktree' : 'branch'}"
-			><code-icon
+		return html`<code-icon
 				class="icon"
 				icon="${this.worktree ? 'gl-worktree' : 'git-branch'}"
 				size="${this.size}"
 			></code-icon
-			><span class="label">${this.name ?? '<missing>'}</span></span
-		>`;
+			><span class="label">${this.name ?? '<missing>'}</span>`;
 	}
 }
 

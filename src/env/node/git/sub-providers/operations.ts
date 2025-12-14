@@ -1,0 +1,401 @@
+import type { Container } from '../../../../container';
+import type { GitCache } from '../../../../git/cache';
+import { GitErrorHandling } from '../../../../git/commandOptions';
+import { CherryPickError, MergeError, PushError, RebaseError, RevertError } from '../../../../git/errors';
+import type { GitOperationsSubProvider } from '../../../../git/gitProvider';
+import type { GitBranchReference, GitReference } from '../../../../git/models/reference';
+import { getShaAndDatesLogParser } from '../../../../git/parsers/logParser';
+import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../../git/utils/branch.utils';
+import { isBranchReference } from '../../../../git/utils/reference.utils';
+import { configuration } from '../../../../system/-webview/configuration';
+import { getHostEditorCommand } from '../../../../system/-webview/vscode';
+import { log } from '../../../../system/decorators/log';
+import { sequentialize } from '../../../../system/decorators/sequentialize';
+import { join } from '../../../../system/iterable';
+import { Logger } from '../../../../system/logger';
+import { getLogScope } from '../../../../system/logger.scope';
+import type { Git, PushForceOptions } from '../git';
+import { getGitCommandError } from '../git';
+import type { LocalGitProviderInternal } from '../localGitProvider';
+
+export class OperationsGitSubProvider implements GitOperationsSubProvider {
+	constructor(
+		private readonly container: Container,
+		private readonly git: Git,
+		private readonly cache: GitCache,
+		private readonly provider: LocalGitProviderInternal,
+	) {}
+
+	@log()
+	async checkout(
+		repoPath: string,
+		ref: string,
+		options?: { createBranch?: string } | { path?: string },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.checkout(repoPath, ref, options);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches', 'status'] });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
+	@log()
+	async cherryPick(
+		repoPath: string,
+		revs: string[],
+		options?: { edit?: boolean; noCommit?: boolean },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['cherry-pick'];
+		if (options?.edit) {
+			args.push('-e');
+		}
+		if (options?.noCommit) {
+			args.push('-n');
+		}
+
+		if (revs.length > 1) {
+			const parser = getShaAndDatesLogParser();
+			// Ensure the revs are in reverse committer date order
+			const result = await this.git.exec(
+				{ cwd: repoPath, stdin: join(revs, '\n') },
+				'log',
+				'--no-walk',
+				'--stdin',
+				...parser.arguments,
+				'--',
+			);
+			const commits = [...parser.parse(result.stdout)].sort(
+				(c1, c2) =>
+					Number(c1.committerDate) - Number(c2.committerDate) ||
+					Number(c1.authorDate) - Number(c2.authorDate),
+			);
+			revs = commits.map(c => c.sha);
+		}
+
+		args.push(...revs);
+
+		try {
+			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...args);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw getGitCommandError(
+				'cherry-pick',
+				ex,
+				reason =>
+					new CherryPickError(
+						{ reason: reason ?? 'other', revs: revs, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
+		}
+	}
+
+	@sequentialize<OperationsGitSubProvider['fetch']>({ getQueueKey: rp => rp })
+	@log()
+	async fetch(
+		repoPath: string,
+		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const { branch, ...opts } = options ?? {};
+		try {
+			if (isBranchReference(branch)) {
+				const [branchName, remoteName] = getBranchNameAndRemote(branch);
+				if (remoteName == null) return undefined;
+
+				await this.git.fetch(repoPath, {
+					branch: branchName,
+					remote: remoteName,
+					upstream: getBranchTrackingWithoutRemote(branch)!,
+					pull: options?.pull,
+				});
+			} else {
+				await this.git.fetch(repoPath, opts);
+			}
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
+	@log()
+	async merge(
+		repoPath: string,
+		ref: string,
+		options?: { fastForward?: boolean | 'only'; noCommit?: boolean; squash?: boolean },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['merge'];
+
+		if (options?.fastForward === 'only') {
+			args.push('--ff-only');
+		} else if (options?.fastForward === true) {
+			args.push('--ff');
+		} else if (options?.fastForward === false) {
+			args.push('--no-ff');
+		}
+		if (options?.squash) {
+			args.push('--squash');
+		}
+		if (options?.noCommit) {
+			args.push('--no-commit');
+		}
+
+		args.push(ref);
+
+		try {
+			await this.git.exec(
+				// Avoid a timeout since merges can take a long time (set to 0 to disable)
+				{ cwd: repoPath, errors: GitErrorHandling.Throw, timeout: 0 },
+				...args,
+			);
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw getGitCommandError(
+				'merge',
+				ex,
+				reason =>
+					new MergeError(
+						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
+		}
+	}
+
+	@sequentialize<OperationsGitSubProvider['pull']>({ getQueueKey: rp => rp })
+	@log()
+	async pull(repoPath: string, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.pull(repoPath, {
+				rebase: options?.rebase,
+				tags: options?.tags,
+			});
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
+	@sequentialize<OperationsGitSubProvider['push']>({ getQueueKey: rp => rp })
+	@log()
+	async push(
+		repoPath: string,
+		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		let branchName: string;
+		let remoteName: string | undefined;
+		let upstreamName: string | undefined;
+		let setUpstream:
+			| {
+					branch: string;
+					remote: string;
+					remoteBranch: string;
+			  }
+			| undefined;
+
+		if (isBranchReference(options?.reference)) {
+			if (options.publish != null) {
+				branchName = options.reference.name;
+				remoteName = options.publish.remote;
+			} else {
+				[branchName, remoteName] = getBranchNameAndRemote(options.reference);
+			}
+			upstreamName = getBranchTrackingWithoutRemote(options.reference);
+		} else {
+			const branch = await this.provider.branches.getBranch(repoPath);
+			if (branch == null) return;
+
+			branchName =
+				options?.reference != null
+					? `${options.reference.ref}:${
+							options?.publish != null ? 'refs/heads/' : ''
+						}${branch.getNameWithoutRemote()}`
+					: branch.name;
+			remoteName = branch.getRemoteName() ?? options?.publish?.remote;
+			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
+
+			// Git can't setup upstream tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
+			if (options?.publish?.remote != null && options?.reference != null) {
+				setUpstream = {
+					branch: branch.getNameWithoutRemote(),
+					remote: remoteName!,
+					remoteBranch: branch.getNameWithoutRemote(),
+				};
+			}
+		}
+
+		if (options?.publish == null && remoteName == null && upstreamName == null) {
+			debugger;
+			throw new PushError({ reason: 'other' });
+		}
+
+		let forceOpts: PushForceOptions | undefined;
+		if (options?.force) {
+			const withLease = configuration.getCore('git.useForcePushWithLease') ?? true;
+			if (withLease) {
+				forceOpts = {
+					withLease: withLease,
+					ifIncludes: configuration.getCore('git.useForcePushIfIncludes') ?? true,
+				};
+			} else {
+				forceOpts = {
+					withLease: withLease,
+				};
+			}
+		}
+
+		try {
+			await this.git.push(repoPath, {
+				branch: branchName,
+				remote: remoteName,
+				upstream: upstreamName,
+				force: forceOpts,
+				publish: options?.publish != null,
+			});
+
+			// Since Git can't setup upstream tracking when publishing a new branch to a specific commit, do it now
+			if (setUpstream != null) {
+				await this.git.exec(
+					{ cwd: repoPath },
+					'branch',
+					'--set-upstream-to',
+					`${setUpstream.remote}/${setUpstream.remoteBranch}`,
+					setUpstream.branch,
+				);
+			}
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
+	@log()
+	async rebase(
+		repoPath: string,
+		upstream: string,
+		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['rebase'];
+		let configs;
+
+		if (options?.autoStash !== false) {
+			args.push('--autostash');
+		}
+
+		if (options?.interactive) {
+			args.push('--interactive');
+
+			const editor = await getHostEditorCommand(true);
+			configs = ['-c', `sequence.editor=${editor}`];
+		}
+
+		if (options?.onto) {
+			args.push('--onto', options.onto);
+		}
+
+		args.push(upstream);
+
+		if (options?.branch) {
+			args.push(options.branch);
+		}
+
+		try {
+			await this.git.exec(
+				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
+				{ cwd: repoPath, errors: GitErrorHandling.Throw, configs: configs, timeout: 0 },
+				...args,
+			);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw getGitCommandError(
+				'rebase',
+				ex,
+				reason =>
+					new RebaseError(
+						{
+							reason: reason ?? 'other',
+							upstream: upstream,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
+			);
+		}
+	}
+
+	@log()
+	async reset(
+		repoPath: string,
+		rev: string,
+		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
+	): Promise<void> {
+		const scope = getLogScope();
+
+		try {
+			await this.git.reset(repoPath, [], { ...options, rev: rev });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
+	@log()
+	async revert(repoPath: string, refs: string[], options?: { editMessage?: boolean }): Promise<void> {
+		const scope = getLogScope();
+
+		const args = ['revert'];
+
+		if (options?.editMessage === true) {
+			args.push('--edit');
+		} else if (options?.editMessage === false) {
+			args.push('--no-edit');
+		}
+
+		args.push(...refs);
+
+		try {
+			await this.git.exec(
+				// Avoid a timeout since reverts can take a long time (set to 0 to disable)
+				{ cwd: repoPath, errors: GitErrorHandling.Throw, timeout: 0 },
+				...args,
+			);
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			throw getGitCommandError(
+				'revert',
+				ex,
+				reason =>
+					new RevertError(
+						{ reason: reason ?? 'other', refs: refs, gitCommand: { repoPath: repoPath, args: args } },
+						ex,
+					),
+			);
+		}
+	}
+}

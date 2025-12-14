@@ -11,9 +11,12 @@
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?b264f1ed05b6fced8e7bfbe5c426587e') format('woff2');
+				src: url('#{root}/dist/glicons.woff2?d3b316716ee1329763a193a20834cd0a') format('woff2');
 			}
 		</style>
+		<script type="application/javascript" nonce="#{cspNonce}">
+			window.webpackResourceBasePath = '#{webroot}/';
+		</script>
 	</head>
 
 	<body
@@ -21,7 +24,10 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<gl-commit-details-app id="app"></gl-commit-details-app>
-		#{endOfBody}
+		<gl-commit-details-app
+			name="CommitDetailsView"
+			placement="#{placement}"
+			bootstrap="#{state}"
+		></gl-commit-details-app>
 	</body>
 </html>

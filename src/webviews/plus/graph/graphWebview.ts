@@ -1,3 +1,4 @@
+import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
@@ -12,11 +13,13 @@ import type { ExplainStashCommandArgs } from '../../../commands/explainStash';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
-import type { GenerateCommitsCommandArgs, GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
+import type { GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
 import type { InspectCommandArgs } from '../../../commands/inspect';
+import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
 import type { CreatePatchCommandArgs } from '../../../commands/patches';
+import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch';
 import type {
 	Config,
 	GraphBranchesVisibility,
@@ -25,6 +28,7 @@ import type {
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
 import type { ContextKeys } from '../../../constants.context';
+import type { SearchQuery } from '../../../constants.search';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -49,6 +53,7 @@ import * as ContributorActions from '../../../git/actions/contributor';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
+	showPausedOperationStatus,
 	skipPausedOperation,
 } from '../../../git/actions/pausedOperation';
 import * as RepoActions from '../../../git/actions/repository';
@@ -63,6 +68,7 @@ import { isStash } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type { IssueShape } from '../../../git/models/issue';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
@@ -79,12 +85,14 @@ import type {
 } from '../../../git/models/repository';
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
-import type { GitGraphSearch } from '../../../git/search';
-import {
-	getSearchQueryComparisonKey,
-	parseSearchQuery,
-	processNaturalLanguageToSearchQuery,
+import type {
+	GitCommitSearchContext,
+	GitGraphSearch,
+	GitGraphSearchProgress,
+	GitGraphSearchResults,
 } from '../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
+import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
 import { getBranchMergeTargetInfo, getStarredBranchIds } from '../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
@@ -106,11 +114,14 @@ import {
 import { createReference } from '../../../git/utils/reference.utils';
 import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
+import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
-import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { showComparisonPicker } from '../../../quickpicks/comparisonPicker';
+import { showContributorsPicker } from '../../../quickpicks/contributorsPicker';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -118,23 +129,26 @@ import {
 	registerCommand,
 } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
-import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
+import type { StorageChangeEvent } from '../../../system/-webview/storage';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
-import { openUrl } from '../../../system/-webview/vscode/uris';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces';
+import { filterMap } from '../../../system/array';
+import { getScopedCounter } from '../../../system/counter';
 import { debug, log } from '../../../system/decorators/log';
 import { disposableInterval } from '../../../system/function';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
 import { count, find, join, last } from '../../../system/iterable';
-import { flatten, updateRecordValue } from '../../../system/object';
+import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
 import { Stopwatch } from '../../../system/stopwatch';
+import { createDisposable } from '../../../system/unifiedDisposable';
 import { serializeWebviewItemContext } from '../../../system/webview';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
@@ -142,6 +156,7 @@ import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../prot
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
 import { isSerializedState } from '../../webviewsController';
+import type { ComposerCommandArgs } from '../composer/registration';
 import type { TimelineCommandArgs } from '../timeline/registration';
 import {
 	formatRepositories,
@@ -177,6 +192,7 @@ import type {
 	GraphMissingRefsMetadataType,
 	GraphRefMetadata,
 	GraphRefMetadataType,
+	GraphRefType,
 	GraphRepository,
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
@@ -195,12 +211,16 @@ import type {
 	UpdateSelectionParams,
 } from './protocol';
 import {
+	ChooseAuthorRequest,
+	ChooseComparisonRequest,
+	ChooseFileRequest,
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeRefsMetadataNotification,
@@ -222,7 +242,12 @@ import {
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
 	GetRowHoverRequest,
+	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
+	SearchCancelCommand,
+	SearchHistoryDeleteRequest,
+	SearchHistoryGetRequest,
+	SearchHistoryStoreRequest,
 	SearchOpenInViewCommand,
 	SearchRequest,
 	supportedRefMetadataTypes,
@@ -234,7 +259,17 @@ import {
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from './protocol';
-import type { GraphWebviewShowingArgs } from './registration';
+import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from './registration';
+import { SearchHistory } from './searchHistory';
+
+interface SelectedRowState {
+	selected: boolean;
+	hidden?: boolean;
+}
+
+function hasSearchQuery(arg: any): arg is { repository: Repository; search: SearchQuery } {
+	return arg?.repository != null && arg?.search != null;
+}
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
@@ -310,12 +345,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	private _search: GitGraphSearch | undefined;
+	private _searchIdCounter = getScopedCounter();
 	private _selectedId?: string;
-	private _selectedRows: GraphSelectedRows | undefined;
+	private _honorSelectedId = false;
+	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _showDetailsView: Config['graph']['showDetailsView'];
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
+	private _searchHistory: SearchHistory | undefined;
 
 	private isWindowFocused: boolean = true;
 
@@ -330,6 +368,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
@@ -416,6 +455,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return context;
 	}
 
+	private _searchRequest: SearchQuery | undefined;
+
 	async onShowing(
 		loading: boolean,
 		_options?: WebviewShowOptions,
@@ -443,6 +484,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				id = (await this.container.git.getRepositoryService(arg.ref.repoPath).revision.resolveRevision(id)).sha;
 			}
 
+			// Make sure we honor the selection to ensure we won't override it with the default selection
+			this._honorSelectedId = true;
 			this.setSelectedRows(id);
 
 			if (this._graph != null) {
@@ -453,6 +496,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				void this.onGetMoreRows({ id: id }, true);
 			}
+		} else if (hasSearchQuery(arg)) {
+			this.repository = arg.repository;
+			this._searchRequest = arg.search;
+			this.updateState();
 		} else {
 			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
 				this.repository = this.container.git.getRepository(arg.state.selectedRepository);
@@ -482,7 +529,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	includeBootstrap(): Promise<State> {
+	includeBootstrap(_deferrable?: boolean): Promise<State> {
 		return this.getState(true);
 	}
 
@@ -495,7 +542,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				registerCommand(
 					`${this.host.id}.openInTab`,
 					() =>
-						void executeCommand<WebviewPanelShowCommandArgs>(
+						void executeCommand<WebviewPanelShowCommandArgs<GraphWebviewShowingArgs>>(
 							'gitlens.showGraphPage',
 							undefined,
 							this.repository,
@@ -525,6 +572,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote),
 			this.host.registerWebviewCommand('gitlens.graph.renameBranch', this.renameBranch),
 			this.host.registerWebviewCommand('gitlens.graph.associateIssueWithBranch', this.associateIssueWithBranch),
+			this.host.registerWebviewCommand('gitlens.changeUpstream:graph', this.changeUpstreamBranch),
+			this.host.registerWebviewCommand('gitlens.setUpstream:graph', this.changeUpstreamBranch),
 
 			this.host.registerWebviewCommand('gitlens.graph.switchToBranch', this.switchTo),
 
@@ -537,6 +586,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.hideRef(item, { group: true }),
 			),
 			this.host.registerWebviewCommand('gitlens.graph.hideTag', this.hideRef),
+
+			this.host.registerWebviewCommand('gitlens.graph.soloBranch', this.soloReference),
+			this.host.registerWebviewCommand('gitlens.graph.soloTag', this.soloReference),
 
 			this.host.registerWebviewCommand('gitlens.graph.cherryPick', this.cherryPick),
 			this.host.registerWebviewCommand('gitlens.graph.cherryPick.multi', this.cherryPick),
@@ -590,6 +642,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.compareAncestryWithWorking',
 				this.compareAncestryWithWorking,
 			),
+
+			this.host.registerWebviewCommand('gitlens.views.selectForCompare:graph', this.selectForCompare),
+			this.host.registerWebviewCommand('gitlens.views.compareWithSelected:graph', this.compareWithSelected),
 
 			this.host.registerWebviewCommand('gitlens.graph.copy', this.copy),
 			this.host.registerWebviewCommand('gitlens.graph.copyMessage', this.copyMessage),
@@ -663,6 +718,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.shareAsCloudPatch', this.shareAsCloudPatch),
 			this.host.registerWebviewCommand('gitlens.graph.createPatch', this.shareAsCloudPatch),
 			this.host.registerWebviewCommand('gitlens.graph.createCloudPatch', this.shareAsCloudPatch),
+			this.host.registerWebviewCommand('gitlens.copyPatchToClipboard:graph', this.copyPatchToClipboard),
 
 			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
 			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
@@ -698,19 +754,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.copyWorkingChangesToWorktree,
 			),
 			this.host.registerWebviewCommand('gitlens.ai.generateCommitMessage:graph', this.generateCommitMessage),
+			this.host.registerWebviewCommand('gitlens.ai.explainUnpushed:graph', this.aiExplainUnpushed),
 			this.host.registerWebviewCommand('gitlens.ai.explainBranch:graph', this.explainBranch),
 			this.host.registerWebviewCommand('gitlens.ai.explainCommit:graph', this.explainCommit),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeBranch:graph', item =>
+				this.recomposeBranch(item),
+			),
 			this.host.registerWebviewCommand('gitlens.ai.explainStash:graph', this.explainStash),
 			this.host.registerWebviewCommand('gitlens.ai.explainWip:graph', this.explainWip),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
-			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
-			this.host.registerWebviewCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation),
-			this.host.registerWebviewCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor),
-			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.abort:graph', this.abortPausedOperation),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.continue:graph', this.continuePausedOperation),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.open:graph', this.openRebaseEditor),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.showConflicts:graph', this.showConflicts as any),
+			this.host.registerWebviewCommand('gitlens.pausedOperation.skip:graph', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
-			this.host.registerWebviewCommand('gitlens.ai.generateCommits:graph', this.generateCommits),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.composeCommits:graph', item =>
+				this.composeCommits(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeSelectedCommits:graph', item =>
+				this.recomposeBranch(item),
+			),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
@@ -724,7 +790,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	onFocusChanged(focused: boolean): void {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
-		if (!focused || this.activeSelection == null || !this.container.views.commitDetails.visible) {
+		if (
+			!focused ||
+			this.activeSelection == null ||
+			(!this.container.views.commitDetails.visible && !this.container.views.graphDetails.visible)
+		) {
 			return;
 		}
 
@@ -760,8 +830,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case ChooseRepositoryCommand.is(e):
 				void this.onChooseRepository();
 				break;
+			case ChooseAuthorRequest.is(e):
+				void this.onChooseAuthor(ChooseAuthorRequest, e);
+				break;
 			case ChooseRefRequest.is(e):
 				void this.onChooseRef(ChooseRefRequest, e);
+				break;
+			case ChooseComparisonRequest.is(e):
+				void this.onChooseComparison(ChooseComparisonRequest, e);
+				break;
+			case ChooseFileRequest.is(e):
+				void this.onChooseFile(ChooseFileRequest, e);
+				break;
+			case JumpToHeadRequest.is(e):
+				void this.onJumpToHead(JumpToHeadRequest, e);
 				break;
 			case DoubleClickedCommandType.is(e):
 				void this.onDoubleClick(e.params);
@@ -790,8 +872,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case SearchRequest.is(e):
 				void this.onSearchRequest(SearchRequest, e);
 				break;
+			case SearchCancelCommand.is(e):
+				this.onSearchCancel(e.params);
+				break;
 			case SearchOpenInViewCommand.is(e):
 				this.onSearchOpenInView(e.params);
+				break;
+			case SearchHistoryGetRequest.is(e):
+				this.onSearchHistoryGetRequest(SearchHistoryGetRequest, e);
+				break;
+			case SearchHistoryStoreRequest.is(e):
+				void this.onSearchHistoryStoreRequest(SearchHistoryStoreRequest, e);
+				break;
+			case SearchHistoryDeleteRequest.is(e):
+				void this.onSearchHistoryDeleteRequest(SearchHistoryDeleteRequest, e);
 				break;
 			case UpdateColumnsCommand.is(e):
 				this.onColumnsChanged(e.params);
@@ -884,6 +978,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
 		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
+
+		// Update the active search query's filter property to match the new mode
+		updateSearchMode(this.container, this._search, params.searchMode);
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -891,10 +988,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		| undefined = undefined;
 
 	private showActiveSelectionDetails() {
-		if (this._showActiveSelectionDetailsDebounced == null) {
-			this._showActiveSelectionDetailsDebounced = debounce(this.showActiveSelectionDetailsCore.bind(this), 250);
-		}
-
+		this._showActiveSelectionDetailsDebounced ??= debounce(this.showActiveSelectionDetailsCore.bind(this), 250);
 		this._showActiveSelectionDetailsDebounced();
 	}
 
@@ -909,11 +1003,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				interaction: 'passive',
 				preserveFocus: true,
 				preserveVisibility: this._showDetailsView === false,
+				searchContext: this.getSearchContext(activeSelection.ref),
 			},
-			{
-				source: this.host.id,
-			},
+			{ source: this.host.id },
 		);
+	}
+
+	private getSearchContext(id: string | undefined): GitCommitSearchContext | undefined {
+		if (!this._search?.queryFilters.files || id == null) return undefined;
+
+		const result = this._search.results.get(id);
+		return {
+			query: this._search.query,
+			queryFilters: this._search.queryFilters,
+			matchedFiles: result?.files ?? [],
+			hiddenFromGraph: this._selectedRows?.[id]?.hidden ?? false,
+		};
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -1028,6 +1133,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.notifyDidChangeSubscription();
 	}
 
+	private onStorageChanged(e: StorageChangeEvent) {
+		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+			this.onMcpBannerChanged();
+		}
+	}
+
+	private onMcpBannerChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeMcpBanner, this.getMcpBannerCollapsed());
+	}
+
+	private getMcpBannerCollapsed() {
+		return !isMcpBannerEnabled(this.container);
+	}
+
 	private onThemeChanged(theme: ColorTheme) {
 		if (
 			this._theme != null &&
@@ -1096,6 +1217,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
 			if (commit != null) {
+				const searchContext = this.getSearchContext(e.row.id);
 				this.container.events.fire(
 					'commit:selected',
 					{
@@ -1103,10 +1225,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						interaction: 'active',
 						preserveFocus: e.preserveFocus,
 						preserveVisibility: false,
+						searchContext: searchContext,
 					},
-					{
-						source: this.host.id,
-					},
+					{ source: this.host.id },
 				);
 
 				const details = this.host.is('editor')
@@ -1117,6 +1238,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commit: commit,
 						interaction: 'active',
 						preserveVisibility: false,
+						searchContext: searchContext,
 					} satisfies CommitSelectedEvent['data']);
 				}
 			}
@@ -1234,26 +1356,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			pr = getSettledValue(prResult);
 		}
 
-		let template;
-		if (isStash(commit)) {
-			template = configuration.get('views.formats.stashes.tooltip');
-		} else {
-			template = configuration.get('views.formats.commits.tooltip');
-		}
+		const template = configuration.get(`views.formats.${isStash(commit) ? 'stashes' : 'commits'}.tooltip`);
 
 		this._getBranchesAndTagsTips ??= await svc.getBranchesAndTagsTipsLookup();
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(template, commit, {
-			enrichedAutolinks: enrichedAutolinks,
-			dateFormat: configuration.get('defaultDateFormat'),
-			getBranchAndTagTips: this._getBranchesAndTagsTips,
-			messageAutolinks: true,
-			messageIndent: 4,
-			pullRequest: pr,
-			outputFormat: 'markdown',
-			remotes: remotes,
-			// unpublished: this.unpublished,
-		});
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			template,
+			commit,
+			{ source: 'graph' },
+			{
+				enrichedAutolinks: enrichedAutolinks,
+				dateFormat: configuration.get('defaultDateFormat'),
+				getBranchAndTagTips: this._getBranchesAndTagsTips,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequest: pr,
+				outputFormat: 'markdown',
+				remotes: remotes,
+				// unpublished: this.unpublished,
+			},
+		);
 
 		return tooltip;
 	}
@@ -1540,6 +1662,66 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
+	private onSearchHistoryGetRequest<T extends typeof SearchHistoryGetRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		try {
+			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+		} catch {
+			void this.host.respond(requestType, msg, { history: [] });
+		}
+	}
+
+	@debug()
+	private async onSearchHistoryStoreRequest<T extends typeof SearchHistoryStoreRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+
+		try {
+			await this._searchHistory.store(msg.params.search);
+		} finally {
+			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+		}
+	}
+
+	@debug()
+	private async onSearchHistoryDeleteRequest<T extends typeof SearchHistoryDeleteRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		try {
+			await this._searchHistory.delete(msg.params.query);
+		} finally {
+			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+		}
+	}
+
+	@debug()
+	private onSearchCancel(params: { preserveResults: boolean }) {
+		this.cancelOperation('search');
+
+		// For pause (preserveResults: true), the generator will handle cancellation gracefully and return results collected so far
+
+		if (!params.preserveResults) {
+			this._searchIdCounter.next();
+			this.resetSearchState();
+
+			// Send clear notification to webview
+			void this.host.notify(DidSearchNotification, {
+				search: undefined,
+				results: undefined,
+				partial: false,
+				searchId: this._searchIdCounter.current,
+			});
+		}
+	}
+
+	@debug()
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
@@ -1550,13 +1732,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
-		const types = query != null ? join(query?.keys(), ',') : '';
+		const types = query != null ? join(query.operations.keys(), ',') : '';
 
 		let results;
 		let exception: (Error & { original?: Error }) | undefined;
 
 		try {
-			results = await this.getSearchResults(msg.params);
+			results = await this.searchGraphOrContinue(msg.params, true);
 			void this.host.respond(requestType, msg, results);
 		} catch (ex) {
 			exception = ex;
@@ -1565,6 +1747,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				results: isCancellationError(ex)
 					? undefined
 					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
+				partial: false,
+				searchId: this._searchIdCounter.current,
 			});
 		} finally {
 			const cancelled = isCancellationError(exception);
@@ -1583,103 +1767,249 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async getSearchResults(e: SearchParams): Promise<DidSearchParams> {
-		if (e.search == null) {
-			this.resetSearchState();
-			return { search: e.search, results: undefined };
-		}
-
-		let search: GitGraphSearch | undefined = this._search;
+	private async searchGraphOrContinue(e: SearchParams, progressive: boolean = true): Promise<DidSearchParams> {
+		let search = this._search;
 
 		const graph = this._graph!;
 
-		if (e.more && search?.more != null && search.comparisonKey === getSearchQueryComparisonKey(e.search)) {
-			search = await search.more(e.limit ?? configuration.get('graph.searchItemLimit') ?? 100);
-			if (search != null) {
-				this._search = search;
-				void (await this.ensureSearchStartsInRange(graph, search));
-
+		if (
+			e.more &&
+			search?.paging?.cursor != null &&
+			search.comparisonKey === getSearchQueryComparisonKey(e.search)
+		) {
+			if (this.repository == null) {
 				return {
 					search: e.search,
-					results: search.results.size
-						? {
-								ids: Object.fromEntries(search.results),
-								count: search.results.size,
-								paging: { hasMore: search.paging?.hasMore ?? false },
-							}
-						: undefined,
+					results: { error: 'No repository' },
+					partial: false,
+					searchId: this._searchIdCounter.current,
 				};
 			}
 
-			return { search: e.search, results: undefined };
+			const searchId = this._searchIdCounter.current;
+			const cancellation = this.createCancellation('search');
+
+			try {
+				// Continue search from cursor, passing existing results
+				const searchStream = this.repository.git.graph.continueSearchGraph(
+					search.paging.cursor,
+					search.results,
+					{
+						limit: e.limit ?? configuration.get('graph.searchItemLimit') ?? 0,
+					},
+					cancellation.token,
+				);
+				using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
+
+				search = await this.processSearchStream(searchStream, searchId, progressive, graph);
+
+				if (search != null) {
+					return {
+						search: e.search,
+						results: this.getSearchResultsData(search),
+						partial: false,
+						searchId: this._searchIdCounter.current,
+					};
+				}
+
+				return {
+					search: e.search,
+					results: undefined,
+					partial: false,
+					searchId: this._searchIdCounter.current,
+				};
+			} finally {
+				cancellation.dispose();
+			}
 		}
 
-		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
-			if (this.repository == null) return { search: e.search, results: { error: 'No repository' } };
+		let firstResultSelected = false;
+
+		if (search?.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
+			if (this.repository == null) {
+				return {
+					search: e.search,
+					results: { error: 'No repository' },
+					partial: false,
+					searchId: this._searchIdCounter.current,
+				};
+			}
 
 			if (this.repository.etag !== this._etagRepository) {
 				this.updateState(true);
 			}
 
+			// Increment search ID for new search
+			const searchId = this._searchIdCounter.next();
+			this._search = undefined;
+
+			// Clear previous search results immediately
+			void this.host.notify(DidSearchNotification, {
+				search: e.search,
+				results: undefined,
+				partial: false,
+				searchId: searchId,
+			});
+
 			const cancellation = this.createCancellation('search');
 
 			try {
-				search = await this.repository.git.graph.searchGraph(
+				const searchStream = this.repository.git.graph.searchGraph(
 					e.search,
 					{
-						limit: configuration.get('graph.searchItemLimit') ?? 100,
+						limit: configuration.get('graph.searchItemLimit') ?? 0,
 						ordering: configuration.get('graph.commitOrdering'),
 					},
 					cancellation.token,
 				);
+				using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
+
+				search = await this.processSearchStream(searchStream, searchId, progressive, graph, {
+					selectFirstResult: true,
+				});
+
+				if (search == null) {
+					throw new Error('Search generator completed without returning a result');
+				}
 			} catch (ex) {
 				this._search = undefined;
 				throw ex;
 			}
 
-			if (cancellation.token.isCancellationRequested) throw new CancellationError();
-
-			this._search = search;
+			// At this point, search is guaranteed to be defined (either from generator or we threw an error)
+			this._search = updateSearchMode(this.container, search);
 		} else {
 			search = this._search!;
-		}
 
-		const firstResult = await this.ensureSearchStartsInRange(graph, search);
+			// Select first result if not already selected (for cached searches)
+			if (!firstResultSelected) {
+				const firstResult = await this.ensureSearchStartsInRange(graph, search.results);
+				if (firstResult != null) {
+					this.setSelectedRows(firstResult);
+					firstResultSelected = true;
+				}
+			}
 
-		let sendSelectedRows = false;
-		if (firstResult != null) {
-			sendSelectedRows = true;
-			this.setSelectedRows(firstResult);
-		}
-
-		// Check if all search results are visible and we have more available
-		// If so, proactively load more search results to ensure pagination works
-		while (
-			search.paging?.hasMore &&
-			search.more != null &&
-			search.results.size &&
-			graph.ids.has(last(search.results.keys())!)
-		) {
-			// Automatically load more search results since all current ones are visible
-			const searchMore = await search.more(configuration.get('graph.searchItemLimit') ?? 100);
-			if (searchMore != null) {
-				this._search = search = searchMore;
-				// Ensure the new results are visible if needed
-				void (await this.ensureSearchStartsInRange(graph, search));
+			// Send notification with cached results (only if not superseded and not resuming)
+			// When resuming (e.more), don't send cached results - let progressive notifications handle it
+			if (this._searchIdCounter.current != null && progressive && !e.more) {
+				// Use search.query to include any mode changes (filter toggle) that happened during the search
+				void this.host.notify(DidSearchNotification, {
+					search: search.query,
+					results: this.getSearchResultsData(search) ?? {
+						count: 0,
+						hasMore: false,
+						commitsLoaded: { count: 0 },
+					},
+					selectedRows: firstResultSelected ? convertSelectedRows(this._selectedRows) : undefined,
+					partial: false,
+					searchId: this._searchIdCounter.current,
+				});
 			}
 		}
 
 		return {
-			search: e.search,
-			results: search.results.size
-				? {
-						ids: Object.fromEntries(search.results),
-						count: search.results.size,
-						paging: { hasMore: search.paging?.hasMore ?? false },
-					}
-				: { count: 0 },
-			selectedRows: sendSelectedRows ? this._selectedRows : undefined,
+			search: search.query,
+			results: this.getSearchResultsData(search) ?? { count: 0, hasMore: false, commitsLoaded: { count: 0 } },
+			selectedRows: firstResultSelected ? convertSelectedRows(this._selectedRows) : undefined,
+			partial: false, // Final results
+			searchId: this._searchIdCounter.current,
 		};
+	}
+
+	private async processSearchStream(
+		searchStream: AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>,
+		searchId: number,
+		progressive: boolean,
+		graph: GitGraph,
+		options?: { selectFirstResult?: boolean },
+	): Promise<GitGraphSearch | undefined> {
+		let search: GitGraphSearch | undefined;
+		let firstResultSelected = false;
+
+		let result: IteratorResult<GitGraphSearchProgress, GitGraphSearch> | undefined;
+		while (!(result = await searchStream.next()).done) {
+			// Break out if search was cancelled or a new search started
+			if (searchId !== this._searchIdCounter.current) break;
+
+			const progress = result.value;
+			if (!progress.results.size) continue;
+
+			// Accumulate results from progressive batches
+			if (search?.results != null) {
+				for (const [sha, data] of progress.results) {
+					search.results.set(sha, data);
+				}
+
+				search = {
+					repoPath: search.repoPath,
+					query: search.query,
+					queryFilters: search.queryFilters,
+					comparisonKey: search.comparisonKey,
+					results: search.results,
+					hasMore: progress.hasMore,
+				};
+			} else {
+				search = {
+					repoPath: progress.repoPath,
+					query: progress.query,
+					queryFilters: progress.queryFilters,
+					comparisonKey: progress.comparisonKey,
+					results: new Map(progress.results),
+					hasMore: progress.hasMore,
+				};
+			}
+			this._search = updateSearchMode(this.container, search);
+
+			// Select first result as soon as we find one (only once)
+			let selectedRows: GraphSelectedRows | undefined;
+			if (options?.selectFirstResult && !firstResultSelected) {
+				const firstResult = await this.ensureSearchStartsInRange(graph, progress.results);
+				if (firstResult != null) {
+					this.setSelectedRows(firstResult);
+					selectedRows = convertSelectedRows(this._selectedRows);
+					firstResultSelected = true;
+				}
+			}
+
+			if (progressive) {
+				// Send only the incremental batch to frontend (not all accumulated results)
+				void this.host.notify(DidSearchNotification, {
+					search: this._search.query,
+					results: this.getSearchResultsData(progress),
+					selectedRows: selectedRows,
+					partial: true,
+					searchId: searchId,
+				});
+			}
+		}
+
+		// Get final result from generator
+		if (result?.value != null) {
+			search = result.value;
+			this._search = updateSearchMode(this.container, search);
+			void (await this.ensureSearchStartsInRange(graph, search.results));
+
+			// Send final notification with complete results (only if not superseded)
+			if (searchId === this._searchIdCounter.current && progressive) {
+				void this.host.notify(DidSearchNotification, {
+					search: this._search.query,
+					results: this.getSearchResultsData(search) ?? {
+						count: 0,
+						hasMore: false,
+						commitsLoaded: { count: 0 },
+					},
+					selectedRows:
+						options?.selectFirstResult && firstResultSelected
+							? convertSelectedRows(this._selectedRows)
+							: undefined,
+					partial: false,
+					searchId: searchId,
+				});
+			}
+		}
+
+		return search;
 	}
 
 	private onSearchOpenInView(e: SearchOpenInViewParams) {
@@ -1687,11 +2017,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.container.views.searchAndCompare.search(this.repository.path, e.search, {
 			label: { label: `for ${e.search.query}` },
-			reveal: {
-				select: true,
-				focus: false,
-				expand: true,
-			},
+			reveal: { select: true, focus: false, expand: true },
 		});
 	}
 
@@ -1704,10 +2030,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// 		a.index - b.index,
 		// );
 
+		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			this.container.git.openRepositories,
+			'Switch',
+			this.repository?.name,
+		);
 		const pick = await showRepositoryPicker(
 			this.container,
-			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
-			'Choose a repository to switch to',
+			title,
+			placeholder,
 			this.container.git.openRepositories,
 			{ picked: this.repository },
 		);
@@ -1729,36 +2060,147 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return this.host.respond(requestType, msg, undefined);
 		}
 
-		let pick;
-		// If not alt, then jump directly to HEAD
-		if (!msg.params.alt) {
-			let branch = find(this._graph!.branches.values(), b => b.current);
-			if (branch == null) {
-				branch = await this.repository.git.branches.getBranch();
-			}
-			if (branch != null) {
-				pick = branch;
-			}
-		} else {
-			pick = await showReferencePicker(
-				this.repository.path,
-				`Jump to Reference ${GlyphChars.Dot} ${this.repository?.name}`,
-				'Choose a reference to jump to',
-				{ include: ReferencesQuickPickIncludes.BranchesAndTags },
-			);
+		const result = await showReferencePicker2(this.repository.path, msg.params.title, msg.params.placeholder, {
+			allowedAdditionalInput: msg.params.allowedAdditionalInput,
+			include: msg.params.include ?? ['branches', 'tags'],
+			picked: msg.params.picked,
+		});
+		const pick = result?.value;
+
+		return this.host.respond(
+			requestType,
+			msg,
+			pick?.sha != null
+				? {
+						id: pick.id,
+						name: pick.name,
+						sha: pick.sha,
+						refType: pick.refType,
+						graphRefType: convertRefToGraphRefType(pick),
+					}
+				: undefined,
+		);
+	}
+
+	private async onChooseComparison<T extends typeof ChooseComparisonRequest>(
+		requestType: T,
+		msg: IpcCallMessageType<T>,
+	) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, { range: undefined });
 		}
 
-		return this.host.respond(requestType, msg, pick?.sha != null ? { name: pick.name, sha: pick.sha } : undefined);
+		const result = await showComparisonPicker(this.container, this.repository.path, {
+			getTitleAndPlaceholder: step => {
+				switch (step) {
+					case 1:
+						return {
+							title: msg.params.title,
+							placeholder: 'Choose a branch or tag to show commits from',
+						};
+					case 2:
+						return {
+							title: msg.params.title,
+							placeholder: 'Choose a base to compare against (e.g., main)',
+						};
+				}
+			},
+		});
+
+		return this.host.respond(requestType, msg, {
+			range: result != null ? `${result.base.ref}..${result.head.ref}` : undefined,
+		});
+	}
+
+	private async onChooseAuthor<T extends typeof ChooseAuthorRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, { authors: undefined });
+		}
+
+		const authors = msg.params.picked != null ? new Set(msg.params.picked) : undefined;
+		const contributors = await showContributorsPicker(
+			this.container,
+			this.repository,
+			msg.params.title,
+			msg.params.placeholder,
+			{
+				appendReposToTitle: true,
+				clearButton: true,
+				multiselect: true,
+				picked: c =>
+					authors != null &&
+					((c.email != null && authors.has(c.email)) ||
+						(c.name != null && authors.has(c.name)) ||
+						(c.username != null && authors.has(c.username))),
+			},
+		);
+
+		return this.host.respond(requestType, msg, {
+			authors: contributors != null ? filterMap(contributors, c => c.email) : undefined,
+		});
+	}
+
+	private async onChooseFile<T extends typeof ChooseFileRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, { files: undefined });
+		}
+
+		const uris = await window.showOpenDialog({
+			canSelectFiles: msg.params.type === 'file',
+			canSelectFolders: msg.params.type === 'folder',
+			canSelectMany: msg.params.type === 'file',
+			title: msg.params.title,
+			openLabel: msg.params.openLabel,
+			defaultUri: this.repository.folder?.uri,
+		});
+
+		if (!uris?.length) {
+			return this.host.respond(requestType, msg, { files: undefined });
+		}
+
+		// Convert URIs to relative paths from the repository root
+		const files = uris.map(uri => this.container.git.getRelativePath(uri, this.repository!.path));
+
+		return this.host.respond(requestType, msg, { files: files });
+	}
+
+	private async onJumpToHead<T extends typeof JumpToHeadRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		if (this.repository == null) {
+			return this.host.respond(requestType, msg, undefined);
+		}
+
+		let branch = find(this._graph!.branches.values(), b => b.current);
+		if (branch == null) {
+			branch = await this.repository.git.branches.getBranch();
+		}
+
+		return this.host.respond(
+			requestType,
+			msg,
+			branch?.sha != null
+				? {
+						id: branch.id,
+						name: branch.name,
+						sha: branch.sha,
+						refType: branch.refType,
+						graphRefType: convertRefToGraphRefType(branch),
+					}
+				: undefined,
+		);
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
 		undefined;
+	private _lastUserSelectionTime: number = 0;
 
 	private onSelectionChanged(e: UpdateSelectionParams) {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
 		const item = e.selection[0];
-		this.setSelectedRows(item?.id);
+		this.setSelectedRows(item?.id, { selected: true, hidden: item?.hidden });
+
+		// Track when user explicitly selects
+		this._lastUserSelectionTime = Date.now();
 
 		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
@@ -1784,10 +2226,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				preserveVisibility: this._firstSelection
 					? this._showDetailsView === false
 					: this._showDetailsView !== 'selection',
+				searchContext: this.getSearchContext(id),
 			},
-			{
-				source: this.host.id,
-			},
+			{ source: this.host.id },
 		);
 		this._firstSelection = false;
 	}
@@ -1979,11 +2420,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	private getSearchResultsData(
+		search: GitGraphSearch | GitGraphSearchProgress | undefined,
+	): GraphSearchResults | undefined {
+		if (!search?.results?.size) return undefined;
+
+		// Count the commits for these search results that are loaded in the graph
+		const commitsLoaded: { count: number } = { count: 0 };
+		if (this._graph?.ids != null) {
+			for (const sha of search.results.keys()) {
+				if (this._graph.ids.has(sha)) {
+					commitsLoaded.count++;
+				}
+			}
+		}
+
+		return {
+			ids: Object.fromEntries(search.results),
+			count: search.results.size,
+			hasMore: search.hasMore,
+			commitsLoaded: commitsLoaded,
+		};
+	}
+
 	@debug()
 	private async notifyDidChangeRows(sendSelectedRows: boolean = false, completionId?: string) {
 		if (this._graph == null) return;
 
 		const graph = this._graph;
+
 		return this.host.notify(
 			DidChangeRowsNotification,
 			{
@@ -1995,7 +2460,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				rowsStatsLoading:
 					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
 
-				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
+				search: this._search?.results?.size
+					? {
+							search: this._search.query,
+							results: this.getSearchResultsData(this._search),
+							partial: false,
+							searchId: this._searchIdCounter.current,
+						}
+					: undefined,
+				selectedRows: sendSelectedRows ? convertSelectedRows(this._selectedRows) : undefined,
 				paging: {
 					startingCursor: graph.paging?.startingCursor,
 					hasMore: graph.paging?.hasMore ?? false,
@@ -2031,14 +2504,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private async notifyDidChangeWorkingTree() {
+	private async notifyDidChangeWorkingTree(hasWorkingChanges?: boolean) {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
 		return this.host.notify(DidChangeWorkingTreeNotification, {
-			stats: (await this.getWorkingTreeStats()) ?? { added: 0, deleted: 0, modified: 0 },
+			stats: (await this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges)) ?? {
+				added: 0,
+				deleted: 0,
+				modified: 0,
+			},
 		});
 	}
 
@@ -2050,7 +2527,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return this.host.notify(DidChangeSelectionNotification, {
-			selection: this._selectedRows ?? {},
+			selection: convertSelectedRows(this._selectedRows) ?? {},
 		});
 	}
 
@@ -2150,11 +2627,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async ensureSearchStartsInRange(graph: GitGraph, search: GitGraphSearch) {
-		if (search.results.size === 0) return undefined;
+	private async ensureSearchStartsInRange(graph: GitGraph, results: GitGraphSearchResults) {
+		if (!results.size) return undefined;
 
+		// If we have a selection and it is in the search results, keep it
+		if (this._selectedId != null && results.has(this._selectedId)) {
+			if (graph.ids.has(this._selectedId)) {
+				return this._selectedId;
+			}
+		}
+
+		// Find the first result that is in the graph
 		let firstResult: string | undefined;
-		for (const id of search.results.keys()) {
+		for (const id of results.keys()) {
 			if (graph.ids.has(id)) return id;
 
 			firstResult = id;
@@ -2184,7 +2669,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (graph == null) return undefined;
 
 		const storedExcludeRefs = filters?.excludeRefs;
-		if (storedExcludeRefs == null || Object.keys(storedExcludeRefs).length === 0) return undefined;
+		if (!hasKeys(storedExcludeRefs)) return undefined;
 
 		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
@@ -2300,13 +2785,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 			case 'favorited': {
 				const starredBranchIds = getStarredBranchIds(this.container);
-				if (!starredBranchIds.size) return { refs: {}, continuation: continuation };
-
-				refs = new Map();
-				for (const branch of graph.branches.values()) {
-					if (branch.current || starredBranchIds.has(branch.id)) {
-						refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
+				if (starredBranchIds.size) {
+					refs = new Map();
+					for (const branch of graph.branches.values()) {
+						if (branch.current || starredBranchIds.has(branch.id)) {
+							refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
+						}
 					}
+				}
+
+				if (!refs?.size) {
+					return {
+						// Create an empty set to say we want to include nothing
+						refs: {
+							['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphRefOptData,
+						},
+						continuation: continuation,
+					};
 				}
 				break;
 			}
@@ -2451,6 +2946,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			sidebar: configuration.get('graph.sidebar.enabled') ?? true,
+			stickyTimeline: configuration.get('graph.stickyTimeline'),
 		};
 		return config;
 	}
@@ -2529,14 +3025,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return item;
 	}
 
-	private async getWorkingTreeStats(cancellation?: CancellationToken): Promise<GraphWorkingTreeStats | undefined> {
+	private async getWorkingTreeStatsAndPausedOperations(
+		hasWorkingChanges?: boolean,
+		cancellation?: CancellationToken,
+	): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || !this.container.git.repositoryCount) return undefined;
 
 		const svc = this.container.git.getRepositoryService(this.repository.path);
 
+		hasWorkingChanges ??= await svc.status.hasWorkingChanges(
+			{ staged: true, unstaged: true, untracked: true },
+			cancellation,
+		);
+
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			svc.status.getStatus(cancellation),
-			svc.status.getPausedOperationStatus?.(cancellation),
+			hasWorkingChanges ? svc.status.getStatus(cancellation) : undefined,
+			svc.pausedOps?.getPausedOperationStatus?.(cancellation),
 		]);
 
 		const status = getSettledValue(statusResult);
@@ -2563,6 +3067,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.cancelOperation('branchState');
 		this.cancelOperation('state');
 
+		const searchRequest = this._searchRequest;
+		this._searchRequest = undefined;
+
 		if (this.container.git.repositoryCount === 0) {
 			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 		}
@@ -2584,14 +3091,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
-		const selectedId = this._selectedId;
-		const rev = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
+		const hasWorkingChanges = await this.repository.git.status.hasWorkingChanges(
+			{ staged: true, unstaged: true, untracked: true },
+			cancellation.token,
+		);
+
+		let selectedId = this._selectedId;
+		let selectionChanged = false;
+
+		// Skip default row selection if we are honoring the selected id or we have a pending search request
+		// to avoid overriding an honored selection or jumping to WIP/HEAD before the search is applied
+		if (
+			!this._honorSelectedId &&
+			searchRequest == null &&
+			selectedId !== uncommitted &&
+			hasWorkingChanges &&
+			configuration.get('graph.initialRowSelection') === 'wip'
+		) {
+			selectionChanged = true;
+
+			this.setSelectedRows(uncommitted);
+			selectedId = this._selectedId;
+		}
+		this._honorSelectedId = false;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
 		const dataPromise = this.repository.git.graph.getGraph(
-			rev,
+			selectedId,
 			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
@@ -2608,7 +3136,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
-			this.getWorkingTreeStats(cancellation.token),
+			this.getWorkingTreeStatsAndPausedOperations(hasWorkingChanges, cancellation.token),
 			this.repository.git.branches.getBranch(undefined, cancellation.token),
 			this.repository.getLastFetched(),
 		]);
@@ -2619,18 +3147,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				try {
 					const data = await dataPromise;
 					this.setGraph(data);
-					if (selectedId !== uncommitted) {
+
+					// Don't override selection if user selected something in the last 500ms
+					const userRecentlySelected = Date.now() - this._lastUserSelectionTime < 500;
+					if (!userRecentlySelected && this._selectedId !== data.id) {
+						selectionChanged = true;
 						this.setSelectedRows(data.id);
 					}
 
 					void this.notifyDidChangeRefsVisibility();
-					void this.notifyDidChangeRows(true);
+					void this.notifyDidChangeRows(selectionChanged);
 				} catch {}
 			});
 		} else {
 			data = await dataPromise;
 			this.setGraph(data);
-			if (selectedId !== uncommitted) {
+
+			if (selectedId !== data.id) {
 				this.setSelectedRows(data.id);
 			}
 		}
@@ -2706,11 +3239,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 
-		const defaultSearchMode = this.container.storage.get('graph:searchMode', 'normal');
+		const searchMode = this.container.storage.get('graph:searchMode', 'normal');
 		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
-		return {
+		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
@@ -2730,12 +3263,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			branchState: branchState,
 			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
-			selectedRows: this._selectedRows,
+			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,
 			allowed: this.isGraphAccessAllowed(access, featurePreview), //(access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
-			loading: deferRows,
+			loading: deferRows === true,
 			rowsStatsLoading: data?.rowsStatsDeferred?.isLoaded != null ? !data.rowsStatsDeferred.isLoaded() : false,
 			rows: data?.rows,
 			downstreams: data != null ? Object.fromEntries(data.downstreams) : undefined,
@@ -2757,11 +3290,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
-			defaultSearchMode: defaultSearchMode,
+			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
+			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
+			searchRequest: searchRequest,
 		};
+		return result;
 	}
 
 	private updateColumns(columnsCfg: GraphColumnsConfig) {
@@ -2934,7 +3470,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (repoPath == null) return;
 
 		let excludeTypes = this.getFiltersByRepo(repoPath)?.excludeTypes;
-		if ((excludeTypes == null || !Object.keys(excludeTypes).length) && value === false) {
+		if (!hasKeys(excludeTypes) && value === false) {
 			return;
 		}
 
@@ -2962,6 +3498,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private resetRepositoryState() {
 		this._getBranchesAndTagsTips = undefined;
+		this._searchHistory = undefined;
 		this.setGraph(undefined);
 		this.setSelectedRows(undefined);
 	}
@@ -2971,14 +3508,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.cancelOperation('search');
 	}
 
-	private setSelectedRows(id: string | undefined) {
-		if (this._selectedId === id) return;
+	private setSelectedRows(id: string | undefined, state?: SelectedRowState) {
+		// _selectedId should always be a "real" SHA
+		let selectedId = id;
+		if (id === ('work-dir-changes' satisfies GitGraphRowType)) {
+			selectedId = uncommitted;
+		}
+		if (this._selectedId === selectedId) return;
 
-		this._selectedId = id;
+		this._selectedId = selectedId;
+
+		// _selectedRows should always be a "virtual" row type
 		if (id === uncommitted) {
 			id = 'work-dir-changes' satisfies GitGraphRowType;
 		}
-		this._selectedRows = id != null ? { [id]: true } : undefined;
+		this._selectedRows = id != null ? { [id]: state ?? { selected: true } } : undefined;
 	}
 
 	private setGraph(graph: GitGraph | undefined) {
@@ -3052,31 +3596,54 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		cancellation?: CancellationToken,
 	) {
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, id ?? undefined, cancellation);
+
+		let limit = pageItemLimit ?? defaultItemLimit;
+		let targetId = id;
+
+		// Determine the last search result (for auto-loading more search results)
+		const lastSearchResultId = search?.results.size ? last(search.results.keys()) : undefined;
+
+		if (!id && search?.results.size) {
+			// If there are a small number of results and we're filtering, load them all at once
+			if (search.results.size < 50 && search.query.filter) {
+				targetId = lastSearchResultId;
+				limit = 0;
+			} else {
+				// Determine the next unloaded search result (if any)
+				const nextUnloadedResultId = search?.results.size
+					? find(search.results.keys(), sha => !graph.ids.has(sha))
+					: undefined;
+				targetId = nextUnloadedResultId;
+			}
+		}
+
+		const updatedGraph = await graph.more?.(limit, targetId, cancellation);
 		if (updatedGraph != null) {
 			this.setGraph(updatedGraph);
 
-			if (!search?.paging?.hasMore) return;
+			if (!search?.hasMore || lastSearchResultId == null) return;
 
-			const lastId = last(search.results)?.[0];
-			if (lastId == null) return;
+			if (updatedGraph.ids.has(lastSearchResultId)) {
+				// Auto-load more search results in the background
+				// Suppress notifications - notifyDidChangeRows will send both
+				// the search results AND the rows together to avoid race conditions
+				try {
+					await this.searchGraphOrContinue({ search: search.query, more: true }, false);
+					// Search results are now updated in this._search
+					// notifyDidChangeRows() will send them along with the rows
+				} catch (ex) {
+					if (ex instanceof CancellationError) return;
 
-			if (updatedGraph.ids.has(lastId)) {
-				queueMicrotask(async () => {
-					try {
-						const results = await this.getSearchResults({ search: search.query, more: true });
-						void this.host.notify(DidSearchNotification, results);
-					} catch (ex) {
-						if (ex instanceof CancellationError) return;
-
-						void this.host.notify(DidSearchNotification, {
-							search: search.query,
-							results: {
-								error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
-							},
-						});
-					}
-				});
+					// Only send error notifications immediately
+					void this.host.notify(DidSearchNotification, {
+						search: search.query,
+						results: {
+							error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
+						},
+						partial: false,
+						searchId: this._searchIdCounter.current,
+					});
+				}
 			}
 		} else {
 			debugger;
@@ -3341,7 +3908,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@log()
 	private async compareSelectedCommits(item?: GraphItemContext) {
 		const { selection } = this.getGraphItemRefs(item, 'revision');
-		if (selection == null || selection.length !== 2) return Promise.resolve();
+		if (selection?.length !== 2) return Promise.resolve();
 
 		const [commit1, commit2] = selection;
 		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, commit1.repoPath, commit1.ref, commit2.ref);
@@ -3360,7 +3927,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async continuePausedOperation(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const status = await this.repository.git.status.getPausedOperationStatus?.();
+		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
 		if (status == null || status.type === 'revert') return;
 
 		await continuePausedOperation(this.repository.git);
@@ -3370,8 +3937,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async openRebaseEditor(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const status = await this.repository.git.status.getPausedOperationStatus?.();
-		if (status == null || status.type !== 'rebase') return;
+		const status = await this.repository.git.pausedOps?.getPausedOperationStatus?.();
+		if (status?.type !== 'rebase') return;
 
 		const gitDir = await this.repository.git.config.getGitDir?.();
 		if (gitDir == null) return;
@@ -3387,6 +3954,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.repository == null) return;
 
 		await skipPausedOperation(this.repository.git);
+	}
+
+	@log()
+	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { openRebaseEditor: true });
 	}
 
 	@log()
@@ -3440,6 +4012,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const { summary: title, body: description } = splitCommitMessage(ref.message);
 		return executeCommand<CreatePatchCommandArgs, void>('gitlens.createCloudPatch', {
+			to: ref.ref,
+			repoPath: ref.repoPath,
+			title: title,
+			description: description,
+		});
+	}
+
+	@log()
+	private async copyPatchToClipboard(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision') ?? this.getGraphItemRef(item, 'stash');
+		if (ref == null) return Promise.resolve();
+
+		const { summary: title, body: description } = splitCommitMessage(ref.message);
+		return executeCommand<CreatePatchCommandArgs, void>('gitlens.copyPatchToClipboard', {
+			from: `${ref.ref}^`,
 			to: ref.ref,
 			repoPath: ref.repoPath,
 			title: title,
@@ -3533,6 +4120,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	@log()
+	private soloReference(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item)) return;
+
+		const { ref } = item.webviewItemValue;
+		if (ref.id == null) return;
+
+		const repo = this.container.git.getRepository(ref.repoPath);
+		if (repo == null) return Promise.resolve();
+
+		// Show the graph with a ref: search query to filter the graph to this branch
+		return void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+			repository: repo,
+			search: {
+				query: `ref:${ref.name}`,
+				filter: true,
+				matchAll: false,
+				matchCase: false,
+				matchRegex: false,
+			},
+		});
 	}
 
 	@log()
@@ -3661,6 +4271,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					id: pr.id,
 					url: pr.url,
 				},
+				source: { source: 'graph' },
 			});
 		}
 
@@ -3718,8 +4329,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private openIssueOnRemote(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'issue')) {
 			const { url } = item.webviewItemValue;
-			// TODO: Add a command for this. See openPullRequestOnRemote above.
-			void openUrl(url);
+			void executeCommand<OpenIssueOnRemoteCommandArgs>('gitlens.openIssueOnRemote', {
+				issue: { url: url },
+			});
 		}
 
 		return Promise.resolve();
@@ -3817,11 +4429,47 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private changeUpstreamBranch(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item, 'branch')) return Promise.resolve();
+		const { ref } = item.webviewItemValue;
+		return BranchActions.changeUpstream(ref.repoPath, ref);
+	}
+
+	@log()
 	private compareWorkingWith(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', ref.ref);
+	}
+
+	@log()
+	private selectForCompare(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return;
+
+		void setContext('gitlens:views:canCompare', { label: ref.name, ref: ref.ref, repoPath: ref.repoPath });
+	}
+
+	@log()
+	private compareWithSelected(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return;
+
+		const selectedRef = getContext('gitlens:views:canCompare');
+		if (selectedRef == null) return;
+
+		void setContext('gitlens:views:canCompare', undefined);
+
+		if (selectedRef.repoPath !== ref.repoPath) {
+			this.selectForCompare(item);
+			return;
+		}
+
+		void this.container.views.searchAndCompare.compare(ref.repoPath, selectedRef, {
+			label: ref.name,
+			ref: ref.ref,
+		});
 	}
 
 	@log()
@@ -3844,6 +4492,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private aiExplainUnpushed(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+
+			if (!ref.upstream) {
+				return Promise.resolve();
+			}
+
+			return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
+				repoPath: ref.repoPath,
+				ref: ref.ref,
+				baseBranch: ref.upstream.name,
+				source: { source: 'graph', context: { type: 'branch' } },
+			});
+		}
+
+		return Promise.resolve();
+	}
+	@log()
 	private explainBranch(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'branch');
 		if (ref == null) return Promise.resolve();
@@ -3851,9 +4518,82 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: ref.repoPath,
 			ref: ref.ref,
-			source: { source: 'graph', type: 'branch' },
+			source: { source: 'graph', context: { type: 'branch' } },
 		});
 	}
+
+	@log()
+	private async recomposeBranch(item?: GraphItemContext): Promise<void> {
+		const ref = this.getGraphItemRef(item, 'branch');
+		if (ref != null) {
+			await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
+				repoPath: ref.repoPath,
+				branchName: ref.name,
+				source: 'graph',
+			});
+			return;
+		}
+
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (selection == null || selection.length < 2) return;
+
+		const repoPath = selection[0].repoPath;
+		const commitShas = selection.map(ref => ref.sha);
+
+		const graph = this._graph;
+		if (graph == null) return;
+
+		// We need to make sure commit shas are sorted in the order of the commits they are based on
+		commitShas.sort((a, b) => {
+			const rowA = graph.rows.find(r => r.sha === a);
+			const rowB = graph.rows.find(r => r.sha === b);
+			return (rowA?.date ?? 0) - (rowB?.date ?? 0);
+		});
+
+		const branchCounts = new Map<string, number>();
+
+		for (const sha of commitShas) {
+			const row = graph.rows.find(r => r.sha === sha);
+			if (row?.reachableFromBranches) {
+				for (const branchName of row.reachableFromBranches) {
+					branchCounts.set(branchName, (branchCounts.get(branchName) ?? 0) + 1);
+				}
+			}
+		}
+
+		const branchesReachingAll: string[] = [];
+		for (const [branchName, count] of branchCounts) {
+			if (count === commitShas.length) {
+				branchesReachingAll.push(branchName);
+			}
+		}
+
+		if (branchesReachingAll.length !== 1) {
+			void window.showErrorMessage(
+				branchesReachingAll.length === 0
+					? 'The selected commits are not reachable from any single branch.'
+					: 'The selected commits are reachable from multiple branches. Please select commits unique to a single branch.',
+			);
+			return;
+		}
+
+		const branchName = branchesReachingAll[0];
+
+		// Get the base commit (parent of the oldest selected commit) and head commit (newest selected commit)
+		const oldestCommitSha = commitShas[0];
+		const newestCommitSha = commitShas[commitShas.length - 1];
+		const oldestRow = graph.rows.find(r => r.sha === oldestCommitSha);
+		const baseCommitSha = oldestRow?.parents?.[0];
+
+		await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeSelectedCommits', {
+			repoPath: repoPath,
+			branchName: branchName,
+			commitShas: commitShas,
+			range: baseCommitSha ? { base: baseCommitSha, head: newestCommitSha } : undefined,
+			source: 'graph',
+		});
+	}
+
 	@log()
 	private explainCommit(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
@@ -3862,7 +4602,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 			repoPath: ref.repoPath,
 			rev: ref.ref,
-			source: { source: 'graph', type: 'commit' },
+			source: { source: 'graph', context: { type: 'commit' } },
 		});
 	}
 
@@ -3874,7 +4614,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return executeCommand<ExplainStashCommandArgs>('gitlens.ai.explainStash', {
 			repoPath: ref.repoPath,
 			rev: ref.ref,
-			source: { source: 'graph', type: 'stash' },
+			source: { source: 'graph', context: { type: 'stash' } },
 		});
 	}
 
@@ -3885,7 +4625,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: ref.repoPath,
-			source: { source: 'graph', type: 'wip' },
+			source: { source: 'graph', context: { type: 'wip' } },
 		});
 	}
 
@@ -4068,13 +4808,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private async generateCommits(item?: GraphItemContext) {
+	private async composeCommits(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 
-			await executeCommand<GenerateCommitsCommandArgs>('gitlens.ai.generateCommits', {
+			await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
 				repoPath: ref.repoPath,
-				source: { source: 'graph' },
+				source: 'graph',
 			});
 		}
 		return Promise.resolve();
@@ -4234,4 +4974,33 @@ function convertBranchUpstreamToIncludeOnlyRef(branch: GitBranch): GraphIncludeO
 		name: getBranchNameWithoutRemote(branch.upstream.name),
 		owner: branch.getRemoteName(),
 	};
+}
+
+function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
+	switch (ref.refType) {
+		case 'branch':
+			if (ref.remote) return 'remote';
+			if (ref.worktree) return 'worktree';
+			return 'head';
+		case 'tag':
+			return 'tag';
+		default:
+			return undefined;
+	}
+}
+
+function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
+	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
+}
+
+export function updateSearchMode<T extends GitGraphSearch | undefined>(
+	container: Container,
+	search: T,
+	mode?: GraphSearchMode,
+): T {
+	if (search?.query != null) {
+		mode ??= container.storage.get('graph:searchMode', 'normal');
+		search.query.filter = mode === 'filter';
+	}
+	return search;
 }

@@ -137,10 +137,11 @@ export async function showAIModelPicker(
 
 	const items: Array<ModelQuickPickItem | DirectiveQuickPickItem> = [];
 
-	if (models.length === 0 && provider === 'ollama') {
+	if (!models.length) {
 		items.push({
 			label: 'No models found',
-			description: 'Please install a model or check your Ollama server configuration',
+			description:
+				provider === 'ollama' ? 'Please install a model or check your Ollama server configuration' : undefined,
 			iconPath: new ThemeIcon('error'),
 			directive: Directive.Noop,
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);

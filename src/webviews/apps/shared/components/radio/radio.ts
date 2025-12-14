@@ -1,7 +1,7 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { checkboxBaseStyles } from '../checkbox/checkbox.css';
 import { GlElement } from '../element';
-import { checkboxBaseStyles } from '../forms/checkbox.css';
 import type { RadioGroup } from './radio-group';
 import { radioStyles } from './radio.css';
 

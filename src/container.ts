@@ -2,10 +2,12 @@ import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } fr
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
 	getGkCliIntegrationProvider,
+	getMcpProviders,
 	getSharedGKStorageLocationProvider,
 	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
+	setTelemetryService,
 } from '@env/providers';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -15,7 +17,7 @@ import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnotations';
-import type { DateStyle, FileAnnotationType, Mode } from './config';
+import type { DateSource, DateStyle, FileAnnotationType, Mode } from './config';
 import { fromOutputLevel } from './config';
 import { extensionPrefix } from './constants';
 import type { GlCommands } from './constants.commands';
@@ -54,13 +56,13 @@ import { executeCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
 import { Keyboard } from './system/-webview/keyboard';
 import type { Storage } from './system/-webview/storage';
-import { memoize } from './system/decorators/-webview/memoize';
 import { log } from './system/decorators/log';
+import { memoize } from './system/decorators/memoize';
 import { Logger } from './system/logger';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
-import { isWalkthroughSupported, WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
+import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/documentTracker';
 import { LineTracker } from './trackers/lineTracker';
@@ -69,11 +71,13 @@ import { UriService } from './uris/uriService';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { Views } from './views/views';
 import { VslsController } from './vsls/vsls';
+import { registerComposerWebviewCommands, registerComposerWebviewPanel } from './webviews/plus/composer/registration';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration';
 import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration';
 import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from './webviews/plus/timeline/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
+import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar';
 import { WebviewsController } from './webviews/webviewsController';
 
 export type Environment = 'dev' | 'staging' | 'production';
@@ -134,8 +138,8 @@ export class Container {
 
 	readonly CommitDateFormatting = {
 		dateFormat: null as string | null,
-		dateSource: 'authored',
-		dateStyle: 'relative',
+		dateSource: 'authored' as DateSource,
+		dateStyle: 'relative' as DateStyle,
 
 		reset: (): void => {
 			this.CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
@@ -188,6 +192,7 @@ export class Container {
 		this._context = context;
 		this._prerelease = prerelease;
 		this._version = version;
+		this._previousVersion = previousVersion;
 		this.ensureModeApplied();
 
 		this._disposables = [
@@ -197,6 +202,7 @@ export class Container {
 			(this._usage = new UsageTracker(this, storage)),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		];
+		setTelemetryService(this._telemetry);
 
 		this._urls = new UrlsProvider(this.env);
 		this._disposables.push((this._connection = new ServerConnection(this, this._urls)));
@@ -206,9 +212,7 @@ export class Container {
 		);
 		this._disposables.push((this._uri = new UriService(this)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
-		if (isWalkthroughSupported()) {
-			this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
-		}
+		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
@@ -231,7 +235,10 @@ export class Container {
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
-		const webviews = new WebviewsController(this);
+		const webviewCommandRegistrar = new WebviewCommandRegistrar();
+		this._disposables.push(webviewCommandRegistrar);
+
+		const webviews = new WebviewsController(this, webviewCommandRegistrar);
 		this._disposables.push(webviews);
 		this._disposables.push((this._views = new Views(this, webviews)));
 
@@ -240,11 +247,15 @@ export class Container {
 		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
 		this._disposables.push(new GraphStatusBarController(this));
 
+		const composerPanels = registerComposerWebviewPanel(webviews);
+		this._disposables.push(composerPanels);
+		this._disposables.push(registerComposerWebviewCommands(this, composerPanels));
+
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);
-		this._disposables.push(registerTimelineWebviewCommands(timelinePanels));
+		this._disposables.push(registerTimelineWebviewCommands(this, timelinePanels));
 
-		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
+		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this, webviewCommandRegistrar)));
 
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
@@ -294,7 +305,7 @@ export class Container {
 		);
 
 		context.subscriptions.push({
-			dispose: () => this._disposables.reverse().forEach(d => void d.dispose()),
+			dispose: () => this._disposables.reverse().forEach(d => void d?.dispose()),
 		});
 
 		scheduleAddMissingCurrentWorkspaceRepos(this);
@@ -316,6 +327,7 @@ export class Container {
 
 		this._ready = true;
 		await this.registerGitProviders();
+		await this.registerMcpProviders();
 		queueMicrotask(() => this._onReady.fire());
 	}
 
@@ -328,6 +340,14 @@ export class Container {
 
 		// Don't wait here otherwise will we deadlock in certain places
 		void this._git.registrationComplete();
+	}
+
+	@log()
+	private async registerMcpProviders(): Promise<void> {
+		const mcpProviders = await getMcpProviders(this);
+		if (mcpProviders != null) {
+			this._disposables.push(...mcpProviders);
+		}
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -471,6 +491,10 @@ export class Container {
 	private readonly _eventBus: EventBus;
 	get events(): EventBus {
 		return this._eventBus;
+	}
+
+	get extensionMode(): ExtensionMode {
+		return this._context.extensionMode;
 	}
 
 	private readonly _fileAnnotationController: FileAnnotationController;
@@ -724,14 +748,19 @@ export class Container {
 		return this._usage;
 	}
 
-	private readonly _walkthrough: WalkthroughStateProvider | undefined;
-	get walkthrough(): WalkthroughStateProvider | undefined {
+	private readonly _walkthrough: WalkthroughStateProvider;
+	get walkthrough(): WalkthroughStateProvider {
 		return this._walkthrough;
 	}
 
 	private readonly _version: string;
 	get version(): string {
 		return this._version;
+	}
+
+	private readonly _previousVersion: string | undefined;
+	get previousVersion(): string | undefined {
+		return this._previousVersion;
 	}
 
 	private readonly _views: Views;
@@ -771,13 +800,13 @@ export class Container {
 			let command: GlCommands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
-					command = 'gitlens.toggleFileBlame';
+					command = 'gitlens.toggleFileBlame:mode';
 					break;
 				case 'changes':
-					command = 'gitlens.toggleFileChanges';
+					command = 'gitlens.toggleFileChanges:mode';
 					break;
 				case 'heatmap':
-					command = 'gitlens.toggleFileHeatmap';
+					command = 'gitlens.toggleFileHeatmap:mode';
 					break;
 			}
 

@@ -1,6 +1,7 @@
 import type { ContributedCommands, ContributedPaletteCommands } from './constants.commands.generated';
 import type {
 	CoreViewContainerIds,
+	CustomEditorTypes,
 	TreeViewIds,
 	TreeViewTypes,
 	ViewContainerIds,
@@ -31,16 +32,17 @@ export type GlCommandsDeprecated =
 	| 'gitlens.showFileHistoryInView';
 
 type InternalGraphWebviewCommands =
-	| 'gitlens.graph.abortPausedOperation'
-	| 'gitlens.graph.continuePausedOperation'
-	| 'gitlens.graph.openRebaseEditor'
-	| 'gitlens.graph.skipPausedOperation'
+	| 'gitlens.pausedOperation.abort:graph'
+	| 'gitlens.pausedOperation.continue:graph'
+	| 'gitlens.pausedOperation.open:graph'
+	| 'gitlens.pausedOperation.showConflicts:graph'
+	| 'gitlens.pausedOperation.skip:graph'
 	| 'gitlens.visualizeHistory.repo:graph';
 
 type InternalHomeWebviewCommands =
 	| 'gitlens.ai.explainWip:home'
 	| 'gitlens.ai.explainBranch:home'
-	| 'gitlens.ai.generateCommits:home'
+	| 'gitlens.composeCommits:home'
 	| 'gitlens.home.changeBranchMergeTarget'
 	| 'gitlens.home.deleteBranchOrWorktree'
 	| 'gitlens.home.pushBranch'
@@ -60,10 +62,11 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.rebaseCurrentOnto'
 	| 'gitlens.home.startWork'
 	| 'gitlens.home.createCloudPatch'
-	| 'gitlens.home.skipPausedOperation'
-	| 'gitlens.home.continuePausedOperation'
-	| 'gitlens.home.abortPausedOperation'
-	| 'gitlens.home.openRebaseEditor'
+	| 'gitlens.pausedOperation.abort:home'
+	| 'gitlens.pausedOperation.continue:home'
+	| 'gitlens.pausedOperation.open:home'
+	| 'gitlens.pausedOperation.showConflicts:home'
+	| 'gitlens.pausedOperation.skip:home'
 	| 'gitlens.home.enableAi'
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';
@@ -86,13 +89,15 @@ type InternalPlusCommands =
 
 type InternalPullRequestViewCommands = 'gitlens.views.addPullRequestRemote';
 
+type InternalRebaseEditorCommands = 'gitlens.pausedOperation.showConflicts:rebase';
+
 type InternalScmGroupedViewCommands =
 	| 'gitlens.views.scm.grouped.welcome.dismiss'
 	| 'gitlens.views.scm.grouped.welcome.restore';
 
-type InternalSearchAndCompareViewCommands = 'gitlens.views.searchAndCompare.compareWithSelected';
-
 type InternalTimelineWebviewViewCommands = 'gitlens.views.timeline.openInTab';
+
+type InternalViewCommands = 'gitlens.views.loadMoreChildren';
 
 type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.connectIntegrations'
@@ -123,16 +128,38 @@ type InternalWalkthroughCommands =
 
 type InternalGlCommands =
 	| `gitlens.action.${string}`
-	| 'gitlens.changeBranchMergeTarget'
-	| 'gitlens.diffWith'
 	| 'gitlens.ai.explainCommit:editor'
 	| 'gitlens.ai.explainWip:editor'
 	| 'gitlens.ai.feedback.helpful'
 	| 'gitlens.ai.feedback.unhelpful'
+	| 'gitlens.ai.mcp.authCLI'
+	| 'gitlens.ai.undoGenerateRebase'
+	| 'gitlens.changeBranchMergeTarget'
+	| 'gitlens.diffWith'
+	| 'gitlens.diffWithPrevious:codelens'
+	| 'gitlens.diffWithPrevious:command'
+	| 'gitlens.diffWithPrevious:views'
+	| 'gitlens.diffWithWorking:command'
+	| 'gitlens.diffWithWorking:views'
+	| 'gitlens.openCloudPatch'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
+	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
+	| 'gitlens.showComposerPage'
+	| 'gitlens.showInCommitGraphView'
+	| 'gitlens.showQuickCommitDetails'
+	| 'gitlens.storage.store'
+	| 'gitlens.toggleFileBlame:codelens'
+	| 'gitlens.toggleFileBlame:mode'
+	| 'gitlens.toggleFileBlame:statusbar'
+	| 'gitlens.toggleFileChanges:codelens'
+	| 'gitlens.toggleFileChanges:mode'
+	| 'gitlens.toggleFileChanges:statusbar'
+	| 'gitlens.toggleFileHeatmap:codelens'
+	| 'gitlens.toggleFileHeatmap:mode'
+	| 'gitlens.toggleFileHeatmap:statusbar'
 	| 'gitlens.visualizeHistory'
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands
@@ -140,9 +167,10 @@ type InternalGlCommands =
 	| InternalLaunchPadCommands
 	| InternalPlusCommands
 	| InternalPullRequestViewCommands
+	| InternalRebaseEditorCommands
 	| InternalScmGroupedViewCommands
-	| InternalSearchAndCompareViewCommands
 	| InternalTimelineWebviewViewCommands
+	| InternalViewCommands
 	| InternalWalkthroughCommands;
 
 export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;
@@ -158,6 +186,7 @@ export type CoreCommands =
 	| 'list.collapseAllToFocus'
 	| 'openInIntegratedTerminal'
 	| 'openInTerminal'
+	| 'reopenActiveEditorWith' // Requires VS Code 1.100 or later
 	| 'revealFileInOS'
 	| 'revealInExplorer'
 	| 'revealLine'
@@ -180,7 +209,11 @@ export type CoreCommands =
 	| 'workbench.action.newGroupRight'
 	| 'workbench.action.openSettings'
 	| 'workbench.action.openWalkthrough'
+	| 'workbench.action.reopenTextEditor'
+	| 'workbench.action.reopenWithEditor'
 	| 'workbench.action.toggleMaximizedPanel'
+	| 'workbench.action.focusPanel'
+	| 'workbench.action.togglePanel'
 	| 'workbench.extensions.action.switchToRelease'
 	| 'workbench.extensions.installExtension'
 	| 'workbench.extensions.uninstallExtension'
@@ -220,9 +253,37 @@ export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = Extract
 	TreeViewCommandsByViewType<T>
 >;
 
-export type WebviewCommands =
-	| FilterCommands<`gitlens.${WebviewTypes}`, GlCommands>
-	| FilterCommands<'gitlens.', GlCommands, `:${WebviewTypes}`>;
-export type WebviewViewCommands =
-	| FilterCommands<`gitlens.views.${WebviewViewTypes}`, GlCommands>
-	| FilterCommands<'gitlens.views.', GlCommands, `:${WebviewViewTypes}`>;
+export type WebviewCommands<T extends WebviewTypes = WebviewTypes> =
+	| FilterCommands<`gitlens.${T}`, GlCommands>
+	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
+export type WebviewViewCommands<T extends WebviewViewTypes = WebviewViewTypes> =
+	| FilterCommands<`gitlens.views.${T}`, GlCommands>
+	| FilterCommands<'gitlens.views.', GlCommands, `:${T}`>
+	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
+export type CustomEditorCommands<T extends CustomEditorTypes = CustomEditorTypes> = FilterCommands<
+	'gitlens.',
+	GlCommands,
+	`:${T}`
+>;
+
+/**
+ * Extracts all possible prefixes (before the colon) from a union of commands.
+ * Example: 'gitlens.foo:graph' | 'gitlens.bar:timeline' -> 'gitlens.foo' | 'gitlens.bar'
+ */
+type ExtractCommandPrefix<
+	T extends GlCommands,
+	U extends WebviewTypes | WebviewViewTypes,
+> = T extends `${infer Prefix}:${U}` ? `${Prefix}:` : never;
+
+type WebviewCommandPrefixes<T extends WebviewTypes = WebviewTypes> = ExtractCommandPrefix<WebviewCommands<T>, T>;
+export type WebviewCommandsOrCommandsWithSuffix<T extends WebviewTypes = WebviewTypes> =
+	| WebviewCommands<T>
+	| WebviewCommandPrefixes<T>;
+
+type WebviewViewCommandPrefixes<T extends WebviewViewTypes = WebviewViewTypes> = ExtractCommandPrefix<
+	WebviewViewCommands<T>,
+	T
+>;
+export type WebviewViewCommandsOrCommandsWithSuffix<T extends WebviewViewTypes = WebviewViewTypes> =
+	| WebviewViewCommands<T>
+	| WebviewViewCommandPrefixes<T>;

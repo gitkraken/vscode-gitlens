@@ -1,8 +1,7 @@
 import { Uri } from 'vscode';
 import { GitRemote } from '../../../../../git/models/remote';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../../git/remotes/remoteProviders';
+import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../../git/remotes/remoteProviders';
 import { RemotesGitProviderBase } from '../../../../../git/sub-providers/remotes';
-import { configuration } from '../../../../../system/-webview/configuration';
 import { log } from '../../../../../system/decorators/log';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase {
@@ -13,7 +12,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase {
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
-		const providers = loadRemoteProviders(configuration.get('remotes', null), undefined);
+		const providers = loadRemoteProvidersFromConfig(null, undefined);
 
 		const uri = Uri.parse(repoPath, true);
 		const [, owner, repo] = uri.path.split('/', 3);

@@ -1,11 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
-import type { GitBranchReference } from '../git/models/reference';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
-import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { prepareCompareDataForAIRequest } from '../plus/ai/utils/-webview/ai.utils';
+import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
@@ -16,6 +15,7 @@ import { ExplainCommandBase } from './explainBase';
 
 export interface ExplainBranchCommandArgs extends ExplainBaseArgs {
 	ref?: string;
+	baseBranch?: string;
 }
 
 @command()
@@ -32,7 +32,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? getNodeRepoPath(context.node);
 			args.ref = args.ref ?? context.node.branch.ref;
-			args.source = args.source ?? { source: 'view', type: 'branch' };
+			args.source = args.source ?? { source: 'view', context: { type: 'branch' } };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -51,12 +51,12 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			// Clarifying the head branch
 			if (args.ref == null) {
 				// If no ref is provided, show a picker to select a branch
-				const pick = (await showReferencePicker(svc.path, this.pickerTitle, 'Choose a branch to explain', {
-					include: ReferencesQuickPickIncludes.Branches,
+				const result = await showReferencePicker2(svc.path, this.pickerTitle, 'Choose a branch to explain', {
+					include: ['branches'],
 					sort: { branches: { current: true } },
-				})) as GitBranchReference | undefined;
-				if (pick?.ref == null) return;
-				args.ref = pick.ref;
+				});
+				if (result.value?.ref == null) return;
+				args.ref = result.value.ref;
 			}
 
 			// Get the branch
@@ -67,15 +67,25 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			}
 
 			// Clarifying the base branch
-			const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
 			let baseBranch;
-			if (!baseBranchNameResult.paused) {
-				baseBranch = await svc.branches.getBranch(baseBranchNameResult.value);
-			}
+			if (args.baseBranch) {
+				// Use the provided base branch
+				baseBranch = await svc.branches.getBranch(args.baseBranch);
+				if (!baseBranch) {
+					void showGenericErrorMessage(`Unable to find the specified base branch: ${args.baseBranch}`);
+					return;
+				}
+			} else {
+				// Fall back to automatic merge target detection
+				const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
+				if (!baseBranchNameResult.paused) {
+					baseBranch = await svc.branches.getBranch(baseBranchNameResult.value);
+				}
 
-			if (!baseBranch) {
-				void showGenericErrorMessage(`Unable to find the base branch for branch ${branch.name}.`);
-				return;
+				if (!baseBranch) {
+					void showGenericErrorMessage(`Unable to find the base branch for branch ${branch.name}.`);
+					return;
+				}
 			}
 
 			// Get the diff between the branch and its upstream or base
@@ -102,12 +112,12 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			};
 
 			// Call the AI service to explain the changes
-			const result = await this.container.ai.explainChanges(
+			const result = await this.container.ai.actions.explainChanges(
 				changes,
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'branch',
+					context: { type: 'branch' },
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining branch changes...' },
@@ -121,12 +131,8 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				return;
 			}
 
-			const {
-				aiPromise,
-				info: { model },
-			} = result;
-
-			this.openDocument(aiPromise, `/explain/branch/${branch.ref}/${model.id}`, model, 'explain-branch', {
+			const { promise, model } = result;
+			this.openDocument(promise, `/explain/branch/${branch.ref}/${model.id}`, model, 'explain-branch', {
 				header: { title: 'Branch Summary', subtitle: branch.name },
 				command: {
 					label: 'Explain Branch Changes',

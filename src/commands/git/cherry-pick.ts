@@ -1,7 +1,7 @@
 import { window } from 'vscode';
 import type { Container } from '../../container';
 import { skipPausedOperation } from '../../git/actions/pausedOperation';
-import { CherryPickError, CherryPickErrorReason } from '../../git/errors';
+import { CherryPickError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
@@ -9,7 +9,7 @@ import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { executeCommand } from '../../system/-webview/command';
@@ -90,7 +90,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 	private async execute(state: CherryPickStepState<State<GitReference[]>>) {
 		try {
-			await state.repo.git.commits.cherryPick?.(
+			await state.repo.git.ops?.cherryPick?.(
 				state.references.map(c => c.ref),
 				{
 					edit: state.flags.includes('--edit'),
@@ -98,14 +98,44 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				},
 			);
 		} catch (ex) {
+			// Don't show an error message if the user intentionally aborted the cherry-pick
+			if (CherryPickError.is(ex, 'aborted')) {
+				Logger.log(ex.message, this.title);
+				return;
+			}
+
 			Logger.error(ex, this.title);
-			if (ex instanceof CherryPickError && ex.reason === CherryPickErrorReason.EmptyCommit) {
+
+			if (CherryPickError.is(ex, 'wouldOverwriteChanges')) {
+				void window.showWarningMessage(
+					'Unable to cherry-pick. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+				);
+				return;
+			}
+
+			if (CherryPickError.is(ex, 'conflicts')) {
+				void window.showWarningMessage(
+					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (CherryPickError.is(ex, 'alreadyInProgress')) {
+				void window.showWarningMessage(
+					'Unable to cherry-pick. A cherry-pick is already in progress. Continue or abort the current cherry-pick first.',
+				);
+				void executeCommand('gitlens.showCommitsView');
+				return;
+			}
+
+			if (CherryPickError.is(ex, 'emptyCommit')) {
 				let pausedOperation: GitPausedOperationStatus | undefined;
 				try {
-					pausedOperation = await state.repo.git.status.getPausedOperationStatus?.();
+					pausedOperation = await state.repo.git.pausedOps?.getPausedOperationStatus?.();
 					pausedOperation ??= await state.repo
 						.waitForRepoChange(500)
-						.then(() => state.repo.git.status.getPausedOperationStatus?.());
+						.then(() => state.repo.git.pausedOps?.getPausedOperationStatus?.());
 				} catch {}
 
 				const pausedAt = pausedOperation
@@ -115,7 +145,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				const skip = { title: 'Skip' };
 				const cancel = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`The cherry-pick operation cannot be completed because ${
+					`Unable to complete the cherry-pick operation because ${
 						pausedAt ?? 'it'
 					} resulted in an empty commit.\n\nDo you want to skip ${pausedAt ?? 'this commit'}?`,
 					{ modal: true },
@@ -130,7 +160,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				return;
 			}
 
-			void showGenericErrorMessage(ex.message);
+			void showGitErrorMessage(ex, CherryPickError.is(ex) ? undefined : 'Unable to cherry-pick');
 		}
 	}
 

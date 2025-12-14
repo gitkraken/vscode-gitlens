@@ -57,6 +57,7 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	actions?: TreeItemAction[];
 	decorations?: TreeItemDecoration[];
 	contextData?: unknown;
+	matched?: boolean;
 }
 
 export interface TreeModel<Context = any[]> extends TreeModelBase<Context> {

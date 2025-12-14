@@ -30,7 +30,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? context.node.commit.repoPath;
 			args.rev = args.rev ?? context.node.commit.sha;
-			args.source = args.source ?? { source: 'view', type: 'stash' };
+			args.source = args.source ?? { source: 'view', context: { type: 'stash' } };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -64,12 +64,12 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				}
 			}
 
-			const result = await this.container.ai.explainCommit(
+			const result = await this.container.ai.actions.explainCommit(
 				commit,
 				{
 					...args.source,
 					source: args.source?.source ?? 'commandPalette',
-					type: 'stash',
+					context: { type: 'stash' },
 				},
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining stash...' },
@@ -83,12 +83,8 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				return;
 			}
 
-			const {
-				aiPromise,
-				info: { model },
-			} = result;
-
-			this.openDocument(aiPromise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
+			const { promise, model } = result;
+			this.openDocument(promise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
 				header: { title: 'Stash Summary', subtitle: commit.message || commit.ref },
 				command: {
 					label: 'Explain Stash Changes',

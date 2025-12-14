@@ -8,7 +8,7 @@ import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitConfigSubProvider, GitDir } from '../../../../git/gitProvider';
 import type { GitUser } from '../../../../git/models/user';
 import { getBestPath } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -26,10 +26,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		private readonly provider: LocalGitProvider,
 	) {}
 
+	@debug()
 	getConfig(repoPath: string, key: GitConfigKeys | DeprecatedGitConfigKeys): Promise<string | undefined> {
 		return this.git.config__get(key, repoPath);
 	}
 
+	@log()
 	async setConfig(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void> {
 		await this.git.exec(
 			{ cwd: repoPath ?? '', local: true },
@@ -46,7 +48,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const scope = getLogScope();
 
-		const repo = this.cache.repoInfo?.get(repoPath);
+		const repo = this.cache.repoInfo.get(repoPath);
 
 		let user = repo?.user;
 		if (user != null) return user;
@@ -75,7 +77,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 				if (!user.name) {
 					// If we found no user data, mark it so we won't bother trying again
-					this.cache.repoInfo?.set(repoPath, { ...repo, user: null });
+					this.cache.repoInfo.set(repoPath, { ...repo, user: null });
 					return undefined;
 				}
 
@@ -101,14 +103,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				}
 			}
 
-			this.cache.repoInfo?.set(repoPath, { ...repo, user: user });
+			this.cache.repoInfo.set(repoPath, { ...repo, user: user });
 			return user;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
 
 			// Mark it so we won't bother trying again
-			this.cache.repoInfo?.set(repoPath, { ...repo, user: null });
+			this.cache.repoInfo.set(repoPath, { ...repo, user: null });
 			return undefined;
 		}
 	}
@@ -125,7 +127,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		exit: r => `returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}`,
 	})
 	async getGitDir(repoPath: string): Promise<GitDir> {
-		const repo = this.cache.repoInfo?.get(repoPath);
+		const repo = this.cache.repoInfo.get(repoPath);
 		if (repo?.gitDir != null) return repo.gitDir;
 
 		const gitDirPaths = await this.git.rev_parse__git_dir(repoPath);
@@ -141,7 +143,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				uri: this.provider.getAbsoluteUri('.git', repoPath),
 			};
 		}
-		this.cache.repoInfo?.set(repoPath, { ...repo, gitDir: gitDir });
+		this.cache.repoInfo.set(repoPath, { ...repo, gitDir: gitDir });
 
 		return gitDir;
 	}

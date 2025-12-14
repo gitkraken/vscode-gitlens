@@ -1,4 +1,4 @@
-import { Badge, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
+import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -61,7 +61,7 @@ export class GlPatchDetailsApp extends GlElement {
 	constructor() {
 		super();
 
-		defineGkElement(Badge, Popover, Menu, MenuItem);
+		defineGkElement(Popover, Menu, MenuItem);
 	}
 
 	get wipChangesCount(): number {

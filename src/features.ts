@@ -29,6 +29,7 @@ export type FilteredGitFeatures<T extends GitFeatureOrPrefix> = T extends GitFea
 	? T
 	: Extract<GitFeatures, T | `${T}:${string}`>;
 
+export const gitMinimumVersion = '2.7.2';
 export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:for-each-ref:worktreePath', '2.23'],
 	['git:ignoreRevsFile', '2.23'],
@@ -90,6 +91,7 @@ export type AdvancedAIFeatures =
 	| 'generate-changelog'
 	| 'generate-create-pullRequest'
 	| 'generate-rebase'
+	| 'generate-commits'
 	| 'generate-searchQuery';
 
 export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
@@ -113,6 +115,7 @@ export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFea
 		case 'generate-create-codeSuggestion':
 		case 'generate-create-pullRequest':
 		case 'generate-rebase':
+		case 'generate-commits':
 			// case 'generate-searchQuery':
 			return true;
 		default:
@@ -157,7 +160,7 @@ export function getFeaturePreviewStatus(preview: FeaturePreview): FeaturePreview
 	const usages = preview?.usages;
 	if (!usages?.length) return 'eligible';
 
-	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / hoursInMs;
+	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - Date.now()) / hoursInMs;
 
 	if (
 		usages.length <= proFeaturePreviewUsages &&

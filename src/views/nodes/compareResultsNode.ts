@@ -8,7 +8,7 @@ import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
 import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { pluralize } from '../../system/string';
@@ -42,6 +42,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 		this.updateContext({
 			comparisonId: `${_ref.ref}+${_compareWith.ref}`,
+			repoPath: repoPath,
 			storedComparisonId: this.getStorageId(),
 		});
 		this._uniqueId = getViewNodeId(this.type, this.context);

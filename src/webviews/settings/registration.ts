@@ -53,7 +53,6 @@ export function registerSettingsWebviewCommands<T>(
 				'gitlens.showSettingsPage!stashes-view',
 				'gitlens.showSettingsPage!tags-view',
 				'gitlens.showSettingsPage!worktrees-view',
-				'gitlens.showSettingsPage!views',
 				'gitlens.showSettingsPage!commit-graph',
 				'gitlens.showSettingsPage!autolinks',
 			] satisfies GlCommands[]

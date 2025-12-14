@@ -27,8 +27,8 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../../plus/workspaces/models/localWorkspace';
-import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, logName } from '../../../system/decorators/log';
+import { sequentialize } from '../../../system/decorators/sequentialize';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';
 import type { View } from '../../viewBase';
@@ -55,8 +55,6 @@ export const enum ContextValues {
 	CommitsCurrentBranch = 'gitlens:commits:current-branch',
 	Compare = 'gitlens:compare',
 	CompareBranch = 'gitlens:compare:branch',
-	ComparePicker = 'gitlens:compare:picker',
-	ComparePickerWithRef = 'gitlens:compare:picker:ref',
 	CompareResults = 'gitlens:compare:results',
 	CompareResultsCommits = 'gitlens:compare:results:commits',
 	Contributor = 'gitlens:contributor',
@@ -127,6 +125,7 @@ export interface AmbientContext {
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
 	readonly repository?: Repository;
+	readonly repoPath?: string;
 	readonly root?: boolean;
 	readonly searchId?: string;
 	readonly storedComparisonId?: string;
@@ -150,8 +149,8 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	if (context.wsRepositoryDescriptor != null) {
 		uniqueness += `/wsrepo/${context.wsRepositoryDescriptor.id}`;
 	}
-	if (context.repository != null) {
-		uniqueness += `/repo/${context.repository.id}`;
+	if (context.repository != null || context.repoPath != null) {
+		uniqueness += `/repo/${context.repository?.id ?? context.repoPath}`;
 	}
 	if (context.worktree != null) {
 		uniqueness += `/worktree/${context.worktree.uri.path}`;
@@ -224,8 +223,7 @@ export abstract class ViewNode<
 	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
 	TView extends View = View,
 	State extends object = any,
-> implements Disposable
-{
+> implements Disposable {
 	is<T extends keyof TreeViewNodesByType>(type: T): this is TreeViewNodesByType[T] {
 		return this.type === (type as unknown as Type);
 	}
@@ -322,7 +320,7 @@ export abstract class ViewNode<
 
 	refresh?(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }>;
 
-	@gate()
+	@sequentialize()
 	@debug()
 	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
 		if (this._disposed) return Promise.resolve();

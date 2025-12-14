@@ -1,11 +1,14 @@
+import type { Disposable, McpServerDefinitionProvider } from 'vscode';
 import type { Container } from '../../container';
 import type { GitCommandOptions } from '../../git/commandOptions';
 import type { GitProvider } from '../../git/gitProvider';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
+import { mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
 import { configuration } from '../../system/-webview/configuration';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
+import type { TelemetryService } from '../../telemetry/telemetry';
 import type { GitResult } from './git/git';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
@@ -70,4 +73,24 @@ export function getSupportedWorkspacesStorageProvider(
 
 export function getGkCliIntegrationProvider(container: Container): GkCliIntegrationProvider {
 	return new GkCliIntegrationProvider(container);
+}
+
+export async function getMcpProviders(
+	container: Container,
+): Promise<(McpServerDefinitionProvider & Disposable)[] | undefined> {
+	if (!mcpExtensionRegistrationAllowed()) return undefined;
+
+	// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
+	const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/integration');
+
+	return [new mcpModule.GkMcpProvider(container)];
+}
+
+let _telemetryService: TelemetryService | undefined;
+export function getTelementryService(): TelemetryService | undefined {
+	return _telemetryService;
+}
+
+export function setTelemetryService(service: TelemetryService): void {
+	_telemetryService = service;
 }

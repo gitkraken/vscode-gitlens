@@ -47,13 +47,31 @@ export const enum CharCode {
 	z = 122,
 }
 
+/**
+ * `gk-merge-target` means the branch that the current branch is most likely to be merged into, e.g.
+ * - branch to compare with by default
+ * - default target for creating a PR
+ * - etc.
+ *
+ * `gk-merge-target-user` — merge target branch explicitly defined by user,
+ *    if it's defined we use this value instead of `gk-merge-target`, but we keep storing `gk-merge-target` value that was determined automatically.
+ *
+ *  `gk-merge-base` means the branch that the current branch originates from, e.g. what was the base in the moment of creation.
+ *   This value is used for: ... (TODO describe use cases).
+ *
+ * `vscode-merge-base` — value determined by VS Code that is used to determine the merge base for the current branch.
+ *   once `gk-merge-base` is determined, we stop using `vscode-merge-base`
+ *
+ */
 export type GitConfigKeys =
 	| `branch.${string}.vscode-merge-base`
 	| `branch.${string}.gk-merge-base`
 	| `branch.${string}.gk-merge-target`
 	| `branch.${string}.gk-merge-target-user`
 	| `branch.${string}.gk-associated-issues`
-	| `branch.${string}.github-pr-owner-number`;
+	| `branch.${string}.github-pr-owner-number`
+	| `branch.${string}.gk-last-accessed`
+	| `branch.${string}.gk-last-modified`;
 
 export type DeprecatedGitConfigKeys = `branch.${string}.gk-target-base`;
 
@@ -179,6 +197,7 @@ export const urls = Object.freeze({
 	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
 	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
 	helpCenterHome: `https://help.gitkraken.com/gitlens/home-view/?${utm}`,
+	helpCenterMCP: `https://help.gitkraken.com/mcp/mcp-getting-started/?${utm}`,
 	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
 
 	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,
@@ -188,6 +207,12 @@ export const urls = Object.freeze({
 	startIntegrations: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#improve-workflows-with-integrations`,
 	streamlineCollaboration: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#streamline-collaboration`,
 	aiFeatures: `https://help.gitkraken.com/gitlens/gl-gk-ai/?${utm}`,
+
+	getStarted: `https://help.gitkraken.com/gitlens/gitlens-home/?${utm}`,
+	welcomeInTrial: `https://help.gitkraken.com/gitlens/gitlens-home/?${utm}`,
+	welcomePaid: `https://help.gitkraken.com/gitlens/gitlens-home/?${utm}`,
+	welcomeTrialExpired: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
+	welcomeTrialReactivationEligible: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
 });
 
 export type WalkthroughSteps =

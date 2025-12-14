@@ -10,7 +10,7 @@ import type { Draft } from '../plus/drafts/models/drafts';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { groupByFilterMap, map } from '../system/iterable';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './nodes/abstract/viewNode';

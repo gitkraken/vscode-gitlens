@@ -35,7 +35,9 @@ import {
 } from '../../../git/utils/revision.utils';
 import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import { Directive } from '../../../quickpicks/items/directive';
-import { ReferencesQuickPickIncludes, showReferencePicker2 } from '../../../quickpicks/referencePicker';
+import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker';
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
@@ -222,8 +224,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return [true, { ...this.getTelemetryContext(), ...cfg }];
 	}
 
-	includeBootstrap(): Promise<State> {
-		return this._cache.get('bootstrap', () => this.getState(this._context, false));
+	includeBootstrap(_deferrable?: boolean): Promise<State> {
+		return this._cache.getOrCreate('bootstrap', () => this.getState(this._context, false));
 	}
 
 	registerCommands(): Disposable[] {
@@ -319,7 +321,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				break;
 
 			case UpdateScopeCommand.is(e):
-				this.onMessageUpdateScope(e);
+				void this.onMessageUpdateScope(e);
 				break;
 		}
 	}
@@ -366,6 +368,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		let ref = e.params.type === 'base' ? scope.base : scope.head;
 
+		const include: ReferencesQuickPickIncludes[] = ['branches', 'tags', 'HEAD'];
+		if (!repo.virtual && !this._context.config.showAllBranches && e.params.type !== 'base') {
+			include.push('allBranches');
+		}
+
 		const pick = await showReferencePicker2(
 			repo.path,
 			e.params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
@@ -373,15 +380,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				? 'Choose a reference (branch, tag, etc) as the base to view history from'
 				: 'Choose a reference (branch, tag, etc) as the head to view history for',
 			{
-				// allowRevisions: { ranges: true },
-				allowRevisions: true,
+				allowedAdditionalInput: { rev: true /*, range: true */ },
 				picked: ref?.ref,
-				include:
-					ReferencesQuickPickIncludes.BranchesAndTags |
-					ReferencesQuickPickIncludes.HEAD |
-					(!repo.virtual && !this._context.config.showAllBranches && e.params.type !== 'base'
-						? ReferencesQuickPickIncludes.AllBranches
-						: 0),
+				include: include,
 				sort: true,
 			},
 		);
@@ -480,10 +481,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	private onMessageUpdateScope(e: IpcMessage<UpdateScopeParams>) {
+	private async onMessageUpdateScope(e: IpcMessage<UpdateScopeParams>) {
 		if (e.params.scope == null) return;
 
-		const repo = this.container.git.getRepository(e.params.scope.uri);
+		let repo = this.container.git.getRepository(e.params.scope.uri);
 		if (repo == null) return;
 
 		const scope = deserializeTimelineScope(e.params.scope);
@@ -498,6 +499,26 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			scope.type = type;
 			if (type === 'repo') {
 				scope.uri = repo.uri;
+			}
+		} else if (type === 'repo' && scope.type === 'repo') {
+			const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+				this.container.git.openRepositories,
+				'Switch',
+				repo?.name,
+			);
+			const result = await showRepositoryPicker2(
+				this.container,
+				title,
+				placeholder,
+				this.container.git.openRepositories,
+				{ picked: repo },
+			);
+			if (result.value != null && !areUrisEqual(result.value.uri, scope.uri)) {
+				repo = result.value;
+				changed = true;
+				scope.uri = result.value.uri;
+				scope.head = undefined;
+				scope.base = undefined;
 			}
 		}
 
@@ -655,6 +676,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				config: config,
 				scope: undefined,
 				repository: undefined,
+				repositories: { count: 0, openCount: 0 },
 				access: access,
 			};
 		}
@@ -683,6 +705,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			config: config,
 			scope: serializeTimelineScope(scope as Required<TimelineScope>, relativePath),
 			repository: repository,
+			repositories: {
+				count: this.container.git.repositoryCount,
+				openCount: this.container.git.openRepositoryCount,
+			},
 			access: access,
 		};
 	}
@@ -1035,7 +1061,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	private async notifyDidChangeState() {
 		this._notifyDidChangeStateDebounced?.cancel();
 
-		const state = await this._cache.get('state', () => this.getState(this._context, true));
+		const state = await this._cache.getOrCreate('state', () => this.getState(this._context, true));
 		return this.host.notify(DidChangeNotification, { state: state });
 	}
 }
@@ -1113,7 +1139,7 @@ function generateRandomTimelineDataset(itemType: TimelineScopeType): TimelineDat
 	const count = 10;
 	for (let i = 0; i < count; i++) {
 		// Generate a random date between now and 3 months ago
-		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
+		const date = new Date(Date.now() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
 		const author = authors[Math.floor(Math.random() * authors.length)];
 
 		// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit

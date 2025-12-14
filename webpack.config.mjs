@@ -19,9 +19,10 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { createRequire } from 'module';
 import { availableParallelism } from 'os';
 import path from 'path';
+import { defineReactCompilerLoaderOption, reactCompilerLoader } from 'react-compiler-webpack';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import webpack from 'webpack';
 import WebpackRequireFromPlugin from 'webpack-require-from';
 
@@ -33,11 +34,15 @@ const { DefinePlugin, optimize, WebpackError } = webpack;
 const require = createRequire(import.meta.url);
 
 const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
-const eslintWorker = {
-	max: cores,
-	filesPerWorker: 100,
+const eslintWorker = { max: cores, filesPerWorker: 100 };
+/** @type import('@eamodio/eslint-lite-webpack-plugin').ESLintLitePluginOptions['eslintOptions'] */
+const eslintOptions = {
+	cache: true,
+	cacheStrategy: 'content',
+	// concurrency: 'auto',
 };
 
+const useAsyncTypeChecking = false;
 const useNpm = Boolean(process.env.GL_USE_NPM);
 if (useNpm) {
 	console.log('Using npm to run scripts');
@@ -45,9 +50,14 @@ if (useNpm) {
 
 const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
+/** @typedef {'production' | 'development' | 'none'} GlMode */
+/** @typedef { 'node' | 'webworker' } GlTarget */
+/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string }} GlEnv */
+/** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
+
 /**
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
- * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
+ * @param {GlEnv | undefined } env
+ * @param {{ mode: GlMode | undefined }} argv
  * @returns { WebpackConfig[] }
  */
 export default function (env, argv) {
@@ -57,9 +67,17 @@ export default function (env, argv) {
 		analyzeBundle: false,
 		analyzeDeps: false,
 		esbuild: true,
-		skipLint: false,
+		quick: false,
 		...env,
 	};
+
+	if (env.quick) {
+		if (env.quick === 'turbo') {
+			console.log('Turbo mode enabled — skipping type checking, linting, and docs generation');
+		} else {
+			console.log('Quick mode enabled — skipping linting and docs generation');
+		}
+	}
 
 	return [
 		getCommonConfig(mode, env),
@@ -85,8 +103,27 @@ const stats = {
 };
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param {string} name
+ * @param { GlTarget } target
+ * @param { GlMode } mode
+ * @returns { WebpackConfig['cache'] }
+ */
+function getCacheConfig(name, target, mode) {
+	return undefined;
+	// Attempt at caching to improve build times, but it doesn't seem to help much if at all
+	// return {
+	// 	type: 'filesystem',
+	// 	cacheDirectory: path.join(__dirname, '.webpack-cache'),
+	// 	buildDependencies: {
+	// 		config: [__filename],
+	// 	},
+	// 	name: `${name}-${target}-${mode}`, // Unique per config
+	// };
+}
+
+/**
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getCommonConfig(mode, env) {
@@ -99,28 +136,34 @@ function getCommonConfig(mode, env) {
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
-	const plugins = [
-		new DocsPlugin(),
-		new LicensesPlugin(),
-		new FantasticonPlugin({
-			configPath: '.fantasticonrc.js',
-			onBefore:
-				mode !== 'production'
-					? undefined
-					: () =>
-							spawnSync(pkgMgr, ['run', 'icons:svgo'], {
-								cwd: __dirname,
-								encoding: 'utf8',
-								shell: true,
-							}),
-			onComplete: () =>
-				spawnSync(pkgMgr, ['run', 'icons:apply'], {
-					cwd: __dirname,
-					encoding: 'utf8',
-					shell: true,
-				}),
-		}),
-	];
+	const plugins = [];
+	if (!env.quick && mode !== 'production') {
+		plugins.push(new DocsPlugin());
+	}
+
+	if (!env.quick || mode === 'production') {
+		plugins.push(
+			new LicensesPlugin(),
+			new FantasticonPlugin({
+				configPath: '.fantasticonrc.js',
+				onBefore:
+					mode !== 'production'
+						? undefined
+						: () =>
+								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
+									cwd: __dirname,
+									encoding: 'utf8',
+									shell: true,
+								}),
+				onComplete: () =>
+					spawnSync(pkgMgr, ['run', 'icons:apply'], {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					}),
+			}),
+		);
+	}
 
 	return {
 		name: 'common',
@@ -130,13 +173,14 @@ function getCommonConfig(mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig('common', 'node', mode),
 	};
 }
 
 /**
- * @param { 'node' | 'webworker' } target
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param { GlTarget } target
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -149,25 +193,31 @@ function getExtensionConfig(target, mode, env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
 		new DefinePlugin({
 			DEBUG: mode === 'development',
-		}),
-		new ForkTsCheckerPlugin({
-			async: false,
-			formatter: 'basic',
-			typescript: {
-				configFile: tsConfigPath,
-			},
+			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
 	];
 
-	if (!env.skipLint) {
+	if (env.quick !== 'turbo') {
+		plugins.push(
+			new ForkTsCheckerPlugin({
+				async: useAsyncTypeChecking,
+				formatter: 'basic',
+				typescript: {
+					configFile: tsConfigPath,
+					memoryLimit: 4096,
+				},
+			}),
+		);
+	}
+
+	if (!env.quick) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
 				worker: eslintWorker,
 				eslintOptions: {
-					cache: true,
+					...eslintOptions,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
-					cacheStrategy: 'content',
 				},
 			}),
 		);
@@ -320,54 +370,66 @@ function getExtensionConfig(target, mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig('extension', target, mode),
 	};
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig[] }
  */
 function getWebviewsConfigs(mode, env) {
-	return [
-		getWebviewConfig(
-			{
-				commitDetails: { entry: './commitDetails/commitDetails.ts' },
-				graph: { entry: './plus/graph/graph.ts', plus: true },
-				home: { entry: './home/home.ts' },
-				rebase: { entry: './rebase/rebase.ts' },
-				settings: { entry: './settings/settings.ts' },
-				timeline: { entry: './plus/timeline/timeline.ts', plus: true },
-				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
-			},
-			{},
-			mode,
-			env,
-		),
-	];
+	/** @type GlWebviews */
+	let webviews = {
+		commitDetails: { entry: './commitDetails/commitDetails.ts' },
+		composer: { entry: './plus/composer/composer.ts', plus: true },
+		graph: { entry: './plus/graph/graph.ts', plus: true },
+		home: { entry: './home/home.ts' },
+		rebase: { entry: './rebase/rebase.ts' },
+		settings: { entry: './settings/settings.ts' },
+		timeline: { entry: './plus/timeline/timeline.ts', plus: true },
+		patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
+	};
+
+	if (env.webviews) {
+		const chosen = env.webviews.split(',');
+		webviews = Object.fromEntries(Object.entries(webviews).filter(([key]) => chosen.includes(key)));
+	}
+
+	return [getWebviewConfig(webviews, {}, mode, env)];
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getWebviewsCommonConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 	/** @type WebpackConfig['plugins'] | any */
-	const plugins = [
-		new CleanPlugin(
-			mode === 'production'
-				? {
-						cleanOnceBeforeBuildPatterns: [
-							path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
-						],
-						dangerouslyAllowCleanPatternsOutsideProject: true,
-						dry: false,
-					}
-				: undefined,
-		),
+	const plugins = [];
+	// If we are only building a subset of webviews, don't clean
+	if (!env.webviews) {
+		plugins.push(
+			new CleanPlugin(
+				mode === 'production'
+					? {
+							cleanOnceBeforeBuildPatterns: [
+								path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
+							],
+							dangerouslyAllowCleanPatternsOutsideProject: true,
+							dry: false,
+						}
+					: env.webviews
+						? { cleanStaleWebpackAssets: false }
+						: undefined,
+			),
+		);
+	}
+
+	plugins.push(
 		new CopyPlugin({
 			patterns: [
 				{
@@ -387,29 +449,29 @@ function getWebviewsCommonConfig(mode, env) {
 				},
 			],
 		}),
-	];
+	);
 
-	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
-
-	if (mode !== 'production') {
-		plugins.push(
-			new ImageMinimizerPlugin({
-				deleteOriginalAssets: true,
-				generator: [imageGeneratorConfig],
-			}),
-		);
-	}
-
-	if (!env.skipLint) {
+	if (!env.quick) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
 				worker: eslintWorker,
 				eslintOptions: {
-					cache: true,
+					...eslintOptions,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
-					cacheStrategy: 'content',
 				},
+			}),
+		);
+	}
+
+	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
+
+	if (!env.quick && mode !== 'production') {
+		// Only need to add the plugin for dev mode, as prod is handled by the minimization
+		plugins.push(
+			new ImageMinimizerPlugin({
+				deleteOriginalAssets: true,
+				generator: [imageGeneratorConfig],
 			}),
 		);
 	}
@@ -438,14 +500,15 @@ function getWebviewsCommonConfig(mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig('webviews-common', 'webworker', mode),
 	};
 }
 
 /**
- * @param {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} webviews
+ * @param {GlWebviews} webviews
  * @param {{ alias?: { [key:string]: string }}} overrides
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { WebpackConfig }
  */
 function getWebviewConfig(webviews, overrides, mode, env) {
@@ -456,13 +519,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	const plugins = [
 		new DefinePlugin({
 			DEBUG: mode === 'development',
-		}),
-		new ForkTsCheckerPlugin({
-			async: false,
-			formatter: 'basic',
-			typescript: {
-				configFile: tsConfigPath,
-			},
+			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
 		new WebpackRequireFromPlugin({
 			variableName: 'webpackResourceBasePath',
@@ -472,9 +529,41 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		getCspHtmlPlugin(mode, env),
 	];
 
+	// Add composer template compilation plugin when building composer webview
+	if ('composer' in webviews) {
+		plugins.push(new CompileComposerTemplatesPlugin());
+	}
+
+	if (env.quick !== 'turbo') {
+		plugins.push(
+			new ForkTsCheckerPlugin({
+				async: useAsyncTypeChecking,
+				formatter: 'basic',
+				typescript: {
+					configFile: tsConfigPath,
+					memoryLimit: 4096,
+				},
+			}),
+		);
+	}
+
+	if (!env.quick) {
+		plugins.push(
+			new ESLintLitePlugin({
+				files: path.join(basePath, '**', '*.ts?(x)'),
+				worker: eslintWorker,
+				eslintOptions: {
+					...eslintOptions,
+					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
+				},
+			}),
+		);
+	}
+
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
-	if (mode !== 'production') {
+	if (!env.quick && mode !== 'production') {
+		// Only need to add the plugin for dev mode, as prod is handled by the minimization
 		plugins.push(
 			new ImageMinimizerPlugin({
 				deleteOriginalAssets: true,
@@ -513,7 +602,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	return {
 		name: name,
 		context: basePath,
-		entry: Object.fromEntries(Object.entries(webviews).map(([name, { entry }]) => [name, entry])),
+		entry: Object.fromEntries(Object.entries(webviews).map(([n, { entry }]) => [n, entry])),
 		mode: mode,
 		target: 'web',
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
@@ -593,24 +682,32 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
-					use: env.esbuild
-						? {
-								loader: 'esbuild-loader',
-								options: {
-									format: 'esm',
-									implementation: esbuild,
-									target: ['es2023', 'chrome124'],
-									tsconfig: tsConfigPath,
+					use: [
+						// React Compiler - must come before esbuild-loader/ts-loader
+						{
+							loader: reactCompilerLoader,
+							options: defineReactCompilerLoaderOption({ target: '19' }),
+						},
+						// TypeScript transpilation
+						env.esbuild
+							? {
+									loader: 'esbuild-loader',
+									options: {
+										format: 'esm',
+										implementation: esbuild,
+										target: ['es2023', 'chrome124'],
+										tsconfig: tsConfigPath,
+									},
+								}
+							: {
+									loader: 'ts-loader',
+									options: {
+										configFile: tsConfigPath,
+										experimentalWatchApi: true,
+										transpileOnly: true,
+									},
 								},
-							}
-						: {
-								loader: 'ts-loader',
-								options: {
-									configFile: tsConfigPath,
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
-							},
+					],
 				},
 				{
 					test: /\.scss$/,
@@ -621,14 +718,14 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 						{
 							loader: 'css-loader',
 							options: {
-								sourceMap: mode !== 'production',
+								sourceMap: mode !== 'production' && !env.quick,
 								url: false,
 							},
 						},
 						{
 							loader: 'sass-loader',
 							options: {
-								sourceMap: mode !== 'production',
+								sourceMap: mode !== 'production' && !env.quick,
 							},
 						},
 					],
@@ -647,6 +744,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			fallback: { path: require.resolve('path-browserify') },
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
+			conditionNames: ['browser', 'import', 'module', 'default'],
 		},
 		ignoreWarnings: [
 			// Ignore warnings about findDOMNode being removed from React 19
@@ -658,12 +756,13 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
+		cache: getCacheConfig(name, 'webworker', mode),
 	};
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { CspHtmlPlugin }
  */
 function getCspHtmlPlugin(mode, env) {
@@ -702,8 +801,8 @@ function getCspHtmlPlugin(mode, env) {
 }
 
 /**
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { ImageMinimizerPlugin.Generator<any> }
  */
 function getImageMinimizerConfig(mode, env) {
@@ -719,8 +818,8 @@ function getImageMinimizerConfig(mode, env) {
 /**
  * @param { string } name
  * @param { boolean } plus
- * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean } | undefined } env
+ * @param { GlMode } mode
+ * @param {GlEnv} env
  * @returns { HtmlPlugin }
  */
 function getHtmlPlugin(name, plus, mode, env) {
@@ -747,52 +846,52 @@ function getHtmlPlugin(name, plus, mode, env) {
 	});
 }
 
-class InlineChunkHtmlPlugin {
-	constructor(htmlPlugin, patterns) {
-		this.htmlPlugin = htmlPlugin;
-		this.patterns = patterns;
-	}
+// class InlineChunkHtmlPlugin {
+// 	constructor(htmlPlugin, patterns) {
+// 		this.htmlPlugin = htmlPlugin;
+// 		this.patterns = patterns;
+// 	}
 
-	getInlinedTag(publicPath, assets, tag) {
-		if (
-			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
-			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
-		) {
-			return tag;
-		}
+// 	getInlinedTag(publicPath, assets, tag) {
+// 		if (
+// 			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
+// 			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
+// 		) {
+// 			return tag;
+// 		}
 
-		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
-		if (publicPath) {
-			chunkName = chunkName.replace(publicPath, '');
-		}
-		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
-			return tag;
-		}
+// 		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
+// 		if (publicPath) {
+// 			chunkName = chunkName.replace(publicPath, '');
+// 		}
+// 		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
+// 			return tag;
+// 		}
 
-		const asset = assets[chunkName];
-		if (asset == null) {
-			return tag;
-		}
+// 		const asset = assets[chunkName];
+// 		if (asset == null) {
+// 			return tag;
+// 		}
 
-		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
-	}
+// 		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
+// 	}
 
-	apply(compiler) {
-		let publicPath = compiler.options.output.publicPath || '';
-		if (publicPath && !publicPath.endsWith('/')) {
-			publicPath += '/';
-		}
+// 	apply(compiler) {
+// 		let publicPath = compiler.options.output.publicPath || '';
+// 		if (publicPath && !publicPath.endsWith('/')) {
+// 			publicPath += '/';
+// 		}
 
-		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
-			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
-			const sortFn = (a, b) => (a.tagName === 'script' ? 1 : -1) - (b.tagName === 'script' ? 1 : -1);
-			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
-				assets.headTags = assets.headTags.map(getInlinedTagFn).sort(sortFn);
-				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn).sort(sortFn);
-			});
-		});
-	}
-}
+// 		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
+// 			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
+// 			const sortFn = (a, b) => (a.tagName === 'script' ? 1 : -1) - (b.tagName === 'script' ? 1 : -1);
+// 			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
+// 				assets.headTags = assets.headTags.map(getInlinedTagFn).sort(sortFn);
+// 				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn).sort(sortFn);
+// 			});
+// 		});
+// 	}
+// }
 
 const schema = {
 	type: 'object',
@@ -843,6 +942,9 @@ class FileGeneratorPlugin {
 		return changed;
 	}
 
+	/**
+	 * @param {import("webpack").Compiler} compiler
+	 */
 	apply(compiler) {
 		let pendingGeneration = false;
 
@@ -978,6 +1080,9 @@ class LicensesPlugin extends FileGeneratorPlugin {
 class FantasticonPlugin {
 	alreadyRun = false;
 
+	/**
+	 * @param {{config?: { [key:string]: any }; configPath?: string; onBefore?: Function; onComplete?: Function }} options
+	 */
 	constructor(options = {}) {
 		this.pluginName = 'fantasticon';
 		this.options = options;
@@ -1067,7 +1172,106 @@ class FantasticonPlugin {
 		}
 
 		const generateFn = generate.bind(this);
+		// @ts-ignore
 		compiler.hooks.beforeRun.tapPromise(this.pluginName, generateFn);
+		// @ts-ignore
 		compiler.hooks.watchRun.tapPromise(this.pluginName, generateFn);
+	}
+}
+
+/**
+ * Webpack plugin to precompile Composer custom diff2html Hogan templates.
+ * This avoids runtime eval and ensures templates are compiled at build time.
+ */
+class CompileComposerTemplatesPlugin {
+	static name = 'CompileComposerTemplatesPlugin';
+
+	/** @type {Promise<void> | undefined} */
+	static _compilationPromise;
+
+	/**
+	 * @param {import('webpack').Compiler} compiler
+	 */
+	apply(compiler) {
+		compiler.hooks.beforeCompile.tapPromise(CompileComposerTemplatesPlugin.name, async () => {
+			// Deduplicate compilation across parallel builds
+			if (!CompileComposerTemplatesPlugin._compilationPromise) {
+				CompileComposerTemplatesPlugin._compilationPromise = this._compile();
+			}
+			return CompileComposerTemplatesPlugin._compilationPromise;
+		});
+	}
+
+	async _compile() {
+		/** @type {typeof import('hogan.js')} */
+		let Hogan;
+		try {
+			// Prefer root-level hogan.js if hoisted
+			// @ts-ignore
+			Hogan = await import('hogan.js');
+		} catch {
+			// Fallback: resolve from diff2html's nested dependency to support pnpm non-hoisted layout
+			const diff2htmlPkg = require.resolve('diff2html/package.json');
+			const hoganPath = require.resolve('hogan.js', {
+				paths: [path.join(path.dirname(diff2htmlPkg), 'node_modules')],
+			});
+			// @ts-ignore
+			Hogan = await import(pathToFileURL(hoganPath).href);
+		}
+		// @ts-ignore
+		Hogan = Hogan?.default || Hogan;
+
+		const srcPath = path.join(__dirname, 'src/webviews/apps/plus/composer/components/diff/diff-templates.ts');
+		const outPath = path.join(
+			__dirname,
+			'src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts',
+		);
+
+		const source = fs.readFileSync(srcPath, 'utf8');
+
+		/**
+		 * @param {string} name
+		 * @returns {string}
+		 */
+		function extractTemplate(name) {
+			const re = new RegExp(`export const ${name} = \`([\\s\\S]*?)\`;`);
+			const m = source.match(re);
+			if (!m) throw new Error(`Template ${name} not found in ${srcPath}`);
+			return m[1];
+		}
+
+		const blockHeader = extractTemplate('blockHeaderTemplate');
+		const lineByLineFile = extractTemplate('lineByLineFileTemplate');
+		const sideBySideFile = extractTemplate('sideBySideFileTemplate');
+		const genericFilePath = extractTemplate('genericFilePathTemplate');
+
+		/**
+		 * @param {string} name
+		 * @param {string} tpl
+		 * @returns {string}
+		 */
+		function precompile(name, tpl) {
+			const code = Hogan.compile(tpl, { asString: true });
+			return `  "${name}": new Hogan.Template(${code})`;
+		}
+
+		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils';\nimport * as Hogan from 'hogan.js';\n`;
+
+		const body = `export const compiledComposerTemplates: CompiledTemplates = {\n${precompile(
+			'generic-block-header',
+			blockHeader,
+		)},\n${precompile('line-by-line-file-diff', lineByLineFile)},\n${precompile(
+			'side-by-side-file-diff',
+			sideBySideFile,
+		)},\n${precompile('generic-file-path', genericFilePath)}\n};\n`;
+
+		const newContent = header + body;
+		const existingContent = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : '';
+
+		// Only write if content changed to avoid unnecessary rebuilds
+		if (newContent !== existingContent) {
+			fs.writeFileSync(outPath, newContent, 'utf8');
+			console.log(`[CompileComposerTemplatesPlugin] Wrote ${outPath}`);
+		}
 	}
 }

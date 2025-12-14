@@ -48,6 +48,7 @@ export interface Config {
 	readonly sortContributorsBy: ContributorSorting;
 	readonly sortTagsBy: TagSorting;
 	readonly sortRepositoriesBy: RepositoriesSorting;
+	readonly sortWorktreesBy: WorktreeSorting;
 	readonly statusBar: StatusBarConfig;
 	readonly strings: StringsConfig;
 	readonly telemetry: TelemetryConfig;
@@ -92,6 +93,7 @@ export type ContributorSorting =
 	| 'score:desc'
 	| 'score:asc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
+export type WorktreeSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 export type CustomRemoteType =
 	| 'AzureDevOps'
 	| 'Bitbucket'
@@ -163,7 +165,6 @@ export type SuppressedMessages =
 	| 'suppressGitVersionWarning'
 	| 'suppressLineUncommittedWarning'
 	| 'suppressNoRepositoryWarning'
-	| 'suppressRebaseSwitchToTextWarning'
 	| 'suppressGkDisconnectedTooManyFailedRequestsWarningMessage'
 	| 'suppressGkRequestFailed500Warning'
 	| 'suppressGkRequestTimedOutWarning'
@@ -200,18 +201,26 @@ export interface AdvancedConfig {
 	readonly fileHistoryFollowsRenames: boolean;
 	readonly fileHistoryShowAllBranches: boolean;
 	readonly fileHistoryShowMergeCommits: boolean;
+	readonly gitTimeout: number;
 	readonly maxListItems: number;
 	readonly maxSearchItems: number;
 	readonly messages: { [key in SuppressedMessages]: boolean };
 	readonly quickPick: {
 		readonly closeOnFocusOut: boolean;
 	};
+	readonly resolveSymlinks: boolean;
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
+	readonly skipOnboarding: boolean;
 }
 
 interface AIConfig {
 	readonly enabled: boolean;
+	readonly experimental: {
+		readonly composer: {
+			readonly enabled: boolean;
+		};
+	};
 	readonly azure: {
 		readonly url: string | null;
 	};
@@ -228,6 +237,9 @@ interface AIConfig {
 	readonly generateCommitMessage: {
 		readonly customInstructions: string;
 		readonly enabled: boolean;
+	};
+	readonly generateCommits: {
+		readonly customInstructions: string;
 	};
 	readonly generateStashMessage: {
 		readonly customInstructions: string;
@@ -381,12 +393,17 @@ interface GitCommandsConfig {
 interface GitKrakenConfig {
 	readonly activeOrganizationId: string | null;
 	readonly cli: GitKrakenCliConfig;
+	readonly mcp: GitKrakenMcpConfig;
 }
 
 interface GitKrakenCliConfig {
 	readonly integration: {
 		readonly enabled: boolean;
 	};
+}
+
+interface GitKrakenMcpConfig {
+	readonly autoEnabled: boolean;
 }
 
 export interface GraphConfig {
@@ -404,6 +421,7 @@ export interface GraphConfig {
 		};
 	};
 	readonly highlightRowsOnRefHover: boolean;
+	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;
 	};
@@ -435,6 +453,7 @@ export interface GraphConfig {
 	readonly statusBar: {
 		readonly enabled: boolean;
 	};
+	readonly stickyTimeline: boolean;
 }
 
 interface HeatmapConfig {
@@ -558,6 +577,7 @@ export interface MenuConfig {
 		| false
 		| {
 				readonly graph: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmRepositoryInline:
 		| false
@@ -565,14 +585,15 @@ export interface MenuConfig {
 				readonly generateCommitMessage: boolean;
 				readonly graph: boolean;
 				readonly stash: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmRepository:
 		| false
 		| {
 				readonly authors: boolean;
 				readonly generateCommitMessage: boolean;
-				readonly patch: boolean;
 				readonly graph: boolean;
+				readonly visualHistory: boolean;
 		  };
 	readonly scmGroupInline:
 		| false
@@ -644,8 +665,10 @@ interface ProxyConfig {
 }
 
 interface RebaseEditorConfig {
+	readonly openOnPausedRebase: boolean;
 	readonly ordering: 'asc' | 'desc';
-	readonly showDetailsView: 'open' | 'selection' | false;
+	readonly revealLocation: 'graph' | 'inspect';
+	readonly revealBehavior: 'never' | 'onOpen' | 'onSelection';
 }
 
 export type RemotesConfig =
@@ -1101,6 +1124,9 @@ export type CoreConfig = {
 	};
 	readonly workbench: {
 		readonly editorAssociations: Record<string, string> | { viewType: string; filenamePattern: string }[];
+		readonly panel: {
+			readonly visible: boolean;
+		};
 		readonly tree: {
 			readonly renderIndentGuides: 'always' | 'none' | 'onHover';
 			readonly indent: number;

@@ -6,8 +6,9 @@ import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../git/g
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTreeEntry } from '../../../../git/models/tree';
+import { parseGitLsFilesStaged } from '../../../../git/parsers/indexParser';
 import { getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
-import { parseGitLsFilesStaged, parseGitTree } from '../../../../git/parsers/treeParser';
+import { parseGitTree } from '../../../../git/parsers/treeParser';
 import {
 	isRevisionWithSuffix,
 	isSha,
@@ -16,7 +17,7 @@ import {
 	isUncommittedWithParentSuffix,
 } from '../../../../git/utils/revision.utils';
 import { splitPath } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { first } from '../../../../system/iterable';
 import type { Git } from '../git';
@@ -79,6 +80,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			let result = await this.git.exec(
 				{ cwd: root, errors: GitErrorHandling.Ignore },
 				'ls-files',
+				'-z',
 				'--stage',
 				'--',
 				relativePath,

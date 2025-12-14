@@ -12,7 +12,7 @@ import { getHighlanderProviders } from '../../git/utils/remote.utils';
 import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace';
 import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace';
 import { findLastIndex } from '../../system/array';
-import { gate } from '../../system/decorators/-webview/gate';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
@@ -49,7 +49,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	) {
 		super('repository', uri, view, parent);
 
-		this.updateContext({ ...context, repository: this.repo });
+		this.updateContext({ ...context, repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this._status = this.repo.git.status.getStatus();
@@ -89,6 +89,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					`refs/heads/${status.branch}`,
 					true,
 					undefined,
+					undefined,
+					undefined,
 					status.sha,
 					status.upstream,
 					{ path: status.repoPath, isDefault: status.repoPath === defaultWorktreePath },
@@ -96,7 +98,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					status.rebasing,
 				);
 
-				const pausedOpStatus = await this.repo.git.status.getPausedOperationStatus?.();
+				const pausedOpStatus = await this.repo.git.pausedOps?.getPausedOperationStatus?.();
 				if (pausedOpStatus != null) {
 					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, true, status));
 				} else if (this.view.config.showUpstreamStatus) {
@@ -441,6 +443,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				RepositoryChange.Heads,
 				RepositoryChange.Opened,
 				RepositoryChange.PausedOperationStatus,
+				RepositoryChange.Starred,
+				RepositoryChange.Worktrees,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
 			)

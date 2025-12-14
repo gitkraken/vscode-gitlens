@@ -23,7 +23,7 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.diffWithNext');
+		super(['gitlens.diffWithNext', 'gitlens.diffWithNext:editor/title', 'gitlens.diffWithNext:key']);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs): Promise<void> {

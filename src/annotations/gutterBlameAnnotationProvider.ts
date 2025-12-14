@@ -80,6 +80,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
 			tokenOptions: tokenOptions,
+			source: { source: 'editor:hover' },
 		};
 
 		const fontOptions: BlameFontOptions = {

@@ -1,6 +1,6 @@
 import type { TemplateResult } from 'lit';
-import { html, LitElement } from 'lit';
-import { property } from 'lit/decorators.js';
+import { html, LitElement, nothing } from 'lit';
+import { property, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
 import type { HierarchicalItem } from '../../../../system/array';
@@ -18,6 +18,7 @@ import type {
 import '../../shared/components/webview-pane';
 import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
+import '../../shared/components/code-icon';
 import '../../shared/components/tree/tree-generator';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;
@@ -46,6 +47,12 @@ export class GlDetailsBase extends LitElement {
 	@property({ type: Object })
 	orgSettings?: State['orgSettings'];
 
+	@property({ type: Object })
+	searchContext?: State['searchContext'];
+
+	@state()
+	private _filterMode: 'off' | 'mixed' | 'matched' = 'mixed';
+
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
 
@@ -67,9 +74,60 @@ export class GlDetailsBase extends LitElement {
 		return `${filesLabel} changed`;
 	}
 
-	protected renderChangedFiles(mode: Mode, subtitle?: TemplateResult<1>): TemplateResult<1> {
-		const fileCount = this.files?.length ?? 0;
-		const isTree = this.isTree(fileCount);
+	protected renderFilterAction(): TemplateResult<1> | typeof nothing {
+		if (this.searchContext == null) return nothing;
+
+		const matchCount = this.searchContext.matchedFiles?.length ?? 0;
+		const totalCount = this.files?.length ?? 0;
+
+		let icon: string;
+		let label: string;
+		let className: string | undefined;
+
+		switch (this._filterMode) {
+			case 'off':
+				icon = 'filter';
+				label = `Search matched ${matchCount} of ${totalCount} files\nClick to highlight matching files`;
+				break;
+			case 'mixed':
+				icon = 'filter-filled';
+				label = `Search matched ${matchCount} of ${totalCount} files\nClick to show only matching files`;
+				className = 'filter-mode-mixed';
+				break;
+			case 'matched':
+				icon = 'filter-filled';
+				label = `Showing ${matchCount} of ${totalCount} files\nClick to show all files`;
+				break;
+		}
+
+		return html`<action-item
+			data-action="filter-mode"
+			class="${className ?? ''}"
+			label="${label}"
+			icon="${icon}"
+			@click="${this.onToggleFilter}"
+		></action-item>`;
+	}
+
+	private onToggleFilter(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Cycle through: off -> mixed -> matched -> off
+		switch (this._filterMode) {
+			case 'off':
+				this._filterMode = 'mixed';
+				break;
+			case 'mixed':
+				this._filterMode = 'matched';
+				break;
+			case 'matched':
+				this._filterMode = 'off';
+				break;
+		}
+	}
+
+	protected renderLayoutAction(): TemplateResult<1> | typeof nothing {
 		let value = 'tree';
 		let icon = 'list-tree';
 		let label = 'View as Tree';
@@ -91,20 +149,24 @@ export class GlDetailsBase extends LitElement {
 				break;
 		}
 
+		return html`<action-item
+			data-action="files-layout"
+			data-files-layout="${value}"
+			label="${label}"
+			icon="${icon}"
+		></action-item>`;
+	}
+
+	protected renderChangedFiles(mode: Mode, subtitle?: TemplateResult<1>): TemplateResult<1> {
+		const fileCount = this.files?.length ?? 0;
+		const isTree = this.isTree(fileCount);
 		const treeModel = this.createTreeModel(mode, this.files ?? [], isTree, this.isCompact);
 
 		return html`
 			<webview-pane collapsable expanded flexible>
 				<span slot="title">${this.filesChangedPaneLabel}</span>
-				<span slot="subtitle" data-region="stats">${subtitle}</span>
-				<action-nav slot="actions">
-					<action-item
-						data-action="files-layout"
-						data-files-layout="${value}"
-						label="${label}"
-						icon="${icon}"
-					></action-item>
-				</action-nav>
+				<span slot="subtitle" data-region="stats" style="opacity: 1">${subtitle}</span>
+				<action-nav slot="actions"> ${this.renderFilterAction()} ${this.renderLayoutAction()} </action-nav>
 				${this.renderChangedFilesActions()}${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
@@ -152,13 +214,13 @@ export class GlDetailsBase extends LitElement {
 			}
 		}
 
-		if (staged.length === 0 && unstaged.length === 0) {
+		if (!staged.length && !unstaged.length) {
 			children.push(...this.createFileTreeModel(mode, files, isTree, compact));
 		} else {
 			if (staged.length) {
 				children.push({
 					label: 'Staged Changes',
-					path: '',
+					path: '/:staged:/',
 					level: 1, // isMulti ? 2 : 1,
 					branch: true,
 					checkable: false,
@@ -174,7 +236,7 @@ export class GlDetailsBase extends LitElement {
 			if (unstaged.length) {
 				children.push({
 					label: 'Unstaged Changes',
-					path: '',
+					path: '/:unstaged:/',
 					level: 1, // isMulti ? 2 : 1,
 					branch: true,
 					checkable: false,
@@ -215,10 +277,20 @@ export class GlDetailsBase extends LitElement {
 			options.level = 1;
 		}
 
-		if (!files.length) {
+		// Filter files if filterMode is 'matched' and we have search context
+		let filteredFiles = files;
+		if (this._filterMode === 'matched' && this.searchContext?.matchedFiles != null) {
+			const matchedPaths = new Set(this.searchContext.matchedFiles.map(f => f.path));
+			filteredFiles = files.filter(f => matchedPaths.has(f.path));
+		}
+
+		if (!filteredFiles.length) {
 			return [
 				{
-					label: 'No changes',
+					label:
+						this._filterMode === 'matched' && this.searchContext != null
+							? 'No matching files'
+							: 'No changes',
 					path: '',
 					level: options.level,
 					branch: false,
@@ -232,7 +304,7 @@ export class GlDetailsBase extends LitElement {
 		const children: TreeModel[] = [];
 		if (isTree) {
 			const fileTree = makeHierarchical(
-				files,
+				filteredFiles,
 				n => n.path.split('/'),
 				(...parts: string[]) => parts.join('/'),
 				compact,
@@ -244,7 +316,7 @@ export class GlDetailsBase extends LitElement {
 				}
 			}
 		} else {
-			for (const file of files) {
+			for (const file of filteredFiles) {
 				const child = this.fileToTreeModel(file, { level: options.level, branch: false }, true);
 				children.push(child);
 			}
@@ -278,6 +350,11 @@ export class GlDetailsBase extends LitElement {
 				this.sortChildren(children);
 				model.branch = true;
 				model.children = children;
+
+				// If any child is matched, mark this parent as matched too
+				if (children.some(child => child.matched)) {
+					model.matched = true;
+				}
 			}
 		}
 
@@ -314,6 +391,11 @@ export class GlDetailsBase extends LitElement {
 		return [];
 	}
 
+	protected getFileContextData(_file: File): string | undefined {
+		// To be overridden by subclasses
+		return undefined;
+	}
+
 	protected fileToTreeModel(
 		file: File,
 		options?: Partial<TreeItemBase>,
@@ -323,6 +405,9 @@ export class GlDetailsBase extends LitElement {
 		const pathIndex = file.path.lastIndexOf(glue);
 		const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
 		const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
+
+		// Check if this file matches the search criteria (always set based on data, not filterMode)
+		const isMatchedFile = this.searchContext?.matchedFiles?.find(f => f.path === file.path) != null;
 
 		return {
 			branch: false,
@@ -336,7 +421,8 @@ export class GlDetailsBase extends LitElement {
 			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,
 			context: [file],
 			actions: this.getFileActions(file, options),
-			// decorations: [{ type: 'text', label: file.status }],
+			contextData: this.getFileContextData(file),
+			matched: isMatchedFile,
 			...options,
 		};
 	}
@@ -359,6 +445,7 @@ export class GlDetailsBase extends LitElement {
 		return html`<gl-tree-generator
 			.model=${treeModel}
 			.guides=${this.indentGuides}
+			.filtered=${this.searchContext != null && this._filterMode !== 'off'}
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}

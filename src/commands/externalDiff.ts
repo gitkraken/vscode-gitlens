@@ -4,7 +4,7 @@ import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { isUncommitted } from '../git/utils/revision.utils';
+import { isUncommitted, isUncommittedStaged } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
@@ -13,7 +13,11 @@ import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './commandContext.utils';
+import {
+	isCommandContextViewNodeHasFileCommit,
+	isCommandContextViewNodeHasFileRefs,
+	isCommandContextViewNodeHasRefFile,
+} from './commandContext.utils';
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -59,6 +63,20 @@ export class ExternalDiffCommand extends GlCommandBase {
 					staged: context.node.file.indexStatus != null,
 					ref1: context.node.ref1,
 					ref2: context.node.ref2,
+				},
+			];
+
+			return this.execute(args);
+		}
+
+		if (isCommandContextViewNodeHasRefFile(context)) {
+			const rev = context.node.ref.ref;
+			args.files = [
+				{
+					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath ?? context.node.repoPath),
+					staged: isUncommittedStaged(rev) || context.node.file.indexStatus != null,
+					ref1: isUncommitted(rev) ? '' : `${rev}^`,
+					ref2: isUncommitted(rev) ? '' : rev,
 				},
 			];
 

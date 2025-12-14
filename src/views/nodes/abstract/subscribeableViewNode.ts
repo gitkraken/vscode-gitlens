@@ -2,9 +2,10 @@ import type { TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import type { TreeViewSubscribableNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
-import { gate } from '../../../system/decorators/-webview/gate';
+import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
 import type { View } from '../../viewBase';
 import { CacheableChildrenViewNode } from './cacheableChildrenViewNode';
 import type { ViewNode } from './viewNode';
@@ -58,11 +59,35 @@ export abstract class SubscribeableViewNode<
 
 	@debug()
 	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
-		if (!this.loaded || this._disposed) return;
+		const scope = getLogScope();
+
+		// If the node has been disposed, nothing to do
+		if (this._disposed) {
+			setLogScopeExit(scope, ' \u2022 ignored; disposed');
+			return;
+		}
+
+		// If the node hasn't been loaded yet, don't trigger view refreshes now.
+		// If this is a reset, record it so it will be applied when the node becomes loaded/visible.
+		if (!this.loaded) {
+			if (reset) {
+				setLogScopeExit(scope, ' \u2022 ignored; pending reset');
+				// If the view isn't visible, we'll persist the pending reset for application on visible.
+				// If the view is visible but the node isn't loaded, it's still safer to record the reset
+				// and let the normal load/visibility logic apply it rather than firing tree updates for
+				// a node that doesn't exist yet in the tree.
+				this._pendingReset = reset;
+			} else {
+				setLogScopeExit(scope, ' \u2022 ignored; not loaded');
+			}
+			return;
+		}
 
 		if (reset && !this.view.visible) {
 			this._pendingReset = reset;
 		}
+
+		setLogScopeExit(scope, ' \u2022 refreshing view');
 		await super.triggerChange(reset, force);
 	}
 
@@ -144,8 +169,20 @@ export abstract class SubscribeableViewNode<
 	@gate()
 	@debug()
 	async ensureSubscription(): Promise<void> {
-		// We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
-		if (!this.canSubscribe || !this.view.visible || (canAutoRefreshView(this.view) && !this.view.autoRefresh)) {
+		const scope = getLogScope();
+
+		// We only need to subscribe if we are visible and if auto-refresh isn't disabled
+		const {
+			canSubscribe,
+			view: { visible: isVisible },
+		} = this;
+		const autoRefreshDisabled = canAutoRefreshView(this.view) && !this.view.autoRefresh;
+
+		if (!canSubscribe || !isVisible || autoRefreshDisabled) {
+			setLogScopeExit(
+				scope,
+				` \u2022 unsubscribed (subscription=${this.subscription != null}); canSubscribe=${canSubscribe}, viewVisible=${isVisible}, autoRefreshDisabled=${autoRefreshDisabled}`,
+			);
 			await this.unsubscribe();
 
 			return;
@@ -153,6 +190,11 @@ export abstract class SubscribeableViewNode<
 
 		// If we already have a subscription, just kick out
 		if (this.subscription != null) return;
+
+		setLogScopeExit(
+			scope,
+			` \u2022 subscribed; canSubscribe=${canSubscribe}, viewVisible=${isVisible}, autoRefreshDisabled=${autoRefreshDisabled}`,
+		);
 
 		this.subscription = Promise.resolve(this.subscribe());
 		void (await this.subscription);

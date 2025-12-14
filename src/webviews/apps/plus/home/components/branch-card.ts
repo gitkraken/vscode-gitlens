@@ -567,7 +567,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							<issue-icon state=${issue.state} issue-id=${issue.id}></issue-icon>
 						</span>
 						<a href=${issue.url} class="branch-item__name branch-item__name--secondary">${issue.title}</a>
-						<span class="branch-item__identifier">#${issue.id}</span>
+						<span class="branch-item__identifier">${isNaN(parseInt(issue.id)) ? '' : '#'}${issue.id}</span>
 					</p>
 				`;
 			})}
@@ -889,7 +889,10 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	protected renderMergeTargetStatus(): TemplateResult | NothingType {
 		if (this.showUpgrade) {
-			return html`<gl-merge-target-upgrade class="branch-item__merge-target"></gl-merge-target-upgrade>`;
+			return html`<gl-merge-target-upgrade
+				class="branch-item__merge-target"
+				.state=${this._homeState.subscription.state}
+			></gl-merge-target-upgrade>`;
 		}
 
 		if (!this.branch.mergeTarget) return nothing;

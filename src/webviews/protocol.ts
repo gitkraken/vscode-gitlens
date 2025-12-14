@@ -15,12 +15,15 @@ import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-we
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
 
+type IpcCompression = 'deflate' | 'utf8' | false;
 export interface IpcMessage<T = unknown> {
 	id: string;
 	scope: IpcScope;
 	method: string;
-	packed?: boolean;
 	params: T;
+	compressed: IpcCompression;
+	timestamp: number;
+
 	completionId?: string;
 }
 
@@ -31,7 +34,6 @@ abstract class IpcCall<Params> {
 		public readonly scope: IpcScope,
 		method: string,
 		public readonly reset: boolean = false,
-		public readonly pack: boolean = false,
 	) {
 		this.method = `${scope}/${method}`;
 	}
@@ -58,10 +60,10 @@ export class IpcCommand<Params = void> extends IpcCall<Params> {}
 export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Params> {
 	public readonly response: IpcNotification<ResponseParams>;
 
-	constructor(scope: IpcScope, method: string, reset?: boolean, pack?: boolean) {
-		super(scope, method, reset, pack);
+	constructor(scope: IpcScope, method: string, reset?: boolean) {
+		super(scope, method, reset);
 
-		this.response = new IpcNotification<ResponseParams>(this.scope, `${method}/completion`, this.reset, this.pack);
+		this.response = new IpcNotification<ResponseParams>(this.scope, `${method}/completion`, this.reset);
 	}
 }
 
@@ -70,9 +72,16 @@ export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Pa
  */
 export class IpcNotification<Params = void> extends IpcCall<Params> {}
 
-// COMMANDS
+// COMMANDS & REQUESTS
 
-export const WebviewReadyCommand = new IpcCommand('core', 'webview/ready');
+export interface WebviewReadyParams {
+	bootstrap?: boolean;
+}
+
+export interface WebviewReadyResponse {
+	state?: unknown | Promise<unknown>;
+}
+export const WebviewReadyRequest = new IpcRequest<WebviewReadyParams, WebviewReadyResponse>('core', 'webview/ready');
 
 export interface WebviewFocusChangedParams {
 	focused: boolean;
@@ -119,27 +128,7 @@ export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams
 
 // NOTIFICATIONS
 
-export interface IpcPromise {
-	__ipc: 'promise';
-	__promise: Promise<unknown>;
-	id: string;
-	method: string;
-}
-
-export function isIpcPromise(value: unknown): value is IpcPromise {
-	return (
-		value != null &&
-		typeof value === 'object' &&
-		'__ipc' in value &&
-		value.__ipc === 'promise' &&
-		'id' in value &&
-		typeof value.id === 'string' &&
-		'method' in value &&
-		typeof value.method === 'string'
-	);
-}
-
-export const ipcPromiseSettled = new IpcNotification<PromiseSettledResult<unknown>>('core', 'ipc/promise/settled');
+export const IpcPromiseSettled = new IpcNotification<PromiseSettledResult<unknown>>('core', 'ipc/promise/settled');
 
 export interface DidChangeHostWindowFocusParams {
 	focused: boolean;
@@ -202,7 +191,7 @@ export function assertsConfigKeyValue<T extends ConfigPath>(
 	// Noop
 }
 
-export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds = WebviewIds | WebviewViewIds> {
+export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds> {
 	webviewId: Id;
 	webviewInstanceId: string | undefined;
 	timestamp: number;

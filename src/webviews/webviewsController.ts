@@ -1,16 +1,8 @@
-import type {
-	CancellationToken,
-	WebviewOptions,
-	WebviewPanel,
-	WebviewPanelOptions,
-	WebviewView,
-	WebviewViewResolveContext,
-} from 'vscode';
+import type { CancellationToken, WebviewPanel, WebviewView, WebviewViewResolveContext } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { GlCommands } from '../constants.commands';
-import type { TrackedUsageFeatures } from '../constants.telemetry';
-import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
+import type { WebviewIds, WebviewViewIds } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCoreCommand, registerCommand } from '../system/-webview/command';
@@ -19,25 +11,10 @@ import { debug } from '../system/decorators/log';
 import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { startLogScope } from '../system/logger.scope';
-import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
+import type { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import { WebviewController } from './webviewController';
+import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
-
-export interface WebviewPanelDescriptor<ID extends WebviewIds> {
-	id: ID;
-	readonly fileName: string;
-	readonly iconPath: string;
-	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypes}`;
-	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewTypes;
-	readonly plusFeature: boolean;
-	readonly column?: ViewColumn;
-	readonly webviewOptions?: WebviewOptions;
-	readonly webviewHostOptions?: WebviewPanelOptions;
-
-	readonly allowMultipleInstances?: boolean;
-}
 
 interface WebviewPanelRegistration<
 	ID extends WebviewIds,
@@ -55,7 +32,7 @@ export interface WebviewPanelProxy<
 	SerializedState = unknown,
 > extends Disposable {
 	readonly id: ID;
-	readonly instanceId: string | undefined;
+	readonly instanceId: string;
 	readonly ready: boolean;
 	readonly active: boolean;
 	readonly visible: boolean;
@@ -65,6 +42,7 @@ export interface WebviewPanelProxy<
 	): boolean | undefined;
 	close(): void;
 	refresh(force?: boolean): Promise<void>;
+	maximize(): Promise<void>;
 	show(options?: WebviewPanelShowOptions, ...args: WebviewShowingArgs<ShowingArgs, SerializedState>): Promise<void>;
 }
 
@@ -84,20 +62,6 @@ export interface WebviewPanelsProxy<
 	splitActiveInstance(options?: WebviewPanelsShowOptions): Promise<void>;
 }
 
-export interface WebviewViewDescriptor<ID extends WebviewViewIds = WebviewViewIds> {
-	id: ID;
-	readonly fileName: string;
-	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypes}`;
-	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewViewTypes;
-	readonly plusFeature: boolean;
-	readonly webviewOptions?: WebviewOptions;
-	readonly webviewHostOptions?: {
-		readonly retainContextWhenHidden?: boolean;
-	};
-}
-
 interface WebviewViewRegistration<
 	ID extends WebviewViewIds,
 	State,
@@ -111,8 +75,11 @@ interface WebviewViewRegistration<
 		| undefined;
 }
 
-export interface WebviewViewProxy<ID extends WebviewViewIds, ShowingArgs extends unknown[], SerializedState = unknown>
-	extends Disposable {
+export interface WebviewViewProxy<
+	ID extends WebviewViewIds,
+	ShowingArgs extends unknown[],
+	SerializedState = unknown,
+> extends Disposable {
 	readonly id: ID;
 	readonly ready: boolean;
 	readonly visible: boolean;
@@ -122,13 +89,13 @@ export interface WebviewViewProxy<ID extends WebviewViewIds, ShowingArgs extends
 
 export class WebviewsController implements Disposable {
 	private readonly disposables: Disposable[] = [];
-	private readonly _commandRegistrar: WebviewCommandRegistrar;
 	private readonly _panels = new Map<string, WebviewPanelRegistration<WebviewIds, any>>();
 	private readonly _views = new Map<string, WebviewViewRegistration<WebviewViewIds, any>>();
 
-	constructor(private readonly container: Container) {
-		this.disposables.push((this._commandRegistrar = new WebviewCommandRegistrar()));
-	}
+	constructor(
+		private readonly container: Container,
+		private readonly commandRegistrar: WebviewCommandRegistrar,
+	) {}
 
 	dispose(): void {
 		this.disposables.forEach(d => void d.dispose());
@@ -177,7 +144,9 @@ export class WebviewsController implements Disposable {
 							if (token.isCancellationRequested) return;
 						}
 
-						Logger.debug(scope, 'Resolving view');
+						const instanceId = uuid();
+
+						Logger.debug(scope, `Resolving view (${instanceId})`);
 
 						webviewView.webview.options = {
 							enableCommandUris: true,
@@ -190,9 +159,9 @@ export class WebviewsController implements Disposable {
 
 						const controller = await WebviewController.create<ID, State, SerializedState, ShowingArgs>(
 							this.container,
-							this._commandRegistrar,
+							this.commandRegistrar,
 							descriptor,
-							undefined,
+							instanceId,
 							webviewView,
 							resolveProvider,
 						);
@@ -202,7 +171,7 @@ export class WebviewsController implements Disposable {
 
 						disposables.push(
 							controller.onDidDispose(() => {
-								Logger.debug(scope, 'Disposing view');
+								Logger.debug(scope, `Disposing view (${instanceId})`);
 
 								registration.pendingShowArgs = undefined;
 								registration.controller = undefined;
@@ -216,8 +185,12 @@ export class WebviewsController implements Disposable {
 							args = [{ state: context.state }];
 						}
 
-						Logger.debug(scope, 'Showing view');
-						await controller.show(true, options, ...(args ?? []));
+						Logger.debug(scope, `Showing view (${instanceId})`);
+						try {
+							await controller.show(true, options, ...(args ?? []));
+						} catch (ex) {
+							Logger.error(ex, scope, `Failed to show view (${instanceId})`);
+						}
 					},
 				},
 				descriptor.webviewHostOptions != null ? { webviewOptions: descriptor.webviewHostOptions } : undefined,
@@ -294,7 +267,7 @@ export class WebviewsController implements Disposable {
 		this._panels.set(descriptor.id, registration);
 
 		const disposables: Disposable[] = [];
-		const { container, _commandRegistrar: commandRegistrar } = this;
+		const { container, commandRegistrar } = this;
 
 		let serializedPanel: WebviewPanel | undefined;
 
@@ -346,7 +319,7 @@ export class WebviewsController implements Disposable {
 					container,
 					commandRegistrar,
 					descriptor,
-					descriptor.allowMultipleInstances ? uuid() : undefined,
+					uuid(),
 					panel,
 					resolveProvider,
 				);
@@ -364,10 +337,18 @@ export class WebviewsController implements Disposable {
 				);
 
 				Logger.debug(scope, `Showing panel (${controller.instanceId})`);
-				await controller.show(true, options, ...args);
+				try {
+					await controller.show(true, options, ...args);
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to show panel (${controller.instanceId})`);
+				}
 			} else {
 				Logger.debug(scope, `Showing existing panel (${controller.instanceId})`);
-				await controller.show(false, options, ...args);
+				try {
+					await controller.show(false, options, ...args);
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to show existing panel (${controller.instanceId})`);
+				}
 			}
 		}
 
@@ -443,7 +424,10 @@ interface WebviewPanelsShowOptions extends WebviewPanelShowOptions {
 	preserveInstance?: string | boolean;
 }
 
-export type WebviewPanelShowCommandArgs = [WebviewPanelsShowOptions | undefined, ...args: unknown[]];
+export type WebviewPanelShowCommandArgs<ShowingArgs extends unknown[] = unknown[]> = [
+	WebviewPanelsShowOptions | undefined,
+	...args: ShowingArgs,
+];
 
 export interface WebviewViewShowOptions {
 	column?: never;
@@ -484,6 +468,9 @@ function convertToWebviewPanelProxy<
 		},
 		show: function (options?: WebviewPanelShowOptions, ...args: WebviewShowingArgs<ShowingArgs, SerializedState>) {
 			return controller.show(false, options, ...args);
+		},
+		maximize: function () {
+			return controller.maximize();
 		},
 	};
 }

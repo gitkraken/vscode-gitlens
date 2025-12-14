@@ -6,7 +6,7 @@ import type { GitReference } from '../git/models/reference';
 import { getBranchNameAndRemote } from '../git/utils/branch.utils';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { showReferencePicker2 } from '../quickpicks/referencePicker';
 import { showRemotePicker } from '../quickpicks/remotePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
@@ -261,22 +261,22 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		if (!repoPath || !filePath) return;
 
 		if (args?.chooseRef) {
-			const pick = await showReferencePicker(
+			const result = await showReferencePicker2(
 				repoPath,
 				`Copy Link to ${filePath} at Reference`,
 				'Choose a reference (branch, tag, etc) to copy the file link for',
 				{
-					allowRevisions: true,
-					include: ReferencesQuickPickIncludes.All,
+					allowedAdditionalInput: { rev: true },
+					include: ['branches', 'tags', 'workingTree', 'HEAD'],
 				},
 			);
 
-			if (pick == null) {
+			if (result.value == null) {
 				return;
-			} else if (pick.ref === '') {
+			} else if (result.value.ref === '') {
 				ref = undefined;
 			} else {
-				ref = pick;
+				ref = result.value;
 			}
 		}
 

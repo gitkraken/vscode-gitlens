@@ -27,26 +27,24 @@ export class NaturalLanguageSearchProcessor {
 		searchQuery = { ...searchQuery, matchAll: false, matchCase: false, matchRegex: true };
 
 		try {
-			const result = await this.container.ai.generateSearchQuery(
+			const result = await this.container.ai.actions.generateSearchQuery(
 				{ query: searchQuery.query, context: options?.context },
 				source,
 				{ cancellation: cancellation },
 			);
 			if (result === 'cancelled') throw new CancellationError();
 
-			if (!result?.content) {
+			if (!result?.result) {
 				return {
 					...searchQuery,
 					naturalLanguage: { query: searchQuery.query, error: 'Empty response returned' },
 				};
 			}
 
-			const processedQuery = this.cleanResponse(result.content);
-
 			return {
 				...searchQuery,
-				query: processedQuery,
-				naturalLanguage: { query: searchQuery.query, processedQuery: processedQuery },
+				query: result.result,
+				naturalLanguage: { query: searchQuery.query, processedQuery: result.result },
 			};
 		} catch (ex) {
 			Logger.error(ex, scope, `Failed to convert to search query: "${searchQuery.query}"`);
@@ -56,22 +54,5 @@ export class NaturalLanguageSearchProcessor {
 				naturalLanguage: { query: searchQuery.query, error: String(ex) },
 			};
 		}
-	}
-
-	private cleanResponse(response: string): string {
-		// Remove any markdown formatting
-		let cleaned = response.replace(/```[^`]*```/g, '').replace(/`([^`]+)`/g, '$1');
-
-		// Remove common prefixes that AI might add
-		cleaned = cleaned.replace(/^(search query:|query:|result:|converted query:)\s*/i, '');
-
-		// Remove quotes if the entire response is quoted
-		cleaned = cleaned.replace(/^"(.*)"$/, '$1');
-		cleaned = cleaned.replace(/^'(.*)'$/, '$1');
-
-		// Take only the first line if there are multiple lines
-		cleaned = cleaned.split('\n')[0];
-
-		return cleaned.trim();
 	}
 }

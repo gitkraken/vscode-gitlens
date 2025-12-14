@@ -1,5 +1,6 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -27,6 +28,7 @@ export interface ShowQuickCommitFileCommandArgs {
 	fileLog?: GitLog;
 	revisionUri?: string;
 	sha?: string;
+	source?: Source;
 }
 
 @command()
@@ -153,7 +155,11 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 @command()
 export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
-		super('gitlens.showQuickRevisionDetails');
+		super([
+			'gitlens.showQuickRevisionDetails',
+			'gitlens.showQuickRevisionDetails:editor',
+			'gitlens.showQuickRevisionDetails:editor/title',
+		]);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {

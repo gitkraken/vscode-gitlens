@@ -37,6 +37,7 @@ export class Issue implements IssueShape {
 		public readonly thumbsUpCount?: number,
 		public readonly body?: string,
 		public readonly project?: IssueProject,
+		public readonly number?: string,
 	) {}
 }
 

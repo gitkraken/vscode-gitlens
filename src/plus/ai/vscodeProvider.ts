@@ -9,7 +9,7 @@ import { startLogScope } from '../../system/logger.scope';
 import { capitalize } from '../../system/string';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
-import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
+import type { AIChatMessage, AIProvider, AIProviderResponse } from './models/provider';
 import { getActionName, getValidatedTemperature } from './utils/-webview/ai.utils';
 
 const provider = vscodeProviderDescriptor;
@@ -72,7 +72,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		_apiKey: string,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
-	): Promise<AIRequestResult | undefined> {
+	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		const chatModel = await this.getChatModel(model);
@@ -106,12 +106,25 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					options.cancellation,
 				);
 
+				if (options.cancellation.isCancellationRequested) {
+					throw new CancellationError();
+				}
+
 				let message = '';
 				for await (const fragment of rsp.text) {
+					if (options.cancellation.isCancellationRequested) {
+						throw new CancellationError();
+					}
+
 					message += fragment;
 				}
 
-				return { content: message.trim(), model: model, id: uuid() } satisfies AIRequestResult;
+				return {
+					content: message.trim(),
+					model: model,
+					id: uuid(),
+					result: undefined,
+				} satisfies AIProviderResponse<void>;
 			} catch (ex) {
 				if (ex instanceof CancellationError) {
 					Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
@@ -129,16 +142,20 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 				if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 					message += `\n${ex.cause.message}`;
+				}
 
-					if (ex.cause.message.includes('exceeds token limit')) {
-						if (retries++ < 2) {
-							maxInputTokens -= 500 * retries;
-							continue;
-						}
+				if (message.includes('exceeds token limit')) {
+					if (++retries <= 3) {
+						// Reduce by 10%, then 25%, then 50% on retries 1, 2, 3 respectively
+						const reductionPercents = [0, 0.1, 0.25, 0.5] as const;
+						const reduction = reductionPercents[retries] ?? 0.5;
 
-						Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
-						throw new AIError(AIErrorReason.RequestTooLarge, ex);
+						maxInputTokens -= Math.min(5000 * retries, maxInputTokens * reduction);
+						continue;
 					}
+
+					Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+					throw new AIError(AIErrorReason.RequestTooLarge, ex);
 				}
 
 				Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);

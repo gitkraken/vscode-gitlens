@@ -1,5 +1,6 @@
-import { QuickInputButtons } from 'vscode';
+import { QuickInputButtons, window } from 'vscode';
 import type { Container } from '../../container';
+import { TagError } from '../../git/errors';
 import type { GitReference, GitTagReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import {
@@ -8,7 +9,7 @@ import {
 	isRevisionReference,
 	isTagReference,
 } from '../../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../../messages';
+import { showGitErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -68,7 +69,7 @@ interface DeleteState {
 }
 
 type State = CreateState | DeleteState;
-type TagStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type TagStepState<T extends State> = RequireSomeNonNullable<StepState<T>, 'subcommand'>;
 type CreateStepState<T extends CreateState = CreateState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 type DeleteStepState<T extends DeleteState = DeleteState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 
@@ -299,7 +300,20 @@ export class TagGitCommand extends QuickCommand<State> {
 				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
 			} catch (ex) {
 				Logger.error(ex, context.title);
-				void showGenericErrorMessage(ex);
+
+				if (TagError.is(ex, 'alreadyExists')) {
+					void window.showWarningMessage(
+						`Unable to create tag '${state.name}'. A tag with that name already exists.`,
+					);
+					return;
+				}
+
+				if (TagError.is(ex, 'invalidName')) {
+					void window.showWarningMessage(`Unable to create tag '${state.name}'. The tag name is invalid.`);
+					return;
+				}
+
+				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to create tag');
 			}
 		}
 	}
@@ -389,7 +403,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					await state.repo.git.tags.deleteTag?.(ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
-					void showGenericErrorMessage(ex);
+					void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to delete tag');
 				}
 			}
 		}

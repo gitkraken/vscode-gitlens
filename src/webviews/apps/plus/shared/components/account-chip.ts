@@ -289,7 +289,7 @@ export class GlAccountChip extends LitElement {
 
 	private get planTier() {
 		if (isSubscriptionTrial(this.subscription)) {
-			return 'Pro Trial';
+			return this.subscription.plan.effective.id === 'student' ? 'Student' : 'Pro Trial';
 		}
 
 		return getSubscriptionPlanName(this.planId);
@@ -507,8 +507,8 @@ export class GlAccountChip extends LitElement {
 					<p>
 						You have
 						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
-						in your Pro trial. Once your trial ends, you will only be able to use Pro features on
-						publicly-hosted repos.
+						in your ${this.planTier === 'Student' ? 'Student' : 'Pro'} trial. Once your trial ends, you will
+						only be able to use Pro features on publicly-hosted repos.
 					</p>
 					<button-container layout="editor">
 						<gl-button
@@ -532,7 +532,7 @@ export class GlAccountChip extends LitElement {
 			case SubscriptionState.TrialExpired:
 				return html`<div class="account-status">
 					<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
-					<p>Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.</p>
+					<p>Continue leveraging Pro features and workflows for privately hosted repos by upgrading today.</p>
 					<button-container layout="editor">
 						<gl-button
 							full
@@ -573,7 +573,7 @@ export class GlAccountChip extends LitElement {
 			default:
 				return html`<div class="account-status">
 					<p>
-						Unlock advanced features and workflows on private repos, accelerate reviews, and streamline
+						Unlock advanced features and workflows for private repos, accelerate reviews, and streamline
 						collaboration with
 						<a href="${urls.communityVsPro}">GitLens Pro</a>.
 					</p>
@@ -656,7 +656,7 @@ export class GlAccountChip extends LitElement {
 						<li>Unlimited cloud integrations</li>
 						<li>Smart AI features &mdash; 250K tokens/week</li>
 						<li>
-							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees on private repos
+							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees for private repos
 						</li>
 						<li>Streamlined workflows &mdash; start work from issues, pull request reviews</li>
 					</ul>

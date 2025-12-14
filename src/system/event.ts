@@ -1,4 +1,5 @@
 import type { Disposable, Event } from 'vscode';
+import { Logger } from './logger';
 import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
@@ -112,21 +113,34 @@ export function weakEvent<T, U extends object>(
 ): Disposable {
 	const ref = new WeakRef<U>(thisArg);
 
+	let disposed = false;
 	let disposable: Disposable;
 
 	const d = event((e: T) => {
 		const obj = ref.deref();
 		if (obj != null) {
 			listener.call(obj, e);
-		} else {
+		} else if (!disposed) {
+			Logger.warn(`weakEvent GC'd; disposing listener`);
 			disposable.dispose();
 		}
 	});
 
 	if (alsoDisposeOnReleaseOrDispose == null) {
-		disposable = d;
+		disposable = {
+			dispose: () => {
+				disposed = true;
+				d.dispose();
+			},
+		};
 	} else {
-		disposable = disposableFrom(d, ...alsoDisposeOnReleaseOrDispose);
+		const wrapped = disposableFrom(d, ...alsoDisposeOnReleaseOrDispose);
+		disposable = {
+			dispose: () => {
+				disposed = true;
+				wrapped.dispose();
+			},
+		};
 	}
 	return disposable;
 }

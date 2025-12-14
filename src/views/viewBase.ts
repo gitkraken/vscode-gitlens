@@ -191,24 +191,24 @@ export interface GroupedViewContext {
 }
 
 export abstract class ViewBase<
-		Type extends TreeViewTypes,
-		RootNode extends ViewNode,
-		ViewConfig extends
-			| BranchesViewConfig
-			| CommitsViewConfig
-			| ContributorsViewConfig
-			| DraftsViewConfig
-			| FileHistoryViewConfig
-			| LaunchpadViewConfig
-			| LineHistoryViewConfig
-			| PullRequestViewConfig
-			| RemotesViewConfig
-			| RepositoriesViewConfig
-			| SearchAndCompareViewConfig
-			| StashesViewConfig
-			| TagsViewConfig
-			| WorktreesViewConfig,
-	>
+	Type extends TreeViewTypes,
+	RootNode extends ViewNode,
+	ViewConfig extends
+		| BranchesViewConfig
+		| CommitsViewConfig
+		| ContributorsViewConfig
+		| DraftsViewConfig
+		| FileHistoryViewConfig
+		| LaunchpadViewConfig
+		| LineHistoryViewConfig
+		| PullRequestViewConfig
+		| RemotesViewConfig
+		| RepositoriesViewConfig
+		| SearchAndCompareViewConfig
+		| StashesViewConfig
+		| TagsViewConfig
+		| WorktreesViewConfig,
+>
 	implements TreeDataProvider<ViewNode>, Disposable
 {
 	is<T extends keyof TreeViewByType>(type: T): this is TreeViewByType[T] {
@@ -596,11 +596,10 @@ export abstract class ViewBase<
 	private addHeaderNode(node: ViewNode, promise: ViewNode[] | Promise<ViewNode[]>): ViewNode[] | Promise<ViewNode[]> {
 		if (node !== this.root) return promise;
 
+		const { openRepositories: repos } = this.container.git;
+
 		// If we are not grouped and we are either not filterable or there aren't multiple repos open, then just return the promise
-		if (
-			!this.grouped &&
-			(!this.isAny(...treeViewTypesSupportsRepositoryFilter) || this.container.git.openRepositories.length <= 1)
-		) {
+		if (!this.grouped && (!this.isAny(...treeViewTypesSupportsRepositoryFilter) || repos.length <= 1)) {
 			return promise;
 		}
 
@@ -626,6 +625,16 @@ export abstract class ViewBase<
 
 			return children;
 		};
+
+		if (!this.grouped && this.supportsWorktreeCollapsing) {
+			return groupRepositories(repos).then(grouped => {
+				if (grouped.size <= 1) return promise;
+
+				return isPromise(promise)
+					? promise.then(c => ensureGroupedHeaderNode(c))
+					: ensureGroupedHeaderNode(promise);
+			});
+		}
 
 		return isPromise(promise) ? promise.then(c => ensureGroupedHeaderNode(c)) : ensureGroupedHeaderNode(promise);
 	}

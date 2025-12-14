@@ -5,6 +5,7 @@ import type {
 	GraphContexts,
 	GraphRef,
 	GraphRefOptData,
+	GraphRefType,
 	GraphRow,
 	GraphZoneType,
 	Head,
@@ -32,6 +33,7 @@ import type { GitPausedOperationStatus } from '../../../git/models/pausedOperati
 import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
+	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
@@ -40,6 +42,7 @@ import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { RepositoryShape } from '../../../git/models/repositoryShape';
 import type { GitGraphSearchResultData } from '../../../git/search';
 import type { Subscription } from '../../../plus/gk/models/subscription';
+import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { IpcScope, WebviewState } from '../../protocol';
@@ -91,7 +94,7 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
-export interface State extends WebviewState {
+export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
 	webroot?: string;
 	repositories?: GraphRepository[];
@@ -117,14 +120,17 @@ export interface State extends WebviewState {
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
+	searchMode?: GraphSearchMode;
+	/** Search query to be executed once */
+	searchRequest?: SearchQuery;
 	searchResults?: DidSearchParams['results'];
-	defaultSearchMode?: GraphSearchMode;
 	useNaturalLanguageSearch?: boolean;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 	featurePreview?: FeaturePreview;
 	orgSettings?: { ai: boolean; drafts: boolean };
+	mcpBannerCollapsed?: boolean;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -196,6 +202,7 @@ export interface GraphComponentConfig {
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	sidebar: boolean;
+	stickyTimeline?: boolean;
 }
 
 export interface GraphColumnConfig {
@@ -267,6 +274,11 @@ export interface SearchOpenInViewParams {
 }
 export const SearchOpenInViewCommand = new IpcCommand<SearchOpenInViewParams>(scope, 'search/openInView');
 
+export interface SearchCancelParams {
+	preserveResults: boolean;
+}
+export const SearchCancelCommand = new IpcCommand<SearchCancelParams>(scope, 'search/cancel');
+
 export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
 }
@@ -305,17 +317,59 @@ export interface UpdateIncludedRefsParams {
 export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
 
 export interface UpdateSelectionParams {
-	selection: { id: string; type: GitGraphRowType }[];
+	selection: { id: string; type: GitGraphRowType; hidden: boolean }[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
 // REQUESTS
 
+export type DidChooseRefParams =
+	| { id?: string; name: string; sha: string; refType: GitReference['refType']; graphRefType?: GraphRefType }
+	| undefined;
+
+export const JumpToHeadRequest = new IpcRequest<undefined, DidChooseRefParams>(scope, 'jumpToHead');
+
 export interface ChooseRefParams {
-	alt: boolean;
+	title: string;
+	placeholder: string;
+	allowedAdditionalInput?: ReferencesQuickPickOptions2['allowedAdditionalInput'];
+	include?: ReferencesQuickPickOptions2['include'];
+	picked?: string;
 }
-export type DidChooseRefParams = { name: string; sha: string } | undefined;
 export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
+
+export interface ChooseComparisonParams {
+	title: string;
+	placeholder: string;
+}
+export interface DidChooseComparisonParams {
+	range: string | undefined;
+}
+export const ChooseComparisonRequest = new IpcRequest<ChooseComparisonParams, DidChooseComparisonParams>(
+	scope,
+	'chooseComparison',
+);
+
+export interface ChooseAuthorParams {
+	title: string;
+	placeholder: string;
+	picked?: string[];
+}
+export interface DidChooseAuthorParams {
+	authors: string[] | undefined;
+}
+export const ChooseAuthorRequest = new IpcRequest<ChooseAuthorParams, DidChooseAuthorParams>(scope, 'chooseAuthor');
+
+export interface ChooseFileParams {
+	title: string;
+	type: 'file' | 'folder';
+	openLabel?: string;
+	picked?: string[];
+}
+export interface DidChooseFileParams {
+	files: string[] | undefined;
+}
+export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileParams>(scope, 'chooseFile');
 
 export interface EnsureRowParams {
 	id: string;
@@ -325,6 +379,35 @@ export interface DidEnsureRowParams {
 	id?: string; // `undefined` if the row was not found
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
+
+export interface SearchHistoryGetParams {
+	repoPath: string | undefined;
+}
+export interface DidSearchHistoryGetParams {
+	history: SearchQuery[];
+}
+export const SearchHistoryGetRequest = new IpcRequest<SearchHistoryGetParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/get',
+);
+
+export interface SearchHistoryStoreParams {
+	repoPath: string | undefined;
+	search: SearchQuery;
+}
+export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/store',
+);
+
+export interface SearchHistoryDeleteParams {
+	repoPath: string | undefined;
+	query: string;
+}
+export const SearchHistoryDeleteRequest = new IpcRequest<SearchHistoryDeleteParams, DidSearchHistoryGetParams>(
+	scope,
+	'search/history/delete',
+);
 
 export type DidGetCountParams =
 	| {
@@ -350,14 +433,16 @@ export interface DidGetRowHoverParams {
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
 
 export interface SearchParams {
-	search?: SearchQuery;
+	search: SearchQuery;
 	limit?: number;
 	more?: boolean;
 }
 export interface GraphSearchResults {
 	ids?: Record<string, GitGraphSearchResultData>;
 	count: number;
-	paging?: { hasMore: boolean };
+	hasMore: boolean;
+	/** Whether the commits for these search results are loaded in the graph */
+	commitsLoaded: { count: number };
 }
 export interface GraphSearchResultsError {
 	error: string;
@@ -366,6 +451,10 @@ export interface DidSearchParams {
 	search: SearchQuery | undefined;
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
 	selectedRows?: GraphSelectedRows;
+	/** Indicates this is a partial result (more results coming) */
+	partial?: boolean;
+	/** Search ID to track which search these results belong to */
+	searchId: number;
 }
 export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
 
@@ -382,7 +471,7 @@ export const DidChangeRepoConnectionNotification = new IpcNotification<DidChange
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true, true);
+export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
 export interface DidChangeGraphConfigurationParams {
 	config: GraphComponentConfig;
@@ -410,6 +499,8 @@ export interface DidChangeAvatarsParams {
 	avatars: GraphAvatars;
 }
 export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
+
+export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didChange');
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
@@ -461,15 +552,10 @@ export interface DidChangeRowsParams {
 	refsMetadata?: GraphRefsMetadata | null;
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
-	searchResults?: GraphSearchResults;
+	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 }
-export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(
-	scope,
-	'rows/didChange',
-	undefined,
-	true,
-);
+export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(scope, 'rows/didChange');
 
 export interface DidChangeRowsStatsParams {
 	rowsStats: Record<string, GraphRowStats>;

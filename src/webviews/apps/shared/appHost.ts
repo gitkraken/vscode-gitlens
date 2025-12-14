@@ -5,18 +5,19 @@ import { property } from 'lit/decorators.js';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
-import type { WebviewFocusChangedParams } from '../../protocol';
+import type { WebviewFocusChangedParams, WebviewState } from '../../protocol';
 import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	WebviewFocusChangedCommand,
-	WebviewReadyCommand,
 } from '../../protocol';
 import { GlElement } from './components/element';
 import { ipcContext } from './contexts/ipc';
 import { loggerContext, LoggerContext } from './contexts/logger';
 import { promosContext, PromosContext } from './contexts/promos';
 import { telemetryContext, TelemetryContext } from './contexts/telemetry';
+import type { WebviewContext } from './contexts/webview';
+import { webviewContext } from './contexts/webview';
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
 import type { ThemeChangeEvent } from './theme';
@@ -29,10 +30,9 @@ export interface StateProvider<State> extends Disposable {
 }
 
 export abstract class GlAppHost<
-	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
-		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
-		timestamp: number;
-	},
+	State extends WebviewState<CustomEditorIds | WebviewIds | WebviewViewIds> = WebviewState<
+		CustomEditorIds | WebviewIds | WebviewViewIds
+	>,
 	Provider extends StateProvider<State> = StateProvider<State>,
 > extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
@@ -55,8 +55,11 @@ export abstract class GlAppHost<
 	@provide({ context: telemetryContext })
 	protected _telemetry!: TelemetryContext;
 
-	@property({ type: Object, noAccessor: true })
-	private bootstrap!: State;
+	@provide({ context: webviewContext })
+	protected _webview!: WebviewContext;
+
+	@property({ type: String, noAccessor: true })
+	private bootstrap!: string;
 	protected onThemeUpdated?(e: ThemeChangeEvent): void;
 
 	get state(): State {
@@ -69,8 +72,7 @@ export abstract class GlAppHost<
 	private _sendWebviewFocusChangedCommandDebounced!: Deferrable<(params: WebviewFocusChangedParams) => void>;
 	protected _stateProvider!: Provider;
 
-	protected abstract createStateProvider(state: State, ipc: HostIpc): Provider;
-	protected onPersistState?(state: State): void;
+	protected abstract createStateProvider(bootstrap: string, ipc: HostIpc, logger: LoggerContext): Provider;
 	protected onWebviewFocusChanged?(focused: boolean): void;
 	protected onWebviewVisibilityChanged?(visible: boolean): void;
 
@@ -81,12 +83,15 @@ export abstract class GlAppHost<
 		this._logger.log('connected');
 
 		this._ipc = new HostIpc(this.name);
-		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
-		const state = this.bootstrap;
+		const bootstrap = this.bootstrap;
 		this.bootstrap = undefined!;
-		this._ipc.replaceIpcPromisesWithPromises(state);
-		this.onPersistState?.(state);
+
+		this._stateProvider = this.createStateProvider(bootstrap, this._ipc, this._logger);
+		this._webview = {
+			webviewId: this._stateProvider.state.webviewId,
+			webviewInstanceId: this._stateProvider.state.webviewInstanceId,
+		};
 
 		const themeEvent = computeThemeColors();
 		if (this.onThemeUpdated != null) {
@@ -96,7 +101,7 @@ export abstract class GlAppHost<
 		}
 
 		this.disposables.push(
-			(this._stateProvider = this.createStateProvider(state, this._ipc)),
+			this._stateProvider,
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidChangeWebviewFocusNotification.is(msg):

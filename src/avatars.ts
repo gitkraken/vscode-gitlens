@@ -1,4 +1,5 @@
 import { EventEmitter, Uri } from 'vscode';
+import { base64 } from '@env/base64';
 import { md5 } from '@env/crypto';
 import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants.storage';
@@ -9,7 +10,7 @@ import { configuration } from './system/-webview/configuration';
 import { getContext } from './system/-webview/context';
 import { debounce } from './system/function/debounce';
 import { filterMap } from './system/iterable';
-import { base64, equalsIgnoreCase } from './system/string';
+import { equalsIgnoreCase } from './system/string';
 import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
@@ -160,7 +161,7 @@ function createOrUpdateAvatar(
 	let avatar = avatarCache!.get(key);
 	if (avatar == null) {
 		avatar = {
-			uri: email != null && email.length !== 0 ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
+			uri: email?.length ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
 			fallback: getAvatarUriFromGravatar(hash, size, defaultStyle),
 			timestamp: 0,
 			retries: 0,
@@ -203,6 +204,10 @@ export function getAvatarUriFromGravatarEmail(email: string, size: number, defau
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
+	if (email === 'noreply@github.com') {
+		return Uri.parse('https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png');
+	}
+
 	const parts = getGitHubNoReplyAddressParts(email);
 	if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
 

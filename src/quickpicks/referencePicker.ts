@@ -22,26 +22,15 @@ import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './
 import { createRefQuickPickItem } from './items/gitWizard';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
-
-export const enum ReferencesQuickPickIncludes {
-	Branches = 1 << 0,
-	Tags = 1 << 1,
-	WorkingTree = 1 << 2,
-	HEAD = 1 << 3,
-
-	AllBranches = 1 << 4,
-
-	BranchesAndTags = Branches | Tags,
-	All = Branches | Tags | WorkingTree | HEAD,
-}
+export type ReferencesQuickPickIncludes = 'branches' | 'tags' | 'workingTree' | 'HEAD' | 'allBranches';
 
 export interface ReferencesQuickPickOptions {
-	allowRevisions?: boolean | { ranges?: boolean };
+	allowedAdditionalInput?: { range?: boolean; rev?: boolean };
 	autoPick?: boolean;
 	picked?: string;
 	exclude?: string[];
 	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
-	include?: ReferencesQuickPickIncludes;
+	include?: ReferencesQuickPickIncludes[];
 	ignoreFocusOut?: boolean;
 	keyboard?: {
 		keys: Keys[];
@@ -50,8 +39,9 @@ export interface ReferencesQuickPickOptions {
 	sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 }
 
-export interface ReferencesQuickPickOptions2 extends ReferencesQuickPickOptions {
+export interface ReferencesQuickPickOptions2 extends Omit<ReferencesQuickPickOptions, 'include'> {
 	allowBack?: boolean;
+	include?: ReferencesQuickPickIncludes[];
 }
 
 export async function showReferencePicker(
@@ -73,11 +63,17 @@ export async function showReferencePicker2(
 	const quickpick = window.createQuickPick<ReferencesQuickPickItem | DirectiveQuickPickItem>();
 	quickpick.ignoreFocusOut = options?.ignoreFocusOut ?? getQuickPickIgnoreFocusOut();
 
+	const { range: allowRanges, rev: allowRevs } = options?.allowedAdditionalInput ?? {};
+
 	quickpick.title = title;
 	quickpick.placeholder =
-		options?.allowRevisions != null && options.allowRevisions !== false
-			? `${placeholder} (or enter a revision using #)`
-			: placeholder;
+		allowRanges && allowRevs
+			? `${placeholder} (or enter a range, or a revision prefixed with #)`
+			: allowRanges
+				? `${placeholder} (or enter a range)`
+				: allowRevs
+					? `${placeholder} (or enter a revision prefixed with #)`
+					: placeholder;
 	quickpick.matchOnDescription = true;
 	if (options?.allowBack) {
 		quickpick.buttons = [QuickInputButtons.Back];
@@ -133,11 +129,8 @@ export async function showReferencePicker2(
 	quickpick.show();
 
 	const getValidateGitReference = getValidateGitReferenceFn(Container.instance.git.getRepository(repoPath), {
-		buttons: [RevealInSideBarQuickInputButton],
-		ranges:
-			options?.allowRevisions && typeof options.allowRevisions !== 'boolean'
-				? options.allowRevisions.ranges
-				: undefined,
+		revs: { allow: allowRevs ?? false, buttons: [RevealInSideBarQuickInputButton] },
+		ranges: { allow: allowRanges ?? false, validate: true },
 	});
 
 	quickpick.items = await items;
@@ -159,6 +152,8 @@ export async function showReferencePicker2(
 
 					const [item] = quickpick.activeItems;
 					if (isDirectiveQuickPickItem(item)) {
+						if (item.directive === Directive.Noop) return;
+
 						resolve({ directive: item.directive });
 					} else {
 						resolve({ value: item?.item });
@@ -174,7 +169,7 @@ export async function showReferencePicker2(
 						}
 					}
 
-					if (options?.allowRevisions) {
+					if (options?.allowedAdditionalInput) {
 						if (!(await getValidateGitReference(quickpick, e))) {
 							quickpick.items = await items;
 						}
@@ -213,13 +208,13 @@ async function getItems(
 	repoPath: string,
 	options?: ReferencesQuickPickOptions2,
 ): Promise<(ReferencesQuickPickItem | DirectiveQuickPickItem)[]> {
-	const include = options?.include ?? ReferencesQuickPickIncludes.BranchesAndTags;
+	const include = options?.include ?? ['branches', 'tags'];
 
 	const includes: ('branches' | 'tags')[] = [];
-	if (include & ReferencesQuickPickIncludes.Branches) {
+	if (include.includes('branches')) {
 		includes.push('branches');
 	}
-	if (include & ReferencesQuickPickIncludes.Tags) {
+	if (include.includes('tags')) {
 		includes.push('tags');
 	}
 
@@ -243,15 +238,15 @@ async function getItems(
 		}
 	}
 
-	if (include & ReferencesQuickPickIncludes.HEAD) {
+	if (include.includes('HEAD')) {
 		items.unshift(createRefQuickPickItem('HEAD', repoPath, undefined, { icon: true }));
 	}
 
-	if (include & ReferencesQuickPickIncludes.WorkingTree) {
+	if (include.includes('workingTree')) {
 		items.unshift(createRefQuickPickItem('', repoPath, undefined, { icon: true }));
 	}
 
-	if (include & ReferencesQuickPickIncludes.AllBranches) {
+	if (include.includes('allBranches')) {
 		items.unshift(createQuickPickSeparator());
 		items.unshift(createDirectiveQuickPickItem(Directive.RefsAllBranches));
 	}

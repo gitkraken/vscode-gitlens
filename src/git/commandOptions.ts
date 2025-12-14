@@ -21,6 +21,7 @@ export interface GitCommandOptions {
 	readonly maxBuffer?: number;
 	readonly stdin?: string | Buffer;
 	readonly stdinEncoding?: string;
+	// Set to 0 to disable
 	readonly timeout?: number;
 }
 
@@ -34,5 +35,6 @@ export interface GitSpawnOptions {
 	readonly signal?: AbortSignal;
 	readonly stdin?: string | Buffer;
 	readonly stdinEncoding?: string;
+	// Set to 0 to disable
 	readonly timeout?: number;
 }

@@ -7,8 +7,8 @@ import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { ensureArray } from '../../system/array';
 import { formatDate, fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/-webview/gate';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { gate } from '../../system/decorators/gate';
+import { memoize } from '../../system/decorators/memoize';
 import { Lazy } from '../../system/lazy';
 import { getLoggableName } from '../../system/logger';
 import { getSettledValue } from '../../system/promise';
@@ -316,8 +316,23 @@ export class GitCommit implements GitRevisionReference {
 			}
 
 			if (options?.include?.stats) {
-				const stats = await repo?.git.diff.getChangedFilesCount(this.sha);
-				this._stats = stats;
+				this._recomputeStats = true;
+				this.computeFileStats();
+
+				const stats = await repo?.git.diff.getChangedFilesCount(
+					this.isUncommittedStaged ? uncommitted : 'HEAD',
+				);
+				if (stats != null) {
+					if (this._stats != null) {
+						this._stats = {
+							...this._stats,
+							additions: stats.additions,
+							deletions: stats.deletions,
+						};
+					} else {
+						this._stats = stats;
+					}
+				}
 				this._recomputeStats = false;
 			} else {
 				this._recomputeStats = true;
@@ -357,11 +372,7 @@ export class GitCommit implements GitRevisionReference {
 		if (!this._recomputeStats || this.fileset == null) return;
 		this._recomputeStats = false;
 
-		const changedFiles = {
-			added: 0,
-			deleted: 0,
-			changed: 0,
-		};
+		const changedFiles = { added: 0, deleted: 0, changed: 0 };
 
 		let additions = 0;
 		let deletions = 0;
@@ -493,7 +504,7 @@ export class GitCommit implements GitRevisionReference {
 
 		let result = fileStats.join(separator);
 		if (style === 'stats' && options?.color) {
-			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span>`;
+			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span> `;
 		}
 		if (options?.addParenthesesToFileStats) {
 			result = `(${result})`;
@@ -551,7 +562,6 @@ export class GitCommit implements GitRevisionReference {
 		if (this.isUncommitted) return undefined;
 
 		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
-		if (remote?.provider == null) return undefined;
 
 		// TODO@eamodio should we cache these? Seems like we would use more memory than it's worth
 		// async function getCore(this: GitCommit): Promise<Map<string, EnrichedAutolink> | undefined> {
@@ -680,7 +690,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	@gate()
-	async isPushed(): Promise<boolean> {
+	isPushed(): Promise<boolean> {
 		return this.container.git.getRepositoryService(this.repoPath).commits.hasCommitBeenPushed(this.ref);
 	}
 
@@ -779,4 +789,4 @@ export interface GitStashCommit extends GitCommit {
 	readonly parentTimestamps?: GitStashParentInfo[];
 }
 
-export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;
+export type GitCommitWithFullDetails = GitCommit & RequireSomeNonNullable<GitCommit, 'message' | 'fileset'>;

@@ -53,7 +53,6 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
-import { isWalkthroughSupported } from '../../telemetry/walkthroughStateProvider';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
 import {
@@ -1178,22 +1177,21 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		context: Context,
 	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
-		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] =
-			!hasConnectedIntegration && isWalkthroughSupported()
-				? [
-						createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-							label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-							detail: 'Click to learn more about Launchpad',
-							iconPath: new ThemeIcon('rocket'),
-							onDidSelect: () =>
-								void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-									step: 'accelerate-pr-reviews',
-									source: { source: 'launchpad', detail: 'info' },
-								}),
-						}),
-						createQuickPickSeparator(),
-					]
-				: [];
+		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] = !hasConnectedIntegration
+			? [
+					createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+						label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+						detail: 'Click to learn more about Launchpad',
+						iconPath: new ThemeIcon('rocket'),
+						onDidSelect: () =>
+							void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
+								step: 'accelerate-pr-reviews',
+								source: { source: 'launchpad', detail: 'info' },
+							}),
+					}),
+					createQuickPickSeparator(),
+				]
+			: [];
 
 		for (const integration of supportedLaunchpadIntegrations) {
 			if (context.connectedIntegrations.get(integration)) {
@@ -1253,7 +1251,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		const step = this.createConfirmStep(
 			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
 			[
-				...(hasConnectedIntegration || !isWalkthroughSupported()
+				...(hasConnectedIntegration
 					? []
 					: [
 							createDirectiveQuickPickItem(Directive.Cancel, undefined, {

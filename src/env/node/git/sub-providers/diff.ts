@@ -94,7 +94,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; includeUntracked?: boolean; notation?: GitRevisionRangeNotation; uris?: Uri[] },
+		options?: { context?: number; notation?: GitRevisionRangeNotation; uris?: Uri[] },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const args = [`-U${options?.context ?? 3}`];
@@ -111,33 +111,15 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
 		let paths: Set<string> | undefined;
-		let untrackedPaths: string[] | undefined;
-
 		if (options?.uris) {
 			paths = new Set<string>(options.uris.map(u => this.provider.getRelativePath(u, repoPath)));
 			args.push('--', ...paths);
 		}
 
-		if (options?.includeUntracked && to === uncommitted) {
-			const status = await this.provider.status?.getStatus(repoPath);
-
-			untrackedPaths = status?.untrackedChanges.map(f => f.path);
-
-			if (untrackedPaths?.length) {
-				if (paths?.size) {
-					untrackedPaths = untrackedPaths.filter(p => paths.has(p));
-				}
-
-				if (untrackedPaths.length) {
-					await this.provider.staging?.stageFiles(repoPath, untrackedPaths, { intentToAdd: true });
-				}
-			}
-		}
-
 		let result;
 		try {
 			result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLog, errors: GitErrorHandling.Throw },
+				{ cwd: repoPath, configs: gitConfigsDiff, errors: GitErrorHandling.Throw },
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',
@@ -146,10 +128,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			debugger;
 			Logger.error(ex, scope);
 			return undefined;
-		} finally {
-			if (untrackedPaths?.length) {
-				await this.provider.staging?.unstageFiles(repoPath, untrackedPaths);
-			}
 		}
 
 		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };

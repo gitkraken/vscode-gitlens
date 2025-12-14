@@ -71,7 +71,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a reference (branch, tag, etc) to compare with',
 				{
-					allowRevisions: true,
+					allowedAdditionalInput: { rev: true },
 				},
 			);
 			if (pick == null) return;

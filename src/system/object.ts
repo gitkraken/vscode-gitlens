@@ -111,8 +111,52 @@ export function flatten<T extends object | null | undefined, P extends string | 
 	return flattened as Flatten<T, P, NonNullable<O['joinArrays']> extends true ? true : false>;
 }
 
-export function entries<TKey extends PropertyKey, TVal>(o: Partial<Record<TKey, TVal>>): [TKey, TVal][] {
-	return Object.entries(o) as [TKey, TVal][];
+export function filterMap<T, TMapped>(
+	o: Record<string, T> | undefined,
+	predicateMapper: (key: string, value: T) => TMapped | null | undefined,
+): Record<string, TMapped> {
+	if (o == null) return {};
+
+	const result: Record<string, TMapped> = {};
+	for (const [key, value] of Object.entries(o)) {
+		const mapped = predicateMapper(key, value);
+		if (mapped == null) continue;
+
+		result[key] = mapped;
+	}
+	return result;
+}
+
+export function filterMapEntries<T, TMapped>(
+	o: Record<string, T> | undefined,
+	predicateMapper: (key: string, value: T) => TMapped | null | undefined,
+): [string, TMapped][] {
+	if (o == null) return [];
+
+	const result: [string, TMapped][] = [];
+	for (const [key, value] of Object.entries(o)) {
+		const mapped = predicateMapper(key, value);
+		if (mapped == null) continue;
+
+		result.push([key, mapped]);
+	}
+	return result;
+}
+
+export function filterMapValues<T, TMapped>(
+	o: Record<string, T> | undefined,
+	predicateMapper: (value: T) => TMapped | null | undefined,
+): TMapped[] {
+	if (o == null) return [];
+
+	const result: TMapped[] = [];
+	for (const key in o) {
+		const mapped = predicateMapper(o[key]);
+		if (mapped == null) continue;
+
+		result.push(mapped);
+	}
+	return result;
 }
 
 export function paths(o: Record<string, any>, path?: string): string[] {
@@ -131,23 +175,55 @@ export function paths(o: Record<string, any>, path?: string): string[] {
 }
 
 export function updateRecordValue<T>(
-	obj: Record<string, T> | undefined,
+	o: Record<string, T> | undefined,
 	key: string,
 	value: T | undefined,
 ): Record<string, T> {
-	if (obj == null) {
-		obj = Object.create(null) as Record<string, T>;
+	if (o == null) {
+		o = Object.create(null) as Record<string, T>;
 	}
 
 	if (value != null && (typeof value !== 'boolean' || value)) {
 		if (typeof value === 'object') {
-			obj[key] = { ...value };
+			o[key] = { ...value };
 		} else {
-			obj[key] = value;
+			o[key] = value;
 		}
 	} else {
-		const { [key]: _, ...rest } = obj;
-		obj = rest;
+		const { [key]: _, ...rest } = o;
+		o = rest;
 	}
-	return obj;
+	return o;
+}
+
+/**
+ * Efficiently checks if an object has at least one own enumerable property
+ * @param o - The object to check
+ * @returns true if the object has at least one own enumerable property, false otherwise
+ */
+export function hasKeys(o: Record<string, any> | null | undefined): o is Record<string, any> {
+	for (const k in o) {
+		if (Object.hasOwn(o, k)) return true;
+	}
+	return false;
+}
+
+/**
+ * Efficiently checks if an object has at least the specified number of truthy values (or at least one if not specified)
+ * @param o - The object to check (typically a Record<string, boolean>)
+ * @param required - The minimum number of truthy values required (default: 1)
+ * @returns true if the object has at least the required number of properties with truthy values
+ */
+export function hasTruthyKeys(
+	o: Record<string, any> | null | undefined,
+	required: number = 1,
+): o is Record<string, any> {
+	let count = 0;
+	for (const k in o) {
+		if (Object.hasOwn(o, k) && o[k]) {
+			count++;
+			if (count >= required) return true; // Early exit once we know we have enough
+		}
+	}
+	return count >= required;
 }

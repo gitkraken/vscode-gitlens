@@ -2,7 +2,7 @@ import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitConfigSubProvider } from '../../../../../git/gitProvider';
 import type { GitUser } from '../../../../../git/models/user';
-import { gate } from '../../../../../system/decorators/-webview/gate';
+import { gate } from '../../../../../system/decorators/gate';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';

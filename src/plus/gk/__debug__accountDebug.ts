@@ -51,7 +51,7 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			state: SubscriptionState.Trial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
-			planId?: Extract<'advanced', SubscriptionPlanIds>;
+			planId?: Extract<'advanced' | 'student', SubscriptionPlanIds>;
 			featurePreviews?: never;
 	  }
 	| {
@@ -161,6 +161,12 @@ class AccountDebug {
 					},
 				},
 				{
+					label: 'Pro Trial (Student)',
+					description: 'Student trial (student plan), account',
+					iconPath: new ThemeIcon('blank'),
+					item: { state: SubscriptionState.Trial, planId: 'student' },
+				},
+				{
 					label: 'Pro Trial (Expired)',
 					description: 'Community, account',
 					iconPath: new ThemeIcon('blank'),
@@ -173,6 +179,12 @@ class AccountDebug {
 					item: { state: SubscriptionState.TrialReactivationEligible },
 				},
 				createQuickPickSeparator('Paid'),
+				{
+					label: 'Student',
+					description: 'Student plan, account',
+					iconPath: new ThemeIcon('blank'),
+					item: { state: SubscriptionState.Paid, planId: 'student' },
+				},
 				{
 					label: 'Pro',
 					description: 'Pro, account',
@@ -197,7 +209,7 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'enterprise' },
 				},
-				// TODO: Update this subscription state once we have a "paid expired" state availale
+				// TODO: Update this subscription state once we have a "paid expired" state available
 				{
 					label: 'Paid (Expired)',
 					description: 'Community, account',
@@ -337,7 +349,9 @@ class AccountDebug {
 					? 'gitkraken_v1-teams'
 					: planId === 'advanced'
 						? 'gitkraken_v1-advanced'
-						: 'gitkraken_v1-pro',
+						: planId === 'student'
+							? 'gitkraken_v1-edu'
+							: 'gitkraken_v1-pro',
 			{
 				organizationId: activeOrganizationId,
 				trial: { reactivatedTrial: reactivatedTrial },

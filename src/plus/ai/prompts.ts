@@ -350,15 +350,19 @@ Available search operators:
 - 'commit:' - Search by a specific commit SHA (e.g. 'commit:4ce3a')
 - 'file:' - Search by file path (e.g. 'file:"package.json"', 'file:"*.ts"'); maps to \`git log -- <value>\`
 - 'change:' - Search by specific code changes using regular expressions (e.g. 'change:"function.*auth"', 'change:"import.*react"'); maps to \`git log -G<value>\`
-- 'type:' - Search by type -- only stash is currently supported (e.g. 'type:stash')
+- 'type:' - Search by type -- supports stash and tip (e.g. 'type:stash', 'type:tip')
+- 'ref:' - Search for commits reachable by a reference (branch, tag, commit) or reference range. Supports single refs (e.g. 'ref:main', 'ref:v1.0'), two-dot ranges (e.g. 'ref:main..feature' for commits in feature but not in main), three-dot ranges (e.g. 'ref:main...feature' for symmetric difference), and relative refs (e.g. 'ref:HEAD~5..HEAD'); maps to \`git log <ref>\`
 - 'after:' - Search for commits after a certain date or range (e.g. 'after:2023-01-01', 'after:"6 months ago"', 'after:"last Tuesday"', 'after:"noon"', 'after:"1 month 2 days ago"'); maps to \`git log --since=<value>\`
 - 'before:' - Search for commits before a certain date or range (e.g. 'before:2023-01-01', 'before:"6 months ago"', 'before:"yesterday"', 'before:"3PM GMT"'); maps to \`git log --until=<value>\`
 
-File and change values should be double-quoted. You can use multiple message, author, file, and change operators at the same time if needed.
+File and change values should be double-quoted. You can use multiple message, author, file, change, and ref operators at the same time if needed.
 
-Temporal queries should be converted to appropriate after and/or before operators, leveraging Git's powerful 'approxidate' parser, which understands a wide array of human-centric relative date expressions, including simple terms ("yesterday", "5 minutes ago"), combinations of time units ("1 month 2 days ago"), days of the week ("last Tuesday"), named times ("noon"), and explicit timezones ("3PM GMT").
-For specific temporal ranges, e.g. commits made last week, or commits in the last month, use the 'after:' and 'before:' operators with appropriate relative values or calculate absolute dates, using the current date provided below.
-For ambiguous time periods like "this week" or "this month", prefer simple relative expressions like "1 week ago" or absolute dates using the current date provided below.
+Use 'ref:' when the query involves exploring commit history within or between specific references. Use temporal operators ('after:', 'before:') for date-based filtering. These operators can be combined when appropriate.
+
+IMPORTANT: When "after" or "since" is used with a reference (branch, tag, commit SHA), it refers to commit ancestry, not time. Use ref ranges (e.g., 'ref:v1.0..HEAD' for "commits after tag v1.0"). Only use 'after:' for actual dates or time expressions.
+
+Temporal queries leverage Git's 'approxidate' parser, which understands relative date expressions like "yesterday", "5 minutes ago", "1 month 2 days ago", "last Tuesday", "noon", and explicit timezones like "3PM GMT".
+
 
 The current date is \${date}
 \${context}
@@ -370,9 +374,76 @@ User Query: \${query}
 Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
 };
 
+export const generateCommits: PromptTemplate<'generate-commits'> = {
+	id: 'generate-commits_v2',
+	variables: ['hunks', 'existingCommits', 'hunkMap', 'instructions'],
+	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a complete set of commits that are related, grouped logically, atomic, and easy to review. You will be working with individual code hunks and may have some existing commits that already have hunks assigned.
+
+First, examine the following JSON array of code hunks that need to be organized:
+
+<hunks>
+\${hunks}
+</hunks>
+
+Next, examine the following JSON array of existing commits (if any) that already have some hunks assigned:
+
+<existing_commits>
+\${existingCommits}
+</existing_commits>
+
+Finally, examine the following JSON array which represents a mapping of hunk indices to hunk headers for reference:
+
+<hunk_map>
+\${hunkMap}
+</hunk_map>
+
+Your task is to create a complete commit organization that includes:
+1. All existing commits (unchanged) that already have hunks assigned
+2. New commits for any unassigned hunks, organized logically
+
+Follow these guidelines:
+
+1. Preserve all existing commits exactly as they are - do not modify their messages, explanations, or assigned hunks
+2. For unassigned hunks, group them into logical units that make sense together and can be applied atomically
+3. Use each hunk only once. Ensure all hunks are assigned to exactly one commit
+4. Ensure each new commit is self-contained and atomic
+5. Write meaningful commit messages that accurately describe the changes in each new commit
+6. Provide detailed explanations for new commits
+7. Order commits logically (existing commits first, then new commits in dependency order)
+
+Output your complete commit organization as a JSON array. Each commit in the array should be an object with the following properties:
+- "message": A string containing the commit message
+- "explanation": A string with a detailed explanation of the changes in the commit
+- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
+  - "hunk": The hunk index (number) from the hunk_map
+
+Write the JSON structure below inside a <output> tag and include no other text:
+<output>
+[
+   {
+      "message": "[commit message here]",
+      "explanation": "[detailed explanation of changes here]",
+      "hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
+   }
+]
+</output>
+
+Remember:
+- Text in [] brackets above should be replaced with your own text, not including the brackets
+- Include all existing commits unchanged
+- Organize all unassigned hunks into new commits
+- Every hunk must be assigned to exactly one commit
+- Base your organization on the actual code changes in the hunks
+
+\${instructions}
+
+Now, proceed with your analysis and organization of the commits. Return only the <output> tag and no other text.
+`,
+};
+
 export const generateRebase: PromptTemplate<'generate-rebase'> = {
 	id: 'generate-rebase',
-	variables: ['diff', 'commits', 'data', 'context', 'instructions'],
+	variables: ['diff', 'commits', 'data', 'instructions'],
 	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a new set of commits that are related, grouped logically, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
 
 First, examine the following unified Git diff of code changes:

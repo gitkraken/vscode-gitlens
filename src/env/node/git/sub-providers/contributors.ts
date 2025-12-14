@@ -14,8 +14,8 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { normalizePath } from '../../../../system/path';
-import type { Cancellable } from '../../../../system/promiseCache';
-import { PromiseCache } from '../../../../system/promiseCache';
+import type { CacheController } from '../../../../system/promiseCache';
+import { createDisposable } from '../../../../system/unifiedDisposable';
 import type { Git } from '../git';
 import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -46,7 +46,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable): Promise<GitContributorsResult> => {
+		const getCore = async (cacheable?: CacheController): Promise<GitContributorsResult> => {
 			const contributors = new Map<string, GitContributor>();
 
 			try {
@@ -91,10 +91,11 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					'log',
 					...args,
 				);
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
 				for await (const c of parser.parseAsync(stream)) {
 					if (signal?.aborted || cancellation?.isCancellationRequested) {
-						cancellable?.cancelled();
+						cacheable?.invalidate();
 						break;
 					}
 
@@ -175,7 +176,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 							: undefined,
 				};
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				debugger;
 
@@ -183,9 +184,6 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				return { contributors: [...contributors.values()], cancelled: { reason: 'cancelled' } };
 			}
 		};
-
-		const cache = this.cache.contributors;
-		if (cache == null) return getCore();
 
 		let customCacheTTL;
 
@@ -212,22 +210,12 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL = timeout * 2;
 		}
 
-		let contributorsCache = cache.get(repoPath);
-		if (contributorsCache == null) {
-			cache.set(
-				repoPath,
-				(contributorsCache = new PromiseCache<string, GitContributorsResult>({
-					accessTTL: 1000 * 60 * 60 /* 60 minutes */,
-				})),
-			);
-		}
-
-		const contributors = contributorsCache.get(
+		return this.cache.contributors.getOrCreate(
+			repoPath,
 			cacheKey,
 			getCore,
 			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
 		);
-		return contributors;
 	}
 
 	@log()
@@ -246,7 +234,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			options = { ...options, all: true };
 		}
 
-		const getCore = async (cancellable?: Cancellable) => {
+		const getCore = async (cacheable?: CacheController) => {
 			try {
 				// eventually support `--group=author --group=trailer:co-authored-by`
 				const args = ['shortlog', '-s', '-e', '-n'];
@@ -274,16 +262,13 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				const shortlog = parseShortlog(result.stdout, repoPath, await currentUserPromise);
 				return shortlog.contributors;
 			} catch (ex) {
-				cancellable?.cancelled();
+				cacheable?.invalidate();
 				Logger.error(ex, scope);
 				debugger;
 
 				return [];
 			}
 		};
-
-		const cache = this.cache.contributorsLite;
-		if (cache == null) return getCore();
 
 		let customCacheTTL;
 
@@ -296,22 +281,12 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL = 1000 * 60 * 5; // 5 minutes
 		}
 
-		let contributorsCache = cache.get(repoPath);
-		if (contributorsCache == null) {
-			cache.set(
-				repoPath,
-				(contributorsCache = new PromiseCache<string, GitContributor[]>({
-					accessTTL: 1000 * 60 * 60 /* 60 minutes */,
-				})),
-			);
-		}
-
-		const contributors = contributorsCache.get(
+		return this.cache.contributorsLite.getOrCreate(
+			repoPath,
 			cacheKey,
 			getCore,
 			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
 		);
-		return contributors;
 	}
 
 	@log()

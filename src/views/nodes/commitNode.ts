@@ -202,7 +202,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 	override getCommand(): Command | undefined {
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-			'gitlens.diffWithPrevious',
+			'gitlens.diffWithPrevious:views',
 			'Open Changes with Previous Revision',
 			undefined,
 			{
@@ -269,7 +269,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.supportsIntegration()) {
+		if (!remote || remote?.supportsIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
 				this.getAssociatedPullRequest(this.commit, remote),
@@ -284,17 +284,22 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 			pr = getSettledValue(prResult);
 		}
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(this.getTooltipTemplate(), this.commit, {
-			enrichedAutolinks: enrichedAutolinks,
-			dateFormat: configuration.get('defaultDateFormat'),
-			getBranchAndTagTips: this.getBranchAndTagTips,
-			messageAutolinks: true,
-			messageIndent: 4,
-			pullRequest: pr,
-			outputFormat: 'markdown',
-			remotes: remotes,
-			unpublished: this.unpublished,
-		});
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			this.getTooltipTemplate(),
+			this.commit,
+			{ source: 'view:hover' },
+			{
+				enrichedAutolinks: enrichedAutolinks,
+				dateFormat: configuration.get('defaultDateFormat'),
+				getBranchAndTagTips: this.getBranchAndTagTips,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequest: pr,
+				outputFormat: 'markdown',
+				remotes: remotes,
+				unpublished: this.unpublished,
+			},
+		);
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;

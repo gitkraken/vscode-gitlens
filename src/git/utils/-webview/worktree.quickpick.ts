@@ -4,7 +4,6 @@ import { GlyphChars } from '../../../constants';
 import { Container } from '../../../container';
 import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
 import { pad } from '../../../system/string';
-import type { GitStatus } from '../../models/status';
 import type { GitWorktree } from '../../models/worktree';
 import { shortenRevision } from '../revision.utils';
 import { getBranchIconPath } from './icons';
@@ -22,11 +21,11 @@ export function createWorktreeQuickPickItem(
 		alwaysShow?: boolean;
 		buttons?: QuickInputButton[];
 		checked?: boolean;
+		hasChanges?: boolean | undefined;
 		includeStatus?: boolean;
 		message?: boolean;
 		path?: boolean;
 		type?: boolean;
-		status?: GitStatus;
 	},
 ): WorktreeQuickPickItem {
 	let description = '';
@@ -38,31 +37,27 @@ export function createWorktreeQuickPickItem(
 	if (options?.includeStatus) {
 		let status = '';
 		let blank = 0;
-		if (options?.status != null) {
-			if (options.status.upstream?.missing) {
-				status += GlyphChars.Warning;
-				blank += 3;
-			} else {
-				if (options.status.upstream?.state.behind) {
-					status += GlyphChars.ArrowDown;
-				} else {
-					blank += 2;
-				}
-
-				if (options.status.upstream?.state.ahead) {
-					status += GlyphChars.ArrowUp;
-				} else {
-					blank += 2;
-				}
-
-				if (options.status.hasChanges) {
-					status += '\u00B1';
-				} else {
-					blank += 2;
-				}
-			}
+		if (worktree.branch?.upstream?.missing) {
+			status += GlyphChars.Warning;
+			blank += 3;
 		} else {
-			blank += 6;
+			if (worktree.branch?.upstream?.state.behind) {
+				status += GlyphChars.ArrowDown;
+			} else {
+				blank += 2;
+			}
+
+			if (worktree.branch?.upstream?.state.ahead) {
+				status += GlyphChars.ArrowUp;
+			} else {
+				blank += 2;
+			}
+
+			if (options?.hasChanges) {
+				status += '\u00B1';
+			} else {
+				blank += 2;
+			}
 		}
 
 		if (blank > 0) {
@@ -112,8 +107,8 @@ export function createWorktreeQuickPickItem(
 		buttons: options?.buttons,
 		picked: picked,
 		item: worktree,
+		hasChanges: options?.hasChanges,
 		opened: worktree.opened,
-		hasChanges: options?.status?.hasChanges,
 		iconPath: iconPath,
 	};
 

@@ -69,7 +69,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a branch or tag to open the file revision from',
 					{
-						allowRevisions: true,
+						allowedAdditionalInput: { rev: true },
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
 							onDidPressKey: async (_key, item) => {

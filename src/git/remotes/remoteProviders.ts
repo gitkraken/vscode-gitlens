@@ -1,3 +1,4 @@
+import type { ConfigurationScope } from 'vscode';
 import type { RemotesConfig } from '../../config';
 import type { CloudGitSelfManagedHostIntegrationIds } from '../../constants.integrations';
 import { GitSelfManagedHostIntegrationId } from '../../constants.integrations';
@@ -102,9 +103,17 @@ function cleanProtocol(scheme: string | undefined): string | undefined {
 	return match?.[1] ?? undefined;
 }
 
-export function loadRemoteProviders(
+export function loadRemoteProvidersFromConfig(
+	scope: ConfigurationScope | null,
+	configuredIntegrations: ConfiguredIntegrationDescriptor[] | undefined,
+): RemoteProviders {
+	const configuredRemotes = configuration.get('remotes', scope);
+	return loadRemoteProviders(configuredRemotes, configuredIntegrations);
+}
+
+function loadRemoteProviders(
 	cfg: RemotesConfig[] | null | undefined,
-	configuredIntegrations?: ConfiguredIntegrationDescriptor[],
+	configuredIntegrations: ConfiguredIntegrationDescriptor[] | undefined,
 ): RemoteProviders {
 	const providers: RemoteProviders = [];
 
@@ -194,13 +203,7 @@ export async function getRemoteProviderMatcher(
 	container: Container,
 	providers?: RemoteProviders,
 ): Promise<(url: string, domain: string, path: string, sheme: string | undefined) => RemoteProvider | undefined> {
-	if (providers == null) {
-		providers = loadRemoteProviders(
-			configuration.get('remotes', null),
-			await container.integrations.getConfigured(),
-		);
-	}
-
+	providers ??= loadRemoteProvidersFromConfig(null, await container.integrations.getConfigured());
 	return (url: string, domain: string, path: string, scheme) =>
 		createBestRemoteProvider(container, providers, url, domain, path, scheme);
 }

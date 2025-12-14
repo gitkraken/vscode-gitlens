@@ -1,8 +1,9 @@
+@use 'sass:meta';
 @use '../shared/styles/theme';
 @use '../shared/styles/utils';
-@import '../shared/base';
-@import '../shared/buttons';
-@import '../shared/icons';
+@use '../shared/base';
+@use '../shared/buttons';
+@use '../shared/icons';
 
 body {
 	font-family: var(--vscode-font-family);
@@ -879,6 +880,6 @@ section {
 	}
 }
 
-@import '../shared/codicons';
-@import '../shared/utils';
-@import '../shared/popup';
+@include meta.load-css('../shared/codicons');
+@include meta.load-css('../shared/utils');
+@include meta.load-css('../shared/popup');

@@ -1,5 +1,6 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
+import { MergeError } from '../../git/errors';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import {
@@ -8,10 +9,12 @@ import {
 	getReferenceTypeLabel,
 	isBranchReference,
 } from '../../git/utils/reference.utils';
+import { showGitErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { executeCommand } from '../../system/-webview/command';
 import { isStringArray } from '../../system/array';
+import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
@@ -104,7 +107,24 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		);
 
 		if (state.fastForwardTo != null) {
-			state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+			try {
+				await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
+			} catch (ex) {
+				// Don't show an error message if the user intentionally aborted the merge
+				if (MergeError.is(ex, 'aborted')) {
+					Logger.log(ex.message, this.title);
+					return;
+				}
+
+				Logger.error(ex, this.title);
+				void showGitErrorMessage(
+					ex,
+					`Unable to fast-forward ${getReferenceLabel(state.reference, {
+						icon: false,
+						label: true,
+					})}`,
+				);
+			}
 		}
 	}
 
@@ -210,7 +230,23 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				const worktree = await svc.worktrees?.getWorktree(w => w.branch?.name === state.reference!.name);
 				if (worktree != null && !worktree.isDefault) {
 					if (state.fastForwardTo != null) {
-						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+						try {
+							await state.repos[0].git.ops?.merge(state.fastForwardTo.ref, { fastForward: 'only' });
+						} catch (ex) {
+							// Don't show an error message if the user intentionally aborted the merge
+							if (MergeError.is(ex, 'aborted')) {
+								Logger.log(ex.message, this.title);
+							} else {
+								Logger.error(ex, this.title);
+								void showGitErrorMessage(
+									ex,
+									`Unable to fast-forward ${getReferenceLabel(state.reference, {
+										icon: false,
+										label: true,
+									})}`,
+								);
+							}
+						}
 					}
 
 					const worktreeResult = yield* getSteps(

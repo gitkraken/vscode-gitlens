@@ -1,8 +1,9 @@
+@use 'sass:meta';
 @use '../../shared/styles/theme';
 @use '../../shared/styles/utils';
 @use '../../shared/styles/icons/utils' as iconUtils;
-@import '../../shared/base';
-@import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
+@use '../../shared/base';
+@include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
 
 @mixin focusStyles() {
 	outline: 1px solid var(--vscode-focusBorder);
@@ -141,6 +142,17 @@ body {
 			border-color: var(--vscode-scrollbarSlider-background);
 		}
 	}
+}
+
+:focus,
+:focus-within,
+:focus-visible {
+	outline-color: var(--vscode-focusBorder);
+}
+
+.gk-graph .graph-container:focus,
+.gk-graph .graph-container:focus-within {
+	outline: none;
 }
 
 ::-webkit-scrollbar {
@@ -874,6 +886,13 @@ button:not([disabled]),
 		}
 	}
 
+	&--issue-linear {
+		&::before {
+			font-family: 'glicons';
+			@include iconUtils.glicon('provider-linear');
+		}
+	}
+
 	&--issue-azureDevops {
 		&::before {
 			font-family: codicon;
@@ -1122,6 +1141,10 @@ web-graph {
 		margin-top: 0.1rem;
 	}
 
+	.columns-btn.spinner {
+		margin-right: 0.6rem;
+	}
+
 	.button {
 		background-color: var(--color-graph-actionbar-background);
 		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
@@ -1177,101 +1200,41 @@ web-graph {
 	& .changes-zone.changes-bar .changes-sub-bar.deleted {
 		margin-left: 2px;
 	}
+
+	// Graph footer styles
+	& .graph-footer__message {
+		color: var(--vscode-descriptionForeground);
+		font-size: 1.2rem;
+		font-style: italic;
+	}
+
+	& .graph-footer__link {
+		color: var(--vscode-textLink-foreground);
+		cursor: pointer;
+		font-size: 1.2rem;
+		text-decoration: none;
+		transition: color 0.2s ease;
+		padding: 0.2rem 0.5rem;
+		border: 1px solid transparent;
+		border-radius: 0.4rem;
+
+		&:hover {
+			color: var(--vscode-textLink-activeForeground);
+			border-color: var(--vscode-textLink-activeForeground);
+		}
+
+		&:focus-visible {
+			border-color: var(--vscode-focusBorder) !important;
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0;
+		}
+	}
 }
 
 // don't see usage
 .mr-loose {
 	margin-right: 0.5rem;
 }
-
-// gl-graph-header
-// .progress-container {
-// 	position: absolute;
-// 	left: 0;
-// 	bottom: 0;
-// 	z-index: 5;
-// 	height: 2px;
-// 	width: 100%;
-// 	overflow: hidden;
-
-// 	& .progress-bar {
-// 		background-color: var(--vscode-progressBar-background);
-// 		display: none;
-// 		position: absolute;
-// 		left: 0;
-// 		width: 2%;
-// 		height: 2px;
-// 	}
-
-// 	&.active .progress-bar {
-// 		display: inherit;
-// 	}
-
-// 	&.discrete .progress-bar {
-// 		left: 0;
-// 		transition: width 0.1s linear;
-// 	}
-
-// 	&.discrete.done .progress-bar {
-// 		width: 100%;
-// 	}
-
-// 	&.infinite .progress-bar {
-// 		animation-name: progress;
-// 		animation-duration: 4s;
-// 		animation-iteration-count: infinite;
-// 		animation-timing-function: steps(100);
-// 		transform: translateZ(0);
-// 	}
-// }
-
-// @keyframes progress {
-// 	0% {
-// 		transform: translateX(0) scaleX(1);
-// 	}
-
-// 	50% {
-// 		transform: translateX(2500%) scaleX(3);
-// 	}
-
-// 	to {
-// 		transform: translateX(4900%) scaleX(1);
-// 	}
-// }
-
-// don't see usage
-// .sr-only {
-// 	clip: rect(0 0 0 0);
-// 	clip-path: inset(50%);
-// 	height: 1px;
-// 	overflow: hidden;
-// 	position: absolute;
-// 	white-space: nowrap;
-// 	width: 1px;
-// }
-
-// don't see usage
-// #opts-popover {
-// 	font-size: var(--vscode-font-size);
-// 	font-family: var(--vscode-font-family);
-// 	background-color: var(--vscode-menu-background);
-// 	border: 1px solid var(--vscode-menu-border);
-// 	padding: 0;
-// 	z-index: 1001;
-
-// 	ul > li {
-// 		padding: 0 0.6rem;
-// 		height: 2.2rem;
-// 		line-height: 2.2rem;
-// 		color: var(--vscode-menu-foreground);
-// 		background-color: var(--vscode-menu-background);
-
-// 		&:hover {
-// 			color: var(--vscode-menu-selectionForeground);
-// 			background-color: var(--vscode-menu-selectionBackground);
-// 		}
-// 	}
-// }
 
 // Light DOM
 .gk-graph .tooltip,
@@ -1303,110 +1266,6 @@ web-graph {
 		white-space: break-spaces !important;
 	}
 }
-
-// gl-graph-header
-// .minimap-marker-swatch {
-// 	display: inline-block;
-// 	width: 1rem;
-// 	height: 1rem;
-// 	border-radius: 2px;
-// 	transform: scale(1.6);
-// 	margin-left: 0.3rem;
-// 	margin-right: 1rem;
-
-// 	&[data-marker='localBranches'] {
-// 		background-color: var(--color-graph-minimap-marker-local-branches);
-// 	}
-
-// 	&[data-marker='pullRequests'] {
-// 		background-color: var(--color-graph-minimap-marker-pull-requests);
-// 	}
-
-// 	&[data-marker='remoteBranches'] {
-// 		background-color: var(--color-graph-minimap-marker-remote-branches);
-// 	}
-
-// 	&[data-marker='stashes'] {
-// 		background-color: var(--color-graph-minimap-marker-stashes);
-// 	}
-
-// 	&[data-marker='tags'] {
-// 		background-color: var(--color-graph-minimap-marker-tags);
-// 	}
-// }
-
-// gl-graph-header - switch to ruleBase in graph.css.ts
-// hr {
-// 	border: none;
-// 	border-top: 1px solid var(--color-foreground--25);
-// }
-
-// gl-graph-header - switch to .inline-code
-// .md-code {
-// 	background: var(--vscode-textCodeBlock-background);
-// 	border-radius: 3px;
-// 	padding: 0px 4px 2px 4px;
-// 	font-family: var(--vscode-editor-font-family);
-// }
-
-// gl-graph-header
-// gl-search-box::part(search) {
-// 	--gl-search-input-background: var(--color-graph-actionbar-background);
-// 	--gl-search-input-border: var(--sl-input-border-color);
-// }
-
-// gl-graph-header
-// sl-option::part(base) {
-// 	padding: 0.2rem 0.4rem;
-// }
-
-// sl-option[aria-selected='true']::part(base),
-// sl-option:not([aria-selected='true']):hover::part(base),
-// sl-option:not([aria-selected='true']):focus::part(base) {
-// 	background-color: var(--vscode-list-activeSelectionBackground);
-// 	color: var(--vscode-list-activeSelectionForeground);
-// }
-
-// sl-option::part(checked-icon) {
-// 	display: none;
-// }
-
-// gl-graph-header
-// sl-select::part(listbox) {
-// 	padding-block: 0.2rem 0;
-// 	width: max-content;
-// }
-
-// sl-select::part(combobox) {
-// 	--sl-input-background-color: var(--color-graph-actionbar-background);
-// 	--sl-input-color: var(--color-foreground);
-// 	--sl-input-color-hover: var(--color-foreground);
-// 	padding: 0 0.75rem;
-// 	color: var(--color-foreground);
-// 	border-radius: var(--sl-border-radius-small);
-// }
-
-// sl-select::part(display-input) {
-// 	field-sizing: content;
-// }
-
-// sl-select::part(expand-icon) {
-// 	margin-inline-start: var(--sl-spacing-x-small);
-// }
-
-// sl-select[open]::part(combobox) {
-// 	background-color: var(--color-graph-actionbar-background);
-// }
-// sl-select:hover::part(combobox),
-// sl-select:focus::part(combobox) {
-// 	background-color: var(--color-graph-actionbar-selectedBackground);
-// }
-
-// gl-graph-header
-// .merge-conflict-warning {
-// 	flex: 0 0 100%;
-// 	min-width: 0;
-// }
 
 // light DOM
 .graph {
@@ -1458,3 +1317,5 @@ web-graph {
 		height: 100%;
 	}
 }
+
+@include meta.load-css('../../shared/codicons');

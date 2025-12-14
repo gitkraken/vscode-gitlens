@@ -78,7 +78,7 @@ export class LocalSharedGkStorageLocationProvider implements SharedGkStorageLoca
 				break;
 			}
 
-			const currentTime = new Date().getTime();
+			const currentTime = Date.now();
 			if (currentTime - stat.ctime > 30000) {
 				// File exists, but the timestamp is older than 30 seconds, so we can safely remove it
 				break;

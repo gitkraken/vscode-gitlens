@@ -57,6 +57,9 @@ export class GlFeatureGate extends LitElement {
 				--section-background: var(--background);
 				--section-border-color: transparent;
 
+				--link-foreground: var(--vscode-textLink-foreground);
+				--link-foreground-active: var(--vscode-textLink-activeForeground);
+
 				display: flex;
 				flex-direction: column;
 				padding: 0 2rem 1.3rem 2rem;
@@ -69,16 +72,17 @@ export class GlFeatureGate extends LitElement {
 
 			:host-context(body[data-placement='editor']) section,
 			:host([appearance='alert']) section {
-				--section-foreground: var(--color-alert-foreground);
+				--section-foreground: var(--color-alert-infoForeground);
 				--section-background: var(--color-alert-infoBackground);
 				--section-border-color: var(--color-alert-infoBorder);
 
 				--link-decoration-default: underline;
-				--link-foreground: var(--vscode-foreground);
-				/* --link-foreground-active: var(--vscode-foreground); */
-
-				/* --link-foreground: var(--vscode-textLink-foreground); */
-				--link-foreground-active: var(--vscode-textLink-activeForeground);
+				--link-foreground: color-mix(in srgb, var(--section-foreground) 50%, var(--vscode-textLink-foreground));
+				--link-foreground-active: color-mix(
+					in srgb,
+					var(--section-foreground) 50%,
+					var(--vscode-textLink-activeForeground)
+				);
 
 				border-radius: 0.3rem;
 				max-width: 600px;
@@ -97,13 +101,16 @@ export class GlFeatureGate extends LitElement {
 	];
 
 	@property({ reflect: true })
-	appearance?: 'alert' | 'welcome';
+	appearance?: 'alert' | 'default';
 
 	@property({ type: Object })
 	featurePreview?: FeaturePreview;
 
 	@property({ type: String })
 	featurePreviewCommandLink?: string;
+
+	@property()
+	featureRestriction?: 'all' | 'private-repos';
 
 	@property()
 	featureWithArticleIfNeeded?: string;
@@ -123,7 +130,7 @@ export class GlFeatureGate extends LitElement {
 		const appearance =
 			(this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor')
 				? 'alert'
-				: 'welcome';
+				: 'default';
 
 		return html`
 			<section>
@@ -132,6 +139,7 @@ export class GlFeatureGate extends LitElement {
 					appearance=${appearance}
 					.featurePreview=${this.featurePreview}
 					.featurePreviewCommandLink=${this.featurePreviewCommandLink}
+					.featureRestriction=${this.featureRestriction}
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
 					.source=${this.source}
 					.state=${this.state}

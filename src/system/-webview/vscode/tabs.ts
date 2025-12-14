@@ -3,6 +3,17 @@ import { Uri, window } from 'vscode';
 import { areUrisEqual } from '../../uri';
 import { isTrackableUri } from './uris';
 
+export async function closeTab(uri: Uri, preserveFocus?: boolean): Promise<void> {
+	for (const group of window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			if (!tabContainsUri(tab, uri)) continue;
+
+			await window.tabGroups.close(tab, preserveFocus);
+			return;
+		}
+	}
+}
+
 export function getTabUri(tab: Tab | undefined): Uri | undefined {
 	const input = tab?.input;
 	if (input == null || typeof input !== 'object') return undefined;

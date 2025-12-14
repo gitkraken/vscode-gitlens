@@ -7,12 +7,13 @@ import type { GlCommands } from '../constants.commands';
 import type { IntegrationIds } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
-import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
+import { ApplyPatchCommitError } from '../git/errors';
 import type { GitDiff } from '../git/models/diff';
 import type { Repository } from '../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { splitCommitMessage } from '../git/utils/commit.utils';
-import { isSha, shortenRevision } from '../git/utils/revision.utils';
+import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
+import { showGitErrorMessage } from '../messages';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
 import type { Draft, LocalDraft } from '../plus/drafts/models/drafts';
@@ -30,6 +31,7 @@ import {
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
+	isCommandContextViewNodeHasRefFile,
 } from './commandContext.utils';
 
 export interface CreatePatchCommandArgs {
@@ -83,7 +85,6 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 				args = {
 					repoPath: repo?.path,
 					to: to,
-					from: 'HEAD',
 					uris: [...map(uris, u => Uri.parse(u))],
 					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
 					includeUntracked: includeUntracked ? true : undefined,
@@ -98,25 +99,33 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 				args = {
 					repoPath: repo?.path,
 					to: to,
-					from: 'HEAD',
 					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
 				};
 			} else if (context.type === 'viewItem') {
 				if (isCommandContextViewNodeHasCommit(context)) {
 					const { commit } = context.node;
-					if (commit.message == null) {
-						await commit.ensureFullDetails();
+					if (commit.isUncommitted) {
+						const to = commit.isUncommittedStaged ? uncommittedStaged : uncommitted;
+						args = {
+							repoPath: context.node.commit.repoPath,
+							to: to,
+							title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+						};
+					} else {
+						if (commit.message == null) {
+							await commit.ensureFullDetails();
+						}
+
+						const { summary: title, body: description } = splitCommitMessage(commit.message);
+
+						args = {
+							repoPath: context.node.commit.repoPath,
+							to: context.node.commit.ref,
+							from: `${context.node.commit.ref}^`,
+							title: title,
+							description: description,
+						};
 					}
-
-					const { summary: title, body: description } = splitCommitMessage(commit.message);
-
-					args = {
-						repoPath: context.node.commit.repoPath,
-						to: context.node.commit.ref,
-						from: `${context.node.commit.ref}^`,
-						title: title,
-						description: description,
-					};
 					if (isCommandContextViewNodeHasFileCommit(context)) {
 						args.uris = [context.node.uri];
 					}
@@ -136,16 +145,53 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						from: context.node.ref1,
 						uris: [context.node.uri],
 					};
+				} else if (context.node.is('uncommitted-files')) {
+					args = {
+						repoPath: context.node.repoPath,
+						to: uncommitted,
+						from: 'HEAD',
+						title: 'Uncommitted Changes',
+					};
+				} else if (isCommandContextViewNodeHasRefFile(context)) {
+					if (isUncommitted(context.node.ref.ref)) {
+						const to = isUncommittedStaged(context.node.ref.ref) ? uncommittedStaged : uncommitted;
+						args = {
+							repoPath: context.node.repoPath,
+							to: to,
+							from: context.node.is('uncommitted-file') ? 'HEAD' : undefined,
+							uris: [context.node.uri],
+							title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+						};
+					} else {
+						args = {
+							repoPath: context.node.repoPath,
+							to: context.node.ref.sha,
+							from: `${context.node.ref.sha}^`,
+							uris: [context.node.uri],
+							title: `Changes (partial) in ${shortenRevision(context.node.ref.sha)}`,
+						};
+					}
 				}
 			} else if (context.type === 'viewItems') {
 				if (isViewRefFileNode(context.node)) {
-					args = {
-						repoPath: context.node.repoPath,
-						to: context.node.ref.sha,
-						from: `${context.node.ref.sha}^`,
-						uris: [context.node.uri],
-						title: `Changes (partial) in ${shortenRevision(context.node.ref.sha)}`,
-					};
+					if (isUncommitted(context.node.ref.ref)) {
+						const to = isUncommittedStaged(context.node.ref.ref) ? uncommittedStaged : uncommitted;
+						args = {
+							repoPath: context.node.repoPath,
+							to: to,
+							from: context.node.is('uncommitted-file') ? 'HEAD' : undefined,
+							uris: [context.node.uri],
+							title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+						};
+					} else {
+						args = {
+							repoPath: context.node.repoPath,
+							to: context.node.ref.sha,
+							from: `${context.node.ref.sha}^`,
+							uris: [context.node.uri],
+							title: `Changes (partial) in ${shortenRevision(context.node.ref.sha)}`,
+						};
+					}
 
 					for (const node of context.nodes) {
 						if (isViewRefFileNode(node) && node !== context.node && node.ref.sha === args.to) {
@@ -160,17 +206,39 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 	}
 
 	protected async getDiff(title: string, args?: CreatePatchCommandArgs): Promise<GitDiff | undefined> {
-		let repo;
+		let git;
 		if (args?.repoPath != null) {
-			repo = this.container.git.getRepository(args.repoPath);
+			git =
+				this.container.git.getRepository(args.repoPath)?.git ??
+				this.container.git.getRepositoryService(args.repoPath);
 		}
-		repo ??= await getRepositoryOrShowPicker(this.container, title);
-		if (repo == null) return;
+		git ??= (await getRepositoryOrShowPicker(this.container, title, undefined, args?.repoPath))?.git;
+		if (git == null) return;
 
-		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
-			includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
-			uris: args?.uris,
-		});
+		let untrackedPaths: string[] | undefined;
+		try {
+			if (args?.to === uncommitted) {
+				// stage any untracked files to include them in the diff
+				untrackedPaths = (await git.status?.getUntrackedFiles())?.map(f => f.path);
+				if (untrackedPaths?.length) {
+					try {
+						await git.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
+					} catch (ex) {
+						Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for patch`);
+					}
+				}
+			}
+
+			return await git.diff.getDiff?.(args?.to ?? uncommitted, args?.from, { uris: args?.uris });
+		} finally {
+			if (untrackedPaths?.length) {
+				try {
+					await git.staging?.unstageFiles(untrackedPaths);
+				} catch (ex) {
+					Logger.error(ex, `Failed to unstage (${untrackedPaths.length}) untracked files for patch`);
+				}
+			}
+		}
 	}
 
 	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;
@@ -203,12 +271,19 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 @command()
 export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, 'gitlens.copyPatchToClipboard');
+		super(container, [
+			'gitlens.copyPatchToClipboard',
+			'gitlens.copyPatchToClipboard:scm',
+			'gitlens.copyPatchToClipboard:views',
+		]);
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Copy as Patch', args);
-		if (diff == null) return;
+		if (!diff?.contents) {
+			void window.showWarningMessage('No changes found to copy');
+			return;
+		}
 
 		await env.clipboard.writeText(diff.contents);
 		void window.showInformationMessage(
@@ -246,14 +321,12 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		} catch (ex) {
 			if (ex instanceof CancellationError) return;
 
-			if (ex instanceof ApplyPatchCommitError) {
-				if (ex.reason === ApplyPatchCommitErrorReason.AppliedWithConflicts) {
-					void window.showWarningMessage('Patch applied with conflicts');
-				} else {
-					void window.showErrorMessage(ex.message);
-				}
+			if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
+				void window.showWarningMessage('Patch applied with conflicts');
+			} else if (ApplyPatchCommitError.is(ex)) {
+				void showGitErrorMessage(ex);
 			} else {
-				void window.showErrorMessage(`Unable to apply patch: ${ex.message}`);
+				void showGitErrorMessage(ex, `Unable to apply patch: ${ex.message}`);
 			}
 		}
 	}

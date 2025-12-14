@@ -36,6 +36,8 @@ export interface GitRebaseStatus {
 
 	mergeBase: string | undefined;
 	onto: GitRevisionReference;
+	/** The original HEAD of the branch being rebased (before rebase started) */
+	source: GitRevisionReference;
 
 	steps: {
 		current: { number: number; commit: GitRevisionReference | undefined };

@@ -1,28 +1,38 @@
-import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { isUncommitted, shortenRevision } from '../../../../git/utils/revision.utils';
 import './code-icon';
 import './copy-container';
 
+const styles = css`
+	:host {
+		display: inline-flex;
+		align-items: baseline;
+		max-width: 100%;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		margin-inline-end: 0.2rem;
+	}
+
+	:host(:focus) {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 2px;
+	}
+
+	.label--uncommitted {
+		cursor: default;
+	}
+
+	.icon {
+		margin-right: 0.3rem;
+		align-self: center;
+	}
+`;
+
 @customElement('gl-commit-sha')
 export class GlCommitSha extends LitElement {
-	static override styles = css`
-		:host {
-			display: inline-block;
-			max-width: 100%;
-			align-content: center;
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			vertical-align: middle;
-			margin-top: -3px;
-		}
-
-		.icon {
-			margin: 0 0.3rem 0.1rem 0.2rem;
-		}
-	`;
+	static override styles = styles;
 
 	@property({ type: String })
 	sha?: string;
@@ -40,11 +50,29 @@ export class GlCommitSha extends LitElement {
 		if (this.sha == null) return nothing;
 
 		if (!this.sha || isUncommitted(this.sha)) {
-			return html`<span style="cursor:default;">${this.label}</span>`;
+			return html`<span part="label" class="label--uncommitted">${this.label}</span>`;
 		}
 
+		return html`<code-icon part="icon" class="icon" icon="git-commit" size="${this.size}"></code-icon
+			><span part="label">${this.label}</span>`;
+	}
+}
+
+@customElement('gl-commit-sha-copy')
+export class GlCommitShaCopy extends LitElement {
+	static override styles = styles;
+
+	@property({ type: String })
+	sha?: string;
+
+	@property({ type: Number })
+	size: number = 12;
+
+	override render(): unknown {
+		if (this.sha == null) return nothing;
+
 		return html`<gl-copy-container .content=${this.sha} placement="top">
-			<span><code-icon class="icon" icon="git-commit" size="${this.size}"></code-icon>${this.label}</span>
+			<gl-commit-sha exportparts="icon, label" .sha=${this.sha} .size=${this.size}></gl-commit-sha>
 		</gl-copy-container>`;
 	}
 }
@@ -52,9 +80,6 @@ export class GlCommitSha extends LitElement {
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-commit-sha': GlCommitSha;
+		'gl-commit-sha-copy': GlCommitShaCopy;
 	}
-}
-
-export function renderCommitSha(sha: string | undefined, size: number = 12): TemplateResult {
-	return html`<gl-commit-sha .sha=${sha} .size=${size}></gl-commit-sha>`;
 }

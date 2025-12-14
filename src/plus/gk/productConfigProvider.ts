@@ -104,13 +104,13 @@ export class ProductConfigProvider {
 						],
 						locations: ['home', 'account', 'badge', 'gate'],
 						content: {
-							modal: { detail: 'Save 50% on GitLens Pro' },
-							quickpick: { detail: '$(star-full) Save 50% on GitLens Pro' },
+							modal: { detail: 'Save up to 50% on GitLens Pro' },
+							quickpick: { detail: '$(star-full) Save up to 50% on GitLens Pro' },
 							webview: {
-								info: { html: '<b>Save 50%</b> on GitLens Pro' },
+								info: { html: '<b>Save up to 50%</b> on GitLens Pro' },
 								link: {
-									html: '<b>Save 50%</b> on GitLens Pro',
-									title: 'Upgrade now and Save 50% on GitLens Pro',
+									html: '<b>Save up to 50%</b> on GitLens Pro',
+									title: 'Upgrade now and Save up to 50% on GitLens Pro',
 								},
 							},
 						},

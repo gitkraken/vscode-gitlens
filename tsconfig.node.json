@@ -2,7 +2,7 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"paths": {
-			"@env/*": ["src/env/node/*"]
+			"@env/*": ["./src/env/node/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.node.tsbuildinfo"
 	},

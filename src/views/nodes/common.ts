@@ -5,7 +5,7 @@ import { unknownGitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { groupRepositories } from '../../git/utils/-webview/repository.utils';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { showRepositoryPicker2 } from '../../quickpicks/repositoryPicker';
+import { showRepositoriesPicker2 } from '../../quickpicks/repositoryPicker';
 import { configuration } from '../../system/-webview/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { getSettledValue, isPromise } from '../../system/promise';
@@ -171,22 +171,27 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		}
 
 		const isFiltered = this.view.repositoryFilter?.length;
-
-		const result = await showRepositoryPicker2(
+		const result = await showRepositoriesPicker2(
 			this.view.container,
-			`Select Repository or Worktree to Show`,
-			`Choose a repository or worktree to show`,
+			`Select Repositories or Worktrees to Show`,
+			`Choose which repositories or worktrees to show`,
 			repos,
 			{
-				picked: isFiltered ? (await this.view.getFilteredRepositories())?.[0] : undefined,
-				additionalItem: createDirectiveQuickPickItem(Directive.ReposAll, !isFiltered),
+				additionalItems: [createDirectiveQuickPickItem(Directive.ReposAll, !isFiltered)],
+				picked: isFiltered ? await this.view.getFilteredRepositories() : undefined,
 			},
 		);
 
 		if (result.directive === Directive.ReposAll) {
 			this.view.repositoryFilter = undefined;
 		} else if (result.value != null) {
-			this.view.repositoryFilter = [result.value.id];
+			if (result.value.length) {
+				this.view.repositoryFilter = result.value.map(r => r.id);
+			} else {
+				this.view.repositoryFilter = undefined;
+			}
+		} else {
+			return;
 		}
 
 		this.view.triggerNodeChange(this);

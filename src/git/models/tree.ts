@@ -5,10 +5,3 @@ export interface GitTreeEntry {
 	size: number;
 	type: 'blob' | 'tree';
 }
-
-export interface GitLsFilesEntry {
-	mode: string;
-	oid: string;
-	path: string;
-	stage: number;
-}

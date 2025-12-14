@@ -83,6 +83,11 @@ export class GlGraphHover extends GlElement {
 		window.removeEventListener('keydown', this.onWindowKeydown);
 	}
 
+	override firstUpdated(): void {
+		// Add mouseleave listener to the popover to handle when mouse moves from hover to graph background
+		this.popup?.addEventListener('mouseleave', this.onPopoverMouseLeave);
+	}
+
 	override render(): unknown {
 		return html`<gl-popover
 			?open=${this.open}
@@ -132,6 +137,20 @@ export class GlGraphHover extends GlElement {
 
 	private onParentMouseLeave = () => {
 		this.hide();
+	};
+
+	private onPopoverMouseLeave = (e: MouseEvent) => {
+		// When mouse leaves the popover, check if it's going to a graph row or staying within the hover component
+		const relatedTarget = e.relatedTarget;
+		if (relatedTarget != null && relatedTarget instanceof HTMLElement) {
+			// Don't hide if moving to another part of the hover component
+			if (relatedTarget.closest('gl-graph-hover')) return;
+		}
+
+		// Use a small delay to allow row hover events to fire first
+		// If moving to another row, the row hover event will cancel this timer and show the new hover
+		// If moving to graph background, this timer will hide the hover
+		this.unhoverTimer = setTimeout(() => this.hide(), 100);
 	};
 
 	private _showCoreDebounced: Deferrable<GlGraphHover['showCore']> | undefined = undefined;

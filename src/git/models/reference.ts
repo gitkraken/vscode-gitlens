@@ -6,6 +6,7 @@ export interface GitBranchReference {
 	sha?: string;
 	readonly remote: boolean;
 	readonly upstream?: { name: string; missing: boolean };
+	readonly worktree?: { path: string; isDefault: boolean } | boolean;
 	repoPath: string;
 }
 

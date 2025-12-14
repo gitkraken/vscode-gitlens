@@ -40,9 +40,9 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	get onDidChange(): Event<void>;
 }
 
-abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationIds = IntegrationIds>
-	implements IntegrationAuthenticationProvider
-{
+abstract class IntegrationAuthenticationProviderBase<
+	ID extends IntegrationIds = IntegrationIds,
+> implements IntegrationAuthenticationProvider {
 	protected readonly disposables: Disposable[] = [];
 
 	protected readonly cloud: boolean = false;

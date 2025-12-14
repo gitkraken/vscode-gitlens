@@ -194,13 +194,13 @@ export class GlFeatureBadge extends LitElement {
 			if (this.preview) {
 				return html`<div class="popup-header">
 					${text}<span class="popup-subtitle"
-						>Requires an account and may require GitLens Pro in the future</span
+						>Unlock this feature with an account and may require GitLens Pro in the future</span
 					>
 				</div>`;
 			}
 
 			return html`<div class="popup-header">
-				${text}<span class="popup-subtitle"> Requires GitLens Pro</span>
+				${text}<span class="popup-subtitle"> Unlock this feature with GitLens Pro</span>
 			</div>`;
 		}
 
@@ -211,7 +211,7 @@ export class GlFeatureBadge extends LitElement {
 		}
 
 		return html`<div class="popup-header">
-			${text}<span class="popup-subtitle"> Requires GitLens Pro for use on privately-hosted repos</span>
+			${text}<span class="popup-subtitle"> Unlock this feature for privately hosted repos with GitLens Pro</span>
 		</div>`;
 	}
 

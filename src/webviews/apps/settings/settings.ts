@@ -2,14 +2,15 @@
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
 import type { AutolinkConfig } from '../../../config';
-import type { IssuesCloudHostIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import { IssuesCloudHostIntegrationId } from '../../../constants.integrations';
 import { createCommandLink } from '../../../system/commands';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
 import {
 	DidChangeAccountNotification,
-	DidChangeConnectedJiraNotification,
+	DidChangeIssueIntegrationConnectedNotification,
 	DidOpenAnchorNotification,
 	GenerateConfigurationPreviewRequest,
 } from '../../settings/protocol';
@@ -159,8 +160,12 @@ export class SettingsApp extends App<State> {
 				this.renderAutolinkIntegration();
 				break;
 
-			case DidChangeConnectedJiraNotification.is(msg):
-				this.state.hasConnectedJira = msg.params.hasConnectedJira;
+			case DidChangeIssueIntegrationConnectedNotification.is(msg):
+				if (msg.params.integrationId === IssuesCloudHostIntegrationId.Jira) {
+					this.state.hasConnectedJira = msg.params.connected;
+				} else if (msg.params.integrationId === IssuesCloudHostIntegrationId.Linear) {
+					this.state.hasConnectedLinear = msg.params.connected;
+				}
 				this.setState(this.state);
 				this.renderAutolinkIntegration();
 				break;
@@ -804,8 +809,8 @@ export class SettingsApp extends App<State> {
 		const $root = document.querySelector('[data-component="autolink-integration"]');
 		if ($root == null) return;
 
-		const { hasAccount, hasConnectedJira } = this.state;
-		let message = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+		const { hasAccount, hasConnectedJira, hasConnectedLinear } = this.state;
+		let messageJira = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 			'gitlens.plus.cloudIntegrations.connect',
 			{
 				integrationIds: ['jira' as IssuesCloudHostIntegrationId.Jira] as SupportedCloudIntegrationIds[],
@@ -821,11 +826,30 @@ export class SettingsApp extends App<State> {
 			hasAccount ? '' : 'sign up and '
 		}get access to automatic rich Jira autolinks.`;
 		if (hasAccount && hasConnectedJira) {
-			message =
+			messageJira =
 				'<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected &mdash; automatic rich Jira autolinks are enabled.';
 		}
+		let messageLinear = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+			'gitlens.plus.cloudIntegrations.connect',
+			{
+				integrationIds: ['linear' as IssuesCloudHostIntegrationId.Linear] as SupportedCloudIntegrationIds[],
+				source: {
+					source: 'settings',
+					detail: {
+						action: 'connect',
+						integration: 'linear',
+					},
+				},
+			},
+		)}">Connect to Linear</a> &mdash; ${
+			hasAccount ? '' : 'sign up and '
+		}get access to automatic rich Linear autolinks.`;
+		if (hasAccount && hasConnectedLinear) {
+			messageLinear =
+				'<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Linear connected &mdash; automatic rich Linear autolinks are enabled.';
+		}
 
-		$root.innerHTML = message;
+		$root.innerHTML = `${messageJira}<br/>${messageLinear}`;
 	}
 
 	private renderAutolinks() {

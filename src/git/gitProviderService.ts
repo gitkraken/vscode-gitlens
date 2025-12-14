@@ -27,7 +27,7 @@ import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { getBestPath } from '../system/-webview/path';
 import { joinUnique } from '../system/array';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';
@@ -1420,7 +1420,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffForFile(uri, ref1, ref2);
 	}
 
-	@log<GitProviderService['getDiffForFileContents']>({ args: { 1: '<contents>' } })
+	@log<GitProviderService['getDiffForFileContents']>({ args: { 2: '<contents>' } })
 	/**
 	 * Returns a file diff between a commit and the specified contents
 	 * @param uri Uri of the file to diff
@@ -1612,7 +1612,7 @@ export class GitProviderService implements Disposable {
 					}
 
 					Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
-					const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
+					const repositories = provider.openRepository(root?.folder, repoUri, false, closed);
 
 					const added: Repository[] = [];
 

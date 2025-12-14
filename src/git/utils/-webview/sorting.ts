@@ -326,7 +326,7 @@ export function sortWorktrees(
 	worktrees: GitWorktree[] | WorktreeQuickPickItem[],
 	options?: WorktreeSortOptions,
 ): GitWorktree[] | WorktreeQuickPickItem[] {
-	options = { orderBy: configuration.get('sortBranchesBy'), ...options };
+	options = { orderBy: configuration.get('sortWorktreesBy'), ...options };
 
 	const getWorktree = (worktree: GitWorktree | WorktreeQuickPickItem): GitWorktree => {
 		return isWorktree(worktree) ? worktree : worktree.item;

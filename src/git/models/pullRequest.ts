@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/-webview/memoize';
+import { memoize } from '../../system/decorators/memoize';
 import type { IssueProject, IssueRepository } from './issue';
 import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest';
 import type { ProviderReference } from './remoteProvider';

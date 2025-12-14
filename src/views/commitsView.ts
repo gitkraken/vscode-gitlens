@@ -18,7 +18,7 @@ import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { createCommand, executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
 import type { UsageChangeEvent } from '../telemetry/usageTracker';
@@ -114,11 +114,13 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 		return e.changed(
 			RepositoryChange.Config,
+			RepositoryChange.Head,
 			RepositoryChange.Heads,
 			RepositoryChange.Index,
 			RepositoryChange.Remotes,
 			RepositoryChange.RemoteProviders,
 			RepositoryChange.PausedOperationStatus,
+			RepositoryChange.Worktrees,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
 		);
@@ -423,6 +425,24 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 			maxDepth: 1,
 			canTraverse: n => n instanceof CommitsViewNode || n instanceof RepositoryFolderNode,
 		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	@gate(() => '')
+	async revealPausedOperationStatus(repoPath: string, options?: RevealOptions): Promise<ViewNode | undefined> {
+		const node = await this.findNode(
+			n => n.is('paused-operation-status') && n.pausedOpStatus.repoPath === repoPath,
+			{
+				maxDepth: 3,
+				canTraverse: n =>
+					n instanceof CommitsViewNode || n instanceof RepositoryFolderNode || n instanceof BranchNode,
+			},
+		);
 
 		if (node !== undefined) {
 			await this.reveal(node, options);

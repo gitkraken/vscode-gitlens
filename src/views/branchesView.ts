@@ -12,13 +12,14 @@ import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils';
 import { getReferenceLabel } from '../git/utils/reference.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { gate } from '../system/decorators/-webview/gate';
+import { gate } from '../system/decorators/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils';
 import type { GroupedViewContext, RevealOptions } from './viewBase';
 import { ViewBase } from './viewBase';
 import type { CopyNodeCommandArgs } from './viewCommands';
@@ -42,6 +43,8 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 			RepositoryChange.Remotes,
 			RepositoryChange.RemoteProviders,
 			RepositoryChange.PausedOperationStatus,
+			RepositoryChange.Starred,
+			RepositoryChange.Worktrees,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
 		);
@@ -144,6 +147,10 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
 			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByDate'), () => this.setSortByDate(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortByName'), () => this.setSortByName(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortDescending'), () => this.setSortDescending(), this),
+			registerViewCommand(this.getQualifiedCommand('setSortAscending'), () => this.setSortAscending(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -338,6 +345,22 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
+	}
+
+	private setSortByDate() {
+		return updateSorting('sortBranchesBy', 'date', 'desc');
+	}
+
+	private setSortByName() {
+		return updateSorting('sortBranchesBy', 'name', 'asc');
+	}
+
+	private setSortDescending() {
+		return updateSortingDirection('sortBranchesBy', 'desc');
+	}
+
+	private setSortAscending() {
+		return updateSortingDirection('sortBranchesBy', 'asc');
 	}
 
 	private setShowAvatars(enabled: boolean) {

@@ -1,6 +1,6 @@
 import type { Autolink } from '../../../autolinks/models/autolinks';
 import type { Container } from '../../../container';
-import type { AIGenerateChangelogChange, AIGenerateChangelogChanges } from '../../../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChange, AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog';
 import { filterMap, map } from '../../../system/iterable';
 import { getSettledValue } from '../../../system/promise';
 import type { IssueOrPullRequest } from '../../models/issueOrPullRequest';
@@ -37,7 +37,7 @@ export async function getChangesForChangelog(
 		const issuesOrPullRequests = await Promise.allSettled(
 			filterMap(enriched, async ([key, [issueOrPullRequest]]) => {
 				const issueOrPR = await issueOrPullRequest;
-				if (issueOrPR == null || issueOrPR.type !== 'issue') return undefined;
+				if (issueOrPR?.type !== 'issue') return undefined;
 
 				return [key, issueOrPR] as const;
 			}),

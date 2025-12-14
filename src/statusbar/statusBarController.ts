@@ -296,12 +296,13 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Toggle Git CodeLens';
 				break;
 			case 'gitlens.toggleFileBlame':
+				this._statusBarBlame.command = 'gitlens.toggleFileBlame:statusbar' satisfies GlCommands;
 				actionTooltip = 'Click to Toggle File Blame';
 				break;
 			case 'gitlens.toggleFileChanges': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-						'gitlens.toggleFileChanges',
+						'gitlens.toggleFileChanges:statusbar',
 						'Toggle File Changes',
 						commit.file.uri,
 						{
@@ -309,6 +310,8 @@ export class StatusBarController implements Disposable {
 							context: { sha: commit.sha, only: false, selection: false },
 						},
 					);
+				} else {
+					this._statusBarBlame.command = 'gitlens.toggleFileChanges:statusbar' satisfies GlCommands;
 				}
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
@@ -316,7 +319,7 @@ export class StatusBarController implements Disposable {
 			case 'gitlens.toggleFileChangesOnly': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-						'gitlens.toggleFileChanges',
+						'gitlens.toggleFileChanges:statusbar',
 						'Toggle File Changes',
 						commit.file.uri,
 						{
@@ -324,11 +327,14 @@ export class StatusBarController implements Disposable {
 							context: { sha: commit.sha, only: true, selection: false },
 						},
 					);
+				} else {
+					this._statusBarBlame.command = 'gitlens.toggleFileChanges:statusbar' satisfies GlCommands;
 				}
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
 			}
 			case 'gitlens.toggleFileHeatmap':
+				this._statusBarBlame.command = 'gitlens.toggleFileHeatmap:statusbar' satisfies GlCommands;
 				actionTooltip = 'Click to Toggle File Heatmap';
 				break;
 		}
@@ -403,6 +409,7 @@ export class StatusBarController implements Disposable {
 				pullRequests: showPullRequests && pr != null,
 				remotes: remotes,
 				timeout: timeout,
+				sourceName: 'statusbar:hover',
 			});
 		}
 

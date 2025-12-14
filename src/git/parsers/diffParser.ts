@@ -4,6 +4,7 @@ import { maybeStopWatch } from '../../system/stopwatch';
 import type {
 	GitDiffShortStat,
 	ParsedGitDiff,
+	ParsedGitDiffFileMetadata,
 	ParsedGitDiffHunk,
 	ParsedGitDiffHunkLine,
 	ParsedGitDiffHunks,
@@ -11,11 +12,97 @@ import type {
 import type { GitFile } from '../models/file';
 import { GitFileChange } from '../models/fileChange';
 import type { GitFileStatus } from '../models/fileStatus';
+import { GitFileIndexStatus } from '../models/fileStatus';
 
 export const diffRegex = /^diff --git a\/(.*) b\/(.*)$/;
 export const diffHunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
+const diffStatusRegex =
+	/^(?:(new file mode)|(deleted file mode)|(rename (?:from|to))|(copy (?:from|to))|(old mode|new mode)|(@@ -)|(Binary files .+ differ))/m;
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
+
+interface ParsedGitDiffFileResult {
+	status: GitFileStatus;
+	metadata: ParsedGitDiffFileMetadata;
+}
+
+function parseFileStatusAndMetadata(
+	content: string,
+	originalPath: string,
+	path: string,
+	hasHunks: boolean,
+): ParsedGitDiffFileResult {
+	// Use a single regex to find all relevant patterns at once
+	const matches = content.match(diffStatusRegex);
+
+	// Initialize metadata
+	let isBinary = false;
+	let modeChanged = false;
+	let oldMode: string | undefined;
+	let newMode: string | undefined;
+	let similarity: number | undefined;
+	let status: GitFileStatus;
+
+	if (matches) {
+		const [, newFile, deletedFile, rename, copy, modeChange, _hunks, binary] = matches;
+
+		// Extract metadata from matches
+		isBinary = Boolean(binary);
+		modeChanged = Boolean(modeChange);
+
+		// Determine status based on found patterns (priority order)
+		if (newFile) {
+			status = GitFileIndexStatus.Added;
+		} else if (deletedFile) {
+			status = GitFileIndexStatus.Deleted;
+		} else if (rename) {
+			status = GitFileIndexStatus.Renamed;
+		} else if (copy) {
+			status = GitFileIndexStatus.Copied;
+		} else if (binary) {
+			status = path !== originalPath ? GitFileIndexStatus.Renamed : GitFileIndexStatus.Modified;
+		} else if (modeChange && !hasHunks) {
+			status = GitFileIndexStatus.TypeChanged;
+		} else {
+			// Default logic based on path comparison
+			status = path !== originalPath ? GitFileIndexStatus.Renamed : GitFileIndexStatus.Modified;
+		}
+	} else {
+		// Default logic based on path comparison
+		status = path !== originalPath ? GitFileIndexStatus.Renamed : GitFileIndexStatus.Modified;
+	}
+
+	// Extract mode information if we detected a mode change
+	if (modeChanged) {
+		const oldModeMatch = content.match(/old mode (\d+)/);
+		const newModeMatch = content.match(/new mode (\d+)/);
+		if (oldModeMatch) {
+			oldMode = oldModeMatch[1];
+		}
+		if (newModeMatch) {
+			newMode = newModeMatch[1];
+		}
+	}
+
+	// Extract similarity for renames/copies
+	if (status === GitFileIndexStatus.Renamed || status === GitFileIndexStatus.Copied) {
+		const similarityMatch = content.match(/similarity index (\d+)%/);
+		if (similarityMatch) {
+			similarity = parseInt(similarityMatch[1], 10);
+		}
+	}
+
+	const metadata: ParsedGitDiffFileMetadata = {
+		binary: isBinary,
+		modeChanged: modeChanged ? { oldMode: oldMode!, newMode: newMode! } : false,
+		renamedOrCopied:
+			status === GitFileIndexStatus.Renamed || status === GitFileIndexStatus.Copied
+				? { similarity: similarity }
+				: false,
+	};
+
+	return { status: status, metadata: metadata };
+}
 
 function parseHunkHeaderPart(headerPart: string) {
 	const [startS, countS] = headerPart.split(',');
@@ -44,19 +131,36 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 
 		const [, originalPath, path] = match;
 
+		// Check for hunks and parse file status and metadata in a single pass
 		const hunkStartIndex = file.indexOf('\n@@ -');
-		if (hunkStartIndex === -1) continue;
+		const hasHunks = hunkStartIndex !== -1;
+		const { status, metadata } = parseFileStatusAndMetadata(file, originalPath, path, hasHunks);
 
-		const header = `diff --git ${file.substring(0, hunkStartIndex)}`;
-		const content = file.substring(hunkStartIndex + 1);
+		let header: string;
+		let rawContent: string | undefined;
+		let hunks: ParsedGitDiffHunk[];
+
+		if (!hasHunks) {
+			// No hunks - file without content changes (renames, mode changes, etc.)
+			header = `diff --git ${file}`;
+			rawContent = includeRawContent ? file : undefined;
+			hunks = [];
+		} else {
+			// Has hunks - extract header and content efficiently
+			header = `diff --git ${file.substring(0, hunkStartIndex)}`;
+			const content = file.substring(hunkStartIndex + 1);
+			rawContent = includeRawContent ? content : undefined;
+			hunks = parseGitFileDiff(content, includeRawContent)?.hunks || [];
+		}
+
 		parsed.files.push({
 			path: path,
 			originalPath: path === originalPath ? undefined : originalPath,
-			status: (path !== originalPath ? 'R' : 'M') as GitFileStatus,
-
+			status: status,
 			header: header,
-			rawContent: includeRawContent ? content : undefined,
-			hunks: parseGitFileDiff(content, includeRawContent)?.hunks || [],
+			rawContent: rawContent,
+			hunks: hunks,
+			metadata: metadata,
 		});
 	}
 
