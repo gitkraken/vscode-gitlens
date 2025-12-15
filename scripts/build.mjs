@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import { parseArgs } from 'node:util';
 
 // Parse arguments
@@ -55,4 +55,17 @@ if (quick) {
 }
 
 console.log(`Running: ${cmd}`);
-execSync(cmd, { stdio: 'inherit' });
+
+const child = spawn(cmd, [], {
+	shell: true,
+	stdio: 'inherit',
+	env: {
+		...process.env,
+		NODE_FORCE_COLORS: '1',
+		FORCE_COLOR: '1',
+	},
+});
+
+child.on('exit', code => {
+	process.exit(code || 0);
+});
