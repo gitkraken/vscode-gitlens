@@ -8,24 +8,81 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds autocomplete suggestions and interactive filter pickers (for authors, references, and files/folders) to _Commit Graph_ search ([#4780](https://github.com/gitkraken/vscode-gitlens/issues/4780))
-- Adds _Select for Compare_ and _Compare with Selected_ commands to the _Commit Graph_ context menu for commits, stashes, branches, and tags ([#4779](https://github.com/gitkraken/vscode-gitlens/issues/4779))
+- Adds an all-new _Interactive Rebase Editor_ with support for `update-ref` and `merge` commands, optimistic UI updates, improved drag-and-drop with auto-scrolling, conflict detection, and enhanced accessibility ([#4813](https://github.com/gitkraken/vscode-gitlens/issues/4813), [#4405](https://github.com/gitkraken/vscode-gitlens/issues/4405), [#4383](https://github.com/gitkraken/vscode-gitlens/issues/4383), [#4160](https://github.com/gitkraken/vscode-gitlens/issues/4160), [#4148](https://github.com/gitkraken/vscode-gitlens/issues/4148), [#4032](https://github.com/gitkraken/vscode-gitlens/issues/4032), [#3897](https://github.com/gitkraken/vscode-gitlens/issues/3897), [#3866](https://github.com/gitkraken/vscode-gitlens/issues/3866), [#3815](https://github.com/gitkraken/vscode-gitlens/issues/3815), [#3393](https://github.com/gitkraken/vscode-gitlens/issues/3393), [#3337](https://github.com/gitkraken/vscode-gitlens/issues/3337), [#3310](https://github.com/gitkraken/vscode-gitlens/issues/3310))
+  - Adds potential conflict detection with visual indicators for commits that will conflict during rebase
+  - Adds ability to recompose commits from the _Interactive Rebase Editor_ using AI ([#4796](https://github.com/gitkraken/vscode-gitlens/issues/4796), [#4775](https://github.com/gitkraken/vscode-gitlens/issues/4775))
+  - Optimizes performance with virtualization for large rebase operations and lazy-loading of commit metadata
+  - Apply bulk actions (pick, squash, fixup, etc.) to multiple selected commits simultaneously
+  - Improves drag-and-drop experience with multi-select support and auto-scrolling when dragging near viewport edges
+  - Enhances multi-select support with comprehensive keyboard and mouse interactions
+    - Mouse: <kbd>Click</kbd> to select single, <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) to toggle, <kbd>Shift</kbd>+Click for range selection
+    - Keyboard: <kbd>Shift+Arrow[Up|Down]</kbd> for range selection, <kbd>Ctrl+A</kbd> (<kbd>Cmd+A</kbd> on macOS) to select all entries
+  - Adds a `gitlens.rebaseEditor.openOnPausedRebase` setting to control whether the _Interactive Rebase Editor_ opens automatically when a rebase is paused
+- Overhauls the search experience on the _Commit Graph_
+  - Adds real-time streaming of search results with pause, resume, and cancel support ([#4782](https://github.com/gitkraken/vscode-gitlens/issues/4782), [#4526](https://github.com/gitkraken/vscode-gitlens/issues/4526), [#3963](https://github.com/gitkraken/vscode-gitlens/issues/3963))
+    - Changes the default of the `gitlens.graph.searchItemLimit` setting to `0` (no limit)
+  - Adds autocomplete suggestions and interactive filter pickers (for authors, references, and files/folders) to _Commit Graph_ search ([#4780](https://github.com/gitkraken/vscode-gitlens/issues/4780))
+    - Adds quick pick menus for picking authors, branches or tags, comparison ranges, and files or folders
+- Enhances the _Commit Graph_ experience with several new features
+  - Enhances multiselect behavior with improved keyboard and mouse support
+    - Keyboard navigation
+      - <kbd>Arrow[Up|Down]</kbd> — Moves focus/selection to previous/next row
+      - <kbd>Ctrl+Arrow[Up|Down]</kbd> (<kbd>Cmd+Arrow[Up|Down]</kbd> on macOS) — Moves focus/selection topologically
+      - <kbd>Alt+Arrow[Up|Down]</kbd> — Jumps to previous/next branching point (merge/fork)
+      - <kbd>Alt+Page[Up|Down]</kbd> — Jumps to previous/next commit with refs
+      - <kbd>Home</kbd>, <kbd>End</kbd> — Jumps to first/last (loaded) commit
+      - <kbd>Page[Up|Down]</kbd> — Jumps by a page (viewport)
+    - Mouse selection
+      - <kbd>Click</kbd> — Selects a single commit (clears previous selection)
+      - <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) — Toggles commit in/out of selection
+        - When in topological selection mode, will only select the commit if it is topologically connected to the existing selection
+      - <kbd>Shift+Click</kbd> — Selects a range of commits from the anchor to clicked commit
+        - When in topological selection mode, will select all commits that follows parent-child graph path
+        - When in non-topological mode, will select all rows in visual range
+    - Keyboard selection
+      - <kbd>Shift+[Up|Down]</kbd> — Extends the selection, based on selection mode
+      - <kbd>Ctrl+Shift+[Up|Down]</kbd> (<kbd>Cmd+Shift+[Up|Down]</kbd> on macOS) — Topologically extends the selection, and sticks to current branch if possible
+      - <kbd>Shift+Home</kbd>, <kbd>Shift+End</kbd> — Extends the selection to first or last commit
+      - <kbd>Shift+Page[Up|Down]</kbd> — Extends the selection by one page
+  - Adds sticky timeline support to the _Commit Graph_ ([#4781](https://github.com/gitkraken/vscode-gitlens/issues/4781))
+  - Adds _Compose Commits..._, _Generate Commit Message..._, and _Stash All Changes..._ inline actions to the "work in progress" (WIP) row in the _Commit Graph_ ([#4790](https://github.com/gitkraken/vscode-gitlens/issues/4790))
+  - Adds _Select for Compare_ and _Compare with Selected_ commands to the _Commit Graph_ context menu for commits, stashes, branches, and tags ([#4779](https://github.com/gitkraken/vscode-gitlens/issues/4779))
+- Adds support for recomposing selected commits in graph and composer ([#4600](https://github.com/gitkraken/vscode-gitlens/issues/4600))
 - Adds Claude Opus 4.5, Gemini 3 Pro, and GPT-5.1 and GPT-5.2 model support for AI features ([#4785](https://github.com/gitkraken/vscode-gitlens/issues/4785))
-- Adds sticky timeline support to the _Commit Graph_ ([#4781](https://github.com/gitkraken/vscode-gitlens/issues/4781))
-- Adds an experimental 'gitlens.advanced.resolveSymlinks' setting to resolve symbolic links when determining file paths for Git operations ([#1328](https://github.com/gitkraken/vscode-gitlens/issues/1328))
+- Adds multi-repository support to repository filtering in GitLens views ([#4815](https://github.com/gitkraken/vscode-gitlens/issues/4815))
+- Adds ability to change upstream from tracking status nodes in views
 - Adds new advanced date formatting tokens (`agoAndDate`, `agoAndDateShort`, `agoAndDateBothSources`) and updates default tooltip and status bar formats ([#4783](https://github.com/gitkraken/vscode-gitlens/issues/4783))
+- Adds an experimental `gitlens.advanced.resolveSymlinks` setting to resolve symbolic links when determining file paths for Git operations ([#1328](https://github.com/gitkraken/vscode-gitlens/issues/1328))
+- Adds a `gitlens.advanced.skipOnboarding` setting to prevent onboarding prompts ([#4751](https://github.com/gitkraken/vscode-gitlens/issues/4751))
+- Adds a `gitlens.advanced.git.timeout` setting to configure the Git command timeout
 
 ### Changed
 
-- Improves _Commit Graph_ search with progressive streaming of results and cancellation support ([#4782](https://github.com/gitkraken/vscode-gitlens/issues/4782))
-- Changes _rebase_, _merge_, _revert_, and _branch delete_ commands no longer use/open a terminal ([#3527](https://github.com/gitkraken/vscode-gitlens/issues/3527), [#3530](https://github.com/gitkraken/vscode-gitlens/issues/3530), [#3532](https://github.com/gitkraken/vscode-gitlens/issues/3532), [#3534](https://github.com/gitkraken/vscode-gitlens/issues/3534))
+- Improves _Commit Composer_ user experience with maximize command, improved commit message editing, and sticky positioning for commit messages ([#4759](https://github.com/gitkraken/vscode-gitlens/issues/4759))
+- Changes _rebase_, _merge_, _revert_, and _branch delete_ commands to no longer use/open a terminal ([#3527](https://github.com/gitkraken/vscode-gitlens/issues/3527), [#3530](https://github.com/gitkraken/vscode-gitlens/issues/3530), [#3532](https://github.com/gitkraken/vscode-gitlens/issues/3532), [#3534](https://github.com/gitkraken/vscode-gitlens/issues/3534))
+- Improves ignored file checking performance ([#4814](https://github.com/gitkraken/vscode-gitlens/issues/4814))
 - Enhances paused operation status UI with clickable references that jump to commits/branches in the _Commit Graph_ ([#4786](https://github.com/gitkraken/vscode-gitlens/issues/4786))
 - Improves reference selection in views with a unified comparison picker dialog ([#4778](https://github.com/gitkraken/vscode-gitlens/issues/4778))
+- Simplifies remote provider connection flow by directly using the remote name and repository path ([#4411](https://github.com/gitkraken/vscode-gitlens/issues/4411))
 - Improves tracking for hover actions by adding source and detail attributes to events from editor hovers ([#4764](https://github.com/gitkraken/vscode-gitlens/issues/4764))
+
+### Removed
+
+- Removes the `gitlens.advanced.caching.enabled` setting
 
 ### Fixed
 
-- Fixes issue where the _Commit Details_ file tree rendering would fails intermittently ([#4784](https://github.com/gitkraken/vscode-gitlens/issues/4784))
+- Fixes issue where the _Commit Details_ file tree rendering would fail intermittently ([#4784](https://github.com/gitkraken/vscode-gitlens/issues/4784))
+- Fixes issue where the _Commit Graph_ would load data twice on initial load
+- Fixes issue where paused operations would not show on the _Commit Graph_ without working changes
+- Fixes issue where onboarding would interrupt error popovers in the _Commit Composer_
+- Fixes repository grouping for main repositories and worktrees in certain cases
+- Fixes WIP detection for untracked files only
+- Fixes issue where commit/graph details panel titles would not collapse at smaller sizes
+- Fixes navigation button wrapping in the _Inspect_ view
+- Fixes incorrect handling of an empty rebase HEAD
+- Fixes missing cancel option in the rebase quick wizard confirmation
+- Fixes issue where the _Interactive Rebase Editor_ would not close automatically when the associated file is deleted
 
 ## [17.7.1] - 2025-11-13
 
