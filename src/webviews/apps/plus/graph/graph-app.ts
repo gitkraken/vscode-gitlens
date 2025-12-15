@@ -128,6 +128,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
 								@gl-graph-row-hover=${this.handleGraphRowHover}
 								@gl-graph-row-unhover=${this.handleGraphRowUnhover}
+								@row-action-hover=${this.handleGraphRowActionHover}
 							></gl-graph-wrapper>
 						</div>
 						<!-- future: commit details -->
@@ -233,6 +234,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		detail: { graphRow, relatedTarget },
 	}: CustomEventType<'gl-graph-row-unhover'>): void {
 		this.graphHover.onRowUnhovered(graphRow, relatedTarget);
+	}
+
+	private handleGraphRowActionHover() {
+		this.graphHover.hide();
 	}
 
 	private async getRowHoverPromise(row: GraphRow) {

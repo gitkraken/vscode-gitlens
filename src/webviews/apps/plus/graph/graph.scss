@@ -1318,4 +1318,15 @@ web-graph {
 	}
 }
 
+.graph-row-actions {
+	display: flex;
+	height: 100%;
+	font-size: 1.3rem;
+	gap: 0.3rem;
+
+	gl-button {
+		height: 100%;
+	}
+}
+
 @include meta.load-css('../../shared/codicons');

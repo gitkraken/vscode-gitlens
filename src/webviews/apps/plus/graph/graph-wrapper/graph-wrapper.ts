@@ -16,12 +16,13 @@ import type { GitGraphRowType } from '../../../../../git/models/graph';
 import { filterMap } from '../../../../../system/array';
 import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '../../../../../system/color';
 import { debounce } from '../../../../../system/function/debounce';
-import type { GraphSelection } from '../../../../plus/graph/protocol';
+import type { GraphSelection, RowAction } from '../../../../plus/graph/protocol';
 import {
-	DoubleClickedCommandType,
+	DoubleClickedCommand,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
+	RowActionCommand,
 	UpdateColumnsCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
@@ -162,6 +163,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@morerows=${this.onGetMoreRows}
 			@graphmouseleave=${this.onMouseLeave}
 			@refdoubleclick=${this.onRefDoubleClick}
+			@rowaction=${this.onRowAction}
 			@rowcontextmenu=${this.onRowContextMenu}
 			@rowdoubleclick=${this.onRowDoubleClick}
 			@rowhover=${this.onRowHover}
@@ -203,11 +205,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onRefDoubleClick({ detail: { ref, metadata } }: CustomEventType<'graph-doubleclickref'>) {
-		this._ipc.sendCommand(DoubleClickedCommandType, { type: 'ref', ref: ref, metadata: metadata });
+		this._ipc.sendCommand(DoubleClickedCommand, { type: 'ref', ref: ref, metadata: metadata });
 	}
 
 	private onRefsVisibilityChanged({ detail }: CustomEventType<'graph-changerefsvisibility'>) {
 		this._ipc.sendCommand(UpdateRefsVisibilityCommand, detail);
+	}
+
+	private onRowAction({ detail: { action, row } }: CustomEvent<{ action: RowAction; row: GraphRow }>) {
+		this._ipc.sendCommand(RowActionCommand, { action: action, row: { id: row.sha, type: row.type } });
 	}
 
 	private onRowContextMenu({ detail: { graphRow, graphZoneType } }: CustomEventType<'graph-rowcontextmenu'>) {
@@ -219,9 +225,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onRowDoubleClick({ detail: { row, preserveFocus } }: CustomEventType<'graph-doubleclickrow'>) {
-		this._ipc.sendCommand(DoubleClickedCommandType, {
+		this._ipc.sendCommand(DoubleClickedCommand, {
 			type: 'row',
-			row: { id: row.sha, type: row.type as GitGraphRowType },
+			row: { id: row.sha, type: row.type },
 			preserveFocus: preserveFocus,
 		});
 	}

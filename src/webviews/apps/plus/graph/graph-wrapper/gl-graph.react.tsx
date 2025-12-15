@@ -17,9 +17,11 @@ import type {
 	GraphZoneType,
 	OnFormatCommitDateTime,
 	ReadonlyGraphRow,
+	RowAdornment,
+	RowAdornmentProvider,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { CommitDateTimeSources, emptySetMarker, refZone } from '@gitkraken/gitkraken-components';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../../config';
@@ -38,11 +40,16 @@ import type {
 	GraphItemContext,
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
+	RowAction,
 	State,
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol';
+import type { GlButton } from '../../../shared/components/button';
+import type { CodeIcon } from '../../../shared/components/code-icon';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react';
 import type { GraphStateProvider } from '../stateProvider';
+import '../../../shared/components/button';
+import '../../../shared/components/code-icon';
 
 export type GraphWrapperProps = Pick<
 	State,
@@ -81,6 +88,7 @@ export interface GraphWrapperEvents {
 	onMoreRows?: (id?: string) => void;
 	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
 	onMouseLeave?: () => void;
+	onRowAction?: (detail: { action: RowAction; row: GraphRow }) => void;
 	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onRowHover?: (detail: {
@@ -94,6 +102,7 @@ export interface GraphWrapperEvents {
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
 	}) => void;
+	onRowActionHover?: () => void;
 }
 
 const getGraphDateFormatter = (config: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -685,9 +694,123 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 
 	const footer = renderFooter();
 
+	const invalidateTarget = new EventTarget();
+	const rowAdornmentProvider: RowAdornmentProvider = {
+		invalidate: invalidateTarget,
+		provideAdornments: (
+			rows: readonly ReadonlyGraphRow[],
+			signal: AbortSignal,
+		): Record<string, RowAdornment> | Promise<Record<string, RowAdornment>> => {
+			const adornments: Record<string, RowAdornment> = {};
+			for (const row of rows) {
+				if (signal.aborted) return {};
+
+				if (row.type === 'work-dir-changes') {
+					adornments[row.sha] = { visibility: true };
+					break;
+				}
+
+				// TODO@eamodio after release
+				// switch (row.type) {
+				// 	case 'work-dir-changes':
+				// 		adornments[row.sha] = { visibility: true };
+				// 		break;
+				// 	case 'stash-node':
+				// 		adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
+				// 		break;
+				// 	case 'commit-node':
+				// 		if (row.heads?.length) {
+				// 			adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
+				// 		}
+				// 		break;
+				// }
+			}
+
+			return adornments;
+		},
+
+		resolveAdornment: (
+			row: ReadonlyGraphRow,
+			_context: undefined,
+		): ReactNode | null | Promise<ReactNode | null> => {
+			switch (row.type) {
+				case 'work-dir-changes':
+					return (
+						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							<gl-button
+								onClick={() => initProps.onRowAction?.({ action: 'compose-commits', row: row })}
+								tooltip="Compose Commits..."
+								aria-label="Compose Commits..."
+							>
+								<code-icon slot="prefix" icon="wand"></code-icon>Compose Commits...
+							</gl-button>
+							<div>
+								<gl-button
+									appearance="toolbar"
+									onClick={() =>
+										initProps.onRowAction?.({ action: 'generate-commit-message', row: row })
+									}
+									tooltip="Generate Commit Message"
+									aria-label="Generate Commit Message"
+								>
+									<code-icon icon="sparkle"></code-icon>
+								</gl-button>
+								<gl-button
+									appearance="toolbar"
+									onClick={() => initProps.onRowAction?.({ action: 'stash-save', row: row })}
+									tooltip="Stash All Changes..."
+									aria-label="Stash All Changes..."
+								>
+									<code-icon icon="gl-stash-save"></code-icon>
+								</gl-button>
+							</div>
+						</div>
+					);
+				// case 'stash-node':
+				// 	return (
+				// 		<div className="graph-row-actions">
+				// 			<gl-button
+				// 				appearance="toolbar"
+				// 				onClick={() => initProps.onRowAction?.({ action: 'stash-pop', row: row })}
+				// 				tooltip="Pop Stash..."
+				// 				aria-label="Pop Stash..."
+				// 			>
+				// 				<code-icon icon="git-stash-pop"></code-icon>
+				// 			</gl-button>
+				// 			<gl-button
+				// 				appearance="toolbar"
+				// 				onClick={() => initProps.onRowAction?.({ action: 'stash-drop', row: row })}
+				// 				tooltip="Drop Stash..."
+				// 				aria-label="Drop Stash..."
+				// 			>
+				// 				<code-icon icon="trash"></code-icon>
+				// 			</gl-button>
+				// 		</div>
+				// 	);
+				// case 'commit-node':
+				// 	if (row.heads?.length) {
+				// 		return (
+				// 			<div className="graph-row-actions">
+				// 				<gl-button
+				// 					onClick={() => initProps.onRowAction?.({ action: 'recompose-branch', row: row })}
+				// 					tooltip="Recompose Branch..."
+				// 					aria-label="Recompose Branch..."
+				// 				>
+				// 					<code-icon slot="prefix" icon="wand"></code-icon>Recompose Branch...
+				// 				</gl-button>
+				// 			</div>
+				// 		);
+				// 	}
+				// 	break;
+			}
+			return null;
+		},
+	};
+
 	return (
 		<GraphContainer
 			ref={graphRef}
+			rowAdornmentProvider={rowAdornmentProvider}
 			avatarUrlByEmail={props.avatars}
 			columnsSettings={props.columns}
 			contexts={context}
@@ -786,7 +909,17 @@ function getActiveRowInfo(activeRow: string | undefined): { id: string; date: nu
 	};
 }
 
+type LitElementProps<T> = React.HTMLAttributes<T> & Partial<Omit<T, keyof HTMLElement>>;
+
 declare global {
+	// eslint-disable-next-line @typescript-eslint/no-namespace
+	namespace React.JSX {
+		interface IntrinsicElements {
+			'gl-button': LitElementProps<GlButton>;
+			'code-icon': LitElementProps<CodeIcon>;
+		}
+	}
+
 	interface GlobalEventHandlersEventMap {
 		// event map from react wrapped component
 		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;

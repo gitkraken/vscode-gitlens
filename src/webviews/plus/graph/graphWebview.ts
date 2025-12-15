@@ -200,6 +200,7 @@ import type {
 	GraphSelection,
 	GraphWorkingTreeStats,
 	OpenPullRequestDetailsParams,
+	RowActionParams,
 	SearchOpenInViewParams,
 	SearchParams,
 	State,
@@ -236,7 +237,7 @@ import {
 	DidFetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
-	DoubleClickedCommandType,
+	DoubleClickedCommand,
 	EnsureRowRequest,
 	GetCountsRequest,
 	GetMissingAvatarsCommand,
@@ -245,6 +246,7 @@ import {
 	GetRowHoverRequest,
 	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
+	RowActionCommand,
 	SearchCancelCommand,
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
@@ -848,7 +850,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case JumpToHeadRequest.is(e):
 				void this.onJumpToHead(JumpToHeadRequest, e);
 				break;
-			case DoubleClickedCommandType.is(e):
+			case DoubleClickedCommand.is(e):
 				void this.onDoubleClick(e.params);
 				break;
 			case EnsureRowRequest.is(e):
@@ -871,6 +873,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case OpenPullRequestDetailsCommand.is(e):
 				void this.onOpenPullRequestDetails(e.params);
+				break;
+			case RowActionCommand.is(e):
+				void this.onRowAction(e.params);
 				break;
 			case SearchRequest.is(e):
 				void this.onSearchRequest(SearchRequest, e);
@@ -1662,6 +1667,60 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (pr == null) return undefined;
 
 		return this.container.views.pullRequest.showPullRequest(pr, branch);
+	}
+
+	@log()
+	private async onRowAction(params: RowActionParams): Promise<void> {
+		const repoPath = this._graph?.repoPath;
+		if (repoPath == null) return;
+
+		switch (params.action) {
+			case 'compose-commits':
+				await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
+					repoPath: repoPath,
+					source: 'graph',
+				});
+				break;
+			case 'generate-commit-message':
+				await executeCommand<GenerateCommitMessageCommandArgs>('gitlens.ai.generateCommitMessage', {
+					repoPath: repoPath,
+					source: 'graph',
+				});
+				break;
+			case 'stash-save':
+				await StashActions.push(repoPath);
+				break;
+			// case 'recompose-branch': {
+			// 	const row = this._graph?.rows.find(r => r.sha === params.row.id);
+			// 	const branchName = row?.heads?.[0]?.name;
+			// 	if (branchName != null) {
+			// 		await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
+			// 			repoPath: repoPath,
+			// 			branchName: branchName,
+			// 			source: 'graph',
+			// 		});
+			// 	}
+			// 	break;
+			// }
+			// case 'stash-pop': {
+			// 	const ref = createReference(params.row.id, repoPath, {
+			// 		refType: 'stash',
+			// 		name: params.row.id,
+			// 		number: undefined,
+			// 	});
+			// 	await StashActions.pop(repoPath, ref);
+			// 	break;
+			// }
+			// case 'stash-drop': {
+			// 	const ref = createReference(params.row.id, repoPath, {
+			// 		refType: 'stash',
+			// 		name: params.row.id,
+			// 		number: undefined,
+			// 	});
+			// 	await StashActions.drop(repoPath, [ref]);
+			// 	break;
+			// }
+		}
 	}
 
 	@debug()

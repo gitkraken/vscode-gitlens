@@ -239,19 +239,9 @@ export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | I
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
 
 export type DoubleClickedParams =
-	| {
-			type: 'ref';
-			ref: GraphRef;
-			metadata?: GraphRefMetadataItem;
-	  }
-	| {
-			type: 'row';
-			row: { id: string; type: GitGraphRowType };
-			preserveFocus?: boolean;
-	  };
-export const DoubleClickedCommandType = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
-
-export const ContinuePreview = new IpcCommand<undefined>(scope, 'dblclick');
+	| { type: 'ref'; ref: GraphRef; metadata?: GraphRefMetadataItem }
+	| { type: 'row'; row: { id: string; type: GitGraphRowType }; preserveFocus?: boolean };
+export const DoubleClickedCommand = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
@@ -275,6 +265,20 @@ export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetai
 	scope,
 	'pullRequest/openDetails',
 );
+
+export type RowAction =
+	| 'compose-commits'
+	| 'generate-commit-message'
+	| 'recompose-branch'
+	| 'stash-drop'
+	| 'stash-pop'
+	| 'stash-save';
+
+export interface RowActionParams {
+	action: RowAction;
+	row: { id: string; type: GitGraphRowType };
+}
+export const RowActionCommand = new IpcCommand<RowActionParams>(scope, 'row/action');
 
 export interface SearchOpenInViewParams {
 	search: SearchQuery;
