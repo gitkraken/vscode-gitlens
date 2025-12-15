@@ -227,10 +227,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleGraphRowUnhover({
-		detail: { graphZoneType, graphRow, relatedTarget },
+		detail: { graphRow, relatedTarget },
 	}: CustomEventType<'gl-graph-row-unhover'>): void {
-		if (graphZoneType === refZone) return;
-
 		this.graphHover.onRowUnhovered(graphRow, relatedTarget);
 	}
 
