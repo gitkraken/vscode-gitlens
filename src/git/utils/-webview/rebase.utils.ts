@@ -1,5 +1,5 @@
-import type { Tab, ViewColumn } from 'vscode';
-import { version as codeVersion, ConfigurationTarget, Uri, window, workspace } from 'vscode';
+import type { Tab } from 'vscode';
+import { version as codeVersion, ConfigurationTarget, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { Container } from '../../../container';
 import { executeCoreCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
@@ -84,6 +84,11 @@ export async function openRebaseEditor(
 
 	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
 	if (getOpenRebaseEditorTab(rebaseTodoUri) != null) return;
+
+	// Only try to open beside if there is an active tab
+	if (options?.viewColumn === ViewColumn.Beside && window.tabGroups.activeTabGroup.activeTab == null) {
+		options.viewColumn = ViewColumn.Active;
+	}
 
 	await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 		preview: false,
