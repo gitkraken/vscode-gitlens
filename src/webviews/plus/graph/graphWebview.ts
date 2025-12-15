@@ -811,7 +811,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			((this.repository != null && this.repository.etag !== this._etagRepository) ||
 				this.container.subscription.etag !== this._etagSubscription)
 		) {
-			this.updateState(true);
+			if (this.host.ready) {
+				this.updateState(true);
+			}
 			return;
 		}
 
