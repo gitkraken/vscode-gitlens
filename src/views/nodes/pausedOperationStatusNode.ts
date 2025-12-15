@@ -83,10 +83,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 
 		const hasConflicts = status?.hasConflicts === true;
 		const hasChildren =
-			status?.hasConflicts ||
-			(this.pausedOpStatus.type === 'rebase' &&
-				this.pausedOpStatus.steps.total > 0 &&
-				this.pausedOpStatus.steps.current.commit != null);
+			status?.hasConflicts || (this.pausedOpStatus.type === 'rebase' && this.pausedOpStatus.hasStarted);
 
 		const item = new TreeItem(
 			this.label,
@@ -142,15 +139,15 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 			})}`;
 		}
 
-		const started = this.pausedOpStatus.steps.total > 0;
+		const { hasStarted } = this.pausedOpStatus;
 		const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
-		return `${hasConflicts ? strings.conflicts : started ? strings.label : strings.pending} ${getReferenceLabel(
+		return `${hasConflicts ? strings.conflicts : hasStarted ? strings.label : strings.pending} ${getReferenceLabel(
 			this.pausedOpStatus.incoming,
 			{ expand: false, icon: false },
 		)} ${strings.directionality} ${getReferenceLabel(this.pausedOpStatus.current ?? this.pausedOpStatus.onto, {
 			expand: false,
 			icon: false,
-		})}${started ? ` (${this.pausedOpStatus.steps.current.number}/${this.pausedOpStatus.steps.total})` : ''}`;
+		})}${hasStarted ? ` (${this.pausedOpStatus.steps.current.number}/${this.pausedOpStatus.steps.total})` : ''}`;
 	}
 
 	private get tooltip(): MarkdownString {
@@ -166,14 +163,17 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 				hasConflicts ? `\n\nResolve ${pluralize('conflict', status.conflicts.length)} before continuing` : ''
 			}`;
 		} else {
-			const started = this.pausedOpStatus.steps.total > 0;
+			const { hasStarted } = this.pausedOpStatus;
 			const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
-			tooltip = `${started ? strings.label : strings.pending} ${getReferenceLabel(this.pausedOpStatus.incoming, {
-				label: false,
-			})} ${strings.directionality} ${getReferenceLabel(this.pausedOpStatus.current ?? this.pausedOpStatus.onto, {
+			tooltip = `${hasStarted ? strings.label : strings.pending} ${getReferenceLabel(
+				this.pausedOpStatus.incoming,
+				{
+					label: false,
+				},
+			)} ${strings.directionality} ${getReferenceLabel(this.pausedOpStatus.current ?? this.pausedOpStatus.onto, {
 				label: false,
 			})}${
-				started
+				hasStarted
 					? `\n\nPaused at step ${this.pausedOpStatus.steps.current.number} of ${
 							this.pausedOpStatus.steps.total
 						}${

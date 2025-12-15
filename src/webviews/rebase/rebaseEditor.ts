@@ -110,8 +110,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const status = (await svc.pausedOps?.getPausedOperationStatus?.()) as GitRebaseStatus | undefined;
 
-		// Open the editor if we're in a paused rebase (step > 0 means rebase has started and is now paused)
-		if (status?.type === 'rebase' && status.steps?.current.number != null && status.steps.current.number > 0) {
+		// Only open if the rebase is actually paused (waiting for user action), not just running
+		if (status?.type === 'rebase' && status.isPaused) {
 			// Open beside the current editor (e.g., commit message editor) during active rebase
 			await openRebaseEditor(this.container, repoPath, { viewColumn: ViewColumn.Beside });
 		}

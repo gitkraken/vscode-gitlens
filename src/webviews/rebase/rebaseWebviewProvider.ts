@@ -714,7 +714,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}> {
 		// Get paused operation status to check if we're in an active rebase
 		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
-		if (pausedStatus?.type !== 'rebase' || (pausedStatus.steps?.current.number ?? 0) === 0) {
+		if (pausedStatus?.type !== 'rebase' || !pausedStatus.hasStarted) {
 			return { status: undefined, doneEntries: undefined };
 		}
 

@@ -43,6 +43,11 @@ export interface GitRebaseStatus {
 		current: { number: number; commit: GitRevisionReference | undefined };
 		total: number;
 	};
+
+	/** True if the rebase has started processing commits (step > 0) */
+	hasStarted: boolean;
+	/** True if we're confident the rebase is paused and waiting for user action (REBASE_HEAD exists) */
+	isPaused: boolean;
 }
 
 export interface GitRevertStatus {

@@ -303,6 +303,8 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						}
 					}
 
+					const stepsNumber = getSettledValue(stepsNumberResult) ?? 0;
+
 					return {
 						type: 'rebase',
 						repoPath: repoPath,
@@ -318,7 +320,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						}),
 						steps: {
 							current: {
-								number: getSettledValue(stepsNumberResult) ?? 0,
+								number: stepsNumber,
 								commit: rebaseHead
 									? createReference(rebaseHead, repoPath, {
 											refType: 'revision',
@@ -328,6 +330,9 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 							},
 							total: getSettledValue(stepsTotalResult) ?? 0,
 						},
+						hasStarted: stepsNumber > 0,
+						// REBASE_HEAD only exists when git is paused and waiting for user action
+						isPaused: stepsNumber > 0 && rebaseHead != null,
 					} satisfies GitRebaseStatus;
 				}
 			}
