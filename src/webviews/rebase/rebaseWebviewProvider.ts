@@ -164,6 +164,9 @@ export class RebaseWebviewProvider implements Disposable {
 								void closeTab(this.document.uri);
 							}
 						}
+					} else if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+						// Refresh when index changes to update conflict state during paused rebase
+						this.updateState();
 					}
 				}),
 			);
