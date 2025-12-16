@@ -30,6 +30,7 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			this.container.storage.onDidChange(e => this.onStorageChanged(e)),
+			this.container.events.on('gk:cli:ipc:started', () => this.onIpcServerStarted()),
 			lm.registerMcpServerDefinitionProvider('gitlens.gkMcpProvider', this),
 		);
 	}
@@ -60,10 +61,31 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		this._fireChangeDebounced();
 	}
 
+	private onIpcServerStarted(): void {
+		// Fire change event to refresh MCP server definitions now that GK_GL_ADDR is available
+		this._fireChangeDebounced ??= debounce(() => {
+			this._onDidChangeMcpServerDefinitions.fire();
+		}, 500);
+		this._fireChangeDebounced();
+	}
+
 	@log({ exit: true })
 	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
 		const config = await this.getMcpConfigurationFromCLI();
 		if (config == null) return [];
+
+		const { environmentVariableCollection: envVars } = this.container.context;
+
+		const ipcAddress = envVars.get('GK_GL_ADDR');
+		if (ipcAddress != null) {
+			const arg = `--gitlens-url=${ipcAddress.value}`;
+			const existingArgIndex = config.args.findIndex(a => a.startsWith('--gitlens-url='));
+			if (existingArgIndex === -1) {
+				config.args.push(arg);
+			} else if (config.args[existingArgIndex] !== arg) {
+				config.args[existingArgIndex] = arg;
+			}
+		}
 
 		const serverDefinition = new McpStdioServerDefinition(
 			config.name,

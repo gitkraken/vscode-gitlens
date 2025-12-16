@@ -9,7 +9,10 @@ import { createCommandDecorator } from '../../../../system/decorators/command.js
 import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration.js';
 
 type CliCommand = 'cherry-pick' | 'compare' | 'graph' | 'merge' | 'rebase';
-type CliCommandHandler = (request: CliCommandRequest, repo?: Repository | undefined) => Promise<CliCommandResponse>;
+type CliCommandHandler = (
+	request: CliCommandRequest | undefined,
+	repo?: Repository | undefined,
+) => Promise<CliCommandResponse>;
 
 const { command, getCommands } = createCommandDecorator<CliCommand, CliCommandHandler>();
 
@@ -25,7 +28,7 @@ export class CliCommandHandlers implements Disposable {
 
 	dispose(): void {}
 
-	private wrapHandler(request: CliCommandRequest, handler: CliCommandHandler) {
+	private wrapHandler(request: CliCommandRequest | undefined, handler: CliCommandHandler) {
 		let repo: Repository | undefined;
 		if (request?.cwd) {
 			repo = this.container.git.getRepository(request.cwd);
