@@ -7,7 +7,7 @@ import { getLogScope } from '../../../../system/logger.scope.js';
 import { createDisposable } from '../../../../system/unifiedDisposable.js';
 
 export interface IpcHandler<Request = unknown, Response = void> {
-	(request: Request): Promise<Response>;
+	(request: Request | undefined): Promise<Response>;
 }
 
 export async function createIpcServer<Request = unknown, Response = void>(): Promise<IpcServer<Request, Response>> {
@@ -78,7 +78,8 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 		const chunks: Uint8Array[] = [];
 		req.on('data', d => chunks.push(d));
 		req.on('end', async () => {
-			const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+			const body = Buffer.concat(chunks).toString('utf8');
+			const data = body ? (JSON.parse(body) as Request) : undefined;
 			try {
 				const result = await handler(data);
 				if (result == null) {

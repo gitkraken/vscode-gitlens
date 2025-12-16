@@ -59,6 +59,10 @@ type EventsMapping = {
 	 *  Should only be listened to by @type {import('./git/models/repository.js').Repository}
 	 */
 	'git:repo:change': GitRepoChangeEventArgs;
+	/**
+	 * Event fired when the CLI integration IPC server is started
+	 */
+	'gk:cli:ipc:started': undefined;
 };
 
 interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
