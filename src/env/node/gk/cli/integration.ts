@@ -97,6 +97,8 @@ export class GkCliIntegrationProvider implements Disposable {
 	private async start() {
 		const server = await createIpcServer<CliCommandRequest, CliCommandResponse>();
 
+		server.registerHandler('ping', () => Promise.resolve());
+
 		const { environmentVariableCollection: envVars } = this.container.context;
 
 		envVars.clear();

@@ -64,6 +64,13 @@ export class GkMcpProvider implements McpServerDefinitionProvider, Disposable {
 		const config = await this.getMcpConfigurationFromCLI();
 		if (config == null) return [];
 
+		const { environmentVariableCollection: envVars } = this.container.context;
+
+		const ipcAddress = envVars.get('GK_GL_ADDR');
+		if (ipcAddress != null) {
+			config.args.push(`--gitlens-url=${ipcAddress.value}`);
+		}
+
 		const serverDefinition = new McpStdioServerDefinition(
 			config.name,
 			config.command,
