@@ -1,5 +1,5 @@
 import type { Disposable, TextDocument } from 'vscode';
-import { Position, Range, workspace, WorkspaceEdit } from 'vscode';
+import { workspace } from 'vscode';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -11,20 +11,9 @@ import {
 	skipPausedOperation,
 } from '../../git/actions/pausedOperation';
 import type { GitCommit } from '../../git/models/commit';
-import type {
-	ParsedRebaseTodo,
-	ProcessedRebaseCommitEntry,
-	ProcessedRebaseEntry,
-	ProcessedRebaseTodo,
-	RebaseTodoAction,
-} from '../../git/models/rebase';
+import type { RebaseTodoAction } from '../../git/models/rebase';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { parseRebaseTodo } from '../../git/parsers/rebaseTodoParser';
-import {
-	formatRebaseTodoEntryLine,
-	processRebaseEntries,
-	readAndParseRebaseDoneFile,
-} from '../../git/utils/-webview/rebase.parsing.utils';
+import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
 import { createReference } from '../../git/utils/reference.utils';
 import type { Subscription } from '../../plus/gk/models/subscription';
@@ -84,8 +73,9 @@ import {
 	SwitchCommand,
 	UpdateSelectionCommand,
 } from './protocol';
+import { RebaseTodoDocument } from './rebaseTodoDocument';
 
-const maxSmallIntegerV8 = 2 ** 30 - 1;
+export const maxSmallIntegerV8 = 2 ** 30 - 1;
 
 interface Enrichment {
 	commits: Map<string, GitCommit>;
@@ -98,30 +88,20 @@ export class RebaseWebviewProvider implements Disposable {
 	private _closing: boolean = false;
 	private readonly _disposables: Disposable[] = [];
 	private _enrichment: Enrichment;
-	/** Cached parsed/processed todo file, invalidated when document version changes */
-	private _parsedCache?: { version: number; parsed: ParsedRebaseTodo; processed: ProcessedRebaseTodo };
+	private readonly _todoDocument: RebaseTodoDocument;
 
 	private get ascending() {
 		return configuration.get('rebaseEditor.ordering') === 'asc';
 	}
 
-	/** Gets parsed and processed todo entries, using cache if document hasn't changed */
-	private getParsedTodo(): { parsed: ParsedRebaseTodo; processed: ProcessedRebaseTodo } {
-		if (this._parsedCache?.version === this.document.version) return this._parsedCache;
-
-		const parsed = parseRebaseTodo(this.document.getText());
-		const processed = processRebaseEntries(parsed.entries);
-		this._parsedCache = { version: this.document.version, parsed: parsed, processed: processed };
-		return this._parsedCache;
-	}
-
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost<'gitlens.rebase'>,
-		private readonly document: TextDocument,
+		document: TextDocument,
 		private readonly repoPath: string,
 	) {
 		this._enrichment = { commits: new Map(), authors: new Map(), onto: undefined };
+		this._todoDocument = new RebaseTodoDocument(document);
 
 		this._disposables.push(
 			workspace.onDidChangeTextDocument(e => {
@@ -156,12 +136,12 @@ export class RebaseWebviewProvider implements Disposable {
 					if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
 						// Check if the rebase todo file still exists, if not close the editor
 						try {
-							await workspace.fs.stat(this.document.uri);
+							await workspace.fs.stat(this._todoDocument.uri);
 							this.updateState();
 						} catch {
 							if (!this._closing) {
 								this._closing = true;
-								void closeTab(this.document.uri);
+								void closeTab(this._todoDocument.uri);
 							}
 						}
 					} else if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
@@ -309,19 +289,17 @@ export class RebaseWebviewProvider implements Disposable {
 		this._closing = true;
 
 		// Delete the contents to abort the rebase
-		const edit = new WorkspaceEdit();
-		edit.delete(this.document.uri, new Range(0, 0, this.document.lineCount, 0));
-		await workspace.applyEdit(edit);
-		await this.document.save();
+		await this._todoDocument.clear();
+		await this._todoDocument.save();
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await abortPausedOperation(svc);
-		await closeTab(this.document.uri);
+		await closeTab(this._todoDocument.uri);
 	}
 
 	private async onContinue(): Promise<void> {
 		// Save the document first to ensure any changes are persisted
-		await this.document.save();
+		await this._todoDocument.save();
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await continuePausedOperation(svc);
@@ -329,7 +307,7 @@ export class RebaseWebviewProvider implements Disposable {
 
 	private async onRecompose(): Promise<void> {
 		// Get commit SHAs from the rebase entries
-		const { processed } = this.getParsedTodo();
+		const { processed } = this._todoDocument.parsed;
 
 		const firstShortSha = first(processed.commits.keys())!;
 		const ontoShortSha = this._enrichment.onto!.sha;
@@ -376,8 +354,8 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onStart(): Promise<void> {
 		this._closing = true;
 
-		await this.document.save();
-		await closeTab(this.document.uri);
+		await this._todoDocument.save();
+		await closeTab(this._todoDocument.uri);
 	}
 
 	private async onSwapOrdering(params: ReorderParams): Promise<void> {
@@ -557,7 +535,7 @@ export class RebaseWebviewProvider implements Disposable {
 		// Only auto-reveal on selection if behavior is 'onSelection'
 		if (revealBehavior !== 'onSelection') return;
 
-		const { processed } = this.getParsedTodo();
+		const { processed } = this._todoDocument.parsed;
 		const commits = processed.commits.values();
 		const entry = find(commits, e => e.sha === params.sha);
 		if (entry == null) return;
@@ -588,7 +566,7 @@ export class RebaseWebviewProvider implements Disposable {
 	private async parseState(): Promise<State> {
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 
-		const { parsed, processed } = this.getParsedTodo();
+		const { parsed, processed } = this._todoDocument.parsed;
 
 		// Fetch branch, rebase status, and subscription
 		const [branchResult, rebaseStatusResult, subscriptionResult] = await Promise.allSettled([
@@ -701,7 +679,7 @@ export class RebaseWebviewProvider implements Disposable {
 	 * @returns processed entries for display and the last action for pause detection
 	 */
 	private async getDoneEntries(): Promise<{ entries: RebaseEntry[]; lastAction?: RebaseTodoAction }> {
-		const parsed = await readAndParseRebaseDoneFile(this.document.uri);
+		const parsed = await readAndParseRebaseDoneFile(this._todoDocument.uri);
 		if (!parsed?.entries.length) return { entries: [] };
 
 		const lastAction = parsed.entries.at(-1)?.action;
@@ -801,7 +779,7 @@ export class RebaseWebviewProvider implements Disposable {
 		// Close the editor if rebase is complete (no entries and no active rebase)
 		if (!state.entries.length && state.rebaseStatus == null) {
 			this._closing = true;
-			await closeTab(this.document.uri);
+			await closeTab(this._todoDocument.uri);
 			return;
 		}
 
@@ -827,66 +805,11 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onEntriesChanged(params: ChangeEntriesParams): Promise<void> {
 		if (!params.entries.length) return;
 
-		const { processed } = this.getParsedTodo();
-		const edit = new WorkspaceEdit();
-
-		// Build a map of sha -> requested action for quick lookup
-		const requestedActions = new Map(params.entries.map(e => [e.sha, e.action]));
-
-		// Simulate the new entries state to check constraints
-		const newEntries = map(processed.commits.values(), e => {
-			const requestedAction = requestedActions.get(e.sha);
-			return requestedAction != null ? { ...e, action: requestedAction } : e;
-		});
-
-		// Check if oldest entry would become squash/fixup (invalid)
-		const [oldestEntry] = newEntries;
-		const oldestNeedsReset = oldestEntry.action === 'squash' || oldestEntry.action === 'fixup';
-
-		for (const { sha, action: requestedAction } of params.entries) {
-			const entry = processed.commits.get(sha);
-			if (entry == null) continue;
-
-			// Determine final action
-			let action = requestedAction;
-			if (oldestNeedsReset && sha === oldestEntry.sha) {
-				// User tried to set first entry to squash/fixup - reset to pick
-				action = 'pick';
-			}
-
-			const range = this.document.validateRange(
-				new Range(new Position(entry.line, 0), new Position(entry.line, maxSmallIntegerV8)),
-			);
-
-			// Preserve flag (e.g., fixup -c, fixup -C) if present
-			const flagPart = entry.flag ? ` ${entry.flag}` : '';
-			edit.replace(this.document.uri, range, `${action}${flagPart} ${entry.sha} ${entry.message}`);
-		}
-
-		// If oldest entry needs reset and wasn't in the batch, reset it
-		if (oldestNeedsReset && !requestedActions.has(oldestEntry.sha)) {
-			const originalOldest = processed.commits.get(oldestEntry.sha);
-			if (originalOldest != null) {
-				const range = this.document.validateRange(
-					new Range(
-						new Position(originalOldest.line, 0),
-						new Position(originalOldest.line, maxSmallIntegerV8),
-					),
-				);
-				const flagPart = originalOldest.flag ? ` ${originalOldest.flag}` : '';
-				edit.replace(
-					this.document.uri,
-					range,
-					`pick${flagPart} ${originalOldest.sha} ${originalOldest.message}`,
-				);
-			}
-		}
-
-		await workspace.applyEdit(edit);
+		await this._todoDocument.changeActions(params.entries);
 	}
 
 	private async onEntryMoved(params: MoveEntryParams): Promise<void> {
-		const { entries } = this.getParsedTodo().processed;
+		const { entries } = this._todoDocument.parsed.processed;
 
 		const index = entries.findIndex(e => e.id === params.id);
 		if (index === -1) return;
@@ -894,7 +817,7 @@ export class RebaseWebviewProvider implements Disposable {
 		const entry = entries[index];
 
 		// Calculate target index
-		const targetIndex = this.calculateMoveTargetIndex(params, index, entries.length);
+		const targetIndex = this._todoDocument.calculateMoveTargetIndex(params, index, entries.length);
 		if (targetIndex == null) return;
 
 		// Handle "drop at end" case (targetIndex >= entries.length)
@@ -902,27 +825,31 @@ export class RebaseWebviewProvider implements Disposable {
 		const effectiveTargetIndex = isDropAtEnd ? entries.length - 1 : targetIndex;
 
 		// Check if move would leave squash/fixup as oldest commit entry
-		const needsSquashFix = this.wouldLeaveSquashAsOldest(entries, index, effectiveTargetIndex);
+		const needsSquashFix = this._todoDocument.wouldLeaveSquashAsOldest(entries, index, effectiveTargetIndex);
 
 		// Apply the move edit first
 		const targetEntry = entries[effectiveTargetIndex];
-		await this.applyMoveEdit(entry, targetEntry, isDropAtEnd, params.relative);
+		await this._todoDocument.moveEntry(entry, targetEntry, isDropAtEnd, params.relative);
 
 		// Fix squash/fixup as oldest commit entry AFTER move (re-read file for correct line numbers)
 		if (needsSquashFix) {
-			await this.fixOldestCommitIfSquash();
+			const processed = this._todoDocument.parsed.processed;
+			const oldestCommit = first(processed.commits.values());
+			if (oldestCommit) {
+				await this._todoDocument.ensureValidOldestAction(oldestCommit);
+			}
 		}
 	}
 
 	private async onEntriesMoved(params: MoveEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 
-		const { entries } = this.getParsedTodo().processed;
+		const { entries } = this._todoDocument.parsed.processed;
 		const ids = new Set(params.ids);
 
 		// Get selected entries in their current order
 		const selectedEntries = entries.filter(e => ids.has(e.id));
-		if (selectedEntries.length === 0) return;
+		if (!selectedEntries.length) return;
 
 		// Remove selected entries and build new order
 		const remainingEntries = entries.filter(e => !ids.has(e.id));
@@ -942,7 +869,7 @@ export class RebaseWebviewProvider implements Disposable {
 		const needsOldestFix = oldestCommit && (oldestCommit.action === 'squash' || oldestCommit.action === 'fixup');
 
 		// Rewrite all entry lines in the new order
-		await this.rewriteEntries(entries, newEntries, needsOldestFix ? oldestCommit : undefined);
+		await this._todoDocument.reorderEntries(newEntries, needsOldestFix ? oldestCommit : undefined);
 	}
 
 	/**
@@ -952,12 +879,11 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onEntriesShifted(params: ShiftEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 
-		const { entries } = this.getParsedTodo().processed;
+		const { entries } = this._todoDocument.parsed.processed;
 		const ids = new Set(params.ids);
 
 		// Get indices of selected entries
 		const selectedIndices = entries.map((e, i) => (ids.has(e.id) ? i : -1)).filter(i => i !== -1);
-
 		if (!selectedIndices.length) return;
 
 		// Create a mutable copy of entries
@@ -993,138 +919,7 @@ export class RebaseWebviewProvider implements Disposable {
 		const needsOldestFix = oldestCommit && (oldestCommit.action === 'squash' || oldestCommit.action === 'fixup');
 
 		// Rewrite entries in new order
-		await this.rewriteEntries(entries, newEntries, needsOldestFix ? oldestCommit : undefined);
-	}
-
-	/**
-	 * Applies the file edit to move an entry
-	 *
-	 * VS Code's WorkspaceEdit uses ORIGINAL line numbers, so we must order
-	 * operations carefully to avoid conflicts:
-	 * - Moving DOWN: insert first (at higher line), then delete (at lower line)
-	 * - Moving UP: delete first (at higher line), then insert (at lower line)
-	 */
-	private async applyMoveEdit(
-		entry: ProcessedRebaseEntry,
-		targetEntry: ProcessedRebaseEntry,
-		isDropAtEnd: boolean,
-		isRelativeMove: boolean,
-	): Promise<void> {
-		const edit = new WorkspaceEdit();
-
-		// Build the line text to insert
-		const insertText = `${formatRebaseTodoEntryLine(entry)}\n`;
-
-		// Range to delete (the source entry's line)
-		const deleteRange = this.document.validateRange(
-			new Range(new Position(entry.line, 0), new Position(entry.line + 1, 0)),
-		);
-
-		const isMovingDown = entry.line < targetEntry.line;
-
-		if (isMovingDown) {
-			// Moving DOWN: insert first, then delete
-			const insertLine = this.calculateDownwardInsertLine(targetEntry.line, isDropAtEnd, isRelativeMove);
-			edit.insert(this.document.uri, new Position(insertLine, 0), insertText);
-			edit.delete(this.document.uri, deleteRange);
-		} else {
-			// Moving UP: delete first, then insert
-			edit.delete(this.document.uri, deleteRange);
-			edit.insert(this.document.uri, new Position(targetEntry.line, 0), insertText);
-		}
-
-		await workspace.applyEdit(edit);
-	}
-
-	/** Rewrites all entry lines in the new order */
-	private async rewriteEntries(
-		originalEntries: ProcessedRebaseEntry[],
-		newEntries: ProcessedRebaseEntry[],
-		fixOldestCommit?: ProcessedRebaseCommitEntry,
-	): Promise<void> {
-		const edit = new WorkspaceEdit();
-
-		for (let i = 0; i < originalEntries.length; i++) {
-			const original = originalEntries[i];
-			const newEntry = newEntries[i];
-
-			// Check if this entry changed position or needs action fix
-			const needsUpdate = original.id !== newEntry.id || (fixOldestCommit && newEntry.id === fixOldestCommit.id);
-
-			if (needsUpdate) {
-				const range = this.document.validateRange(
-					new Range(new Position(original.line, 0), new Position(original.line, maxSmallIntegerV8)),
-				);
-				// If this is the oldest commit that needs fixing, use 'pick'
-				const overrideAction = fixOldestCommit && newEntry.id === fixOldestCommit.id ? 'pick' : undefined;
-				edit.replace(this.document.uri, range, formatRebaseTodoEntryLine(newEntry, overrideAction));
-			}
-		}
-
-		await workspace.applyEdit(edit);
-	}
-
-	/**
-	 * Calculates the insert line for downward moves
-	 * - Drop at end: insert AFTER the last entry
-	 * - Keyboard swap: insert AFTER target (swap positions)
-	 * - Drag: insert AT target's position (take its spot)
-	 */
-	private calculateDownwardInsertLine(targetLine: number, isDropAtEnd: boolean, isRelativeMove: boolean): number {
-		if (isDropAtEnd || isRelativeMove) {
-			return targetLine + 1; // Insert after target
-		}
-		return targetLine; // Insert at target's position
-	}
-
-	/**
-	 * Calculates the target index for a move operation
-	 * @returns Target index, or null if the move is invalid/no-op
-	 */
-	private calculateMoveTargetIndex(params: MoveEntryParams, currentIndex: number, entryCount: number): number | null {
-		if (params.relative) {
-			// Relative move: +1 (down) or -1 (up)
-			const targetIndex = currentIndex + params.to;
-			// Boundary check
-			if (targetIndex < 0 || targetIndex >= entryCount) return null;
-			return targetIndex;
-		}
-
-		// Absolute move (drag)
-		if (currentIndex === params.to) return null;
-		return params.to;
-	}
-
-	/** Re-reads the file and fixes the oldest commit entry if it's squash/fixup */
-	private async fixOldestCommitIfSquash(): Promise<void> {
-		const processed = this.getParsedTodo().processed;
-		// First commit in the todo file is the oldest
-		const oldestCommit = first(processed.commits.values());
-		if (!oldestCommit) return;
-
-		if (oldestCommit.action !== 'squash' && oldestCommit.action !== 'fixup') return;
-
-		const range = this.document.validateRange(
-			new Range(new Position(oldestCommit.line, 0), new Position(oldestCommit.line, maxSmallIntegerV8)),
-		);
-		const edit = new WorkspaceEdit();
-		edit.replace(this.document.uri, range, `pick ${oldestCommit.sha} ${oldestCommit.message}`);
-		await workspace.applyEdit(edit);
-	}
-
-	/** Checks if the move would leave a squash/fixup as the oldest commit entry */
-	private wouldLeaveSquashAsOldest(entries: ProcessedRebaseEntry[], fromIndex: number, toIndex: number): boolean {
-		// Simulate the move
-		const entry = entries[fromIndex];
-		const newEntries = [...entries];
-		newEntries.splice(fromIndex, 1);
-		newEntries.splice(toIndex, 0, entry);
-
-		// Find the oldest commit entry
-		const oldestCommit = newEntries.find(e => e.type === 'commit');
-		if (!oldestCommit) return false;
-
-		return oldestCommit.action === 'squash' || oldestCommit.action === 'fixup';
+		await this._todoDocument.reorderEntries(newEntries, needsOldestFix ? oldestCommit : undefined);
 	}
 }
 

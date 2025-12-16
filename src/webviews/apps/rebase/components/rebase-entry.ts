@@ -3,7 +3,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { RebaseTodoCommitAction } from '../../../../git/models/rebase';
+import type { RebaseTodoCommitAction, UpdateRefInfo } from '../../../../git/models/rebase';
 import { commitRebaseActions } from '../../../../git/utils/rebase.utils';
 import type { Author, RebaseEntry } from '../../../rebase/protocol';
 import { isCommitEntry } from '../../../rebase/protocol';
@@ -309,8 +309,8 @@ export class GlRebaseEntryElement extends LitElement {
 		`;
 	}
 
-	private renderUpdateRefBadges(refs: string[]) {
-		const refItems = refs.map(name => ({ name: name }));
+	private renderUpdateRefBadges(refs: UpdateRefInfo[]) {
+		const refItems = refs.map(r => ({ name: r.ref }));
 		return html`<gl-ref-overflow-chip
 			class="entry-update-refs"
 			.refs=${refItems}

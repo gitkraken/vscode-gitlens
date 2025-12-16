@@ -25,6 +25,11 @@ export function formatRebaseTodoEntryLine(entry: ProcessedRebaseEntry, overrideA
 	return entry.action; // break, noop
 }
 
+/** Formats an update-ref line for output */
+export function formatUpdateRefLine(ref: string): string {
+	return `update-ref ${ref}`;
+}
+
 /** Checks if an entry is a commit-based action */
 type RebaseTodoCommitEntry = RebaseTodoEntry<RebaseTodoCommitAction> & { sha: string; message: string };
 function isCommitEntry(entry: RebaseTodoEntry): entry is RebaseTodoCommitEntry {
@@ -81,10 +86,10 @@ export function processRebaseEntries(entries: RebaseTodoEntry[], done?: boolean)
 		}
 
 		if (isUpdateRefEntry(entry)) {
-			// Attach update-ref to the preceding commit
+			// Attach update-ref to the preceding commit (with line number for reordering)
 			if (lastCommit) {
 				(lastCommit as Mutable<ProcessedRebaseCommitEntry>).updateRefs ??= [];
-				lastCommit.updateRefs!.push(entry.ref);
+				lastCommit.updateRefs!.push({ ref: entry.ref, line: entry.line });
 			}
 			continue;
 		}

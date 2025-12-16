@@ -25,6 +25,12 @@ export interface ParsedRebaseTodo {
 	readonly info?: RebaseTodoInfo;
 }
 
+/** Info about an update-ref entry attached to a commit */
+export interface UpdateRefInfo {
+	readonly ref: string;
+	readonly line: number;
+}
+
 /** A processed commit entry with type discriminator */
 export interface ProcessedRebaseCommitEntry extends RebaseTodoEntry<RebaseTodoCommitAction> {
 	readonly type: 'commit';
@@ -33,7 +39,7 @@ export interface ProcessedRebaseCommitEntry extends RebaseTodoEntry<RebaseTodoCo
 	readonly sha: string;
 	readonly message: string;
 
-	readonly updateRefs?: string[];
+	readonly updateRefs?: UpdateRefInfo[];
 }
 
 /** A processed command entry with type discriminator */

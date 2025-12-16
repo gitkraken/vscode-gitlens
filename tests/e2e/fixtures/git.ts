@@ -72,7 +72,7 @@ export class GitFixture {
 	 */
 	startRebaseInteractiveWithWaitEditor(
 		onto: string,
-		options?: { rebaseMerges?: boolean },
+		options?: { rebaseMerges?: boolean; updateRefs?: boolean },
 	): {
 		rebasePromise: Promise<string>;
 		waitForTodoFile: () => Promise<string>;
@@ -87,6 +87,9 @@ export class GitFixture {
 		const args = [];
 		if (options?.rebaseMerges) {
 			args.push('--rebase-merges');
+		}
+		if (options?.updateRefs) {
+			args.push('--update-refs');
 		}
 		args.push('-i', onto);
 
