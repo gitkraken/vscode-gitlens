@@ -8,22 +8,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds an all-new _Interactive Rebase Editor_ with support for `update-ref` and `merge` commands, optimistic UI updates, improved drag-and-drop with auto-scrolling, conflict detection, and enhanced accessibility ([#4813](https://github.com/gitkraken/vscode-gitlens/issues/4813), [#4405](https://github.com/gitkraken/vscode-gitlens/issues/4405), [#4383](https://github.com/gitkraken/vscode-gitlens/issues/4383), [#4160](https://github.com/gitkraken/vscode-gitlens/issues/4160), [#4148](https://github.com/gitkraken/vscode-gitlens/issues/4148), [#4032](https://github.com/gitkraken/vscode-gitlens/issues/4032), [#3897](https://github.com/gitkraken/vscode-gitlens/issues/3897), [#3866](https://github.com/gitkraken/vscode-gitlens/issues/3866), [#3815](https://github.com/gitkraken/vscode-gitlens/issues/3815), [#3393](https://github.com/gitkraken/vscode-gitlens/issues/3393), [#3337](https://github.com/gitkraken/vscode-gitlens/issues/3337), [#3310](https://github.com/gitkraken/vscode-gitlens/issues/3310))
-  - Adds potential conflict detection with visual indicators for commits that will conflict during rebase
-  - Adds ability to recompose commits from the _Interactive Rebase Editor_ using AI ([#4796](https://github.com/gitkraken/vscode-gitlens/issues/4796), [#4775](https://github.com/gitkraken/vscode-gitlens/issues/4775))
+- Adds an all-new, highly performant, _Interactive Rebase Editor_ with support for `update-ref` other rebase operations ([#4813](https://github.com/gitkraken/vscode-gitlens/issues/4813), [#4405](https://github.com/gitkraken/vscode-gitlens/issues/4405), [#4383](https://github.com/gitkraken/vscode-gitlens/issues/4383), [#4160](https://github.com/gitkraken/vscode-gitlens/issues/4160), [#4148](https://github.com/gitkraken/vscode-gitlens/issues/4148), [#4032](https://github.com/gitkraken/vscode-gitlens/issues/4032), [#3897](https://github.com/gitkraken/vscode-gitlens/issues/3897), [#3866](https://github.com/gitkraken/vscode-gitlens/issues/3866), [#3815](https://github.com/gitkraken/vscode-gitlens/issues/3815), [#3393](https://github.com/gitkraken/vscode-gitlens/issues/3393), [#3337](https://github.com/gitkraken/vscode-gitlens/issues/3337), [#3310](https://github.com/gitkraken/vscode-gitlens/issues/3310))
   - Optimizes performance with virtualization for large rebase operations and lazy-loading of commit metadata
-  - Apply bulk actions (pick, squash, fixup, etc.) to multiple selected commits simultaneously
-  - Improves drag-and-drop experience with multi-select support and auto-scrolling when dragging near viewport edges
-  - Enhances multi-select support with comprehensive keyboard and mouse interactions
-    - Mouse: <kbd>Click</kbd> to select single, <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) to toggle, <kbd>Shift</kbd>+Click for range selection
+  - Adds ability to recompose commits using AI ([#4796](https://github.com/gitkraken/vscode-gitlens/issues/4796), [#4775](https://github.com/gitkraken/vscode-gitlens/issues/4775))
+  - Adds potential conflict detection with visual indicators for commits that will conflict during rebase
+  - Adds ability to apply bulk actions (pick, squash, fixup, etc.) to multiple selected commits simultaneously
+  - Improves drag-and-drop experience with multiselect support
+  - Improves accessibility with keyboard navigation and multiselect support
+    - Mouse: <kbd>Click</kbd> to select single, <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) to toggle, <kbd>Shift+Click</kbd> for range selection
     - Keyboard: <kbd>Shift+Arrow[Up|Down]</kbd> for range selection, <kbd>Ctrl+A</kbd> (<kbd>Cmd+A</kbd> on macOS) to select all entries
   - Adds a `gitlens.rebaseEditor.openOnPausedRebase` setting to control whether the _Interactive Rebase Editor_ opens automatically when a rebase is paused
-- Overhauls the search experience on the _Commit Graph_
+- Enhances the _Commit Graph_ experience with several new features
   - Adds real-time streaming of search results with pause, resume, and cancel support ([#4782](https://github.com/gitkraken/vscode-gitlens/issues/4782), [#4526](https://github.com/gitkraken/vscode-gitlens/issues/4526), [#3963](https://github.com/gitkraken/vscode-gitlens/issues/3963))
     - Changes the default of the `gitlens.graph.searchItemLimit` setting to `0` (no limit)
   - Adds autocomplete suggestions and interactive filter pickers (for authors, references, and files/folders) to _Commit Graph_ search ([#4780](https://github.com/gitkraken/vscode-gitlens/issues/4780))
     - Adds quick pick menus for picking authors, branches or tags, comparison ranges, and files or folders
-- Enhances the _Commit Graph_ experience with several new features
+  - Adds _Compose Commits..._, _Generate Commit Message..._, and _Stash All Changes..._ inline actions to the "work in progress" (WIP) row in the _Commit Graph_ ([#4790](https://github.com/gitkraken/vscode-gitlens/issues/4790))
+  - Adds support for recomposing selected commits in graph and composer ([#4600](https://github.com/gitkraken/vscode-gitlens/issues/4600))
+  - Adds sticky timeline support to the _Commit Graph_ ([#4781](https://github.com/gitkraken/vscode-gitlens/issues/4781))
+  - Adds _Select for Compare_ and _Compare with Selected_ commands to the _Commit Graph_ context menu for commits, stashes, branches, and tags ([#4779](https://github.com/gitkraken/vscode-gitlens/issues/4779))
   - Enhances multiselect behavior with improved keyboard and mouse support
     - Keyboard navigation
       - <kbd>Arrow[Up|Down]</kbd> — Moves focus/selection to previous/next row
@@ -44,13 +47,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - <kbd>Ctrl+Shift+[Up|Down]</kbd> (<kbd>Cmd+Shift+[Up|Down]</kbd> on macOS) — Topologically extends the selection, and sticks to current branch if possible
       - <kbd>Shift+Home</kbd>, <kbd>Shift+End</kbd> — Extends the selection to first or last commit
       - <kbd>Shift+Page[Up|Down]</kbd> — Extends the selection by one page
-  - Adds sticky timeline support to the _Commit Graph_ ([#4781](https://github.com/gitkraken/vscode-gitlens/issues/4781))
-  - Adds _Compose Commits..._, _Generate Commit Message..._, and _Stash All Changes..._ inline actions to the "work in progress" (WIP) row in the _Commit Graph_ ([#4790](https://github.com/gitkraken/vscode-gitlens/issues/4790))
-  - Adds _Select for Compare_ and _Compare with Selected_ commands to the _Commit Graph_ context menu for commits, stashes, branches, and tags ([#4779](https://github.com/gitkraken/vscode-gitlens/issues/4779))
-- Adds support for recomposing selected commits in graph and composer ([#4600](https://github.com/gitkraken/vscode-gitlens/issues/4600))
 - Adds Claude Opus 4.5, Gemini 3 Pro, and GPT-5.1 and GPT-5.2 model support for AI features ([#4785](https://github.com/gitkraken/vscode-gitlens/issues/4785))
 - Adds multi-repository support to repository filtering in GitLens views ([#4815](https://github.com/gitkraken/vscode-gitlens/issues/4815))
-- Adds ability to change upstream from tracking status nodes in views
+- Adds new _Set Upstream..._ and _Change Upstream..._ context menu items to branch status (_Up to date_, _Outgoing_, _Incoming_) in GitLens views
 - Adds new advanced date formatting tokens (`agoAndDate`, `agoAndDateShort`, `agoAndDateBothSources`) and updates default tooltip and status bar formats ([#4783](https://github.com/gitkraken/vscode-gitlens/issues/4783))
 - Adds an experimental `gitlens.advanced.resolveSymlinks` setting to resolve symbolic links when determining file paths for Git operations ([#1328](https://github.com/gitkraken/vscode-gitlens/issues/1328))
 - Adds a `gitlens.advanced.skipOnboarding` setting to prevent onboarding prompts ([#4751](https://github.com/gitkraken/vscode-gitlens/issues/4751))
@@ -580,13 +579,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds enriched links to PRs and issues ([#4045](https://github.com/gitkraken/vscode-gitlens/issues/4045))
   - Adds Bitbucket Cloud and Data Center PRs in _Launchpad_ ([#4046](https://github.com/gitkraken/vscode-gitlens/issues/4046))
   - Adds support for Bitbucket issues in _Start Work_ and allows associating issues with branches ([#4047](https://github.com/gitkraken/vscode-gitlens/issues/4047), [#4107](https://github.com/gitkraken/vscode-gitlens/issues/4107))
-- Adds support for multi-select in GitLens views, enabled by default
-  - Adds _Cherry Pick Commits..._, _Copy Remote Commit URLs_ , and _Open Commits on Remote_ actions to multi-selected commits in the _Commit Graph_ and GitLens views
-  - Adds _Add as Co-authors_ action to multi-selected contributors in GitLens views
-  - Adds _Delete Branches..._, _Open Branches on Remote_, _Add to Favorites_, and _Remove from Favorites_ actions to multi-selected branches in GitLens views
-  - Adds _Delete Tags..._ action to multi-selected tags in GitLens views
-  - Adds _Drop Stashes..._ action to multi-selected stashes in GitLens views
-  - Adds _Delete Worktrees..._ and _Open Worktrees in New Window_ actions to multi-selected worktrees in GitLens views
+- Adds support for multiselect in GitLens views, enabled by default
+  - Adds _Cherry Pick Commits..._, _Copy Remote Commit URLs_ , and _Open Commits on Remote_ actions to multiselected commits in the _Commit Graph_ and GitLens views
+  - Adds _Add as Co-authors_ action to multiselected contributors in GitLens views
+  - Adds _Delete Branches..._, _Open Branches on Remote_, _Add to Favorites_, and _Remove from Favorites_ actions to multiselected branches in GitLens views
+  - Adds _Delete Tags..._ action to multiselected tags in GitLens views
+  - Adds _Drop Stashes..._ action to multiselected stashes in GitLens views
+  - Adds _Delete Worktrees..._ and _Open Worktrees in New Window_ actions to multiselected worktrees in GitLens views
 - Adds ability to control how worktrees are displayed in the views
   - Adds a `gitlens.views.worktrees.worktrees.viewAs` setting to specify whether to show worktrees by name, path, or relative path
   - Adds a `gitlens.views.worktrees.branches.layout` setting to specify whether to show branch worktrees as a list or tree, similar to branches
@@ -5400,7 +5399,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Compare File Revisions_ command (`gitlens.diffWith`) - compares the specified file revisions
 - Adds _Open Branches in Remote_ command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds _Stash Changes_ command (`gitlens.stashSave`) to the source control group context menu &mdash; can now stash a group of files
-- Adds _Stash Changes_ command (`gitlens.stashSave`) to the source control resource context menu &mdash; can now stash individual files (works with multi-select too!)
+- Adds _Stash Changes_ command (`gitlens.stashSave`) to the source control resource context menu &mdash; can now stash individual files (works with multiselect too!)
 - Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the _GitLens_ explorer
 - Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether to show the tracking branch when displaying local branches in the _GitLens_ explorer
 - Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the _GitLens_ explorer
