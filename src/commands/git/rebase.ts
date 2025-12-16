@@ -45,7 +45,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--interactive';
+type Flags = '--interactive' | '--update-refs';
 
 interface State {
 	repo: string | Repository;
@@ -89,6 +89,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 	private async execute(state: RebaseStepState) {
 		const interactive = state.flags.includes('--interactive');
+		const updateRefs = state.flags.includes('--update-refs');
 
 		// If the editor is not enabled, listen for the rebase todo file to be opened and then reopen it with our editor
 		const disposable =
@@ -104,7 +105,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		using _ = createDisposable(() => void disposable?.dispose());
 
 		try {
-			await state.repo.git.ops?.rebase?.(state.destination.ref, { interactive: interactive });
+			await state.repo.git.ops?.rebase?.(state.destination.ref, {
+				interactive: interactive,
+				updateRefs: updateRefs,
+			});
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the rebase
 			if (RebaseError.is(ex, 'aborted')) {
@@ -313,6 +317,13 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				})}`,
 				picked: behind === 0,
 			}),
+			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive', '--update-refs'], {
+				label: `Interactive ${this.title} & Update Branches`,
+				description: '--interactive --update-refs',
+				detail: `Will interactively update ${getReferenceLabel(context.branch, {
+					label: false,
+				})} and any branches pointing to rebased commits`,
+			}),
 		];
 
 		if (behind > 0) {
@@ -325,6 +336,13 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						label: false,
 					})}`,
 					picked: true,
+				}),
+				createFlagsQuickPickItem<Flags>(state.flags, ['--update-refs'], {
+					label: `${this.title} & Update Branches`,
+					description: '--update-refs',
+					detail: `Will update ${getReferenceLabel(context.branch, {
+						label: false,
+					})} and any branches pointing to rebased commits`,
 				}),
 			);
 		}

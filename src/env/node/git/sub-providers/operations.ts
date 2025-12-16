@@ -294,7 +294,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	async rebase(
 		repoPath: string,
 		upstream: string,
-		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string },
+		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string; updateRefs?: boolean },
 	): Promise<void> {
 		const scope = getLogScope();
 
@@ -310,6 +310,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			const editor = await getHostEditorCommand(true);
 			configs = ['-c', `sequence.editor=${editor}`];
+		}
+
+		if (options?.updateRefs) {
+			args.push('--update-refs');
 		}
 
 		if (options?.onto) {

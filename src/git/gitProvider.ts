@@ -413,7 +413,7 @@ export interface GitOperationsSubProvider {
 	rebase(
 		repoPath: string,
 		upstream: string,
-		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string },
+		options?: { autoStash?: boolean; branch?: string; interactive?: boolean; onto?: string; updateRefs?: boolean },
 	): Promise<void>;
 	reset(
 		repoPath: string,
