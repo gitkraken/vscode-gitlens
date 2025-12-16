@@ -530,8 +530,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 
 						const branches = reachableFromBranches.get(shaOrRemapped);
-						const isUniqueToBranch =
-							branches?.size === 1 && refTags.length === 0 && refRemoteHeads.length === 0;
+						const isUniqueToBranch = branches?.size === 1;
 
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 							webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
