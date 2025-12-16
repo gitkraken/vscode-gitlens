@@ -1141,6 +1141,11 @@ web-graph {
 		margin-top: 0.1rem;
 	}
 
+	.columns-btn.small-btn.justify-start {
+		display: inline-flex;
+		justify-content: center;
+	}
+
 	.columns-btn.spinner {
 		margin-right: 0.6rem;
 	}
