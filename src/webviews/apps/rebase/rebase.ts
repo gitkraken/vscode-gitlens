@@ -1198,7 +1198,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 							.layout=${flow({ direction: 'vertical' })}
 							.renderItem=${this.virtualizerRenderFn}
 						></lit-virtualizer>`
-					: html`<div class="entries-empty">No commits to rebase</div>`}
+					: !isReadOnly
+						? html`<div class="entries-empty">No commits to rebase</div>`
+						: nothing}
 				${this.renderFooter()}
 			</div>
 		`;
