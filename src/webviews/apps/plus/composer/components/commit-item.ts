@@ -101,15 +101,16 @@ export class CommitItem extends LitElement {
 		this.dataset.commitId = this.commitId;
 	}
 
-	private handleClick(e: MouseEvent | KeyboardEvent) {
-		// Don't select commit if clicking on drag handle
-		if ((e.target as HTMLElement).closest('.drag-handle') || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
-			return;
-		}
-
+	private handleMouseDown(e: MouseEvent) {
 		// Prevent text selection when shift-clicking
 		if (e.shiftKey) {
 			e.preventDefault();
+		}
+	}
+
+	private handleClick(e: MouseEvent | KeyboardEvent) {
+		if ((e.target as HTMLElement).closest('.drag-handle') || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
+			return;
 		}
 
 		this.dispatchEvent(
@@ -136,6 +137,7 @@ export class CommitItem extends LitElement {
 				tabindex="0"
 				@click=${this.handleClick}
 				@keydown=${this.handleClick}
+				@mousedown=${this.handleMouseDown}
 			>
 				${when(
 					!this.isPreviewMode,
