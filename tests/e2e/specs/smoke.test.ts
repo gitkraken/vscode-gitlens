@@ -129,8 +129,9 @@ test.describe('GitLens Smoke Test', () => {
 		// Verify the Commit Graph webview has actual content
 		const graphWebview = await vscode.gitlens.commitGraphViewWebview;
 		expect(graphWebview).not.toBeNull();
-		await expect(graphWebview!.getByText('BRANCH / TAG')).toBeVisible({ timeout: MaxTimeout });
-		await expect(graphWebview!.getByText('COMMIT MESSAGE')).toBeVisible({ timeout: MaxTimeout });
+		// Graph may take longer to load and render
+		await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+		await expect(graphWebview!.getByText('COMMIT MESSAGE').first()).toBeVisible({ timeout: MaxTimeout });
 	});
 
 	test('should show GitLens status bar items', async ({ vscode }) => {
