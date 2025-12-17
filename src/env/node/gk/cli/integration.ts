@@ -107,6 +107,9 @@ export class GkCliIntegrationProvider implements Disposable {
 		envVars.description = 'Enables GK CLI integration';
 
 		this._runningDisposable = Disposable.from(new CliCommandHandlers(this.container, server), server);
+
+		// Notify that the IPC server is ready so MCP providers can refresh
+		this.container.events.fire('gk:cli:ipc:started', undefined);
 	}
 
 	private stop() {
