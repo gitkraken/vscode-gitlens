@@ -6393,12 +6393,6 @@
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "gitlens.ai.generateRebase",
-				"title": "Rebase with AI (Preview)...",
-				"category": "GitLens",
-				"icon": "$(sparkle)"
-			},
-			{
 				"command": "gitlens.ai.mcp.install",
 				"title": "Install GitKraken MCP Server",
 				"category": "GitLens"
@@ -6407,20 +6401,6 @@
 				"command": "gitlens.ai.mcp.reinstall",
 				"title": "Reinstall GitKraken MCP Server",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.ai.rebaseOntoCommit:graph",
-				"title": "AI Rebase Current Branch onto Commit (Preview)...",
-				"category": "GitLens",
-				"icon": "$(sparkle)",
-				"enablement": "!operationInProgress"
-			},
-			{
-				"command": "gitlens.ai.rebaseOntoCommit:views",
-				"title": "AI Rebase Current Branch onto Commit (Preview)...",
-				"category": "GitLens",
-				"icon": "$(sparkle)",
-				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.ai.switchProvider",
@@ -11751,24 +11731,12 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.generateRebase",
-					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-				},
-				{
 					"command": "gitlens.ai.mcp.install",
 					"when": "!gitlens:untrusted && !gitlens:gk:cli:installed"
 				},
 				{
 					"command": "gitlens.ai.mcp.reinstall",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
-				},
-				{
-					"command": "gitlens.ai.rebaseOntoCommit:graph",
-					"when": "false && gitlens:enabled"
-				},
-				{
-					"command": "gitlens.ai.rebaseOntoCommit:views",
-					"when": "false && gitlens:enabled"
 				},
 				{
 					"command": "gitlens.ai.switchProvider",

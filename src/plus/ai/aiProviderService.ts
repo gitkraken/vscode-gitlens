@@ -1167,7 +1167,6 @@ export class AIProviderService implements AIService, Disposable {
 		void this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
 		void this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
 		void this.container.storage.deleteWithPrefix(`confirm:ai:generateCommits`);
-		void this.container.storage.deleteWithPrefix(`confirm:ai:generateRebase`);
 	}
 
 	resetProviderKey(provider: AIProviders, silent?: boolean): void {

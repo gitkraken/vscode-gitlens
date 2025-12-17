@@ -28,6 +28,8 @@ export const enum SyncedStorageKeys {
 }
 
 export type DeprecatedGlobalStorage = {
+	/** @deprecated */
+	'confirm:ai:generateRebase': boolean;
 	/** @deprecated use `confirm:ai:tos` */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
@@ -65,7 +67,6 @@ export type DeprecatedGlobalStorage = {
 export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	'confirm:ai:generateCommits': boolean;
-	'confirm:ai:generateRebase': boolean;
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	pendingWhatsNewOnFocus: boolean;

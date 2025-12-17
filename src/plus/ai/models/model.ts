@@ -30,7 +30,6 @@ export type AIActionType =
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
-	| 'generate-rebase'
 	| 'generate-commits'
 	| 'generate-searchQuery';
 

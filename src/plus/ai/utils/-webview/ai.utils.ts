@@ -54,8 +54,6 @@ export function getActionName(action: AIActionType): string {
 			return 'Create Code Suggestion Details';
 		case 'generate-create-pullRequest':
 			return 'Create Pull Request Details (Preview)';
-		case 'generate-rebase':
-			return 'Generate Rebase (Preview)';
 		case 'generate-commits':
 			return 'Generate Commits (Preview)';
 		case 'generate-searchQuery':

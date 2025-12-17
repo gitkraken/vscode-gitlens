@@ -4,7 +4,6 @@ import { generateCommits } from './actions/generateCommits';
 import { generateCreateDraft } from './actions/generateCreateDraft';
 import { generateCreatePullRequest } from './actions/generateCreatePullRequest';
 import { generateCommitMessage, generateStashMessage } from './actions/generateMessage';
-import { generateRebase } from './actions/generateRebase';
 import { generateSearchQuery } from './actions/generateSearchQuery';
 import type { AIService } from './aiService';
 
@@ -20,7 +19,6 @@ export class AIActions {
 	readonly generateCommits: RemoveFirstArg<typeof generateCommits>;
 	readonly generateCreateDraft: RemoveFirstArg<typeof generateCreateDraft>;
 	readonly generateCreatePullRequest: RemoveFirstArg<typeof generateCreatePullRequest>;
-	readonly generateRebase: RemoveFirstArg<typeof generateRebase>;
 	readonly generateSearchQuery: RemoveFirstArg<typeof generateSearchQuery>;
 	readonly generateStashMessage: RemoveFirstArg<typeof generateStashMessage>;
 
@@ -32,7 +30,6 @@ export class AIActions {
 		this.generateCommits = generateCommits.bind(null, service);
 		this.generateCreateDraft = generateCreateDraft.bind(null, service);
 		this.generateCreatePullRequest = generateCreatePullRequest.bind(null, service);
-		this.generateRebase = generateRebase.bind(null, service);
 		this.generateSearchQuery = generateSearchQuery.bind(null, service);
 		this.generateStashMessage = generateStashMessage.bind(null, service);
 	}

@@ -458,10 +458,6 @@ export interface AIGenerateCreateDraftEventData extends AIEventDataSendBase {
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 }
 
-export interface AIGenerateRebaseEventData extends AIEventDataSendBase {
-	type: 'rebase';
-}
-
 export interface AIGenerateCommitsEventData extends AIEventDataSendBase {
 	type: 'commits';
 }
@@ -479,7 +475,6 @@ type AIGenerateEvent =
 	| AIGenerateCommitMessageEventData
 	| AIGenerateCreateDraftEventData
 	| AIGenerateCreatePullRequestEventData
-	| AIGenerateRebaseEventData
 	| AIGenerateCommitsEventData
 	| AIGenerateSearchQueryEventData
 	| AIGenerateStashMessageEventData;

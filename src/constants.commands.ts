@@ -133,7 +133,6 @@ type InternalGlCommands =
 	| 'gitlens.ai.feedback.helpful'
 	| 'gitlens.ai.feedback.unhelpful'
 	| 'gitlens.ai.mcp.authCLI'
-	| 'gitlens.ai.undoGenerateRebase'
 	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
 	| 'gitlens.diffWithPrevious:codelens'

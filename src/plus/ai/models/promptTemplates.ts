@@ -34,14 +34,6 @@ interface ExplainChangesPromptTemplateContext {
 	instructions?: string;
 }
 
-interface RebasePromptTemplateContext {
-	diff: string;
-	data?: string;
-	commits?: string;
-	context?: string;
-	instructions?: string;
-}
-
 interface SearchQueryPromptTemplateContext {
 	query: string;
 	date: string;
@@ -68,7 +60,6 @@ export type PromptTemplateType =
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
-	| 'generate-rebase'
 	| 'generate-commits'
 	| 'generate-searchQuery'
 	| 'explain-changes';
@@ -88,8 +79,6 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? CreatePullRequestPromptTemplateContext
 	: T extends 'generate-changelog'
 	? ChangelogPromptTemplateContext
-	: T extends 'generate-rebase'
-	? RebasePromptTemplateContext
 	: T extends 'generate-commits'
 	? GenerateCommitsPromptTemplateContext
 	: T extends 'generate-searchQuery'

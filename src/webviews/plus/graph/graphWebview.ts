@@ -13,7 +13,6 @@ import type { ExplainStashCommandArgs } from '../../../commands/explainStash';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
-import type { GenerateRebaseCommandArgs } from '../../../commands/generateRebase';
 import type { InspectCommandArgs } from '../../../commands/inspect';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
@@ -784,7 +783,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeFromCommit:graph', item =>
 				this.recomposeFromCommit(item),
 			),
-			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
 
@@ -4932,19 +4930,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 		return Promise.resolve();
-	}
-
-	@log()
-	private async rebaseOntoCommit(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item, 'revision');
-		if (ref == null) return Promise.resolve();
-
-		await executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
-			repoPath: ref.repoPath,
-			base: ref,
-			head: createReference('HEAD', ref.repoPath, { refType: 'revision', name: 'HEAD' }),
-			source: { source: 'graph' },
-		});
 	}
 
 	@log()

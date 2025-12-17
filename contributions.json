@@ -332,11 +332,6 @@
 				]
 			}
 		},
-		"gitlens.ai.generateRebase": {
-			"label": "Rebase with AI (Preview)...",
-			"icon": "$(sparkle)",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-		},
 		"gitlens.ai.mcp.install": {
 			"label": "Install GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && !gitlens:gk:cli:installed"
@@ -344,18 +339,6 @@
 		"gitlens.ai.mcp.reinstall": {
 			"label": "Reinstall GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
-		},
-		"gitlens.ai.rebaseOntoCommit:graph": {
-			"label": "AI Rebase Current Branch onto Commit (Preview)...",
-			"icon": "$(sparkle)",
-			"enablement": "!operationInProgress",
-			"commandPalette": "false && gitlens:enabled"
-		},
-		"gitlens.ai.rebaseOntoCommit:views": {
-			"label": "AI Rebase Current Branch onto Commit (Preview)...",
-			"icon": "$(sparkle)",
-			"enablement": "!operationInProgress",
-			"commandPalette": "false && gitlens:enabled"
 		},
 		"gitlens.ai.switchProvider": {
 			"label": "Switch AI Provider/Model...",
