@@ -349,36 +349,13 @@
 			"label": "AI Rebase Current Branch onto Commit (Preview)...",
 			"icon": "$(sparkle)",
 			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions",
-						"order": 6
-					}
-				]
-			}
+			"commandPalette": "false && gitlens:enabled"
 		},
 		"gitlens.ai.rebaseOntoCommit:views": {
 			"label": "AI Rebase Current Branch onto Commit (Preview)...",
 			"icon": "$(sparkle)",
 			"enablement": "!operationInProgress",
-			"menus": {
-				"gitlens/commit/file/commit": [
-					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions",
-						"order": 6
-					}
-				],
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions",
-						"order": 6
-					}
-				]
-			}
+			"commandPalette": "false && gitlens:enabled"
 		},
 		"gitlens.ai.switchProvider": {
 			"label": "Switch AI Provider/Model...",
@@ -4584,9 +4561,39 @@
 				]
 			}
 		},
+		"gitlens.recomposeFromCommit": {
+			"label": "Recompose Commits From Here (Preview)...",
+			"commandPalette": "false && gitlens:enabled"
+		},
+		"gitlens.recomposeFromCommit:graph": {
+			"label": "Recompose Commits From Here (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				]
+			}
+		},
+		"gitlens.recomposeFromCommit:views": {
+			"label": "Recompose Commits From Here (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				]
+			}
+		},
 		"gitlens.recomposeSelectedCommits": {
 			"label": "Recompose Selected Commits (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "false && gitlens:enabled"
 		},
 		"gitlens.recomposeSelectedCommits:graph": {
 			"label": "Recompose Selected Commits (Preview)",

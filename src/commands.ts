@@ -56,6 +56,7 @@ import './commands/patches';
 import './commands/quickWizard';
 import './commands/rebaseEditor';
 import './commands/recomposeBranch';
+import './commands/recomposeFromCommit';
 import './commands/refreshHover';
 import './commands/regenerateMarkdownDocument';
 import './commands/remoteProviders';

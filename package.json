@@ -6411,12 +6411,14 @@
 			{
 				"command": "gitlens.ai.rebaseOntoCommit:graph",
 				"title": "AI Rebase Current Branch onto Commit (Preview)...",
+				"category": "GitLens",
 				"icon": "$(sparkle)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.ai.rebaseOntoCommit:views",
 				"title": "AI Rebase Current Branch onto Commit (Preview)...",
+				"category": "GitLens",
 				"icon": "$(sparkle)",
 				"enablement": "!operationInProgress"
 			},
@@ -8057,6 +8059,21 @@
 			{
 				"command": "gitlens.recomposeBranch:views",
 				"title": "Recompose Commits (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.recomposeFromCommit",
+				"title": "Recompose Commits From Here (Preview)...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.recomposeFromCommit:graph",
+				"title": "Recompose Commits From Here (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.recomposeFromCommit:views",
+				"title": "Recompose Commits From Here (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
@@ -11747,11 +11764,11 @@
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:graph",
-					"when": "false"
+					"when": "false && gitlens:enabled"
 				},
 				{
 					"command": "gitlens.ai.rebaseOntoCommit:views",
-					"when": "false"
+					"when": "false && gitlens:enabled"
 				},
 				{
 					"command": "gitlens.ai.switchProvider",
@@ -13042,8 +13059,20 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.recomposeFromCommit",
+					"when": "false && gitlens:enabled"
+				},
+				{
+					"command": "gitlens.recomposeFromCommit:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.recomposeFromCommit:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.recomposeSelectedCommits",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+					"when": "false && gitlens:enabled"
 				},
 				{
 					"command": "gitlens.recomposeSelectedCommits:graph",
@@ -16172,11 +16201,6 @@
 					"group": "1_gitlens_actions@5"
 				},
 				{
-					"command": "gitlens.ai.rebaseOntoCommit:views",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens_actions@6"
-				},
-				{
 					"command": "gitlens.views.rebaseOntoCommit",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@6"
@@ -19202,8 +19226,8 @@
 					"group": "1_gitlens_actions@5"
 				},
 				{
-					"command": "gitlens.ai.rebaseOntoCommit:views",
-					"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.recomposeFromCommit:views",
+					"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_actions@6"
 				},
 				{
@@ -25088,13 +25112,13 @@
 					"group": "1_gitlens_actions@5"
 				},
 				{
-					"command": "gitlens.ai.rebaseOntoCommit:graph",
-					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.graph.rebaseOntoCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@6"
 				},
 				{
-					"command": "gitlens.graph.rebaseOntoCommit",
-					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"command": "gitlens.recomposeFromCommit:graph",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_actions@6"
 				},
 				{

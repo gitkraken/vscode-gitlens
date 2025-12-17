@@ -11,6 +11,7 @@ import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateCh
 import type { GenerateRebaseCommandArgs } from '../commands/generateRebase';
 import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
+import type { RecomposeFromCommitCommandArgs } from '../commands/recomposeFromCommit';
 import type { ViewShowBranchComparison } from '../config';
 import { GlyphChars } from '../constants';
 import type { GlCommands } from '../constants.commands';
@@ -26,6 +27,7 @@ import * as StashActions from '../git/actions/stash';
 import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
+import type { GitBranch } from '../git/models/branch';
 import type { PullRequest } from '../git/models/pullRequest';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { Repository } from '../git/models/repository';
@@ -1141,6 +1143,31 @@ export class ViewCommands implements Disposable {
 		if (!node.isAny('commit', 'file-commit')) return;
 
 		await CommitActions.undoCommit(this.container, node.ref);
+	}
+
+	@command('gitlens.recomposeFromCommit:views')
+	@log()
+	private recomposeFromCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!node.isAny('commit', 'file-commit')) return;
+
+		let branch: GitBranch | undefined;
+		if (node.is('commit')) {
+			branch = node.branch;
+		} else if (node.is('file-commit')) {
+			branch = (node as any)._options?.branch;
+		}
+
+		if (branch == null) {
+			void window.showErrorMessage('Unable to determine branch for commit');
+			return;
+		}
+
+		void executeCommand<RecomposeFromCommitCommandArgs>('gitlens.recomposeFromCommit', {
+			repoPath: node.repoPath,
+			commitSha: node.commit.sha,
+			branchName: branch.name,
+			source: 'view',
+		});
 	}
 
 	@command('gitlens.views.unsetAsDefault')

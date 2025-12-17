@@ -20,6 +20,7 @@ import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
 import type { CreatePatchCommandArgs } from '../../../commands/patches';
 import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch';
+import type { RecomposeFromCommitCommandArgs } from '../../../commands/recomposeFromCommit';
 import type {
 	Config,
 	GraphBranchesVisibility,
@@ -779,6 +780,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeSelectedCommits:graph', item =>
 				this.recomposeBranch(item),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.recomposeFromCommit:graph', item =>
+				this.recomposeFromCommit(item),
 			),
 			this.host.registerWebviewCommand('gitlens.ai.rebaseOntoCommit:graph', this.rebaseOntoCommit),
 			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
@@ -4653,6 +4657,53 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repoPath: repoPath,
 			branchName: branchName,
 			commitShas: commitShas,
+			source: 'graph',
+		});
+	}
+
+	@log()
+	private async recomposeFromCommit(item?: GraphItemContext): Promise<void> {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return;
+
+		const graph = this._graph;
+		if (graph == null) return;
+
+		const row = graph.rows.find(r => r.sha === ref.ref);
+		if (row?.reachableFromBranches?.length !== 1) {
+			void window.showErrorMessage('Unable to recompose: commit must belong to exactly one local branch');
+			return;
+		}
+
+		const branchName = row.reachableFromBranches[0];
+		const branch = graph.branches.get(branchName);
+		if (branch == null) {
+			void window.showErrorMessage(`Branch '${branchName}' not found`);
+			return;
+		}
+
+		const headCommitSha = branch.sha;
+		if (headCommitSha == null) {
+			void window.showErrorMessage(`Unable to determine head commit for branch '${branchName}'`);
+			return;
+		}
+
+		const commit = await this.container.git.getRepositoryService(ref.repoPath).commits.getCommit(ref.ref);
+		if (commit == null) {
+			void window.showErrorMessage(`Commit '${ref.ref}' not found`);
+			return;
+		}
+
+		const baseCommitSha = commit.parents.length > 0 ? commit.parents[0] : undefined;
+		if (baseCommitSha == null) {
+			void window.showErrorMessage('Unable to determine parent commit');
+			return;
+		}
+
+		await executeCommand<RecomposeFromCommitCommandArgs>('gitlens.recomposeFromCommit', {
+			repoPath: ref.repoPath,
+			commitSha: ref.ref,
+			branchName: branchName,
 			source: 'graph',
 		});
 	}
