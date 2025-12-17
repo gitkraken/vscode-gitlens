@@ -8,17 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds an all-new, highly performant, _Interactive Rebase Editor_ with support for `update-ref` other rebase operations ([#4813](https://github.com/gitkraken/vscode-gitlens/issues/4813), [#4405](https://github.com/gitkraken/vscode-gitlens/issues/4405), [#4383](https://github.com/gitkraken/vscode-gitlens/issues/4383), [#4160](https://github.com/gitkraken/vscode-gitlens/issues/4160), [#4148](https://github.com/gitkraken/vscode-gitlens/issues/4148), [#4032](https://github.com/gitkraken/vscode-gitlens/issues/4032), [#3897](https://github.com/gitkraken/vscode-gitlens/issues/3897), [#3866](https://github.com/gitkraken/vscode-gitlens/issues/3866), [#3815](https://github.com/gitkraken/vscode-gitlens/issues/3815), [#3393](https://github.com/gitkraken/vscode-gitlens/issues/3393), [#3337](https://github.com/gitkraken/vscode-gitlens/issues/3337), [#3310](https://github.com/gitkraken/vscode-gitlens/issues/3310))
-  - Optimizes performance with virtualization for large rebase operations and lazy-loading of commit metadata
-  - Adds ability to recompose commits using AI ([#4796](https://github.com/gitkraken/vscode-gitlens/issues/4796), [#4775](https://github.com/gitkraken/vscode-gitlens/issues/4775))
-  - Adds potential conflict detection with visual indicators for commits that will conflict during rebase
-  - Adds ability to apply bulk actions (pick, squash, fixup, etc.) to multiple selected commits simultaneously
-  - Improves drag-and-drop experience with multiselect support
-  - Improves accessibility with keyboard navigation and multiselect support
-    - Mouse: <kbd>Click</kbd> to select single, <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) to toggle, <kbd>Shift+Click</kbd> for range selection
-    - Keyboard: <kbd>Shift+Arrow[Up|Down]</kbd> for range selection, <kbd>Ctrl+A</kbd> (<kbd>Cmd+A</kbd> on macOS) to select all entries
-  - Adds a `gitlens.rebaseEditor.openOnPausedRebase` setting to control whether the _Interactive Rebase Editor_ opens automatically when a rebase is paused
 - Enhances the _Commit Graph_ experience with several new features
+  - Improves rendering, scrolling, keyboard navigation, and first load performance
+  - Eliminates flickering of branch metadata (upstream status, PRs, and issues) when the repository changes
   - Adds real-time streaming of search results with pause, resume, and cancel support ([#4782](https://github.com/gitkraken/vscode-gitlens/issues/4782), [#4526](https://github.com/gitkraken/vscode-gitlens/issues/4526), [#3963](https://github.com/gitkraken/vscode-gitlens/issues/3963))
     - Changes the default of the `gitlens.graph.searchItemLimit` setting to `0` (no limit)
   - Adds autocomplete suggestions and interactive filter pickers (for authors, references, and files/folders) to _Commit Graph_ search ([#4780](https://github.com/gitkraken/vscode-gitlens/issues/4780))
@@ -47,6 +39,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - <kbd>Ctrl+Shift+[Up|Down]</kbd> (<kbd>Cmd+Shift+[Up|Down]</kbd> on macOS) — Topologically extends the selection, and sticks to current branch if possible
       - <kbd>Shift+Home</kbd>, <kbd>Shift+End</kbd> — Extends the selection to first or last commit
       - <kbd>Shift+Page[Up|Down]</kbd> — Extends the selection by one page
+- Adds an all-new, highly performant, _Interactive Rebase Editor_ with support for `update-ref` other rebase operations ([#4813](https://github.com/gitkraken/vscode-gitlens/issues/4813), [#4405](https://github.com/gitkraken/vscode-gitlens/issues/4405), [#4383](https://github.com/gitkraken/vscode-gitlens/issues/4383), [#4160](https://github.com/gitkraken/vscode-gitlens/issues/4160), [#4148](https://github.com/gitkraken/vscode-gitlens/issues/4148), [#4032](https://github.com/gitkraken/vscode-gitlens/issues/4032), [#3897](https://github.com/gitkraken/vscode-gitlens/issues/3897), [#3866](https://github.com/gitkraken/vscode-gitlens/issues/3866), [#3815](https://github.com/gitkraken/vscode-gitlens/issues/3815), [#3393](https://github.com/gitkraken/vscode-gitlens/issues/3393), [#3337](https://github.com/gitkraken/vscode-gitlens/issues/3337), [#3310](https://github.com/gitkraken/vscode-gitlens/issues/3310))
+  - Optimizes performance with virtualization for large rebase operations and lazy-loading of commit metadata
+  - Adds ability to recompose commits using AI ([#4796](https://github.com/gitkraken/vscode-gitlens/issues/4796), [#4775](https://github.com/gitkraken/vscode-gitlens/issues/4775))
+  - Adds potential conflict detection with visual indicators for commits that will conflict during rebase
+  - Adds ability to apply bulk actions (pick, squash, fixup, etc.) to multiple selected commits simultaneously
+  - Improves drag-and-drop experience with multiselect support
+  - Improves accessibility with keyboard navigation and multiselect support
+    - Mouse: <kbd>Click</kbd> to select single, <kbd>Ctrl+Click</kbd> (<kbd>Cmd+Click</kbd> on macOS) to toggle, <kbd>Shift+Click</kbd> for range selection
+    - Keyboard: <kbd>Shift+Arrow[Up|Down]</kbd> for range selection, <kbd>Ctrl+A</kbd> (<kbd>Cmd+A</kbd> on macOS) to select all entries
+  - Adds a `gitlens.rebaseEditor.openOnPausedRebase` setting to control whether the _Interactive Rebase Editor_ opens automatically when a rebase is paused
+- Adds a new _Rebase & Update Branches_ and _Interactive Rebase & Update Branches_ confirmation option to the _Git Command Palette_'s _rebase_ command &mdash; closes [#4818](https://github.com/gitkraken/vscode-gitlens/issues/4818)
 - Adds Claude Opus 4.5, Gemini 3 Pro, and GPT-5.1 and GPT-5.2 model support for AI features ([#4785](https://github.com/gitkraken/vscode-gitlens/issues/4785))
 - Adds multi-repository support to repository filtering in GitLens views ([#4815](https://github.com/gitkraken/vscode-gitlens/issues/4815))
 - Adds new _Set Upstream..._ and _Change Upstream..._ context menu items to branch status (_Up to date_, _Outgoing_, _Incoming_) in GitLens views
