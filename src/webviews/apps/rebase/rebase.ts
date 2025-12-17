@@ -1535,10 +1535,15 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private renderRecomposeAction(isActive: boolean) {
+		const isInPlace = this.state?.isInPlace ?? false;
+		const message = isInPlace
+			? 'Let AI intelligently reorganize these commits with clearer messages and better logical grouping.'
+			: 'Let AI intelligently reorganize these commits with clearer messages and better logical grouping. <br><br> After recomposition, simply rebase again to apply these commits onto the target branch.';
+
 		return html`<gl-popover-confirm
 			heading="Abort Rebase &amp; Recompose"
-			message="This will abort the rebase and open the Commit Composer to recompose all commits using AI."
-			confirm=${isActive ? 'Abort & Recompose' : 'Recompose'}
+			message=${message}
+			confirm="Abort &gt; Recompose"
 			confirm-variant=${ifDefined(isActive ? 'danger' : undefined)}
 			initial-focus=${isActive ? 'cancel' : 'confirm'}
 			icon=${isActive ? 'error' : 'warning'}

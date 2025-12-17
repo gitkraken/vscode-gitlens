@@ -124,7 +124,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 				break;
 
 			case DidChangeCommitsNotification.is(msg):
-				this.updateCommits(msg.params.commits, msg.params.authors);
+				this.updateCommits(msg.params.commits, msg.params.authors, msg.params.isInPlace);
 				// Clear requested SHAs so they can be requested again if needed
 				for (const sha of Object.keys(msg.params.commits)) {
 					this._requestedCommitShas.delete(sha);
@@ -166,10 +166,17 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 	private updateCommits(
 		commits: Record<string, IpcSerialized<Commit>>,
 		authors: Record<string, IpcSerialized<_State>['authors'][string]>,
+		isInPlace?: boolean,
 	): void {
 		if (!this._state) return;
 
 		let hasChanges = false;
+
+		// Update isInPlace if provided
+		if (isInPlace != null && this._state.isInPlace !== isInPlace) {
+			this._state.isInPlace = isInPlace;
+			hasChanges = true;
+		}
 
 		// Enrich base commit (onto)
 		if (this._state.onto && !this._state.onto.commit) {

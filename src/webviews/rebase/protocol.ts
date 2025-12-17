@@ -15,6 +15,9 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 	branch: string;
 	onto: { sha: string; commit?: Commit } | undefined;
 
+	/** True if the commits are already on top of onto */
+	isInPlace: boolean;
+
 	/** Pending entries that can still be edited */
 	entries: RebaseEntry[];
 	/** Entries that have already been applied (only present during active rebase) */
@@ -203,6 +206,8 @@ export interface DidChangeCommitsParams {
 	commits: Record<string, Commit>;
 	/** Map of author name → author info (for new authors from fetched commits) */
 	authors: Record<string, Author>;
+	/** True if the commits are already on top of onto (recalculated when commits are enriched) */
+	isInPlace?: boolean;
 }
 export const DidChangeCommitsNotification = new IpcNotification<DidChangeCommitsParams>(scope, 'commits/didChange');
 

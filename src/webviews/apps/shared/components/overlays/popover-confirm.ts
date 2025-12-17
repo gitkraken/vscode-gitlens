@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { GlButton } from '../button';
 import { elementBase } from '../styles/lit/base.css';
 import type { GlPopover } from './popover';
@@ -167,7 +168,9 @@ export class GlPopoverConfirm extends LitElement {
 							: nothing}
 						<h4 id="confirm-title" class="confirm-popover__title">${this.heading}</h4>
 					</div>
-					${this.message ? html`<p class="confirm-popover__message">${this.message}</p>` : nothing}
+					${this.message
+						? html`<p class="confirm-popover__message">${unsafeHTML(this.message)}</p>`
+						: nothing}
 					<div class="confirm-popover__actions">
 						<gl-button
 							class="cancel-button"

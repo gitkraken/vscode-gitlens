@@ -11,7 +11,7 @@ import {
 	skipPausedOperation,
 } from '../../git/actions/pausedOperation';
 import type { GitCommit } from '../../git/models/commit';
-import type { RebaseTodoAction } from '../../git/models/rebase';
+import type { ProcessedRebaseTodo, RebaseTodoAction } from '../../git/models/rebase';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
@@ -93,6 +93,21 @@ export class RebaseWebviewProvider implements Disposable {
 
 	private get ascending() {
 		return configuration.get('rebaseEditor.ordering') === 'asc';
+	}
+
+	/** Computes whether the commits are already in place (parent of first commit is the onto commit) */
+	private computeIsInPlace(processed?: ProcessedRebaseTodo): boolean {
+		processed ??= this._todoDocument.parsed.processed;
+		const { commits, onto: ontoCommit } = this._enrichment;
+
+		const firstShortSha = first(processed.commits.keys());
+		if (firstShortSha == null || ontoCommit?.sha == null) return false;
+
+		const firstCommit = commits.get(firstShortSha);
+		if (firstCommit == null) return false;
+
+		// Use short SHA comparison - onto.sha is already a short SHA
+		return firstCommit.parents.some(parent => parent.startsWith(ontoCommit.sha));
 	}
 
 	constructor(
@@ -615,6 +630,7 @@ export class RebaseWebviewProvider implements Disposable {
 								: undefined,
 					}
 				: undefined,
+			isInPlace: this.computeIsInPlace(processed),
 			entries: entries,
 			doneEntries: doneEntries,
 			authors: authors != null ? Object.fromEntries(authors) : {},
@@ -766,6 +782,7 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.host.notify(DidChangeCommitsNotification, {
 			commits: Object.fromEntries(map(commits, ([k, v]) => [k, convertCommit(v, defaultDateFormat)])),
 			authors: Object.fromEntries(authors),
+			isInPlace: this.computeIsInPlace(),
 		});
 	}
 
