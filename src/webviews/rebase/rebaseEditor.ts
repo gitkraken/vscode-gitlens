@@ -8,7 +8,6 @@ import type {
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
-import type { GitRebaseStatus } from '../../git/models/pausedOperationStatus';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import {
 	getRepoUriFromRebaseTodo,
@@ -107,10 +106,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	private async onRebaseChanged(repoPath: string): Promise<void> {
 		if (!configuration.get('rebaseEditor.openOnPausedRebase')) return;
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-		const status = (await svc.pausedOps?.getPausedOperationStatus?.()) as GitRebaseStatus | undefined;
-
 		// Only open if the rebase is actually paused (waiting for user action), not just running
+		const status = await this.container.git.getRepositoryService(repoPath).pausedOps?.getPausedOperationStatus?.();
 		if (status?.type === 'rebase' && status.isPaused) {
 			// Open beside the current editor (e.g., commit message editor) during active rebase
 			await openRebaseEditor(this.container, repoPath, { viewColumn: ViewColumn.Beside });

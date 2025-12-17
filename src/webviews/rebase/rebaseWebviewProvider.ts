@@ -21,6 +21,7 @@ import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscrip
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { closeTab } from '../../system/-webview/vscode/tabs';
+import { exists } from '../../system/-webview/vscode/uris';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { concat, filterMap, find, first, join, last, map } from '../../system/iterable';
@@ -135,14 +136,11 @@ export class RebaseWebviewProvider implements Disposable {
 				repo.onDidChange(async e => {
 					if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
 						// Check if the rebase todo file still exists, if not close the editor
-						try {
-							await workspace.fs.stat(this._todoDocument.uri);
+						if (await exists(this._todoDocument.uri)) {
 							this.updateState();
-						} catch {
-							if (!this._closing) {
-								this._closing = true;
-								void closeTab(this._todoDocument.uri);
-							}
+						} else if (!this._closing) {
+							this._closing = true;
+							void closeTab(this._todoDocument.uri);
 						}
 					} else if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
 						// Refresh when index changes to update conflict state during paused rebase

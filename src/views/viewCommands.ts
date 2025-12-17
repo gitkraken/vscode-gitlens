@@ -35,6 +35,7 @@ import {
 	getOpenedPullRequestRepo,
 	getOrOpenPullRequestRepository,
 } from '../git/utils/-webview/pullRequest.utils';
+import { openRebaseEditor } from '../git/utils/-webview/rebase.utils';
 import { matchContributor } from '../git/utils/contributor.utils';
 import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../git/utils/pullRequest.utils';
 import { createReference } from '../git/utils/reference.utils';
@@ -627,13 +628,7 @@ export class ViewCommands implements Disposable {
 	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.getRepositoryService(node.repoPath).config.getGitDir?.();
-		if (gitDir == null) return;
-
-		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
-		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
-			preview: false,
-		});
+		await openRebaseEditor(this.container, node.repoPath);
 	}
 
 	@command('gitlens.views.openPullRequest')

@@ -4,6 +4,7 @@ import type { Container } from '../../../container';
 import { executeCoreCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getTabUri } from '../../../system/-webview/vscode/tabs';
+import { exists } from '../../../system/-webview/vscode/uris';
 import { areUrisEqual } from '../../../system/uri';
 import { compare } from '../../../system/version';
 
@@ -84,6 +85,9 @@ export async function openRebaseEditor(
 
 	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
 	if (getOpenRebaseEditorTab(rebaseTodoUri) != null) return;
+
+	// Ensure the file exists before attempting to open it (avoids race condition during rebase setup)
+	if (!(await exists(rebaseTodoUri))) return;
 
 	// Only try to open beside if there is an active tab
 	if (options?.viewColumn === ViewColumn.Beside && window.tabGroups.activeTabGroup.activeTab == null) {
