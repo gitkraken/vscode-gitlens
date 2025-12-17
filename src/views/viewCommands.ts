@@ -1129,6 +1129,15 @@ export class ViewCommands implements Disposable {
 		await CommitActions.undoCommit(this.container, node.ref);
 	}
 
+	@command('gitlens.composeCommits:views')
+	@log()
+	private composeCommits(node: UncommittedFileNode) {
+		void executeCommand('gitlens.composeCommits', {
+			repoPath: node.repoPath,
+			source: 'view',
+		});
+	}
+
 	@command('gitlens.recomposeFromCommit:views')
 	@log()
 	private recomposeFromCommit(node: CommitNode | FileRevisionAsCommitNode) {
