@@ -66,7 +66,7 @@ export class ComposeCommand extends GlCommandBase {
 				undefined,
 				{
 					repoPath: args?.repoPath,
-					source: args?.source,
+					source: args?.source ?? 'commandPalette',
 					mode: args?.mode,
 					includedUnstagedChanges: args?.includedUnstagedChanges,
 				},

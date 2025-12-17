@@ -872,7 +872,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					this._recompose.branchName,
 					this._recompose.range,
 					params.mode,
-					params.source,
+					this._context.source,
 					this._recompose.commitShas,
 					true,
 				);
@@ -881,7 +881,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					repo,
 					this._recompose.branchName,
 					params.mode,
-					params.source,
+					this._context.source,
 					this._recompose.commitShas,
 					true,
 				);
@@ -890,7 +890,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					repo,
 					this._context.diff.unstagedIncluded,
 					params.mode,
-					params.source,
+					this._context.source,
 					true,
 				);
 			}
