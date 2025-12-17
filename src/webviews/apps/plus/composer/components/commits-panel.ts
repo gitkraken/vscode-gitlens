@@ -435,12 +435,14 @@ export class CommitsPanel extends LitElement {
 	private commitsSortable?: Sortable;
 	private isDraggingHunks = false;
 	private draggedHunkIds: string[] = [];
+	private hasScrolledToFirstNonLocked = false;
 
 	override firstUpdated() {
 		this.initializeSortable();
 		this.initializeDropZones();
 		this.addEventListener('hunk-drag-start', this.handleHunkDragStart.bind(this));
 		this.addEventListener('hunk-drag-end', this.handleHunkDragEnd.bind(this));
+		this.scrollToFirstNonLockedCommit();
 	}
 
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -454,12 +456,40 @@ export class CommitsPanel extends LitElement {
 			// Reinitialize both commit sortable and drop zones
 			this.initializeSortable();
 			this.initializeCommitDropZones();
+
+			if (changedProperties.has('commits')) {
+				const previousCommits = changedProperties.get('commits') as ComposerCommit[] | undefined;
+				if (!previousCommits?.length && this.commits.length > 0) {
+					this.scrollToFirstNonLockedCommit();
+				}
+			}
 		}
 	}
 
 	override disconnectedCallback() {
 		super.disconnectedCallback?.();
 		this.commitsSortable?.destroy();
+	}
+
+	private scrollToFirstNonLockedCommit() {
+		if (this.hasScrolledToFirstNonLocked) return;
+
+		const hasLockedCommit = this.commits.some(c => c.locked === true);
+		if (!hasLockedCommit) return;
+
+		this.hasScrolledToFirstNonLocked = true;
+
+		const reversedCommits = this.commits.slice().reverse();
+		const firstNonLockedIndex = reversedCommits.findIndex(c => c.locked !== true);
+		if (firstNonLockedIndex === -1) return;
+
+		const firstNonLockedCommit = reversedCommits[firstNonLockedIndex];
+		requestAnimationFrame(() => {
+			const commitItem = this.shadowRoot?.querySelector(
+				`gl-commit-item[data-commit-id="${firstNonLockedCommit.id}"]`,
+			);
+			commitItem?.scrollIntoView({ block: 'center' });
+		});
 	}
 
 	private initializeSortable() {
