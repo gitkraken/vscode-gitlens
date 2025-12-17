@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a _Recompose Commits from Here_ command to commits in views and for commits belonging to a single branch in the _Commit Graph_. This will recompose from the chosen commit to the tip of its branch ([#4827](https://github.com/gitkraken/vscode-gitlens/issues/4827))
+
+### Changed
+
+- When recomposing a specific range of commits, the _Commit Composer_ will now automtically scroll the chosen commits into view when it loads ([#4825](https://github.com/gitkraken/vscode-gitlens/issues/4825))
+- When using _Recompose Selected Commits_, the _Commit Composer_ will now use the parent of the last commit to form a commit list if a merge target cannot be determined ([#4826](https://github.com/gitkraken/vscode-gitlens/issues/4826))
+
 ## [17.8.0] - 2025-12-16
 
 ### Added
