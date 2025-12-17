@@ -13,6 +13,12 @@ const models: GeminiModel[] = [
 		provider: provider,
 	},
 	{
+		id: 'gemini-3-flash-preview',
+		name: 'Gemini 3 Flash (Preview)',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-2.5-pro',
 		name: 'Gemini 2.5 Pro',
 		maxTokens: { input: 1048576, output: 65536 },

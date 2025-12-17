@@ -201,6 +201,9 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
 		} catch {}
 
+		if (Array.isArray(json)) {
+			json = json[0];
+		}
 		if (json?.error?.code === 'context_length_exceeded') {
 			if (retries < 2) {
 				return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
