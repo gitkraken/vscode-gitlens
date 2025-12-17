@@ -307,7 +307,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		// If range is explicitly provided, use it directly (skips merge target resolution)
 		if (args?.range) {
-			return this.initializeStateFromExplicitRange(
+			return this.initializeStateAndContextFromExplicitRange(
 				repo,
 				args.branchName,
 				args.range,
@@ -640,12 +640,29 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 		}
 
-		// If we get here, we couldn't find unique commits after trying all merge targets or reaching max attempts
+		// If we cannot find commits using merge target, try a range to the tip of the branch
+		if (commitShas?.length) {
+			// Set the head commit as the tip of the branch
+			const headCommitSha = branch.sha;
+			// Set the base commit as the parent commit of the last commit in the range
+			const baseCommitSha = (await repo.git.commits.getCommit(commitShas[0]))?.parents[0];
+			if (headCommitSha && baseCommitSha) {
+				return this.initializeStateAndContextFromExplicitRange(
+					repo,
+					branchName,
+					{ base: baseCommitSha, head: headCommitSha },
+					mode,
+					source,
+					commitShas,
+					isReload,
+				);
+			}
+		}
+
+		// If we get here, we couldn't find unique commits to recompose with
 		return {
 			...this.initialState,
-			loadingError: mergeTargetName
-				? `Branch '${branchName}' has no unique commits against any resolved merge target.`
-				: `Unable to determine merge target for branch '${branchName}'.`,
+			loadingError: `Could not identify unique commits for branch '${branchName}'`,
 		};
 	}
 
@@ -653,7 +670,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	 * Initializes state when an explicit range is provided.
 	 * This bypasses merge target resolution and uses the provided range directly.
 	 */
-	private async initializeStateFromExplicitRange(
+	private async initializeStateAndContextFromExplicitRange(
 		repo: Repository,
 		branchName: string | undefined,
 		range: { base: string; head: string },
@@ -850,7 +867,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			let composerData: State;
 			// If range is stored, use explicit range initialization
 			if (this._recompose?.range) {
-				composerData = await this.initializeStateFromExplicitRange(
+				composerData = await this.initializeStateAndContextFromExplicitRange(
 					repo,
 					this._recompose.branchName,
 					this._recompose.range,
