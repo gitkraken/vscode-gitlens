@@ -4,6 +4,7 @@ import { getBranchMergeTargetInfo } from '../git/utils/-webview/branch.utils';
 import { createReference, getReferenceLabel, isBranchReference } from '../git/utils/reference.utils';
 import { getRevisionRangeParts, isRevisionRange } from '../git/utils/revision.utils';
 import { Directive } from './items/directive';
+import type { ReferencesQuickPickIncludes } from './referencePicker';
 import { showReferencePicker2 } from './referencePicker';
 import { getRepositoryOrShowPicker } from './repositoryPicker';
 
@@ -15,6 +16,9 @@ export interface ComparisonPickerOptions {
 		step: 1 | 2,
 		ref?: GitReference,
 	) => { title: string | undefined; placeholder: string | undefined };
+
+	headIncludes?: ReferencesQuickPickIncludes[];
+	baseIncludes?: ReferencesQuickPickIncludes[];
 }
 
 /**
@@ -48,7 +52,7 @@ export async function showComparisonPicker(
 		if (head == null || force) {
 			const pick = await showReferencePicker2(repoPath, title, placeholder, {
 				allowedAdditionalInput: { range: true, rev: true },
-				include: ['branches', 'tags', 'HEAD'],
+				include: options?.headIncludes ?? ['branches', 'tags', 'HEAD'],
 				picked: head?.ref,
 				sort: { branches: { current: true } },
 			});
@@ -96,7 +100,7 @@ export async function showComparisonPicker(
 				allowBack: true,
 				allowedAdditionalInput: { rev: true },
 				exclude: [head.ref],
-				include: ['branches', 'tags', 'HEAD'],
+				include: options?.baseIncludes ?? ['branches', 'tags', 'HEAD'],
 				picked: base?.ref,
 				sort: { branches: { current: true } },
 			});

@@ -238,6 +238,7 @@ export class SearchAndCompareView extends ViewBase<
 	private async selectForCompare(repoPath?: string, ref1?: string | StoredNamedRef): Promise<void> {
 		const result = await showComparisonPicker(this.container, repoPath, {
 			head: ref1 != null ? createReference(typeof ref1 === 'string' ? ref1 : ref1.ref, repoPath!) : undefined,
+			headIncludes: ['branches', 'tags', 'workingTree', 'HEAD'],
 		});
 		if (result == null) return;
 
