@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.8.1] - 2025-12-18
+
 ### Added
 
 - Adds a _Recompose Commits from Here_ command to commits in views and for commits belonging to a single branch in the _Commit Graph_. This will recompose from the chosen commit to the tip of its branch ([#4827](https://github.com/gitkraken/vscode-gitlens/issues/4827))
@@ -6602,7 +6604,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.1...HEAD
+[17.8.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.8.0...gitkraken:v17.8.1
 [17.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.1...gitkraken:v17.8.0
 [17.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.7.0...gitkraken:v17.7.1
 [17.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.6.2...gitkraken:v17.7.0
