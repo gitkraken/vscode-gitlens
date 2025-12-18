@@ -488,7 +488,23 @@ export class CommitsPanel extends LitElement {
 			const commitItem = this.shadowRoot?.querySelector(
 				`gl-commit-item[data-commit-id="${firstNonLockedCommit.id}"]`,
 			);
-			commitItem?.scrollIntoView({ block: 'center' });
+			if (!commitItem) return;
+
+			const container = this.shadowRoot?.querySelector('.container.scrollable');
+			if (!container) {
+				commitItem.scrollIntoView({ block: 'center' });
+				return;
+			}
+
+			const itemRect = commitItem.getBoundingClientRect();
+			const containerRect = container.getBoundingClientRect();
+			const itemTop = itemRect.top - containerRect.top + container.scrollTop;
+			const targetPosition = itemTop - containerRect.height * 0.1;
+
+			container.scrollTo({
+				top: Math.max(0, targetPosition),
+				behavior: 'smooth',
+			});
 		});
 	}
 
