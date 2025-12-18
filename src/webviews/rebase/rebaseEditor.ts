@@ -105,7 +105,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	@log()
 	private async onRebaseChanged(repoPath: string): Promise<void> {
 		const openOnPausedRebase = configuration.get('rebaseEditor.openOnPausedRebase');
-		if (!openOnPausedRebase) return;
+		if (!openOnPausedRebase || !isRebaseTodoEditorEnabled()) return;
 
 		// Only open if the rebase is actually paused (waiting for user action), not just running
 		const status = await this.container.git.getRepositoryService(repoPath).pausedOps?.getPausedOperationStatus?.();
