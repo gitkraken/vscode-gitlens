@@ -2097,7 +2097,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// 		a.index - b.index,
 		// );
 
-		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+		const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 			this.container.git.openRepositories,
 			'Switch',
 			this.repository?.name,

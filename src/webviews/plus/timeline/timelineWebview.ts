@@ -499,7 +499,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				scope.uri = repo.uri;
 			}
 		} else if (type === 'repo' && scope.type === 'repo') {
-			const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+			const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 				this.container.git.openRepositories,
 				'Switch',
 				repo?.name,

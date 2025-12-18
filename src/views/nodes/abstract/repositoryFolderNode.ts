@@ -68,7 +68,7 @@ export abstract class RepositoryFolderNode<
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
-		const isWorktree = await this.repo.isWorktree();
+		const { isWorktree } = this.repo;
 
 		let label = this.repo.name ?? this.uri.repoPath ?? '';
 		if (this.options?.showBranchAndLastFetched && branch != null) {

@@ -377,13 +377,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
-		if (context.defaultUri == null) {
-			context.defaultUri = await state.repo.git.worktrees?.getWorktreesDefaultUri();
-		}
-
-		if (state.flags == null) {
-			state.flags = [];
-		}
+		context.defaultUri ??= state.repo.git.worktrees?.getWorktreesDefaultUri();
+		state.flags ??= [];
 
 		context.pickedRootFolder = undefined;
 		context.pickedSpecificFolder = undefined;
@@ -664,10 +659,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		return value;
 	}
 
-	private async *createCommandConfirmStep(
+	private *createCommandConfirmStep(
 		state: CreateStepState,
 		context: Context,
-	): AsyncStepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
+	): StepResultGenerator<[CreateConfirmationChoice, CreateFlags[]]> {
 		/**
 		 * Here are the rules for creating the recommended path for the new worktree:
 		 *
@@ -685,7 +680,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		let recommendedRootUri;
 
-		const repoUri = (await state.repo.getCommonRepositoryUri()) ?? state.repo.uri;
+		const repoUri = state.repo.commonUri ?? state.repo.uri;
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
 		if (context.pickedRootFolder != null) {

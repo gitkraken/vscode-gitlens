@@ -277,7 +277,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// 		a.index - b.index,
 		// );
 
-		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+		const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 			this.container.git.openRepositories,
 			'Switch',
 			currentRepo?.name,

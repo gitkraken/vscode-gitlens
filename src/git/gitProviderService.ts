@@ -1612,7 +1612,11 @@ export class GitProviderService implements Disposable {
 					}
 
 					Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
-					const repositories = provider.openRepository(root?.folder, repoUri, false, closed);
+					const gitDir = await provider.config.getGitDir?.(repoUri.fsPath);
+					if (gitDir == null) {
+						Logger.warn(scope, `Unable to get gitDir for '${repoUri.toString(true)}'`);
+					}
+					const repositories = provider.openRepository(root?.folder, repoUri, gitDir, false, closed);
 
 					const added: Repository[] = [];
 

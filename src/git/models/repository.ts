@@ -22,7 +22,7 @@ import { filter, groupByMap, join, map, min, some } from '../../system/iterable'
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
-import { basename } from '../../system/path';
+import { basename, normalizePath } from '../../system/path';
 import { CheckoutError, FetchError, PullError, PushError } from '../errors';
 import type { GitDir, GitProviderDescriptor } from '../gitProvider';
 import type { GitRepositoryService } from '../gitRepositoryService';
@@ -173,25 +173,9 @@ export class Repository implements Disposable {
 		return this._onDidChangeFileSystem.event;
 	}
 
-	private _commonRepositoryName: string | undefined;
-	get commonRepositoryName(): string | undefined {
-		return this._commonRepositoryName;
-	}
-
 	readonly id: RepoComparisonKey;
 	readonly index: number;
 	readonly instance = instanceCounter.next();
-
-	private _name: string;
-	get name(): string {
-		return this._name;
-	}
-
-	private _idHash: string | undefined;
-	get idHash(): string {
-		this._idHash ??= md5(this.id);
-		return this._idHash;
-	}
 
 	private readonly _disposable: Disposable;
 	private _fireChangeDebounced: Deferrable<() => void> | undefined = undefined;
@@ -210,6 +194,7 @@ export class Repository implements Disposable {
 		public readonly provider: GitProviderDescriptor,
 		public readonly folder: WorkspaceFolder | undefined,
 		public readonly uri: Uri,
+		private readonly _gitDir: GitDir | undefined,
 		public readonly root: boolean,
 		closed: boolean = false,
 	) {
@@ -224,23 +209,15 @@ export class Repository implements Disposable {
 			this._name = basename(uri.path);
 		}
 
-		void this.getGitDir().then(gd => {
-			this.setupRepoWatchers(gd);
-
-			// Update the name if it is a worktree
-			if (gd?.commonUri == null) return;
-
-			let path = gd.commonUri.path;
-			if (path.endsWith('/.git')) {
-				path = path.substring(0, path.length - 5);
-			}
-
-			this._commonRepositoryName = basename(path);
-			const prefix = `${this._commonRepositoryName}: `;
+		const { commonRepositoryName } = this;
+		if (commonRepositoryName) {
+			const prefix = `${commonRepositoryName}: `;
 			if (!this._name.startsWith(prefix)) {
 				this._name = `${prefix}${this._name}`;
 			}
-		});
+		}
+
+		this.setupRepoWatchers(_gitDir);
 
 		this.index = folder?.index ?? container.git.repositoryCount;
 
@@ -298,7 +275,7 @@ export class Repository implements Disposable {
 		if (changed) {
 			using scope = startLogScope(`${getLoggableName(this)}.closed`, false);
 			Logger.debug(scope, `setting closed=${value}`);
-			void this.getGitDir().then(gd => this.setupRepoWatchers(gd));
+			this.setupRepoWatchers(this._gitDir);
 
 			if (this._closed) {
 				// When closing, fire the event immediately even if suspended
@@ -313,6 +290,32 @@ export class Repository implements Disposable {
 		}
 	}
 
+	@memoize()
+	get commonPath(): string | undefined {
+		const { commonUri } = this;
+		if (commonUri == null) return undefined;
+
+		return normalizePath(commonUri.path);
+	}
+
+	@memoize()
+	get commonRepositoryName(): string | undefined {
+		const { commonPath } = this;
+		if (!commonPath) return undefined;
+
+		return basename(commonPath);
+	}
+
+	@memoize()
+	get commonUri(): Uri | undefined {
+		const uri = this._gitDir?.commonUri;
+		if (uri?.path.endsWith('/.git')) {
+			return uri.with({ path: uri.path.substring(0, uri.path.length - 5) });
+		}
+
+		return uri;
+	}
+
 	get etag(): number {
 		return this._updatedAt;
 	}
@@ -320,6 +323,23 @@ export class Repository implements Disposable {
 	@memoize()
 	get git(): GitRepositoryService {
 		return this.container.git.getRepositoryService(this.uri);
+	}
+
+	private _idHash: string | undefined;
+	get idHash(): string {
+		this._idHash ??= md5(this.id);
+		return this._idHash;
+	}
+
+	/** Indicates whether this repository is a worktree (has a separate common repository) */
+	@memoize()
+	get isWorktree(): boolean {
+		return this.commonUri != null;
+	}
+
+	private _name: string;
+	get name(): string {
+		return this._name;
 	}
 
 	get path(): string {
@@ -559,27 +579,15 @@ export class Repository implements Disposable {
 	@gate()
 	@log({ exit: true })
 	async getCommonRepository(): Promise<Repository | undefined> {
-		const uri = await this.getCommonRepositoryUri();
-		if (uri == null) return this;
+		const { commonUri } = this;
+		if (commonUri == null) return this;
 
 		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
-		return this.container.git.getOrOpenRepository(uri, {
+		return this.container.git.getOrOpenRepository(commonUri, {
 			detectNested: false,
 			force: true,
 			closeOnOpen: true,
 		});
-	}
-
-	@log({ exit: true })
-	async getCommonRepositoryUri(): Promise<Uri | undefined> {
-		const gitDir = await this.getGitDir();
-		if (gitDir?.commonUri?.path.endsWith('/.git')) {
-			return gitDir.commonUri.with({
-				path: gitDir.commonUri.path.substring(0, gitDir.commonUri.path.length - 5),
-			});
-		}
-
-		return gitDir?.commonUri;
 	}
 
 	private _lastFetched: number | undefined;
@@ -595,11 +603,6 @@ export class Repository implements Disposable {
 		}
 
 		return this._lastFetched ?? 0;
-	}
-
-	@log({ exit: true })
-	async isWorktree(): Promise<boolean> {
-		return (await this.getCommonRepositoryUri()) != null;
 	}
 
 	@gate()
@@ -1021,13 +1024,10 @@ export class Repository implements Disposable {
 		this._onDidChangeFileSystem.fire(e);
 	}
 
-	private _gitDirPromise: Promise<GitDir | undefined> | undefined;
-	private async getGitDir(): Promise<GitDir | undefined> {
-		return (this._gitDirPromise ??= this.git.config.getGitDir?.());
-	}
-
 	@debug({ singleLine: true })
 	private setupRepoWatchers(gitDir: GitDir | undefined): void {
+		if (gitDir == null) return;
+
 		const scope = getLogScope();
 
 		if (this.closed) {
@@ -1072,13 +1072,11 @@ export class Repository implements Disposable {
 			return watcher;
 		}
 
-		if (gitDir != null) {
-			if (gitDir?.commonUri == null) {
-				watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
-			} else {
-				watch.call(this, gitDir.uri, dotGitWatcherGlobRoot);
-				watch.call(this, gitDir.commonUri, dotGitWatcherGlobCommon);
-			}
+		if (gitDir?.commonUri == null) {
+			watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
+		} else {
+			watch.call(this, gitDir.uri, dotGitWatcherGlobRoot);
+			watch.call(this, gitDir.commonUri, dotGitWatcherGlobCommon);
 		}
 
 		this._repoWatchersDisposable = Disposable.from(...disposables);

@@ -129,13 +129,13 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	}
 
 	@log()
-	async getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined> {
+	getWorktreesDefaultUri(repoPath: string): Uri | undefined {
 		let defaultUri = this.getWorktreesDefaultUriCore(repoPath);
 		if (defaultUri != null) return defaultUri;
 
 		// If we don't have a default set, default it to the parent folder of the repo folder
 		const repo = this.container.git.getRepository(repoPath);
-		defaultUri = (await repo?.getCommonRepositoryUri()) ?? repo?.uri;
+		defaultUri = repo?.commonUri ?? repo?.uri;
 		if (defaultUri != null) {
 			defaultUri = Uri.joinPath(defaultUri, '..');
 		}

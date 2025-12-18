@@ -414,8 +414,7 @@ export async function createRepositoryQuickPickItem(
 		}
 	}
 
-	const isWorktree = await repository.isWorktree();
-	const codiconName = isWorktree
+	const codiconName = repository.isWorktree
 		? 'gitlens-worktree'
 		: repository.virtual
 			? 'gitlens-repository-cloud'

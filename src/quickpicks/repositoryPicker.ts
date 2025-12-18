@@ -296,19 +296,12 @@ export async function showRepositoriesPicker2(
 	}
 }
 
-export async function getRepositoryPickerTitleAndPlaceholder(
+export function getRepositoryPickerTitleAndPlaceholder(
 	repositories: Repository[],
 	action: string,
 	context?: string,
-): Promise<{ title: string; placeholder: string }> {
-	let hasWorktrees = false;
-	for (const r of repositories) {
-		if (await r.isWorktree()) {
-			hasWorktrees = true;
-			break;
-		}
-	}
-
+): { title: string; placeholder: string } {
+	const hasWorktrees = repositories.some(r => r.isWorktree);
 	const title = context
 		? `${action} ${hasWorktrees ? 'Repository or Worktree' : 'Repository'} ${GlyphChars.Dot} ${context}`
 		: action;

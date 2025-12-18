@@ -808,7 +808,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async onChooseRepository(): Promise<void> {
-		const { title, placeholder } = await getRepositoryPickerTitleAndPlaceholder(
+		const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 			this.container.git.openRepositories,
 			'Switch',
 			this._currentRepository?.name,

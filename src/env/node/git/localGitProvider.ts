@@ -15,6 +15,7 @@ import { GitCache } from '../../../git/cache';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '../../../git/errors';
 import { GitIgnoreCache } from '../../../git/gitIgnoreCache';
 import type {
+	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
 	RepositoryCloseEvent,
@@ -427,7 +428,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@debug({ exit: true })
-	openRepository(folder: WorkspaceFolder | undefined, uri: Uri, root: boolean, closed?: boolean): Repository[] {
+	openRepository(
+		folder: WorkspaceFolder | undefined,
+		uri: Uri,
+		gitDir: GitDir,
+		root: boolean,
+		closed?: boolean,
+	): Repository[] {
 		if (!closed) {
 			void this.getOrOpenScmRepository(uri);
 		}
@@ -442,6 +449,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				this.descriptor,
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
+				gitDir,
 				root,
 				closed,
 			),
@@ -460,6 +468,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					this.descriptor,
 					folder ?? workspace.getWorkspaceFolder(canonicalUri),
 					canonicalUri,
+					gitDir,
 					root,
 					true,
 				),
@@ -613,7 +622,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let rootPath;
 		let canonicalRootPath;
 
-		function maybeAddRepo(this: LocalGitProvider, uri: Uri, folder: WorkspaceFolder | undefined, root: boolean) {
+		const maybeAddRepo = async (uri: Uri, folder: WorkspaceFolder | undefined, root: boolean) => {
 			const comparisonId = asRepoComparisonKey(uri);
 			if (repositories.some(r => r.id === comparisonId)) {
 				Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - duplicate`);
@@ -630,8 +639,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
-			repositories.push(...this.openRepository(folder, uri, root, silent));
-		}
+			const gitDir = await this.config.getGitDir(uri.fsPath);
+			repositories.push(...this.openRepository(folder, uri, gitDir, root, silent));
+		};
 
 		const uri = await this.findRepositoryUri(rootUri, true);
 		if (uri != null) {
@@ -642,7 +652,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				canonicalRootPath = normalizePath(canonicalUri.fsPath);
 			}
 
-			maybeAddRepo.call(this, uri, folder, true);
+			await maybeAddRepo(uri, folder, true);
 		}
 
 		if (depth <= 0 || cancellation?.isCancellationRequested) return repositories;
@@ -699,7 +709,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const rp = await this.findRepositoryUri(Uri.file(p), true);
 			if (rp == null) continue;
 
-			maybeAddRepo.call(this, rp, folder, false);
+			await maybeAddRepo(rp, folder, false);
 		}
 
 		return repositories;
