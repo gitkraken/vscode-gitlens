@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - When recomposing a specific range of commits, the _Commit Composer_ will now automtically scroll the chosen commits into view when it loads ([#4825](https://github.com/gitkraken/vscode-gitlens/issues/4825))
 - When using _Recompose Selected Commits_, the _Commit Composer_ will now use the parent of the last commit to form a commit list if a merge target cannot be determined ([#4826](https://github.com/gitkraken/vscode-gitlens/issues/4826))
+- Changes the `gitlens.rebaseEditor.revealBehavior` setting default to `onDoubleClick` and removes the `never` and `onOpen` options
+
+### Fixed
+
+- Fixes issue where the _Commit Graph_ would automatically show for all rebase starts ([#4831](https://github.com/gitkraken/vscode-gitlens/issues/4831))
+- Fixes issue where the rebase editor would show on paused rebases even when the rebase editor was disabled ([#4830](https://github.com/gitkraken/vscode-gitlens/issues/4830))
 
 ## [17.8.0] - 2025-12-16
 
