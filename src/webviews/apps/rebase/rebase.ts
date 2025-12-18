@@ -137,7 +137,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private get isEmptyOrNoop(): boolean {
-		const { entries } = this;
+		const { entries, doneEntries } = this;
+
+		// Not empty if we have done entries (active rebase with completed commits)
+		if (doneEntries.length) return false;
+
 		return (
 			!entries.length || (entries.length === 1 && entries[0].type === 'command' && entries[0].action === 'noop')
 		);

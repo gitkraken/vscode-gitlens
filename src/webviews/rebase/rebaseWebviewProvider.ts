@@ -791,8 +791,8 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const state = await this.parseState();
 
-		// Close the editor if rebase is complete (no entries and no active rebase)
-		if (!state.entries.length && state.rebaseStatus == null) {
+		// Close the editor if rebase is complete (no entries, no done entries, and no active rebase)
+		if (!state.entries.length && !state.doneEntries?.length && state.rebaseStatus == null) {
 			this._closing = true;
 			await closeTab(this._todoDocument.uri);
 			return;
