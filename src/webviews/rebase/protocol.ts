@@ -1,3 +1,4 @@
+import type { Config } from '../../config';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type {
 	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
@@ -33,9 +34,9 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 	isReadOnly?: boolean;
 
 	/** Where to reveal commits when clicking on links or double-clicking rows */
-	revealLocation: 'graph' | 'inspect';
+	revealLocation: Config['rebaseEditor']['revealLocation'];
 	/** When to automatically reveal commits */
-	revealBehavior: 'never' | 'onOpen' | 'onSelection';
+	revealBehavior: Config['rebaseEditor']['revealBehavior'];
 
 	/** Active rebase status - undefined if starting a new rebase */
 	rebaseStatus?: RebaseActiveStatus;

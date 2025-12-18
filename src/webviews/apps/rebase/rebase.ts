@@ -209,6 +209,15 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			if (!this.selectedIds.has(id)) {
 				this.selectedIds = new Set([id]);
 				this.anchoredEntryId = id;
+
+				// Notify host of selection change (only for commit entries)
+				const sortedIndex = this._idToSortedIndex.get(id) ?? -1;
+				if (sortedIndex !== -1) {
+					const entry = this._sortedEntries[sortedIndex];
+					if (isCommitEntry(entry)) {
+						this._ipc.sendCommand(UpdateSelectionCommand, { sha: entry.sha });
+					}
+				}
 				return;
 			}
 

@@ -30,8 +30,8 @@ export type GraphWebviewShowingArgs = [
 ];
 
 export type ShowInCommitGraphCommandArgs =
-	| { ref: GitReference; preserveFocus?: boolean; source?: Source }
-	| { repository: Repository; search: SearchQuery; preserveFocus?: boolean }
+	| { ref: GitReference; preserveFocus?: boolean; source?: Source; viewColumn?: ViewColumn }
+	| { repository: Repository; search: SearchQuery; preserveFocus?: boolean; viewColumn?: ViewColumn }
 	| Repository
 	| BranchNode
 	| CommitNode
@@ -103,18 +103,30 @@ export function registerGraphWebviewCommands<T>(
 		}
 
 		const preserveFocus = 'preserveFocus' in args ? (args.preserveFocus ?? false) : false;
+		const column = 'viewColumn' in args ? args.viewColumn : undefined;
 		if (configuration.get('graph.layout') === 'panel') {
 			if (!container.views.graph.visible) {
 				const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
 				if (instance != null) {
-					void instance.show({ preserveFocus: preserveFocus }, args);
+					void instance.show({ preserveFocus: preserveFocus, column: column }, args);
 					return;
 				}
 			}
 
 			void container.views.graph.show({ preserveFocus: preserveFocus }, args);
 		} else {
-			void panels.show({ preserveFocus: preserveFocus }, args);
+			const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
+			if (instance != null) {
+				void instance.show({ preserveFocus: preserveFocus, column: column }, args);
+				return;
+			}
+
+			if (container.views.graph.visible) {
+				void container.views.graph.show({ preserveFocus: preserveFocus }, args);
+				return;
+			}
+
+			void panels.show({ preserveFocus: preserveFocus, column: column }, args);
 		}
 	}
 

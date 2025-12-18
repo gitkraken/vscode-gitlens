@@ -1,5 +1,5 @@
 import type { Disposable, TextDocument } from 'vscode';
-import { workspace } from 'vscode';
+import { ViewColumn, workspace } from 'vscode';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -30,7 +30,7 @@ import type { ComposerWebviewShowingArgs } from '../plus/composer/registration';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost } from '../webviewProvider';
-import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../webviewsController';
+import type { WebviewPanelShowCommandArgs } from '../webviewsController';
 import type {
 	Author,
 	ChangeEntriesParams,
@@ -195,14 +195,6 @@ export class RebaseWebviewProvider implements Disposable {
 				this.onShowConflicts(),
 			),
 		];
-	}
-
-	onShowing(loading: boolean, _options: WebviewShowOptions): [boolean, undefined] {
-		// Reveal branch tip on initial load if behavior is 'onOpen'
-		if (loading) {
-			void this.revealBranchTipOnOpen();
-		}
-		return [true, undefined];
 	}
 
 	onMessageReceived(e: IpcMessage): void {
@@ -525,13 +517,21 @@ export class RebaseWebviewProvider implements Disposable {
 				name: params.ref,
 				remote: false,
 			});
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
+			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+				ref: ref,
+				preserveFocus: true,
+				viewColumn: ViewColumn.Beside,
+			});
 			return;
 		}
 
 		const ref = createReference(params.ref, this.repoPath, { refType: 'revision' });
 		if (revealIn === 'graph') {
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
+			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+				ref: ref,
+				preserveFocus: true,
+				viewColumn: ViewColumn.Beside,
+			});
 		} else {
 			await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: ref });
 		}
@@ -543,8 +543,18 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.fireSelectionChangedDebounced(params);
 	}
 
-	private async fireSelectionChanged(params: UpdateSelectionParams): Promise<void> {
+	private getRevealBehavior() {
 		const revealBehavior = configuration.get('rebaseEditor.revealBehavior');
+		// Handle deprecated 'never' and 'onOpen' behavior
+		if ((revealBehavior as string) === 'onOpen' || (revealBehavior as string) === 'never') {
+			return 'onDoubleClick';
+		}
+
+		return revealBehavior;
+	}
+
+	private async fireSelectionChanged(params: UpdateSelectionParams): Promise<void> {
+		const revealBehavior = this.getRevealBehavior();
 		// Only auto-reveal on selection if behavior is 'onSelection'
 		if (revealBehavior !== 'onSelection') return;
 
@@ -565,7 +575,11 @@ export class RebaseWebviewProvider implements Disposable {
 		const revealLocation = configuration.get('rebaseEditor.revealLocation');
 		if (revealLocation === 'graph') {
 			const ref = createReference(commit.sha, this.repoPath, { refType: 'revision' });
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
+			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+				ref: ref,
+				preserveFocus: true,
+				viewColumn: ViewColumn.Beside,
+			});
 		} else {
 			// Fire event for commit details view to pick up
 			this.container.events.fire(
@@ -637,7 +651,7 @@ export class RebaseWebviewProvider implements Disposable {
 			ascending: this.ascending,
 			isReadOnly: processed.preservesMerges,
 			revealLocation: configuration.get('rebaseEditor.revealLocation'),
-			revealBehavior: configuration.get('rebaseEditor.revealBehavior'),
+			revealBehavior: this.getRevealBehavior(),
 			rebaseStatus: rebaseStatus,
 			repoPath: this.repoPath,
 			subscription: subscription,
@@ -734,34 +748,6 @@ export class RebaseWebviewProvider implements Disposable {
 			},
 			doneEntries: entries,
 		};
-	}
-
-	private async revealBranchTipOnOpen(): Promise<void> {
-		const revealBehavior = configuration.get('rebaseEditor.revealBehavior');
-		if (revealBehavior !== 'onOpen') return;
-
-		const revealLocation = configuration.get('rebaseEditor.revealLocation');
-		const branchName =
-			this._branchName ??
-			(await this.container.git.getRepositoryService(this.repoPath).branches.getBranch())?.name;
-		if (branchName == null) return;
-
-		const ref = createReference(branchName, this.repoPath, { refType: 'branch', name: branchName, remote: false });
-
-		if (revealLocation === 'graph') {
-			await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', { ref: ref });
-		} else {
-			// For inspect view, get the branch tip commit
-			const branch = await this.container.git.getRepositoryService(this.repoPath).branches.getBranch(branchName);
-			if (branch?.sha != null) {
-				const commit = await this.container.git
-					.getRepositoryService(this.repoPath)
-					.commits.getCommit(branch.sha);
-				if (commit != null) {
-					await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: commit });
-				}
-			}
-		}
 	}
 
 	private notifyDidChangeAvatars(): void {

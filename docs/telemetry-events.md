@@ -2985,7 +2985,7 @@ void
   'context.ascending': boolean,
   'context.config.openOnPausedRebase': boolean | 'interactive',
   'context.config.ordering': 'asc' | 'desc',
-  'context.config.revealBehavior': 'never' | 'onOpen' | 'onSelection',
+  'context.config.revealBehavior': 'onDoubleClick' | 'onSelection',
   'context.config.revealLocation': 'graph' | 'inspect',
   'context.webview.host': 'view' | 'editor',
   'context.webview.id': string,

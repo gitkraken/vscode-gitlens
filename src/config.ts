@@ -668,7 +668,7 @@ interface RebaseEditorConfig {
 	readonly openOnPausedRebase: boolean | 'interactive';
 	readonly ordering: 'asc' | 'desc';
 	readonly revealLocation: 'graph' | 'inspect';
-	readonly revealBehavior: 'never' | 'onOpen' | 'onSelection';
+	readonly revealBehavior: 'onDoubleClick' | 'onSelection';
 }
 
 export type RemotesConfig =

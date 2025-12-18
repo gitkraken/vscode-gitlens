@@ -3757,18 +3757,16 @@
 					},
 					"gitlens.rebaseEditor.revealBehavior": {
 						"type": "string",
-						"default": "onOpen",
+						"default": "onDoubleClick",
 						"enum": [
-							"never",
-							"onOpen",
+							"onDoubleClick",
 							"onSelection"
 						],
 						"enumDescriptions": [
-							"Never automatically reveals commits",
-							"Automatically reveals commits only when opening the editor",
-							"Automatically reveals commits when selection changes"
+							"Automatically reveals commits when double-clicking on a row",
+							"Automatically reveals commits when selection changes or when double-clicking on a row"
 						],
-						"markdownDescription": "Specifies when to automatically reveal commits in the preferred location",
+						"markdownDescription": "Specifies when to automatically reveal commits in the `#gitlens.rebaseEditor.revealLocation#` location",
 						"scope": "window",
 						"order": 20
 					}
