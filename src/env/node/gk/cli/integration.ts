@@ -157,16 +157,17 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (result.usingExtensionRegistration) {
 				const learnMore = { title: 'Learn More' };
 				const confirm = { title: 'OK', isCloseAffordance: true };
-				void (async () => {
-					const userResult = await window.showInformationMessage(
+				window
+					.showInformationMessage(
 						'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions.',
 						learnMore,
 						confirm,
-					);
-					if (userResult === learnMore) {
-						void openUrl(urls.helpCenterMCP);
-					}
-				})();
+					)
+					.then(r => {
+						if (r === learnMore) {
+							void openUrl(urls.helpCenterMCP);
+						}
+					});
 			}
 		} catch (ex) {
 			if (ex instanceof McpSetupError) {
