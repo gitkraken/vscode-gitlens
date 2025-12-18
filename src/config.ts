@@ -665,7 +665,7 @@ interface ProxyConfig {
 }
 
 interface RebaseEditorConfig {
-	readonly openOnPausedRebase: boolean;
+	readonly openOnPausedRebase: boolean | 'interactive';
 	readonly ordering: 'asc' | 'desc';
 	readonly revealLocation: 'graph' | 'inspect';
 	readonly revealBehavior: 'never' | 'onOpen' | 'onSelection';

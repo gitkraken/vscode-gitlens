@@ -48,6 +48,8 @@ export interface GitRebaseStatus {
 	hasStarted: boolean;
 	/** True if we're confident the rebase is paused and waiting for user action (REBASE_HEAD exists) */
 	isPaused: boolean;
+	/** True if this is an interactive rebase (git rebase -i), false for non-interactive (e.g. git pull --rebase) */
+	isInteractive: boolean;
 }
 
 export interface GitRevertStatus {

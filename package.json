@@ -3721,7 +3721,20 @@
 						"order": 10
 					},
 					"gitlens.rebaseEditor.openOnPausedRebase": {
-						"type": "boolean",
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"interactive",
+							true
+						],
+						"enumDescriptions": [
+							"Never automatically open the editor",
+							"Only automatically open the editor when an interactive rebase is detected",
+							"Automatically open the editor when any paused rebase is detected"
+						],
 						"default": true,
 						"markdownDescription": "Specifies whether to automatically open the _Interactive Rebase Editor_ when a paused rebase is detected",
 						"scope": "window",

@@ -1,5 +1,6 @@
 import { readdir } from 'fs';
 import type { CancellationToken } from 'vscode';
+import { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
@@ -15,6 +16,7 @@ import type {
 } from '../../../../git/models/pausedOperationStatus';
 import type { GitBranchReference, GitTagReference } from '../../../../git/models/reference';
 import { createReference } from '../../../../git/utils/reference.utils';
+import { exists } from '../../../../system/-webview/vscode/uris';
 import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -223,6 +225,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						stepsNumberResult,
 						stepsTotalResult,
 						stepsMessageResult,
+						isInteractiveResult,
 					] = await Promise.allSettled([
 						this.git.exec(
 							{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
@@ -238,6 +241,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						this.git
 							.readDotGitFile(gitDir, [operation, 'message'], { throw: true })
 							.catch(() => this.git.readDotGitFile(gitDir, [operation, 'message-squashed'])),
+						exists(Uri.joinPath(gitDir.uri, operation, 'interactive')),
 					]);
 
 					if (cancellation?.isCancellationRequested) throw new CancellationError();
@@ -333,6 +337,8 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						hasStarted: stepsNumber > 0,
 						// REBASE_HEAD only exists when git is paused and waiting for user action
 						isPaused: stepsNumber > 0 && rebaseHead != null,
+						// 'interactive' file exists for `git rebase -i`, absent for `git pull --rebase`
+						isInteractive: getSettledValue(isInteractiveResult) ?? false,
 					} satisfies GitRebaseStatus;
 				}
 			}
