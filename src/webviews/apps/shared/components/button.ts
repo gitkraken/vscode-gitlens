@@ -140,10 +140,14 @@ export class GlButton extends LitElement {
 			:host([appearance='alert']) {
 				--button-background: transparent;
 				--button-border: var(--color-alert-infoBorder);
-				--button-foreground: var(--color-button-foreground);
+				--button-foreground: var(--color-alert-infoForeground);
 				--button-hover-background: var(--color-alert-infoBorder);
 				--button-line-height: 1.64;
 				width: max-content;
+			}
+
+			:host([appearance='alert']:hover) {
+				--button-foreground: var(--vscode-button-foreground);
 			}
 
 			/* Variant property for semantic states - appearance controls structure, variant controls color */
@@ -211,11 +215,6 @@ export class GlButton extends LitElement {
 				--button-foreground: var(--vscode-testing-iconPassed, #73c991);
 				--button-background: transparent;
 				--button-border: transparent;
-			}
-
-			:host-context(.vscode-light):host([appearance='alert']:not(:hover)),
-			:host-context(.vscode-high-contrast-light):host([appearance='alert']:not(:hover)) {
-				--button-foreground: var(--color-foreground);
 			}
 
 			:host([appearance='input']) .control {
