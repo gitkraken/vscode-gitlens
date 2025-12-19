@@ -44,15 +44,13 @@ export const entryStyles = css`
 		--fg-muted-intensity: 70%;
 	}
 
-	/* Z-index management for overlays */
+	/* Raise z-index only when overlays are open/hovered/focused to escape row stacking contexts */
 	:host:has(sl-select[open]),
+	:host:has(gl-popover[open]),
 	:host:has(gl-tooltip:hover),
 	:host:has(gl-tooltip:focus-within),
 	:host:has(gl-avatar-list:hover),
 	:host:has(gl-avatar-list:focus-within),
-	:host:has(gl-popover:hover),
-	:host:has(gl-popover:focus-within),
-	:host:has(gl-popover[open]),
 	:host:has(gl-ref-overflow-chip:hover),
 	:host:has(gl-ref-overflow-chip:focus-within) {
 		z-index: 1000;
