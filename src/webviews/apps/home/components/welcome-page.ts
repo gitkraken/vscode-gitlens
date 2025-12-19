@@ -26,10 +26,19 @@ const helpBlameUrl =
 const helpRevisionNavigationUrl =
 	'https://help.gitkraken.com/gitlens/gitlens-features/?utm_source=gitlens-extension&utm_medium=in-app-links#revision-navigation';
 
+type TelemetryData = {
+	viewedCarouselPages: number;
+	proButtonClicked: boolean;
+};
+
 @customElement('gl-welcome-page')
 export class GlWelcomePage extends LitElement {
 	static override styles = [scrollableBase, welcomeStyles];
-	//static override styles = welcomeStyles;
+
+	private telemetryData: TelemetryData = {
+		viewedCarouselPages: 0,
+		proButtonClicked: false,
+	};
 
 	@property({ type: Boolean })
 	closeable = false;
@@ -50,14 +59,25 @@ export class GlWelcomePage extends LitElement {
 	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
 	_telemetry!: TelemetryContext;
 
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		this._telemetry.sendEvent({
+			name: 'welcome/action',
+			data: {
+				name: 'shown',
+			},
+			source: { source: 'welcome' },
+		});
+	}
+
 	private onStartTrial() {
+		this.telemetryData.proButtonClicked = true;
 		const command: GlCommands = 'gitlens.plus.signUp';
 		this._telemetry.sendEvent({
 			name: 'welcome/action',
 			data: {
-				type: 'command',
 				name: 'plus/sign-up',
-				command: command,
+				viewedCarouselPages: this.telemetryData.viewedCarouselPages,
 			},
 			source: { source: 'welcome' },
 		});
@@ -65,7 +85,24 @@ export class GlWelcomePage extends LitElement {
 	}
 
 	private onClose() {
+		this._telemetry.sendEvent({
+			name: 'welcome/action',
+			data: {
+				name: 'dismiss',
+				viewedCarouselPages: this.telemetryData.viewedCarouselPages,
+				proButtonClicked: this.telemetryData.proButtonClicked,
+			},
+			source: { source: 'welcome', detail: 'dismiss-in-body' },
+		});
 		this.dispatchEvent(new CustomEvent('close'));
+	}
+
+	private onFeatureAppeared() {
+		this.telemetryData.viewedCarouselPages++;
+	}
+
+	getTelemetryData(): TelemetryData {
+		return { ...this.telemetryData };
 	}
 
 	override render(): unknown {
@@ -85,7 +122,7 @@ export class GlWelcomePage extends LitElement {
 				</div>
 
 				<div class="section">
-					<gl-feature-carousel>
+					<gl-feature-carousel @gl-feature-appeared=${this.onFeatureAppeared}>
 						<gl-feature-card class="card">
 							<img
 								slot="image"

@@ -1368,9 +1368,13 @@ interface WalkthroughCompletionEvent {
 	'context.key': WalkthroughContextKeys;
 }
 
-type WelcomeActionNames = 'plus/sign-up';
+type WelcomeActionNames = 'plus/sign-up' | 'dismiss' | 'shown';
 
-type WelcomeActionEvent = { type: 'command'; name: WelcomeActionNames; command: string; detail?: string };
+type WelcomeActionEvent = {
+	name: WelcomeActionNames;
+	viewedCarouselPages?: number;
+	proButtonClicked?: boolean;
+};
 
 type WebviewContextEventData = {
 	'context.webview.id': string;
