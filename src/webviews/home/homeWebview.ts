@@ -1927,7 +1927,7 @@ async function getBranchMergeTargetStatusInfo(
 		svc.commits.getLeftRightCommitCount(createRevisionRange(targetBranch.name, branch.ref, '...'), {
 			excludeMerges: true,
 		}),
-		svc.branches.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
+		svc.branches.getPotentialMergeConflicts?.(branch.name, targetBranch.name),
 		svc.branches.getBranchMergedStatus?.(branch, targetBranch),
 	]);
 

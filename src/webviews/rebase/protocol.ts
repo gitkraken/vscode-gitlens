@@ -1,5 +1,5 @@
 import type { Config } from '../../config';
-import type { MergeConflict } from '../../git/models/mergeConflict';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts';
 import type {
 	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
 	ProcessedRebaseCommandEntry,
@@ -178,11 +178,13 @@ export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
 // REQUESTS
 
 export interface GetPotentialConflictsParams {
-	branch: string;
 	onto: string;
+	/** Commit SHAs to check for conflicts (from rebase-todo entries) */
+	commits: string[];
+	stopOnFirstConflict?: boolean;
 }
 export interface DidGetPotentialConflictsParams {
-	conflicts?: MergeConflict;
+	conflicts?: ConflictDetectionResult;
 }
 export const GetPotentialConflictsRequest = new IpcRequest<GetPotentialConflictsParams, DidGetPotentialConflictsParams>(
 	scope,

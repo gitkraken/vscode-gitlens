@@ -827,7 +827,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 		if (log == null) return [];
 
-		return map(log.commits.values(), c => c.ref);
+		const shas = map(log.commits.values(), c => c.ref);
+		return options?.reverse ? [...shas].reverse() : shas;
 	}
 
 	@log()

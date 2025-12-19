@@ -1,7 +1,7 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { MergeConflict } from '../../../../git/models/mergeConflict';
+import type { ConflictDetectionResult } from '../../../../git/models/mergeConflicts';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils';
 import { pluralize } from '../../../../system/string';
 import type { State } from '../../../rebase/protocol';
@@ -101,6 +101,23 @@ export class GlRebaseConflictIndicator extends LitElement {
 				opacity: 0.6;
 			}
 
+			/* Error state - muted warning */
+			.indicator--error {
+				background-color: color-mix(
+					in srgb,
+					var(--vscode-editorWarning-foreground) 12%,
+					transparent
+				) !important;
+				border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground) 30%, transparent) !important;
+				color: var(--vscode-foreground);
+				opacity: 0.8;
+			}
+
+			.indicator--error .indicator__icon {
+				color: var(--vscode-editorWarning-foreground);
+				opacity: 0.7;
+			}
+
 			/* Popover content styles */
 			.popover {
 				padding: 1.2rem;
@@ -166,7 +183,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 	stale = false;
 
 	@state()
-	private _conflicts?: MergeConflict;
+	private _conflicts?: ConflictDetectionResult;
 
 	@state()
 	private _loading = false;
@@ -181,7 +198,12 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 	/** Public getter for conflicts */
 	get hasConflicts(): boolean {
-		return this._conflicts != null && this._conflicts.files.length > 0;
+		return this._conflicts?.status === 'conflicts' && this._conflicts.conflict.files.length > 0;
+	}
+
+	/** Public getter for all SHAs of commits that will cause conflicts */
+	get conflictingShas(): string[] | undefined {
+		return this._conflicts?.status === 'conflicts' ? this._conflicts.conflict.shas : undefined;
 	}
 
 	override connectedCallback(): void {
@@ -206,27 +228,51 @@ export class GlRebaseConflictIndicator extends LitElement {
 	}
 
 	private async fetchConflicts(): Promise<void> {
-		if (!this.branch || !this.onto || this._loading || this._loaded) {
+		if (!this.onto || this._loading || this._loaded) {
+			return;
+		}
+
+		// Get commit SHAs from the rebase entries
+		const commits = this._state?.entries?.map(e => e.sha).filter((sha): sha is string => sha != null);
+		if (!commits?.length) {
 			return;
 		}
 
 		this._loading = true;
+		this.dispatchStateChange();
 		this.requestUpdate();
 
 		try {
-			const response = await this._ipc.sendRequest(GetPotentialConflictsRequest, {
-				branch: this.branch,
+			const rsp = await this._ipc.sendRequest(GetPotentialConflictsRequest, {
 				onto: this.onto,
+				commits: commits,
+				stopOnFirstConflict: false,
 			});
-			this._conflicts = response.conflicts;
+			this._conflicts = rsp.conflicts;
 			this._loaded = true;
 		} catch (error) {
 			console.error('Failed to fetch potential conflicts:', error);
 			this._loaded = true;
 		} finally {
 			this._loading = false;
+			this.dispatchStateChange();
 			this.requestUpdate();
 		}
+	}
+
+	/** Dispatch event to notify parent of state changes */
+	private dispatchStateChange(): void {
+		this.dispatchEvent(
+			new CustomEvent('conflict-state-change', {
+				bubbles: true,
+				composed: true,
+				detail: {
+					isLoading: this._loading,
+					hasConflicts: this.hasConflicts,
+					conflictingShas: this.conflictingShas,
+				},
+			}),
+		);
 	}
 
 	override render() {
@@ -241,8 +287,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 			return this.renderUpgrade();
 		}
 
+		// Show error state if conflict detection failed
+		if (this._conflicts?.status === 'error') {
+			return this.renderError();
+		}
+
 		// Show results for Pro users
-		if (!this._conflicts) {
+		if (this._conflicts?.status !== 'conflicts') {
 			return this.renderClean();
 		}
 
@@ -255,6 +306,42 @@ export class GlRebaseConflictIndicator extends LitElement {
 				<code-icon class="indicator__icon" icon="loading~spin" size="16"></code-icon>
 				${this.compact ? nothing : html`<span class="indicator__content">Checking for conflicts...</span>`}
 			</div>
+		`;
+	}
+
+	private renderError() {
+		const errorMessage =
+			this._conflicts?.status === 'error' ? this._conflicts.message : 'Unable to detect conflicts';
+
+		if (this.compact) {
+			return html`
+				<gl-popover placement="top" trigger="hover click focus" hoist>
+					<div slot="anchor" class="indicator indicator--error" tabindex="0">
+						<code-icon class="indicator__icon" icon="error" size="16"></code-icon>
+					</div>
+					<div slot="content">
+						<div class="popover">
+							<p class="popover__title">Conflict Detection Unavailable</p>
+							<p class="popover__message">${errorMessage}</p>
+						</div>
+					</div>
+				</gl-popover>
+			`;
+		}
+
+		return html`
+			<gl-popover placement="bottom" trigger="hover click focus" hoist>
+				<div slot="anchor" class="indicator indicator--error" tabindex="0">
+					<code-icon class="indicator__icon" icon="error" size="16"></code-icon>
+					<span class="indicator__content">Conflict Detection Unavailable</span>
+				</div>
+				<div slot="content">
+					<div class="popover">
+						<p class="popover__title">Conflict Detection Unavailable</p>
+						<p class="popover__message">${errorMessage}</p>
+					</div>
+				</div>
+			</gl-popover>
 		`;
 	}
 
@@ -306,10 +393,11 @@ export class GlRebaseConflictIndicator extends LitElement {
 	}
 
 	private renderConflicts() {
-		if (!this._conflicts) return nothing;
+		if (this._conflicts?.status !== 'conflicts') return nothing;
 
 		const staleClass = this.stale ? 'indicator--stale' : '';
-		const conflictCount = this._conflicts.files.length;
+		const files = this._conflicts.conflict.files;
+		const conflictCount = files.length;
 
 		if (this.compact) {
 			return html`
@@ -321,10 +409,10 @@ export class GlRebaseConflictIndicator extends LitElement {
 						<div class="popover">
 							<p class="popover__title">Potential Conflicts Detected</p>
 							<p class="popover__message">
-								This rebase will cause conflicts in ${pluralize('file', this._conflicts.files.length)}:
+								This rebase will cause conflicts in ${pluralize('file', conflictCount)}:
 							</p>
 							<ul class="popover__files scrollable">
-								${this._conflicts.files.map(file => html`<li class="popover__file">${file.path}</li>`)}
+								${files.map(file => html`<li class="popover__file">${file.path}</li>`)}
 							</ul>
 							${this.stale
 								? html`<p class="popover__message popover__message--warning">
@@ -350,10 +438,10 @@ export class GlRebaseConflictIndicator extends LitElement {
 					<div class="popover">
 						<p class="popover__title">Potential Conflicts Detected</p>
 						<p class="popover__message">
-							This rebase will cause conflicts in ${pluralize('file', this._conflicts.files.length)}:
+							This rebase will cause conflicts in ${pluralize('file', conflictCount)}:
 						</p>
 						<ul class="popover__files scrollable">
-							${this._conflicts.files.map(file => html`<li class="popover__file">${file.path}</li>`)}
+							${files.map(file => html`<li class="popover__file">${file.path}</li>`)}
 						</ul>
 						${this.stale
 							? html`<p class="popover__message popover__message--warning">

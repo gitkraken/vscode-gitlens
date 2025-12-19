@@ -5,7 +5,7 @@ import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch';
 import type { GitDiffFileStats } from '../../git/models/diff';
 import type { Issue } from '../../git/models/issue';
-import type { MergeConflict } from '../../git/models/mergeConflict';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { RepositoryShape } from '../../git/models/repositoryShape';
@@ -121,7 +121,7 @@ export interface GetOverviewBranch {
 				name: string;
 				status?: GitTrackingState;
 				mergedStatus?: GitBranchMergedStatus;
-				potentialConflicts?: MergeConflict;
+				potentialConflicts?: ConflictDetectionResult;
 
 				targetBranch: string | undefined;
 				baseBranch: string | undefined;

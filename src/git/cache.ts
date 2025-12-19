@@ -9,6 +9,7 @@ import type { GitIgnoreCache } from './gitIgnoreCache';
 import type { CachedGitTypes, GitCommitReachability, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
+import type { ConflictDetectionResult } from './models/mergeConflicts';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
 import type { GitRemote } from './models/remote';
 import type { GitStash } from './models/stash';
@@ -18,6 +19,8 @@ import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
 
 type RepoPath = string;
+
+export type ConflictDetectionCacheKey = `apply:${string}:${string}:${string}` | `merge:${string}:${string}`;
 
 interface RepositoryInfo {
 	gitDir?: GitDir;
@@ -60,6 +63,18 @@ export class GitCache implements Disposable {
 	private _branchesCache: PromiseMap<RepoPath, PagedResult<GitBranch>> | undefined;
 	get branches(): PromiseMap<RepoPath, PagedResult<GitBranch>> {
 		return (this._branchesCache ??= new PromiseMap<RepoPath, PagedResult<GitBranch>>());
+	}
+
+	private _conflictDetectionCache:
+		| RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult>
+		| undefined;
+	get conflictDetection(): RepoPromiseCacheMap<ConflictDetectionCacheKey, ConflictDetectionResult> {
+		return (this._conflictDetectionCache ??= new RepoPromiseCacheMap<
+			ConflictDetectionCacheKey,
+			ConflictDetectionResult
+		>({
+			createTTL: 1000 * 30, // 30 seconds
+		}));
 	}
 
 	private _contributorsCache: RepoPromiseCacheMap<string, GitContributorsResult> | undefined;
@@ -151,6 +166,7 @@ export class GitCache implements Disposable {
 		if (!types.length || types.includes('branches')) {
 			cachesToClear.add(this._branchCache);
 			cachesToClear.add(this._branchesCache);
+			cachesToClear.add(this._conflictDetectionCache);
 			cachesToClear.add(this._defaultBranchNameCache);
 			cachesToClear.add(this._reachabilityCache);
 		}
@@ -211,6 +227,8 @@ export class GitCache implements Disposable {
 		this._branchCache = undefined;
 		this._branchesCache?.clear();
 		this._branchesCache = undefined;
+		this._conflictDetectionCache?.clear();
+		this._conflictDetectionCache = undefined;
 		this._contributorsCache?.clear();
 		this._contributorsCache = undefined;
 		this._contributorsLiteCache?.clear();

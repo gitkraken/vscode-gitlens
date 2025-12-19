@@ -1,30 +1,37 @@
-import { window } from 'vscode';
+import { ThemeIcon, window } from 'vscode';
 import type { Container } from '../../container';
 import { skipPausedOperation } from '../../git/actions/pausedOperation';
 import { CherryPickError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
 import { showGitErrorMessage } from '../../messages';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
+import { createQuickPickSeparator } from '../../quickpicks/items/common';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { executeCommand } from '../../system/-webview/command';
+import { ensureArray } from '../../system/array';
 import { Logger } from '../../system/logger';
+import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
+	AsyncStepResultGenerator,
 	PartialStepState,
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { canPickStepContinue, createConfirmStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
 import { appendReposToTitle, pickBranchOrTagStep, pickCommitsStep, pickRepositoryStep } from '../quickCommand.steps';
 
 interface Context {
@@ -145,9 +152,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				const skip = { title: 'Skip' };
 				const cancel = { title: 'Cancel', isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Unable to complete the cherry-pick operation because ${
-						pausedAt ?? 'it'
-					} resulted in an empty commit.\n\nDo you want to skip ${pausedAt ?? 'this commit'}?`,
+					`Unable to complete the cherry-pick operation because ${pausedAt ?? 'it'} resulted in an empty commit.\n\nDo you want to skip ${pausedAt ?? 'this commit'}?`,
 					{ modal: true },
 					skip,
 					cancel,
@@ -310,35 +315,113 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *confirmStep(state: CherryPickStepState, context: Context): StepResultGenerator<Flags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[
-				createFlagsQuickPickItem<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
-						context.destination,
-						{ label: false },
-					)}`,
+	private async *confirmStep(state: CherryPickStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
+		const items: FlagsQuickPickItem<Flags>[] = [
+			createFlagsQuickPickItem<Flags>(state.flags, [], {
+				label: this.title,
+				detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
+					context.destination,
+					{ label: false },
+				)}`,
+			}),
+			createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
+				label: `${this.title} & Edit`,
+				description: '--edit',
+				detail: `Will edit and apply ${getReferenceLabel(state.references, {
+					label: false,
+				})} to ${getReferenceLabel(context.destination, {
+					label: false,
+				})}`,
+			}),
+			createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
+				label: `${this.title} without Committing`,
+				description: '--no-commit',
+				detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
+					context.destination,
+					{ label: false },
+				)} without Committing`,
+			}),
+		];
+
+		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
+		const subscription = await this.container.subscription.getSubscription();
+		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+			// Reverse the commits since they're typically in newest-to-oldest order (from git log),
+			// but conflict detection needs oldest-to-newest order to properly simulate cherry-pick
+			potentialConflict = state.repo.git.branches.getPotentialApplyConflicts?.(
+				context.destination.name,
+				ensureArray(state.references)
+					.map(r => r.ref)
+					.reverse(),
+				{ stopOnFirstConflict: true },
+			);
+		}
+
+		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
+
+		const notices: DirectiveQuickPickItem[] = [];
+		if (potentialConflict) {
+			void potentialConflict?.then(result => {
+				if (result == null || result.status === 'clean') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'No Conflicts Detected',
+							iconPath: new ThemeIcon('check'),
+						}),
+					);
+				} else if (result.status === 'error') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Unable to Detect Conflicts',
+							detail: result.message,
+							iconPath: new ThemeIcon('error'),
+						}),
+					);
+				} else {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Conflicts Detected',
+							detail: `Will result in ${result.stoppedOnFirstConflict ? 'at least ' : ''}${pluralize(
+								'conflicting file',
+								result.conflict.files.length,
+							)} that will need to be resolved`,
+							iconPath: new ThemeIcon('warning'),
+						}),
+					);
+				}
+
+				if (step.quickpick != null) {
+					const active = step.quickpick.activeItems;
+					step.quickpick.items = [
+						...notices,
+						...items,
+						createQuickPickSeparator(),
+						createDirectiveQuickPickItem(Directive.Cancel),
+					];
+					step.quickpick.activeItems = active;
+				}
+			});
+
+			notices.push(
+				createDirectiveQuickPickItem(Directive.Noop, false, {
+					label: `$(loading~spin) \u00a0Detecting Conflicts...`,
+					// Don't use this, because the spin here causes the icon to spin incorrectly
+					//iconPath: new ThemeIcon('loading~spin'),
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
-					label: `${this.title} & Edit`,
-					description: '--edit',
-					detail: `Will edit and apply ${getReferenceLabel(state.references, {
-						label: false,
-					})} to ${getReferenceLabel(context.destination, { label: false })}`,
-				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
-					label: `${this.title} without Committing`,
-					description: '--no-commit',
-					detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
-						context.destination,
-						{ label: false },
-					)} without Committing`,
-				}),
-			],
-			context,
-		);
+				createQuickPickSeparator(),
+			);
+		}
+
+		step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
+			...notices,
+			...items,
+		]);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

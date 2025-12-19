@@ -26,7 +26,7 @@ import type { GitFileChange } from './models/fileChange';
 import type { GitFileStatus } from './models/fileStatus';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
-import type { MergeConflict } from './models/mergeConflict';
+import type { ConflictDetectionResult } from './models/mergeConflicts';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
@@ -240,12 +240,21 @@ export interface GitBranchesSubProvider {
 		remoteBranchName: string,
 		cancellation?: CancellationToken,
 	): Promise<GitBranch | undefined>;
-	getPotentialMergeOrRebaseConflict?(
+	/** Detects potential conflicts when applying commits onto a target branch (git rebase and cherry-pick) */
+	getPotentialApplyConflicts?(
+		repoPath: string,
+		targetBranch: string,
+		shas: string[],
+		options?: { stopOnFirstConflict?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<ConflictDetectionResult>;
+	/** Detects potential conflict when merge a branch into a target branch (git merge) */
+	getPotentialMergeConflicts?(
 		repoPath: string,
 		branch: string,
 		targetBranch: string,
 		cancellation?: CancellationToken,
-	): Promise<MergeConflict | undefined>;
+	): Promise<ConflictDetectionResult>;
 	getBaseBranchName?(repoPath: string, ref: string, cancellation?: CancellationToken): Promise<string | undefined>;
 	/** Gets the stored merge target branch name, first checking the user target, then the detected target */
 	getStoredMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
@@ -289,6 +298,7 @@ export interface GitLogShasOptions extends GitLogOptionsBase {
 	authors?: GitUser[];
 	merges?: boolean | 'first-parent';
 	pathOrUri?: string | Uri;
+	reverse?: boolean;
 	since?: number | string;
 }
 
@@ -365,6 +375,14 @@ export interface GitCommitsSubProvider {
 		options?: GitSearchCommitsOptions,
 		cancellation?: CancellationToken,
 	): Promise<SearchCommitsResult>;
+
+	createUnreachableCommitFromTree?(
+		repoPath: string,
+		tree: string,
+		parent: string,
+		message: string,
+		cancellation?: CancellationToken,
+	): Promise<string>;
 	getCommitReachability?(
 		repoPath: string,
 		rev: string,

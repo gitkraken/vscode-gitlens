@@ -9,6 +9,7 @@ export type GitFeatures =
 	| 'git:for-each-ref:worktreePath'
 	| 'git:ignoreRevsFile'
 	| 'git:merge-tree'
+	| 'git:merge-tree:write-tree'
 	| 'git:push:force-if-includes'
 	| 'git:rev-parse:end-of-options'
 	| 'git:stash:push:pathspecs'
@@ -34,6 +35,7 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:for-each-ref:worktreePath', '2.23'],
 	['git:ignoreRevsFile', '2.23'],
 	['git:merge-tree', '2.33'],
+	['git:merge-tree:write-tree', '2.38'],
 	['git:push:force-if-includes', '2.30.0'],
 	['git:rev-parse:end-of-options', '2.30'],
 	['git:stash:push:pathspecs', '2.13.2'],

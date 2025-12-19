@@ -8,7 +8,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction } from '../../../git/models/rebase';
-import { filterMap } from '../../../system/iterable';
+import { filterMap, some } from '../../../system/iterable';
 import { pluralize } from '../../../system/string';
 import { createWebviewCommandLink } from '../../../system/webview';
 import type { RebaseActiveStatus, RebaseCommitEntry, RebaseEntry, State } from '../../rebase/protocol';
@@ -35,6 +35,7 @@ import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { LoggerContext } from '../shared/contexts/logger';
 import type { HostIpc } from '../shared/ipc';
+import type { GlRebaseConflictIndicator } from './components/conflict-indicator';
 import type { GlRebaseEntryElement } from './components/rebase-entry';
 import { rebaseStyles } from './rebase.css';
 import { RebaseStateProvider } from './stateProvider';
@@ -78,11 +79,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private readonly virtualizerRenderFn = (entry: RebaseEntry, index: number) => this.renderEntry(entry, index);
 
 	@query('#header-conflict-indicator')
-	private readonly _conflictIndicator?: any;
+	private readonly _conflictIndicator?: GlRebaseConflictIndicator;
 
 	/** Track conflict indicator state for reactive updates */
-	@state() private _conflictIndicatorLoading = false;
+	@state() private _conflictIndicatorLoading = true; // Start as true until we receive state from indicator
 	@state() private _conflictIndicatorHasConflicts = false;
+	@state() private _conflictingShas: string[] | undefined;
 
 	/** Drag state - uses direct DOM manipulation to avoid re-renders during drag */
 	private draggedId: string | undefined;
@@ -1154,12 +1156,6 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	protected override updated(_changedProperties: PropertyValues): void {
-		// Sync conflict indicator state for reactive updates to the footer
-		if (this._conflictIndicator) {
-			this._conflictIndicatorLoading = this._conflictIndicator.isLoading ?? false;
-			this._conflictIndicatorHasConflicts = this._conflictIndicator.hasConflicts ?? false;
-		}
-
 		if (!this.pendingFocusId) return;
 
 		const idToFocus = this.pendingFocusId;
@@ -1242,6 +1238,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			.branch=${this.state.branch}
 			.onto=${this.state.onto.sha}
 			.stale=${this.conflictDetectionStale}
+			@conflict-state-change=${this.onConflictStateChange}
 		></gl-rebase-conflict-indicator>`;
 	}
 
@@ -1379,6 +1376,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			?isOldest=${entry.sha === this._oldestCommitId}
 			?isSelected=${this.selectedIds.has(entryId)}
 			?isSquashTarget=${this._squashTargetIds.has(entryId)}
+			?hasConflict=${Boolean(
+				entry.sha != null &&
+				this._conflictingShas?.length &&
+				some(this._conflictingShas, s => s?.startsWith(entry.sha)),
+			)}
 			@action-changed=${this.onActionChanged}
 			@entry-select=${this.onEntrySelect}
 			@gl-reveal-commit=${this.onRevealCommit}
@@ -1477,6 +1479,14 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: e.detail.sha });
 	};
 
+	private onConflictStateChange = (
+		e: CustomEvent<{ isLoading: boolean; hasConflicts: boolean; conflictingShas: string[] | undefined }>,
+	) => {
+		this._conflictIndicatorLoading = e.detail.isLoading;
+		this._conflictIndicatorHasConflicts = e.detail.hasConflicts;
+		this._conflictingShas = e.detail.conflictingShas;
+	};
+
 	private renderFooter() {
 		const isActive = this.isActiveRebase;
 		const hasConflicts = this.rebaseStatus?.hasConflicts ?? false;
@@ -1505,7 +1515,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		let icon: 'check' | 'warning' | 'loading' | undefined;
 		let tooltip: string | undefined;
 
-		if (this._conflictIndicator) {
+		// Check if conflict indicator should be shown (same conditions as renderConflictIndicator)
+		const showConflictState = !this.isActiveRebase && this.state?.branch && this.state?.onto;
+		if (showConflictState) {
 			const isLoading = this._conflictIndicatorLoading;
 			const hasConflicts = this._conflictIndicatorHasConflicts;
 			const isStale = this.conflictDetectionStale;

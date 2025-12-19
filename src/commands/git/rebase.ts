@@ -3,6 +3,7 @@ import type { Container } from '../../container';
 import { RebaseError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
@@ -276,14 +277,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const counts = await state.repo.git.commits.getLeftRightCommitCount(
 			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
-			{
-				excludeMerges: true,
-			},
+			{ excludeMerges: true },
 		);
 
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
-		const ahead = counts != null ? counts.right : 0;
-		const behind = counts != null ? counts.left : 0;
+		const ahead = counts?.right ?? 0;
+		const behind = counts?.left ?? 0;
 		if (behind === 0 && ahead === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(title, state, context),
@@ -347,37 +346,56 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		let potentialConflict;
+		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
 		const subscription = await this.container.subscription.getSubscription();
 		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
-			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
-				context.branch.name,
-				state.destination.ref,
-			);
+			potentialConflict = state.repo.git.commits
+				.getLogShas(`${state.destination.ref}..${context.branch.name}`, { merges: false, reverse: true })
+				.then(shas =>
+					state.repo.git.branches.getPotentialApplyConflicts?.(state.destination.ref, [...shas], {
+						stopOnFirstConflict: true,
+					}),
+				);
 		}
 
 		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
 
 		const notices: DirectiveQuickPickItem[] = [];
 		if (potentialConflict) {
-			void potentialConflict?.then(conflict => {
-				notices.splice(
-					0,
-					1,
-					conflict == null
-						? createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'No Conflicts Detected',
-								iconPath: new ThemeIcon('check'),
-							})
-						: createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'Conflicts Detected',
-								detail: `Will result in ${pluralize(
-									'conflicting file',
-									conflict.files.length,
-								)} that will need to be resolved`,
-								iconPath: new ThemeIcon('warning'),
-							}),
-				);
+			void potentialConflict?.then(result => {
+				if (result == null || result.status === 'clean') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'No Conflicts Detected',
+							iconPath: new ThemeIcon('check'),
+						}),
+					);
+				} else if (result.status === 'error') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Unable to Detect Conflicts',
+							detail: result.message,
+							iconPath: new ThemeIcon('error'),
+						}),
+					);
+				} else {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Conflicts Detected',
+							detail: `Will result in ${result.stoppedOnFirstConflict ? 'at least ' : ''}${pluralize(
+								'conflicting file',
+								result.conflict.files.length,
+							)} that will need to be resolved`,
+							iconPath: new ThemeIcon('warning'),
+						}),
+					);
+				}
 
 				if (step.quickpick != null) {
 					const active = step.quickpick.activeItems;

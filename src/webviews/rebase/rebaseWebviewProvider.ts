@@ -487,7 +487,7 @@ export class RebaseWebviewProvider implements Disposable {
 		requestType: typeof GetPotentialConflictsRequest,
 		msg: IpcMessage<GetPotentialConflictsParams>,
 	): Promise<void> {
-		const { branch, onto } = msg.params;
+		const { onto, commits, stopOnFirstConflict } = msg.params;
 
 		// Check subscription status
 		const subscription = await this.container.subscription.getSubscription();
@@ -496,15 +496,19 @@ export class RebaseWebviewProvider implements Disposable {
 			return;
 		}
 
+		// If there are no commits, return clean (nothing to check)
+		if (!commits?.length) {
+			await this.host.respond(requestType, msg, { conflicts: { status: 'clean' } });
+			return;
+		}
+
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 
-		// For rebase: swap parameters because git merge-tree simulates merging branch into onto
-		// (rebasing branch onto target means applying branch's commits on top of target)
-		// Note: When rebasing a branch onto itself (e.g., git rebase -i HEAD~5), git merge-tree
-		// will correctly detect this as a fast-forward with no conflicts.
-		const conflicts = await svc.branches.getPotentialMergeOrRebaseConflict?.(onto, branch);
+		const result = await svc.branches.getPotentialApplyConflicts?.(onto, commits, {
+			stopOnFirstConflict: stopOnFirstConflict,
+		});
 
-		await this.host.respond(requestType, msg, { conflicts: conflicts });
+		await this.host.respond(requestType, msg, { conflicts: result });
 	}
 
 	private async onRevealRef(params: RevealRefParams): Promise<void> {

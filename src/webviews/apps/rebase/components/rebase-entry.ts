@@ -13,6 +13,7 @@ import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/avatar/avatar-list';
 import '../../shared/components/chips/ref-overflow-chip';
+import '../../shared/components/overlays/popover';
 import '../../shared/components/overlays/tooltip';
 
 const allCommitActions = [...commitRebaseActions.values()];
@@ -72,6 +73,7 @@ export class GlRebaseEntryElement extends LitElement {
 	@property({ type: Boolean }) isLast = false;
 	@property({ type: Boolean }) isSelected = false;
 	@property({ type: Boolean }) isSquashing = false;
+	@property({ type: Boolean }) hasConflict = false;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -105,6 +107,9 @@ export class GlRebaseEntryElement extends LitElement {
 		// Don't trigger on interactive elements (they handle their own clicks)
 		const target = e.target as HTMLElement;
 		if (target.closest('sl-select, a, button')) return;
+
+		// Ensure the entry row gets focus
+		(e.currentTarget as HTMLElement)?.focus();
 
 		this.dispatchEvent(
 			new CustomEvent('entry-select', {
@@ -199,6 +204,7 @@ export class GlRebaseEntryElement extends LitElement {
 					'entry--selected': !isBase && !isDone && this.isSelected,
 					'entry--done': isDone,
 					'entry--current': isCurrent,
+					'entry--conflict': this.hasConflict,
 				})}
 				data-type="${type}"
 				data-action=${action}
@@ -226,11 +232,18 @@ export class GlRebaseEntryElement extends LitElement {
 							</sl-select>
 						</div>`
 					: nothing}
-
-				<gl-tooltip class="entry-message" hoist hide-on-click placement="bottom-start" .content=${message}>
-					<span class="entry-message-content">${message}</span>
-				</gl-tooltip>
-
+				<gl-popover class="entry-message" hoist placement="bottom-start" trigger="hover">
+					<span slot="anchor" class="entry-message-content">${message}</span>
+					<span slot="content"
+						>${this.hasConflict
+							? html`<span class="popover-conflict-header">
+									<code-icon icon="warning"></code-icon>
+									This commit will cause conflicts
+									<hr />
+								</span>`
+							: nothing}${message ?? ''}</span
+					>
+				</gl-popover>
 				${!isBase && updateRefs?.length ? this.renderUpdateRefBadges(updateRefs) : nothing}
 				${this.renderAvatar(author, committer)}
 				${commit?.formattedDate
@@ -249,6 +262,10 @@ export class GlRebaseEntryElement extends LitElement {
 						<code-icon icon="git-commit"></code-icon>
 						<span class="entry-sha-content">${sha.substring(0, 7)}</span>
 					</a>
+				</gl-tooltip>
+
+				<gl-tooltip class="entry-conflict-indicator" hoist content="This commit will cause conflicts">
+					<code-icon icon="warning"></code-icon>
 				</gl-tooltip>
 			</div>
 		`;

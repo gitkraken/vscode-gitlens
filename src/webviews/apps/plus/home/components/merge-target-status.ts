@@ -91,6 +91,10 @@ const mergeTargetStyles = css`
 		color: var(--color-merge--clean);
 	}
 
+	.status--merge-unknown {
+		color: var(--color-foreground--50);
+	}
+
 	.status--upgrade {
 		color: var(--color-foreground--50);
 	}
@@ -237,8 +241,18 @@ export class GlMergeTargetStatus extends LitElement {
 		);
 	}
 
-	private get conflicts() {
+	private get conflictResult() {
 		return this.target?.potentialConflicts;
+	}
+
+	private get conflicts() {
+		const result = this.conflictResult;
+		return result?.status === 'conflicts' ? result.conflict : undefined;
+	}
+
+	private get conflictError() {
+		const result = this.conflictResult;
+		return result?.status === 'error' ? result : undefined;
 	}
 
 	private get mergedStatus() {
@@ -451,9 +465,13 @@ export class GlMergeTargetStatus extends LitElement {
 								><span>Merge ${target} into ${renderBranchName(this.branch.name)}</span></gl-button
 							>
 						</div>
-						<p class="status--merge-clean">
-							<code-icon icon="check"></code-icon> Merging will not cause conflicts.
-						</p>
+						${this.conflictError
+							? html`<p class="status--merge-unknown">
+									<code-icon icon="error"></code-icon> Unable to detect conflicts.
+								</p>`
+							: html`<p class="status--merge-clean">
+									<code-icon icon="check"></code-icon> Merging will not cause conflicts.
+								</p>`}
 					</div>`;
 			}
 

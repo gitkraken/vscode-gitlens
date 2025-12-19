@@ -3,6 +3,7 @@ import type { Container } from '../../container';
 import { MergeError } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts';
 import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
@@ -339,12 +340,12 @@ export class MergeGitCommand extends QuickCommand<State> {
 			}),
 		];
 
-		let potentialConflict;
+		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
 		const subscription = await this.container.subscription.getSubscription();
 		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
-			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
+			potentialConflict = state.repo.git.branches.getPotentialMergeConflicts?.(
+				state.reference.name,
 				context.destination.name,
-				state.reference.ref,
 			);
 		}
 
@@ -352,28 +353,49 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 		const notices: DirectiveQuickPickItem[] = [];
 		if (potentialConflict) {
-			void potentialConflict?.then(conflict => {
-				notices.splice(
-					0,
-					1,
-					conflict == null
-						? createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'No Conflicts Detected',
-								iconPath: new ThemeIcon('check'),
-							})
-						: createDirectiveQuickPickItem(Directive.Noop, false, {
-								label: 'Conflicts Detected',
-								detail: `Will result in ${pluralize(
-									'conflicting file',
-									conflict.files.length,
-								)} that will need to be resolved`,
-								iconPath: new ThemeIcon('warning'),
-							}),
-				);
+			void potentialConflict?.then(result => {
+				if (result == null || result.status === 'clean') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'No Conflicts Detected',
+							iconPath: new ThemeIcon('check'),
+						}),
+					);
+				} else if (result.status === 'error') {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Unable to Detect Conflicts',
+							detail: result.message,
+							iconPath: new ThemeIcon('error'),
+						}),
+					);
+				} else {
+					notices.splice(
+						0,
+						1,
+						createDirectiveQuickPickItem(Directive.Noop, false, {
+							label: 'Conflicts Detected',
+							detail: `Will result in ${pluralize(
+								'conflicting file',
+								result.conflict.files.length,
+							)} that will need to be resolved`,
+							iconPath: new ThemeIcon('warning'),
+						}),
+					);
+				}
 
 				if (step.quickpick != null) {
 					const active = step.quickpick.activeItems;
-					step.quickpick.items = [...notices, ...items];
+					step.quickpick.items = [
+						...notices,
+						...items,
+						createQuickPickSeparator(),
+						createDirectiveQuickPickItem(Directive.Cancel),
+					];
 					step.quickpick.activeItems = active;
 				}
 			});

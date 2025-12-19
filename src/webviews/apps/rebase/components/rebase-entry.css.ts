@@ -166,6 +166,54 @@ export const entryStyles = css`
 				opacity: 1;
 			}
 		}
+
+		/* Conflict entry - commit that will cause conflicts */
+		&.entry--conflict {
+			--fg-intensity: 100%;
+			--conflict-color: var(
+				--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+				#c74e39
+			);
+
+			background-color: color-mix(in srgb, var(--conflict-color) 25%, transparent);
+			outline: 1px solid color-mix(in srgb, var(--conflict-color) 50%, transparent);
+			outline-offset: -1px;
+
+			.action-select {
+				opacity: 1;
+			}
+
+			.entry-conflict-indicator {
+				display: flex;
+			}
+		}
+	}
+
+	/* Conflict indicator - hidden by default, shown on conflict entries */
+	.entry-conflict-indicator {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 auto;
+		padding-inline: 0.4rem;
+		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #c74e39);
+	}
+
+	/* Conflict popover content */
+	.popover-conflict-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #c74e39);
+		font-weight: 600;
+
+		hr {
+			width: 100%;
+			border: none;
+			border-top: 1px solid var(--color-foreground--25);
+			margin: 0.5rem 0;
+		}
 	}
 
 	/* Graph node */
@@ -272,13 +320,26 @@ export const entryStyles = css`
 	}
 
 	/* Message */
-	.entry-message {
+	gl-popover.entry-message {
+		--hide-delay: 100ms;
+		--sl-z-index-tooltip: 10000;
+
+		display: flex;
 		flex: 1 1 0;
 		align-self: stretch;
 		min-width: 0;
 		overflow: hidden;
 		color: var(--fg);
 		text-decoration: var(--action-text-decoration);
+
+		&::part(body) {
+			max-height: 50vh;
+			overflow-y: auto;
+		}
+
+		[slot='content'] {
+			white-space: pre-line;
+		}
 	}
 
 	.entry-message-content {

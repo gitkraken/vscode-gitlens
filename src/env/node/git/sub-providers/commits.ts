@@ -76,6 +76,26 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	) {}
 
 	@log()
+	async createUnreachableCommitFromTree(
+		repoPath: string,
+		tree: string,
+		parent: string,
+		message: string,
+		cancellation?: CancellationToken,
+	): Promise<string> {
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+			'commit-tree',
+			tree,
+			'-p',
+			parent,
+			'-m',
+			message,
+		);
+		return result.stdout.trim();
+	}
+
+	@log()
 	async getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined> {
 		if (isUncommitted(rev, true)) {
 			return createUncommittedChangesCommit(
@@ -983,6 +1003,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
 			} else {
 				args.push('--no-merges');
+			}
+
+			if (options?.reverse) {
+				args.push('--reverse');
 			}
 
 			if (options?.authors?.length) {
