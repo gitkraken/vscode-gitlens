@@ -1,13 +1,16 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
 import type { State } from '../../../home/protocol.js';
 import { CollapseSectionCommand } from '../../../home/protocol.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
+import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import '../../shared/components/button.js';
 import { stateContext } from '../context.js';
+import type { GlWelcomePage } from './welcome-page.js';
 import './welcome-page.js';
 
 declare global {
@@ -74,6 +77,12 @@ export class GlWelcomeOverlay extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
+	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
+	_telemetry!: TelemetryContext;
+
+	@query('gl-welcome-page')
+	private welcomePage?: GlWelcomePage;
+
 	@state()
 	private closed = false;
 
@@ -108,6 +117,16 @@ export class GlWelcomeOverlay extends LitElement {
 
 	private onClose() {
 		this.closed = true;
+		const telemetryData = this.welcomePage?.getTelemetryData();
+		this._telemetry.sendEvent({
+			name: 'welcome/action',
+			data: {
+				name: 'dismiss',
+				viewedCarouselPages: telemetryData?.viewedCarouselPages,
+				proButtonClicked: telemetryData?.proButtonClicked,
+			},
+			source: { source: 'welcome', detail: 'close-on-overlay' },
+		});
 
 		this._ipc.sendCommand(CollapseSectionCommand, {
 			section: 'welcomeOverlay',

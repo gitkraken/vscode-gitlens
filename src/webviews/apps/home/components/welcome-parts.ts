@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, queryAssignedElements, state } from 'lit/decorators.js';
+import { customElement, property, queryAssignedElements, state } from 'lit/decorators.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 
@@ -250,6 +250,42 @@ export class GlFeatureCard extends LitElement {
 		`,
 	];
 
+	private hasBeenVisible: boolean = false;
+
+	override updated(changedProperties: Map<PropertyKey, unknown>): void {
+		super.updated(changedProperties);
+
+		const isVisible = isElementVisible(this);
+		if (!isVisible || this.hasBeenVisible) return;
+
+		const isInViewport = isElementInViewport(this);
+		const isPartiallyInViewport = isElementPartiallyInViewport(this);
+		const visible = isVisible && (isInViewport || isPartiallyInViewport);
+		if (visible && !this.hasBeenVisible) {
+			this.hasBeenVisible = true;
+
+			// Dispatch a custom event when any property changes
+			this.dispatchEvent(
+				new CustomEvent('gl-feature-appeared', {
+					detail: {
+						changedProperties: Array.from(changedProperties.keys()),
+						visibility: {
+							isVisible: isVisible,
+							isInViewport: isInViewport,
+							isPartiallyInViewport: isPartiallyInViewport,
+						},
+					},
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		}
+	}
+
+	/** is used to make the component reactive to 'data-active' attribute changes */
+	@property({ type: Boolean, reflect: true, attribute: 'data-active' })
+	private _dataActive: boolean = false;
+
 	override render(): unknown {
 		return html`
 			<div class="image">
@@ -357,4 +393,38 @@ export class GlScrollableFeatures extends LitElement {
 	override render(): unknown {
 		return html`<div class="content"><slot></slot></div>`;
 	}
+}
+
+function isElementVisible(element: HTMLElement): boolean {
+	// Check if element is hidden by display: none or visibility: hidden
+	const style = window.getComputedStyle(element);
+	if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+		return false;
+	}
+
+	// Check if element has zero dimensions
+	const rect = element.getBoundingClientRect();
+	if (rect.width === 0 || rect.height === 0) {
+		return false;
+	}
+
+	return true;
+}
+
+function isElementInViewport(element: HTMLElement): boolean {
+	const rect = element.getBoundingClientRect();
+	return (
+		rect.top >= 0 &&
+		rect.left >= 0 &&
+		rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+		rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+	);
+}
+
+function isElementPartiallyInViewport(element: HTMLElement): boolean {
+	const rect = element.getBoundingClientRect();
+	const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+	const windowWidth = window.innerWidth || document.documentElement.clientWidth;
+
+	return rect.bottom > 0 && rect.right > 0 && rect.top < windowHeight && rect.left < windowWidth;
 }
