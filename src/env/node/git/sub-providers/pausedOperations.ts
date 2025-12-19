@@ -26,9 +26,11 @@ import type { Git } from '../git';
 import { getGitCommandError } from '../git';
 import type { LocalGitProviderInternal } from '../localGitProvider';
 
-type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert';
+type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert' | 'sequencer';
 
-const orderedOperations: Operation[] = ['rebase-apply', 'rebase-merge', 'merge', 'cherry-pick', 'revert'];
+// Note: 'sequencer' is checked after specific HEAD files since those take precedence
+// The sequencer directory is used for multi-commit cherry-picks/reverts
+const orderedOperations: Operation[] = ['rebase-apply', 'rebase-merge', 'merge', 'cherry-pick', 'revert', 'sequencer'];
 
 export class PausedOperationsGitSubProvider implements GitPausedOperationsSubProvider {
 	constructor(
@@ -83,6 +85,11 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 								case 'rebase-merge':
 									operations.add('rebase-merge');
 									break;
+								case 'sequencer':
+									// The sequencer directory is used for multi-commit cherry-picks/reverts
+									// We'll determine the type by reading the todo file later
+									operations.add('sequencer');
+									break;
 							}
 						}
 					}
@@ -124,7 +131,6 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					return {
 						type: 'cherry-pick',
 						repoPath: repoPath,
-						// TODO: Validate that these are correct
 						HEAD: createReference(cherryPickHead, repoPath, { refType: 'revision' }),
 						current: current,
 						incoming: createReference(cherryPickHead, repoPath, { refType: 'revision' }),
@@ -340,6 +346,59 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						// 'interactive' file exists for `git rebase -i`, absent for `git pull --rebase`
 						isInteractive: getSettledValue(isInteractiveResult) ?? false,
 					} satisfies GitRebaseStatus;
+				}
+				case 'sequencer': {
+					// Used for multi-commit cherry-picks/reverts when CHERRY_PICK_HEAD/REVERT_HEAD don't exist
+					const todoContent = await this.git.readDotGitFile(gitDir, ['sequencer', 'todo']);
+					if (!todoContent) {
+						setLogScopeExit(scope, 'No sequencer/todo file found');
+						return undefined;
+					}
+
+					// Get the first line and determine if it's a cherry-pick or revert
+					const firstLine = todoContent.split('\n')[0]?.trim();
+					if (!firstLine) {
+						setLogScopeExit(scope, 'Empty sequencer/todo file');
+						return undefined;
+					}
+
+					// Check if it's a pick (cherry-pick) or revert command
+					// Format: "pick <sha> <message>" or "p <sha> <message>" or "revert <sha> <message>"
+					const isCherryPick = /^p(?:ick)?\s/.test(firstLine);
+					const isRevert = /^revert\s/.test(firstLine);
+
+					if (!isCherryPick && !isRevert) {
+						setLogScopeExit(scope, `Unknown sequencer command: ${firstLine}`);
+						return undefined;
+					}
+
+					// Parse the commit sha being applied from the todo file
+					const match = firstLine.match(/^(?:p(?:ick)?|revert)\s+([a-f0-9]+)/i);
+					const currentCommitSha = match?.[1];
+					if (!currentCommitSha) {
+						setLogScopeExit(scope, 'Could not parse commit sha from sequencer/todo');
+						return undefined;
+					}
+
+					const current = (await this.provider.branches.getCurrentBranchReference(repoPath, cancellation))!;
+
+					if (isCherryPick) {
+						return {
+							type: 'cherry-pick',
+							repoPath: repoPath,
+							HEAD: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
+							current: current,
+							incoming: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
+						} satisfies GitCherryPickStatus;
+					}
+
+					return {
+						type: 'revert',
+						repoPath: repoPath,
+						HEAD: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
+						current: current,
+						incoming: createReference(currentCommitSha, repoPath, { refType: 'revision' }),
+					} satisfies GitRevertStatus;
 				}
 			}
 		});

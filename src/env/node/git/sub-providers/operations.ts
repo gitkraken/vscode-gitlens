@@ -4,14 +4,12 @@ import { GitErrorHandling } from '../../../../git/commandOptions';
 import { CherryPickError, MergeError, PushError, RebaseError, RevertError } from '../../../../git/errors';
 import type { GitOperationsSubProvider } from '../../../../git/gitProvider';
 import type { GitBranchReference, GitReference } from '../../../../git/models/reference';
-import { getShaAndDatesLogParser } from '../../../../git/parsers/logParser';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../../git/utils/branch.utils';
 import { isBranchReference } from '../../../../git/utils/reference.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getHostEditorCommand } from '../../../../system/-webview/vscode';
 import { log } from '../../../../system/decorators/log';
 import { sequentialize } from '../../../../system/decorators/sequentialize';
-import { join } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git, PushForceOptions } from '../git';
@@ -60,22 +58,23 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		if (revs.length > 1) {
-			const parser = getShaAndDatesLogParser();
-			// Ensure the revs are in reverse committer date order
-			const result = await this.git.exec(
-				{ cwd: repoPath, stdin: join(revs, '\n') },
-				'log',
-				'--no-walk',
-				'--stdin',
-				...parser.arguments,
-				'--',
-			);
-			const commits = [...parser.parse(result.stdout)].sort(
-				(c1, c2) =>
-					Number(c1.committerDate) - Number(c2.committerDate) ||
-					Number(c1.authorDate) - Number(c2.authorDate),
-			);
-			revs = commits.map(c => c.sha);
+			// Get commits in topological order (oldest ancestor first) using git rev-list
+			// This traverses history from the specified commits, so we filter to only include the commits we actually want to cherry-pick
+			const revsSet = new Set(revs);
+			const result = await this.git.exec({ cwd: repoPath }, 'rev-list', '--topo-order', '--reverse', ...revs);
+
+			const ordered: string[] = [];
+			for (const sha of result.stdout.trim().split('\n')) {
+				if (sha && revsSet.has(sha)) {
+					ordered.push(sha);
+					if (ordered.length === revs.length) break; // Early exit once we have all
+				}
+			}
+
+			if (ordered.length === revs.length) {
+				revs = ordered;
+			}
+			// If we didn't get all commits (shouldn't happen), keep original order
 		}
 
 		args.push(...revs);
