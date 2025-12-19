@@ -4130,10 +4130,9 @@ or
 
 ```typescript
 {
-  'command': string,
-  'detail': string,
-  'name': 'plus/sign-up',
-  'type': 'command'
+  'name': 'plus/sign-up' | 'dismiss' | 'shown',
+  'proButtonClicked': boolean,
+  'viewedCarouselPages': number
 }
 ```
 
