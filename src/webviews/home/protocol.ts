@@ -54,6 +54,12 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 	amaBannerCollapsed: boolean;
 }
 
+export interface SubscriptionState {
+	subscription: Subscription;
+	avatar: string;
+	organizationsCount: number;
+}
+
 export interface IntegrationState extends IntegrationDescriptor {
 	connected: boolean;
 }

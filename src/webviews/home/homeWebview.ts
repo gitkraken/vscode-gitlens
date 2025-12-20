@@ -60,7 +60,7 @@ import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { isMcpBannerEnabled, mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils';
 import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
-import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
+import { getCommunitySubscription, isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import { providersMetadata } from '../../plus/integrations/providers/models';
@@ -84,6 +84,8 @@ import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { filterMap } from '../../system/iterable';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
 import { SubscriptionManager } from '../../system/subscriptionManager';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
@@ -113,6 +115,7 @@ import type {
 	OverviewRepository,
 	OverviewStaleThreshold,
 	State,
+	SubscriptionState,
 } from './protocol';
 import {
 	ChangeOverviewRepositoryCommand,
@@ -884,15 +887,32 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const [subResult, integrationResult, aiModelResult, aiAllAccessBannerCollapsed] = await Promise.allSettled([
-			this.getSubscriptionState(subscription),
-			this.getIntegrationStates(true),
-			this.container.ai.getModel({ silent: true }, { source: 'home' }),
-			this.getAiAllAccessBannerCollapsed(),
-		]);
+		const [subscriptionResult, integrationResult, aiModelResult, aiAllAccessBannerCollapsed] =
+			await Promise.allSettled([
+				this.getSubscriptionState(subscription),
+				this.getIntegrationStates(true),
+				this.container.ai.getModel({ silent: true }, { source: 'home' }),
+				this.getAiAllAccessBannerCollapsed(),
+			]);
 
-		if (subResult.status === 'rejected') {
-			throw subResult.reason;
+		// Handle subscription rejection gracefully by falling back to community subscription
+		let subscriptionState: SubscriptionState;
+		if (subscriptionResult.status === 'fulfilled') {
+			subscriptionState = subscriptionResult.value;
+		} else {
+			using scope = startLogScope(`${getLoggableName(this)}.getState(${Logger.toLoggable(subscription)})`, false);
+			Logger.error(subscriptionResult.reason, scope, 'Failed to get subscription state');
+
+			this.container.telemetry.sendEvent('home/failed', {
+				reason: 'subscription',
+				error: String(subscriptionResult.reason),
+			});
+
+			subscriptionState = {
+				subscription: getCommunitySubscription(),
+				avatar: `${this.host.getWebRoot() ?? ''}/media/gitlens-logo.webp`,
+				organizationsCount: 0,
+			};
 		}
 
 		const integrations = getSettledValue(integrationResult) ?? [];
@@ -904,9 +924,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			discovering: this._discovering != null,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
-			subscription: subResult.value.subscription,
-			avatar: subResult.value.avatar,
-			organizationsCount: subResult.value.organizationsCount,
+			subscription: subscriptionState.subscription,
+			avatar: subscriptionState.avatar,
+			organizationsCount: subscriptionState.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			aiEnabled: this.getAiEnabled(),
 			experimentalComposerEnabled: this.getExperimentalComposerEnabled(),
@@ -1281,7 +1301,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return isSubscriptionTrialOrPaidFromState(subscription.state);
 	}
 
-	private async getSubscriptionState(subscription?: Subscription) {
+	private async getSubscriptionState(subscription?: Subscription): Promise<SubscriptionState> {
 		subscription = await this.getSubscription(subscription);
 		this._etagSubscription = this.container.subscription.etag;
 

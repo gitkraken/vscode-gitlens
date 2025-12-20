@@ -2613,6 +2613,18 @@ void
 void
 ```
 
+### home/failed
+
+> Sent when Home fails to load some state
+
+```typescript
+{
+  'error': string,
+  'error.detail': string,
+  'reason': 'subscription'
+}
+```
+
 ### home/preview/toggled
 
 > Sent when the new Home view preview is toggled on/off

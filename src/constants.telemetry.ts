@@ -227,6 +227,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'home/changeBranchMergeTarget': void;
 	/** Sent when the user chooses to enable AI from the integrations menu */
 	'home/enableAi': void;
+	/** Sent when Home fails to load some state */
+	'home/failed': HomeFailedEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -784,6 +786,12 @@ export type HomeTelemetryContext = WebviewTelemetryContext & {
 interface HomePreviewToggledEvent {
 	enabled: boolean;
 	version: string;
+}
+
+interface HomeFailedEvent {
+	reason: 'subscription';
+	error: string;
+	'error.detail'?: string;
 }
 
 type InspectWipContextEventData = {
