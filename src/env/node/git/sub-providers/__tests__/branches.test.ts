@@ -206,7 +206,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		const result = await branchesProvider.getPotentialApplyConflicts(repoPath, target, commits);
 		assert.strictEqual(result.status, 'error');
 		if (result.status === 'error') {
-			assert.strictEqual(result.reason, 'rootCommit');
+			assert.strictEqual(result.reason, 'noParent');
 		}
 	});
 
