@@ -4,6 +4,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction, UpdateRefInfo } from '../../../../git/models/rebase';
+import { splitCommitMessage } from '../../../../git/utils/commit.utils';
 import { commitRebaseActions } from '../../../../git/utils/rebase.utils';
 import type { Author, RebaseEntry } from '../../../rebase/protocol';
 import { isCommitEntry } from '../../../rebase/protocol';
@@ -13,6 +14,7 @@ import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/avatar/avatar-list';
 import '../../shared/components/chips/ref-overflow-chip';
+import '../../shared/components/markdown/markdown';
 import '../../shared/components/overlays/popover';
 import '../../shared/components/overlays/tooltip';
 
@@ -233,7 +235,7 @@ export class GlRebaseEntryElement extends LitElement {
 						</div>`
 					: nothing}
 				<gl-popover class="entry-message" hoist placement="bottom-start" trigger="hover">
-					<span slot="anchor" class="entry-message-content">${message}</span>
+					<span slot="anchor" class="entry-message-content">${this.renderMessage(message)}</span>
 					<span slot="content"
 						>${this.hasConflict
 							? html`<span class="popover-conflict-header">
@@ -241,7 +243,7 @@ export class GlRebaseEntryElement extends LitElement {
 									This commit will cause conflicts
 									<hr />
 								</span>`
-							: nothing}${message ?? ''}</span
+							: nothing}${this.renderPopoverMessage(message)}</span
 					>
 				</gl-popover>
 				${!isBase && updateRefs?.length ? this.renderUpdateRefBadges(updateRefs) : nothing}
@@ -334,6 +336,24 @@ export class GlRebaseEntryElement extends LitElement {
 			icon="git-branch"
 			label="Branches to update"
 		></gl-ref-overflow-chip>`;
+	}
+
+	private renderMessage(message: string | undefined) {
+		if (!message) return nothing;
+
+		const { summary, body } = splitCommitMessage(message);
+		if (!body) {
+			return html`<gl-markdown .markdown=${summary} inline></gl-markdown>`;
+		}
+
+		return html`<gl-markdown .markdown=${summary} inline></gl-markdown
+			><span class="entry-message-body"><gl-markdown .markdown=${body} inline></gl-markdown></span>`;
+	}
+
+	private renderPopoverMessage(message: string | undefined) {
+		if (!message) return nothing;
+
+		return html`<gl-markdown .markdown=${message}></gl-markdown>`;
 	}
 
 	private renderAvatar(author: Author | undefined, committer: Author | undefined) {

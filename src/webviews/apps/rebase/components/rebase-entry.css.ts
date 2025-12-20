@@ -336,10 +336,6 @@ export const entryStyles = css`
 			max-height: 50vh;
 			overflow-y: auto;
 		}
-
-		[slot='content'] {
-			white-space: pre-line;
-		}
 	}
 
 	.entry-message-content {
@@ -349,6 +345,11 @@ export const entryStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.entry-message-body {
+		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
+		margin-left: 1rem;
 	}
 
 	/* Update refs */
