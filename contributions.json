@@ -5286,7 +5286,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5345,7 +5345,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5392,7 +5392,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5452,7 +5452,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == fileHistory && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5524,7 +5524,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5561,7 +5561,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5598,7 +5598,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == searchAndCompare && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5635,7 +5635,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == stashes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5672,7 +5672,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5709,7 +5709,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -6745,7 +6745,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -6783,7 +6783,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -6821,7 +6821,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -6859,7 +6859,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "3_gitlens",
 						"order": 0
 					}
@@ -6907,7 +6907,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches",
 						"group": "3_gitlens",
 						"order": 0
 					}
@@ -6953,7 +6953,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && config.gitlens.views.branches.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -6989,7 +6989,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !config.gitlens.views.branches.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -7025,7 +7025,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && config.gitlens.views.branches.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -7066,7 +7066,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !config.gitlens.views.branches.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -7102,7 +7102,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && config.gitlens.views.branches.pullRequests.enabled && config.gitlens.views.branches.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.pullRequests.enabled && config.gitlens.views.branches.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -7138,7 +7138,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !config.gitlens.views.branches.pullRequests.enabled && !config.gitlens.views.branches.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.pullRequests.enabled && !config.gitlens.views.branches.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -7174,7 +7174,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showRemoteBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -7210,7 +7210,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showRemoteBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -7246,7 +7246,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -7282,7 +7282,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -7688,7 +7688,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -7726,7 +7726,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -7764,7 +7764,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -7800,7 +7800,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && config.gitlens.views.commits.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.commits.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -7836,7 +7836,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !config.gitlens.views.commits.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.commits.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -7872,7 +7872,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && config.gitlens.views.commits.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.commits.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -7913,7 +7913,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !config.gitlens.views.commits.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.commits.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -7949,7 +7949,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && config.gitlens.views.commits.pullRequests.enabled && config.gitlens.views.commits.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.commits.pullRequests.enabled && config.gitlens.views.commits.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -7985,7 +7985,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !config.gitlens.views.commits.pullRequests.enabled && !config.gitlens.views.commits.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.commits.pullRequests.enabled && !config.gitlens.views.commits.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -8021,7 +8021,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !gitlens:views:commits:hideMergeCommits",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !gitlens:views:commits:hideMergeCommits",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -8057,7 +8057,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && gitlens:views:commits:hideMergeCommits",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && gitlens:views:commits:hideMergeCommits",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -8093,7 +8093,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.commits.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !gitlens:hasVirtualFolders && config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -8129,7 +8129,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.commits.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !gitlens:hasVirtualFolders && !config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -8402,7 +8402,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -8440,7 +8440,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -8478,7 +8478,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -8515,7 +8515,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "3_gitlens",
 						"order": 1
 					}
@@ -8552,7 +8552,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
 						"group": "3_gitlens",
 						"order": 2
 					}
@@ -8588,7 +8588,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && config.gitlens.views.contributors.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && config.gitlens.views.contributors.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -8624,7 +8624,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && !config.gitlens.views.contributors.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !config.gitlens.views.contributors.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -8660,7 +8660,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && !gitlens:views:contributors:hideMergeCommits",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !gitlens:views:contributors:hideMergeCommits",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -8696,7 +8696,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && gitlens:views:contributors:hideMergeCommits",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && gitlens:views:contributors:hideMergeCommits",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -8732,7 +8732,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && config.gitlens.views.contributors.showStatistics",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && config.gitlens.views.contributors.showStatistics",
 						"group": "5_gitlens",
 						"order": 4
 					}
@@ -8768,7 +8768,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && !config.gitlens.views.contributors.showStatistics",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !config.gitlens.views.contributors.showStatistics",
 						"group": "5_gitlens",
 						"order": 4
 					}
@@ -10454,7 +10454,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == launchpad && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -10492,7 +10492,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == launchpad && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -10530,7 +10530,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == launchpad && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -10566,7 +10566,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == launchpad && view == gitlens.views.scm.grouped && config.gitlens.views.launchpad.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.launchpad.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -10602,7 +10602,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == launchpad && view == gitlens.views.scm.grouped && !config.gitlens.views.launchpad.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && !config.gitlens.views.launchpad.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -12141,7 +12141,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -12179,7 +12179,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -12217,7 +12217,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -12255,7 +12255,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens",
 						"order": 2
 					}
@@ -12303,7 +12303,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes",
 						"group": "3_gitlens",
 						"order": 2
 					}
@@ -12349,7 +12349,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped && config.gitlens.views.remotes.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && config.gitlens.views.remotes.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -12385,7 +12385,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped && !config.gitlens.views.remotes.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && !config.gitlens.views.remotes.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -12421,7 +12421,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped && config.gitlens.views.remotes.pullRequests.enabled && config.gitlens.views.remotes.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && config.gitlens.views.remotes.pullRequests.enabled && config.gitlens.views.remotes.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -12457,7 +12457,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped && !config.gitlens.views.remotes.pullRequests.enabled && !config.gitlens.views.remotes.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && !config.gitlens.views.remotes.pullRequests.enabled && !config.gitlens.views.remotes.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -12635,7 +12635,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 1
 					}
@@ -12671,7 +12671,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 1
 					}
@@ -12745,7 +12745,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && config.gitlens.views.repositories.branches.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.repositories.branches.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -12757,7 +12757,7 @@
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:branches\\b/ && gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !listMultiSelection && config.gitlens.views.repositories.branches.showBranchComparison",
+						"when": "viewItem =~ /gitlens:branches\\b/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !listMultiSelection && config.gitlens.views.repositories.branches.showBranchComparison",
 						"group": "8_gitlens_toggles",
 						"order": 1
 					},
@@ -12767,7 +12767,7 @@
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:compare:branch(?!.*?\\b\\+root\\b)\\b/ && gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:compare:branch(?!.*?\\b\\+root\\b)\\b/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !listMultiSelection",
 						"group": "8_gitlens_toggles",
 						"order": 1
 					},
@@ -12801,7 +12801,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !config.gitlens.views.repositories.branches.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.repositories.branches.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -12813,7 +12813,7 @@
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:branches\\b/ && gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !listMultiSelection && !config.gitlens.views.repositories.branches.showBranchComparison",
+						"when": "viewItem =~ /gitlens:branches\\b/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !listMultiSelection && !config.gitlens.views.repositories.branches.showBranchComparison",
 						"group": "8_gitlens_toggles",
 						"order": 1
 					},
@@ -12847,7 +12847,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.repositories.branches.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !gitlens:hasVirtualFolders && config.gitlens.views.repositories.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -12883,7 +12883,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.repositories.branches.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !gitlens:hasVirtualFolders && !config.gitlens.views.repositories.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -12921,7 +12921,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -12959,7 +12959,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -12997,7 +12997,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -13033,7 +13033,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && config.gitlens.views.repositories.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.repositories.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -13069,7 +13069,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !config.gitlens.views.repositories.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.repositories.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -13206,7 +13206,7 @@
 						"order": 99
 					},
 					{
-						"when": "viewItem =~ /gitlens:(compare:branch(?=.*?\\b\\+root\\b)|branches|branch(?=.*?\\b\\+commits\\b)|reflog|remotes|stashes|status:upstream|tags|worktrees)\\b/ && gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(compare:branch(?=.*?\\b\\+root\\b)|branches|branch(?=.*?\\b\\+commits\\b)|reflog|remotes|stashes|status:upstream|tags|worktrees)\\b/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !listMultiSelection",
 						"group": "8_gitlens_toggles",
 						"order": 99
 					}
@@ -14977,7 +14977,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == searchAndCompare && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -15015,7 +15015,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == searchAndCompare && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -15053,7 +15053,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == searchAndCompare && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -15089,7 +15089,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == searchAndCompare && view == gitlens.views.scm.grouped && config.gitlens.views.searchAndCompare.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare && config.gitlens.views.searchAndCompare.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -15125,7 +15125,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == searchAndCompare && view == gitlens.views.scm.grouped && !config.gitlens.views.searchAndCompare.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare && !config.gitlens.views.searchAndCompare.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -15458,37 +15458,37 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
-						"group": "5_gitlens",
-						"order": 4
-					},
-					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
-						"group": "5_gitlens",
-						"order": 4
-					},
-					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 2
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && config.gitlens.views.showRelativeDateMarkers",
+						"group": "5_gitlens",
+						"order": 2
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 3
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 4
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
-						"order": 2
+						"order": 4
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.showRelativeDateMarkers",
+						"group": "5_gitlens",
+						"order": 4
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 4
 					}
@@ -15669,37 +15669,37 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
-						"group": "5_gitlens",
-						"order": 4
-					},
-					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
-						"group": "5_gitlens",
-						"order": 4
-					},
-					{
-						"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 2
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
+						"group": "5_gitlens",
+						"order": 2
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && !config.gitlens.views.showRelativeDateMarkers",
+						"group": "5_gitlens",
+						"order": 2
+					},
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && !config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 3
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
-						"order": 2
+						"order": 4
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
-						"order": 2
+						"order": 4
 					},
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !config.gitlens.views.showRelativeDateMarkers",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !config.gitlens.views.showRelativeDateMarkers",
 						"group": "5_gitlens",
 						"order": 4
 					}
@@ -15989,7 +15989,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == stashes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -16027,7 +16027,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == stashes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -16065,7 +16065,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == stashes && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -16295,7 +16295,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -16333,7 +16333,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -16371,7 +16371,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "3_gitlens_",
 						"order": 2
 					}
@@ -16409,7 +16409,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "3_gitlens",
 						"order": 1
 					}
@@ -16457,7 +16457,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags",
 						"group": "3_gitlens",
 						"order": 1
 					}
@@ -16503,7 +16503,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped && config.gitlens.views.tags.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && config.gitlens.views.tags.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -16539,7 +16539,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped && !config.gitlens.views.tags.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && !config.gitlens.views.tags.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -17196,7 +17196,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -17234,7 +17234,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -17272,7 +17272,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "3_gitlens_",
 						"order": 1
 					}
@@ -17310,7 +17310,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "3_gitlens",
 						"order": 0
 					}
@@ -17358,7 +17358,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees",
 						"group": "3_gitlens",
 						"order": 0
 					}
@@ -17404,7 +17404,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.worktrees.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -17440,7 +17440,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !config.gitlens.views.worktrees.avatars",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !config.gitlens.views.worktrees.avatars",
 						"group": "5_gitlens",
 						"order": 1
 					}
@@ -17476,7 +17476,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.worktrees.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -17512,7 +17512,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !config.gitlens.views.worktrees.showBranchComparison",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !config.gitlens.views.worktrees.showBranchComparison",
 						"group": "5_gitlens",
 						"order": 2
 					}
@@ -17548,7 +17548,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.pullRequests.enabled && config.gitlens.views.worktrees.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.worktrees.pullRequests.enabled && config.gitlens.views.worktrees.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -17584,7 +17584,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !config.gitlens.views.worktrees.pullRequests.enabled && !config.gitlens.views.worktrees.pullRequests.showForBranches",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !config.gitlens.views.worktrees.pullRequests.enabled && !config.gitlens.views.worktrees.pullRequests.showForBranches",
 						"group": "5_gitlens",
 						"order": 3
 					}
@@ -17620,7 +17620,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.worktrees.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -17656,7 +17656,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.worktrees.showStashes",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && !config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -18427,7 +18427,7 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories",
 						"group": "4_gitlens",
 						"order": 1
 					}
