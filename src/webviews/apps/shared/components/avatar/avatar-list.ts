@@ -22,7 +22,7 @@ export class GlAvatarList extends LitElement {
 	avatars: AvatarShape[] = [];
 
 	override render(): unknown {
-		return html`<gl-avatar-group>${this.renderList()}</gl-avatar-group>`;
+		return html`<gl-avatar-group exportparts="base">${this.renderList()}</gl-avatar-group>`;
 	}
 
 	private renderList() {
@@ -68,17 +68,17 @@ export class GlAvatarGroup extends LitElement {
 				align-items: center;
 			}
 
-			.avatar-group::slotted(*:not(:first-child)) {
+			.avatar-group ::slotted(*:not(:first-child)) {
 				margin-left: calc(var(--gl-avatar-size, 1.6rem) * -0.2);
 			}
 
-			.avatar-group:focus-within::slotted(*),
-			.avatar-group:hover::slotted(*) {
+			.avatar-group:focus-within ::slotted(*),
+			.avatar-group:hover ::slotted(*) {
 				opacity: 0.5;
 			}
 
-			.avatar-group:focus-within::slotted(*:focus),
-			.avatar-group:hover::slotted(*:hover) {
+			.avatar-group:focus-within ::slotted(*:focus),
+			.avatar-group:hover ::slotted(*:hover) {
 				opacity: 1;
 				z-index: var(--gl-avatar-selected-zindex, 1) !important;
 			}
@@ -86,6 +86,6 @@ export class GlAvatarGroup extends LitElement {
 	];
 
 	override render(): unknown {
-		return html`<slot class="avatar-group" part="base"></slot>`;
+		return html`<div class="avatar-group" part="base"><slot></slot></div>`;
 	}
 }

@@ -370,24 +370,33 @@ export const entryStyles = css`
 	/* Avatar */
 	.entry-avatar {
 		flex: 0 0 auto;
+		min-width: 4rem;
 		margin: 0;
 
 		gl-avatar-list& {
 			--gl-avatar-size: 2.4rem;
+
+			&::part(base) {
+				display: flex;
+				justify-content: flex-end;
+			}
 		}
 	}
 
 	/* Date */
 	.entry-date {
 		flex: 0 0 auto;
+		min-width: 11ch;
 		margin: 0;
 		color: var(--fg-muted);
+		text-align: right;
 		text-decoration: var(--action-text-decoration);
 	}
 
 	/* SHA */
 	.entry-sha {
 		flex: 0 0 auto;
+		min-width: 10ch;
 		margin: 0;
 		color: var(--fg-muted);
 		text-decoration: var(--action-text-decoration);
