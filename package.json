@@ -3705,6 +3705,21 @@
 				"title": "Interactive Rebase Editor",
 				"order": 600,
 				"properties": {
+					"gitlens.rebaseEditor.density": {
+						"type": "string",
+						"default": "compact",
+						"enum": [
+							"compact",
+							"comfortable"
+						],
+						"enumDescriptions": [
+							"Compact layout with minimal spacing",
+							"Comfortable layout with more space between rows"
+						],
+						"markdownDescription": "Specifies the layout density of the _Interactive Rebase Editor_",
+						"scope": "window",
+						"order": 5
+					},
 					"gitlens.rebaseEditor.ordering": {
 						"type": "string",
 						"default": "desc",

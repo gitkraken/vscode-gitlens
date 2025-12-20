@@ -1171,9 +1171,13 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const isReadOnly = this.state.isReadOnly ?? false;
 		const isActive = this.isRebasing;
 		const isEmptyOrNoop = this.isEmptyOrNoop;
+		const density = this.state.density ?? 'compact';
 
 		return html`
-			<div class="container ${isReadOnly ? 'read-only' : ''} ${isActive ? 'active-rebase' : ''}">
+			<div
+				class="container ${isReadOnly ? 'read-only' : ''} ${isActive ? 'active-rebase' : ''}"
+				data-density="${density}"
+			>
 				${guard(
 					[
 						this.state.branch,

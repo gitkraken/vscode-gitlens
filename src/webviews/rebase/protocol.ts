@@ -33,6 +33,8 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 	 */
 	isReadOnly?: boolean;
 
+	/** Layout density */
+	density: Config['rebaseEditor']['density'];
 	/** Where to reveal commits when clicking on links or double-clicking rows */
 	revealLocation: Config['rebaseEditor']['revealLocation'];
 	/** When to automatically reveal commits */

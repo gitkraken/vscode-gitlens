@@ -3522,6 +3522,7 @@ void
 ```typescript
 {
   'context.ascending': boolean,
+  'context.config.density': 'compact' | 'comfortable',
   'context.config.openOnPausedRebase': boolean | 'interactive',
   'context.config.ordering': 'asc' | 'desc',
   'context.config.revealBehavior': 'onDoubleClick' | 'onSelection',

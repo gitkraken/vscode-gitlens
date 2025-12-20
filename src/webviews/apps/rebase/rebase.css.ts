@@ -147,6 +147,8 @@ export const rebaseStyles = css`
 		grid-template-columns: minmax(0, 1fr);
 		height: 100vh;
 		min-width: 0;
+		box-sizing: border-box;
+		padding: 0.5rem;
 	}
 
 	/* ==========================================================================
@@ -174,9 +176,8 @@ export const rebaseStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		padding: 0.6rem 1rem;
+		padding: 0.5rem 1rem;
 		min-width: 0;
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 
 		gl-checkbox {
 			margin-block: 0;
@@ -313,12 +314,15 @@ export const rebaseStyles = css`
 	.entries {
 		grid-area: entries;
 		display: block;
-		height: 100%;
 		min-height: 0;
 		overflow-x: hidden !important;
 		overflow-y: visible;
 		outline: none;
-		margin-inline: 1rem;
+		margin: 0.5rem 1rem;
+		box-sizing: border-box;
+
+		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.entries {
@@ -387,7 +391,6 @@ export const rebaseStyles = css`
 		align-items: center;
 		gap: 1rem;
 		padding: 0.5rem 1rem;
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		background: var(--color-background);
 		z-index: 1;
 		min-width: 0;
@@ -458,5 +461,15 @@ export const rebaseStyles = css`
 
 	gl-button:hover .button-shortcut {
 		opacity: 1;
+	}
+
+	/* ==========================================================================
+	   Density: Comfortable
+	   ========================================================================== */
+
+	.container[data-density='comfortable'] {
+		--gl-rebase-entry-padding-block: 0.5rem;
+		--gl-rebase-entry-graph-height: 29px;
+		--gl-rebase-entry-graph-offset: -0.5rem;
 	}
 `;

@@ -85,7 +85,7 @@ export const entryStyles = css`
 		gap: 1rem;
 		position: relative;
 		padding-inline: 1rem;
-		padding-block: 0.2rem;
+		padding-block: var(--gl-rebase-entry-padding-block, 0.2rem);
 		border-radius: 0.3rem;
 		box-sizing: border-box;
 		color: var(--fg);
@@ -116,13 +116,13 @@ export const entryStyles = css`
 
 		&.entry--first {
 			.entry-graph::before {
-				inset-block: 50% -0.225rem;
+				inset-block: 50% var(--gl-rebase-entry-graph-offset, -0.225rem);
 			}
 		}
 
 		&.entry--last {
 			.entry-graph::before {
-				inset-block: -0.225rem 50%;
+				inset-block: var(--gl-rebase-entry-graph-offset, -0.225rem) 50%;
 			}
 		}
 
@@ -224,7 +224,7 @@ export const entryStyles = css`
 		position: relative;
 		flex: 0 0 auto;
 		width: 16px;
-		height: 25px;
+		height: var(--gl-rebase-entry-graph-height, 25px);
 		z-index: 2;
 
 		/* circle for commits */
@@ -252,7 +252,7 @@ export const entryStyles = css`
 		&::before {
 			content: '';
 			position: absolute;
-			inset-block: -0.225rem;
+			inset-block: calc(-1 * var(--gl-rebase-entry-padding-block, 0.2rem));
 			width: 0;
 			border-right: 2px solid var(--action-line-color);
 			z-index: -2;
