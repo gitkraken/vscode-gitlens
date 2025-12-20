@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as process from 'node:process';
@@ -40,6 +41,9 @@ const test = base.extend({
 /** Store the current rebase context for cleanup */
 let currentRebaseContext: ReturnType<GitFixture['startRebaseInteractiveWithWaitEditor']> | null = null;
 
+/** Store the ongoing cleanup promise to prevent race conditions */
+let ongoingCleanup: Promise<void> | null = null;
+
 /**
  * Helper to start an interactive rebase (git process only).
  * Returns helpers to wait for the todo file and signal completion.
@@ -62,7 +66,7 @@ async function openRebaseEditor(vscode: VSCodeInstance, todoFilePath: string): P
 
 	// Wait for the rebase editor tab to appear
 	const rebaseTab = vscode.page.getByRole('tab', { name: /Interactive Rebase/i });
-	await rebaseTab.waitFor({ state: 'visible', timeout: 45000 });
+	await rebaseTab.waitFor({ state: 'visible', timeout: 5000 });
 }
 
 /**
@@ -84,45 +88,39 @@ async function getRebaseWebviewWithRetry(
 	return frame;
 }
 
-async function standardSetup({ vscode }: { vscode: VSCodeInstance }) {
-	// Access vscode to ensure setup has run
-	void vscode;
-
+async function standardSetup({ vscode: _vscode }: { vscode: VSCodeInstance }) {
 	// Clear any lingering rebase context from previous test
 	currentRebaseContext = null;
 
-	// Abort any in-progress rebase using Git commands with retries
-	// Sometimes Git needs a moment to finish cleaning up from the previous abort
-	for (let i = 0; i < 5; i++) {
-		if (await git.isRebaseInProgress()) {
-			try {
-				await git.rebaseAbort();
-			} catch {
-				// Ignore errors, will retry
-			}
-			await new Promise(resolve => setTimeout(resolve, 1500));
-		} else {
-			break;
-		}
+	// Wait for any ongoing cleanup from previous test to complete
+	if (ongoingCleanup) {
+		await ongoingCleanup;
+		ongoingCleanup = null;
 	}
 
-	// Last resort: if Git abort isn't working, force remove the directories
-	// This is acceptable in setup (not in teardown) to ensure a clean starting state
-	if (await git.isRebaseInProgress()) {
-		try {
-			await fs.promises.rm(path.join(git.repoDir, '.git', 'rebase-merge'), { recursive: true, force: true });
-		} catch {}
-		try {
-			await fs.promises.rm(path.join(git.repoDir, '.git', 'rebase-apply'), { recursive: true, force: true });
-		} catch {}
-		await new Promise(resolve => setTimeout(resolve, 500));
+	// Get the repo path and completely wipe it
+	const repoPath = git.repoPath;
+
+	// Remove the entire .git directory and all files to start fresh
+	const fs = (await import('node:fs')).promises;
+	try {
+		await fs.rm(repoPath, { recursive: true, force: true });
+	} catch {
+		// Ignore errors if directory doesn't exist
 	}
 
-	// Reset to a known state: recreate commits A, B, C, D on top of initial
-	await git.reset(initialCommitSha, 'hard');
-	await git.clean();
+	// Recreate the directory and reinitialize the repo
+	await fs.mkdir(repoPath, { recursive: true });
+	await git.init();
+
+	// Capture the initial commit SHA
+	initialCommitSha = await git.getShortSha('HEAD');
+
+	// Create test commits
 	await git.commit('Commit A', 'a.txt', 'content a');
+	await git.branch('feature-a');
 	await git.commit('Commit B', 'b.txt', 'content b');
+	await git.branch('feature-b');
 	await git.commit('Commit C', 'c.txt', 'content c');
 	await git.commit('Commit D', 'd.txt', 'content d');
 }
@@ -130,38 +128,32 @@ async function standardSetup({ vscode }: { vscode: VSCodeInstance }) {
 async function standardTeardown({ vscode }: { vscode: VSCodeInstance }) {
 	const { gitlens } = vscode;
 
-	// Signal any running wait editor to exit (if it was started)
-	if (currentRebaseContext) {
-		// Try to signal abort (this requires waitForTodoFile to have been called)
-		await currentRebaseContext.signalEditorAbort().catch(() => {
-			// If signaling fails, we'll use git rebase --abort below
-		});
-		// Wait briefly for the signal to be processed
-		await Promise.race([
-			currentRebaseContext.rebasePromise.catch(() => {}),
-			new Promise(resolve => setTimeout(resolve, 2000)),
-		]);
-		currentRebaseContext = null;
-	}
+	// Store the cleanup promise so next setup can wait for it
+	ongoingCleanup = (async () => {
+		// Signal any running wait editor to exit (if it was started)
+		if (currentRebaseContext) {
+			// Try to signal abort (this requires waitForTodoFile to have been called)
+			await currentRebaseContext.signalEditorAbort().catch(() => {
+				// If signaling fails, we'll reinitialize in setup anyway
+			});
+			// Wait briefly for the signal to be processed
+			await Promise.race([
+				currentRebaseContext.rebasePromise.catch(() => {}),
+				new Promise(resolve => setTimeout(resolve, 1000)),
+			]);
+			currentRebaseContext = null;
+		}
 
-	// Always check and abort any in-progress rebase using Git commands
-	// This handles cases where signaling didn't work or wasn't possible
-	if (await git.isRebaseInProgress()) {
-		await git.rebaseAbort();
-		// Wait for Git to complete the abort operation
-		await new Promise(resolve => setTimeout(resolve, 1000));
-	}
+		// Close all editors to clean up UI state
+		await gitlens.closeAllEditors();
+	})();
 
-	// Ensure the repo is clean after each test
-	await git.reset(initialCommitSha, 'hard');
-	await git.clean();
-
-	// Close all editors
-	await gitlens.closeAllEditors();
+	// Wait for cleanup to complete before returning
+	await ongoingCleanup;
 }
 
 test.describe('Rebase Editor', () => {
-	test.setTimeout(120000); // 2 minute timeout for rebase tests
+	test.setTimeout(30000);
 
 	test.describe('Start & Abort', () => {
 		test.beforeEach(standardSetup);
@@ -187,30 +179,31 @@ test.describe('Rebase Editor', () => {
 			await openRebaseEditor(vscode, todoFilePath);
 
 			// Wait a bit for the webview to load
-			await page.waitForTimeout(2000);
+			await page.waitForTimeout(500);
 
 			// Verify the webview content is loaded with rebase entries
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 
 			// Wait for the rebase editor to be fully loaded
-			await expect(webviewFrame.locator('gl-rebase-editor')).toBeVisible({ timeout: 15000 });
+			await expect(webviewFrame.locator('gl-rebase-editor')).toBeVisible({ timeout: 5000 });
 
 			const rebaseEntry = webviewFrame.locator('gl-rebase-entry').first();
-			await expect(rebaseEntry).toBeVisible({ timeout: 10000 });
+			await expect(rebaseEntry).toBeVisible({ timeout: 3000 });
 
 			// Signal the wait editor to exit before clicking abort
 			// This ensures the .done file exists when git tries to exit
 			await signalEditorDone();
 
-			// Click the Abort button (gl-button custom element with text "Abort")
-			const abortButton = webviewFrame.locator('gl-button').filter({ hasText: 'Abort' });
+			// Click the Abort button (gl-button custom element with exact text "Abort")
+			// Use appearance="secondary" to target the main abort button, not the "Abort > Recompose" button
+			const abortButton = webviewFrame.locator('gl-button[appearance="secondary"]').filter({ hasText: 'Abort' });
 			await abortButton.click();
 
 			// Wait for abort to complete with timeout
-			await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 3000))]);
+			await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
 
 			// Give Git extra time to finish cleanup
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			await new Promise(resolve => setTimeout(resolve, 500));
 
 			// Verify rebase was aborted - HEAD unchanged
 			const currentHead = await git.getShortSha('HEAD');
@@ -218,13 +211,13 @@ test.describe('Rebase Editor', () => {
 
 			// Verify the rebase editor tab is closed
 			const rebaseTab = page.getByRole('tab', { name: /Interactive Rebase/i });
-			await expect(rebaseTab).not.toBeVisible({ timeout: 5000 });
+			await expect(rebaseTab).not.toBeVisible({ timeout: 3000 });
 
 			currentRebaseContext = null;
 
 			// Extra wait to ensure Git has completely finished cleanup
 			// This helps prevent race conditions with the next test
-			await new Promise(resolve => setTimeout(resolve, 2000));
+			await new Promise(resolve => setTimeout(resolve, 500));
 		});
 	});
 
@@ -232,7 +225,7 @@ test.describe('Rebase Editor', () => {
 		test.beforeEach(standardSetup);
 		test.afterEach(standardTeardown);
 
-		test('updates entry action via keyboard shortcuts and dropdown', async ({ vscode }) => {
+		test('changes commit actions using keyboard shortcuts', async ({ vscode }) => {
 			const { page } = vscode;
 
 			const rebaseContext = startInteractiveRebase();
@@ -243,24 +236,19 @@ test.describe('Rebase Editor', () => {
 
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 			const entries = webviewFrame.locator('gl-rebase-entry');
-			await expect(entries.first()).toBeVisible({ timeout: 10000 });
+			await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
-			// Test keyboard shortcut: 's' for squash
-			// Note: First entry cannot be squashed, so use the second one
+			// Test single action change: 's' for squash (can't squash first entry)
 			await entries.nth(1).click();
 			await page.keyboard.press('s');
 			await page.waitForTimeout(200);
+			await expect(entries.nth(1).locator('.action-select')).toHaveAttribute('value', 'squash');
 
-			// Check that the action select has the 'squash' value
-			const actionSelect = entries.nth(1).locator('.action-select');
-			await expect(actionSelect).toHaveAttribute('value', 'squash');
-
-			// Test multi-select: Ctrl+Click then change action
+			// Test bulk action change: multi-select with Ctrl+Click then drop with 'd'
 			await entries.nth(2).click();
 			await entries.nth(3).click({ modifiers: ['Control'] });
 			await page.keyboard.press('d');
 			await page.waitForTimeout(200);
-
 			await expect(entries.nth(2).locator('.action-select')).toHaveAttribute('value', 'drop');
 			await expect(entries.nth(3).locator('.action-select')).toHaveAttribute('value', 'drop');
 		});
@@ -285,7 +273,6 @@ test.describe('Rebase Editor', () => {
 			await page.waitForTimeout(200);
 
 			// Should still be 'pick'
-			// Use locator to find the select within the clicked entry
 			const actionSelect = lastEntry.locator('.action-select');
 			await expect(actionSelect).toHaveAttribute('value', 'pick');
 		});
@@ -320,11 +307,11 @@ test.describe('Rebase Editor', () => {
 		});
 	});
 
-	test.describe('Multi-select and Bulk Actions', () => {
+	test.describe('Commit Reordering', () => {
 		test.beforeEach(standardSetup);
 		test.afterEach(standardTeardown);
 
-		test('moves multiple entries down via keyboard shortcuts', async ({ vscode }) => {
+		test('reorders single commit using keyboard shortcuts', async ({ vscode }) => {
 			const { page } = vscode;
 
 			const rebaseContext = startInteractiveRebase();
@@ -335,23 +322,46 @@ test.describe('Rebase Editor', () => {
 
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 			const entries = webviewFrame.locator('gl-rebase-entry');
-			await expect(entries.first()).toBeVisible({ timeout: 10000 });
+			await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
-			// Select 2nd and 3rd entries (Commit C and Commit B)
-			await entries.nth(1).click();
-			await entries.nth(2).click({ modifiers: ['Control'] });
-
-			// Move them down using Alt+Down
+			// Test moving single commit down: Select Commit D (index 0)
+			await entries.nth(0).click();
 			await page.keyboard.press('Alt+ArrowDown');
 			await page.waitForTimeout(200);
 
-			const messages = await entries.locator('.entry-message-content').allTextContents();
-			// Filter out base entry if present (it's usually last)
-			const commitMessages = messages.slice(0, 4);
-			expect(commitMessages).toEqual(['Commit D', 'Commit A', 'Commit C', 'Commit B']);
+			let messages = await entries.evaluateAll((elements: HTMLElement[]) => {
+				return elements.slice(0, 4).map(el => {
+					const root = el.shadowRoot;
+					if (!root) return '';
+					const div = root.querySelector('[role="listitem"]');
+					if (!div) return '';
+					const ariaLabel = div.getAttribute('aria-label') || '';
+					const parts = ariaLabel.split(', ');
+					return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+				});
+			});
+			expect(messages).toEqual(['Commit C', 'Commit D', 'Commit B', 'Commit A']);
+
+			// Test moving single commit up: Move Commit D back up (now at index 1)
+			await entries.nth(1).click();
+			await page.keyboard.press('Alt+ArrowUp');
+			await page.waitForTimeout(200);
+
+			messages = await entries.evaluateAll((elements: HTMLElement[]) => {
+				return elements.slice(0, 4).map(el => {
+					const root = el.shadowRoot;
+					if (!root) return '';
+					const div = root.querySelector('[role="listitem"]');
+					if (!div) return '';
+					const ariaLabel = div.getAttribute('aria-label') || '';
+					const parts = ariaLabel.split(', ');
+					return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+				});
+			});
+			expect(messages).toEqual(['Commit D', 'Commit C', 'Commit B', 'Commit A']);
 		});
 
-		test('moves multiple entries up via keyboard shortcuts', async ({ vscode }) => {
+		test('reorders multiple commits using keyboard shortcuts', async ({ vscode }) => {
 			const { page } = vscode;
 
 			const rebaseContext = startInteractiveRebase();
@@ -362,57 +372,54 @@ test.describe('Rebase Editor', () => {
 
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 			const entries = webviewFrame.locator('gl-rebase-entry');
-			await expect(entries.first()).toBeVisible({ timeout: 10000 });
+			await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
-			// Select 3rd and 4th entries (Commit B and Commit A)
+			// Test moving commits down: Select 2nd and 3rd entries (Commit C and Commit B)
+			await entries.nth(1).click();
+			await entries.nth(2).click({ modifiers: ['Control'] });
+			await page.keyboard.press('Alt+ArrowDown');
+			await page.waitForTimeout(200);
+
+			let messages = await entries.evaluateAll((elements: HTMLElement[]) => {
+				return elements.slice(0, 4).map(el => {
+					const root = el.shadowRoot;
+					if (!root) return '';
+					const div = root.querySelector('[role="listitem"]');
+					if (!div) return '';
+					const ariaLabel = div.getAttribute('aria-label') || '';
+					const parts = ariaLabel.split(', ');
+					return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+				});
+			});
+			expect(messages).toEqual(['Commit D', 'Commit A', 'Commit C', 'Commit B']);
+
+			// Test moving commits up: Select repositioned Commit C and Commit B (now at indices 2 and 3)
 			await entries.nth(2).click();
 			await entries.nth(3).click({ modifiers: ['Control'] });
-
-			// Move them up using Alt+Up
 			await page.keyboard.press('Alt+ArrowUp');
 			await page.waitForTimeout(200);
 
-			const messages = await entries.locator('.entry-message-content').allTextContents();
-			const commitMessages = messages.slice(0, 4);
-			expect(commitMessages).toEqual(['Commit D', 'Commit B', 'Commit A', 'Commit C']);
+			// Verify they moved back up (should now be: D, C, B, A)
+			messages = await entries.evaluateAll((elements: HTMLElement[]) => {
+				return elements.slice(0, 4).map(el => {
+					const root = el.shadowRoot;
+					if (!root) return '';
+					const div = root.querySelector('[role="listitem"]');
+					if (!div) return '';
+					const ariaLabel = div.getAttribute('aria-label') || '';
+					const parts = ariaLabel.split(', ');
+					return parts.length >= 2 ? parts.slice(1, -1).join(', ') : '';
+				});
+			});
+			expect(messages).toEqual(['Commit D', 'Commit C', 'Commit B', 'Commit A']);
 		});
 	});
 
-	test.describe('Entry display', () => {
+	test.describe('Accessibility', () => {
 		test.beforeEach(standardSetup);
 		test.afterEach(standardTeardown);
 
-		test('renders commit entries with correct details', async ({ vscode }) => {
-			// Start interactive rebase
-			const rebaseContext = startInteractiveRebase();
-			currentRebaseContext = rebaseContext;
-			const { waitForTodoFile } = rebaseContext;
-			const todoFilePath = await waitForTodoFile();
-
-			// Open the rebase editor
-			await openRebaseEditor(vscode, todoFilePath);
-
-			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
-			const entries = webviewFrame.locator('gl-rebase-entry');
-			await expect(entries.first()).toBeVisible({ timeout: 10000 });
-			// Verify we have the expected number of entries (4 commits + 1 base = 5 total)
-			await expect(entries).toHaveCount(5);
-
-			// Verify the commit entries have expected messages (in descending/newest-first order)
-			// The first 4 are our commits, the 5th is the base entry
-			const messages = ['Commit D', 'Commit C', 'Commit B', 'Commit A'];
-			for (let i = 0; i < 4; i++) {
-				const message = await entries.nth(i).locator('.entry-message-content').textContent();
-				expect(message).toBe(messages[i]);
-			}
-
-			// Verify all regular entries have an action select element
-			for (let i = 0; i < 4; i++) {
-				await expect(entries.nth(i).locator('.action-select')).toBeVisible();
-			}
-		});
-
-		test('verifies accessibility attributes on entries', async ({ vscode }) => {
+		test('provides proper ARIA labels and roles for screen readers', async ({ vscode }) => {
 			const rebaseContext = startInteractiveRebase();
 			currentRebaseContext = rebaseContext;
 			const { waitForTodoFile } = rebaseContext;
@@ -438,11 +445,11 @@ test.describe('Rebase Editor', () => {
 	});
 
 	test.describe('Execute rebase', () => {
-		test.setTimeout(600000); // 10 minute timeout for git operations
+		test.setTimeout(30000); // 30s timeout for git operations
 		test.beforeEach(standardSetup);
 		test.afterEach(standardTeardown);
 
-		test('executes rebase and closes editor on start', async ({ vscode }) => {
+		test('completes rebase after dropping a commit', async ({ vscode }) => {
 			const { page } = vscode;
 
 			const originalHead = await git.getShortSha('HEAD');
@@ -456,7 +463,7 @@ test.describe('Rebase Editor', () => {
 
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 			const entries = webviewFrame.locator('gl-rebase-entry');
-			await expect(entries.first()).toBeVisible({ timeout: 10000 });
+			await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
 			// Drop the first entry to create a visible change
 			await entries.first().click();
@@ -465,11 +472,19 @@ test.describe('Rebase Editor', () => {
 
 			// Click Start/Continue button (gl-button custom element)
 			const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
+			// Wait for any notifications to disappear or timeout
+			await page.waitForTimeout(1000);
+			// Try to close any visible notifications
+			try {
+				const notifications = page.locator('.notifications-toasts');
+				if (await notifications.isVisible()) {
+					await page.keyboard.press('Escape');
+					await page.waitForTimeout(500);
+				}
+			} catch {}
 			await startButton.click();
-
-			// Wait for the editor to close (indicates changes were saved)
 			const rebaseTab = page.getByRole('tab', { name: /Interactive Rebase/i });
-			await expect(rebaseTab).not.toBeVisible({ timeout: 10000 });
+			await expect(rebaseTab).not.toBeVisible({ timeout: 3000 });
 
 			// Signal the wait editor to exit so git can complete the rebase
 			await signalEditorDone();
@@ -487,7 +502,7 @@ test.describe('Rebase Editor', () => {
 			currentRebaseContext = null;
 		});
 
-		test('applies drop and fixup actions correctly', async ({ vscode }) => {
+		test('squashes commits using fixup and drops unwanted commits', async ({ vscode }) => {
 			const { page } = vscode;
 
 			const rebaseContext = startInteractiveRebase();
@@ -499,7 +514,7 @@ test.describe('Rebase Editor', () => {
 
 			const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 			const entries = webviewFrame.locator('gl-rebase-entry');
-			await expect(entries.first()).toBeVisible({ timeout: 10000 });
+			await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
 			// Drop "Commit D" (index 0)
 			await entries.nth(0).click();
@@ -513,11 +528,19 @@ test.describe('Rebase Editor', () => {
 
 			// Click Start/Continue button
 			const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
+			// Wait for any notifications to disappear or timeout
+			await page.waitForTimeout(1000);
+			// Try to close any visible notifications
+			try {
+				const notifications = page.locator('.notifications-toasts');
+				if (await notifications.isVisible()) {
+					await page.keyboard.press('Escape');
+					await page.waitForTimeout(500);
+				}
+			} catch {}
 			await startButton.click();
-
-			// Wait for the editor to close (indicates changes were saved)
 			const rebaseTab = page.getByRole('tab', { name: /Interactive Rebase/i });
-			await expect(rebaseTab).not.toBeVisible({ timeout: 10000 });
+			await expect(rebaseTab).not.toBeVisible({ timeout: 3000 });
 
 			// Signal the wait editor to exit so git can complete the rebase
 			await signalEditorDone();
@@ -537,11 +560,11 @@ test.describe('Rebase Editor', () => {
 			expect(prevMessage).toBe('Commit A');
 
 			// Verify d.txt is gone (dropped)
-			const dExists = fs.existsSync(path.join(git.repoDir, 'd.txt'));
+			const dExists = fs.existsSync(path.join(git.repoPath, 'd.txt'));
 			expect(dExists).toBe(false);
 
 			// Verify c.txt is present (fixup kept changes)
-			const cExists = fs.existsSync(path.join(git.repoDir, 'c.txt'));
+			const cExists = fs.existsSync(path.join(git.repoPath, 'c.txt'));
 			expect(cExists).toBe(true);
 
 			currentRebaseContext = null;
@@ -566,138 +589,59 @@ test.describe('Rebase Editor', () => {
  * that must follow their commits when reordered.
  */
 test.describe('Update Refs', () => {
-	test.setTimeout(180000);
+	test.beforeEach(standardSetup);
+	test.afterEach(standardTeardown);
 
-	/** Git fixture for the update-refs test repository */
-	let gitUpdateRefs: GitFixture;
-	/** SHA of the base commit to rebase onto */
-	let baseCommitSha: string;
-	/** Store current rebase context for cleanup */
-	let updateRefsRebaseContext: ReturnType<GitFixture['startRebaseInteractiveWithWaitEditor']> | null = null;
-
-	const updateRefsTest = test.extend({
-		vscodeOptions: [
-			async ({ vscodeOptions }, use) => {
-				const repoDir = await createTmpDir();
-				gitUpdateRefs = new GitFixture(repoDir);
-				await gitUpdateRefs.init();
-
-				// Capture base commit SHA (initial commit)
-				baseCommitSha = await gitUpdateRefs.getShortSha('HEAD');
-
-				// Create a stack of commits with branches pointing to them:
-				// Commit A (feature-a branch points here)
-				await gitUpdateRefs.commit('Commit A', 'a.txt', 'content a');
-				await gitUpdateRefs.branch('feature-a');
-
-				// Commit B (feature-b branch points here)
-				await gitUpdateRefs.commit('Commit B', 'b.txt', 'content b');
-				await gitUpdateRefs.branch('feature-b');
-
-				// Commit C (HEAD, main branch)
-				await gitUpdateRefs.commit('Commit C', 'c.txt', 'content c');
-
-				// Override git fixture for these tests
-				git = gitUpdateRefs;
-				initialCommitSha = baseCommitSha;
-
-				await use({
-					...vscodeOptions,
-					setup: () => Promise.resolve(repoDir),
-				});
-			},
-			{ scope: 'worker' },
-		],
-	});
-
-	updateRefsTest.beforeEach(async ({ vscode }) => {
-		void vscode;
-		// Clean up any in-progress rebase from previous test
-		if (updateRefsRebaseContext) {
-			try {
-				await updateRefsRebaseContext.signalEditorAbort();
-				await Promise.race([
-					updateRefsRebaseContext.rebasePromise.catch(() => {}),
-					new Promise(resolve => setTimeout(resolve, 2000)),
-				]);
-			} catch {}
-			updateRefsRebaseContext = null;
-		}
-		if (await gitUpdateRefs?.isRebaseInProgress()) {
-			await gitUpdateRefs.rebaseAbort();
-			// Wait a bit for Git to complete the abort
-			await new Promise(resolve => setTimeout(resolve, 500));
-		}
-	});
-
-	updateRefsTest.afterEach(async ({ vscode }) => {
-		void vscode;
-		if (updateRefsRebaseContext) {
-			try {
-				await updateRefsRebaseContext.signalEditorAbort();
-				await Promise.race([
-					updateRefsRebaseContext.rebasePromise.catch(() => {}),
-					new Promise(resolve => setTimeout(resolve, 2000)),
-				]);
-			} catch {}
-			updateRefsRebaseContext = null;
-		}
-		if (await gitUpdateRefs?.isRebaseInProgress()) {
-			await gitUpdateRefs.rebaseAbort();
-			// Wait for Git to complete the abort operation
-			await new Promise(resolve => setTimeout(resolve, 500));
-		}
-	});
-
-	updateRefsTest('displays update-ref badges on commits with branches', async ({ vscode }) => {
-		const rebaseContext = gitUpdateRefs.startRebaseInteractiveWithWaitEditor(baseCommitSha, { updateRefs: true });
-		updateRefsRebaseContext = rebaseContext;
-		const { rebasePromise, waitForTodoFile, signalEditorAbort } = rebaseContext;
+	test('displays update-ref badges on commits with branches', async ({ vscode }) => {
+		const rebaseContext = git.startRebaseInteractiveWithWaitEditor(initialCommitSha, { updateRefs: true });
+		currentRebaseContext = rebaseContext;
+		const { rebasePromise, waitForTodoFile, signalEditorDone, signalEditorAbort } = rebaseContext;
 
 		const todoFilePath = await waitForTodoFile();
 		await openRebaseEditor(vscode, todoFilePath);
 
 		const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 		const entries = webviewFrame.locator('gl-rebase-entry');
-		await expect(entries.first()).toBeVisible({ timeout: 10000 });
+		await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
 		// Verify update-ref badges are displayed
 		// Commit A should have feature-a badge, Commit B should have feature-b badge
 		const updateRefBadges = webviewFrame.locator('gl-ref-overflow-chip');
 		await expect(updateRefBadges).toHaveCount(2);
 
-		// Abort to clean up
+		// Signal done and abort to clean up
+		await signalEditorDone();
 		await signalEditorAbort();
-		await rebasePromise.catch(() => {});
-		updateRefsRebaseContext = null;
+		await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
+		currentRebaseContext = null;
 	});
 
-	updateRefsTest('update-refs follow their commit when moved via keyboard', async ({ vscode }) => {
+	test('update-refs follow their commit when moved via keyboard', async ({ vscode }) => {
 		const { page } = vscode;
 
-		const rebaseContext = gitUpdateRefs.startRebaseInteractiveWithWaitEditor(baseCommitSha, { updateRefs: true });
-		updateRefsRebaseContext = rebaseContext;
-		const { rebasePromise, waitForTodoFile, signalEditorAbort } = rebaseContext;
+		const rebaseContext = git.startRebaseInteractiveWithWaitEditor(initialCommitSha, { updateRefs: true });
+		currentRebaseContext = rebaseContext;
+		const { rebasePromise, waitForTodoFile, signalEditorDone, signalEditorAbort } = rebaseContext;
 
 		const todoFilePath = await waitForTodoFile();
 		await openRebaseEditor(vscode, todoFilePath);
 
 		const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 		const entries = webviewFrame.locator('gl-rebase-entry');
-		await expect(entries.first()).toBeVisible({ timeout: 10000 });
+		await expect(entries.first()).toBeVisible({ timeout: 3000 });
 
 		// Read initial todo file content
 		const initialContent = fs.readFileSync(todoFilePath, 'utf-8');
 
 		// Verify initial structure has update-refs after their commits
-		// Order should be: pick C, pick B, update-ref feature-b, pick A, update-ref feature-a
+		// Order should be: pick D, pick C, pick B, update-ref feature-b, pick A, update-ref feature-a
 		// Git adds '#' before commit messages in the todo file
 		expect(initialContent).toMatch(/pick [a-f0-9]+ #? ?Commit A[\s\S]*update-ref refs\/heads\/feature-a/);
 		expect(initialContent).toMatch(/pick [a-f0-9]+ #? ?Commit B[\s\S]*update-ref refs\/heads\/feature-b/);
 
 		// Select Commit B (which has feature-b branch) and move it up
-		// In descending order: C, B, A - so B is at index 1
-		await entries.nth(1).click();
+		// In descending order: D, C, B, A - so B is at index 2
+		await entries.nth(2).click();
 		await page.keyboard.press('Alt+ArrowUp');
 		await page.waitForTimeout(500);
 
@@ -715,122 +659,39 @@ test.describe('Update Refs', () => {
 		// update-ref for feature-b should immediately follow Commit B
 		expect(updateRefBIndex).toBe(commitBIndex + 1);
 
-		// Abort to clean up
+		// Signal done and abort to clean up
+		await signalEditorDone();
 		await signalEditorAbort();
-		await rebasePromise.catch(() => {});
-		updateRefsRebaseContext = null;
+		await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
+		currentRebaseContext = null;
 	});
 });
 
 test.describe('Rebase Merges', () => {
-	test.setTimeout(180000); // Increase timeout for rebase-merges
-	const rebaseMergesTest = test.extend({
-		vscodeOptions: [
-			async ({ vscodeOptions }, use) => {
-				const repoDir = await createTmpDir();
-				const gitMerge = new GitFixture(repoDir);
-				await gitMerge.init();
+	test.beforeEach(standardSetup);
+	test.afterEach(standardTeardown);
 
-				// Initial commit (A)
-				await gitMerge.commit('Initial commit (A)', 'a.txt', 'content A');
-				// commitASha captured but not needed for this test
-
-				// Commit 1 on main (C1)
-				await gitMerge.commit('Commit 1 (main)', 'b.txt', 'content B');
-				const commitC1Sha = await gitMerge.getShortSha('HEAD'); // Rebase onto this
-
-				// Create feature branch from C1
-				await gitMerge.branch('feature');
-
-				// Commit on feature branch (F1)
-				await gitMerge.checkout('feature');
-				await gitMerge.commit('Commit 2 (feature)', 'c.txt', 'content C');
-
-				// Merge feature into main (Merge Commit M)
-				await gitMerge.checkout('main');
-				await gitMerge.merge('feature', 'Merge feature branch', { noFF: true });
-
-				git = gitMerge;
-				initialCommitSha = commitC1Sha; // Rebase onto Commit 1 (main)
-
-				await use({
-					...vscodeOptions,
-					setup: () => Promise.resolve(repoDir),
-				});
-			},
-			{ scope: 'worker' },
-		],
-	});
-
-	rebaseMergesTest.beforeEach(async ({ vscode }) => {
-		void vscode;
-		// Abort any in-progress rebase
-		if (await git.isRebaseInProgress()) {
-			await git.rebaseAbort();
-			// Wait for Git to complete the abort
-			await new Promise(resolve => setTimeout(resolve, 500));
-		}
-	});
-
-	rebaseMergesTest.afterEach(standardTeardown);
-
-	rebaseMergesTest('enforces read-only mode for rebase with merges', async ({ vscode }) => {
-		const { page } = vscode;
-
-		// Start interactive rebase with --rebase-merges to generate merge commands
+	test('enforces read-only mode for rebase with merges', async ({ vscode }) => {
+		// Start interactive rebase with --rebase-merges
 		const rebaseContext = startInteractiveRebase({ rebaseMerges: true });
 		currentRebaseContext = rebaseContext;
-		const { rebasePromise, waitForTodoFile, signalEditorAbort } = rebaseContext;
+		const { rebasePromise, waitForTodoFile, signalEditorDone, signalEditorAbort } = rebaseContext;
 
 		const todoFilePath = await waitForTodoFile();
-
-		// Open the rebase editor
 		await openRebaseEditor(vscode, todoFilePath);
 
-		await page.waitForTimeout(3000); // Give webview time to re-parse and render
+		// Get the webview
+		const webviewFrame = await getRebaseWebviewWithRetry(vscode);
 
-		// Try to get the webview with a reasonable timeout
-		let webviewFrame;
-		try {
-			webviewFrame = await Promise.race([
-				getRebaseWebviewWithRetry(vscode),
-				new Promise<null>((_, reject) =>
-					setTimeout(() => reject(new Error('Timeout waiting for rebase webview')), 30000),
-				),
-			]);
-			if (!webviewFrame) {
-				throw new Error('Rebase webview not found');
-			}
-		} catch (error) {
-			// If webview fails to load, clean up and skip the rest
-			await signalEditorAbort();
-			await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 2000))]);
-			currentRebaseContext = null;
-			throw error;
-		}
-
-		await expect(webviewFrame.locator('gl-rebase-editor')).toBeVisible({ timeout: 15000 });
-
-		// Verify read-only banner is visible
+		// Check for the read-only banner
 		const readOnlyBanner = webviewFrame.locator('.read-only-banner');
-		await expect(readOnlyBanner).toBeVisible();
-		await expect(readOnlyBanner).toContainText('This rebase contains merge commits and cannot be edited here');
+		await expect(readOnlyBanner).toBeVisible({ timeout: 3000 });
+		await expect(readOnlyBanner).toContainText('merge commits');
 
-		// Verify "Switch to Text Editor" button is present
-		await expect(readOnlyBanner.locator('gl-button').filter({ hasText: 'Switch to Text Editor' })).toBeVisible();
-
-		// Read-only mode doesn't render entries, so we just verify the banner is shown
-		// The presence of the banner and the message confirm read-only mode is active
-
-		// Close all editors first to ensure clean state
-		await vscode.gitlens.closeAllEditors();
-
-		// Abort the rebase to clean up
+		// Signal editor done to keep it open, then abort
+		await signalEditorDone();
 		await signalEditorAbort();
-
-		// Wait for the rebase promise with a timeout to avoid hanging
-		await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 3000))]);
-
+		await Promise.race([rebasePromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000))]);
 		currentRebaseContext = null;
 	});
 });

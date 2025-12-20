@@ -179,7 +179,7 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 		});
 		// Cleanup after test
 		for (const repo of repos) {
-			await fs.promises.rm(repo.repoDir, { recursive: true, force: true }).catch(() => {});
+			await fs.promises.rm(repo.repoPath, { recursive: true, force: true }).catch(() => {});
 		}
 	},
 

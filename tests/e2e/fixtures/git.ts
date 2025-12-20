@@ -4,11 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 export class GitFixture {
-	constructor(private readonly repoPath: string) {}
-
-	get repoDir(): string {
-		return this.repoPath;
-	}
+	constructor(public readonly repoPath: string) {}
 
 	async init(): Promise<void> {
 		await fs.mkdir(this.repoPath, { recursive: true });
@@ -186,6 +182,29 @@ export class GitFixture {
 		} catch {
 			return false;
 		}
+	}
+
+	/**
+	 * Clean up all Git rebase state files and directories.
+	 * This is useful for ensuring a clean state between tests.
+	 */
+	async cleanupRebaseState(): Promise<void> {
+		try {
+			await fs.rm(path.join(this.repoPath, '.git', 'rebase-merge'), { recursive: true, force: true });
+		} catch {}
+		try {
+			await fs.rm(path.join(this.repoPath, '.git', 'rebase-apply'), { recursive: true, force: true });
+		} catch {}
+		try {
+			await fs.unlink(path.join(this.repoPath, '.git', 'REBASE_HEAD'));
+		} catch {}
+		try {
+			await fs.unlink(path.join(this.repoPath, '.git', 'index.lock'));
+		} catch {}
+		try {
+			await fs.unlink(path.join(this.repoPath, '.git', 'HEAD.lock'));
+		} catch {}
+		await new Promise(resolve => setTimeout(resolve, 500));
 	}
 
 	/**
