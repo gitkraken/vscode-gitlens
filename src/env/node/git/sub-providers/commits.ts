@@ -20,7 +20,7 @@ import type {
 import { GitUri } from '../../../../git/gitUri';
 import type { GitBlame } from '../../../../git/models/blame';
 import type { GitCommitFileset, GitStashCommit } from '../../../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
+import { GitCommit, GitCommitIdentity, isStash } from '../../../../git/models/commit';
 import type { GitDiffFilter, ParsedGitDiffHunks } from '../../../../git/models/diff';
 import { GitFileChange } from '../../../../git/models/fileChange';
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
@@ -50,7 +50,7 @@ import { isUserMatch } from '../../../../git/utils/user.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
 import { debug, log } from '../../../../system/decorators/log';
-import { filterMap, first, join, last, some } from '../../../../system/iterable';
+import { filterMap, findLast, first, join, last, some } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
@@ -641,7 +641,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				return moreLog;
 			}
 
-			const lastCommit = last(log.commits.values());
+			// Stashes are not part of the normal commit history, so we need to find the last non-stash commit for the cursor
+			const lastCommit = findLast(log.commits.values(), c => !isStash(c)) ?? last(log.commits.values());
 			const sha = lastCommit?.ref;
 
 			// Check to make sure the filename hasn't changed and if it has use the previous
@@ -702,7 +703,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					count: commits.size,
 					limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 					hasMore: moreUntil == null ? moreLog.hasMore : true,
-					startingCursor: last(log.commits)?.[0],
+					startingCursor: sha,
 					endingCursor: moreLog.endingCursor,
 					pagedCommits: () => {
 						// Remove any duplicates

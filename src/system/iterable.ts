@@ -274,6 +274,16 @@ export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicat
 	return -1;
 }
 
+export function findLast<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T | undefined {
+	let result: T | undefined;
+	for (const item of source) {
+		if (predicate(item)) {
+			result = item;
+		}
+	}
+	return result;
+}
+
 export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
 	return source[Symbol.iterator]().next().value as T | undefined;
 }
