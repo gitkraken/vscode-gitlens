@@ -16145,23 +16145,23 @@
 			"gitlens/commit/file/commit": [
 				{
 					"command": "gitlens.showInDetailsView",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "navigation@1"
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)\\b/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)\\b/",
 					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.views.openCommitOnRemote",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:repos:withRemotes",
 					"group": "navigation@3",
 					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "navigation@4"
 				},
 				{
@@ -17908,6 +17908,16 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == lineHistory && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@2"
 				},
@@ -17918,7 +17928,12 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == lineHistory && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@2"
 				},
 				{
@@ -18024,6 +18039,11 @@
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@4"
 				},
 				{
@@ -19587,6 +19607,11 @@
 					"group": "inline@96"
 				},
 				{
+					"command": "gitlens.views.openFile",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+conflicted\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/",
+					"group": "inline@96"
+				},
+				{
 					"command": "gitlens.views.stageFile",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@97"
@@ -19599,6 +19624,12 @@
 				{
 					"command": "gitlens.copyShaToClipboard",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory)\\b/",
+					"group": "inline@98",
+					"alt": "gitlens.copyMessageToClipboard"
+				},
+				{
+					"command": "gitlens.copyShaToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/",
 					"group": "inline@98",
 					"alt": "gitlens.copyMessageToClipboard"
 				},
@@ -19659,6 +19690,11 @@
 					"group": "2_gitlens_quickopen@3"
 				},
 				{
+					"command": "gitlens.showInDetailsView",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/ && !listMultiSelection",
+					"group": "2_gitlens_quickopen@3"
+				},
+				{
 					"command": "gitlens.views.openFile",
 					"when": "viewItem =~ /gitlens:(file|history:(file|line)|status:file)\\b/ && !listMultiSelection",
 					"group": "2_gitlens_quickopen_file@3"
@@ -19676,7 +19712,7 @@
 				},
 				{
 					"submenu": "gitlens/commit/file/commit",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && (view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ || (view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/)) && !listMultiSelection",
 					"group": "3_gitlens_explore@1"
 				},
 				{
@@ -19690,8 +19726,18 @@
 					"group": "4_gitlens_compare@2"
 				},
 				{
+					"command": "gitlens.views.compareWithHead",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/ && !listMultiSelection",
+					"group": "4_gitlens_compare@2"
+				},
+				{
 					"command": "gitlens.views.compareWithWorking",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "4_gitlens_compare@3"
+				},
+				{
+					"command": "gitlens.views.compareWithWorking",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 					"group": "4_gitlens_compare@3"
 				},
 				{
@@ -19710,19 +19756,29 @@
 					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard:views",
-					"when": "viewItem =~ /gitlens:file($|\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "7_gitlens_cutcopypaste@3"
+					"command": "gitlens.copyShaToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory)/ && !listMultiSelection",
+					"group": "7_gitlens_cutcopypaste@97"
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/ && !listMultiSelection",
 					"group": "7_gitlens_cutcopypaste@97"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory)/ && !listMultiSelection",
 					"group": "7_gitlens_cutcopypaste@98"
+				},
+				{
+					"command": "gitlens.copyMessageToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /fileHistory|lineHistory/ && !listMultiSelection",
+					"group": "7_gitlens_cutcopypaste@98"
+				},
+				{
+					"command": "gitlens.copyPatchToClipboard:views",
+					"when": "viewItem =~ /gitlens:file($|\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "7_gitlens_cutcopypaste@100"
 				},
 				{
 					"command": "gitlens.views.applyChanges",
@@ -21493,13 +21549,13 @@
 					"group": "5_gitlens@2"
 				},
 				{
-					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "viewItem == gitlens:views:repositories && !config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@2"
-				},
-				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "viewItem == gitlens:views:repositories && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "viewItem == gitlens:views:repositories && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@4"
 				},
 				{
@@ -22069,7 +22125,12 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
-					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.showRelativeDateMarkers",
+					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == lineHistory && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@2"
 				},
 				{
@@ -22084,7 +22145,12 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
+					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == fileHistory && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == lineHistory && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@2"
 				},
 				{
@@ -22174,6 +22240,11 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@4"
 				},
@@ -22185,6 +22256,11 @@
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "viewItem == gitlens:views:scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@4"
 				},
 				{
@@ -23670,12 +23746,12 @@
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view == gitlens.views.repositories && config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@2"
+					"group": "5_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view == gitlens.views.repositories && !config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@2"
+					"group": "5_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.repositories.setBranchesShowStashesOff",
@@ -24300,7 +24376,12 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
-					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.showRelativeDateMarkers",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == lineHistory && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@2"
 				},
 				{
@@ -24315,7 +24396,12 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == lineHistory && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@2"
 				},
 				{
@@ -24405,6 +24491,11 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@4"
 				},
@@ -24416,6 +24507,11 @@
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "5_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@4"
 				},
 				{
