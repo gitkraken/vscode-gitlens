@@ -134,7 +134,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		return this.state?.rebaseStatus;
 	}
 
-	private get isActiveRebase(): boolean {
+	private get isRebasing(): boolean {
 		return this.rebaseStatus != null;
 	}
 
@@ -1010,7 +1010,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			if (e.key === 'Enter' && !this.state?.isReadOnly) {
 				e.preventDefault();
 				// Use Continue when in active rebase, Start otherwise
-				if (this.isActiveRebase) {
+				if (this.isRebasing) {
 					if (!this.rebaseStatus?.hasConflicts) {
 						this.onContinueClicked();
 					}
@@ -1128,7 +1128,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			let targetId: string | undefined;
 
 			// If in an active rebase, auto-select the last done entry (the paused entry)
-			if (this.isActiveRebase && this.doneEntries.length > 0) {
+			if (this.isRebasing && this.doneEntries.length > 0) {
 				const lastDoneEntry = this.doneEntries[this.doneEntries.length - 1];
 				targetId = lastDoneEntry.id;
 			}
@@ -1169,7 +1169,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		if (!this.state?.entries) return nothing;
 
 		const isReadOnly = this.state.isReadOnly ?? false;
-		const isActive = this.isActiveRebase;
+		const isActive = this.isRebasing;
 		const isEmptyOrNoop = this.isEmptyOrNoop;
 
 		return html`
@@ -1228,7 +1228,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private renderConflictIndicator() {
 		// Only show for new rebases (not active ones)
-		if (this.isActiveRebase || !this.state?.branch || !this.state?.onto) {
+		if (this.isRebasing || !this.state?.branch || !this.state?.onto) {
 			return nothing;
 		}
 
@@ -1406,7 +1406,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					</gl-button>
 				</div>
 			</div>
-			${this.isActiveRebase ? this.renderRebaseBanner() : nothing}
+			${this.isRebasing ? this.renderRebaseBanner() : nothing}
 		</header>`;
 	}
 
@@ -1444,7 +1444,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					</span>`
 				: nothing}
 			<span class="header-count"
-				>${this.isActiveRebase
+				>${this.isRebasing
 					? `${doneCommitCount}/${totalCommitCount} commits`
 					: pluralize('commit', pendingCommitCount)}</span
 			>
@@ -1488,7 +1488,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	};
 
 	private renderFooter() {
-		const isActive = this.isActiveRebase;
+		const isActive = this.isRebasing;
 		const hasConflicts = this.rebaseStatus?.hasConflicts ?? false;
 
 		return html`<footer>
@@ -1516,7 +1516,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		let tooltip: string | undefined;
 
 		// Check if conflict indicator should be shown (same conditions as renderConflictIndicator)
-		const showConflictState = !this.isActiveRebase && this.state?.branch && this.state?.onto;
+		const showConflictState = !this.isRebasing && this.state?.branch && this.state?.onto;
 		if (showConflictState) {
 			const isLoading = this._conflictIndicatorLoading;
 			const hasConflicts = this._conflictIndicatorHasConflicts;

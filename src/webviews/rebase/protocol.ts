@@ -61,6 +61,7 @@ export interface RebaseActiveStatus {
 	currentCommit?: string;
 	/** True if there are conflicts to resolve */
 	hasConflicts?: boolean;
+	isPaused: boolean;
 	/** Reason the rebase is paused (undefined if not paused/in progress) */
 	pauseReason?: RebasePauseReason;
 }

@@ -241,8 +241,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						if (this._context.scope?.type !== 'file') return;
 
 						void executeCommand<TimelineScope>('gitlens.visualizeHistory', this._context.scope);
-						this.container.telemetry.sendEvent('timeline/action/openInEditor', {
-							...this.getTelemetryContext(),
+						this.host.sendTelemetryEvent('timeline/action/openInEditor', {
 							'scope.type': this._context.scope.type,
 							'scope.hasHead': this._context.scope.head != null,
 							'scope.hasBase': this._context.scope.base != null,
@@ -469,8 +468,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		if (changed) {
-			this.container.telemetry.sendEvent('timeline/config/changed', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('timeline/config/changed', {
 				period: config.period,
 				showAllBranches: config.showAllBranches,
 				sliceBy: config.sliceBy,
@@ -540,8 +538,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		// If we are changing the type, and in the view, open it in the editor
 		if (this.host.is('view') || e.params.altOrShift) {
 			void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
-			this.container.telemetry.sendEvent('timeline/action/openInEditor', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('timeline/action/openInEditor', {
 				'scope.type': scope.type,
 				'scope.hasHead': scope.head != null,
 				'scope.hasBase': scope.base != null,
@@ -569,7 +566,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				this._tabCloseDebounceTimer = undefined;
 				const changed = await this.updateScope(uri, undefined, true);
 				if (changed) {
-					this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
+					this.host.sendTelemetryEvent('timeline/editor/changed');
 				}
 			}, 1000);
 
@@ -578,7 +575,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
 		if (changed) {
-			this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
+			this.host.sendTelemetryEvent('timeline/editor/changed');
 		}
 	}
 
@@ -594,7 +591,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		uri = await ensureWorkingUri(this.container, uri ?? this.activeTabUri);
 		const changed = await this.updateScope(uri ? { type: 'file', uri: uri } : undefined, undefined, true);
 		if (changed) {
-			this.container.telemetry.sendEvent('timeline/editor/changed', this.getTelemetryContext());
+			this.host.sendTelemetryEvent('timeline/editor/changed');
 		}
 	}
 
@@ -829,7 +826,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const repo = this.container.git.getRepository(params.scope.uri);
 		if (repo == null) return;
 
-		this.container.telemetry.sendEvent('timeline/commit/selected', this.getTelemetryContext());
+		this.host.sendTelemetryEvent('timeline/commit/selected');
 
 		const commit = await repo.git.commits.getCommit(params.id || uncommitted);
 		if (commit == null) return;
@@ -1027,7 +1024,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		this.fireFileSelected();
-		this.container.telemetry.sendEvent('timeline/scope/changed', this.getTelemetryContext());
+		this.host.sendTelemetryEvent('timeline/scope/changed');
 
 		if (!silent) {
 			this.updateState();

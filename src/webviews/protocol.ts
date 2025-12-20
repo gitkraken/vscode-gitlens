@@ -1,7 +1,7 @@
 import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
 import type { GlCommands } from '../constants.commands';
-import type { Source, TelemetryEvents, TelemetryEventsFromWebviewApp } from '../constants.telemetry';
+import type { Source, WebviewTelemetryEvents } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -117,9 +117,9 @@ export interface UpdateConfigurationParams {
 }
 export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
 
-export interface TelemetrySendEventParams<T extends keyof TelemetryEvents = keyof TelemetryEvents> {
+export interface TelemetrySendEventParams<T extends keyof WebviewTelemetryEvents = keyof WebviewTelemetryEvents> {
 	name: T;
-	data: TelemetryEventsFromWebviewApp[T];
+	data: WebviewTelemetryEvents[T];
 	source?: Source;
 	startTime?: TimeInput;
 	endTime?: TimeInput;

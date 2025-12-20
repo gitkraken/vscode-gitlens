@@ -1196,7 +1196,10 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Repository) {
-						void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', repo));
+						void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+							repository: repo,
+							source: { source: 'deeplink' },
+						}));
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;
 					}
@@ -1209,6 +1212,7 @@ export class DeepLinkService implements Disposable {
 
 					void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 						ref: createReference(targetSha, repo.path),
+						source: { source: 'deeplink' },
 					}));
 
 					action = DeepLinkServiceAction.DeepLinkResolved;

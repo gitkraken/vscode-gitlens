@@ -306,7 +306,10 @@ export class CommitOpenInGraphCommandQuickPickItem extends CommandQuickPickItem 
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return showCommitInGraph(this.commit, { preserveFocus: options?.preserveFocus });
+		return showCommitInGraph(this.commit, {
+			preserveFocus: options?.preserveFocus,
+			source: { source: 'quick-wizard' },
+		});
 	}
 }
 
@@ -316,7 +319,7 @@ export class CommitExplainCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return explainCommit(this.commit, { source: { source: 'commandPalette' } });
+		return explainCommit(this.commit, { source: { source: 'quick-wizard' } });
 	}
 }
 

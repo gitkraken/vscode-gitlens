@@ -30,7 +30,11 @@ import { GlyphChars } from '../../../constants';
 import type { ContextKeys } from '../../../constants.context';
 import type { SearchQuery } from '../../../constants.search';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
-import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
+import type {
+	GraphShownTelemetryContext,
+	GraphTelemetryContext,
+	WebviewTelemetryEvents,
+} from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { CancellationError, isCancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
@@ -1174,13 +1178,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onColumnsChanged(e: UpdateColumnsParams) {
 		this.updateColumns(e.config);
 
-		const sendEvent: TelemetryEvents['graph/columns/changed'] = { ...this.getTelemetryContext() };
+		const eventData: WebviewTelemetryEvents['graph/columns/changed'] = {};
 		for (const [name, config] of Object.entries(e.config)) {
 			for (const [prop, value] of Object.entries(config)) {
-				sendEvent[`column.${name}.${prop as keyof GraphColumnConfig}`] = value;
+				eventData[`column.${name}.${prop as keyof GraphColumnConfig}`] = value;
 			}
 		}
-		this.container.telemetry.sendEvent('graph/columns/changed', sendEvent);
+		this.host.sendTelemetryEvent('graph/columns/changed', eventData);
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
@@ -1817,8 +1821,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} finally {
 			const cancelled = isCancellationError(exception);
 
-			this.container.telemetry.sendEvent('graph/searched', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('graph/searched', {
 				types: types,
 				duration: sw.elapsed(),
 				matches: (results?.results as GraphSearchResults)?.count ?? 0,
@@ -2109,8 +2112,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (pick == null) return;
 
 		this.repository = pick;
-		this.container.telemetry.sendEvent('graph/repository/changed', {
-			...this.getTelemetryContext(),
+		this.host.sendTelemetryEvent('graph/repository/changed', {
 			'repository.id': this.repository?.idHash,
 			'repository.scheme': this.repository?.uri.scheme,
 			'repository.closed': this.repository?.closed,
@@ -3516,8 +3518,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (branchesVisibility != null) {
 			const currentBranchesVisibility = this.getBranchesVisibility(this.getFiltersByRepo(repoPath));
 
-			this.container.telemetry.sendEvent('graph/branchesVisibility/changed', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('graph/branchesVisibility/changed', {
 				'branchesVisibility.old': currentBranchesVisibility,
 				'branchesVisibility.new': branchesVisibility,
 			});
@@ -3540,8 +3541,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		excludeTypes = updateRecordValue(excludeTypes, key, value);
 
-		this.container.telemetry.sendEvent('graph/filters/changed', {
-			...this.getTelemetryContext(),
+		this.host.sendTelemetryEvent('graph/filters/changed', {
 			key: key,
 			value: value,
 		});
@@ -3648,8 +3648,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this._pendingRowsQuery.promise.finally(() => {
 			if (cancellation.isCancellationRequested) return;
 
-			this.container.telemetry.sendEvent('graph/rows/loaded', {
-				...this.getTelemetryContext(),
+			this.host.sendTelemetryEvent('graph/rows/loaded', {
 				duration: sw.elapsed(),
 				rows: graph.rows.length ?? 0,
 			});
@@ -4214,6 +4213,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				matchCase: false,
 				matchRegex: false,
 			},
+			source: { source: 'graph' },
 		});
 	}
 

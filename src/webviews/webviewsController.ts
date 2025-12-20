@@ -2,6 +2,7 @@ import type { CancellationToken, WebviewPanel, WebviewView, WebviewViewResolveCo
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { GlCommands } from '../constants.commands';
+import type { Source } from '../constants.telemetry';
 import type { WebviewIds, WebviewViewIds } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
@@ -418,6 +419,7 @@ export interface WebviewPanelShowOptions {
 	column?: ViewColumn;
 	preserveFocus?: boolean;
 	preserveVisibility?: boolean;
+	source?: Source;
 }
 
 interface WebviewPanelsShowOptions extends WebviewPanelShowOptions {
@@ -433,6 +435,7 @@ export interface WebviewViewShowOptions {
 	column?: never;
 	preserveFocus?: boolean;
 	preserveVisibility?: boolean;
+	source?: Source;
 }
 
 export type WebviewShowOptions = WebviewPanelShowOptions | WebviewViewShowOptions;

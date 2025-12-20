@@ -142,29 +142,29 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'commitDetails/reachability/failed': DetailsReachabilityFailedEvent;
 
 	/** Sent when the Commit Composer is first loaded with repo data */
-	'composer/loaded': ComposerEvent;
+	'composer/loaded': ComposerLoadedEvent;
 	/** Sent when the Commit Composer is reloaded */
-	'composer/reloaded': ComposerEvent;
+	'composer/reloaded': ComposerLoadedEvent;
 	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */
 	'composer/action/includedUnstagedChanges': ComposerEvent;
 	/** Sent when the user uses auto-compose in the Commit Composer */
-	'composer/action/compose': ComposerEvent;
+	'composer/action/compose': ComposerGenerateCommitsEvent;
 	/** Sent when the user fails an auto-compose operation in the Commit Composer */
-	'composer/action/compose/failed': ComposerEvent;
+	'composer/action/compose/failed': ComposerGenerateCommitsFailedEvent;
 	/** Sent when the user uses recompose in the Commit Composer */
-	'composer/action/recompose': ComposerEvent;
+	'composer/action/recompose': ComposerGenerateCommitsEvent;
 	/** Sent when the user fails a recompose operation in the Commit Composer */
-	'composer/action/recompose/failed': ComposerEvent;
+	'composer/action/recompose/failed': ComposerGenerateCommitsFailedEvent;
 	/** Sent when the user uses generate commit message in the Commit Composer */
-	'composer/action/generateCommitMessage': ComposerEvent;
+	'composer/action/generateCommitMessage': ComposerGenerateCommitMessageEvent;
 	/** Sent when the user fails a generate commit message operation in the Commit Composer */
-	'composer/action/generateCommitMessage/failed': ComposerEvent;
+	'composer/action/generateCommitMessage/failed': ComposerGenerateCommitMessageFailedEvent;
 	/** Sent when the user changes the AI model in the Commit Composer */
 	'composer/action/changeAiModel': ComposerEvent;
 	/** Sent when the user finishes and commits in the Commit Composer */
 	'composer/action/finishAndCommit': ComposerEvent;
 	/** Sent when the user fails to finish and commit in the Commit Composer */
-	'composer/action/finishAndCommit/failed': ComposerEvent;
+	'composer/action/finishAndCommit/failed': ComposerFinishAndCommitFailedEvent;
 	/** Sent when the user uses the undo button in the Commit Composer */
 	'composer/action/undo': ComposerEvent;
 	/** Sent when the user uses the reset button in the Commit Composer */
@@ -280,10 +280,37 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the Rebase Editor is shown */
 	'rebaseEditor/shown': RebaseEditorShownEvent;
-	// /** Sent when the user selects (clicks on) a commit on the Rebase Editor */
-	// 'rebaseEditor/commit/selected': RebaseEditorContextEventData;
-	// /** Sent when the user changes the configuration of the Rebase Editor (e.g. period, show all branches, etc) */
-	// 'rebaseEditor/config/changed': RebaseEditorConfigChangedEvent;
+
+	/** Sent when the user starts a rebase (clicks "Start Rebase") */
+	'rebaseEditor/action/start': RebaseEditorCompletionEventData;
+	/** Sent when the user aborts a rebase */
+	'rebaseEditor/action/abort': RebaseEditorCompletionEventData;
+	/** Sent when the user continues a paused rebase */
+	'rebaseEditor/action/continue': RebaseEditorContextEventData;
+	/** Sent when the user skips a commit during a paused rebase */
+	'rebaseEditor/action/skip': RebaseEditorContextEventData;
+	/** Sent when the user switches to the text editor */
+	'rebaseEditor/action/switchToText': RebaseEditorCompletionEventData;
+	/** Sent when the user toggles the commit ordering (ascending/descending) */
+	'rebaseEditor/action/toggleOrdering': RebaseEditorToggleOrderingEvent;
+	/** Sent when the user opens the Commit Composer from the rebase editor */
+	'rebaseEditor/action/recompose': RebaseEditorCompletionEventData;
+	/** Sent when the user clicks to show conflicts */
+	'rebaseEditor/action/showConflicts': RebaseEditorContextEventData;
+	/** Sent when the user reveals a ref (commit/branch) in graph or commit details */
+	'rebaseEditor/action/revealRef': RebaseEditorRevealRefEvent;
+
+	/** Sent when the user changes rebase entry action(s) (pick, squash, drop, etc.) */
+	'rebaseEditor/entries/changed': RebaseEditorEntriesChangedEvent;
+	/** Sent when the user moves/reorders entries */
+	'rebaseEditor/entries/moved': RebaseEditorEntriesMovedEvent;
+
+	/** Sent when conflict detection starts */
+	'rebaseEditor/conflicts/detecting': RebaseEditorContextEventData;
+	/** Sent when conflict detection completes (check status for result) */
+	'rebaseEditor/conflicts/detected': RebaseEditorConflictsDetectedEvent;
+	/** Sent when conflict detection fails */
+	'rebaseEditor/conflicts/failed': RebaseEditorConflictsFailedEvent;
 
 	/** Sent when a local (Git remote-based) hosting provider is connected */
 	'remoteProviders/connected': RemoteProvidersConnectedEvent;
@@ -856,6 +883,45 @@ type ComposerSessionContextEventData = ComposerContextSessionData &
 
 type ComposerEvent = ComposerContextEventData;
 
+type ComposerLoadedEvent = ComposerContextEventData &
+	Partial<{
+		'failure.reason': 'error';
+		'failure.error.message': string;
+	}>;
+
+type ComposerGenerateCommitsEvent = ComposerContextEventData & {
+	'customInstructions.used': boolean;
+	'customInstructions.length': number;
+	'customInstructions.hash': string;
+	'customInstructions.setting.used': boolean;
+	'customInstructions.setting.length': number;
+};
+
+type ComposerActionFailureEventData =
+	| {
+			'failure.reason': 'cancelled';
+			'failure.error.message'?: never;
+	  }
+	| {
+			'failure.reason': 'error';
+			'failure.error.message': string;
+	  };
+
+type ComposerGenerateCommitsFailedEvent = ComposerGenerateCommitsEvent & ComposerActionFailureEventData;
+
+type ComposerGenerateCommitMessageEvent = ComposerContextEventData & {
+	'customInstructions.setting.used': boolean;
+	'customInstructions.setting.length': number;
+	overwriteExistingMessage: boolean;
+};
+
+type ComposerGenerateCommitMessageFailedEvent = ComposerGenerateCommitMessageEvent & ComposerActionFailureEventData;
+
+type ComposerFinishAndCommitFailedEvent = ComposerContextEventData & {
+	'failure.reason': 'error';
+	'failure.error.message': string;
+};
+
 interface LaunchpadEventDataBase {
 	/** @order 1 */
 	instance: number;
@@ -986,15 +1052,92 @@ interface ProvidersRegistrationCompleteEvent {
 	'config.git.autoRepositoryDetection': boolean | 'subFolders' | 'openEditors' | undefined;
 }
 
-type RebaseEditorContextEventData = WebviewTelemetryContext & {
+/** Context provided by getTelemetryContext() - does NOT include session.duration */
+export type RebaseEditorTelemetryContext = WebviewTelemetryContext & {
 	'context.ascending': boolean;
+	'context.todo.count': number | undefined;
+	'context.done.count': number | undefined;
+	'context.isRebasing': boolean | undefined;
+	'context.isPaused': boolean | undefined;
+	'context.isReadOnly': boolean | undefined;
+	'context.hasConflicts': boolean | undefined;
+	'context.session.start': string;
 };
-export type RebaseEditorTelemetryContext = RebaseEditorContextEventData;
+
+/** Base event data - same as context, used for events that don't need duration */
+type RebaseEditorContextEventData = RebaseEditorTelemetryContext;
+
+/** Completion event data - includes session.duration which must be passed per-event */
+type RebaseEditorCompletionEventData = RebaseEditorTelemetryContext & {
+	'context.session.duration': number;
+};
 
 type RebaseEditorShownEventData = RebaseEditorContextEventData & FlattenedContextConfig<Config['rebaseEditor']>;
 export type RebaseEditorShownTelemetryContext = RebaseEditorShownEventData;
 
 type RebaseEditorShownEvent = WebviewShownEventData & RebaseEditorShownEventData;
+
+interface RebaseEditorToggleOrderingEvent extends RebaseEditorContextEventData {
+	'ordering.old': 'asc' | 'desc';
+	'ordering.new': 'asc' | 'desc';
+}
+
+interface RebaseEditorRevealRefEvent extends RebaseEditorContextEventData {
+	/** Type of ref being revealed */
+	'ref.type': 'commit' | 'branch';
+	/** Where the ref is being revealed */
+	location: 'graph' | 'commitDetails';
+}
+
+interface RebaseEditorEntriesChangedEvent extends RebaseEditorContextEventData {
+	/** The new action applied */
+	action: string;
+	/** Number of entries changed */
+	count: number;
+}
+
+interface RebaseEditorEntriesMovedEvent extends RebaseEditorContextEventData {
+	/** Number of entries moved */
+	count: number;
+	/** Method used to move entries */
+	method: 'drag' | 'keyboard';
+}
+
+interface RebaseEditorConflictsDetectedEvent extends RebaseEditorContextEventData {
+	/** Duration of conflict detection in milliseconds */
+	duration: number;
+	/** Result status */
+	status: 'clean' | 'conflicts';
+	/** Number of commits checked */
+	'commits.count': number;
+	/** Number of conflicting commits (only when status is 'conflicts') */
+	'commits.conflicting'?: number;
+}
+
+interface RebaseEditorConflictsFailedEvent extends RebaseEditorContextEventData {
+	/** Duration before failure in milliseconds */
+	duration: number;
+	/** Number of commits that were being checked */
+	'commits.count': number;
+	/** Error message */
+	error?: string;
+}
+
+export type RebaseEditorTelemetryEvent =
+	| 'rebaseEditor/action/start'
+	| 'rebaseEditor/action/abort'
+	| 'rebaseEditor/action/continue'
+	| 'rebaseEditor/action/skip'
+	| 'rebaseEditor/action/switchToText'
+	| 'rebaseEditor/action/toggleOrdering'
+	| 'rebaseEditor/action/recompose'
+	| 'rebaseEditor/action/showConflicts'
+	| 'rebaseEditor/action/revealRef'
+	| 'rebaseEditor/entries/changed'
+	| 'rebaseEditor/entries/moved'
+	| 'rebaseEditor/conflicts/detecting'
+	| 'rebaseEditor/conflicts/detected'
+	| 'rebaseEditor/conflicts/failed';
 
 interface RemoteProvidersConnectedEvent {
 	'hostingProvider.provider': IntegrationIds;
@@ -1229,7 +1372,7 @@ type WebviewShownEventData = WebviewContextEventData & {
 };
 
 /** Remaps TelemetryEvents to remove the host webview context when the event is sent from a webview app itself (not the host) */
-export type TelemetryEventsFromWebviewApp = {
+export type WebviewTelemetryEvents = {
 	[K in keyof TelemetryEvents]: Omit<
 		TelemetryEvents[K],
 		keyof (K extends `commitDetails/${string}` | `graphDetails/${string}`
@@ -1270,6 +1413,7 @@ export type Sources =
 	| 'gk-cli-integration'
 	| 'gk-mcp-provider'
 	| 'graph'
+	| 'graph-details'
 	| 'home'
 	| 'inspect'
 	| 'inspect-overview'

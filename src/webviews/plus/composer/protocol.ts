@@ -298,58 +298,7 @@ export const baseContext: ComposerContext = {
 	},
 };
 
-export type ComposerTelemetryEvent =
-	| 'composer/loaded'
-	| 'composer/reloaded'
-	| 'composer/action/includedUnstagedChanges'
-	| 'composer/action/compose'
-	| 'composer/action/compose/failed'
-	| 'composer/action/recompose'
-	| 'composer/action/recompose/failed'
-	| 'composer/action/generateCommitMessage'
-	| 'composer/action/generateCommitMessage/failed'
-	| 'composer/action/changeAiModel'
-	| 'composer/action/finishAndCommit'
-	| 'composer/action/finishAndCommit/failed'
-	| 'composer/action/undo'
-	| 'composer/action/reset'
-	| 'composer/warning/workingDirectoryChanged'
-	| 'composer/warning/indexChanged';
-
-export type ComposerLoadedErrorData = {
-	'failure.reason': 'error';
-	'failure.error.message': string;
-};
-
-export type ComposerGenerateCommitsEventData = {
-	'customInstructions.used': boolean;
-	'customInstructions.length': number;
-	'customInstructions.hash': string;
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-};
-
-export type ComposerGenerateCommitMessageEventData = {
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-	overwriteExistingMessage: boolean;
-};
-
-export type ComposerActionEventFailureData =
-	| {
-			'failure.reason': 'cancelled';
-	  }
-	| {
-			'failure.reason': 'error';
-			'failure.error.message': string;
-	  };
-
 // Commands that can be sent from the webview to the host
-
-export interface GenerateWithAIParams {
-	commits: ComposerCommit[];
-	unassignedHunkIndices: number[];
-}
 
 // Notifications that can be sent from the host to the webview
 export interface DidChangeComposerDataParams {

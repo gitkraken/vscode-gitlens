@@ -262,6 +262,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		this._wipSubscription?.subscription.dispose();
 	}
 
+	getTelemetrySource(): Sources {
+		return this.options.attachedTo === 'graph' ? 'graph-details' : 'inspect';
+	}
+
 	getTelemetryContext(): InspectTelemetryContext {
 		let context: InspectTelemetryContext;
 		if (this.mode === 'wip') {
@@ -425,11 +429,11 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const repoPrivacy = await this.container.git.visibility(this._context.wip.repo.path);
 		const filesChanged = this._context.wip.changes?.files.length ?? 0;
 
-		this.container.telemetry.sendEvent('openReviewMode', {
+		this.host.sendTelemetryEvent('openReviewMode', {
 			provider: provider,
 			'repository.visibility': repoPrivacy,
 			repoPrivacy: repoPrivacy,
-			source: source ?? 'inspect',
+			source: source ?? this.getTelemetrySource(),
 			filesChanged: filesChanged,
 		});
 	}
@@ -508,7 +512,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 							this.options.attachedTo === 'graph'
 								? 'gitlens.showInCommitGraphView'
 								: 'gitlens.showInCommitGraph',
-							{ ref: ref },
+							{ ref: ref, source: { source: this.getTelemetrySource() } },
 						);
 						break;
 					}
@@ -647,7 +651,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const provider = this._context.wip.pullRequest.provider.id;
 		const repoPrivacy = await this.container.git.visibility(this._context.wip.repo.path);
 
-		this.container.telemetry.sendEvent(
+		this.host.sendTelemetryEvent(
 			'codeSuggestionCreated',
 			{
 				provider: provider,
@@ -1110,7 +1114,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		const draft = this._context.wip?.codeSuggestions?.find(draft => draft.id === id);
 		if (draft == null) return;
 
-		void showPatchesView({ mode: 'view', draft: draft, source: 'inspect' });
+		void showPatchesView({ mode: 'view', draft: draft, source: this.getTelemetrySource() });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
@@ -1170,7 +1174,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			if (this.commit != null && (this.commit.isUncommitted || this.commit.isUncommittedStaged)) {
 				await executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 					repoPath: this.commit.repoPath,
-					source: { source: 'inspect', context: { type: 'wip' } },
+					source: { source: this.getTelemetrySource(), context: { type: 'wip' } },
 				});
 			} else {
 				const isStashCommit = isStash(this.commit);
@@ -1179,7 +1183,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					{
 						repoPath: this.commit!.repoPath,
 						rev: this.commit!.sha,
-						source: { source: 'inspect', context: { type: isStashCommit ? 'stash' : 'commit' } },
+						source: {
+							source: this.getTelemetrySource(),
+							context: { type: isStashCommit ? 'stash' : 'commit' },
+						},
 					},
 				);
 			}
@@ -1213,7 +1220,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 			const result = await this.container.ai.actions.generateCreateDraft(
 				repo,
-				{ source: 'inspect', context: { type: 'suggested_pr_change' } },
+				{ source: this.getTelemetrySource(), context: { type: 'suggested_pr_change' } },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
 			if (result === 'cancelled') throw new Error('Operation was canceled');
@@ -1254,7 +1261,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 			const duration = Date.now() - startTime;
 
-			this.container.telemetry.sendEvent(
+			this.host.sendTelemetryEvent(
 				`${this.options.attachedTo === 'graph' ? 'graphDetails' : 'commitDetails'}/reachability/loaded`,
 				{
 					'refs.count': result?.refs.length ?? 0,
@@ -1267,7 +1274,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			const duration = Date.now() - startTime;
 			const errorMessage = ex instanceof Error ? ex.message : String(ex);
 
-			this.container.telemetry.sendEvent(
+			this.host.sendTelemetryEvent(
 				`${this.options.attachedTo === 'graph' ? 'graphDetails' : 'commitDetails'}/reachability/failed`,
 				{
 					duration: duration,
@@ -1977,10 +1984,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 		void this.setMode(params.mode, repo);
 
-		this.container.telemetry.sendEvent(
+		this.host.sendTelemetryEvent(
 			`${this.options.attachedTo === 'graph' ? 'graphDetails' : 'commitDetails'}/mode/changed`,
 			{
-				...this.getTelemetryContext(),
 				'mode.old': currentMode,
 				'mode.new': params.mode,
 			},

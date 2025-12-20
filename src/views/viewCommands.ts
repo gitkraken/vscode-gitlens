@@ -1654,6 +1654,7 @@ export class ViewCommands implements Disposable {
 				matchCase: false,
 				matchRegex: false,
 			},
+			source: { source: 'view' },
 		});
 	}
 

@@ -1,6 +1,6 @@
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
 import type { CustomEditorCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
-import type { WebviewTelemetryContext } from '../constants.telemetry';
+import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	WebviewIds,
@@ -95,6 +95,17 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds | CustomEdit
 	sendPendingIpcNotifications(): void;
 
 	getTelemetryContext(): WebviewTelemetryContext;
+	/**
+	 * Sends a telemetry event, automatically merging the provider's telemetry context
+	 * @param name The event name
+	 * @param data The event data (excluding properties provided by the provider's getTelemetryContext)
+	 */
+	sendTelemetryEvent<T extends keyof TelemetryEvents>(
+		name: T,
+		...args: [keyof WebviewTelemetryEvents[T]] extends [never]
+			? [data?: never, source?: Source]
+			: [data: WebviewTelemetryEvents[T], source?: Source]
+	): void;
 	is(type: 'editor'): this is WebviewHost<ID extends WebviewIds ? ID : never>;
 	is(type: 'view'): this is WebviewHost<ID extends WebviewViewIds ? ID : never>;
 

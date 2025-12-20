@@ -528,6 +528,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			if (branch != null) {
 				void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 					ref: getReferenceFromBranch(branch),
+					source: { source: 'home' },
 				});
 				return;
 			}

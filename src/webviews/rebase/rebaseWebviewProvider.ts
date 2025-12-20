@@ -84,12 +84,25 @@ interface Enrichment {
 	onto: { sha: string; commit?: GitCommit | undefined } | undefined;
 }
 
+interface RebaseEditorContext {
+	sessionStart: string;
+	todoCount?: number;
+	doneCount?: number;
+	isRebasing?: boolean;
+	isPaused?: boolean;
+	isReadOnly?: boolean;
+	hasConflicts?: boolean;
+}
+
 export class RebaseWebviewProvider implements Disposable {
 	private _branchName?: string | null;
 	private _closing: boolean = false;
 	private readonly _disposables: Disposable[] = [];
 	private _enrichment: Enrichment;
 	private readonly _todoDocument: RebaseTodoDocument;
+
+	// Telemetry context - tracks composer-specific data for getTelemetryContext
+	private _context: RebaseEditorContext = { sessionStart: new Date().toISOString() };
 
 	private get ascending() {
 		return configuration.get('rebaseEditor.ordering') === 'asc';
@@ -170,10 +183,21 @@ export class RebaseWebviewProvider implements Disposable {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
+	private getSessionDuration(): number {
+		return Date.now() - new Date(this._context.sessionStart).getTime();
+	}
+
 	getTelemetryContext(): RebaseEditorTelemetryContext {
 		return {
 			...this.host.getTelemetryContext(),
 			'context.ascending': this.ascending,
+			'context.todo.count': this._context.todoCount,
+			'context.done.count': this._context.doneCount,
+			'context.isRebasing': this._context.isRebasing,
+			'context.isPaused': this._context.isPaused,
+			'context.isReadOnly': this._context.isReadOnly,
+			'context.hasConflicts': this._context.hasConflicts,
+			'context.session.start': this._context.sessionStart,
 		};
 	}
 
@@ -291,6 +315,10 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	private async onAbort(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/abort', {
+			'context.session.duration': this.getSessionDuration(),
+		});
+
 		this._closing = true;
 
 		// Delete the contents to abort the rebase
@@ -303,6 +331,8 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	private async onContinue(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/continue');
+
 		// Save the document first to ensure any changes are persisted
 		await this._todoDocument.save();
 
@@ -311,6 +341,10 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	private async onRecompose(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/recompose', {
+			'context.session.duration': this.getSessionDuration(),
+		});
+
 		// Get commit SHAs from the rebase entries
 		const { processed } = this._todoDocument.parsed;
 
@@ -348,15 +382,21 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	private async onShowConflicts(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/showConflicts');
 		await showPausedOperationStatus(this.container, this.repoPath);
 	}
 
 	private async onSkip(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/skip');
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await skipPausedOperation(svc);
 	}
 
 	private async onStart(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/start', {
+			'context.session.duration': this.getSessionDuration(),
+		});
+
 		this._closing = true;
 
 		await this._todoDocument.save();
@@ -364,11 +404,22 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	private async onSwapOrdering(params: ReorderParams): Promise<void> {
-		await configuration.updateEffective('rebaseEditor.ordering', (params.ascending ?? false) ? 'asc' : 'desc');
+		const oldOrdering = this.ascending ? 'asc' : 'desc';
+		const newOrdering = (params.ascending ?? false) ? 'asc' : 'desc';
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/toggleOrdering', {
+			'ordering.old': oldOrdering,
+			'ordering.new': newOrdering,
+		});
+
+		await configuration.updateEffective('rebaseEditor.ordering', newOrdering);
 		this.updateState(true);
 	}
 
 	private onSwitchToText(): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/action/switchToText', {
+			'context.session.duration': this.getSessionDuration(),
+		});
 		return reopenRebaseTodoEditor('default');
 	}
 
@@ -488,6 +539,7 @@ export class RebaseWebviewProvider implements Disposable {
 		msg: IpcMessage<GetPotentialConflictsParams>,
 	): Promise<void> {
 		const { onto, commits, stopOnFirstConflict } = msg.params;
+		const startTime = Date.now();
 
 		// Check subscription status
 		const subscription = await this.container.subscription.getSubscription();
@@ -498,17 +550,47 @@ export class RebaseWebviewProvider implements Disposable {
 
 		// If there are no commits, return clean (nothing to check)
 		if (!commits?.length) {
+			this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
+				duration: Date.now() - startTime,
+				status: 'clean',
+				'commits.count': 0,
+			});
 			await this.host.respond(requestType, msg, { conflicts: { status: 'clean' } });
 			return;
 		}
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 
-		const result = await svc.branches.getPotentialApplyConflicts?.(onto, commits, {
-			stopOnFirstConflict: stopOnFirstConflict,
-		});
+		try {
+			const result = await svc.branches.getPotentialApplyConflicts?.(onto, commits, {
+				stopOnFirstConflict: stopOnFirstConflict,
+			});
 
-		await this.host.respond(requestType, msg, { conflicts: result });
+			const duration = Date.now() - startTime;
+			if (result?.status === 'conflicts') {
+				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
+					duration: duration,
+					status: 'conflicts',
+					'commits.count': commits.length,
+					'commits.conflicting': result.conflict.shas?.length ?? 0,
+				});
+			} else if (result?.status === 'clean') {
+				this.host.sendTelemetryEvent('rebaseEditor/conflicts/detected', {
+					duration: duration,
+					status: 'clean',
+					'commits.count': commits.length,
+				});
+			}
+
+			await this.host.respond(requestType, msg, { conflicts: result });
+		} catch (ex) {
+			this.host.sendTelemetryEvent('rebaseEditor/conflicts/failed', {
+				duration: Date.now() - startTime,
+				'commits.count': commits.length,
+				error: ex instanceof Error ? ex.message : String(ex),
+			});
+			await this.host.respond(requestType, msg, { conflicts: undefined });
+		}
 	}
 
 	private async onRevealRef(params: RevealRefParams): Promise<void> {
@@ -516,6 +598,11 @@ export class RebaseWebviewProvider implements Disposable {
 
 		// For branches, always use the graph since commit details doesn't support branches
 		if (params.type === 'branch') {
+			this.host.sendTelemetryEvent('rebaseEditor/action/revealRef', {
+				'ref.type': 'branch',
+				location: 'graph',
+			});
+
 			const ref = createReference(params.ref, this.repoPath, {
 				refType: 'branch',
 				name: params.ref,
@@ -525,9 +612,16 @@ export class RebaseWebviewProvider implements Disposable {
 				ref: ref,
 				preserveFocus: true,
 				viewColumn: ViewColumn.Beside,
+				source: { source: 'rebaseEditor' },
 			});
 			return;
 		}
+
+		const location = revealIn === 'graph' ? 'graph' : 'commitDetails';
+		this.host.sendTelemetryEvent('rebaseEditor/action/revealRef', {
+			'ref.type': 'commit',
+			location: location,
+		});
 
 		const ref = createReference(params.ref, this.repoPath, { refType: 'revision' });
 		if (revealIn === 'graph') {
@@ -535,9 +629,13 @@ export class RebaseWebviewProvider implements Disposable {
 				ref: ref,
 				preserveFocus: true,
 				viewColumn: ViewColumn.Beside,
+				source: { source: 'rebaseEditor' },
 			});
 		} else {
-			await this.container.views.commitDetails.show({ preserveFocus: true }, { commit: ref });
+			await this.container.views.commitDetails.show(
+				{ preserveFocus: true, source: { source: 'rebaseEditor' } },
+				{ commit: ref },
+			);
 		}
 	}
 
@@ -583,6 +681,7 @@ export class RebaseWebviewProvider implements Disposable {
 				ref: ref,
 				preserveFocus: true,
 				viewColumn: ViewColumn.Beside,
+				source: { source: 'rebaseEditor' },
 			});
 		} else {
 			// Fire event for commit details view to pick up
@@ -633,6 +732,14 @@ export class RebaseWebviewProvider implements Disposable {
 				this.enrichEntries(doneEntries, commits, defaultDateFormat);
 			}
 		}
+
+		// Update telemetry tracking state
+		this._context.todoCount = processed.commits.size;
+		this._context.doneCount = doneEntries?.filter(e => e.type === 'commit').length ?? 0;
+		this._context.isRebasing = rebaseStatus != null;
+		this._context.isPaused = rebaseStatus?.isPaused;
+		this._context.isReadOnly = processed.preservesMerges;
+		this._context.hasConflicts = rebaseStatus?.hasConflicts ?? false;
 
 		return {
 			webviewId: 'gitlens.rebase',
@@ -747,6 +854,7 @@ export class RebaseWebviewProvider implements Disposable {
 				totalSteps: pausedStatus.steps.total,
 				currentCommit: pausedStatus.steps.current.commit?.ref,
 				hasConflicts: hasConflicts,
+				isPaused: pausedStatus.isPaused,
 				pauseReason: pauseReason,
 				onto: pausedStatus.onto.ref,
 			},
@@ -810,10 +918,18 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onEntriesChanged(params: ChangeEntriesParams): Promise<void> {
 		if (!params.entries.length) return;
 
+		// Track action changes - use the first entry's action as representative
+		this.host.sendTelemetryEvent('rebaseEditor/entries/changed', {
+			action: params.entries[0].action,
+			count: params.entries.length,
+		});
+
 		await this._todoDocument.changeActions(params.entries);
 	}
 
 	private async onEntryMoved(params: MoveEntryParams): Promise<void> {
+		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', { count: 1, method: 'drag' });
+
 		const { entries } = this._todoDocument.parsed.processed;
 
 		const index = entries.findIndex(e => e.id === params.id);
@@ -849,6 +965,11 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onEntriesMoved(params: MoveEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 
+		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', {
+			count: params.ids.length,
+			method: 'drag',
+		});
+
 		const { entries } = this._todoDocument.parsed.processed;
 		const ids = new Set(params.ids);
 
@@ -883,6 +1004,11 @@ export class RebaseWebviewProvider implements Disposable {
 	 */
 	private async onEntriesShifted(params: ShiftEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
+
+		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', {
+			count: params.ids.length,
+			method: 'keyboard',
+		});
 
 		const { entries } = this._todoDocument.parsed.processed;
 		const ids = new Set(params.ids);

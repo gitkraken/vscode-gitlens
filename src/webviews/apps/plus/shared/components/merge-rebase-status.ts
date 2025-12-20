@@ -210,7 +210,7 @@ export class GlMergeConflictWarning extends LitElement {
 			'gitlens.showInCommitGraph' as WebviewCommands,
 			this._webview.webviewId,
 			this._webview.webviewInstanceId,
-			{ ref: ref },
+			{ ref: ref, source: { source: 'merge-target' } },
 		);
 	}
 

@@ -4,7 +4,7 @@ import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, win
 import { base64 } from '@env/base64';
 import { getNonce } from '@env/crypto';
 import type { CustomEditorCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
-import type { WebviewTelemetryContext } from '../constants.telemetry';
+import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -261,8 +261,7 @@ export class WebviewController<
 		this.provider?.onFocusChanged?.(false);
 		this.provider?.onVisibilityChanged?.(false);
 
-		const context = this.provider.getTelemetryContext?.() ?? this.getTelemetryContext();
-		this.container.telemetry.sendEvent(`${this.descriptor.type}/closed`, context);
+		this.sendTelemetryEvent(`${this.descriptor.type}/closed`, {});
 
 		this._ready = false;
 
@@ -299,6 +298,25 @@ export class WebviewController<
 			'context.webview.instanceId': this.instanceId,
 			'context.webview.host': this.is('editor') ? 'editor' : 'view',
 		};
+	}
+
+	sendTelemetryEvent<T extends keyof TelemetryEvents>(
+		name: T,
+		...args: [keyof WebviewTelemetryEvents[T]] extends [never]
+			? [data?: never, source?: Source]
+			: [data: WebviewTelemetryEvents[T], source?: Source]
+	): void {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent(
+			name,
+			{
+				...this.getTelemetryContext(),
+				...this.provider.getTelemetryContext?.(),
+				...(args[0] as any),
+			},
+			args[1],
+		);
 	}
 
 	is(
@@ -389,16 +407,14 @@ export class WebviewController<
 
 		using sw = new Stopwatch(`WebviewController.show(${this.id})`);
 
-		const eventBase = { ...this.getTelemetryContext(), loading: loading };
-
 		let context;
 		const result = await this.provider.onShowing?.(loading, options, ...args);
 		if (result != null) {
 			let show;
 			[show, context] = result;
 			if (show === false) {
-				this.container.telemetry.sendEvent(`${this.descriptor.type}/showAborted`, {
-					...eventBase,
+				this.sendTelemetryEvent(`${this.descriptor.type}/showAborted`, {
+					loading: loading,
 					duration: sw.elapsed(),
 				});
 				return;
@@ -435,11 +451,15 @@ export class WebviewController<
 
 		setContextKeys(this.descriptor.contextKeyPrefix);
 
-		this.container.telemetry.sendEvent(`${this.descriptor.type}/shown`, {
-			...eventBase,
-			duration: sw.elapsed(),
-			...context,
-		});
+		this.sendTelemetryEvent(
+			`${this.descriptor.type}/shown`,
+			{
+				loading: loading,
+				duration: sw.elapsed(),
+				...context,
+			},
+			options.source,
+		);
 	}
 
 	get baseWebviewState(): WebviewState<ID> {
@@ -550,9 +570,9 @@ export class WebviewController<
 				break;
 			}
 			case TelemetrySendEventCommand.is(e):
-				this.container.telemetry.sendEvent(
+				this.sendTelemetryEvent(
 					e.params.name,
-					{ ...e.params.data, ...(this.provider.getTelemetryContext?.() ?? this.getTelemetryContext()) },
+					e.params.data != null ? { ...(e.params.data as any) } : undefined,
 					e.params.source,
 				);
 				break;

@@ -748,11 +748,12 @@ export function showCommitInGraphDetailsView(
 
 export async function showCommitInGraph(
 	commit: GitRevisionReference | GitCommit,
-	options?: { preserveFocus?: boolean },
+	options?: { preserveFocus?: boolean; source?: Source },
 ): Promise<void> {
 	void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 		ref: getReferenceFromRevision(commit),
 		preserveFocus: options?.preserveFocus,
+		source: options?.source,
 	}));
 }
 

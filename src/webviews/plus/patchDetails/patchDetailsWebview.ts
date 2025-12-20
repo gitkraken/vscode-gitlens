@@ -273,6 +273,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			case OpenInCommitGraphCommand.is(e):
 				void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 					ref: createReference(e.params.ref, e.params.repoPath, { refType: 'revision' }),
+					source: { source: 'patchDetails' },
 				});
 				break;
 
@@ -804,7 +805,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 
 		const entity = getDraftEntityIdentifier(draft, patch);
 
-		this.container.telemetry.sendEvent(
+		this.host.sendTelemetryEvent(
 			'codeSuggestionArchived',
 			{
 				provider: entity?.provider,
@@ -1179,7 +1180,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 
 		const entity = getDraftEntityIdentifier(draft, patch);
 
-		this.container.telemetry.sendEvent(
+		this.host.sendTelemetryEvent(
 			'codeSuggestionViewed',
 			{
 				provider: entity?.provider,

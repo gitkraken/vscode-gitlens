@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { md5, sha256 } from '@env/crypto';
 import type { ContextKeys } from '../../../constants.context';
-import type { ComposerTelemetryContext, Source, Sources } from '../../../constants.telemetry';
+import type { ComposerTelemetryContext, Source, Sources, WebviewTelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type {
 	Repository,
@@ -24,16 +24,11 @@ import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import type {
 	AIFeedbackParams,
-	ComposerActionEventFailureData,
 	ComposerBaseCommit,
 	ComposerCommit,
 	ComposerContext,
-	ComposerGenerateCommitMessageEventData,
-	ComposerGenerateCommitsEventData,
 	ComposerHunk,
-	ComposerLoadedErrorData,
 	ComposerSafetyState,
-	ComposerTelemetryEvent,
 	FinishAndCommitParams,
 	GenerateCommitMessageParams,
 	GenerateCommitsParams,
@@ -404,7 +399,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._context.warnings.workingDirectoryChanged = false;
 		this._context.warnings.indexChanged = false;
 		this._context.sessionStart = new Date().toISOString();
-		this.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded');
+		this.host.sendTelemetryEvent(isReload ? 'composer/reloaded' : 'composer/loaded', {});
 
 		return {
 			...this.initialState,
@@ -789,7 +784,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		if (params.source === 'unstaged') {
 			// Update context to indicate unstaged changes were included
 			this._context.diff.unstagedIncluded = true;
-			this.sendTelemetryEvent('composer/action/includedUnstagedChanges');
+			this.host.sendTelemetryEvent('composer/action/includedUnstagedChanges');
 
 			await this.onReloadComposer({
 				repoPath: this._currentRepository!.path,
@@ -800,7 +795,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private onUndo(): void {
 		this._context.operations.undo.count++;
-		this.sendTelemetryEvent('composer/action/undo');
+		this.host.sendTelemetryEvent('composer/action/undo');
 	}
 
 	private onRedo(): void {
@@ -809,7 +804,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private onReset(): void {
 		this._context.operations.reset.count++;
-		this.sendTelemetryEvent('composer/action/reset');
+		this.host.sendTelemetryEvent('composer/action/reset');
 	}
 
 	private async onChooseRepository(): Promise<void> {
@@ -852,7 +847,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					// Show error in the safety error overlay
 					this._context.errors.safety.count++;
 					const errorMessage = 'Repository is no longer available';
-					this.sendTelemetryEvent('composer/reloaded', {
+					this.host.sendTelemetryEvent('composer/reloaded', {
 						'failure.reason': 'error',
 						'failure.error.message': errorMessage,
 					});
@@ -915,7 +910,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			});
 		} catch (error) {
 			// Show error in the safety error overlay
-			this.sendTelemetryEvent('composer/reloaded', {
+			this.host.sendTelemetryEvent('composer/reloaded', {
 				'failure.reason': 'error',
 				'failure.error.message': error instanceof Error ? error.message : 'unknown error',
 			});
@@ -1022,7 +1017,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				{ source: 'composer', correlationId: this.host.instanceId },
 			);
 			this._context.ai.model = model;
-			this.sendTelemetryEvent('composer/action/changeAiModel');
+			this.host.sendTelemetryEvent('composer/action/changeAiModel');
 			await this.host.notify(DidChangeAiModelNotification, { model: model });
 		} catch {
 			// Ignore errors when getting AI model
@@ -1136,7 +1131,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
-		const eventData: ComposerGenerateCommitsEventData = {
+		const eventData: WebviewTelemetryEvents[`composer/action/${'compose' | 'recompose'}`] = {
 			'customInstructions.used': false,
 			'customInstructions.length': 0,
 			'customInstructions.hash': '',
@@ -1248,7 +1243,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommits.cancelledCount++;
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -1263,7 +1258,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				if (result.commits.length === 0) {
 					this._context.operations.generateCommits.errorCount++;
 					this._context.errors.operation.count++;
-					this.sendTelemetryEvent(
+					this.host.sendTelemetryEvent(
 						params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 						{
 							...eventData,
@@ -1288,7 +1283,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 				// Notify the webview with the generated commits (this will also clear loading state)
 				this._context.commits.autoComposedCount = newCommits.length;
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose' : 'composer/action/compose',
 					eventData,
 				);
@@ -1312,7 +1307,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommits.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for failure (not cancellation)
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -1330,7 +1325,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommits.cancelledCount++;
 				// Send cancellation notification
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -1341,7 +1336,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			} else {
 				this._context.operations.generateCommits.errorCount++;
 				this._context.errors.operation.count++;
-				this.sendTelemetryEvent(
+				this.host.sendTelemetryEvent(
 					params.isRecompose ? 'composer/action/recompose/failed' : 'composer/action/compose/failed',
 					{
 						...eventData,
@@ -1363,7 +1358,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
-		const eventData: ComposerGenerateCommitMessageEventData = {
+		const eventData: WebviewTelemetryEvents['composer/action/generateCommitMessage'] = {
 			'customInstructions.setting.used': false,
 			'customInstructions.setting.length': 0,
 			overwriteExistingMessage: params.overwriteExistingMessage ?? false,
@@ -1391,7 +1386,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommitMessage.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for failure (not cancellation)
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'error',
 					'failure.error.message': 'Failed to create diff for commit',
@@ -1413,7 +1408,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommitMessage.cancelledCount++;
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'cancelled',
 				});
@@ -1428,7 +1423,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					: result.result.summary;
 
 				// Notify the webview with the generated commit message
-				this.sendTelemetryEvent('composer/action/generateCommitMessage', eventData);
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage', eventData);
 				await this.host.notify(DidGenerateCommitMessageNotification, {
 					commitId: params.commitId,
 					message: message,
@@ -1436,7 +1431,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			} else if (result === 'cancelled') {
 				this._context.operations.generateCommitMessage.cancelledCount++;
 				// Send cancellation notification instead of success notification
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'cancelled',
 				});
@@ -1445,7 +1440,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommitMessage.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for failure (not cancellation)
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'error',
 					'failure.error.message': 'unknown error',
@@ -1460,7 +1455,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (this._generateCommitMessageCancellation?.token.isCancellationRequested) {
 				this._context.operations.generateCommitMessage.cancelledCount++;
 				// Send cancellation notification
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'cancelled',
 				});
@@ -1469,7 +1464,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.operations.generateCommitMessage.errorCount++;
 				this._context.errors.operation.count++;
 				// Send error notification for exception
-				this.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
+				this.host.sendTelemetryEvent('composer/action/generateCommitMessage/failed', {
 					...eventData,
 					'failure.reason': 'error',
 					'failure.error.message': error instanceof Error ? error.message : 'unknown error',
@@ -1499,7 +1494,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.safety.count++;
 				this._context.errors.operation.count++;
 				const errorMessage = 'Repository is no longer available';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1546,7 +1541,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = validation.errors.join('\n');
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1562,7 +1557,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'No repository service found';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1576,7 +1571,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					this._context.errors.operation.count++;
 					this._context.operations.finishAndCommit.errorCount++;
 					const errorMessage = 'Could not create base commit';
-					this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+					this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 						'failure.reason': 'error',
 						'failure.error.message': errorMessage,
 					});
@@ -1591,7 +1586,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Failed to create commits from patches';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1609,7 +1604,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Failed to get combined diff';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1629,7 +1624,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				this._context.errors.operation.count++;
 				this._context.operations.finishAndCommit.errorCount++;
 				const errorMessage = 'Output diff does not match input';
-				this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+				this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 					'failure.reason': 'error',
 					'failure.error.message': errorMessage,
 				});
@@ -1689,7 +1684,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Clear the committing state and close the composer webview first
 			this._context.commits.finalCount = shas.length;
-			this.sendTelemetryEvent('composer/action/finishAndCommit');
+			this.host.sendTelemetryEvent('composer/action/finishAndCommit');
 			await this.host.notify(DidFinishCommittingNotification, undefined);
 			void commands.executeCommand('workbench.action.closeActiveEditor');
 		} catch (error) {
@@ -1697,7 +1692,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			this._context.errors.operation.count++;
 			this._context.operations.finishAndCommit.errorCount++;
 			const errorMessage = error instanceof Error ? error.message : 'unknown error';
-			this.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
+			this.host.sendTelemetryEvent('composer/action/finishAndCommit/failed', {
 				'failure.reason': 'error',
 				'failure.error.message': errorMessage,
 			});
@@ -1737,46 +1732,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			org: getContext('gitlens:gk:organization:ai:enabled', true),
 			config: configuration.get('ai.enabled', undefined, true),
 		};
-	}
-
-	private sendTelemetryEvent(
-		event: 'composer/action/compose' | 'composer/action/recompose',
-		data: ComposerGenerateCommitsEventData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/compose/failed' | 'composer/action/recompose/failed',
-		data: ComposerGenerateCommitsEventData & ComposerActionEventFailureData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/generateCommitMessage',
-		data: ComposerGenerateCommitMessageEventData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/generateCommitMessage/failed',
-		data: ComposerGenerateCommitMessageEventData & ComposerActionEventFailureData,
-	): void;
-	private sendTelemetryEvent(
-		event: 'composer/action/finishAndCommit/failed',
-		data: ComposerActionEventFailureData,
-	): void;
-	private sendTelemetryEvent(event: 'composer/loaded' | 'composer/reloaded', data?: ComposerLoadedErrorData): void;
-	private sendTelemetryEvent(
-		event:
-			| 'composer/action/includedUnstagedChanges'
-			| 'composer/action/changeAiModel'
-			| 'composer/action/finishAndCommit'
-			| 'composer/action/undo'
-			| 'composer/action/reset'
-			| 'composer/warning/workingDirectoryChanged'
-			| 'composer/warning/indexChanged',
-	): void;
-	private sendTelemetryEvent(event: ComposerTelemetryEvent, data?: any): void {
-		if (!this.container.telemetry.enabled) return;
-
-		this.container.telemetry.sendEvent(event, {
-			...this.getTelemetryContext(),
-			...data,
-		});
 	}
 
 	private _panelWasVisible: boolean | undefined;
