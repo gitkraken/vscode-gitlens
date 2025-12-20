@@ -2,6 +2,48 @@
 
 This workspace contains **GitLens** - a powerful VS Code extension that supercharges Git functionality. It provides blame annotations, commit history visualization, repository exploration, and many advanced Git workflows. The codebase supports both desktop VS Code (Node.js) and VS Code for Web (browser/webworker) environments.
 
+## Development Environment
+
+### Prerequisites
+
+- **Node.js** ≥ 22.12.0
+- **pnpm** ≥ 10.x (install via corepack: `corepack enable`)
+- **Corepack** ≥ 0.31.0 (check with `corepack -v`)
+- **Git** ≥ 2.7.2
+
+### VS Code Setup
+
+- Install recommended extensions (see `.vscode/extensions.json`)
+- Use provided launch configurations:
+  - **"Watch & Run"** - Debug desktop extension
+  - **"Watch & Run (web)"** - Debug browser extension
+- Use VS Code tasks:
+  - `Ctrl+Shift+B` to start watch task
+  - `Ctrl+Shift+P` → "Tasks: Run Task" → select task
+- **Debug** - F5 to launch Extension Development Host
+- **Test** - Use VS Code's built-in test runner
+
+### Multi-target Support
+
+GitLens supports multiple environments:
+
+- **Node.js** - Traditional VS Code extension (desktop)
+- **Web Worker** - Browser/web VS Code compatibility (vscode.dev)
+- Shared code with environment abstractions in `src/env/`
+- Test both environments during development
+
+### Performance Considerations
+
+- Use lazy loading for heavy services
+- Leverage caching layers (GitCache, PromiseCache, @memoize)
+- Debounce expensive operations
+- Consider webview refresh performance
+- Monitor telemetry for performance regressions
+
+---
+
+This architecture enables GitLens to provide powerful Git tooling while maintaining clean separation of concerns, extensibility for new features, and support for multiple runtime environments.
+
 ## Development Commands
 
 ### Setup
@@ -64,6 +106,91 @@ pnpm run package                 # Create VSIX package
 - Press `Ctrl+Shift+P` → "Tasks: Run Task" → "watch" to start build task
 - Tests are co-located with source files in `__tests__/` directories
 - Webview changes can be refreshed without restarting extension
+
+## Git & Repository Requirements/Guidelines
+
+### Committing
+
+- Be sure to follow the commit message guidelines below
+- Before committing, check if the changes are user-facing and should be added to the CHANGELOG.md, if so, follow the CHANGELOG management guidelines below
+
+#### Commit Message Guidelines
+
+- Use future-oriented manner, third-person singular present tense
+- Examples: **"Fixes"**, **"Updates"**, **"Improves"**, **"Adds"**, **"Removes"**
+- Reference issues with `#123` syntax for auto-linking
+- Keep first line under 72 characters
+- Example: `Adds support for custom autolinks for Jira - fixes #1234`
+
+### Branching Guidelines
+
+- Feature branches from `main` or from another feature branch if stacking
+- Prefix with an appropriate type: `feature/`, `bug/`, `debt/`
+- Use descriptive names: `feature/search-natural-language`, `bug/graph-performance`
+- If there is a related issue, reference it in the branch name: `feature/#1234-search-natural-language`
+
+### CHANGELOG Management
+
+Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
+
+### Section Mapping
+
+| Change Type | Section    |
+| ----------- | ---------- |
+| Feature     | Added      |
+| Enhancement | Changed    |
+| Performance | Changed    |
+| Bugfix      | Fixed      |
+| Deprecation | Deprecated |
+| Removal     | Removed    |
+
+### Entry Format
+
+```markdown
+- [Verb] [description] ([#issue](url))
+```
+
+**Guidelines:**
+
+- Start with: "Adds", "Improves", "Changes", "Fixes", "Removes"
+- Use underscores for UI elements: `_Commit Graph_`, `_Home_ view`
+- Include issue reference if available
+- Be user-centric (what user sees, not code changes)
+
+**Example:**
+
+```markdown
+- Fixes an issue where the _Home_ view would not update when switching repositories ([#4717](https://github.com/gitkraken/vscode-gitlens/issues/4717))
+```
+
+### Detection
+
+Check `[Unreleased]` section for:
+
+- Issue number reference (if commit has linked issue)
+- Keywords from commit message
+- Feature/component names
+
+## Code Reviewing Guidelines
+
+As an expert software developer with deep expert-level knowledge of TypeScript, JavaScript, VS Code extension development, web/web components, node.js, HTML, CSS, design systems, UX design, accessibility, and writing highly performant, maintainable, and readable code — please carefully and thoroughly review all changes for:
+
+- Correctness
+- Matching user expectations
+- High performance, including proper caching and deferring of work
+- Well-factored, structured, and named
+- No more complex than necessary
+- Webview changes are responsive, accessible, and work with VS Code theming
+- Proper error handling and logging
+- Comprehensive telemetry and usage reporting
+- Follows best practices
+
+### Code Reviewing Checklist
+
+- Ensure TypeScript compilation and tests pass
+- Verify that there are no new lint violations
+- Review commit messages for clarity and adherence to guidelines
+- Ensure CHANGELOG entries are added for user-facing changes
 
 ## High-Level Architecture
 
@@ -422,40 +549,6 @@ Strongly typed Git entities throughout the codebase (located in `src/git/models/
 - Models provide rich methods and computed properties
 - Immutable by convention
 
-## Repository Guidelines
-
-### Commit Messages
-
-- Use future-oriented manner, third-person singular present tense
-- Examples: **"Fixes"**, **"Updates"**, **"Improves"**, **"Adds"**, **"Removes"**
-- Reference issues with `#123` syntax for auto-linking
-- Keep first line under 72 characters
-- Example: `Adds support for custom autolinks for Jira - fixes #1234`
-
-### Branch Workflow
-
-- Feature branches from `main`
-- Prefix with feature type: `feature/`, `bug/`, `debt/`
-- Use descriptive names: `feature/search-natural-language`, `bug/graph-performance`
-
-### Code Reviews
-
-- Check TypeScript compilation and tests pass
-- Verify no new ESLint violations
-- Test webview changes in both light and dark themes
-- Validate Plus features with different subscription states
-- Ensure proper error handling and logging
-- Ensure proper telemetry and usage reporting
-- Ensure proper caching and performance
-
-### Contributing Notes
-
-- Update `CHANGELOG.md` for all changes (in future tense)
-- Add yourself to Contributors section in `README.md` for first contribution
-- Follow existing code style (Prettier enforced)
-- All files in `plus/` directories are non-OSS (LICENSE.plus)
-- PRs with changes to `plus/` files grant GitKraken rights to modifications
-
 ## Common Development Tasks
 
 ### Adding a New Command
@@ -556,45 +649,3 @@ Strongly typed Git entities throughout the codebase (located in `src/git/models/
 3. Handle provider-specific authentication
 4. Add integration constants to `src/constants.integrations.ts`
 5. Consider adding rich integration features (PRs, issues, avatars)
-
-## Development Environment
-
-### Prerequisites
-
-- **Node.js** ≥ 22.12.0
-- **pnpm** ≥ 10.x (install via corepack: `corepack enable`)
-- **Corepack** ≥ 0.31.0 (check with `corepack -v`)
-- **Git** ≥ 2.7.2
-
-### VS Code Setup
-
-- Install recommended extensions (see `.vscode/extensions.json`)
-- Use provided launch configurations:
-  - **"Watch & Run"** - Debug desktop extension
-  - **"Watch & Run (web)"** - Debug browser extension
-- Use VS Code tasks:
-  - `Ctrl+Shift+B` to start watch task
-  - `Ctrl+Shift+P` → "Tasks: Run Task" → select task
-- **Debug** - F5 to launch Extension Development Host
-- **Test** - Use VS Code's built-in test runner
-
-### Multi-target Support
-
-GitLens supports multiple environments:
-
-- **Node.js** - Traditional VS Code extension (desktop)
-- **Web Worker** - Browser/web VS Code compatibility (vscode.dev)
-- Shared code with environment abstractions in `src/env/`
-- Test both environments during development
-
-### Performance Considerations
-
-- Use lazy loading for heavy services
-- Leverage caching layers (GitCache, PromiseCache, @memoize)
-- Debounce expensive operations
-- Consider webview refresh performance
-- Monitor telemetry for performance regressions
-
----
-
-This architecture enables GitLens to provide powerful Git tooling while maintaining clean separation of concerns, extensibility for new features, and support for multiple runtime environments.
