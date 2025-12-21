@@ -151,7 +151,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		super(
 			view,
 			parent,
-			view.grouped ? view.name.toLocaleUpperCase() : 'Showing',
+			view.grouped ? (view.groupedLabel ?? view.name).toLocaleUpperCase() : 'Showing',
 			view.grouped ? view.description : undefined,
 			undefined,
 			undefined,
