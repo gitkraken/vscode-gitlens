@@ -78,7 +78,7 @@ import { getContext, onDidChangeContext, setContext } from '../../system/-webvie
 import type { MergeEditorInputs } from '../../system/-webview/vscode/editors';
 import { openMergeEditor } from '../../system/-webview/vscode/editors';
 import { createCommandDecorator, getWebviewViewCommand } from '../../system/decorators/command';
-import { debug } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { filterMap, map } from '../../system/iterable';
@@ -1994,6 +1994,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.openChanges:')
+	@log()
 	private async openChanges(item: DetailsItemContext | ExecuteFileActionParams | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2004,6 +2005,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.openChangesWithWorking:')
+	@log()
 	private async openFileChangesWithWorking(item: DetailsItemContext | ExecuteFileActionParams | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2017,6 +2019,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.openPreviousChangesWithWorking:')
+	@log()
 	private async openPreviousFileChangesWithWorking(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2031,6 +2034,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.openFile:')
+	@log()
 	private async openFile(item: DetailsItemContext | ExecuteFileActionParams | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2040,6 +2044,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.openFileOnRemote:')
+	@log()
 	private async openFileOnRemote(item: DetailsItemContext | ExecuteFileActionParams | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2048,6 +2053,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.stageFile:')
+	@log()
 	private async stageFile(item: DetailsItemContext | ExecuteFileActionParams | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2056,6 +2062,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.unstageFile:')
+	@log()
 	private async unstageFile(item: DetailsItemContext | ExecuteFileActionParams | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2073,6 +2080,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.copy:')
+	@log()
 	private async copy(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2081,6 +2089,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyRelativePathToClipboard:')
+	@log()
 	private async copyRelativePath(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2090,6 +2099,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyPatchToClipboard:')
+	@log()
 	private async copyPatch(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2124,6 +2134,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.openFileRevision:')
+	@log()
 	private async openFileRevision(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2133,6 +2144,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.openFileHistory:')
+	@log()
 	private async openFileHistory(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2141,6 +2153,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.quickOpenFileHistory:')
+	@log()
 	private async quickOpenFileHistory(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2149,6 +2162,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.visualizeHistory.file:')
+	@log()
 	private async visualizeFileHistory(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2157,6 +2171,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.openFileHistoryInGraph:')
+	@log()
 	private async openFileHistoryInGraph(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2165,6 +2180,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.restore.file:')
+	@log()
 	private async restoreFile(item: DetailsItemContext | undefined) {
 		if (!isDetailsFileContext(item)) return;
 
@@ -2183,6 +2199,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.restorePrevious.file:')
+	@log()
 	private async restorePreviousFile(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2191,6 +2208,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.selectFileForCompare:')
+	@log()
 	private selectFileForCompare(item: DetailsItemContext | undefined) {
 		if (!isDetailsFileContext(item)) return;
 
@@ -2202,6 +2220,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.compareFileWithSelected:')
+	@log()
 	private async compareFileWithSelected(item: DetailsItemContext | undefined) {
 		const selectedFile = getContext('gitlens:views:canCompare:file');
 		if (selectedFile == null || !isDetailsFileContext(item)) return;
@@ -2237,6 +2256,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.applyChanges:')
+	@log()
 	private async applyChanges(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2245,6 +2265,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.mergeChangesWithWorking:')
+	@log()
 	private async mergeChangesWithWorking(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2297,6 +2318,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.diffWithRevision:')
+	@log()
 	private diffWithRevision(item: DetailsItemContext | undefined) {
 		if (!isDetailsFileContext(item)) return;
 
@@ -2307,6 +2329,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.diffWithRevisionFrom:')
+	@log()
 	private diffWithRevisionFrom(item: DetailsItemContext | undefined) {
 		if (!isDetailsFileContext(item)) return;
 
@@ -2317,6 +2340,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.externalDiff:')
+	@log()
 	private async externalDiff(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2331,6 +2355,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.highlightChanges:')
+	@log()
 	private async highlightChanges(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2346,6 +2371,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.highlightRevisionChanges:')
+	@log()
 	private async highlightRevisionChanges(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2361,6 +2387,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyDeepLinkToCommit:')
+	@log()
 	private async copyDeepLinkToCommit(item: DetailsItemContext | undefined) {
 		const [commit] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2369,6 +2396,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyDeepLinkToFile:')
+	@log()
 	private async copyDeepLinkToFile(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2381,6 +2409,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyDeepLinkToFileAtRevision:')
+	@log()
 	private async copyDeepLinkToFileAtRevision(item: DetailsItemContext | undefined) {
 		const [commit, file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2394,6 +2423,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.views.copyRemoteCommitUrl:')
+	@log()
 	private async copyRemoteCommitUrl(item: DetailsItemContext | undefined) {
 		const [commit] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2406,6 +2436,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.shareAsCloudPatch:')
+	@log()
 	private async shareAsCloudPatch(item: DetailsItemContext | undefined) {
 		const [commit] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2425,6 +2456,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyRemoteFileUrlFrom:')
+	@log()
 	private async copyRemoteFileUrlFrom(item: DetailsItemContext | undefined) {
 		const [commit, _file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;
@@ -2438,6 +2470,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	}
 
 	@command('gitlens.copyRemoteFileUrlWithoutRange:')
+	@log()
 	private async copyRemoteFileUrlWithoutRange(item: DetailsItemContext | undefined) {
 		const [commit, _file] = await this.getFileCommitFromContextOrParams(item);
 		if (commit == null) return;

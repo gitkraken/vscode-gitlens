@@ -1,6 +1,7 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { ViewColumn, workspace } from 'vscode';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars';
+import type { CustomEditorCommandsOrCommandsWithSuffix } from '../../constants.commands';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
@@ -22,6 +23,8 @@ import { executeCommand, executeCoreCommand } from '../../system/-webview/comman
 import { configuration } from '../../system/-webview/configuration';
 import { closeTab } from '../../system/-webview/vscode/tabs';
 import { exists } from '../../system/-webview/vscode/uris';
+import { createCommandDecorator, getCustomEditorCommand } from '../../system/decorators/command';
+import { log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { concat, filterMap, find, first, join, last, map } from '../../system/iterable';
@@ -77,6 +80,8 @@ import {
 import { RebaseTodoDocument } from './rebaseTodoDocument';
 
 export const maxSmallIntegerV8 = 2 ** 30 - 1;
+
+const { command, getCommands } = createCommandDecorator<CustomEditorCommandsOrCommandsWithSuffix>();
 
 interface Enrichment {
 	commits: Map<string, GitCommit>;
@@ -214,11 +219,13 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	registerCommands(): Disposable[] {
-		return [
-			this.host.registerWebviewCommand('gitlens.pausedOperation.showConflicts:rebase', () =>
-				this.onShowConflicts(),
-			),
-		];
+		const commands: Disposable[] = [];
+		for (const c of getCommands()) {
+			commands.push(
+				this.host.registerWebviewCommand(getCustomEditorCommand(c.command, 'rebase'), c.handler.bind(this)),
+			);
+		}
+		return commands;
 	}
 
 	onMessageReceived(e: IpcMessage): void {
@@ -314,6 +321,7 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.host.notify(DidChangeSubscriptionNotification, { subscription: subscription });
 	}
 
+	@log()
 	private async onAbort(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/abort', {
 			'context.session.duration': this.getSessionDuration(),
@@ -330,6 +338,7 @@ export class RebaseWebviewProvider implements Disposable {
 		await closeTab(this._todoDocument.uri);
 	}
 
+	@log()
 	private async onContinue(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/continue');
 
@@ -340,6 +349,7 @@ export class RebaseWebviewProvider implements Disposable {
 		await continuePausedOperation(svc);
 	}
 
+	@log()
 	private async onRecompose(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/recompose', {
 			'context.session.duration': this.getSessionDuration(),
@@ -381,17 +391,21 @@ export class RebaseWebviewProvider implements Disposable {
 		await this.onAbort();
 	}
 
+	@command('gitlens.pausedOperation.showConflicts:rebase')
+	@log()
 	private async onShowConflicts(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/showConflicts');
 		await showPausedOperationStatus(this.container, this.repoPath);
 	}
 
+	@log()
 	private async onSkip(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/skip');
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await skipPausedOperation(svc);
 	}
 
+	@log()
 	private async onStart(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/start', {
 			'context.session.duration': this.getSessionDuration(),
@@ -403,6 +417,7 @@ export class RebaseWebviewProvider implements Disposable {
 		await closeTab(this._todoDocument.uri);
 	}
 
+	@log()
 	private async onSwapOrdering(params: ReorderParams): Promise<void> {
 		const oldOrdering = this.ascending ? 'asc' : 'desc';
 		const newOrdering = (params.ascending ?? false) ? 'asc' : 'desc';
@@ -416,6 +431,7 @@ export class RebaseWebviewProvider implements Disposable {
 		this.updateState(true);
 	}
 
+	@log()
 	private onSwitchToText(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/switchToText', {
 			'context.session.duration': this.getSessionDuration(),
@@ -912,10 +928,12 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.notifyDidChangeStateDebounced();
 	}
 
+	@log()
 	private async onEntryChanged(params: ChangeEntryParams): Promise<void> {
 		return this.onEntriesChanged({ entries: [params] });
 	}
 
+	@log()
 	private async onEntriesChanged(params: ChangeEntriesParams): Promise<void> {
 		if (!params.entries.length) return;
 
@@ -928,6 +946,7 @@ export class RebaseWebviewProvider implements Disposable {
 		await this._todoDocument.changeActions(params.entries);
 	}
 
+	@log()
 	private async onEntryMoved(params: MoveEntryParams): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', { count: 1, method: 'drag' });
 
@@ -963,6 +982,7 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
+	@log()
 	private async onEntriesMoved(params: MoveEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 
@@ -1003,6 +1023,7 @@ export class RebaseWebviewProvider implements Disposable {
 	 * Shifts entries up or down independently, preserving gaps between non-contiguous selections
 	 * Each selected entry swaps with the adjacent non-selected entry in the shift direction
 	 */
+	@log()
 	private async onEntriesShifted(params: ShiftEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 

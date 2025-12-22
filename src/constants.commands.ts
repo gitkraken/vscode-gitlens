@@ -259,11 +259,9 @@ export type WebviewViewCommands<T extends WebviewViewTypes = WebviewViewTypes> =
 	| FilterCommands<`gitlens.views.${T}`, GlCommands>
 	| FilterCommands<'gitlens.views.', GlCommands, `:${T}`>
 	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
-export type CustomEditorCommands<T extends CustomEditorTypes = CustomEditorTypes> = FilterCommands<
-	'gitlens.',
-	GlCommands,
-	`:${T}`
->;
+export type CustomEditorCommands<T extends CustomEditorTypes = CustomEditorTypes> =
+	| FilterCommands<`gitlens.${T}`, GlCommands>
+	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
 
 /**
  * Extracts all possible prefixes (before the colon) from a union of commands.
@@ -271,8 +269,16 @@ export type CustomEditorCommands<T extends CustomEditorTypes = CustomEditorTypes
  */
 type ExtractCommandPrefix<
 	T extends GlCommands,
-	U extends WebviewTypes | WebviewViewTypes,
+	U extends WebviewTypes | WebviewViewTypes | CustomEditorTypes,
 > = T extends `${infer Prefix}:${U}` ? `${Prefix}:` : never;
+
+type CustomEditorCommandPrefixes<T extends CustomEditorTypes = CustomEditorTypes> = ExtractCommandPrefix<
+	CustomEditorCommands<T>,
+	T
+>;
+export type CustomEditorCommandsOrCommandsWithSuffix<T extends CustomEditorTypes = CustomEditorTypes> =
+	| CustomEditorCommands<T>
+	| CustomEditorCommandPrefixes<T>;
 
 type WebviewCommandPrefixes<T extends WebviewTypes = WebviewTypes> = ExtractCommandPrefix<WebviewCommands<T>, T>;
 export type WebviewCommandsOrCommandsWithSuffix<T extends WebviewTypes = WebviewTypes> =
