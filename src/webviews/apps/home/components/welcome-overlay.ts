@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
 import type { State } from '../../../home/protocol.js';
 import { CollapseSectionCommand } from '../../../home/protocol.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -77,8 +78,14 @@ export class GlWelcomeOverlay extends LitElement {
 	private closed = false;
 
 	override render(): unknown {
-		const { welcomeOverlayCollapsed, walkthroughSupported, newInstall } = this._state;
-		if (this.closed || welcomeOverlayCollapsed || walkthroughSupported || !newInstall) {
+		const { welcomeOverlayCollapsed, walkthroughSupported, newInstall, subscription } = this._state;
+		if (
+			this.closed ||
+			welcomeOverlayCollapsed ||
+			walkthroughSupported ||
+			!newInstall ||
+			isSubscriptionTrialOrPaidFromState(subscription.state)
+		) {
 			return nothing;
 		}
 
