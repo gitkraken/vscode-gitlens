@@ -423,7 +423,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				author: commit.author.name,
 				email: commit.author.email ?? '',
 				date: commit.committer.date.getTime(),
-				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
+				message: emojify(commit.message?.length ? commit.message : commit.summary),
 				// TODO: review logic for stash, wip, etc
 				type: commit.parents.length > 1 ? 'merge-node' : 'commit-node',
 				heads: refHeads,
@@ -629,7 +629,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				for (const commit of result.values) {
 					const data: GitGraphSearchResultData = {
 						i: results.size,
-						date: Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
+						date: options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate,
 						files: undefined,
 					};
 					results.set(commit.sha, data);

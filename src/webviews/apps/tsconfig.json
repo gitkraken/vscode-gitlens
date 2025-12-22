@@ -25,5 +25,5 @@
 		"../../system/**/*.ts",
 		"../../**/webview/**/*"
 	],
-	"exclude": ["src/**/__tests__/**/*", "src/**/-webview/**/*"]
+	"exclude": ["../../**/-webview/**/*"]
 }

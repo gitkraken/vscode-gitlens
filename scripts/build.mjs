@@ -10,13 +10,14 @@ const { values } = parseArgs({
 		build: { type: 'string', default: undefined, multiple: true }, // (extension | webviews)[]
 		target: { type: 'string', default: undefined, multiple: true }, // (node | webworker)[]
 		quick: { type: 'string', default: undefined }, // true | turbo
+		trace: { type: 'boolean', default: false },
 		webview: { type: 'string', default: undefined, multiple: true },
 		watch: { type: 'boolean', default: false },
 	},
 });
 
-/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews')[] | undefined; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; webview: string[] | undefined; watch: boolean }} */
-const { mode, build, target, quick, webview: webviews, watch } = values;
+/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews')[] | undefined; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
+const { mode, build, target, quick, trace, webview: webviews, watch } = values;
 
 // Build webpack command
 let cmd = `webpack`;
@@ -48,10 +49,30 @@ if (build?.length || webviews?.length) {
 			cmd += ` --env webviews=${webviews.join(',')}`;
 		}
 	}
+} else if (target?.length) {
+	target.forEach(t => {
+		cmd += ` --config-name extension:${t}`;
+	});
+
+	cmd += ` --config-name webviews:common`;
+
+	if (webviews?.length === 1) {
+		cmd += ` --config-name webviews:${webviews[0]}`;
+	} else {
+		cmd += ` --config-name webviews`;
+	}
+
+	if (webviews?.length) {
+		cmd += ` --env webviews=${webviews.join(',')}`;
+	}
 }
 
 if (quick) {
 	cmd += ` --env quick=${quick}`;
+}
+
+if (trace) {
+	cmd += ` --env trace`;
 }
 
 console.log(`Running: ${cmd}`);

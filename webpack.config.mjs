@@ -52,7 +52,7 @@ const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
 /** @typedef {'production' | 'development' | 'none'} GlMode */
 /** @typedef { 'node' | 'webworker' } GlTarget */
-/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; webviews?: string }} GlEnv */
+/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; trace?: boolean; webviews?: string }} GlEnv */
 /** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
 
 /**
@@ -68,6 +68,7 @@ export default function (env, argv) {
 		analyzeDeps: false,
 		esbuild: true,
 		quick: false,
+		trace: false,
 		...env,
 	};
 
@@ -77,6 +78,10 @@ export default function (env, argv) {
 		} else {
 			console.log('Quick mode enabled — skipping linting and docs generation');
 		}
+	}
+
+	if (env.trace) {
+		console.log('Trace mode enabled — generating TypeScript trace files in dist/trace/');
 	}
 
 	return [
@@ -205,19 +210,29 @@ function getExtensionConfig(target, mode, env) {
 				typescript: {
 					configFile: tsConfigPath,
 					memoryLimit: 4096,
+					...(env.trace
+						? {
+								configOverwrite: {
+									compilerOptions: {
+										generateTrace: path.join(__dirname, 'dist', 'trace', `extension-${target}`),
+									},
+								},
+							}
+						: {}),
 				},
 			}),
 		);
 	}
 
-	if (!env.quick) {
+	// Only lint in node build - webworker uses same ESLint config, just different tsconfig
+	if (!env.quick && target !== 'webworker') {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
 				worker: eslintWorker,
 				eslintOptions: {
 					...eslintOptions,
-					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
+					cacheLocation: path.join(__dirname, '.eslintcache/'),
 				},
 			}),
 		);
@@ -534,6 +549,16 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		plugins.push(new CompileComposerTemplatesPlugin());
 	}
 
+	let name = '';
+	let filePrefix = '';
+	if (Object.keys(webviews).length > 1) {
+		name = 'webviews';
+		filePrefix = 'webviews';
+	} else {
+		name = `webviews:${Object.keys(webviews)[0]}`;
+		filePrefix = `webviews-${Object.keys(webviews)[0]}`;
+	}
+
 	if (env.quick !== 'turbo') {
 		plugins.push(
 			new ForkTsCheckerPlugin({
@@ -542,6 +567,15 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				typescript: {
 					configFile: tsConfigPath,
 					memoryLimit: 4096,
+					...(env.trace
+						? {
+								configOverwrite: {
+									compilerOptions: {
+										generateTrace: path.join(__dirname, 'dist', 'trace', filePrefix),
+									},
+								},
+							}
+						: {}),
 				},
 			}),
 		);
@@ -570,16 +604,6 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				generator: [imageGeneratorConfig],
 			}),
 		);
-	}
-
-	let name = '';
-	let filePrefix = '';
-	if (Object.keys(webviews).length > 1) {
-		name = 'webviews';
-		filePrefix = 'webviews';
-	} else {
-		name = `webviews:${Object.keys(webviews)[0]}`;
-		filePrefix = `webviews-${Object.keys(webviews)[0]}`;
 	}
 
 	if (env.analyzeBundle) {

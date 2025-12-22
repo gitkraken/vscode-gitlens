@@ -200,8 +200,8 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			]);
 
 			const result = {
-				staged: Boolean(stagedResult.status === 'fulfilled' && stagedResult.value.exitCode === 1),
-				unstaged: Boolean(unstagedResult.status === 'fulfilled' && unstagedResult.value.exitCode === 1),
+				staged: stagedResult.status === 'fulfilled' && stagedResult.value.exitCode === 1,
+				unstaged: unstagedResult.status === 'fulfilled' && unstagedResult.value.exitCode === 1,
 				untracked: untrackedResult.status === 'fulfilled' && untrackedResult.value === true,
 			};
 

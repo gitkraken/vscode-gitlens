@@ -45,9 +45,15 @@ export class ProductConfigProvider {
 
 			if (DEBUG) {
 				try {
-					// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
-					// @ts-ignore
-					const data = (await import('../../../product.json', { with: { type: 'json' } })).default;
+					const data =
+						// prettier-ignore
+						(
+							// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
+							// @ts-ignore
+							await import(/* webpackChunkName: "product-config" */ '../../../product.json', {
+								with: { type: 'json' },
+							})
+						).default;
 					if (data != null && Object.keys(data).length > 0) {
 						const config = getConfig(data);
 						if (config != null) return config;

@@ -508,6 +508,7 @@ export class GitLabApi implements Disposable {
 					avatarUrl: pr.author?.avatarUrl ?? '',
 					url: pr.author?.webUrl ?? '',
 				},
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 				String(pr.iid),
 				undefined,
 				pr.title,
