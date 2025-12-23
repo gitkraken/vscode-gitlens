@@ -102,15 +102,14 @@ async function standardSetup({ vscode: _vscode }: { vscode: VSCodeInstance }) {
 	const repoPath = git.repoPath;
 
 	// Remove the entire .git directory and all files to start fresh
-	const fs = (await import('node:fs')).promises;
 	try {
-		await fs.rm(repoPath, { recursive: true, force: true });
+		await fs.promises.rm(repoPath, { recursive: true, force: true });
 	} catch {
 		// Ignore errors if directory doesn't exist
 	}
 
 	// Recreate the directory and reinitialize the repo
-	await fs.mkdir(repoPath, { recursive: true });
+	await fs.promises.mkdir(repoPath, { recursive: true });
 	await git.init();
 
 	// Capture the initial commit SHA
