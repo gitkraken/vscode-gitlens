@@ -182,7 +182,14 @@ export class TelemetryService implements Disposable {
 		}
 
 		return {
-			dispose: () => this.sendEvent(name, d as any, source, startTime, Date.now() as TimeInput),
+			dispose: () =>
+				(this.sendEvent as (name: string, data: unknown, ...rest: unknown[]) => void)(
+					name,
+					d,
+					source,
+					startTime,
+					Date.now() as TimeInput,
+				),
 		};
 	}
 

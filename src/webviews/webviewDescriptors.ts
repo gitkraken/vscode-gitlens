@@ -3,8 +3,8 @@ import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypeFromId,
-	WebviewIds,
-	WebviewTypeFromId,
+	WebviewPanelIds,
+	WebviewPanelTypeFromId,
 	WebviewViewIds,
 	WebviewViewTypeFromId,
 } from '../constants.views';
@@ -18,20 +18,21 @@ export interface CustomEditorDescriptor<ID extends CustomEditorIds = CustomEdito
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly type: CustomEditorTypeFromId<ID>;
 	readonly plusFeature: boolean;
+	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;
 	readonly webviewHostOptions?: WebviewPanelOptions;
 
 	readonly allowMultipleInstances?: never;
 }
 
-export interface WebviewPanelDescriptor<ID extends WebviewIds> {
+export interface WebviewPanelDescriptor<ID extends WebviewPanelIds> {
 	id: ID;
 	readonly fileName: string;
 	readonly iconPath: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypeFromId<ID>}`;
+	readonly contextKeyPrefix: `gitlens:webview:${WebviewPanelTypeFromId<ID>}`;
 	readonly trackingFeature: TrackedUsageFeatures;
-	readonly type: WebviewTypeFromId<ID>;
+	readonly type: WebviewPanelTypeFromId<ID>;
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;

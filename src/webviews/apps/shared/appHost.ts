@@ -2,7 +2,7 @@ import { provide } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
+import type { CustomEditorIds, WebviewIds } from '../../../constants.views';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
 import type { WebviewFocusChangedParams, WebviewState } from '../../protocol';
@@ -30,9 +30,7 @@ export interface StateProvider<State> extends Disposable {
 }
 
 export abstract class GlAppHost<
-	State extends WebviewState<CustomEditorIds | WebviewIds | WebviewViewIds> = WebviewState<
-		CustomEditorIds | WebviewIds | WebviewViewIds
-	>,
+	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,
 	Provider extends StateProvider<State> = StateProvider<State>,
 > extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {

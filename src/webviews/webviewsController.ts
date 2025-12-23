@@ -3,7 +3,7 @@ import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { GlCommands } from '../constants.commands';
 import type { Source } from '../constants.telemetry';
-import type { WebviewIds, WebviewViewIds } from '../constants.views';
+import type { WebviewPanelIds, WebviewViewIds } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCoreCommand, registerCommand } from '../system/-webview/command';
@@ -18,7 +18,7 @@ import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDes
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 
 interface WebviewPanelRegistration<
-	ID extends WebviewIds,
+	ID extends WebviewPanelIds,
 	State,
 	SerializedState = State,
 	ShowingArgs extends unknown[] = unknown[],
@@ -28,7 +28,7 @@ interface WebviewPanelRegistration<
 }
 
 export interface WebviewPanelProxy<
-	ID extends WebviewIds,
+	ID extends WebviewPanelIds,
 	ShowingArgs extends unknown[] = unknown[],
 	SerializedState = unknown,
 > extends Disposable {
@@ -48,7 +48,7 @@ export interface WebviewPanelProxy<
 }
 
 export interface WebviewPanelsProxy<
-	ID extends WebviewIds,
+	ID extends WebviewPanelIds,
 	ShowingArgs extends unknown[] = unknown[],
 	SerializedState = unknown,
 > extends Disposable {
@@ -90,7 +90,7 @@ export interface WebviewViewProxy<
 
 export class WebviewsController implements Disposable {
 	private readonly disposables: Disposable[] = [];
-	private readonly _panels = new Map<string, WebviewPanelRegistration<WebviewIds, any>>();
+	private readonly _panels = new Map<string, WebviewPanelRegistration<WebviewPanelIds, any>>();
 	private readonly _views = new Map<string, WebviewViewRegistration<WebviewViewIds, any>>();
 
 	constructor(
@@ -245,7 +245,7 @@ export class WebviewsController implements Disposable {
 		singleLine: true,
 	})
 	registerWebviewPanel<
-		ID extends WebviewIds,
+		ID extends WebviewPanelIds,
 		State,
 		SerializedState = State,
 		ShowingArgs extends unknown[] = unknown[],
@@ -441,7 +441,7 @@ export interface WebviewViewShowOptions {
 export type WebviewShowOptions = WebviewPanelShowOptions | WebviewViewShowOptions;
 
 function convertToWebviewPanelProxy<
-	ID extends WebviewIds,
+	ID extends WebviewPanelIds,
 	State,
 	SerializedState,
 	ShowingArgs extends unknown[] = unknown[],
@@ -478,7 +478,7 @@ function convertToWebviewPanelProxy<
 	};
 }
 
-function getBestController<ID extends WebviewIds, State, SerializedState, ShowingArgs extends unknown[]>(
+function getBestController<ID extends WebviewPanelIds, State, SerializedState, ShowingArgs extends unknown[]>(
 	registration: WebviewPanelRegistration<ID, State, SerializedState, ShowingArgs>,
 	options: WebviewPanelsShowOptions | undefined,
 	...args: WebviewShowingArgs<ShowingArgs, SerializedState>

@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type { GlCommands, PlusCommands, WebviewCommands, WebviewViewCommands } from '../../../../../constants.commands';
+import type { GlCommands, PlusCommands, WebviewCommands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import {
 	actionGroupMap,
@@ -688,10 +688,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<action-nav class="branch-item__collapsed-actions">${actions}</action-nav>`;
 	}
 
-	protected createWebviewCommandLink<T>(
-		command: WebviewCommands | WebviewViewCommands | PlusCommands,
-		args?: T | any,
-	): string {
+	protected createWebviewCommandLink<T>(command: WebviewCommands | PlusCommands, args?: T | any): string {
 		return createWebviewCommandLink<T>(
 			command,
 			'gitlens.views.home',

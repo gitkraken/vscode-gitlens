@@ -1,10 +1,11 @@
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
-import type { CustomEditorCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
+import type { WebviewCommands } from '../constants.commands';
 import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	WebviewIds,
-	WebviewOrWebviewViewOrCustomEditorTypeFromId,
+	WebviewPanelIds,
+	WebviewTypeFromId,
 	WebviewViewIds,
 } from '../constants.views';
 import type { WebviewContext } from '../system/webview';
@@ -66,11 +67,10 @@ export interface WebviewStateProvier<
 	canReceiveMessage?(e: IpcMessage): boolean;
 }
 
-export interface WebviewHost<ID extends WebviewIds | WebviewViewIds | CustomEditorIds> {
+export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 	readonly id: ID;
 	readonly instanceId: string;
-	readonly type: WebviewOrWebviewViewOrCustomEditorTypeFromId<ID>;
-
+	readonly type: WebviewTypeFromId<ID>;
 	readonly originalTitle: string;
 	title: string;
 	description: string | undefined;
@@ -106,8 +106,8 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds | CustomEdit
 			? [data?: never, source?: Source]
 			: [data: WebviewTelemetryEvents[T], source?: Source]
 	): void;
-	is(type: 'editor'): this is WebviewHost<ID extends WebviewIds ? ID : never>;
-	is(type: 'view'): this is WebviewHost<ID extends WebviewViewIds ? ID : never>;
+	is(type: 'editor'): this is WebviewHost<ID & (WebviewPanelIds | CustomEditorIds)>;
+	is(type: 'view'): this is WebviewHost<ID & WebviewViewIds>;
 
 	notify<T extends IpcNotification<unknown>>(
 		notificationType: T,
@@ -121,7 +121,7 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds | CustomEdit
 		params: IpcCallResponseParamsType<T>,
 	): Promise<boolean>;
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: WebviewCommands | WebviewViewCommands | CustomEditorCommands,
+		command: WebviewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable;
 	show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]): Promise<void>;

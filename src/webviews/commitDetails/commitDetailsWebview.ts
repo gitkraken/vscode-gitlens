@@ -15,7 +15,7 @@ import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemot
 import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import type { CreatePatchCommandArgs } from '../../commands/patches';
-import type { WebviewViewCommandsOrCommandsWithSuffix } from '../../constants.commands';
+import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import { isSupportedCloudIntegrationId } from '../../constants.integrations';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
@@ -77,7 +77,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../system/-webview/context';
 import type { MergeEditorInputs } from '../../system/-webview/vscode/editors';
 import { openMergeEditor } from '../../system/-webview/vscode/editors';
-import { createCommandDecorator, getWebviewViewCommand } from '../../system/decorators/command';
+import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
@@ -159,7 +159,7 @@ import {
 import type { CommitDetailsWebviewShowingArgs } from './registration';
 
 const { command, getCommands } =
-	createCommandDecorator<WebviewViewCommandsOrCommandsWithSuffix<'commitDetails' | 'graphDetails'>>();
+	createCommandDecorator<WebviewCommandsOrCommandsWithSuffix<'commitDetails' | 'graphDetails'>>();
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
 
@@ -455,7 +455,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		];
 
 		for (const { command, handler } of getCommands()) {
-			subscriptions.push(registerWebviewCommand(getWebviewViewCommand(command, this.host.type), handler, this));
+			subscriptions.push(registerWebviewCommand(getWebviewCommand(command, this.host.type), handler, this));
 		}
 
 		return subscriptions;

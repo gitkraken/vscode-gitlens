@@ -6,6 +6,7 @@ import type {
 	TreeViewTypes,
 	ViewContainerIds,
 	ViewIds,
+	WebviewPanelTypes,
 	WebviewTypes,
 	WebviewViewTypes,
 } from './constants.views';
@@ -252,43 +253,22 @@ export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = Extract
 	TreeViewCommandsByViewType<T>
 >;
 
-export type WebviewCommands<T extends WebviewTypes = WebviewTypes> =
+type CustomEditorOrWebviewPanelCommands<T extends CustomEditorTypes | WebviewPanelTypes> =
 	| FilterCommands<`gitlens.${T}`, GlCommands>
 	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
-export type WebviewViewCommands<T extends WebviewViewTypes = WebviewViewTypes> =
+
+type WebviewViewCommands<T extends WebviewViewTypes> =
 	| FilterCommands<`gitlens.views.${T}`, GlCommands>
 	| FilterCommands<'gitlens.views.', GlCommands, `:${T}`>
 	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
-export type CustomEditorCommands<T extends CustomEditorTypes = CustomEditorTypes> =
-	| FilterCommands<`gitlens.${T}`, GlCommands>
-	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
 
-/**
- * Extracts all possible prefixes (before the colon) from a union of commands.
- * Example: 'gitlens.foo:graph' | 'gitlens.bar:timeline' -> 'gitlens.foo' | 'gitlens.bar'
- */
-type ExtractCommandPrefix<
-	T extends GlCommands,
-	U extends WebviewTypes | WebviewViewTypes | CustomEditorTypes,
-> = T extends `${infer Prefix}:${U}` ? `${Prefix}:` : never;
+export type WebviewCommands<T extends WebviewTypes = WebviewTypes> =
+	| (T extends CustomEditorTypes | WebviewPanelTypes ? CustomEditorOrWebviewPanelCommands<T> : never)
+	| (T extends WebviewViewTypes ? WebviewViewCommands<T> : never);
 
-type CustomEditorCommandPrefixes<T extends CustomEditorTypes = CustomEditorTypes> = ExtractCommandPrefix<
-	CustomEditorCommands<T>,
-	T
->;
-export type CustomEditorCommandsOrCommandsWithSuffix<T extends CustomEditorTypes = CustomEditorTypes> =
-	| CustomEditorCommands<T>
-	| CustomEditorCommandPrefixes<T>;
+/** Extracts command prefixes (before the type suffix) for use with decorated commands */
+type ExtractCommandPrefix<T, U extends string> = T extends `${infer Prefix}:${U}` ? `${Prefix}:` : never;
 
-type WebviewCommandPrefixes<T extends WebviewTypes = WebviewTypes> = ExtractCommandPrefix<WebviewCommands<T>, T>;
 export type WebviewCommandsOrCommandsWithSuffix<T extends WebviewTypes = WebviewTypes> =
 	| WebviewCommands<T>
-	| WebviewCommandPrefixes<T>;
-
-type WebviewViewCommandPrefixes<T extends WebviewViewTypes = WebviewViewTypes> = ExtractCommandPrefix<
-	WebviewViewCommands<T>,
-	T
->;
-export type WebviewViewCommandsOrCommandsWithSuffix<T extends WebviewViewTypes = WebviewViewTypes> =
-	| WebviewViewCommands<T>
-	| WebviewViewCommandPrefixes<T>;
+	| ExtractCommandPrefix<WebviewCommands<T>, T>;

@@ -43,14 +43,17 @@ export type GroupableTreeViewTypes = Extract<
 >;
 export type GroupableTreeViewIds<T extends GroupableTreeViewTypes = GroupableTreeViewTypes> = TreeViewIds<T>;
 
-export type WebviewTypes = 'composer' | 'graph' | 'patchDetails' | 'settings' | 'timeline';
-export type WebviewIds = `gitlens.${WebviewTypes}`;
+export type WebviewPanelTypes = 'composer' | 'graph' | 'patchDetails' | 'settings' | 'timeline';
+export type WebviewPanelIds = `gitlens.${WebviewPanelTypes}`;
 
 export type WebviewViewTypes = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'patchDetails' | 'timeline';
 export type WebviewViewIds<T extends WebviewViewTypes = WebviewViewTypes> = `gitlens.views.${T}`;
 
-export type WebviewTypeFromId<T extends WebviewIds> = T extends `gitlens.${infer U}`
-	? U extends WebviewTypes
+export type WebviewTypes = CustomEditorTypes | WebviewPanelTypes | WebviewViewTypes;
+export type WebviewIds = CustomEditorIds | WebviewPanelIds | WebviewViewIds;
+
+export type WebviewPanelTypeFromId<T extends WebviewPanelIds> = T extends `gitlens.${infer U}`
+	? U extends WebviewPanelTypes
 		? U
 		: never
 	: never;
@@ -59,14 +62,14 @@ export type WebviewViewTypeFromId<T extends WebviewViewIds> = T extends `gitlens
 		? U
 		: never
 	: never;
-export type WebviewOrWebviewViewOrCustomEditorTypeFromId<T extends WebviewIds | WebviewViewIds | CustomEditorIds> =
-	T extends WebviewIds
-		? WebviewTypeFromId<T>
+
+export type WebviewTypeFromId<T extends WebviewIds | CustomEditorIds> = T extends CustomEditorIds
+	? CustomEditorTypeFromId<T>
+	: T extends WebviewPanelIds
+		? WebviewPanelTypeFromId<T>
 		: T extends WebviewViewIds
 			? WebviewViewTypeFromId<T>
-			: T extends CustomEditorIds
-				? CustomEditorTypeFromId<T>
-				: never;
+			: never;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
 export type ViewIds = TreeViewIds | WebviewViewIds;

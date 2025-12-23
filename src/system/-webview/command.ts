@@ -6,11 +6,9 @@ import type { CodeLensCommands } from '../../config';
 import type {
 	CoreCommands,
 	CoreGitCommands,
-	CustomEditorCommands,
 	GlCommands,
 	GlCommandsDeprecated,
 	WebviewCommands,
-	WebviewViewCommands,
 } from '../../constants.commands';
 import { actionCommandPrefix } from '../../constants.commands';
 import { Container } from '../../container';
@@ -85,11 +83,7 @@ export function registerCommand(
 	);
 }
 
-export function registerWebviewCommand(
-	command: WebviewCommands | WebviewViewCommands | CustomEditorCommands,
-	callback: CommandCallback,
-	thisArg?: any,
-): Disposable {
+export function registerWebviewCommand(command: WebviewCommands, callback: CommandCallback, thisArg?: any): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {

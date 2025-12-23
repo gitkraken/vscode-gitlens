@@ -3,7 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { WebviewCommands } from '../../../../../constants.commands';
-import type { WebviewOrWebviewViewOrCustomEditorTypeFromId } from '../../../../../constants.views';
+import type { WebviewTypeFromId } from '../../../../../constants.views';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
 import type { GitReference } from '../../../../../git/models/reference';
 import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
@@ -124,9 +124,7 @@ export class GlMergeConflictWarning extends LitElement {
 		command: 'abort' | 'continue' | 'open' | 'showConflicts' | 'skip',
 	): string {
 		const { webviewId, webviewInstanceId } = this._webview;
-		const webviewType = webviewId.split('.').at(-1) as WebviewOrWebviewViewOrCustomEditorTypeFromId<
-			typeof webviewId
-		>;
+		const webviewType = webviewId.split('.').at(-1) as WebviewTypeFromId<typeof webviewId>;
 		if (webviewType !== 'graph' && webviewType !== 'home') {
 			debugger;
 			return '';

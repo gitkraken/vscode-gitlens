@@ -1,6 +1,6 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
+import type { CustomEditorIds, WebviewIds } from '../../../constants.views';
 import { debounce } from '../../../system/function/debounce';
 import type { LogScope } from '../../../system/logger.scope';
 import type {
@@ -33,9 +33,7 @@ import type { ThemeChangeEvent } from './theme';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
 export abstract class App<
-	State extends WebviewState<CustomEditorIds | WebviewIds | WebviewViewIds> = WebviewState<
-		CustomEditorIds | WebviewIds | WebviewViewIds
-	>,
+	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,
 > {
 	private readonly _api: HostIpcApi;
 	private readonly _hostIpc: HostIpc;

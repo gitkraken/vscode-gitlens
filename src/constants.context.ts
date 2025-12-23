@@ -2,7 +2,7 @@ import type { Uri } from 'vscode';
 import type { FileAnnotationType } from './config';
 import type { AnnotationStatus, Keys } from './constants';
 import type { SubscriptionState } from './constants.subscription';
-import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewPanelTypes, WebviewViewTypes } from './constants.views';
 import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { Features } from './features';
 import type { OrgAIProviders } from './plus/gk/models/organization';
@@ -84,6 +84,6 @@ export type ContextKeys = {
 	Record<`gitlens:feature:unsupported:${Features}`, boolean> &
 	Record<`gitlens:key:${Keys}`, boolean> &
 	Record<`gitlens:views:scm:grouped:views:${GroupableTreeViewTypes}`, boolean> &
-	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &
+	Record<`gitlens:webview:${CustomEditorTypes | WebviewPanelTypes}:visible`, boolean> &
 	Record<`gitlens:webviewView:${WebviewViewTypes}:visible`, boolean> &
 	Record<`gitlens:walkthroughState:${WalkthroughContextKeys}`, boolean>;

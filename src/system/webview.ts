@@ -1,9 +1,9 @@
-import type { CustomEditorCommands, PlusCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants.views';
+import type { PlusCommands, WebviewCommands } from '../constants.commands';
+import type { WebviewIds } from '../constants.views';
 
 export function createWebviewCommandLink<T>(
-	command: WebviewCommands | WebviewViewCommands | CustomEditorCommands | PlusCommands,
-	webviewId: WebviewIds | WebviewViewIds | CustomEditorIds,
+	command: WebviewCommands | PlusCommands,
+	webviewId: WebviewIds,
 	webviewInstanceId: string | undefined,
 	args?: T,
 ): string {
@@ -13,7 +13,7 @@ export function createWebviewCommandLink<T>(
 }
 
 export interface WebviewContext {
-	webview: WebviewIds | WebviewViewIds | CustomEditorIds;
+	webview: WebviewIds;
 	webviewInstance: string | undefined;
 }
 

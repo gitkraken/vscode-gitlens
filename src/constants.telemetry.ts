@@ -4,7 +4,13 @@ import type { AIProviders } from './constants.ai';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState } from './constants.subscription';
-import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type {
+	CustomEditorTypes,
+	TreeViewTypes,
+	WebviewPanelTypes,
+	WebviewTypes,
+	WebviewViewTypes,
+} from './constants.views';
 import type { WalkthroughContextKeys } from './constants.walkthroughs';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
@@ -395,17 +401,17 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 }
 
 type WebviewShowAbortedEvents = {
-	[K in `${WebviewTypes | WebviewViewTypes | CustomEditorTypes}/showAborted`]: WebviewShownEventData;
+	[K in `${WebviewTypes}/showAborted`]: WebviewShownEventData;
 };
 type WebviewShownEvents = {
 	[K in `${Exclude<
-		WebviewTypes | WebviewViewTypes | CustomEditorTypes,
+		WebviewTypes,
 		'commitDetails' | 'graph' | 'graphDetails' | 'rebaseEditor' | 'timeline'
 	>}/shown`]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
 type WebviewClosedEvents = {
-	[K in `${WebviewTypes | WebviewViewTypes | CustomEditorTypes}/closed`]: WebviewContextEventData &
+	[K in `${WebviewTypes}/closed`]: WebviewContextEventData &
 		Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
@@ -1060,7 +1066,6 @@ interface ProvidersRegistrationCompleteEvent {
 	'config.git.autoRepositoryDetection': boolean | 'subFolders' | 'openEditors' | undefined;
 }
 
-/** Context provided by getTelemetryContext() - does NOT include session.duration */
 export type RebaseEditorTelemetryContext = WebviewTelemetryContext & {
 	'context.ascending': boolean;
 	'context.todo.count': number | undefined;
@@ -1071,11 +1076,8 @@ export type RebaseEditorTelemetryContext = WebviewTelemetryContext & {
 	'context.hasConflicts': boolean | undefined;
 	'context.session.start': string;
 };
-
-/** Base event data - same as context, used for events that don't need duration */
 type RebaseEditorContextEventData = RebaseEditorTelemetryContext;
 
-/** Completion event data - includes session.duration which must be passed per-event */
 type RebaseEditorCompletionEventData = RebaseEditorTelemetryContext & {
 	'context.session.duration': number;
 };
@@ -1473,7 +1475,7 @@ export type TrackedUsage = {
 };
 
 export type TrackedUsageFeatures =
-	| `${WebviewTypes}Webview`
+	| `${WebviewPanelTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
 export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';

@@ -1,6 +1,6 @@
 import type { Context, ContextProvider, ContextType } from '@lit/context';
 import { fromBase64ToString } from '@env/base64';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
+import type { CustomEditorIds, WebviewIds } from '../../../constants.views';
 import { isPromise } from '../../../system/promise';
 import type { IpcMessage, WebviewState } from '../../protocol';
 import { WebviewReadyRequest } from '../../protocol';
@@ -18,7 +18,7 @@ import type { HostIpc } from './ipc';
  * - Async: Requests full state from extension after connection
  */
 export abstract class StateProviderBase<
-	ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
+	ID extends WebviewIds | CustomEditorIds,
 	State extends WebviewState<ID>,
 	TContext extends Context<unknown, State>,
 > implements Disposable {

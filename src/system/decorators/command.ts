@@ -1,13 +1,5 @@
-import type {
-	CustomEditorCommands,
-	CustomEditorCommandsOrCommandsWithSuffix,
-	GlCommands,
-	WebviewCommands,
-	WebviewCommandsOrCommandsWithSuffix,
-	WebviewViewCommands,
-	WebviewViewCommandsOrCommandsWithSuffix,
-} from '../../constants.commands';
-import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../../constants.views';
+import type { GlCommands, WebviewCommands } from '../../constants.commands';
+import type { WebviewTypes } from '../../constants.views';
 
 interface Command<
 	TCommand extends string | GlCommands = GlCommands,
@@ -78,27 +70,6 @@ export function createCommandDecorator<
 	};
 }
 
-export function getWebviewCommand<T extends WebviewTypes>(
-	command: WebviewCommandsOrCommandsWithSuffix<T>,
-	type: T,
-): WebviewCommands<T> {
-	return command.endsWith(':') ? (`${command}${type}` as WebviewCommands<T>) : (command as WebviewCommands<T>);
-}
-
-export function getWebviewViewCommand<T extends WebviewViewTypes>(
-	command: WebviewViewCommandsOrCommandsWithSuffix<T>,
-	type: T,
-): WebviewViewCommands<T> {
-	return command.endsWith(':')
-		? (`${command}${type}` as WebviewViewCommands<T>)
-		: (command as WebviewViewCommands<T>);
-}
-
-export function getCustomEditorCommand<T extends CustomEditorTypes>(
-	command: CustomEditorCommandsOrCommandsWithSuffix<T>,
-	type: T,
-): CustomEditorCommands<T> {
-	return command.endsWith(':')
-		? (`${command}${type}` as CustomEditorCommands<T>)
-		: (command as CustomEditorCommands<T>);
+export function getWebviewCommand(command: string, type: WebviewTypes): WebviewCommands {
+	return (command.endsWith(':') ? `${command}${type}` : command) as WebviewCommands;
 }

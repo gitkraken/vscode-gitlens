@@ -1,7 +1,7 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { ViewColumn, workspace } from 'vscode';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars';
-import type { CustomEditorCommandsOrCommandsWithSuffix } from '../../constants.commands';
+import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
@@ -23,7 +23,7 @@ import { executeCommand, executeCoreCommand } from '../../system/-webview/comman
 import { configuration } from '../../system/-webview/configuration';
 import { closeTab } from '../../system/-webview/vscode/tabs';
 import { exists } from '../../system/-webview/vscode/uris';
-import { createCommandDecorator, getCustomEditorCommand } from '../../system/decorators/command';
+import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command';
 import { log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
@@ -81,7 +81,7 @@ import { RebaseTodoDocument } from './rebaseTodoDocument';
 
 export const maxSmallIntegerV8 = 2 ** 30 - 1;
 
-const { command, getCommands } = createCommandDecorator<CustomEditorCommandsOrCommandsWithSuffix>();
+const { command, getCommands } = createCommandDecorator<WebviewCommandsOrCommandsWithSuffix<'rebase'>>();
 
 interface Enrichment {
 	commits: Map<string, GitCommit>;
@@ -222,7 +222,7 @@ export class RebaseWebviewProvider implements Disposable {
 		const commands: Disposable[] = [];
 		for (const c of getCommands()) {
 			commands.push(
-				this.host.registerWebviewCommand(getCustomEditorCommand(c.command, 'rebase'), c.handler.bind(this)),
+				this.host.registerWebviewCommand(getWebviewCommand(c.command, 'rebase'), c.handler.bind(this)),
 			);
 		}
 		return commands;

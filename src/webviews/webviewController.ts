@@ -3,14 +3,15 @@ import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState 
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { base64 } from '@env/base64';
 import { getNonce } from '@env/crypto';
-import type { CustomEditorCommands, WebviewCommands, WebviewViewCommands } from '../constants.commands';
+import type { WebviewCommands } from '../constants.commands';
 import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
 	WebviewIds,
-	WebviewOrWebviewViewOrCustomEditorTypeFromId,
-	WebviewTypes,
+	WebviewPanelIds,
+	WebviewPanelTypes,
+	WebviewTypeFromId,
 	WebviewViewIds,
 	WebviewViewTypes,
 } from '../constants.views';
@@ -58,40 +59,21 @@ import type { WebviewShowOptions } from './webviewsController';
 
 const ipcSequencer = getScopedCounter();
 
-type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds | CustomEditorIds> = T extends WebviewIds
-	? WebviewPanelDescriptor<T>
-	: T extends WebviewViewIds
-		? WebviewViewDescriptor<T>
-		: T extends CustomEditorIds
-			? CustomEditorDescriptor<T>
+type GetWebviewDescriptor<T extends CustomEditorIds | WebviewIds> = T extends CustomEditorIds
+	? CustomEditorDescriptor<T>
+	: T extends WebviewPanelIds
+		? WebviewPanelDescriptor<T>
+		: T extends WebviewViewIds
+			? WebviewViewDescriptor<T>
 			: never;
 
-type GetWebviewParent<T extends WebviewIds | WebviewViewIds | CustomEditorIds> = T extends WebviewIds
-	? WebviewPanel
-	: T extends WebviewViewIds
-		? WebviewView
-		: T extends CustomEditorIds
-			? WebviewPanel
-			: never;
+type GetWebviewParent<T extends CustomEditorIds | WebviewIds> = T extends WebviewViewIds ? WebviewView : WebviewPanel;
 
-type WebviewPanelController<
-	ID extends WebviewIds,
-	State,
-	SerializedState = State,
-	ShowingArgs extends unknown[] = unknown[],
-> = WebviewController<ID, State, SerializedState, ShowingArgs>;
-type WebviewViewController<
-	ID extends WebviewViewIds,
-	State,
-	SerializedState = State,
-	ShowingArgs extends unknown[] = unknown[],
-> = WebviewController<ID, State, SerializedState, ShowingArgs>;
-
-@logName<WebviewController<WebviewIds | WebviewViewIds | CustomEditorIds, any>>(
+@logName<WebviewController<CustomEditorIds | WebviewIds, any>>(
 	c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`,
 )
 export class WebviewController<
-	ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
+	ID extends CustomEditorIds | WebviewIds,
 	State,
 	SerializedState = State,
 	ShowingArgs extends unknown[] = unknown[],
@@ -99,7 +81,7 @@ export class WebviewController<
 	implements WebviewHost<ID>, Disposable
 {
 	static async create<
-		ID extends WebviewIds,
+		ID extends WebviewPanelIds,
 		State,
 		SerializedState = State,
 		ShowingArgs extends unknown[] = unknown[],
@@ -148,7 +130,7 @@ export class WebviewController<
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>>;
 	static async create<
-		ID extends WebviewIds | WebviewViewIds | CustomEditorIds,
+		ID extends CustomEditorIds | WebviewIds,
 		State,
 		SerializedState = State,
 		ShowingArgs extends unknown[] = unknown[],
@@ -182,8 +164,8 @@ export class WebviewController<
 
 	readonly id: ID;
 
-	get type(): WebviewOrWebviewViewOrCustomEditorTypeFromId<ID> {
-		return this.descriptor.type as WebviewOrWebviewViewOrCustomEditorTypeFromId<ID>;
+	get type(): WebviewTypeFromId<ID> {
+		return this.descriptor.type as WebviewTypeFromId<ID>;
 	}
 
 	private _ready: boolean = false;
@@ -270,7 +252,7 @@ export class WebviewController<
 	}
 
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: WebviewCommands | WebviewViewCommands | CustomEditorCommands,
+		command: WebviewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
 		return this._commandRegistrar.registerCommand(
@@ -321,15 +303,11 @@ export class WebviewController<
 
 	is(
 		type: 'editor',
-	): this is WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>;
-	is(
-		type: 'view',
-	): this is WebviewViewController<ID extends WebviewViewIds ? ID : never, State, SerializedState, ShowingArgs>;
+	): this is WebviewController<ID & (WebviewPanelIds | CustomEditorIds), State, SerializedState, ShowingArgs>;
+	is(type: 'view'): this is WebviewController<ID & WebviewViewIds, State, SerializedState, ShowingArgs>;
 	is(
 		type: 'editor' | 'view',
-	): this is
-		| WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>
-		| WebviewViewController<ID extends WebviewViewIds ? ID : never, State, SerializedState, ShowingArgs> {
+	): this is WebviewController<ID & (CustomEditorIds | WebviewIds), State, SerializedState, ShowingArgs> {
 		return type === 'editor' ? this._isInEditor : !this._isInEditor;
 	}
 
@@ -983,13 +961,17 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 }
 
 export function resetContextKeys(
-	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
+	contextKeyPrefix:
+		| `gitlens:webview:${WebviewPanelTypes | CustomEditorTypes}`
+		| `gitlens:webviewView:${WebviewViewTypes}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, false);
 }
 
 export function setContextKeys(
-	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
+	contextKeyPrefix:
+		| `gitlens:webview:${WebviewPanelTypes | CustomEditorTypes}`
+		| `gitlens:webviewView:${WebviewViewTypes}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, true);
 }

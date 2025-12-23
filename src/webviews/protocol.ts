@@ -2,18 +2,11 @@ import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
 import type { GlCommands } from '../constants.commands';
 import type { Source, WebviewTelemetryEvents } from '../constants.telemetry';
-import type {
-	CustomEditorIds,
-	CustomEditorTypes,
-	WebviewIds,
-	WebviewTypes,
-	WebviewViewIds,
-	WebviewViewTypes,
-} from '../constants.views';
+import type { WebviewIds, WebviewTypes } from '../constants.views';
 import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo';
 import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
 
-export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
+export type IpcScope = 'core' | WebviewTypes;
 
 type IpcCompression = 'deflate' | 'utf8' | false;
 export interface IpcMessage<T = unknown> {
@@ -191,7 +184,7 @@ export function assertsConfigKeyValue<T extends ConfigPath>(
 	// Noop
 }
 
-export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds> {
+export interface WebviewState<Id extends WebviewIds> {
 	webviewId: Id;
 	webviewInstanceId: string | undefined;
 	timestamp: number;
