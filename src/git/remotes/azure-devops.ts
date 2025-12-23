@@ -14,6 +14,7 @@ import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remotePro
 import { RemoteProvider } from './remoteProvider.js';
 
 const gitRegex = /\/_git\/?/i;
+const gitTailRegex = /\/_git(?:\/.*)?$/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
 const orgAndProjectRegex = /^(.*?)\/(.*?)\/(.*)/;
 const sshDomainRegex = /^(ssh|vs-ssh)\./i;
@@ -70,10 +71,9 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected override get issueLinkPattern(): string {
-		if (isVsts(this.domain)) {
-			return `${this.protocol}://${this.domain}/_workitems/edit/<num>`;
-		}
-		return `${this.protocol}://${this.domain}/${this.owner}/_workitems/edit/<num>`;
+		const projectUrl = this.baseUrl.replace(gitTailRegex, '');
+		const orgUrl = projectUrl.substring(0, projectUrl.lastIndexOf('/'));
+		return `${orgUrl}/_workitems/edit/<num>`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
