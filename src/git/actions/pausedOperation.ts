@@ -2,7 +2,7 @@ import { window } from 'vscode';
 import type { Container } from '../../container';
 import { showGitErrorMessage } from '../../messages';
 import { executeCommand } from '../../system/-webview/command';
-import { PausedOperationContinueError } from '../errors';
+import { PausedOperationAbortError, PausedOperationContinueError } from '../errors';
 import type { GitRepositoryService } from '../gitRepositoryService';
 import type { GitPausedOperationStatus } from '../models/pausedOperationStatus';
 import { openRebaseEditor } from '../utils/-webview/rebase.utils';
@@ -12,6 +12,9 @@ export async function abortPausedOperation(svc: GitRepositoryService, options?: 
 	try {
 		return await svc.pausedOps?.abortPausedOperation?.(options);
 	} catch (ex) {
+		// Ignore this as it can happen when the operation was already aborted (e.g., by clearing the rebase todo file before calling this)
+		if (PausedOperationAbortError.is(ex, 'nothingToAbort')) return;
+
 		void showGitErrorMessage(ex);
 	}
 }
