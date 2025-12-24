@@ -38,7 +38,7 @@ const eslintWorker = { max: cores, filesPerWorker: 100 };
 /** @type import('@eamodio/eslint-lite-webpack-plugin').ESLintLitePluginOptions['eslintOptions'] */
 const eslintOptions = {
 	cache: true,
-	cacheStrategy: 'content',
+	cacheStrategy: 'metadata',
 	// concurrency: 'auto',
 };
 
@@ -470,7 +470,7 @@ function getWebviewsCommonConfig(mode, env) {
 	if (!env.quick) {
 		plugins.push(
 			new ESLintLitePlugin({
-				files: path.join(basePath, '**', '*.ts?(x)'),
+				files: '**/*.ts?(x)',
 				exclude: ['**/__tests__/**'],
 				worker: eslintWorker,
 				eslintOptions: {
@@ -586,7 +586,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	if (!env.quick) {
 		plugins.push(
 			new ESLintLitePlugin({
-				files: path.join(basePath, '**', '*.ts?(x)'),
+				files: '**/*.ts?(x)',
 				exclude: ['**/__tests__/**'],
 				worker: eslintWorker,
 				eslintOptions: {
