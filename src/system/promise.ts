@@ -217,7 +217,7 @@ export function getSettledValue<T>(
 ): NonNullable<T>;
 export function getSettledValue<T>(
 	promise: PromiseSettledResult<T> | undefined,
-	defaultValue: T | undefined = undefined,
+	defaultValue?: T | undefined,
 ): T | typeof defaultValue {
 	return promise?.status === 'fulfilled' ? promise.value : defaultValue;
 }

@@ -97,7 +97,10 @@ export async function generateChangelogAndOpenMarkdownDocument(
 	const result = await container.ai.actions.generateChangelog(changes, source, options);
 	if (result === 'cancelled') return;
 
-	const { range, changes: { length: count } = [] } = await changes.value;
+	const {
+		range,
+		changes: { length: count },
+	} = await changes.value;
 	const feedbackContext = result && getAIResultContext(result);
 
 	let content = `# Changelog for ${range.head.label ?? range.head.ref}\n`;

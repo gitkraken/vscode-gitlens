@@ -1,8 +1,8 @@
+blockExoticSubdeps: true
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - '@types/react@19.2.7'
-    - 'react@19.2.3'
-    - 'react-dom@19.2.3'
+    - 'esbuild-loader@4.4.1'
+    - 'webpack@5.104.1'

@@ -229,6 +229,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
+				exclude: ['**/@types/**', '**/webviews/apps/**', '**/__tests__/**'],
 				worker: eslintWorker,
 				eslintOptions: {
 					...eslintOptions,
@@ -470,6 +471,7 @@ function getWebviewsCommonConfig(mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
+				exclude: ['**/__tests__/**'],
 				worker: eslintWorker,
 				eslintOptions: {
 					...eslintOptions,
@@ -585,6 +587,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
+				exclude: ['**/__tests__/**'],
 				worker: eslintWorker,
 				eslintOptions: {
 					...eslintOptions,
