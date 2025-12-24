@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a welcome page webview for first-time installs to highlight Pro benefits for users in IDEs that do not support the standard VS Code walkthrough ([#4769](https://github.com/gitkraken/vscode-gitlens/issues/4769)
+
 ### Fixed
 
 - Fixes issue where the button text on feature gates would blend into the background ([#4833](https://github.com/gitkraken/vscode-gitlens/issues/4833))

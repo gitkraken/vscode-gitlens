@@ -398,6 +398,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the walkthrough is opened */
 	'walkthrough/action': WalkthroughActionEvent;
 	'walkthrough/completion': WalkthroughCompletionEvent;
+
+	/** Sent when an action is taken in the welcome webview */
+	'welcome/action': WelcomeActionEvent;
 }
 
 type WebviewShowAbortedEvents = {
@@ -1368,6 +1371,14 @@ interface WalkthroughCompletionEvent {
 	'context.key': WalkthroughContextKeys;
 }
 
+type WelcomeActionNames = 'plus/sign-up' | 'dismiss' | 'shown';
+
+type WelcomeActionEvent = {
+	name: WelcomeActionNames;
+	viewedCarouselPages?: number;
+	proButtonClicked?: boolean;
+};
+
 type WebviewContextEventData = {
 	'context.webview.id': string;
 	'context.webview.type': string;
@@ -1451,6 +1462,7 @@ export type Sources =
 	| 'view'
 	| 'view:hover'
 	| 'walkthrough'
+	| 'welcome'
 	| 'whatsnew'
 	| 'worktrees';
 
