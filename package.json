@@ -26954,8 +26954,8 @@
 					},
 					{
 						"id": "accelerate-pr-reviews",
-						"title": "Accelerate PR Reviews",
-						"description": "$(gitlens-launchpad-view)  **Launchpad: Your PR Hub**\n\nEasily manage GitHub pull requests by status, prioritize tasks, and spot bottlenecks—all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.walkthrough.showLaunchpad)\n\n💡 [Connect](command:gitlens.walkthrough.connectIntegrations) your GitHub or host provider to use Launchpad and accelerate PR reviews\n\n$(folder-opened)  **Worktrees: Multi-branch efficiency**\n\nWork on multiple branches simultaneously to handle hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.walkthrough.worktree.create)\n$(gitlens-play-button)  [Watch how to accelerate code reviews](command:gitlens.walkthrough.openAcceleratePrReviews)",
+						"title": "Stay in Flow, Manage All Your Work in One Place",
+						"description": "Keep everything at your fingertips with Launchpad & Worktrees.\n\n**- Launchpad:** view and manage all your PRs and branches from one hub\n\n**- Worktrees:** code, test, and review on multiple branches in parallel\n\n**- Integrations:** connect PRs and issues from GitHub, GitLab, Jira, Azure DevOps & more\n\nStay in flow, ship faster, and never lose track of what matters.\n\n[Open Launchpad](command:gitlens.walkthrough.showLaunchpad)",
 						"media": {
 							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
 						},
