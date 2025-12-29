@@ -9,6 +9,8 @@ import { command, executeCommand, executeCoreCommand } from '../system/-webview/
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode.js';
 import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider.js';
+import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
+import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations.js';
 import { GlCommandBase } from './commandBase.js';
 import type { WorktreeGitCommandArgs } from './git/worktree.js';
@@ -197,6 +199,25 @@ export class WalkthroughShowGraphCommand extends GlCommandBase {
 			command: command,
 		});
 		executeCommand(command);
+	}
+}
+
+@command()
+export class WalkthroughShowComposerCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.showComposer');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.showComposerPage';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/composer',
+			command: command,
+		});
+		executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(command, undefined, {
+			source: 'walkthrough',
+		});
 	}
 }
 

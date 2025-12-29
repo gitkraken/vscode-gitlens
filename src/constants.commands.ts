@@ -116,6 +116,7 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.showAutolinks'
 	| 'gitlens.walkthrough.showDraftsView'
 	| 'gitlens.walkthrough.showGraph'
+	| 'gitlens.walkthrough.showComposer'
 	| 'gitlens.walkthrough.showHomeView'
 	| 'gitlens.walkthrough.showLaunchpad'
 	| 'gitlens.walkthrough.switchAIProvider'

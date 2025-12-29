@@ -1350,6 +1350,7 @@ type WalkthroughActionNames =
 	| 'open/home'
 	| 'connect/integrations'
 	| 'open/autolinks'
+	| 'open/composer'
 	| 'open/graph'
 	| 'open/launchpad'
 	| 'create/worktree'
