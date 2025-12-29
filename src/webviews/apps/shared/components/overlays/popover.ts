@@ -174,7 +174,7 @@ export class GlPopover extends GlElement {
 			}
 
 			:host([appearance='menu']) {
-				--sl-tooltip-padding: 0 var(--sl-spacing-2x-small) var(--sl-spacing-2x-small);
+				--sl-tooltip-padding: var(--sl-spacing-2x-small);
 				--sl-tooltip-font-size: var(--vscode-font-size);
 				--sl-tooltip-background-color: var(--vscode-menu-background);
 				--arrow-color: var(--vscode-menu-background);
