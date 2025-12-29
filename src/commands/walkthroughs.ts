@@ -53,7 +53,6 @@ const helpCenterWalkthroughUrls = new Map<WalkthroughSteps | 'default', string>(
 	['get-started-community', urls.getStarted],
 	['visualize-code-history', urls.interactiveCodeHistory],
 	['accelerate-pr-reviews', urls.acceleratePrReviews],
-	['streamline-collaboration', urls.streamlineCollaboration],
 	['improve-workflows-with-integrations', urls.startIntegrations],
 ]);
 
@@ -344,24 +343,6 @@ export class WalkthroughShowDraftsViewCommand extends GlCommandBase {
 			command: command,
 		});
 		executeCommand(command);
-	}
-}
-
-// https://help.gitkraken.com/gitlens/gitlens-home/#streamline-collaboration
-@command()
-export class WalkthroughOpenStreamlineCollaboration extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.openStreamlineCollaboration');
-	}
-
-	execute(): void {
-		const url = urls.streamlineCollaboration;
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'url',
-			name: 'open/help-center/streamline-collaboration',
-			url: url,
-		});
-		void openUrl(url);
 	}
 }
 

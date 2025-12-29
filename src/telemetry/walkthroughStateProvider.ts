@@ -73,22 +73,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		'streamlineCollaboration',
-		{
-			subscriptionStates: triedProStates,
-			subscriptionCommands: tryProCommands,
-			usage: [
-				'patchDetailsView:shown',
-				'patchDetailsWebview:shown',
-				'draftsView:shown',
-				'command:gitlens.showDraftsView:executed',
-				'command:gitlens.showPatchDetailsPage:executed',
-				'command:gitlens.createCloudPatch:executed',
-				'command:gitlens.createPatch:executed',
-			],
-		},
-	],
-	[
 		'integrations',
 		{
 			usage: [

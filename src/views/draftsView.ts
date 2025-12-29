@@ -1,6 +1,5 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs.js';
 import type { DraftsViewConfig } from '../config.js';
 import { previewBadge } from '../constants.js';
 import type { Container } from '../container.js';
@@ -115,15 +114,6 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 
 	protected registerCommands(): Disposable[] {
 		return [
-			registerViewCommand(
-				this.getQualifiedCommand('info'),
-				() =>
-					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-						step: 'streamline-collaboration',
-						source: { source: 'cloud-patches', detail: 'info' },
-					}),
-				this,
-			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
