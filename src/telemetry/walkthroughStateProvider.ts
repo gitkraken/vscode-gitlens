@@ -73,15 +73,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		'integrations',
-		{
-			usage: [
-				'command:gitlens.plus.cloudIntegrations.connect:executed',
-				'command:gitlens.plus.cloudIntegrations.manage:executed',
-			],
-		},
-	],
-	[
 		'aiFeatures',
 		{
 			usage: [
