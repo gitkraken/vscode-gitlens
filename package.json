@@ -26861,8 +26861,8 @@
 				"steps": [
 					{
 						"id": "get-started-community",
-						"title": "Welcome to GitLens",
-						"description": "Thank you for installing GitLens—the most popular Git extension for VS Code!\n\n**Community vs. Pro**\n\nYou're using **GitLens Community** edition.\nTrack code changes and see who made them with features like in-editor blame annotations, hovers, CodeLens, and more—completely free.\n\n**Leverage powerful workflows with GitLens Pro**\n\nThe **GitLens Pro** edition unlocks advanced features to accelerate PR reviews, gain actionable insights with rich code visuals, and streamline team collaboration to boost productivity.\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.signUp)",
+						"title": "Welcome to GitLens: Unlock Your Repo’s Full Story",
+						"description": "The Community Edition lets you:\n\n- View blame annotations and commit details inline\n- Explore file revision history for any repo\n\nUpgrade to **GitLens Pro** (Free 14-Day Trial) to access everything above plus advanced visualization, collaboration, and built-in Al tools that work right inside VS Code.\n\n$(sparkle) Pro gives you full access to:\n\n**- Commit Graph:** visualize every branch and commit relationship\n**- Visual File History:** see how a file has evolved with a graph of what changed and when\n**- Launchpad & Worktrees:** manage PRs and branches in one hub\n**- GitKraken Al:** writes commits, PRs & changelogs for you.\n\n[Start Your Free 14-Day Pro Trial](command:gitlens.walkthrough.plus.signUp)",
 						"media": {
 							"markdown": "walkthroughs/welcome/get-started-community.md"
 						},
