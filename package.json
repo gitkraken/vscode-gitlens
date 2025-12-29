@@ -26964,17 +26964,6 @@
 						]
 					},
 					{
-						"id": "streamline-collaboration",
-						"title": "Streamline Collaboration",
-						"description": "$(gitlens-cloud-patch)  **Cloud Patches: Collaborate before PRs**\n\nShare and iterate on code without committing to the repo or affecting CI. Keep your team moving forward with accessible, flexible Cloud Patches.\n\n[Open Cloud Patches](command:gitlens.walkthrough.showDraftsView)\n\n$(gitlens-code-suggestion)  **Code Suggest**\n\nReview GitHub and GitLab pull requests and send suggested changes to teammates directly from GitLens.\n\n$(gitlens-play-button)  [Watch how to enhance collaboration in GitLens](command:gitlens.walkthrough.openStreamlineCollaboration)",
-						"media": {
-							"markdown": "walkthroughs/welcome/streamline-collaboration.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:streamlineCollaboration == true"
-						]
-					},
-					{
 						"id": "improve-workflows-with-integrations",
 						"title": "Improve Workflows With Integrations",
 						"description": "$(extensions)  **Integrations**\n\nConnect to GitHub, GitLab, and Jira to associate PRs and issues to branches and commits in GitLens. Track and take action on PRs from Launchpad, quickly start work on issues, and get enhanced information in autolinks.\n\n[Connect Integrations](command:gitlens.walkthrough.connectIntegrations)\n\n$(link)  **Autolinks**\n\nGitLens automatically detects patterns in commit messages to generate links for pull requests and issues across services like GitHub, GitLab, Gitea, Gerrit, Google Source, Bitbucket, Azure DevOps, and custom servers.\n\n[Configure autolinks](command:gitlens.walkthrough.showAutolinks) for custom pattern-matching with other services.\n\n$(gitlens-play-button)  [Watch how integrations improve GitLens](command:gitlens.walkthrough.openStartIntegrations)",

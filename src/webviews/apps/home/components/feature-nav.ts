@@ -6,7 +6,6 @@ import type {
 	ConnectCloudIntegrationsCommandArgs,
 	ManageCloudIntegrationsCommandArgs,
 } from '../../../../commands/cloudIntegrations.js';
-import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { State } from '../../../home/protocol.js';
@@ -197,31 +196,6 @@ export class GlFeatureNav extends GlElement {
 					this.orgAllowsDrafts,
 					() => html`
 						<div class="nav-list__item">
-							${when(
-								this._state.walkthroughSupported,
-								() =>
-									html` <a
-										class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
-										href="${createCommandLink<OpenWalkthroughCommandArgs>(
-											'gitlens.openWalkthrough',
-											{
-												step: 'streamline-collaboration',
-												source: { source: 'home', detail: 'old-home' },
-											},
-										)}"
-										data-requires="repo"
-										data-org-requires="drafts"
-										aria-label="Open Code Suggest walkthrough"
-										><code-icon class="nav-list__icon" icon="gl-code-suggestion"></code-icon
-										><gl-tooltip
-											hoist
-											class="nav-list__group"
-											content="Open Code Suggest walkthrough"
-											><span class="nav-list__label">Code Suggest</span
-											><span class="nav-list__desc">New!</span></gl-tooltip
-										>
-									</a>`,
-							)}
 							<gl-feature-badge
 								.source=${this.badgeSource}
 								.subscription=${this._state.subscription}
