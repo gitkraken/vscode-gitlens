@@ -37,16 +37,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		'homeView',
-		{
-			usage: [
-				'homeView:shown',
-				'command:gitlens.showHomeView:executed',
-				'command:gitlens.showAccountView:executed',
-			],
-		},
-	],
-	[
 		'visualizeCodeHistory',
 		{
 			subscriptionStates: triedProStates,
