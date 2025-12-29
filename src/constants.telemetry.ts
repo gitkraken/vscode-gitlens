@@ -1187,7 +1187,6 @@ type WalkthroughActionNames =
 	| 'open/help-center/ai-features'
 	| 'open/help-center/start-integrations'
 	| 'open/help-center/accelerate-pr-reviews'
-	| 'open/help-center/streamline-collaboration'
 	| 'open/help-center/interactive-code-history'
 	| 'open/help-center/community-vs-pro'
 	| 'open/devex-platform'
