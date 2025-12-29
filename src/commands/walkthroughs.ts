@@ -346,42 +346,6 @@ export class WalkthroughShowDraftsViewCommand extends GlCommandBase {
 	}
 }
 
-// gitlens.showSettingsPage!autolinks
-@command()
-export class WalkthroughShowAutolinksCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.showAutolinks');
-	}
-
-	execute(): void {
-		const command: GlCommands = 'gitlens.showSettingsPage!autolinks';
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'command',
-			name: 'open/autolinks',
-			command: command,
-		});
-		executeCommand(command);
-	}
-}
-
-// https://help.gitkraken.com/gitlens/gitlens-start-here/#integrations
-@command()
-export class WalkthroughOpenStartIntegrations extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.openStartIntegrations');
-	}
-
-	execute(): void {
-		const url = urls.startIntegrations;
-		this.container.telemetry.sendEvent('walkthrough/action', {
-			type: 'url',
-			name: 'open/help-center/start-integrations',
-			url: url,
-		});
-		void openUrl(url);
-	}
-}
-
 // gitlens.ai.switchProvider
 @command()
 export class WalkthroughSwitchAIModelCommand extends GlCommandBase {
