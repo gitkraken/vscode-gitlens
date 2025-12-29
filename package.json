@@ -26932,8 +26932,8 @@
 					},
 					{
 						"id": "visualize-code-history",
-						"title": "Interactive Code History",
-						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why with in-editor blame annotations, hovers, and CodeLens.\n\n$(gitlens-graph)  **Visual Commit Graph & Search**\n\nNavigate complex Git histories with clarity using the interactive Commit Graph to visualize changes and search your repository.\n\n[View your Commit Graph](command:gitlens.walkthrough.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nDive deep into the revision history of files, folders, or specific lines. Get the context you need to understand changes faster. [Open GitLens Inspect](command:gitlens.walkthrough.gitlensInspect)\n\n$(gitlens-play-button)  [Watch a video about Interactive Code History](command:gitlens.walkthrough.openInteractiveCodeHistory)",
+						"title": "See Your Code's Story: Commit Graph",
+						"description": "Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand branch relationships, authorship patterns, and commit sequences.\n\nSelect multiple commits to batch operations like cherry-picking or generate Al changelogs with a single command.\n\n[Discover your Commit Graph](command:gitlens.walkthrough.showGraph)",
 						"media": {
 							"markdown": "walkthroughs/welcome/visualize-code-history.md"
 						},
