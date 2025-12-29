@@ -26813,6 +26813,17 @@
 						]
 					},
 					{
+						"id": "ai-features",
+						"title": "Commit smarter, not harder",
+						"description": "Let **GitKraken AI** turn your changes into clear, logical commits - making reviews efficient and keeping your commit history clean.\n\n**- Auto-Compose Commits:** instantly generate a sequence of commits with descriptive summaries in an interactive editor\n**- Explain Commits and Branches:** understand changes without wasting time diving into the diffs\n**- Create PR Titles & Descriptions:** save reviewers 10+ minutes per review\n\nStay in control - review and edit before committing.\nSee how effortless documenting your work can be, all without leaving VS Code.\n\n[Compose Commits with AI](command:gitlens.walkthrough.showComposer)",
+						"media": {
+							"markdown": "walkthroughs/welcome/ai-features.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:aiFeatures == true"
+						]
+					},
+					{
 						"id": "accelerate-pr-reviews",
 						"title": "Accelerate PR Reviews",
 						"description": "$(gitlens-launchpad-view)  **Launchpad: Your PR Hub**\n\nEasily manage GitHub pull requests by status, prioritize tasks, and spot bottlenecks—all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.walkthrough.showLaunchpad)\n\n💡 [Connect](command:gitlens.walkthrough.connectIntegrations) your GitHub or host provider to use Launchpad and accelerate PR reviews\n\n$(folder-opened)  **Worktrees: Multi-branch efficiency**\n\nWork on multiple branches simultaneously to handle hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.walkthrough.worktree.create)\n$(gitlens-play-button)  [Watch how to accelerate code reviews](command:gitlens.walkthrough.openAcceleratePrReviews)",
@@ -26843,17 +26854,6 @@
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:integrations == true"
-						]
-					},
-					{
-						"id": "ai-features",
-						"title": "Built-in AI",
-						"description": "GitLens AI features help you instantly generate commits, explain code, and much more to optimize your development processes.\n\n- **Generate Commit & Stash Messages**: Quickly create descriptive commit and stash messages.\n- **Explain Changes**: Instantly understand what changed in commits, branches, stashes, and WIP with concise, AI-generated explanations.\n- **Open Pull Requests**: Automatically generate clear PR titles and descriptions that explain your branch changes and speed up review cycles.\n- **Generate Changelogs**: Effortlessly summarize repository changes for release notes or documentation updates.\n\n[Configure GitLens AI](command:gitlens.walkthrough.switchAIProvider)",
-						"media": {
-							"markdown": "walkthroughs/welcome/ai-features.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:aiFeatures == true"
 						]
 					}
 				]

@@ -200,6 +200,23 @@ export class WalkthroughShowGraphCommand extends GlCommandBase {
 	}
 }
 
+@command()
+export class WalkthroughShowComposerCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.showComposer');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.showComposerPage';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/composer',
+			command: command,
+		});
+		executeCommand(command);
+	}
+}
+
 // workbench.view.extension.gitlensInspect
 @command()
 export class WalkthroughGitLensInspectCommand extends GlCommandBase {

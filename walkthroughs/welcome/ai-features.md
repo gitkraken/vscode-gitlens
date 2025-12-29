@@ -1,4 +1,4 @@
-<img src="./thumbnails/ai-features.jpg" alt="Generate Commit Message in Home View"/>
+<img src="./thumbnails/ai-features.png" alt="Generate Commit Message in Home View"/>
 
 GitLens AI features use GitHub Copilot, if available, or GitKraken AI, which is included with your GitLens Pro subscription — no setup required.
 
