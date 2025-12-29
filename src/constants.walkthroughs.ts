@@ -3,7 +3,6 @@ export type WalkthroughContextKeys =
 	| 'visualizeCodeHistory'
 	| 'gitBlame'
 	| 'prReviews'
-	| 'integrations'
 	| 'aiFeatures';
 
 export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = {
@@ -11,6 +10,5 @@ export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = 
 	visualizeCodeHistory: 'Visualize Code History',
 	gitBlame: 'File Blame',
 	prReviews: 'PR Reviews',
-	integrations: 'Integrations',
 	aiFeatures: 'AI Features',
 };

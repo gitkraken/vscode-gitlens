@@ -26833,17 +26833,6 @@
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:prReviews == true"
 						]
-					},
-					{
-						"id": "improve-workflows-with-integrations",
-						"title": "Improve Workflows With Integrations",
-						"description": "$(extensions)  **Integrations**\n\nConnect to GitHub, GitLab, and Jira to associate PRs and issues to branches and commits in GitLens. Track and take action on PRs from Launchpad, quickly start work on issues, and get enhanced information in autolinks.\n\n[Connect Integrations](command:gitlens.walkthrough.connectIntegrations)\n\n$(link)  **Autolinks**\n\nGitLens automatically detects patterns in commit messages to generate links for pull requests and issues across services like GitHub, GitLab, Gitea, Gerrit, Google Source, Bitbucket, Azure DevOps, and custom servers.\n\n[Configure autolinks](command:gitlens.walkthrough.showAutolinks) for custom pattern-matching with other services.\n\n$(gitlens-play-button)  [Watch how integrations improve GitLens](command:gitlens.walkthrough.openStartIntegrations)",
-						"media": {
-							"markdown": "walkthroughs/welcome/improve-workflows-with-integrations.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:integrations == true"
-						]
 					}
 				]
 			}
