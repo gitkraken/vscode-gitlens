@@ -1338,17 +1338,13 @@ type WalkthroughActionNames =
 	| 'open/ai-enable-setting'
 	| 'open/ai-settings'
 	| 'open/help-center/ai-features'
-	| 'open/help-center/start-integrations'
 	| 'open/help-center/accelerate-pr-reviews'
-	| 'open/help-center/streamline-collaboration'
 	| 'open/help-center/interactive-code-history'
 	| 'open/help-center/community-vs-pro'
-	| 'open/help-center/home-view'
 	| 'open/devex-platform'
 	| 'open/drafts'
-	| 'open/home'
 	| 'connect/integrations'
-	| 'open/autolinks'
+	| 'open/composer'
 	| 'open/graph'
 	| 'open/launchpad'
 	| 'create/worktree'
@@ -1474,6 +1470,11 @@ export type TrackedUsage = {
 	lastUsedAt: number;
 };
 
+/**
+ * Actions that happen without a command
+ */
+export type TrackedGlActions = `gitlens.ai.generateCommits`;
+
 export type TrackedUsageFeatures =
 	| `${WebviewPanelTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
@@ -1482,4 +1483,5 @@ export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
 export type TrackedUsageKeys =
 	| `${TrackedUsageFeatures}:shown`
 	| `command:${GlCommands | GlCommandsDeprecated}:executed`
+	| `action:${TrackedGlActions}:happened`
 	| WalkthroughUsageKeys;

@@ -26843,8 +26843,8 @@
 				"steps": [
 					{
 						"id": "get-started-community",
-						"title": "Welcome to GitLens",
-						"description": "Thank you for installing GitLens—the most popular Git extension for VS Code!\n\n**Community vs. Pro**\n\nYou're using **GitLens Community** edition.\nTrack code changes and see who made them with features like in-editor blame annotations, hovers, CodeLens, and more—completely free.\n\n**Leverage powerful workflows with GitLens Pro**\n\nThe **GitLens Pro** edition unlocks advanced features to accelerate PR reviews, gain actionable insights with rich code visuals, and streamline team collaboration to boost productivity.\n\n[Get Started with GitLens Pro](command:gitlens.walkthrough.plus.signUp)",
+						"title": "Welcome to GitLens: Unlock Your Repo’s Full Story",
+						"description": "The Community Edition lets you:\n\n- View blame annotations and commit details inline\n- Explore file revision history for any repo\n\nUpgrade to **GitLens Pro** (Free 14-Day Trial) to access everything above plus advanced visualization, collaboration, and built-in AI tools that work right inside VS Code.\n\n$(sparkle) Pro gives you full access to:\n\n**- Commit Graph:** visualize every branch and commit relationship\n**- Visual File History:** see how a file has evolved with a graph of what changed and when\n**- Launchpad & Worktrees:** manage PRs and branches in one hub\n**- GitKraken AI: ** writes commits, PRs & changelogs for you.\n\n[Start Your Free 14-Day Pro Trial](command:gitlens.walkthrough.plus.signUp)",
 						"media": {
 							"markdown": "walkthroughs/welcome/get-started-community.md"
 						},
@@ -26902,20 +26902,9 @@
 						"when": "gitlens:plus:state == 6"
 					},
 					{
-						"id": "welcome-home-view",
-						"title": "Home View",
-						"description": "Compact yet powerful, the Home View helps you quickly start work on issues, create PRs, and manage branches—all from a single intelligent view.\n\nImprove workflow visibility with clear paths to take action on:\n\n- What am I actively working on now?\n- What should I work on next?\n- What have I worked on recently?\n\nThe Home View is the perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.\n\n\n[Open the Home View](command:gitlens.walkthrough.showHomeView)\n$(gitlens-play-button)  [Watch a video on the Home view](command:gitlens.walkthrough.openHomeViewVideo)",
-						"media": {
-							"markdown": "walkthroughs/welcome/home.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:homeView == true"
-						]
-					},
-					{
 						"id": "visualize-code-history",
-						"title": "Interactive Code History",
-						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why with in-editor blame annotations, hovers, and CodeLens.\n\n$(gitlens-graph)  **Visual Commit Graph & Search**\n\nNavigate complex Git histories with clarity using the interactive Commit Graph to visualize changes and search your repository.\n\n[View your Commit Graph](command:gitlens.walkthrough.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nDive deep into the revision history of files, folders, or specific lines. Get the context you need to understand changes faster. [Open GitLens Inspect](command:gitlens.walkthrough.gitlensInspect)\n\n$(gitlens-play-button)  [Watch a video about Interactive Code History](command:gitlens.walkthrough.openInteractiveCodeHistory)",
+						"title": "See Your Code's Story: Commit Graph",
+						"description": "Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand branch relationships, authorship patterns, and commit sequences.\n\nSelect multiple commits to batch operations like cherry-picking or generate AI changelogs with a single command.\n\n[Discover your Commit Graph](command:gitlens.walkthrough.showGraph)",
 						"media": {
 							"markdown": "walkthroughs/welcome/visualize-code-history.md"
 						},
@@ -26924,47 +26913,36 @@
 						]
 					},
 					{
-						"id": "accelerate-pr-reviews",
-						"title": "Accelerate PR Reviews",
-						"description": "$(gitlens-launchpad-view)  **Launchpad: Your PR Hub**\n\nEasily manage GitHub pull requests by status, prioritize tasks, and spot bottlenecks—all within VS Code.\n\n[View My PRs in Launchpad](command:gitlens.walkthrough.showLaunchpad)\n\n💡 [Connect](command:gitlens.walkthrough.connectIntegrations) your GitHub or host provider to use Launchpad and accelerate PR reviews\n\n$(folder-opened)  **Worktrees: Multi-branch efficiency**\n\nWork on multiple branches simultaneously to handle hotfixes, new features, or experiments—without disrupting your main workspace.\n\n\n[Add a worktree](command:gitlens.walkthrough.worktree.create)\n$(gitlens-play-button)  [Watch how to accelerate code reviews](command:gitlens.walkthrough.openAcceleratePrReviews)",
-						"media": {
-							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:prReviews == true"
-						]
-					},
-					{
-						"id": "streamline-collaboration",
-						"title": "Streamline Collaboration",
-						"description": "$(gitlens-cloud-patch)  **Cloud Patches: Collaborate before PRs**\n\nShare and iterate on code without committing to the repo or affecting CI. Keep your team moving forward with accessible, flexible Cloud Patches.\n\n[Open Cloud Patches](command:gitlens.walkthrough.showDraftsView)\n\n$(gitlens-code-suggestion)  **Code Suggest**\n\nReview GitHub and GitLab pull requests and send suggested changes to teammates directly from GitLens.\n\n$(gitlens-play-button)  [Watch how to enhance collaboration in GitLens](command:gitlens.walkthrough.openStreamlineCollaboration)",
-						"media": {
-							"markdown": "walkthroughs/welcome/streamline-collaboration.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:streamlineCollaboration == true"
-						]
-					},
-					{
-						"id": "improve-workflows-with-integrations",
-						"title": "Improve Workflows With Integrations",
-						"description": "$(extensions)  **Integrations**\n\nConnect to GitHub, GitLab, and Jira to associate PRs and issues to branches and commits in GitLens. Track and take action on PRs from Launchpad, quickly start work on issues, and get enhanced information in autolinks.\n\n[Connect Integrations](command:gitlens.walkthrough.connectIntegrations)\n\n$(link)  **Autolinks**\n\nGitLens automatically detects patterns in commit messages to generate links for pull requests and issues across services like GitHub, GitLab, Gitea, Gerrit, Google Source, Bitbucket, Azure DevOps, and custom servers.\n\n[Configure autolinks](command:gitlens.walkthrough.showAutolinks) for custom pattern-matching with other services.\n\n$(gitlens-play-button)  [Watch how integrations improve GitLens](command:gitlens.walkthrough.openStartIntegrations)",
-						"media": {
-							"markdown": "walkthroughs/welcome/improve-workflows-with-integrations.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:integrations == true"
-						]
-					},
-					{
 						"id": "ai-features",
-						"title": "Built-in AI",
-						"description": "GitLens AI features help you instantly generate commits, explain code, and much more to optimize your development processes.\n\n- **Generate Commit & Stash Messages**: Quickly create descriptive commit and stash messages.\n- **Explain Changes**: Instantly understand what changed in commits, branches, stashes, and WIP with concise, AI-generated explanations.\n- **Open Pull Requests**: Automatically generate clear PR titles and descriptions that explain your branch changes and speed up review cycles.\n- **Generate Changelogs**: Effortlessly summarize repository changes for release notes or documentation updates.\n\n[Configure GitLens AI](command:gitlens.walkthrough.switchAIProvider)",
+						"title": "Commit smarter, not harder",
+						"description": "Let **GitKraken AI** turn your changes into clear, logical commits - making reviews efficient and keeping your commit history clean.\n\n**- Auto-Compose Commits:** instantly generate a sequence of commits with descriptive summaries in an interactive editor\n**- Explain Commits and Branches:** understand changes without wasting time diving into the diffs\n**- Create PR Titles & Descriptions:** save reviewers 10+ minutes per review\n\nStay in control - review and edit before committing.\nSee how effortless documenting your work can be, all without leaving VS Code.\n\n[Compose Commits with AI](command:gitlens.walkthrough.showComposer)",
 						"media": {
 							"markdown": "walkthroughs/welcome/ai-features.md"
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:aiFeatures == true"
+						]
+					},
+					{
+						"id": "git-blame",
+						"title": "Learn the Why Behind Every Line with Inline Blame",
+						"description": "See who changed a line, when and why — without leaving your editor. Hover over blame annotations to:\n\n- View previous file revisions\n\n- Open related PRs\n\n- Jump to commits in the Graph\n\n- Compare with previous versions\n\n[See inline blame in action](https://help.gitkraken.com/gitlens/gitlens-features/#file-blame)",
+						"media": {
+							"markdown": "walkthroughs/welcome/git-blame.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:gitBlame == true"
+						]
+					},
+					{
+						"id": "accelerate-pr-reviews",
+						"title": "Stay in Flow, Manage All Your Work in One Place",
+						"description": "Keep everything at your fingertips with Launchpad & Worktrees.\n\n**- Launchpad:** view and manage all your PRs and branches from one hub\n\n**- Worktrees:** code, test, and review on multiple branches in parallel\n\n**- Integrations:** connect PRs and issues from GitHub, GitLab, Jira, Azure DevOps & more\n\nStay in flow, ship faster, and never lose track of what matters.\n\n[Open Launchpad](command:gitlens.walkthrough.showLaunchpad)",
+						"media": {
+							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:prReviews == true"
 						]
 					}
 				]

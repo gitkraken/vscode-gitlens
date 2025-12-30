@@ -37,16 +37,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		'homeView',
-		{
-			usage: [
-				'homeView:shown',
-				'command:gitlens.showHomeView:executed',
-				'command:gitlens.showAccountView:executed',
-			],
-		},
-	],
-	[
 		'visualizeCodeHistory',
 		{
 			subscriptionStates: triedProStates,
@@ -64,6 +54,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			],
 		},
 	],
+	['gitBlame', { usage: ['command:gitlens.toggleFileBlame:executed'] }],
 	[
 		'prReviews',
 		{
@@ -78,31 +69,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.gitCommands.worktree.create:executed',
 				'command:gitlens.gitCommands.worktree.delete:executed',
 				'command:gitlens.gitCommands.worktree.open:executed',
-			],
-		},
-	],
-	[
-		'streamlineCollaboration',
-		{
-			subscriptionStates: triedProStates,
-			subscriptionCommands: tryProCommands,
-			usage: [
-				'patchDetailsView:shown',
-				'patchDetailsWebview:shown',
-				'draftsView:shown',
-				'command:gitlens.showDraftsView:executed',
-				'command:gitlens.showPatchDetailsPage:executed',
-				'command:gitlens.createCloudPatch:executed',
-				'command:gitlens.createPatch:executed',
-			],
-		},
-	],
-	[
-		'integrations',
-		{
-			usage: [
-				'command:gitlens.plus.cloudIntegrations.connect:executed',
-				'command:gitlens.plus.cloudIntegrations.manage:executed',
 			],
 		},
 	],
@@ -130,6 +96,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.ai.generateCommitMessage:graph:executed',
 				'command:gitlens.ai.generateCommitMessage:scm:executed',
 				'command:gitlens.ai.generateChangelog:views:executed',
+				'action:gitlens.ai.generateCommits:happened',
 			],
 		},
 	],
