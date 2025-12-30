@@ -853,7 +853,7 @@ export class AIProviderService implements AIService, Disposable {
 						case AIErrorReason.UserQuotaExceeded: {
 							const increaseLimit: MessageItem = { title: 'Increase Limit' };
 							const result = await window.showErrorMessage(
-								"Your request could not be completed because you've reached the weekly Al usage limit for your current plan. Upgrade to unlock more Al-powered actions.",
+								"Your request could not be completed because you've reached the weekly AI usage limit for your current plan. Upgrade to unlock more AI-powered actions.",
 								increaseLimit,
 							);
 

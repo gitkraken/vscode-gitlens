@@ -26862,7 +26862,7 @@
 					{
 						"id": "get-started-community",
 						"title": "Welcome to GitLens: Unlock Your Repo’s Full Story",
-						"description": "The Community Edition lets you:\n\n- View blame annotations and commit details inline\n- Explore file revision history for any repo\n\nUpgrade to **GitLens Pro** (Free 14-Day Trial) to access everything above plus advanced visualization, collaboration, and built-in Al tools that work right inside VS Code.\n\n$(sparkle) Pro gives you full access to:\n\n**- Commit Graph:** visualize every branch and commit relationship\n**- Visual File History:** see how a file has evolved with a graph of what changed and when\n**- Launchpad & Worktrees:** manage PRs and branches in one hub\n**- GitKraken Al:** writes commits, PRs & changelogs for you.\n\n[Start Your Free 14-Day Pro Trial](command:gitlens.walkthrough.plus.signUp)",
+						"description": "The Community Edition lets you:\n\n- View blame annotations and commit details inline\n- Explore file revision history for any repo\n\nUpgrade to **GitLens Pro** (Free 14-Day Trial) to access everything above plus advanced visualization, collaboration, and built-in AI tools that work right inside VS Code.\n\n$(sparkle) Pro gives you full access to:\n\n**- Commit Graph:** visualize every branch and commit relationship\n**- Visual File History:** see how a file has evolved with a graph of what changed and when\n**- Launchpad & Worktrees:** manage PRs and branches in one hub\n**- GitKraken AI: ** writes commits, PRs & changelogs for you.\n\n[Start Your Free 14-Day Pro Trial](command:gitlens.walkthrough.plus.signUp)",
 						"media": {
 							"markdown": "walkthroughs/welcome/get-started-community.md"
 						},
@@ -26922,7 +26922,7 @@
 					{
 						"id": "visualize-code-history",
 						"title": "See Your Code's Story: Commit Graph",
-						"description": "Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand branch relationships, authorship patterns, and commit sequences.\n\nSelect multiple commits to batch operations like cherry-picking or generate Al changelogs with a single command.\n\n[Discover your Commit Graph](command:gitlens.walkthrough.showGraph)",
+						"description": "Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand branch relationships, authorship patterns, and commit sequences.\n\nSelect multiple commits to batch operations like cherry-picking or generate AI changelogs with a single command.\n\n[Discover your Commit Graph](command:gitlens.walkthrough.showGraph)",
 						"media": {
 							"markdown": "walkthroughs/welcome/visualize-code-history.md"
 						},
