@@ -1185,6 +1185,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}));
 
 			// Call the AI service
+			void this.container.usage.track(`action:gitlens.ai.generateCommits:happened`).catch();
 			const result = await this.container.ai.actions.generateCommits(
 				hunks,
 				existingCommits,
