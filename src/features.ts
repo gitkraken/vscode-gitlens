@@ -86,16 +86,15 @@ export type ProAIFeatures =
 	| 'explain-changes'
 	| 'generate-create-cloudPatch'
 	| 'generate-create-codeSuggestion'
-	| 'generate-stashMessage';
-
-export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures =
+	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| 'generate-create-pullRequest'
 	| 'generate-commits'
 	| 'generate-searchQuery';
 
-export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
+export type AdvancedFeatures = never;
+
+export type AIFeatures = 'generate-commitMessage' | ProAIFeatures;
 
 export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 	switch (feature) {
@@ -109,18 +108,7 @@ export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 }
 
 export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
-	switch (feature) {
-		case 'explain-changes':
-		case 'generate-changelog':
-		case 'generate-create-cloudPatch':
-		case 'generate-create-codeSuggestion':
-		case 'generate-create-pullRequest':
-		case 'generate-commits':
-			// case 'generate-searchQuery':
-			return true;
-		default:
-			return false;
-	}
+	return false;
 }
 
 export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFeatures {
@@ -129,6 +117,10 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'startWork':
 		case 'associateIssueWithBranch':
 		case 'generate-stashMessage':
+		case 'generate-changelog':
+		case 'generate-create-pullRequest':
+		case 'generate-commits':
+		case 'generate-searchQuery':
 			return true;
 		default:
 			return false;
