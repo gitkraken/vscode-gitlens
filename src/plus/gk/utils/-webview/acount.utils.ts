@@ -4,7 +4,6 @@ import { proTrialLengthInDays } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { PlusFeatures } from '../../../../features';
-import { isAdvancedFeature } from '../../../../features';
 import { createQuickPickSeparator } from '../../../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
@@ -137,39 +136,23 @@ export async function ensureFeatureAccess(
 		const access = await container.git.access(feature, repoPath);
 		if (access.allowed) break;
 
-		const isAdvanced = isAdvancedFeature(feature);
-		const plan = isAdvanced ? 'advanced' : 'pro';
+		// All features now require Pro plan
+		const plan = 'pro';
 
 		const promo = await container.productConfig.getApplicablePromo(access.subscription.current.state, plan, 'gate');
 		const promoDetail = promo?.content?.modal?.detail;
 
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
-		let upgrade: MessageItem;
-		let result: MessageItem | undefined;
-
-		if (isAdvanced) {
-			upgrade = { title: 'Upgrade to Advanced' };
-			result = await window.showWarningMessage(
-				title,
-				{
-					modal: true,
-					detail: `Please upgrade to GitLens Advanced to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
-				},
-				upgrade,
-				cancel,
-			);
-		} else {
-			upgrade = { title: 'Upgrade to Pro' };
-			result = await window.showWarningMessage(
-				title,
-				{
-					modal: true,
-					detail: `Please upgrade to GitLens Pro to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
-				},
-				upgrade,
-				cancel,
-			);
-		}
+		const upgrade: MessageItem = { title: 'Upgrade to Pro' };
+		const result = await window.showWarningMessage(
+			title,
+			{
+				modal: true,
+				detail: `Please upgrade to GitLens Pro to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
+			},
+			upgrade,
+			cancel,
+		);
 
 		if (result === upgrade) {
 			if (await container.subscription.upgrade(plan, source)) {
