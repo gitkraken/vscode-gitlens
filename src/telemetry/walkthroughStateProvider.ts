@@ -64,6 +64,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			],
 		},
 	],
+	['gitBlame', { usage: ['command:gitlens.toggleFileBlame:executed'] }],
 	[
 		'prReviews',
 		{
