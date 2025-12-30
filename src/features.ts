@@ -116,6 +116,9 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'launchpad':
 		case 'startWork':
 		case 'associateIssueWithBranch':
+		case 'explain-changes':
+		case 'generate-create-cloudPatch':
+		case 'generate-create-codeSuggestion':
 		case 'generate-stashMessage':
 		case 'generate-changelog':
 		case 'generate-create-pullRequest':
