@@ -1321,6 +1321,11 @@ export type TrackedUsage = {
 	lastUsedAt: number;
 };
 
+/**
+ * Actions that happen without a command
+ */
+export type TrackedGlActions = `gitlens.ai.generateCommits`;
+
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
@@ -1329,4 +1334,5 @@ export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
 export type TrackedUsageKeys =
 	| `${TrackedUsageFeatures}:shown`
 	| `command:${GlCommands | GlCommandsDeprecated}:executed`
+	| `action:${TrackedGlActions}:happened`
 	| WalkthroughUsageKeys;
