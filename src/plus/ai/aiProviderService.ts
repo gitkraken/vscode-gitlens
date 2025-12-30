@@ -29,7 +29,6 @@ import {
 	isCancellationError,
 } from '../../errors';
 import type { AIFeatures } from '../../features';
-import { isAdvancedFeature } from '../../features';
 import type { Repository } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker';
@@ -562,9 +561,8 @@ export class AIProviderService implements AIService, Disposable {
 		if (!(await ensureAccess())) return false;
 
 		if (feature === 'generate-commitMessage') return true;
-		const suffix = isAdvancedFeature(feature)
-			? 'requires GitLens Advanced or a trial'
-			: 'requires GitLens Pro or a trial';
+		// All AI features now require GitLens Pro or a trial
+		const suffix = 'requires GitLens Pro or a trial';
 		let label;
 		switch (feature) {
 			case 'generate-searchQuery':
@@ -572,7 +570,7 @@ export class AIProviderService implements AIService, Disposable {
 				break;
 
 			default:
-				label = isAdvancedFeature(feature) ? `This AI preview feature ${suffix}` : `This AI feature ${suffix}`;
+				label = `This AI feature ${suffix}`;
 		}
 
 		if (!(await ensureFeatureAccess(this.container, label, feature, source))) {
