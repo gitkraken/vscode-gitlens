@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes AI features to require GitLens Pro instead of GitLens Advanced &mdash; all AI features now consistently lead to Pro plan checkout ([#4843](https://github.com/gitkraken/vscode-gitlens/issues/4843))
+
 ### Fixed
 
 - Fixes issue where the button text on feature gates would blend into the background ([#4833](https://github.com/gitkraken/vscode-gitlens/issues/4833))
