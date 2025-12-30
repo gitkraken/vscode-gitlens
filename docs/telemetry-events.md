@@ -4120,7 +4120,7 @@ or
 
 ```typescript
 {
-  'context.key': 'integrations' | 'homeView' | 'gettingStarted' | 'visualizeCodeHistory' | 'prReviews' | 'streamlineCollaboration' | 'aiFeatures'
+  'context.key': 'integrations' | 'homeView' | 'gettingStarted' | 'visualizeCodeHistory' | 'gitBlame' | 'prReviews' | 'streamlineCollaboration' | 'aiFeatures'
 }
 ```
 
