@@ -1,7 +1,7 @@
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
-import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
+import type { Endpoints, RequestParameters } from '@octokit/types';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
@@ -2640,36 +2640,26 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private async request<R extends string>(
+	private async request<R extends keyof Endpoints>(
 		provider: Provider | undefined,
 		token: string,
-		route: keyof Endpoints | R,
-		options:
-			| (R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters)
-			| undefined,
+		route: R,
+		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
-	): Promise<R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<any>> {
+	): Promise<Endpoints[R]['response']> {
 		try {
-			let aborter: AbortController | undefined;
 			if (cancellation != null) {
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				aborter = new AbortController();
-				cancellation.onCancellationRequested(() => aborter!.abort());
-				options = {
-					...options,
-					request: { ...options?.request, signal: aborter.signal },
-				} as unknown as typeof options;
+				const aborter = new AbortController();
+				cancellation.onCancellationRequested(() => aborter.abort());
+				options = { ...options, request: { ...options?.request, signal: aborter.signal } };
 			}
 
-			return await wrapForForcedInsecureSSL(
-				provider?.getIgnoreSSLErrors() ?? false,
-				() =>
-					this.getDefaults(token, request)<R>(route as R, options) as unknown as Promise<
-						R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<any>
-					>,
-			);
+			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+				this.getDefaults(token, request)(route as string, options),
+			)) as Endpoints[R]['response'];
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);

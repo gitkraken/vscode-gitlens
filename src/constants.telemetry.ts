@@ -1479,7 +1479,5 @@ export type TrackedUsageFeatures =
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
 export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
-export type TrackedUsageKeys =
-	| `${TrackedUsageFeatures}:shown`
-	| `command:${GlCommands | GlCommandsDeprecated}:executed`
-	| WalkthroughUsageKeys;
+type TrackedUsageCommandKeys = `command:${GlCommands | GlCommandsDeprecated}:executed`;
+export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | TrackedUsageCommandKeys | WalkthroughUsageKeys;

@@ -8,6 +8,8 @@ export function areEqual(a: any, b: any): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }
 
+type Primitive = string | number | boolean;
+type FlattenedValue = string | number | boolean;
 type AddPrefix<P extends string | undefined, K extends string> = P extends '' | undefined ? K : `${P}.${K}`;
 type AddArrayIndex<P extends string | undefined, I extends number> = P extends '' | undefined ? `[${I}]` : `${P}[${I}]`;
 
@@ -18,36 +20,34 @@ type MergeUnion<U> = (U extends unknown ? (k: U) => void : never) extends (k: in
 
 type FlattenArray<T extends object, P extends string | undefined> = T extends (infer U)[]
 	? U extends object
-		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
-		: { [Key in AddArrayIndex<P, number>]: string | number | boolean }
+		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: FlattenedValue }
+		: { [Key in AddArrayIndex<P, number>]: FlattenedValue }
 	: T extends object
-		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: string | number | boolean }
-		: { [Key in AddArrayIndex<P, number>]: string | number | boolean };
+		? { [Key in `${AddArrayIndex<P, number>}.${string}`]: FlattenedValue }
+		: { [Key in AddArrayIndex<P, number>]: FlattenedValue };
 
 type FlattenSpread<T extends object, P extends string | undefined> =
 	T extends ReadonlyArray<any>
 		? FlattenArray<T, P>
 		: {
-				[K in keyof T]: T[K] extends ReadonlyArray<any>
-					? FlattenArray<T[K], AddPrefix<P, Extract<K, string>>>
-					: T[K] extends object
-						? FlattenSpread<T[K], AddPrefix<P, Extract<K, string>>>
-						: {
-								[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean
-									? T[K]
-									: string;
-							};
-			}[keyof T];
+				[K in keyof T & string]: T[K] extends Primitive
+					? { [Key in AddPrefix<P, K>]: T[K] }
+					: T[K] extends ReadonlyArray<any>
+						? FlattenArray<T[K], AddPrefix<P, K>>
+						: T[K] extends object
+							? FlattenSpread<T[K], AddPrefix<P, K>>
+							: { [Key in AddPrefix<P, K>]: string };
+			}[keyof T & string];
 
 type FlattenJoin<T extends object, P extends string | undefined> = {
-	[K in keyof T]: T[K] extends ReadonlyArray<any>
-		? { [Key in AddPrefix<P, Extract<K, string>>]: string }
-		: T[K] extends object
-			? FlattenJoin<T[K], AddPrefix<P, Extract<K, string>>>
-			: {
-					[Key in AddPrefix<P, Extract<K, string>>]: T[K] extends string | number | boolean ? T[K] : string;
-				};
-}[keyof T];
+	[K in keyof T & string]: T[K] extends Primitive
+		? { [Key in AddPrefix<P, K>]: T[K] }
+		: T[K] extends ReadonlyArray<any>
+			? { [Key in AddPrefix<P, K>]: string }
+			: T[K] extends object
+				? FlattenJoin<T[K], AddPrefix<P, K>>
+				: { [Key in AddPrefix<P, K>]: string };
+}[keyof T & string];
 
 export type Flatten<
 	T extends object | null | undefined,

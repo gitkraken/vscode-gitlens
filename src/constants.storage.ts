@@ -64,7 +64,7 @@ export type DeprecatedGlobalStorage = {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
-export type GlobalStorage = {
+interface GlobalStorageCore {
 	avatars: [string, StoredAvatar][];
 	'confirm:ai:generateCommits': boolean;
 	'confirm:ai:tos': boolean;
@@ -98,27 +98,28 @@ export type GlobalStorage = {
 	'graph:useNaturalLanguageSearch': boolean;
 	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
-} & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
-	[key in `plus:organization:${string}:settings`]: Stored<
-		(OrganizationSettings & { lastValidatedAt: number }) | undefined
-	>;
-} & {
-	[key in `provider:authentication:skip:${string}`]: boolean;
-} & {
-	[key in `gk:promo:${string}:ai:allAccess:dismissed`]: boolean;
-} & {
-	[key in `gk:promo:${string}:ai:allAccess:notified`]: boolean;
-} & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
-	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
-} & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
-	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
-} & { [key in `azure:${string}:account`]: Stored<StoredAzureAccount | undefined> } & {
-	[key in `azure:${string}:organizations`]: Stored<StoredAzureOrganization[] | undefined>;
-} & {
-	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
-} & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
-	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
-} & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
+}
+
+type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
+	Record<
+		`plus:organization:${string}:settings`,
+		Stored<(OrganizationSettings & { lastValidatedAt: number }) | undefined>
+	> &
+	Record<`provider:authentication:skip:${string}`, boolean> &
+	Record<`gk:promo:${string}:ai:allAccess:dismissed`, boolean> &
+	Record<`gk:promo:${string}:ai:allAccess:notified`, boolean> &
+	Record<`gk:${string}:checkin`, Stored<StoredGKCheckInResponse>> &
+	Record<`gk:${string}:organizations`, Stored<StoredOrganization[]>> &
+	Record<`jira:${string}:organizations`, Stored<StoredJiraOrganization[] | undefined>> &
+	Record<`jira:${string}:projects`, Stored<StoredJiraProject[] | undefined>> &
+	Record<`azure:${string}:account`, Stored<StoredAzureAccount | undefined>> &
+	Record<`azure:${string}:organizations`, Stored<StoredAzureOrganization[] | undefined>> &
+	Record<`azure:${string}:projects`, Stored<StoredAzureProject[] | undefined>> &
+	Record<`bitbucket:${string}:account`, Stored<StoredBitbucketAccount | undefined>> &
+	Record<`bitbucket:${string}:workspaces`, Stored<StoredBitbucketWorkspace[] | undefined>> &
+	Record<`bitbucket-server:${string}:account`, Stored<StoredBitbucketAccount | undefined>>;
+
+export type GlobalStorage = GlobalStorageCore & GlobalStorageDynamic;
 
 export interface StoredGkCLIInstallInfo {
 	status: 'attempted' | 'unsupported' | 'completed';
@@ -166,7 +167,7 @@ export type DeprecatedWorkspaceStorage = {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
-export type WorkspaceStorage = {
+interface WorkspaceStorageCore {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
 	'confirm:ai:tos': boolean;
@@ -181,13 +182,13 @@ export type WorkspaceStorage = {
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
-} & {
-	[key in IntegrationConnectedKey]: boolean;
-} & {
-	[key in `views:${TreeViewTypes}:repositoryFilter`]: string[] | undefined;
-} & {
-	[key in `graph:searchHistory:${string}`]: StoredGraphSearchHistory[];
-};
+}
+
+type WorkspaceStorageDynamic = Record<IntegrationConnectedKey, boolean> &
+	Record<`views:${TreeViewTypes}:repositoryFilter`, string[] | undefined> &
+	Record<`graph:searchHistory:${string}`, StoredGraphSearchHistory[]>;
+
+export type WorkspaceStorage = WorkspaceStorageCore & WorkspaceStorageDynamic;
 
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
