@@ -1232,12 +1232,12 @@ class CompileComposerTemplatesPlugin {
 	}
 
 	async _compile() {
-		/** @type {typeof import('hogan.js')} */
+		/** @type {typeof import('@profoundlogic/hogan')} */
 		let Hogan;
 		try {
 			// Prefer root-level hogan.js if hoisted
 			// @ts-ignore
-			Hogan = await import('hogan.js');
+			Hogan = await import('@profoundlogic/hogan');
 		} catch {
 			// Fallback: resolve from diff2html's nested dependency to support pnpm non-hoisted layout
 			const diff2htmlPkg = require.resolve('diff2html/package.json');
@@ -1284,7 +1284,7 @@ class CompileComposerTemplatesPlugin {
 			return `  "${name}": new Hogan.Template(${code})`;
 		}
 
-		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils';\nimport * as Hogan from 'hogan.js';\n`;
+		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/src/hoganjs-utils.js';\nimport * as Hogan from '@profoundlogic/hogan';\n`;
 
 		const body = `export const compiledComposerTemplates: CompiledTemplates = {\n${precompile(
 			'generic-block-header',

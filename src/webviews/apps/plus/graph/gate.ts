@@ -1,17 +1,16 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
-import { css, html } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { createWebviewCommandLink } from '../../../../system/webview.js';
-import { GlElement } from '../../shared/components/element.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphStateContext } from './context.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/feature-gate.js';
 
 @customElement('gl-graph-gate')
-export class GlGraphGate extends SignalWatcher(GlElement) {
+export class GlGraphGate extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
 		css`

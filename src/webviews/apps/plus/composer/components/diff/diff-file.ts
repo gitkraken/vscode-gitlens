@@ -1,8 +1,8 @@
-import { parse as parseDiff } from 'diff2html';
-import type { DiffFile } from 'diff2html/lib-esm/types';
-import { ColorSchemeType } from 'diff2html/lib-esm/types';
-import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
-import { Diff2HtmlUI } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
+import { parse as parseDiff } from 'diff2html/lib-esm/src/diff-parser.js';
+import type { DiffFile } from 'diff2html/lib-esm/src/types';
+import { ColorSchemeType } from 'diff2html/lib-esm/src/types';
+import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/src/ui/js/diff2html-ui.js';
+import { Diff2HtmlUI } from 'diff2html/lib-esm/src/ui/js/diff2html-ui.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { ComposerHunk } from '../../../../../plus/composer/protocol.js';
