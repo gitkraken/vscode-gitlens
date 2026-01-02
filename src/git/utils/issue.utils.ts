@@ -1,4 +1,4 @@
-import type { Issue, IssueRepositoryIdentityDescriptor, IssueShape } from '../models/issue';
+import type { Issue, IssueRepositoryIdentityDescriptor, IssueShape } from '../models/issue.js';
 
 export function getRepositoryIdentityForIssue(issue: IssueShape | Issue): IssueRepositoryIdentityDescriptor {
 	if (issue.repository == null) throw new Error('Missing repository');

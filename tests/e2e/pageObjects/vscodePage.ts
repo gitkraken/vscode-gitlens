@@ -1,13 +1,13 @@
 import type { Locator, Page } from '@playwright/test';
 import type { Uri } from 'vscode';
-import { MaxTimeout } from '../baseTest';
-import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator';
-import { ActivityBar } from './components/activityBar';
-import { CommandPalette } from './components/commandPalette';
-import { Panel } from './components/panel';
-import { SecondarySidebar } from './components/secondarySidebar';
-import { Sidebar } from './components/sidebar';
-import { StatusBar } from './components/statusBar';
+import { MaxTimeout } from '../baseTest.js';
+import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator.js';
+import { ActivityBar } from './components/activityBar.js';
+import { CommandPalette } from './components/commandPalette.js';
+import { Panel } from './components/panel.js';
+import { SecondarySidebar } from './components/secondarySidebar.js';
+import { Sidebar } from './components/sidebar.js';
+import { StatusBar } from './components/statusBar.js';
 
 /**
  * Base page object for VS Code UI interactions.

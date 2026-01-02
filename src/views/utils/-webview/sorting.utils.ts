@@ -4,8 +4,8 @@ import type {
 	RepositoriesSorting,
 	TagSorting,
 	WorktreeSorting,
-} from '../../../config';
-import { configuration } from '../../../system/-webview/configuration';
+} from '../../../config.js';
+import { configuration } from '../../../system/-webview/configuration.js';
 
 // Map config keys to their full sorting types (for extracting directions from specific sort types)
 type SortingByConfig = {

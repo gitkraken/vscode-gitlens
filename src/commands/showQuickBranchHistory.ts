@@ -1,13 +1,13 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Container } from '../container';
-import { executeGitCommand } from '../git/actions';
-import { GitUri } from '../git/gitUri';
-import type { GitReference } from '../git/models/reference';
-import { createReference } from '../git/utils/reference.utils';
-import { command } from '../system/-webview/command';
-import { ActiveEditorCachedCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { executeGitCommand } from '../git/actions.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitReference } from '../git/models/reference.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { command } from '../system/-webview/command.js';
+import { ActiveEditorCachedCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
 
 export interface ShowQuickBranchHistoryCommandArgs {
 	repoPath?: string;

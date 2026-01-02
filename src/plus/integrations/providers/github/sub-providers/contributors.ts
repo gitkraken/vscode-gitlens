@@ -1,19 +1,19 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../../container';
-import { isCancellationError } from '../../../../../errors';
-import type { GitCache } from '../../../../../git/cache';
-import type { GitContributorsResult, GitContributorsSubProvider } from '../../../../../git/gitProvider';
-import type { GitCommit } from '../../../../../git/models/commit';
-import type { GitContributorsStats } from '../../../../../git/models/contributor';
-import { GitContributor } from '../../../../../git/models/contributor';
-import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
-import { calculateContributionScore } from '../../../../../git/utils/contributor.utils';
-import { isUserMatch } from '../../../../../git/utils/user.utils';
-import { log } from '../../../../../system/decorators/log';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import type { CacheController } from '../../../../../system/promiseCache';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
+import type { Container } from '../../../../../container.js';
+import { isCancellationError } from '../../../../../errors.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import type { GitContributorsResult, GitContributorsSubProvider } from '../../../../../git/gitProvider.js';
+import type { GitCommit } from '../../../../../git/models/commit.js';
+import type { GitContributorsStats } from '../../../../../git/models/contributor.js';
+import { GitContributor } from '../../../../../git/models/contributor.js';
+import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
+import { calculateContributionScore } from '../../../../../git/utils/contributor.utils.js';
+import { isUserMatch } from '../../../../../git/utils/user.utils.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import type { CacheController } from '../../../../../system/promiseCache.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	constructor(

@@ -1,8 +1,8 @@
 import type { WorkspaceFolder } from 'vscode';
 import { Uri, workspace } from 'vscode';
-import { normalizePath } from '../../path';
-import { executeCoreCommand } from '../command';
-import { relative } from '../path';
+import { normalizePath } from '../../path.js';
+import { executeCoreCommand } from '../command.js';
+import { relative } from '../path.js';
 
 export function getWorkspaceFriendlyPath(uri: Uri): string {
 	const folder = workspace.getWorkspaceFolder(uri);

@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
-import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol';
+import type { ComposerCommit, ComposerHunk, State } from '../../../../plus/composer/protocol.js';
 import {
 	AdvanceOnboardingCommand,
 	AIFeedbackHelpfulCommand,
@@ -26,27 +26,27 @@ import {
 	OnUndoCommand,
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
-} from '../../../../plus/composer/protocol';
-import { updateHunkAssignments } from '../../../../plus/composer/utils/composer.utils';
-import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../../shared/contexts/ipc';
-import type { HostIpc } from '../../../shared/ipc';
-import type { KeyedDriveStep } from '../../../shared/onboarding';
-import { createOnboarding } from '../../../shared/onboarding';
-import { stateContext } from '../context';
-import type { CommitsPanel } from './commits-panel';
-import type { DetailsPanel } from './details-panel';
-import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/dialog';
-import '../../../shared/components/overlays/tooltip';
-import '../../../shared/components/repo-button-group';
-import './commit-item';
-import './commits-panel';
-import './details-panel';
-import './hunk-item';
+} from '../../../../plus/composer/protocol.js';
+import { updateHunkAssignments } from '../../../../plus/composer/utils/composer.utils.js';
+import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../../shared/ipc.js';
+import type { KeyedDriveStep } from '../../../shared/onboarding.js';
+import { createOnboarding } from '../../../shared/onboarding.js';
+import { stateContext } from '../context.js';
+import type { CommitsPanel } from './commits-panel.js';
+import type { DetailsPanel } from './details-panel.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/dialog.js';
+import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/repo-button-group.js';
+import './commit-item.js';
+import './commits-panel.js';
+import './details-panel.js';
+import './hunk-item.js';
 
 // Internal history management interfaces
 interface ComposerDataSnapshot {

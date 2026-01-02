@@ -1,12 +1,12 @@
 import { env, window } from 'vscode';
-import type { OpenIssueActionContext } from '../api/gitlens';
-import { actionCommandPrefix } from '../constants.commands';
-import { command } from '../system/-webview/command';
-import { openUrl } from '../system/-webview/vscode/uris';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
-import { GlCommandBase } from './commandBase';
+import type { OpenIssueActionContext } from '../api/gitlens.d.js';
+import { actionCommandPrefix } from '../constants.commands.js';
+import { command } from '../system/-webview/command.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope } from '../system/logger.scope.js';
+import { GlCommandBase } from './commandBase.js';
 
 export interface OpenIssueOnRemoteCommandArgs {
 	clipboard?: boolean;

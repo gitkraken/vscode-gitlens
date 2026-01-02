@@ -1,4 +1,4 @@
-import type { RebaseTodoCommandAction, RebaseTodoCommitAction, RebaseTodoMergesAction } from '../models/rebase';
+import type { RebaseTodoCommandAction, RebaseTodoCommitAction, RebaseTodoMergesAction } from '../models/rebase.js';
 
 /** Commit actions that have SHAs and are editable */
 export const commitRebaseActions = new Set<RebaseTodoCommitAction>([

@@ -1,10 +1,10 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
-import type { RequestInit, Response } from '@env/fetch';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
-import type { Container } from '../../../../container';
+import type { RequestInit, Response } from '@env/fetch.js';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
+import { isWeb } from '@env/platform.js';
+import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -13,24 +13,24 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
-} from '../../../../errors';
-import type { Account } from '../../../../git/models/author';
-import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
-import { PullRequest } from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
-import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
+} from '../../../../errors.js';
+import type { Account } from '../../../../git/models/author.js';
+import type { DefaultBranch } from '../../../../git/models/defaultBranch.js';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest.js';
+import { PullRequest } from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata.js';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
-} from '../../../../messages';
-import { configuration } from '../../../../system/-webview/configuration';
-import { debug } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import type { LogScope } from '../../../../system/logger.scope';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import { equalsIgnoreCase } from '../../../../system/string';
+} from '../../../../messages.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { debug } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import type { LogScope } from '../../../../system/logger.scope.js';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import { equalsIgnoreCase } from '../../../../system/string.js';
 import type {
 	GitLabCommit,
 	GitLabIssue,
@@ -40,8 +40,8 @@ import type {
 	GitLabMergeRequestState,
 	GitLabProjectREST,
 	GitLabUser,
-} from './models';
-import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
+} from './models.js';
+import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models.js';
 
 // drop it as soon as we switch to @gitkraken/providers-api
 const gitlabUserIdPrefix = 'gid://gitlab/User/';

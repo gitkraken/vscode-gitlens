@@ -8,9 +8,9 @@ import type {
 	ProcessedRebaseCommandEntry,
 	ProcessedRebaseCommitEntry,
 	ProcessedRebaseEntry,
-} from '../../../git/models/rebase';
-import type { MoveEntryParams } from '../protocol';
-import { RebaseTodoDocument } from '../rebaseTodoDocument';
+} from '../../../git/models/rebase.js';
+import type { MoveEntryParams } from '../protocol.js';
+import { RebaseTodoDocument } from '../rebaseTodoDocument.js';
 
 /** Creates a minimal mock TextDocument for testing helper methods */
 function createMockDocument(content: string = '', version: number = 1): TextDocument {

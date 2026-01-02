@@ -7,9 +7,9 @@ import type {
 	RebaseTodoCommitAction,
 	RebaseTodoEntry,
 	RebaseTodoMergesAction,
-} from '../../models/rebase';
-import { parseRebaseTodo } from '../../parsers/rebaseTodoParser';
-import { commandRebaseActions, commitRebaseActions, mergesRebaseActions } from '../rebase.utils';
+} from '../../models/rebase.js';
+import { parseRebaseTodo } from '../../parsers/rebaseTodoParser.js';
+import { commandRebaseActions, commitRebaseActions, mergesRebaseActions } from '../rebase.utils.js';
 
 export function formatRebaseTodoEntryLine(entry: ProcessedRebaseEntry, overrideAction?: string): string {
 	const action = overrideAction ?? entry.action;

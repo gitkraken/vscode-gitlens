@@ -1,4 +1,4 @@
-import type { GitBranchReference, GitRevisionReference, GitTagReference } from './reference';
+import type { GitBranchReference, GitRevisionReference, GitTagReference } from './reference.js';
 
 export type GitPausedOperationStatus = GitCherryPickStatus | GitMergeStatus | GitRebaseStatus | GitRevertStatus;
 export type GitPausedOperation =

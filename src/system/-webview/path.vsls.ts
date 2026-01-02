@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import { maybeUri, normalizePath } from '../path';
+import { maybeUri, normalizePath } from '../path.js';
 
 const slash = 47;
 const vslsHasPrefixRegex = /^[/|\\]~(?:\d+?|external)(?:[/|\\]|$)/;

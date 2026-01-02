@@ -1,14 +1,14 @@
-import { GlyphChars } from '../../constants';
-import { capitalize } from '../../system/string';
+import { GlyphChars } from '../../constants.js';
+import { capitalize } from '../../system/string.js';
 import type {
 	GitBranchReference,
 	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../models/reference';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
-import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils';
+} from '../models/reference.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils.js';
+import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils.js';
 
 interface GitBranchReferenceOptions {
 	refType: 'branch';

@@ -1,50 +1,53 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { getTempFile } from '@env/platform';
-import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
-import type { DiffWithCommandArgs } from '../commands/diffWith';
-import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
-import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
-import type { ExplainBranchCommandArgs } from '../commands/explainBranch';
-import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog';
-import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog';
-import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
-import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
-import type { RecomposeFromCommitCommandArgs } from '../commands/recomposeFromCommit';
-import type { ViewShowBranchComparison } from '../config';
-import { GlyphChars } from '../constants';
-import type { GlCommands } from '../constants.commands';
-import type { Container } from '../container';
-import { browseAtRevision, executeGitCommand } from '../git/actions';
-import * as BranchActions from '../git/actions/branch';
-import * as CommitActions from '../git/actions/commit';
-import * as ContributorActions from '../git/actions/contributor';
-import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../git/actions/pausedOperation';
-import * as RemoteActions from '../git/actions/remote';
-import * as RepoActions from '../git/actions/repository';
-import * as StashActions from '../git/actions/stash';
-import * as TagActions from '../git/actions/tag';
-import * as WorktreeActions from '../git/actions/worktree';
-import { GitUri } from '../git/gitUri';
-import type { GitBranch } from '../git/models/branch';
-import type { PullRequest } from '../git/models/pullRequest';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import type { Repository } from '../git/models/repository';
-import { deletedOrMissing } from '../git/models/revision';
+import { getTempFile } from '@env/platform.js';
+import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens.d.js';
+import type { DiffWithCommandArgs } from '../commands/diffWith.js';
+import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious.js';
+import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking.js';
+import type { ExplainBranchCommandArgs } from '../commands/explainBranch.js';
+import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog.js';
+import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog.js';
+import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision.js';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
+import type { RecomposeFromCommitCommandArgs } from '../commands/recomposeFromCommit.js';
+import type { ViewShowBranchComparison } from '../config.js';
+import type { GlCommands } from '../constants.commands.js';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import * as BranchActions from '../git/actions/branch.js';
+import * as CommitActions from '../git/actions/commit.js';
+import * as ContributorActions from '../git/actions/contributor.js';
+import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../git/actions/pausedOperation.js';
+import * as RemoteActions from '../git/actions/remote.js';
+import * as RepoActions from '../git/actions/repository.js';
+import * as StashActions from '../git/actions/stash.js';
+import * as TagActions from '../git/actions/tag.js';
+import * as WorktreeActions from '../git/actions/worktree.js';
+import { browseAtRevision, executeGitCommand } from '../git/actions.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import type { Repository } from '../git/models/repository.js';
+import { deletedOrMissing } from '../git/models/revision.js';
 import {
 	ensurePullRequestRefs,
 	getOpenedPullRequestRepo,
 	getOrOpenPullRequestRepository,
-} from '../git/utils/-webview/pullRequest.utils';
-import { openRebaseEditor } from '../git/utils/-webview/rebase.utils';
-import { matchContributor } from '../git/utils/contributor.utils';
-import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../git/utils/pullRequest.utils';
-import { createReference } from '../git/utils/reference.utils';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showPatchesView } from '../plus/drafts/actions';
-import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
-import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork';
-import { showContributorsPicker } from '../quickpicks/contributorsPicker';
+} from '../git/utils/-webview/pullRequest.utils.js';
+import { openRebaseEditor } from '../git/utils/-webview/rebase.utils.js';
+import { matchContributor } from '../git/utils/contributor.utils.js';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+} from '../git/utils/pullRequest.utils.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showPatchesView } from '../plus/drafts/actions.js';
+import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork.js';
+import { showContributorsPicker } from '../quickpicks/contributorsPicker.js';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -52,68 +55,68 @@ import {
 	executeCoreGitCommand,
 	executeEditorCommand,
 	registerCommand,
-} from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { getContext, setContext } from '../system/-webview/context';
-import { revealInFileExplorer } from '../system/-webview/vscode';
-import type { MergeEditorInputs } from '../system/-webview/vscode/editors';
-import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors';
-import { openUrl } from '../system/-webview/vscode/uris';
-import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces';
-import { openWorkspace } from '../system/-webview/vscode/workspaces';
-import { filterMap } from '../system/array';
-import { createCommandDecorator } from '../system/decorators/command';
-import { log } from '../system/decorators/log';
-import { runSequentially } from '../system/function';
-import { join, map } from '../system/iterable';
-import { lazy } from '../system/lazy';
-import { basename } from '../system/path';
-import { getSettledValue } from '../system/promise';
-import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
-import type { ShowInCommitGraphCommandArgs } from '../webviews/plus/graph/registration';
-import type { LaunchpadItemNode } from './launchpadView';
-import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
-import type { ClipboardType } from './nodes/abstract/viewNode';
+} from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { getContext, setContext } from '../system/-webview/context.js';
+import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
+import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces.js';
+import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
+import { revealInFileExplorer } from '../system/-webview/vscode.js';
+import { filterMap } from '../system/array.js';
+import { createCommandDecorator } from '../system/decorators/command.js';
+import { log } from '../system/decorators/log.js';
+import { runSequentially } from '../system/function.js';
+import { join, map } from '../system/iterable.js';
+import { lazy } from '../system/lazy.js';
+import { basename } from '../system/path.js';
+import { getSettledValue } from '../system/promise.js';
+import { DeepLinkActionType } from '../uris/deepLinks/deepLink.js';
+import type { ShowInCommitGraphCommandArgs } from '../webviews/plus/graph/registration.js';
+import type { LaunchpadItemNode } from './launchpadView.js';
+import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode.js';
+import type { ClipboardType } from './nodes/abstract/viewNode.js';
 import {
 	canEditNode,
 	canViewDismissNode,
 	getNodeRepoPath,
 	isPageableViewNode,
 	ViewNode,
-} from './nodes/abstract/viewNode';
-import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode';
-import type { BranchesNode } from './nodes/branchesNode';
-import type { BranchNode } from './nodes/branchNode';
-import type { BranchTrackingStatusFilesNode } from './nodes/branchTrackingStatusFilesNode';
-import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
-import type { CommitFileNode } from './nodes/commitFileNode';
-import type { CommitNode } from './nodes/commitNode';
-import type { PagerNode } from './nodes/common';
-import type { CompareResultsNode } from './nodes/compareResultsNode';
-import type { ContributorNode } from './nodes/contributorNode';
-import type { DraftNode } from './nodes/draftNode';
-import type { FileHistoryNode } from './nodes/fileHistoryNode';
-import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
-import type { FolderNode } from './nodes/folderNode';
-import type { LineHistoryNode } from './nodes/lineHistoryNode';
-import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
-import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode';
-import type { PullRequestNode } from './nodes/pullRequestNode';
-import type { RemoteNode } from './nodes/remoteNode';
-import type { RepositoryNode } from './nodes/repositoryNode';
-import type { ResultsCommitsNode } from './nodes/resultsCommitsNode';
-import type { ResultsFileNode } from './nodes/resultsFileNode';
-import type { ResultsFilesNode } from './nodes/resultsFilesNode';
-import { FilesQueryFilter } from './nodes/resultsFilesNode';
-import type { StashFileNode } from './nodes/stashFileNode';
-import type { StashNode } from './nodes/stashNode';
-import type { StatusFileNode } from './nodes/statusFileNode';
-import type { TagNode } from './nodes/tagNode';
-import type { TagsNode } from './nodes/tagsNode';
-import type { UncommittedFileNode } from './nodes/UncommittedFileNode';
-import type { UncommittedFilesNode } from './nodes/UncommittedFilesNode';
-import type { WorktreeNode } from './nodes/worktreeNode';
-import type { WorktreesNode } from './nodes/worktreesNode';
+} from './nodes/abstract/viewNode.js';
+import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode.js';
+import type { BranchesNode } from './nodes/branchesNode.js';
+import type { BranchNode } from './nodes/branchNode.js';
+import type { BranchTrackingStatusFilesNode } from './nodes/branchTrackingStatusFilesNode.js';
+import type { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode.js';
+import type { CommitFileNode } from './nodes/commitFileNode.js';
+import type { CommitNode } from './nodes/commitNode.js';
+import type { PagerNode } from './nodes/common.js';
+import type { CompareResultsNode } from './nodes/compareResultsNode.js';
+import type { ContributorNode } from './nodes/contributorNode.js';
+import type { DraftNode } from './nodes/draftNode.js';
+import type { FileHistoryNode } from './nodes/fileHistoryNode.js';
+import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode.js';
+import type { FolderNode } from './nodes/folderNode.js';
+import type { LineHistoryNode } from './nodes/lineHistoryNode.js';
+import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode.js';
+import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode.js';
+import type { PullRequestNode } from './nodes/pullRequestNode.js';
+import type { RemoteNode } from './nodes/remoteNode.js';
+import type { RepositoryNode } from './nodes/repositoryNode.js';
+import type { ResultsCommitsNode } from './nodes/resultsCommitsNode.js';
+import type { ResultsFileNode } from './nodes/resultsFileNode.js';
+import type { ResultsFilesNode } from './nodes/resultsFilesNode.js';
+import { FilesQueryFilter } from './nodes/resultsFilesNode.js';
+import type { StashFileNode } from './nodes/stashFileNode.js';
+import type { StashNode } from './nodes/stashNode.js';
+import type { StatusFileNode } from './nodes/statusFileNode.js';
+import type { TagNode } from './nodes/tagNode.js';
+import type { TagsNode } from './nodes/tagsNode.js';
+import type { UncommittedFileNode } from './nodes/UncommittedFileNode.js';
+import type { UncommittedFilesNode } from './nodes/UncommittedFilesNode.js';
+import type { WorktreeNode } from './nodes/worktreeNode.js';
+import type { WorktreesNode } from './nodes/worktreesNode.js';
 
 const { command, getCommands } = createCommandDecorator<
 	GlCommands,

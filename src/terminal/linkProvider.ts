@@ -1,18 +1,18 @@
 import type { CancellationToken, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
-import type { GitWizardCommandArgs } from '../commands/gitWizard';
-import type { InspectCommandArgs } from '../commands/inspect';
-import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
-import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
-import type { GlCommands } from '../constants.commands';
-import type { Container } from '../container';
-import type { PagedResult } from '../git/gitProvider';
-import type { GitBranch } from '../git/models/branch';
-import type { GitTag } from '../git/models/tag';
-import { getBranchNameWithoutRemote } from '../git/utils/branch.utils';
-import { createReference } from '../git/utils/reference.utils';
-import { createTerminalLinkCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
+import type { GitWizardCommandArgs } from '../commands/gitWizard.js';
+import type { InspectCommandArgs } from '../commands/inspect.js';
+import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory.js';
+import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit.js';
+import type { GlCommands } from '../constants.commands.js';
+import type { Container } from '../container.js';
+import type { PagedResult } from '../git/gitProvider.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { GitTag } from '../git/models/tag.js';
+import { getBranchNameWithoutRemote } from '../git/utils/branch.utils.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { createTerminalLinkCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;

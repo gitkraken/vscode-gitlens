@@ -1,5 +1,5 @@
-import { pluralize } from '../system/string';
-import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
+import { pluralize } from '../system/string.js';
+import type { GitPausedOperationStatus } from './models/pausedOperationStatus.js';
 
 export interface GitCommandContext {
 	readonly repoPath: string;

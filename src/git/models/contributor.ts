@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
-import { getAvatarUri } from '../../avatars';
-import type { GravatarDefaultStyle } from '../../config';
-import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import type { GitCommitStats } from './commit';
+import { getAvatarUri } from '../../avatars.js';
+import type { GravatarDefaultStyle } from '../../config.js';
+import { formatDate, fromNow } from '../../system/date.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import type { GitCommitStats } from './commit.js';
 
 export function isContributor(contributor: unknown): contributor is GitContributor {
 	return contributor instanceof GitContributor;

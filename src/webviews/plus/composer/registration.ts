@@ -1,10 +1,10 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { registerCommand } from '../../../system/-webview/command';
-import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
-import type { State } from './protocol';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { registerCommand } from '../../../system/-webview/command.js';
+import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController.js';
+import type { State } from './protocol.js';
 
 export interface ComposerCommandArgs {
 	repoPath?: string | Uri;
@@ -42,7 +42,7 @@ export function registerComposerWebviewPanel(
 		},
 		async (container, host) => {
 			const { ComposerWebviewProvider } = await import(
-				/* webpackChunkName: "webview-composer" */ './composerWebview'
+				/* webpackChunkName: "webview-composer" */ './composerWebview.js'
 			);
 			return new ComposerWebviewProvider(container, host);
 		},

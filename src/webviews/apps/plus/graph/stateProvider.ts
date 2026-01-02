@@ -1,7 +1,7 @@
 import { ContextProvider } from '@lit/context';
-import { debounce } from '../../../../system/function/debounce';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import type { DidSearchParams, GraphSearchResults, GraphSearchResultsError, State } from '../../../plus/graph/protocol';
+import { debounce } from '../../../../system/function/debounce.js';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import type { DidSearchParams, GraphSearchResults, GraphSearchResultsError, State } from '../../../plus/graph/protocol.js';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -22,16 +22,16 @@ import {
 	DidFetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
-} from '../../../plus/graph/protocol';
-import type { IpcMessage, WebviewState } from '../../../protocol';
-import { DidChangeHostWindowFocusNotification } from '../../../protocol';
-import type { ReactiveElementHost } from '../../shared/appHost';
-import { signalObjectState, signalState } from '../../shared/components/signal-utils';
-import type { LoggerContext } from '../../shared/contexts/logger';
-import type { HostIpc } from '../../shared/ipc';
-import { StateProviderBase } from '../../shared/stateProviderBase';
-import type { AppState } from './context';
-import { graphStateContext } from './context';
+} from '../../../plus/graph/protocol.js';
+import type { IpcMessage, WebviewState } from '../../../protocol.js';
+import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
+import type { ReactiveElementHost } from '../../shared/appHost.js';
+import { signalObjectState, signalState } from '../../shared/components/signal-utils.js';
+import type { LoggerContext } from '../../shared/contexts/logger.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { StateProviderBase } from '../../shared/stateProviderBase.js';
+import type { AppState } from './context.js';
+import { graphStateContext } from './context.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',

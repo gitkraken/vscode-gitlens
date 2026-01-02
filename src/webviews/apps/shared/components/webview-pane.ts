@@ -1,8 +1,8 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { scrollableBase } from './styles/lit/base.css';
-import './code-icon';
-import './progress';
+import { scrollableBase } from './styles/lit/base.css.js';
+import './code-icon.js';
+import './progress.js';
 
 export interface WebviewPaneExpandedChangeEventDetail {
 	expanded: boolean;

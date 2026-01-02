@@ -1,20 +1,20 @@
-import type { Container } from '../../../../container';
-import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import { CherryPickError, MergeError, PushError, RebaseError, RevertError } from '../../../../git/errors';
-import type { GitOperationsSubProvider } from '../../../../git/gitProvider';
-import type { GitBranchReference, GitReference } from '../../../../git/models/reference';
-import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../../git/utils/branch.utils';
-import { isBranchReference } from '../../../../git/utils/reference.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { getHostEditorCommand } from '../../../../system/-webview/vscode';
-import { log } from '../../../../system/decorators/log';
-import { sequentialize } from '../../../../system/decorators/sequentialize';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import type { Git, PushForceOptions } from '../git';
-import { getGitCommandError } from '../git';
-import type { LocalGitProviderInternal } from '../localGitProvider';
+import type { Container } from '../../../../container.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import { CherryPickError, MergeError, PushError, RebaseError, RevertError } from '../../../../git/errors.js';
+import type { GitOperationsSubProvider } from '../../../../git/gitProvider.js';
+import type { GitBranchReference, GitReference } from '../../../../git/models/reference.js';
+import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../../git/utils/branch.utils.js';
+import { isBranchReference } from '../../../../git/utils/reference.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { getHostEditorCommand } from '../../../../system/-webview/vscode.js';
+import { log } from '../../../../system/decorators/log.js';
+import { sequentialize } from '../../../../system/decorators/sequentialize.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import type { Git, PushForceOptions } from '../git.js';
+import { getGitCommandError } from '../git.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	constructor(

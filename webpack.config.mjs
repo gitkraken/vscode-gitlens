@@ -374,6 +374,7 @@ function getExtensionConfig(target, mode, env) {
 				// This dependency is unnecessary for our use-case
 				'whatwg-url': path.resolve(__dirname, 'patches', 'whatwg-url.js'),
 			},
+			extensionAlias: { '.js': ['.ts', '.js'], '.jsx': ['.tsx', '.jsx'] },
 			fallback: {
 				'../../../product.json': false,
 				...(target === 'webworker'
@@ -768,6 +769,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 				...overrides.alias,
 			},
+			extensionAlias: { '.js': ['.ts', '.js'], '.jsx': ['.tsx', '.jsx'] },
 			fallback: { path: require.resolve('path-browserify') },
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],

@@ -1,46 +1,46 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
-import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import type { Container } from '../container';
-import type { GitCommit } from '../git/models/commit';
-import { isCommit } from '../git/models/commit';
-import type { GitContributor } from '../git/models/contributor';
+import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
+import type { Container } from '../container.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { isCommit } from '../git/models/commit.js';
+import type { GitContributor } from '../git/models/contributor.js';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
-import type { GitWorktree } from '../git/models/worktree';
-import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
-import { getReferenceLabel } from '../git/utils/reference.utils';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { gate } from '../system/decorators/gate';
-import type { ViewNode } from './nodes/abstract/viewNode';
-import { BranchesNode } from './nodes/branchesNode';
-import { BranchNode } from './nodes/branchNode';
-import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
-import { CompareBranchNode } from './nodes/compareBranchNode';
-import { ContributorNode } from './nodes/contributorNode';
-import { ContributorsNode } from './nodes/contributorsNode';
-import { ReflogNode } from './nodes/reflogNode';
-import { RemoteNode } from './nodes/remoteNode';
-import { RemotesNode } from './nodes/remotesNode';
-import { RepositoriesNode } from './nodes/repositoriesNode';
-import { RepositoryNode } from './nodes/repositoryNode';
-import { StashesNode } from './nodes/stashesNode';
-import { TagsNode } from './nodes/tagsNode';
-import { WorktreeNode } from './nodes/worktreeNode';
-import { WorktreesNode } from './nodes/worktreesNode';
-import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils';
-import type { GroupedViewContext, RevealOptions } from './viewBase';
-import { ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+} from '../git/models/reference.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { GitWorktree } from '../git/models/worktree.js';
+import { getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
+import { getReferenceLabel } from '../git/utils/reference.utils.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { gate } from '../system/decorators/gate.js';
+import type { ViewNode } from './nodes/abstract/viewNode.js';
+import { BranchesNode } from './nodes/branchesNode.js';
+import { BranchNode } from './nodes/branchNode.js';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode.js';
+import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode.js';
+import { CompareBranchNode } from './nodes/compareBranchNode.js';
+import { ContributorNode } from './nodes/contributorNode.js';
+import { ContributorsNode } from './nodes/contributorsNode.js';
+import { ReflogNode } from './nodes/reflogNode.js';
+import { RemoteNode } from './nodes/remoteNode.js';
+import { RemotesNode } from './nodes/remotesNode.js';
+import { RepositoriesNode } from './nodes/repositoriesNode.js';
+import { RepositoryNode } from './nodes/repositoryNode.js';
+import { StashesNode } from './nodes/stashesNode.js';
+import { TagsNode } from './nodes/tagsNode.js';
+import { WorktreeNode } from './nodes/worktreeNode.js';
+import { WorktreesNode } from './nodes/worktreesNode.js';
+import { updateSorting, updateSortingDirection } from './utils/-webview/sorting.utils.js';
+import type { GroupedViewContext, RevealOptions } from './viewBase.js';
+import { ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode, RepositoriesViewConfig> {
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();

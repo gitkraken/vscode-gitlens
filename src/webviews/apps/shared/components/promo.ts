@@ -3,11 +3,11 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { until } from 'lit/directives/until.js';
-import type { GlCommands } from '../../../../constants.commands';
-import type { Source } from '../../../../constants.telemetry';
-import type { Promo } from '../../../../plus/gk/models/promo';
-import { createCommandLink } from '../../../../system/commands';
-import { focusOutline } from './styles/lit/a11y.css';
+import type { GlCommands } from '../../../../constants.commands.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { Promo } from '../../../../plus/gk/models/promo.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import { focusOutline } from './styles/lit/a11y.css.js';
 
 @customElement('gl-promo')
 export class GlPromo extends LitElement {

@@ -1,23 +1,23 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { createMarkdownCommandLink } from '../system/commands';
-import { first } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { first } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 export interface CopyShaToClipboardCommandArgs {
 	sha?: string;

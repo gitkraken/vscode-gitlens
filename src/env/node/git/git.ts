@@ -5,14 +5,14 @@ import { join as joinPath } from 'path';
 import * as process from 'process';
 import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
-import { hrtime } from '@env/hrtime';
-import { GlyphChars } from '../../../constants';
-import type { Container } from '../../../container';
-import { CancellationError, isCancellationError } from '../../../errors';
-import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features';
-import { gitFeaturesByVersion } from '../../../features';
-import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
-import { GitErrorHandling } from '../../../git/commandOptions';
+import { hrtime } from '@env/hrtime.js';
+import { GlyphChars } from '../../../constants.js';
+import type { Container } from '../../../container.js';
+import { CancellationError, isCancellationError } from '../../../errors.js';
+import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features.js';
+import { gitFeaturesByVersion } from '../../../features.js';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions.js';
+import { GitErrorHandling } from '../../../git/commandOptions.js';
 import type {
 	BranchErrorReason,
 	CheckoutErrorReason,
@@ -32,7 +32,7 @@ import type {
 	TagErrorReason,
 	WorktreeCreateErrorReason,
 	WorktreeDeleteErrorReason,
-} from '../../../git/errors';
+} from '../../../git/errors.js';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
@@ -43,27 +43,27 @@ import {
 	ResetError,
 	StashPushError,
 	WorkspaceUntrustedError,
-} from '../../../git/errors';
-import type { GitDir } from '../../../git/gitProvider';
-import type { GitDiffFilter } from '../../../git/models/diff';
-import { rootSha } from '../../../git/models/revision';
-import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
-import { getCancellationTokenId } from '../../../system/-webview/cancellation';
-import { configuration } from '../../../system/-webview/configuration';
-import { splitPath } from '../../../system/-webview/path';
-import { getScopedCounter } from '../../../system/counter';
-import { Logger } from '../../../system/logger';
-import { slowCallWarningThreshold } from '../../../system/logger.constants';
-import { getLoggableScopeBlockOverride } from '../../../system/logger.scope';
-import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path';
-import { isPromise } from '../../../system/promise';
-import { getDurationMilliseconds } from '../../../system/string';
-import { compare, fromString } from '../../../system/version';
-import type { GitLocation } from './locator';
-import type { RunOptions, RunResult } from './shell';
-import { fsExists, runSpawn } from './shell';
-import { CancelledRunError, RunError } from './shell.errors';
+} from '../../../git/errors.js';
+import type { GitDir } from '../../../git/gitProvider.js';
+import type { GitDiffFilter } from '../../../git/models/diff.js';
+import { rootSha } from '../../../git/models/revision.js';
+import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser.js';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils.js';
+import { getCancellationTokenId } from '../../../system/-webview/cancellation.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { splitPath } from '../../../system/-webview/path.js';
+import { getScopedCounter } from '../../../system/counter.js';
+import { slowCallWarningThreshold } from '../../../system/logger.constants.js';
+import { Logger } from '../../../system/logger.js';
+import { getLoggableScopeBlockOverride } from '../../../system/logger.scope.js';
+import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path.js';
+import { isPromise } from '../../../system/promise.js';
+import { getDurationMilliseconds } from '../../../system/string.js';
+import { compare, fromString } from '../../../system/version.js';
+import type { GitLocation } from './locator.js';
+import { CancelledRunError, RunError } from './shell.errors.js';
+import type { RunOptions, RunResult } from './shell.js';
+import { fsExists, runSpawn } from './shell.js';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 const emptyObj = Object.freeze({});

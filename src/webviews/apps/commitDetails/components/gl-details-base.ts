@@ -2,11 +2,11 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
-import type { ViewFilesLayout } from '../../../../config';
-import type { HierarchicalItem } from '../../../../system/array';
-import { makeHierarchical } from '../../../../system/array';
-import { pluralize } from '../../../../system/string';
-import type { Preferences, State } from '../../../commitDetails/protocol';
+import type { ViewFilesLayout } from '../../../../config.js';
+import type { HierarchicalItem } from '../../../../system/array.js';
+import { makeHierarchical } from '../../../../system/array.js';
+import { pluralize } from '../../../../system/string.js';
+import type { Preferences, State } from '../../../commitDetails/protocol.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -14,12 +14,12 @@ import type {
 	TreeItemCheckedDetail,
 	TreeItemSelectionDetail,
 	TreeModel,
-} from '../../shared/components/tree/base';
-import '../../shared/components/webview-pane';
-import '../../shared/components/actions/action-item';
-import '../../shared/components/actions/action-nav';
-import '../../shared/components/code-icon';
-import '../../shared/components/tree/tree-generator';
+} from '../../shared/components/tree/base.js';
+import '../../shared/components/webview-pane.js';
+import '../../shared/components/actions/action-item.js';
+import '../../shared/components/actions/action-nav.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/tree/tree-generator.js';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;
 export type File = Files[0];

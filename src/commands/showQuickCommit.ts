@@ -1,24 +1,24 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import { executeGitCommand } from '../git/actions';
-import { revealCommit } from '../git/actions/commit';
-import { GitUri } from '../git/gitUri';
-import type { GitCommit, GitStashCommit } from '../git/models/commit';
-import type { GitLog } from '../git/models/log';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { revealCommit } from '../git/actions/commit.js';
+import { executeGitCommand } from '../git/actions.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
+import type { GitLog } from '../git/models/log.js';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
-} from '../messages';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { ActiveEditorCachedCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
+} from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCachedCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
 
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;

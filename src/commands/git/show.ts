@@ -1,21 +1,21 @@
-import type { Container } from '../../container';
-import type { GitCommit, GitStashCommit } from '../../git/models/commit';
-import { isCommit } from '../../git/models/commit';
-import type { GitRevisionReference } from '../../git/models/reference';
-import { Repository } from '../../git/models/repository';
-import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
-import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator } from '../quickCommand';
-import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import type { Container } from '../../container.js';
+import type { GitCommit, GitStashCommit } from '../../git/models/commit.js';
+import { isCommit } from '../../git/models/commit.js';
+import type { GitRevisionReference } from '../../git/models/reference.js';
+import { Repository } from '../../git/models/repository.js';
+import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits.js';
+import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
+import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type { PartialStepState, StepGenerator } from '../quickCommand.js';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
 import {
 	pickCommitStep,
 	pickRepositoryStep,
 	showCommitOrStashFilesStep,
 	showCommitOrStashFileStep,
 	showCommitOrStashStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

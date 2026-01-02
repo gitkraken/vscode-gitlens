@@ -1,26 +1,26 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { WorkspacesViewConfig } from '../config';
-import { previewBadge, urls } from '../constants';
-import type { Container } from '../container';
-import { unknownGitUri } from '../git/gitUri';
-import type { Repository } from '../git/models/repository';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { openUrl } from '../system/-webview/vscode/uris';
-import { openWorkspace } from '../system/-webview/vscode/workspaces';
-import { debug } from '../system/decorators/log';
-import { ViewNode } from './nodes/abstract/viewNode';
-import { MessageNode } from './nodes/common';
-import { RepositoriesNode } from './nodes/repositoriesNode';
-import { RepositoryNode } from './nodes/repositoryNode';
-import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
-import { WorkspaceNode } from './nodes/workspaceNode';
-import type { RevealOptions } from './viewBase';
-import { disposeChildren, ViewBase } from './viewBase';
-import type { CopyNodeCommandArgs } from './viewCommands';
-import { registerViewCommand } from './viewCommands';
+import type { WorkspacesViewConfig } from '../config.js';
+import { previewBadge, urls } from '../constants.js';
+import type { Container } from '../container.js';
+import { unknownGitUri } from '../git/gitUri.js';
+import type { Repository } from '../git/models/repository.js';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
+import { debug } from '../system/decorators/log.js';
+import { ViewNode } from './nodes/abstract/viewNode.js';
+import { MessageNode } from './nodes/common.js';
+import { RepositoriesNode } from './nodes/repositoriesNode.js';
+import { RepositoryNode } from './nodes/repositoryNode.js';
+import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode.js';
+import { WorkspaceNode } from './nodes/workspaceNode.js';
+import type { RevealOptions } from './viewBase.js';
+import { disposeChildren, ViewBase } from './viewBase.js';
+import type { CopyNodeCommandArgs } from './viewCommands.js';
+import { registerViewCommand } from './viewCommands.js';
 
 export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 	constructor(view: WorkspacesView) {

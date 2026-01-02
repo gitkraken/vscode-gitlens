@@ -9,18 +9,18 @@ import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
-import type { GraphBranchesVisibility } from '../../../../config';
-import { GlyphChars } from '../../../../constants';
-import type { SearchQuery } from '../../../../constants.search';
-import type { RepositoryShape } from '../../../../git/models/repositoryShape';
-import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils';
-import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
-import { createCommandLink } from '../../../../system/commands';
-import { debounce } from '../../../../system/decorators/debounce';
-import { hasTruthyKeys } from '../../../../system/object';
-import { wait } from '../../../../system/promise';
-import { createWebviewCommandLink } from '../../../../system/webview';
+import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
+import type { GraphBranchesVisibility } from '../../../../config.js';
+import { GlyphChars } from '../../../../constants.js';
+import type { SearchQuery } from '../../../../constants.search.js';
+import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
+import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
+import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import { debounce } from '../../../../system/decorators/debounce.js';
+import { hasTruthyKeys } from '../../../../system/object.js';
+import { wait } from '../../../../system/promise.js';
+import { createWebviewCommandLink } from '../../../../system/webview.js';
 import type {
 	DidChooseRefParams,
 	GraphExcludedRef,
@@ -30,7 +30,7 @@ import type {
 	GraphSearchResults,
 	State,
 	UpdateGraphConfigurationParams,
-} from '../../../plus/graph/protocol';
+} from '../../../plus/graph/protocol.js';
 import {
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
@@ -45,41 +45,41 @@ import {
 	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
-} from '../../../plus/graph/protocol';
-import type { RadioGroup } from '../../shared/components/radio/radio-group';
-import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group';
-import type { GlSearchBox } from '../../shared/components/search/search-box';
-import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input';
-import { inlineCode } from '../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../shared/contexts/ipc';
-import type { TelemetryContext } from '../../shared/contexts/telemetry';
-import { telemetryContext } from '../../shared/contexts/telemetry';
-import { emitTelemetrySentEvent } from '../../shared/telemetry';
-import { ruleStyles } from '../shared/components/vscode.css';
-import { graphStateContext } from './context';
-import { isGraphSearchResultsError } from './stateProvider';
-import { actionButton, linkBase } from './styles/graph.css';
-import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
+} from '../../../plus/graph/protocol.js';
+import type { RadioGroup } from '../../shared/components/radio/radio-group.js';
+import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
+import type { GlSearchBox } from '../../shared/components/search/search-box.js';
+import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input.js';
+import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
+import { telemetryContext } from '../../shared/contexts/telemetry.js';
+import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import { ruleStyles } from '../shared/components/vscode.css.js';
+import { graphStateContext } from './context.js';
+import { isGraphSearchResultsError } from './stateProvider.js';
+import { actionButton, linkBase } from './styles/graph.css.js';
+import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
-import '../../shared/components/branch-name';
-import '../../shared/components/button';
-import '../../shared/components/checkbox/checkbox';
-import '../../shared/components/code-icon';
-import '../../shared/components/menu/menu-divider';
-import '../../shared/components/menu/menu-item';
-import '../../shared/components/menu/menu-label';
-import '../../shared/components/progress';
-import '../../shared/components/overlays/popover';
-import '../../shared/components/overlays/tooltip';
-import '../../shared/components/radio/radio';
-import '../../shared/components/radio/radio-group';
-import '../../shared/components/ref-button';
-import '../../shared/components/repo-button-group';
-import '../../shared/components/rich/issue-pull-request';
-import '../../shared/components/search/search-box';
-import '../shared/components/merge-rebase-status';
-import './actions/gitActionsButtons';
+import '../../shared/components/branch-name.js';
+import '../../shared/components/button.js';
+import '../../shared/components/checkbox/checkbox.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/menu/menu-divider.js';
+import '../../shared/components/menu/menu-item.js';
+import '../../shared/components/menu/menu-label.js';
+import '../../shared/components/progress.js';
+import '../../shared/components/overlays/popover.js';
+import '../../shared/components/overlays/tooltip.js';
+import '../../shared/components/radio/radio.js';
+import '../../shared/components/radio/radio-group.js';
+import '../../shared/components/ref-button.js';
+import '../../shared/components/repo-button-group.js';
+import '../../shared/components/rich/issue-pull-request.js';
+import '../../shared/components/search/search-box.js';
+import '../shared/components/merge-rebase-status.js';
+import './actions/gitActionsButtons.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

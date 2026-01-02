@@ -1,11 +1,11 @@
 import { MarkdownString } from 'vscode';
-import type { TreeViewFileNodeTypes } from '../../../constants.views';
-import { StatusFileFormatter } from '../../../git/formatters/statusFormatter';
-import type { GitUri } from '../../../git/gitUri';
-import type { GitFile } from '../../../git/models/file';
-import type { GitStatusFile } from '../../../git/models/statusFile';
-import type { View } from '../../viewBase';
-import { ViewNode } from './viewNode';
+import type { TreeViewFileNodeTypes } from '../../../constants.views.js';
+import { StatusFileFormatter } from '../../../git/formatters/statusFormatter.js';
+import type { GitUri } from '../../../git/gitUri.js';
+import type { GitFile } from '../../../git/models/file.js';
+import type { GitStatusFile } from '../../../git/models/statusFile.js';
+import type { View } from '../../viewBase.js';
+import { ViewNode } from './viewNode.js';
 
 export abstract class ViewFileNode<
 	Type extends TreeViewFileNodeTypes = TreeViewFileNodeTypes,

@@ -1,37 +1,37 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
-import { extensionPrefix } from '../../constants';
-import { IssuesCloudHostIntegrationId } from '../../constants.integrations';
-import type { WebviewTelemetryContext } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { CommitFormatter } from '../../git/formatters/commitFormatter';
-import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { GitFileChange } from '../../git/models/fileChange';
-import { GitFileIndexStatus } from '../../git/models/fileStatus';
-import { PullRequest } from '../../git/models/pullRequest';
-import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isIssueCloudIntegrationId } from '../../plus/integrations/authentication/models';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
-import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration';
-import { configuration } from '../../system/-webview/configuration';
-import { map } from '../../system/iterable';
-import { getSettledValue } from '../../system/promise';
-import type { CustomConfigPath, IpcMessage } from '../protocol';
+import { IssuesCloudHostIntegrationId } from '../../constants.integrations.js';
+import { extensionPrefix } from '../../constants.js';
+import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
+import { GitCommit, GitCommitIdentity } from '../../git/models/commit.js';
+import { GitFileChange } from '../../git/models/fileChange.js';
+import { GitFileIndexStatus } from '../../git/models/fileStatus.js';
+import { PullRequest } from '../../git/models/pullRequest.js';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
+import { isIssueCloudIntegrationId } from '../../plus/integrations/authentication/models.js';
+import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService.js';
+import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { map } from '../../system/iterable.js';
+import { getSettledValue } from '../../system/promise.js';
+import type { CustomConfigPath, IpcMessage } from '../protocol.js';
 import {
 	assertsConfigKeyValue,
 	DidChangeConfigurationNotification,
 	isCustomConfigKey,
 	UpdateConfigurationCommand,
-} from '../protocol';
-import type { WebviewHost, WebviewProvider } from '../webviewProvider';
-import type { State } from './protocol';
+} from '../protocol.js';
+import type { WebviewHost, WebviewProvider } from '../webviewProvider.js';
+import type { State } from './protocol.js';
 import {
 	DidChangeAccountNotification,
 	DidChangeIssueIntegrationConnectedNotification,
 	DidOpenAnchorNotification,
 	GenerateConfigurationPreviewRequest,
-} from './protocol';
-import type { SettingsWebviewShowingArgs } from './registration';
+} from './protocol.js';
+import type { SettingsWebviewShowingArgs } from './registration.js';
 
 export class SettingsWebviewProvider implements WebviewProvider<State, State, SettingsWebviewShowingArgs> {
 	private readonly _disposable: Disposable;

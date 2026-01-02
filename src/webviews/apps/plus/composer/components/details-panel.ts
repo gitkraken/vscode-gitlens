@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import Sortable from 'sortablejs';
-import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
+import type { ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol.js';
 import {
 	generateComposerMarkdown,
 	getFileCountForCommit,
@@ -10,16 +10,16 @@ import {
 	getUnassignedHunks,
 	getUniqueFileNames,
 	groupHunksByFile,
-} from '../../../../plus/composer/utils/composer.utils';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
-import type { CommitMessage } from './commit-message';
-import '../../../shared/components/button';
-import '../../../shared/components/markdown/markdown';
-import './hunk-item';
-// import './diff/diff';
-import './diff/diff-file';
-import './commit-message';
+} from '../../../../plus/composer/utils/composer.utils.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { CommitMessage } from './commit-message.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/markdown/markdown.js';
+import './hunk-item.js';
+// import './diff/diff.js';
+import './diff/diff-file.js';
+import './commit-message.js';
 
 @customElement('gl-details-panel')
 export class DetailsPanel extends LitElement {

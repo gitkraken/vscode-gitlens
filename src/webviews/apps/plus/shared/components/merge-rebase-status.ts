@@ -2,20 +2,20 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { WebviewCommands } from '../../../../../constants.commands';
-import type { WebviewTypeFromId } from '../../../../../constants.views';
-import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
-import type { GitReference } from '../../../../../git/models/reference';
-import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
-import { createWebviewCommandLink } from '../../../../../system/webview';
-import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration';
-import type { WebviewContext } from '../../../shared/contexts/webview';
-import { webviewContext } from '../../../shared/contexts/webview';
-import '../../../shared/components/actions/action-item';
-import '../../../shared/components/actions/action-nav';
-import '../../../shared/components/branch-name';
-import '../../../shared/components/commit-sha';
-import '../../../shared/components/overlays/tooltip';
+import type { WebviewCommands } from '../../../../../constants.commands.js';
+import type { WebviewTypeFromId } from '../../../../../constants.views.js';
+import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus.js';
+import type { GitReference } from '../../../../../git/models/reference.js';
+import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils.js';
+import { createWebviewCommandLink } from '../../../../../system/webview.js';
+import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
+import '../../../shared/components/actions/action-item.js';
+import '../../../shared/components/actions/action-nav.js';
+import '../../../shared/components/branch-name.js';
+import '../../../shared/components/commit-sha.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-merge-rebase-status')
 export class GlMergeConflictWarning extends LitElement {

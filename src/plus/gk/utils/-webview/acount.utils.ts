@@ -1,13 +1,13 @@
 import type { MessageItem, Uri } from 'vscode';
 import { window } from 'vscode';
-import { proTrialLengthInDays } from '../../../../constants.subscription';
-import type { Source } from '../../../../constants.telemetry';
-import type { Container } from '../../../../container';
-import type { PlusFeatures } from '../../../../features';
-import { isAdvancedFeature } from '../../../../features';
-import { createQuickPickSeparator } from '../../../../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../../../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
+import { proTrialLengthInDays } from '../../../../constants.subscription.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { Container } from '../../../../container.js';
+import type { PlusFeatures } from '../../../../features.js';
+import { isAdvancedFeature } from '../../../../features.js';
+import { createQuickPickSeparator } from '../../../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive.js';
 
 export async function ensureAccount(container: Container, title: string, source: Source): Promise<boolean> {
 	while (true) {

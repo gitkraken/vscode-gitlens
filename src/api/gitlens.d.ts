@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import type { Source } from '../constants.telemetry';
+import type { Source } from '../constants.telemetry.js';
 
 export type { Disposable } from 'vscode';
 

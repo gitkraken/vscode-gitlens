@@ -19,18 +19,18 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { getPlatform } from '@env/platform';
-import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
-import { urls } from '../../constants';
-import type { CoreColors } from '../../constants.colors';
-import type { GlCommands } from '../../constants.commands';
-import type { StoredFeaturePreviewUsagePeriod } from '../../constants.storage';
+import { getPlatform } from '@env/platform.js';
+import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
+import type { CoreColors } from '../../constants.colors.js';
+import type { GlCommands } from '../../constants.commands.js';
+import { urls } from '../../constants.js';
+import type { StoredFeaturePreviewUsagePeriod } from '../../constants.storage.js';
 import {
 	proFeaturePreviewUsageDurationInDays,
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
 	SubscriptionState,
-} from '../../constants.subscription';
+} from '../../constants.subscription.js';
 import type {
 	FeaturePreviewActionEventData,
 	FeaturePreviewDayEventData,
@@ -39,39 +39,39 @@ import type {
 	SubscriptionEventDataWithPrevious,
 	SubscriptionFeaturePreviewsEventData,
 	TrackingContext,
-} from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../errors';
-import type { FeaturePreview, FeaturePreviews } from '../../features';
-import { featurePreviews, getFeaturePreviewLabel, getFeaturePreviewStatus } from '../../features';
-import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { executeCommand, registerCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { setContext } from '../../system/-webview/context';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { createFromDateDelta, fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { take } from '../../system/event';
-import { once } from '../../system/function';
-import type { Deferrable } from '../../system/function/debounce';
-import { debounce } from '../../system/function/debounce';
-import { Logger } from '../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { flatten } from '../../system/object';
-import { pauseOnCancelOrTimeout } from '../../system/promise';
-import { pluralize } from '../../system/string';
-import { createDisposable } from '../../system/unifiedDisposable';
-import { LoginUriPathPrefix } from './authenticationConnection';
-import { authenticationProviderScopes } from './authenticationProvider';
-import type { GKCheckInResponse } from './models/checkin';
-import type { Organization } from './models/organization';
-import type { Promo } from './models/promo';
-import type { PaidSubscriptionPlanIds, Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription';
-import type { ServerConnection } from './serverConnection';
-import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
-import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils';
-import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
+} from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../errors.js';
+import type { FeaturePreview, FeaturePreviews } from '../../features.js';
+import { featurePreviews, getFeaturePreviewLabel, getFeaturePreviewStatus } from '../../features.js';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
+import { executeCommand, registerCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { setContext } from '../../system/-webview/context.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { createFromDateDelta, fromNow } from '../../system/date.js';
+import { gate } from '../../system/decorators/gate.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { take } from '../../system/event.js';
+import type { Deferrable } from '../../system/function/debounce.js';
+import { debounce } from '../../system/function/debounce.js';
+import { once } from '../../system/function.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import { flatten } from '../../system/object.js';
+import { pauseOnCancelOrTimeout } from '../../system/promise.js';
+import { pluralize } from '../../system/string.js';
+import { createDisposable } from '../../system/unifiedDisposable.js';
+import { LoginUriPathPrefix } from './authenticationConnection.js';
+import { authenticationProviderScopes } from './authenticationProvider.js';
+import type { GKCheckInResponse } from './models/checkin.js';
+import type { Organization } from './models/organization.js';
+import type { Promo } from './models/promo.js';
+import type { PaidSubscriptionPlanIds, Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription.js';
+import type { ServerConnection } from './serverConnection.js';
+import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils.js';
+import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils.js';
+import { getSubscriptionFromCheckIn } from './utils/checkin.utils.js';
 import {
 	AiAllAccessOptInPathPrefix,
 	assertSubscriptionState,
@@ -88,7 +88,7 @@ import {
 	isSubscriptionPaid,
 	isSubscriptionTrial,
 	SubscriptionUpdatedUriPathPrefix,
-} from './utils/subscription.utils';
+} from './utils/subscription.utils.js';
 
 export type FeaturePreviewChangeEvent = FeaturePreview;
 
@@ -198,7 +198,7 @@ export class SubscriptionService implements Disposable {
 		this.updateContext();
 
 		if (DEBUG) {
-			void import(/* webpackChunkName: "__debug__" */ './__debug__accountDebug').then(m => {
+			void import(/* webpackChunkName: "__debug__" */ './__debug__accountDebug.js').then(m => {
 				let savedSession: { session: AuthenticationSession | null | undefined } | undefined;
 
 				const setSession = (session: AuthenticationSession | null | undefined) => {

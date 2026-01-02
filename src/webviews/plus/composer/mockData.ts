@@ -1,7 +1,7 @@
 // Mock data for the composer following the proper data model
 // This represents the structure that would come from AI rebase results
 
-import type { ComposerCommit, ComposerHunk } from './protocol';
+import type { ComposerCommit, ComposerHunk } from './protocol.js';
 
 // Mock hunks following the AI rebase result structure
 export const mockHunks: ComposerHunk[] = [

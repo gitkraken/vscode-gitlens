@@ -1,5 +1,5 @@
-import type { GlCommands, WebviewCommands } from '../../constants.commands';
-import type { WebviewTypes } from '../../constants.views';
+import type { GlCommands, WebviewCommands } from '../../constants.commands.js';
+import type { WebviewTypes } from '../../constants.views.js';
 
 interface Command<
 	TCommand extends string | GlCommands = GlCommands,

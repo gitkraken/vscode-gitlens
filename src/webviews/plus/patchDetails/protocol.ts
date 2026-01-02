@@ -1,9 +1,9 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import type { Config } from '../../../config';
-import type { GitFileChangeShape } from '../../../git/models/fileChange';
-import type { PatchRevisionRange } from '../../../git/models/patch';
-import type { Repository } from '../../../git/models/repository';
-import type { GkRepositoryId } from '../../../git/models/repositoryIdentities';
+import type { Config } from '../../../config.js';
+import type { GitFileChangeShape } from '../../../git/models/fileChange.js';
+import type { PatchRevisionRange } from '../../../git/models/patch.js';
+import type { Repository } from '../../../git/models/repository.js';
+import type { GkRepositoryId } from '../../../git/models/repositoryIdentities.js';
 import type {
 	Draft,
 	DraftArchiveReason,
@@ -15,12 +15,12 @@ import type {
 	DraftUser,
 	DraftVisibility,
 	LocalDraft,
-} from '../../../plus/drafts/models/drafts';
-import type { OrganizationMember } from '../../../plus/gk/models/organization';
-import type { DateTimeFormat } from '../../../system/date';
-import type { Serialized } from '../../../system/serialize';
-import type { IpcScope, WebviewState } from '../../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
+} from '../../../plus/drafts/models/drafts.js';
+import type { OrganizationMember } from '../../../plus/gk/models/organization.js';
+import type { DateTimeFormat } from '../../../system/date.js';
+import type { Serialized } from '../../../system/serialize.js';
+import type { IpcScope, WebviewState } from '../../protocol.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol.js';
 
 export const scope: IpcScope = 'patchDetails';
 

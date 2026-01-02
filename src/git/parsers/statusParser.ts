@@ -1,8 +1,8 @@
-import type { Container } from '../../container';
-import { normalizePath } from '../../system/path';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { GitStatus } from '../models/status';
-import { GitStatusFile } from '../models/statusFile';
+import type { Container } from '../../container.js';
+import { normalizePath } from '../../system/path.js';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { GitStatus } from '../models/status.js';
+import { GitStatusFile } from '../models/statusFile.js';
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;

@@ -8,10 +8,10 @@ import type {
 	Tag,
 } from '@gitkraken/gitkraken-components';
 import type { CancellationToken } from 'vscode';
-import type { GitBranch } from './branch';
-import type { GitStashCommit } from './commit';
-import type { GitRemote } from './remote';
-import type { GitWorktree } from './worktree';
+import type { GitBranch } from './branch.js';
+import type { GitStashCommit } from './commit.js';
+import type { GitRemote } from './remote.js';
+import type { GitWorktree } from './worktree.js';
 
 export type GitGraphHostingServiceType = HostingServiceType;
 

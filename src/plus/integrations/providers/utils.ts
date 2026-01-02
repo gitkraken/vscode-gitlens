@@ -1,23 +1,23 @@
 import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
-import type { IntegrationIds } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations';
-import type { Container } from '../../../container';
-import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type { PullRequest } from '../../../git/models/pullRequest';
-import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../../git/models/resourceDescriptor';
-import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../../../git/utils/resourceDescriptor.utils';
-import { Logger } from '../../../system/logger';
-import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
-import { isCloudGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils';
-import type { AzureProjectInputDescriptor } from './azure/models';
-import type { GitConfigEntityIdentifier } from './models';
-import { isGitHubDotCom, isGitLabDotCom } from './models';
+} from '../../../constants.integrations.js';
+import type { Container } from '../../../container.js';
+import type { Issue, IssueShape } from '../../../git/models/issue.js';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest.js';
+import type { PullRequest } from '../../../git/models/pullRequest.js';
+import type { IssueResourceDescriptor, RepositoryDescriptor } from '../../../git/models/resourceDescriptor.js';
+import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../../../git/utils/resourceDescriptor.utils.js';
+import { Logger } from '../../../system/logger.js';
+import type { LaunchpadItem } from '../../launchpad/launchpadProvider.js';
+import { isCloudGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils.js';
+import type { AzureProjectInputDescriptor } from './azure/models.js';
+import type { GitConfigEntityIdentifier } from './models.js';
+import { isGitHubDotCom, isGitLabDotCom } from './models.js';
 
 function isLaunchpadItem(item: IssueOrPullRequest | LaunchpadItem): item is LaunchpadItem {
 	return (item as LaunchpadItem).uuid !== undefined;

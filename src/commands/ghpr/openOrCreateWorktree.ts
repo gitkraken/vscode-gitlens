@@ -1,17 +1,17 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import type { Container } from '../../container';
-import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
-import type { GitBranchReference } from '../../git/models/reference';
-import type { GitRemote } from '../../git/models/remote';
-import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
-import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils';
-import { createReference } from '../../git/utils/reference.utils';
-import { command } from '../../system/-webview/command';
-import { Logger } from '../../system/logger';
-import { waitUntilNextTick } from '../../system/promise';
-import { GlCommandBase } from '../commandBase';
+import type { Container } from '../../container.js';
+import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree.js';
+import type { GitBranchReference } from '../../git/models/reference.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser.js';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils.js';
+import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils.js';
+import { createReference } from '../../git/utils/reference.utils.js';
+import { command } from '../../system/-webview/command.js';
+import { Logger } from '../../system/logger.js';
+import { waitUntilNextTick } from '../../system/promise.js';
+import { GlCommandBase } from '../commandBase.js';
 
 interface GHPRPullRequestNode {
 	readonly pullRequestModel: GHPRPullRequest;

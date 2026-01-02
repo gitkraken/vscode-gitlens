@@ -1,11 +1,11 @@
-import type { Container } from '../container';
-import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
-import type { AssociateIssueWithBranchCommandArgs, StartWorkCommandArgs } from '../plus/startWork/startWork';
-import { command } from '../system/-webview/command';
-import type { ChangeBranchMergeTargetCommandArgs } from './changeBranchMergeTarget';
-import type { CommandContext } from './commandContext';
-import type { QuickWizardCommandArgsWithCompletion } from './quickWizard.base';
-import { QuickWizardCommandBase } from './quickWizard.base';
+import type { Container } from '../container.js';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
+import type { AssociateIssueWithBranchCommandArgs, StartWorkCommandArgs } from '../plus/startWork/startWork.js';
+import { command } from '../system/-webview/command.js';
+import type { ChangeBranchMergeTargetCommandArgs } from './changeBranchMergeTarget.js';
+import type { CommandContext } from './commandContext.js';
+import type { QuickWizardCommandArgsWithCompletion } from './quickWizard.base.js';
+import { QuickWizardCommandBase } from './quickWizard.base.js';
 
 export type QuickWizardCommandArgs =
 	| LaunchpadCommandArgs

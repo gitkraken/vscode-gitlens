@@ -1,21 +1,21 @@
 import { QuickInputButtons, window } from 'vscode';
-import type { Container } from '../../container';
-import { TagError } from '../../git/errors';
-import type { GitReference, GitTagReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
+import type { Container } from '../../container.js';
+import { TagError } from '../../git/errors.js';
+import type { GitReference, GitTagReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isRevisionReference,
 	isTagReference,
-} from '../../git/utils/reference.utils';
-import { showGitErrorMessage } from '../../messages';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { Logger } from '../../system/logger';
-import { pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+} from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { Logger } from '../../system/logger.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -24,7 +24,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canInputStepContinue,
 	canPickStepContinue,
@@ -35,14 +35,14 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputTagNameStep,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickTagsStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

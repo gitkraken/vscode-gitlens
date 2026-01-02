@@ -1,11 +1,11 @@
-import type { TelemetryEvents } from '../../../../constants.telemetry';
-import { AIError, AIErrorReason, CancellationError } from '../../../../errors';
-import { configuration } from '../../../../system/-webview/configuration';
-import { filterMap } from '../../../../system/array';
-import { sum } from '../../../../system/iterable';
-import { getPossessiveForm, interpolate } from '../../../../system/string';
-import type { AIModel } from '../../models/model';
-import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from '../../models/promptTemplates';
+import type { TelemetryEvents } from '../../../../constants.telemetry.js';
+import { AIError, AIErrorReason, CancellationError } from '../../../../errors.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { filterMap } from '../../../../system/array.js';
+import { sum } from '../../../../system/iterable.js';
+import { getPossessiveForm, interpolate } from '../../../../system/string.js';
+import type { AIModel } from '../../models/model.js';
+import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from '../../models/promptTemplates.js';
 import {
 	explainChanges,
 	generateChangelog,
@@ -16,8 +16,8 @@ import {
 	generateCreatePullRequest,
 	generateSearchQuery,
 	generateStashMessage,
-} from '../../prompts';
-import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
+} from '../../prompts.js';
+import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils.js';
 
 export function getLocalPromptTemplate<T extends PromptTemplateType>(
 	template: T,

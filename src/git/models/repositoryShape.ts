@@ -1,5 +1,5 @@
-import type { SupportedCloudIntegrationIds } from '../../constants.integrations';
-import type { RemoteProviderSupportedFeatures } from '../remotes/remoteProvider';
+import type { SupportedCloudIntegrationIds } from '../../constants.integrations.js';
+import type { RemoteProviderSupportedFeatures } from '../remotes/remoteProvider.js';
 
 export interface RepositoryShape {
 	id: string;

@@ -1,12 +1,12 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import { window } from 'vscode';
-import { uuid } from '@env/crypto';
-import { ollamaProviderDescriptor as provider } from '../../constants.ai';
-import { configuration } from '../../system/-webview/configuration';
-import type { AIActionType, AIModel } from './models/model';
-import type { AIChatMessage, AIProviderResponse } from './models/provider';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { ensureAccount, ensureOrgConfiguredUrl, getOrgAIProviderOfType } from './utils/-webview/ai.utils';
+import { uuid } from '@env/crypto.js';
+import { ollamaProviderDescriptor as provider } from '../../constants.ai.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import type { AIChatMessage, AIProviderResponse } from './models/provider.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
+import { ensureAccount, ensureOrgConfiguredUrl, getOrgAIProviderOfType } from './utils/-webview/ai.utils.js';
 
 type OllamaModel = AIModel<typeof provider.id>;
 

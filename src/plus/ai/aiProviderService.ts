@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
 import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
-import { fetch } from '@env/fetch';
-import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai';
+import { fetch } from '@env/fetch.js';
+import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai.js';
 import {
 	anthropicProviderDescriptor,
 	azureProviderDescriptor,
@@ -17,9 +17,9 @@ import {
 	openRouterProviderDescriptor,
 	vscodeProviderDescriptor,
 	xAIProviderDescriptor,
-} from '../../constants.ai';
-import type { Source, TelemetryEvents } from '../../constants.telemetry';
-import type { Container } from '../../container';
+} from '../../constants.ai.js';
+import type { Source, TelemetryEvents } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
 import {
 	AIError,
 	AIErrorReason,
@@ -27,33 +27,37 @@ import {
 	AuthenticationRequiredError,
 	CancellationError,
 	isCancellationError,
-} from '../../errors';
-import type { AIFeatures } from '../../features';
-import { isAdvancedFeature } from '../../features';
-import type { Repository } from '../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker';
-import { Directive, isDirective } from '../../quickpicks/items/directive';
-import { configuration } from '../../system/-webview/configuration';
-import type { Storage } from '../../system/-webview/storage';
-import { log } from '../../system/decorators/log';
-import { debounce } from '../../system/function/debounce';
-import { map } from '../../system/iterable';
-import type { Lazy } from '../../system/lazy';
-import { lazy } from '../../system/lazy';
-import { Logger } from '../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import type { Deferred } from '../../system/promise';
-import { getSettledValue, getSettledValues } from '../../system/promise';
-import { PromiseCache } from '../../system/promiseCache';
-import type { Serialized } from '../../system/serialize';
-import type { ServerConnection } from '../gk/serverConnection';
-import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
-import { isAiAllAccessPromotionActive } from '../gk/utils/-webview/promo.utils';
-import { compareSubscriptionPlans, getSubscriptionPlanName, isSubscriptionPaid } from '../gk/utils/subscription.utils';
-import { AIActions } from './aiActions';
-import type { AIService } from './aiService';
-import { GitKrakenProvider } from './gitkrakenProvider';
+} from '../../errors.js';
+import type { AIFeatures } from '../../features.js';
+import { isAdvancedFeature } from '../../features.js';
+import type { Repository } from '../../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker.js';
+import { Directive, isDirective } from '../../quickpicks/items/directive.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import type { Storage } from '../../system/-webview/storage.js';
+import { log } from '../../system/decorators/log.js';
+import { debounce } from '../../system/function/debounce.js';
+import { map } from '../../system/iterable.js';
+import type { Lazy } from '../../system/lazy.js';
+import { lazy } from '../../system/lazy.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope.js';
+import type { Deferred } from '../../system/promise.js';
+import { getSettledValue, getSettledValues } from '../../system/promise.js';
+import { PromiseCache } from '../../system/promiseCache.js';
+import type { Serialized } from '../../system/serialize.js';
+import type { ServerConnection } from '../gk/serverConnection.js';
+import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils.js';
+import { isAiAllAccessPromotionActive } from '../gk/utils/-webview/promo.utils.js';
+import {
+	compareSubscriptionPlans,
+	getSubscriptionPlanName,
+	isSubscriptionPaid,
+} from '../gk/utils/subscription.utils.js';
+import { AIActions } from './aiActions.js';
+import type { AIService } from './aiService.js';
+import { GitKrakenProvider } from './gitkrakenProvider.js';
 import type {
 	AIActionType,
 	AIModel,
@@ -61,16 +65,16 @@ import type {
 	AIProviderConstructor,
 	AIProviderDescriptorWithConfiguration,
 	AIProviderDescriptorWithType,
-} from './models/model';
+} from './models/model.js';
 import type {
 	PromptTemplate,
 	PromptTemplateContext,
 	PromptTemplateId,
 	PromptTemplateType,
-} from './models/promptTemplates';
-import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from './models/provider';
-import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils';
-import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
+} from './models/promptTemplates.js';
+import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from './models/provider.js';
+import { ensureAccess, getOrgAIConfig, isProviderEnabledByOrg } from './utils/-webview/ai.utils.js';
+import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils.js';
 
 export interface AIResponse<T = void> extends AIProviderResponse<T> {
 	readonly type: AIActionType;
@@ -98,7 +102,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...gitKrakenProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './gitkrakenProvider')).GitKrakenProvider,
+				async () => (await import(/* webpackChunkName: "ai" */ './gitkrakenProvider.js')).GitKrakenProvider,
 			),
 		},
 	],
@@ -106,7 +110,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'vscode',
 		{
 			...vscodeProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './vscodeProvider')).VSCodeAIProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './vscodeProvider.js')).VSCodeAIProvider),
 		},
 	],
 	[
@@ -114,7 +118,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...anthropicProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './anthropicProvider')).AnthropicProvider,
+				async () => (await import(/* webpackChunkName: "ai" */ './anthropicProvider.js')).AnthropicProvider,
 			),
 		},
 	],
@@ -122,28 +126,28 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'gemini',
 		{
 			...geminiProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './geminiProvider')).GeminiProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './geminiProvider.js')).GeminiProvider),
 		},
 	],
 	[
 		'openai',
 		{
 			...openAIProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider.js')).OpenAIProvider),
 		},
 	],
 	[
 		'azure',
 		{
 			...azureProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './azureProvider')).AzureProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './azureProvider.js')).AzureProvider),
 		},
 	],
 	[
 		'mistral',
 		{
 			...mistralProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './mistralProvider')).MistralProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './mistralProvider.js')).MistralProvider),
 		},
 	],
 	[
@@ -152,7 +156,8 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...openAICompatibleProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ './openAICompatibleProvider')).OpenAICompatibleProvider,
+					(await import(/* webpackChunkName: "ai" */ './openAICompatibleProvider.js'))
+						.OpenAICompatibleProvider,
 			),
 		},
 	],
@@ -160,7 +165,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'ollama',
 		{
 			...ollamaProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './ollamaProvider')).OllamaProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './ollamaProvider.js')).OllamaProvider),
 		},
 	],
 	[
@@ -168,7 +173,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...openRouterProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './openRouterProvider')).OpenRouterProvider,
+				async () => (await import(/* webpackChunkName: "ai" */ './openRouterProvider.js')).OpenRouterProvider,
 			),
 		},
 	],
@@ -177,7 +182,7 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...huggingFaceProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider')).HuggingFaceProvider,
+				async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider.js')).HuggingFaceProvider,
 			),
 		},
 	],
@@ -186,7 +191,8 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...githubProviderDescriptor,
 			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './githubModelsProvider')).GitHubModelsProvider,
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ './githubModelsProvider.js')).GitHubModelsProvider,
 			),
 		},
 	],
@@ -194,14 +200,16 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'deepseek',
 		{
 			...deepSeekProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider')).DeepSeekProvider),
+			type: lazy(
+				async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider.js')).DeepSeekProvider,
+			),
 		},
 	],
 	[
 		'xai',
 		{
 			...xAIProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider')).XAIProvider),
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider.js')).XAIProvider),
 		},
 	],
 ]);

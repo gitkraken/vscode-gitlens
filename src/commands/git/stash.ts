@@ -1,27 +1,28 @@
 import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
-import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
-import { revealStash, showStashInDetailsView } from '../../git/actions/stash';
-import { StashApplyError, StashPushError } from '../../git/errors';
-import type { GitStashCommit } from '../../git/models/commit';
-import type { GitStashReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { showGitErrorMessage } from '../../messages';
-import type { AIModel } from '../../plus/ai/models/model';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { configuration } from '../../system/-webview/configuration';
-import { getContext } from '../../system/-webview/context';
-import { formatPath } from '../../system/-webview/formatPath';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import { defer } from '../../system/promise';
-import { pad, pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GlyphChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { revealStash, showStashInDetailsView } from '../../git/actions/stash.js';
+import { StashApplyError, StashPushError } from '../../git/errors.js';
+import type { GitStashCommit } from '../../git/models/commit.js';
+import type { GitStashReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { AIModel } from '../../plus/ai/models/model.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
+import { formatPath } from '../../system/-webview/formatPath.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import { defer } from '../../system/promise.js';
+import { pad, pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -30,7 +31,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canInputStepContinue,
 	canPickStepContinue,
@@ -40,10 +41,9 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
-import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons';
-import { appendReposToTitle, pickRepositoryStep, pickStashesStep, pickStashStep } from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.js';
+import { appendReposToTitle, pickRepositoryStep, pickStashesStep, pickStashStep } from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];

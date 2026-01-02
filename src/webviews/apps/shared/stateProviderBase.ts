@@ -1,13 +1,13 @@
 import type { Context, ContextProvider, ContextType } from '@lit/context';
-import { fromBase64ToString } from '@env/base64';
-import type { CustomEditorIds, WebviewIds } from '../../../constants.views';
-import { isPromise } from '../../../system/promise';
-import type { IpcMessage, WebviewState } from '../../protocol';
-import { WebviewReadyRequest } from '../../protocol';
-import type { ReactiveElementHost } from './appHost';
-import type { LoggerContext } from './contexts/logger';
-import type { Disposable } from './events';
-import type { HostIpc } from './ipc';
+import { fromBase64ToString } from '@env/base64.js';
+import type { CustomEditorIds, WebviewIds } from '../../../constants.views.js';
+import { isPromise } from '../../../system/promise.js';
+import type { IpcMessage, WebviewState } from '../../protocol.js';
+import { WebviewReadyRequest } from '../../protocol.js';
+import type { ReactiveElementHost } from './appHost.js';
+import type { LoggerContext } from './contexts/logger.js';
+import type { Disposable } from './events.js';
+import type { HostIpc } from './ipc.js';
 
 /**
  * Base class for webview state providers that handles bootstrap initialization.

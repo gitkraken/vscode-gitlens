@@ -1,26 +1,26 @@
 import ProviderApis from '@gitkraken/provider-apis';
 import { version as codeVersion, env } from 'vscode';
-import { base64 } from '@env/base64';
-import type { Response as FetchResponse } from '@env/fetch';
-import { fetch as _fetch, getProxyAgent } from '@env/fetch';
-import { getPlatform } from '@env/platform';
-import type { IntegrationIds } from '../../../constants.integrations';
+import { base64 } from '@env/base64.js';
+import type { Response as FetchResponse } from '@env/fetch.js';
+import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
+import { getPlatform } from '@env/platform.js';
+import type { IntegrationIds } from '../../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations';
-import type { Container } from '../../../container';
+} from '../../../constants.integrations.js';
+import type { Container } from '../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
-} from '../../../errors';
-import type { PagedResult } from '../../../git/gitProvider';
-import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
+} from '../../../errors.js';
+import type { PagedResult } from '../../../git/gitProvider.js';
+import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest.js';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
@@ -65,8 +65,8 @@ import type {
 	ProviderRequestResponse,
 	Providers,
 	PullRequestFilter,
-} from './models';
-import { providersMetadata } from './models';
+} from './models.js';
+import { providersMetadata } from './models.js';
 
 export class ProvidersApi {
 	private readonly providers: Providers;

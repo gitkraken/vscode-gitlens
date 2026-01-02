@@ -1,13 +1,13 @@
 import type { Event } from 'vscode';
 import { Disposable, env, EventEmitter } from 'vscode';
-import { SubscriptionState } from '../constants.subscription';
-import type { TrackedUsageKeys } from '../constants.telemetry';
-import type { WalkthroughContextKeys } from '../constants.walkthroughs';
-import type { Container } from '../container';
-import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
-import { setContext } from '../system/-webview/context';
-import { wait } from '../system/promise';
-import type { UsageChangeEvent } from './usageTracker';
+import { SubscriptionState } from '../constants.subscription.js';
+import type { TrackedUsageKeys } from '../constants.telemetry.js';
+import type { WalkthroughContextKeys } from '../constants.walkthroughs.js';
+import type { Container } from '../container.js';
+import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService.js';
+import { setContext } from '../system/-webview/context.js';
+import { wait } from '../system/promise.js';
+import type { UsageChangeEvent } from './usageTracker.js';
 
 type WalkthroughUsage = {
 	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;

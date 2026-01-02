@@ -1,5 +1,5 @@
-import type { GitRevisionRange, GitRevisionRangeNotation } from '../models/revision';
-import { deletedOrMissing, uncommitted, uncommittedStaged } from '../models/revision';
+import type { GitRevisionRange, GitRevisionRangeNotation } from '../models/revision.js';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '../models/revision.js';
 
 const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)?$/;
 const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)$/;

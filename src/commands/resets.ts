@@ -1,12 +1,12 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
-import { resetAvatarCache } from '../avatars';
-import type { Container } from '../container';
-import type { QuickPickItemOfT } from '../quickpicks/items/common';
-import { createQuickPickSeparator } from '../quickpicks/items/common';
-import { command } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { GlCommandBase } from './commandBase';
+import { resetAvatarCache } from '../avatars.js';
+import type { Container } from '../container.js';
+import type { QuickPickItemOfT } from '../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../quickpicks/items/common.js';
+import { command } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { GlCommandBase } from './commandBase.js';
 
 const resetTypes = [
 	'ai',

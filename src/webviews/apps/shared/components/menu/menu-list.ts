@@ -1,7 +1,7 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { elementBase } from '../styles/lit/base.css';
+import { elementBase } from '../styles/lit/base.css.js';
 
 @customElement('menu-list')
 export class MenuList extends LitElement {

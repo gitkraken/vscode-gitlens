@@ -1,35 +1,35 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { CancellationToken, Disposable, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
-import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../../../constants.integrations';
-import { GitCloudHostIntegrationId } from '../../../constants.integrations';
-import type { Sources } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { AuthenticationError, CancellationError, RequestClientError } from '../../../errors';
-import type { Account } from '../../../git/models/author';
-import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
-import type { PullRequest } from '../../../git/models/pullRequest';
-import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor';
-import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../../messages';
-import { configuration } from '../../../system/-webview/configuration';
-import { gate } from '../../../system/decorators/gate';
-import { debug, log } from '../../../system/decorators/log';
-import { Logger } from '../../../system/logger';
-import type { LogScope } from '../../../system/logger.scope';
-import { getLogScope } from '../../../system/logger.scope';
-import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks.js';
+import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
+import type { Sources } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { AuthenticationError, CancellationError, RequestClientError } from '../../../errors.js';
+import type { Account } from '../../../git/models/author.js';
+import type { Issue, IssueShape } from '../../../git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest.js';
+import type { PullRequest } from '../../../git/models/pullRequest.js';
+import type { ResourceDescriptor } from '../../../git/models/resourceDescriptor.js';
+import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../../messages.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { gate } from '../../../system/decorators/gate.js';
+import { debug, log } from '../../../system/decorators/log.js';
+import { Logger } from '../../../system/logger.js';
+import type { LogScope } from '../../../system/logger.scope.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils.js';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
-} from '../authentication/integrationAuthenticationProvider';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { ProviderAuthenticationSession } from '../authentication/models';
-import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import type { ProvidersApi } from '../providers/providersApi';
-import type { GitHostIntegration } from './gitHostIntegration';
-import type { IssuesIntegration } from './issuesIntegration';
+} from '../authentication/integrationAuthenticationProvider.js';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { ProvidersApi } from '../providers/providersApi.js';
+import type { GitHostIntegration } from './gitHostIntegration.js';
+import type { IssuesIntegration } from './issuesIntegration.js';
 
 export type Integration = GitHostIntegration | IssuesIntegration;
 export type IntegrationById<T extends IntegrationIds> = T extends IssuesCloudHostIntegrationId

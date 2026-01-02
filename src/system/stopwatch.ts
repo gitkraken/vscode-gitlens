@@ -1,9 +1,9 @@
-import { hrtime } from '@env/hrtime';
-import type { LogProvider } from './logger';
-import { defaultLogProvider } from './logger';
-import type { LogLevel } from './logger.constants';
-import type { LogScope } from './logger.scope';
-import { getNewLogScope } from './logger.scope';
+import { hrtime } from '@env/hrtime.js';
+import type { LogLevel } from './logger.constants.js';
+import type { LogProvider } from './logger.js';
+import { defaultLogProvider } from './logger.js';
+import type { LogScope } from './logger.scope.js';
+import { getNewLogScope } from './logger.scope.js';
 
 (Symbol as any).dispose ??= Symbol('Symbol.dispose');
 (Symbol as any).asyncDispose ??= Symbol('Symbol.asyncDispose');

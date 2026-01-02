@@ -1,18 +1,18 @@
 import type { Command, Disposable, Uri } from 'vscode';
 import { commands, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../constants';
-import { unknownGitUri } from '../../git/gitUri';
-import type { Repository } from '../../git/models/repository';
-import { groupRepositories } from '../../git/utils/-webview/repository.utils';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { showRepositoriesPicker2 } from '../../quickpicks/repositoryPicker';
-import { configuration } from '../../system/-webview/configuration';
-import { getScopedCounter } from '../../system/counter';
-import { getSettledValue, isPromise } from '../../system/promise';
-import { compareSubstringIgnoreCase, equalsIgnoreCase, pluralize } from '../../system/string';
-import type { View } from '../viewBase';
-import type { PageableViewNode } from './abstract/viewNode';
-import { ContextValues, ViewNode } from './abstract/viewNode';
+import { GlyphChars } from '../../constants.js';
+import { unknownGitUri } from '../../git/gitUri.js';
+import type { Repository } from '../../git/models/repository.js';
+import { groupRepositories } from '../../git/utils/-webview/repository.utils.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import { showRepositoriesPicker2 } from '../../quickpicks/repositoryPicker.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getScopedCounter } from '../../system/counter.js';
+import { getSettledValue, isPromise } from '../../system/promise.js';
+import { compareSubstringIgnoreCase, equalsIgnoreCase, pluralize } from '../../system/string.js';
+import type { View } from '../viewBase.js';
+import type { PageableViewNode } from './abstract/viewNode.js';
+import { ContextValues, ViewNode } from './abstract/viewNode.js';
 
 type AllowedContextValues = ContextValues | `gitlens:views:${View['type']}`;
 

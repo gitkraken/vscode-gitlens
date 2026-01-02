@@ -1,12 +1,12 @@
-import type { Container } from '../../container';
-import type { GitContributor } from '../../git/models/contributor';
-import type { Repository } from '../../git/models/repository';
-import { executeCoreCommand } from '../../system/-webview/command';
-import { normalizePath } from '../../system/path';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { pickContributorsStep, pickRepositoryStep } from '../quickCommand.steps';
+import type { Container } from '../../container.js';
+import type { GitContributor } from '../../git/models/contributor.js';
+import type { Repository } from '../../git/models/repository.js';
+import { executeCoreCommand } from '../../system/-webview/command.js';
+import { normalizePath } from '../../system/path.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type { PartialStepState, StepGenerator, StepState } from '../quickCommand.js';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { pickContributorsStep, pickRepositoryStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

@@ -1,10 +1,10 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
-import type { Git, GitResult } from '../../git';
-import type { LocalGitProvider } from '../../localGitProvider';
-import { BranchesGitSubProvider } from '../branches';
+import type { Container } from '../../../../../container.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import type { Git, GitResult } from '../../git.js';
+import type { LocalGitProvider } from '../../localGitProvider.js';
+import { BranchesGitSubProvider } from '../branches.js';
 
 suite('BranchesGitSubProvider Test Suite', () => {
 	let sandbox: sinon.SinonSandbox;

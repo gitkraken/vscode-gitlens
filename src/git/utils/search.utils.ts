@@ -1,5 +1,5 @@
-import type { SearchQuery } from '../../constants.search';
-import type { GitCommitSearchContext } from '../search';
+import type { SearchQuery } from '../../constants.search.js';
+import type { GitCommitSearchContext } from '../search.js';
 
 export function areSearchContextsEqual(
 	a: GitCommitSearchContext | undefined,

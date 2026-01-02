@@ -6,25 +6,25 @@ import type {
 	WebviewPanel,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { uuid } from '@env/crypto';
-import type { Container } from '../../container';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { uuid } from '@env/crypto.js';
+import type { Container } from '../../container.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import {
 	getRepoUriFromRebaseTodo,
 	isRebaseTodoEditorEnabled,
 	openRebaseEditor,
 	reopenRebaseTodoEditor,
 	setRebaseTodoEditorEnablement,
-} from '../../git/utils/-webview/rebase.utils';
-import { configuration } from '../../system/-webview/configuration';
-import { setContext } from '../../system/-webview/context';
-import { debug, log } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar';
-import { WebviewController } from '../webviewController';
-import type { CustomEditorDescriptor } from '../webviewDescriptors';
-import type { State } from './protocol';
+} from '../../git/utils/-webview/rebase.utils.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { setContext } from '../../system/-webview/context.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
+import { WebviewController } from '../webviewController.js';
+import type { CustomEditorDescriptor } from '../webviewDescriptors.js';
+import type { State } from './protocol.js';
 
 const descriptor: CustomEditorDescriptor = {
 	id: 'gitlens.rebase',
@@ -160,7 +160,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			panel,
 			async (container, host) => {
 				const { RebaseWebviewProvider } = await import(
-					/* webpackChunkName: "webview-rebase" */ './rebaseWebviewProvider'
+					/* webpackChunkName: "webview-rebase" */ './rebaseWebviewProvider.js'
 				);
 				return new RebaseWebviewProvider(container, host, document, svc.path);
 			},

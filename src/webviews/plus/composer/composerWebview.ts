@@ -1,27 +1,27 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
-import { md5, sha256 } from '@env/crypto';
-import type { ContextKeys } from '../../../constants.context';
-import type { ComposerTelemetryContext, Source, Sources, WebviewTelemetryEvents } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
+import { md5, sha256 } from '@env/crypto.js';
+import type { ContextKeys } from '../../../constants.context.js';
+import type { ComposerTelemetryContext, Source, Sources, WebviewTelemetryEvents } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
 import type {
 	Repository,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { rootSha } from '../../../git/models/revision';
-import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils';
-import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils';
-import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService';
-import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import { executeCoreCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { getContext, onDidChangeContext } from '../../../system/-webview/context';
-import { getSettledValue } from '../../../system/promise';
-import { PromiseCache } from '../../../system/promiseCache';
-import type { IpcMessage } from '../../protocol';
-import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
+} from '../../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { rootSha } from '../../../git/models/revision.js';
+import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
+import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../../../plus/ai/aiFeedbackUtils.js';
+import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService.js';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
+import { executeCoreCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
+import { getSettledValue } from '../../../system/promise.js';
+import { PromiseCache } from '../../../system/promiseCache.js';
+import type { IpcMessage } from '../../protocol.js';
+import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
 import type {
 	AIFeedbackParams,
 	ComposerBaseCommit,
@@ -35,7 +35,7 @@ import type {
 	OnAddHunksToCommitParams,
 	ReloadComposerParams,
 	State,
-} from './protocol';
+} from './protocol.js';
 import {
 	AdvanceOnboardingCommand,
 	AIFeedbackHelpfulCommand,
@@ -76,9 +76,9 @@ import {
 	OnUndoCommand,
 	OpenOnboardingCommand,
 	ReloadComposerCommand,
-} from './protocol';
-import type { ComposerWebviewShowingArgs } from './registration';
-import type { ComposerDiffs } from './utils/composer.utils';
+} from './protocol.js';
+import type { ComposerWebviewShowingArgs } from './registration.js';
+import type { ComposerDiffs } from './utils/composer.utils.js';
 import {
 	calculateCombinedDiffBetweenCommits,
 	convertToComposerDiffInfo,
@@ -91,7 +91,7 @@ import {
 	getComposerDiffs,
 	validateResultingDiff,
 	validateSafetyState,
-} from './utils/composer.utils';
+} from './utils/composer.utils.js';
 
 export class ComposerWebviewProvider implements WebviewProvider<State, State, ComposerWebviewShowingArgs> {
 	private readonly _disposable: Disposable;

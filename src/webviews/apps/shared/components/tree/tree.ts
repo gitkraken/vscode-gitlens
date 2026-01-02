@@ -1,8 +1,8 @@
 import { html, LitElement } from 'lit';
 import { customElement, property, queryAssignedElements } from 'lit/decorators.js';
-import type { TreeItemSelectionDetail } from './base';
-import type { GlTreeItem } from './tree-item';
-import { treeStyles } from './tree.css';
+import type { TreeItemSelectionDetail } from './base.js';
+import type { GlTreeItem } from './tree-item.js';
+import { treeStyles } from './tree.css.js';
 
 @customElement('gl-tree')
 export class GlTree extends LitElement {

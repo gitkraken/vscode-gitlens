@@ -1,16 +1,16 @@
 import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
-import { uuid } from '@env/crypto';
-import type { Response } from '@env/fetch';
-import type { TrackingContext } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { debug } from '../../system/decorators/log';
-import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
-import { promisifyDeferred } from '../../system/event';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from './serverConnection';
+import { uuid } from '@env/crypto.js';
+import type { Response } from '@env/fetch.js';
+import type { TrackingContext } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { debug } from '../../system/decorators/log.js';
+import type { DeferredEvent, DeferredEventExecutor } from '../../system/event.js';
+import { promisifyDeferred } from '../../system/event.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import type { ServerConnection } from './serverConnection.js';
 
 export const LoginUriPathPrefix = 'login';
 export const AuthenticationUriPathPrefix = 'did-authenticate';

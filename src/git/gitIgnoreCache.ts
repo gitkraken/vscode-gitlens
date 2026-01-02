@@ -2,10 +2,10 @@ import type { Ignore } from 'ignore';
 import ignore from 'ignore';
 import type { Uri } from 'vscode';
 import { Uri as VsCodeUri, workspace } from 'vscode';
-import type { Container } from '../container';
-import { relative } from '../system/-webview/path';
-import { Logger } from '../system/logger';
-import { isAbsolute, normalizePath } from '../system/path';
+import type { Container } from '../container.js';
+import { relative } from '../system/-webview/path.js';
+import { Logger } from '../system/logger.js';
+import { isAbsolute, normalizePath } from '../system/path.js';
 
 export type GlobalExcludesPathProvider = () => Promise<string | undefined>;
 

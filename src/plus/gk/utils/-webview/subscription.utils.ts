@@ -1,4 +1,4 @@
-import { configuration } from '../../../../system/-webview/configuration';
+import { configuration } from '../../../../system/-webview/configuration.js';
 
 export function getConfiguredActiveOrganizationId(): string | undefined {
 	return (

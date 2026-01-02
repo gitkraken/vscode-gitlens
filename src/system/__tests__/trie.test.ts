@@ -1,10 +1,10 @@
 import * as assert from 'assert';
 import { basename } from 'path';
 import { Uri } from 'vscode';
-import { isLinux } from '../../env/node/platform';
-import { normalizeRepoUri } from '../../repositories';
-import type { UriEntry } from '../trie';
-import { PathEntryTrie, UriEntryTrie, UriTrie } from '../trie';
+import { isLinux } from '../../env/node/platform.js';
+import { normalizeRepoUri } from '../../repositories.js';
+import type { UriEntry } from '../trie.js';
+import { PathEntryTrie, UriEntryTrie, UriTrie } from '../trie.js';
 import paths from './__mock__/paths.json';
 
 suite.skip('PathEntryTrie Test Suite', () => {

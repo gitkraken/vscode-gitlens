@@ -3,17 +3,17 @@ import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Disposable } from 'vscode';
-import { isMac } from '@env/platform';
-import type { SearchQuery } from '../../../../../constants.search';
-import { pluralize } from '../../../../../system/string';
-import type { AppState } from '../../../plus/graph/context';
-import { DOM } from '../../dom';
-import { GlElement } from '../element';
-import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input';
-import '../button';
-import '../code-icon';
-import '../overlays/tooltip';
-import './search-input';
+import { isMac } from '@env/platform.js';
+import type { SearchQuery } from '../../../../../constants.search.js';
+import { pluralize } from '../../../../../system/string.js';
+import type { AppState } from '../../../plus/graph/context.js';
+import { DOM } from '../../dom.js';
+import { GlElement } from '../element.js';
+import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input.js';
+import '../button.js';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
+import './search-input.js';
 
 export { SearchModeChangeEventDetail, SearchNavigationEventDetail };
 

@@ -1,21 +1,21 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { ViewColumn } from 'vscode';
-import { GlyphChars } from '../constants';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { DiffRange } from '../git/gitProvider';
-import type { GitCommit } from '../git/models/commit';
-import { isCommit } from '../git/models/commit';
-import { deletedOrMissing } from '../git/models/revision';
-import { isShaWithParentSuffix, isUncommitted, shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { diffRangeToSelection, openDiffEditor } from '../system/-webview/vscode/editors';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { basename } from '../system/path';
-import { getSettledValue } from '../system/promise';
-import { GlCommandBase } from './commandBase';
+import { GlyphChars } from '../constants.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { DiffRange } from '../git/gitProvider.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { isCommit } from '../git/models/commit.js';
+import { deletedOrMissing } from '../git/models/revision.js';
+import { isShaWithParentSuffix, isUncommitted, shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { diffRangeToSelection, openDiffEditor } from '../system/-webview/vscode/editors.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { basename } from '../system/path.js';
+import { getSettledValue } from '../system/promise.js';
+import { GlCommandBase } from './commandBase.js';
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;

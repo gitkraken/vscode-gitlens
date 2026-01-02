@@ -1,18 +1,18 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import type { GitBranch } from '../../git/models/branch';
-import type { Repository } from '../../git/models/repository';
-import { getOpenedWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
-import { getLocalBranchUpstreamNames } from '../../git/utils/branch.utils';
-import { makeHierarchical } from '../../system/array';
-import { PageableResult } from '../../system/paging';
-import type { ViewsWithBranchesNode } from '../viewBase';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { BranchNode } from './branchNode';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { MessageNode } from './common';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getOpenedWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
+import { getLocalBranchUpstreamNames } from '../../git/utils/branch.utils.js';
+import { makeHierarchical } from '../../system/array.js';
+import { PageableResult } from '../../system/paging.js';
+import type { ViewsWithBranchesNode } from '../viewBase.js';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { BranchNode } from './branchNode.js';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode.js';
+import { MessageNode } from './common.js';
 
 export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWithBranchesNode> {
 	constructor(

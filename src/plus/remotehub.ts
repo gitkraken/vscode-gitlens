@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import { extensions } from 'vscode';
-import { ExtensionNotFoundError } from '../errors';
-import { Logger } from '../system/logger';
+import { ExtensionNotFoundError } from '../errors.js';
+import { Logger } from '../system/logger.js';
 
 export async function getRemoteHubApi(): Promise<RemoteHubApi>;
 // eslint-disable-next-line @typescript-eslint/unified-signatures

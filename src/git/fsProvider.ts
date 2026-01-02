@@ -1,16 +1,16 @@
 import type { Event, FileChangeEvent, FileStat, FileSystemProvider, Uri } from 'vscode';
 import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from 'vscode';
-import { isLinux } from '@env/platform';
-import { Schemes } from '../constants';
-import type { Container } from '../container';
-import { relative } from '../system/-webview/path';
-import { debug } from '../system/decorators/log';
-import { map } from '../system/iterable';
-import { normalizePath } from '../system/path';
-import { TernarySearchTree } from '../system/searchTree';
-import { GitUri, isGitUri } from './gitUri';
-import { deletedOrMissing } from './models/revision';
-import type { GitTreeEntry } from './models/tree';
+import { isLinux } from '@env/platform.js';
+import { Schemes } from '../constants.js';
+import type { Container } from '../container.js';
+import { relative } from '../system/-webview/path.js';
+import { debug } from '../system/decorators/log.js';
+import { map } from '../system/iterable.js';
+import { normalizePath } from '../system/path.js';
+import { TernarySearchTree } from '../system/searchTree.js';
+import { GitUri, isGitUri } from './gitUri.js';
+import { deletedOrMissing } from './models/revision.js';
+import type { GitTreeEntry } from './models/tree.js';
 
 const emptyArray = Object.freeze(new Uint8Array(0));
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });

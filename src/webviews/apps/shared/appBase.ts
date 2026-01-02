@@ -1,8 +1,8 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
-import type { CustomEditorIds, WebviewIds } from '../../../constants.views';
-import { debounce } from '../../../system/function/debounce';
-import type { LogScope } from '../../../system/logger.scope';
+import type { CustomEditorIds, WebviewIds } from '../../../constants.views.js';
+import { debounce } from '../../../system/function/debounce.js';
+import type { LogScope } from '../../../system/logger.scope.js';
 import type {
 	IpcCallParamsType,
 	IpcCallResponseParamsType,
@@ -11,26 +11,26 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 	WebviewState,
-} from '../../protocol';
+} from '../../protocol.js';
 import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	WebviewFocusChangedCommand,
 	WebviewReadyRequest,
-} from '../../protocol';
-import { ipcContext } from './contexts/ipc';
-import { loggerContext, LoggerContext } from './contexts/logger';
-import { PromosContext, promosContext } from './contexts/promos';
-import { telemetryContext, TelemetryContext } from './contexts/telemetry';
-import type { WebviewContext } from './contexts/webview';
-import { webviewContext } from './contexts/webview';
-import { DOM } from './dom';
-import type { Disposable } from './events';
-import type { HostIpcApi } from './ipc';
-import { getHostIpcApi, HostIpc } from './ipc';
-import { telemetryEventName } from './telemetry';
-import type { ThemeChangeEvent } from './theme';
-import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
+} from '../../protocol.js';
+import { ipcContext } from './contexts/ipc.js';
+import { loggerContext, LoggerContext } from './contexts/logger.js';
+import { PromosContext, promosContext } from './contexts/promos.js';
+import { telemetryContext, TelemetryContext } from './contexts/telemetry.js';
+import type { WebviewContext } from './contexts/webview.js';
+import { webviewContext } from './contexts/webview.js';
+import { DOM } from './dom.js';
+import type { Disposable } from './events.js';
+import type { HostIpcApi } from './ipc.js';
+import { getHostIpcApi, HostIpc } from './ipc.js';
+import { telemetryEventName } from './telemetry.js';
+import type { ThemeChangeEvent } from './theme.js';
+import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme.js';
 
 export abstract class App<
 	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,

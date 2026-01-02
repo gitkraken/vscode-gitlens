@@ -1,16 +1,16 @@
 import type { Endpoints } from '@octokit/types';
-import { GitFileIndexStatus } from '../../../../git/models/fileStatus';
-import type { IssueLabel } from '../../../../git/models/issue';
-import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
-import type { PullRequestState } from '../../../../git/models/pullRequest';
+import { GitFileIndexStatus } from '../../../../git/models/fileStatus.js';
+import type { IssueLabel } from '../../../../git/models/issue.js';
+import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue.js';
+import type { PullRequestState } from '../../../../git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
-} from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
+} from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
 
 export interface GitHubBlame {
 	ranges: GitHubBlameRange[];

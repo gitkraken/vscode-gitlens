@@ -1,5 +1,5 @@
 import { isAbsolute as _isAbsolute, basename } from 'path';
-import { isLinux, isWindows } from '@env/platform';
+import { isLinux, isWindows } from '@env/platform.js';
 
 export { basename, dirname, extname, join as joinPaths } from 'path';
 

@@ -1,4 +1,4 @@
-import { once } from './function';
+import { once } from './function.js';
 
 export type UnifiedDisposable = { dispose: () => void } & Disposable;
 export type UnifiedAsyncDisposable = { dispose: () => Promise<void> } & AsyncDisposable;

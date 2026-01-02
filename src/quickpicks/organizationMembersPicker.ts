@@ -1,12 +1,12 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { getAvatarUri } from '../avatars';
-import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
-import type { OrganizationMember } from '../plus/gk/models/organization';
-import { debounce } from '../system/function/debounce';
-import { defer } from '../system/promise';
-import { sortCompare } from '../system/string';
-import type { QuickPickItemOfT } from './items/common';
+import { getAvatarUri } from '../avatars.js';
+import { ClearQuickInputButton } from '../commands/quickCommand.buttons.js';
+import type { OrganizationMember } from '../plus/gk/models/organization.js';
+import { debounce } from '../system/function/debounce.js';
+import { defer } from '../system/promise.js';
+import { sortCompare } from '../system/string.js';
+import type { QuickPickItemOfT } from './items/common.js';
 
 export async function showOrganizationMembersPicker(
 	title: string,

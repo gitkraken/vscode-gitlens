@@ -1,9 +1,9 @@
-import type { PullRequestRefs, PullRequestState } from '../../../../git/models/pullRequest';
-import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
-import type { Integration } from '../../models/integration';
-import type { ProviderPullRequest } from '../models';
-import { fromProviderPullRequest } from '../models';
+import type { PullRequestRefs, PullRequestState } from '../../../../git/models/pullRequest.js';
+import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
+import type { Integration } from '../../models/integration.js';
+import type { ProviderPullRequest } from '../models.js';
+import { fromProviderPullRequest } from '../models.js';
 
 export interface GitLabUser {
 	id: number;

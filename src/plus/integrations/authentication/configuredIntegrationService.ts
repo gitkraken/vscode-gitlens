@@ -1,19 +1,19 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { IntegrationIds } from '../../../constants.integrations';
-import { GitCloudHostIntegrationId } from '../../../constants.integrations';
+import type { IntegrationIds } from '../../../constants.integrations.js';
+import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type {
 	StoredConfiguredIntegrationDescriptor,
 	StoredIntegrationConfigurations,
-} from '../../../constants.storage';
-import type { Container } from '../../../container';
-import { debounce } from '../../../system/function/debounce';
-import { flatten } from '../../../system/iterable';
-import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
-import { providersMetadata } from '../providers/models';
-import { isGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
-import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models';
+} from '../../../constants.storage.js';
+import type { Container } from '../../../container.js';
+import { debounce } from '../../../system/function/debounce.js';
+import { flatten } from '../../../system/iterable.js';
+import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils.js';
+import { providersMetadata } from '../providers/models.js';
+import { isGitSelfManagedHostIntegrationId } from '../utils/-webview/integration.utils.js';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
+import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models.js';
 
 interface StoredSession {
 	id: string;

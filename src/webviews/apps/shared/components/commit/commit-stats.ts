@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../code-icon';
+import '../code-icon.js';
 
 const statToSymbol: readonly ['added' | 'modified' | 'removed', [string, string]][] = Object.freeze([
 	['added', ['+', 'add']],

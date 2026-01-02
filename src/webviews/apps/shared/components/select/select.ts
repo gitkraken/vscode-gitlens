@@ -2,11 +2,11 @@ import type SlSelect from '@shoelace-style/shoelace/dist/components/select/selec
 import { html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { selectStyles } from './select.css';
+import { selectStyles } from './select.css.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
-import '../code-icon';
+import '../code-icon.js';
 
 export const tagName = 'gl-select';
 

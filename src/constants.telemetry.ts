@@ -1,24 +1,24 @@
-import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
-import type { WalkthroughSteps } from './constants';
-import type { AIProviders } from './constants.ai';
-import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
-import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations';
-import type { SubscriptionState } from './constants.subscription';
+import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
+import type { AIProviders } from './constants.ai.js';
+import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations.js';
+import type { WalkthroughSteps } from './constants.js';
+import type { SubscriptionState } from './constants.subscription.js';
 import type {
 	CustomEditorTypes,
 	TreeViewTypes,
 	WebviewPanelTypes,
 	WebviewTypes,
 	WebviewViewTypes,
-} from './constants.views';
-import type { WalkthroughContextKeys } from './constants.walkthroughs';
-import type { FeaturePreviews, FeaturePreviewStatus } from './features';
-import type { GitContributionTiers } from './git/models/contributor';
-import type { AIActionType } from './plus/ai/models/model';
-import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription';
-import type { Flatten } from './system/object';
-import type { GraphColumnConfig } from './webviews/plus/graph/protocol';
-import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol';
+} from './constants.views.js';
+import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
+import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
+import type { GitContributionTiers } from './git/models/contributor.js';
+import type { AIActionType } from './plus/ai/models/model.js';
+import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
+import type { Flatten } from './system/object.js';
+import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
+import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
 
 export declare type AttributeValue =
 	| string

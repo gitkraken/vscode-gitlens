@@ -1,12 +1,12 @@
 import { Disposable, Uri, ViewColumn } from 'vscode';
-import type { Container } from '../../../container';
-import { registerCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { getScmResourceFolderUri, isScm, isScmResourceState } from '../../../system/-webview/scm';
-import { isViewFileNode, isViewNode } from '../../../views/nodes/utils/-webview/node.utils';
-import type { WebviewPanelsProxy, WebviewsController, WebviewViewProxy } from '../../webviewsController';
-import type { State, TimelineScope } from './protocol';
-import { isTimelineScope } from './utils/-webview/timeline.utils';
+import type { Container } from '../../../container.js';
+import { registerCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { getScmResourceFolderUri, isScm, isScmResourceState } from '../../../system/-webview/scm.js';
+import { isViewFileNode, isViewNode } from '../../../views/nodes/utils/-webview/node.utils.js';
+import type { WebviewPanelsProxy, WebviewsController, WebviewViewProxy } from '../../webviewsController.js';
+import type { State, TimelineScope } from './protocol.js';
+import { isTimelineScope } from './utils/-webview/timeline.utils.js';
 
 export type TimelineCommandArgs = TimelineScope;
 export type TimelineWebviewShowingArgs = [TimelineScope];
@@ -31,7 +31,7 @@ export function registerTimelineWebviewPanel(
 		},
 		async (container, host) => {
 			const { TimelineWebviewProvider } = await import(
-				/* webpackChunkName: "webview-timeline" */ './timelineWebview'
+				/* webpackChunkName: "webview-timeline" */ './timelineWebview.js'
 			);
 			return new TimelineWebviewProvider(container, host);
 		},
@@ -54,7 +54,7 @@ export function registerTimelineWebviewView(
 		},
 		async (container, host) => {
 			const { TimelineWebviewProvider } = await import(
-				/* webpackChunkName: "webview-timeline" */ './timelineWebview'
+				/* webpackChunkName: "webview-timeline" */ './timelineWebview.js'
 			);
 			return new TimelineWebviewProvider(container, host);
 		},

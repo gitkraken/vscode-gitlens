@@ -10,35 +10,35 @@ import type {
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { isWeb } from '@env/platform';
-import { resetAvatarCache } from '../avatars';
-import { GlyphChars, Schemes } from '../constants';
-import type { Container } from '../container';
-import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
-import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features';
-import { isAdvancedFeature, isProFeatureOnAllRepos } from '../features';
-import type { Subscription } from '../plus/gk/models/subscription';
-import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
-import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
-import type { RepoComparisonKey } from '../repositories';
-import { asRepoComparisonKey, Repositories } from '../repositories';
-import { registerCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { getBestPath } from '../system/-webview/path';
-import { joinUnique } from '../system/array';
-import { gate } from '../system/decorators/gate';
-import { debug, log } from '../system/decorators/log';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import { count, filter, first, flatMap, groupByMap, join, map, some, sum } from '../system/iterable';
-import { getLoggableName, Logger } from '../system/logger';
-import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope';
-import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
-import type { Deferred } from '../system/promise';
-import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise';
-import { VisitedPathsTrie } from '../system/trie';
-import { areUrisEqual } from '../system/uri';
+import { isWeb } from '@env/platform.js';
+import { resetAvatarCache } from '../avatars.js';
+import { GlyphChars, Schemes } from '../constants.js';
+import type { Container } from '../container.js';
+import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors.js';
+import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features.js';
+import { isAdvancedFeature, isProFeatureOnAllRepos } from '../features.js';
+import type { Subscription } from '../plus/gk/models/subscription.js';
+import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService.js';
+import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils.js';
+import type { RepoComparisonKey } from '../repositories.js';
+import { asRepoComparisonKey, Repositories } from '../repositories.js';
+import { registerCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { getBestPath } from '../system/-webview/path.js';
+import { joinUnique } from '../system/array.js';
+import { gate } from '../system/decorators/gate.js';
+import { debug, log } from '../system/decorators/log.js';
+import type { Deferrable } from '../system/function/debounce.js';
+import { debounce } from '../system/function/debounce.js';
+import { count, filter, first, flatMap, groupByMap, join, map, some, sum } from '../system/iterable.js';
+import { getLoggableName, Logger } from '../system/logger.js';
+import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope.js';
+import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path.js';
+import type { Deferred } from '../system/promise.js';
+import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise.js';
+import { VisitedPathsTrie } from '../system/trie.js';
+import { areUrisEqual } from '../system/uri.js';
 import type {
 	CachedGitTypes,
 	GitProvider,
@@ -47,19 +47,19 @@ import type {
 	RepositoryVisibility,
 	RepositoryVisibilityInfo,
 	ScmRepository,
-} from './gitProvider';
-import { GitRepositoryService } from './gitRepositoryService';
-import type { GitUri } from './gitUri';
-import type { GitBlame, GitBlameLine } from './models/blame';
-import type { GitLineDiff, ParsedGitDiffHunks } from './models/diff';
-import type { GitReference } from './models/reference';
-import type { GitRemote } from './models/remote';
-import type { Repository, RepositoryChangeEvent } from './models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
-import type { LocalInfoFromRemoteUriResult } from './remotes/remoteProvider';
-import { sortRepositories } from './utils/-webview/sorting';
-import { calculateDistribution } from './utils/contributor.utils';
-import { getVisibilityCacheKey } from './utils/remote.utils';
+} from './gitProvider.js';
+import { GitRepositoryService } from './gitRepositoryService.js';
+import type { GitUri } from './gitUri.js';
+import type { GitBlame, GitBlameLine } from './models/blame.js';
+import type { GitLineDiff, ParsedGitDiffHunks } from './models/diff.js';
+import type { GitReference } from './models/reference.js';
+import type { GitRemote } from './models/remote.js';
+import type { Repository, RepositoryChangeEvent } from './models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository.js';
+import type { LocalInfoFromRemoteUriResult } from './remotes/remoteProvider.js';
+import { sortRepositories } from './utils/-webview/sorting.js';
+import { calculateDistribution } from './utils/contributor.utils.js';
+import { getVisibilityCacheKey } from './utils/remote.utils.js';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });

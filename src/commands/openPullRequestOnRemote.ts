@@ -1,10 +1,10 @@
 import { env, window } from 'vscode';
-import type { Container } from '../container';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { command } from '../system/-webview/command';
-import { openUrl } from '../system/-webview/vscode/uris';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { command } from '../system/-webview/command.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;

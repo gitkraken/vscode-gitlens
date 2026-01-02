@@ -3,23 +3,23 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import Sortable from 'sortablejs';
-import type { AIModel } from '../../../../../plus/ai/models/model';
-import type { ComposerBaseCommit, ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol';
+import type { AIModel } from '../../../../../plus/ai/models/model.js';
+import type { ComposerBaseCommit, ComposerCommit, ComposerHunk } from '../../../../plus/composer/protocol.js';
 import {
 	getCommitChanges,
 	getFileChanges,
 	getFileCountForCommit,
 	getUnassignedHunks,
 	getUniqueFileNames,
-} from '../../../../plus/composer/utils/composer.utils';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase, inlineCode, scrollableBase } from '../../../shared/components/styles/lit/base.css';
-import { ruleStyles } from '../../shared/components/vscode.css';
-import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
-import '../../../shared/components/button';
-import '../../../shared/components/button-container';
-import '../../../shared/components/overlays/popover';
-import './commit-item';
+} from '../../../../plus/composer/utils/composer.utils.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, inlineCode, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { ruleStyles } from '../../shared/components/vscode.css.js';
+import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/overlays/popover.js';
+import './commit-item.js';
 
 @customElement('gl-commits-panel')
 export class CommitsPanel extends LitElement {

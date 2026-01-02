@@ -8,77 +8,83 @@ import {
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
-} from '@env/providers';
-import { FileAnnotationController } from './annotations/fileAnnotationController';
-import { LineAnnotationController } from './annotations/lineAnnotationController';
-import { ActionRunners } from './api/actionRunners';
-import { AutolinksProvider } from './autolinks/autolinksProvider';
-import { setDefaultGravatarsStyle } from './avatars';
-import { CacheProvider } from './cache';
-import { GitCodeLensController } from './codelens/codeLensController';
-import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnotations';
-import type { DateSource, DateStyle, FileAnnotationType, Mode } from './config';
-import { fromOutputLevel } from './config';
-import { extensionPrefix } from './constants';
-import type { GlCommands } from './constants.commands';
-import { MarkdownContentProvider } from './documents/markdown';
-import { EventBus } from './eventBus';
-import { GitFileSystemProvider } from './git/fsProvider';
-import { GitProviderService } from './git/gitProviderService';
-import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider';
-import { LineHoverController } from './hovers/lineHoverController';
-import { AIProviderService } from './plus/ai/aiProviderService';
-import { DraftService } from './plus/drafts/draftsService';
-import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
-import { OrganizationService } from './plus/gk/organizationService';
-import { ProductConfigProvider } from './plus/gk/productConfigProvider';
-import { ServerConnection } from './plus/gk/serverConnection';
-import { SubscriptionService } from './plus/gk/subscriptionService';
-import { UrlsProvider } from './plus/gk/urlsProvider';
-import { GraphStatusBarController } from './plus/graph/statusbar';
-import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService';
-import { ConfiguredIntegrationService } from './plus/integrations/authentication/configuredIntegrationService';
-import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService';
-import { IntegrationService } from './plus/integrations/integrationService';
-import type { AzureDevOpsApi } from './plus/integrations/providers/azure/azure';
-import type { BitbucketApi } from './plus/integrations/providers/bitbucket/bitbucket';
-import type { GitHubApi } from './plus/integrations/providers/github/github';
-import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
-import { EnrichmentService } from './plus/launchpad/enrichmentService';
-import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator';
-import { LaunchpadProvider } from './plus/launchpad/launchpadProvider';
-import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
-import type { SharedGkStorageLocationProvider } from './plus/repos/sharedGkStorageLocationProvider';
-import { WorkspacesApi } from './plus/workspaces/workspacesApi';
-import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './plus/workspaces/workspacesService';
-import { StatusBarController } from './statusbar/statusBarController';
-import { executeCommand } from './system/-webview/command';
-import { configuration } from './system/-webview/configuration';
-import { Keyboard } from './system/-webview/keyboard';
-import type { Storage } from './system/-webview/storage';
-import { log } from './system/decorators/log';
-import { memoize } from './system/decorators/memoize';
-import { Logger } from './system/logger';
-import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider';
-import { TelemetryService } from './telemetry/telemetry';
-import { UsageTracker } from './telemetry/usageTracker';
-import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
-import { GitTerminalLinkProvider } from './terminal/linkProvider';
-import { GitDocumentTracker } from './trackers/documentTracker';
-import { LineTracker } from './trackers/lineTracker';
-import { DeepLinkService } from './uris/deepLinks/deepLinkService';
-import { UriService } from './uris/uriService';
-import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
-import { Views } from './views/views';
-import { VslsController } from './vsls/vsls';
-import { registerComposerWebviewCommands, registerComposerWebviewPanel } from './webviews/plus/composer/registration';
-import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration';
-import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration';
-import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from './webviews/plus/timeline/registration';
-import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
-import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
-import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar';
-import { WebviewsController } from './webviews/webviewsController';
+} from '@env/providers.js';
+import { FileAnnotationController } from './annotations/fileAnnotationController.js';
+import { LineAnnotationController } from './annotations/lineAnnotationController.js';
+import { ActionRunners } from './api/actionRunners.js';
+import { AutolinksProvider } from './autolinks/autolinksProvider.js';
+import { setDefaultGravatarsStyle } from './avatars.js';
+import { CacheProvider } from './cache.js';
+import { GitCodeLensController } from './codelens/codeLensController.js';
+import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnotations.js';
+import type { DateSource, DateStyle, FileAnnotationType, Mode } from './config.js';
+import { fromOutputLevel } from './config.js';
+import type { GlCommands } from './constants.commands.js';
+import { extensionPrefix } from './constants.js';
+import { MarkdownContentProvider } from './documents/markdown.js';
+import { EventBus } from './eventBus.js';
+import { GitFileSystemProvider } from './git/fsProvider.js';
+import { GitProviderService } from './git/gitProviderService.js';
+import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
+import { LineHoverController } from './hovers/lineHoverController.js';
+import { AIProviderService } from './plus/ai/aiProviderService.js';
+import { DraftService } from './plus/drafts/draftsService.js';
+import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider.js';
+import { OrganizationService } from './plus/gk/organizationService.js';
+import { ProductConfigProvider } from './plus/gk/productConfigProvider.js';
+import { ServerConnection } from './plus/gk/serverConnection.js';
+import { SubscriptionService } from './plus/gk/subscriptionService.js';
+import { UrlsProvider } from './plus/gk/urlsProvider.js';
+import { GraphStatusBarController } from './plus/graph/statusbar.js';
+import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService.js';
+import { ConfiguredIntegrationService } from './plus/integrations/authentication/configuredIntegrationService.js';
+import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService.js';
+import { IntegrationService } from './plus/integrations/integrationService.js';
+import type { AzureDevOpsApi } from './plus/integrations/providers/azure/azure.js';
+import type { BitbucketApi } from './plus/integrations/providers/bitbucket/bitbucket.js';
+import type { GitHubApi } from './plus/integrations/providers/github/github.js';
+import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab.js';
+import { EnrichmentService } from './plus/launchpad/enrichmentService.js';
+import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator.js';
+import { LaunchpadProvider } from './plus/launchpad/launchpadProvider.js';
+import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService.js';
+import type { SharedGkStorageLocationProvider } from './plus/repos/sharedGkStorageLocationProvider.js';
+import { WorkspacesApi } from './plus/workspaces/workspacesApi.js';
+import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './plus/workspaces/workspacesService.js';
+import { StatusBarController } from './statusbar/statusBarController.js';
+import { executeCommand } from './system/-webview/command.js';
+import { configuration } from './system/-webview/configuration.js';
+import { Keyboard } from './system/-webview/keyboard.js';
+import type { Storage } from './system/-webview/storage.js';
+import { log } from './system/decorators/log.js';
+import { memoize } from './system/decorators/memoize.js';
+import { Logger } from './system/logger.js';
+import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
+import { TelemetryService } from './telemetry/telemetry.js';
+import { UsageTracker } from './telemetry/usageTracker.js';
+import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider.js';
+import { GitTerminalLinkProvider } from './terminal/linkProvider.js';
+import { GitDocumentTracker } from './trackers/documentTracker.js';
+import { LineTracker } from './trackers/lineTracker.js';
+import { DeepLinkService } from './uris/deepLinks/deepLinkService.js';
+import { UriService } from './uris/uriService.js';
+import { ViewFileDecorationProvider } from './views/viewDecorationProvider.js';
+import { Views } from './views/views.js';
+import { VslsController } from './vsls/vsls.js';
+import {
+	registerComposerWebviewCommands,
+	registerComposerWebviewPanel,
+} from './webviews/plus/composer/registration.js';
+import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration.js';
+import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration.js';
+import {
+	registerTimelineWebviewCommands,
+	registerTimelineWebviewPanel,
+} from './webviews/plus/timeline/registration.js';
+import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor.js';
+import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration.js';
+import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar.js';
+import { WebviewsController } from './webviews/webviewsController.js';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
@@ -419,7 +425,7 @@ export class Container {
 				try {
 					const cloudIntegrations = new (
 						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService'
+							/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService.js'
 						)
 					).CloudIntegrationService(this, this._connection);
 					return cloudIntegrations;
@@ -523,7 +529,9 @@ export class Container {
 			async function load(this: Container) {
 				try {
 					const azure = new (
-						await import(/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure')
+						await import(
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure.js'
+						)
 					).AzureDevOpsApi(this);
 					this._disposables.push(azure);
 					return azure;
@@ -546,7 +554,7 @@ export class Container {
 				try {
 					const bitbucket = new (
 						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket'
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket.js'
 						)
 					).BitbucketApi(this);
 					this._disposables.push(bitbucket);
@@ -570,7 +578,7 @@ export class Container {
 				try {
 					const github = new (
 						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github'
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
 						)
 					).GitHubApi(this);
 					this._disposables.push(github);
@@ -594,7 +602,7 @@ export class Container {
 				try {
 					const gitlab = new (
 						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab'
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab.js'
 						)
 					).GitLabApi(this);
 					this._disposables.push(gitlab);

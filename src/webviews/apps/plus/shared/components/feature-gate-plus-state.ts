@@ -2,24 +2,24 @@ import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { urls } from '../../../../../constants';
+import { urls } from '../../../../../constants.js';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
 	SubscriptionState,
-} from '../../../../../constants.subscription';
-import type { Source } from '../../../../../constants.telemetry';
-import type { FeaturePreview } from '../../../../../features';
-import { getFeaturePreviewStatus } from '../../../../../features';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
-import { createCommandLink } from '../../../../../system/commands';
-import { pluralize } from '../../../../../system/string';
-import type { GlButton } from '../../../shared/components/button';
-import type { PromosContext } from '../../../shared/contexts/promos';
-import { promosContext } from '../../../shared/contexts/promos';
-import { linkStyles } from './vscode.css';
-import '../../../shared/components/button';
-import '../../../shared/components/promo';
+} from '../../../../../constants.subscription.js';
+import type { Source } from '../../../../../constants.telemetry.js';
+import type { FeaturePreview } from '../../../../../features.js';
+import { getFeaturePreviewStatus } from '../../../../../features.js';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import { pluralize } from '../../../../../system/string.js';
+import type { GlButton } from '../../../shared/components/button.js';
+import type { PromosContext } from '../../../shared/contexts/promos.js';
+import { promosContext } from '../../../shared/contexts/promos.js';
+import { linkStyles } from './vscode.css.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/promo.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

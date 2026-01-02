@@ -1,9 +1,9 @@
 import type { Uri } from 'vscode';
-import { GlyphChars } from '../constants';
-import type { Features } from '../features';
-import { debug, log } from '../system/decorators/log';
-import { groupByFilterMap } from '../system/iterable';
-import { getSettledValue } from '../system/promise';
+import { GlyphChars } from '../constants.js';
+import type { Features } from '../features.js';
+import { debug, log } from '../system/decorators/log.js';
+import { groupByFilterMap } from '../system/iterable.js';
+import { getSettledValue } from '../system/promise.js';
 import type {
 	GitBranchesSubProvider,
 	GitCommitsSubProvider,
@@ -29,14 +29,14 @@ import type {
 	GitTagsSubProvider,
 	GitWorktreesSubProvider,
 	ScmRepository,
-} from './gitProvider';
-import { createSubProviderProxyForRepo } from './gitProvider';
-import type { GitProviderService } from './gitProviderService';
-import type { GitBranch } from './models/branch';
-import type { GitFile } from './models/file';
-import { deletedOrMissing } from './models/revision';
-import type { GitTag } from './models/tag';
-import { getRemoteThemeIconString } from './utils/remote.utils';
+} from './gitProvider.js';
+import { createSubProviderProxyForRepo } from './gitProvider.js';
+import type { GitProviderService } from './gitProviderService.js';
+import type { GitBranch } from './models/branch.js';
+import type { GitFile } from './models/file.js';
+import { deletedOrMissing } from './models/revision.js';
+import type { GitTag } from './models/tag.js';
+import { getRemoteThemeIconString } from './utils/remote.utils.js';
 
 type GitSubProvidersForRepo = {
 	[P in keyof GitProvider as NonNullable<GitProvider[P]> extends GitSubProvider ? P : never]: NonNullable<

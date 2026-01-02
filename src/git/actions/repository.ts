@@ -1,9 +1,9 @@
-import { Container } from '../../container';
-import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { RevealOptions, ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { executeGitCommand } from '../actions';
-import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../models/reference';
-import type { Repository } from '../models/repository';
+import { Container } from '../../container.js';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
+import type { RevealOptions, ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import { executeGitCommand } from '../actions.js';
+import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../models/reference.js';
+import type { Repository } from '../models/repository.js';
 
 export function cherryPick(
 	repo?: string | Repository,

@@ -1,12 +1,12 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../container';
-import { CancellationError } from '../../../errors';
-import type { MaybePausedResult } from '../../../system/promise';
-import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise';
-import type { GitRepositoryService } from '../../gitRepositoryService';
-import type { BranchTargetInfo, GitBranch } from '../../models/branch';
-import type { PullRequest } from '../../models/pullRequest';
-import { createRevisionRange } from '../revision.utils';
+import type { Container } from '../../../container.js';
+import { CancellationError } from '../../../errors.js';
+import type { MaybePausedResult } from '../../../system/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise.js';
+import type { GitRepositoryService } from '../../gitRepositoryService.js';
+import type { BranchTargetInfo, GitBranch } from '../../models/branch.js';
+import type { PullRequest } from '../../models/pullRequest.js';
+import { createRevisionRange } from '../revision.utils.js';
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([

@@ -1,23 +1,23 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
-import { GitUri } from '../../git/gitUri';
-import type { GitFile } from '../../git/models/file';
-import type { GitRevisionReference } from '../../git/models/reference';
-import { uncommitted } from '../../git/models/revision';
-import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
-import { createReference } from '../../git/utils/reference.utils';
-import { createCommand } from '../../system/-webview/command';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
-import { memoize } from '../../system/decorators/memoize';
-import { dirname, joinPaths } from '../../system/path';
-import type { ViewsWithCommits } from '../viewBase';
-import { getFileTooltipMarkdown } from './abstract/viewFileNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues } from './abstract/viewNode';
-import { ViewRefFileNode } from './abstract/viewRefNode';
-import type { FileNode } from './folderNode';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitFile } from '../../git/models/file.js';
+import type { GitRevisionReference } from '../../git/models/reference.js';
+import { uncommitted } from '../../git/models/revision.js';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils.js';
+import { createReference } from '../../git/utils/reference.utils.js';
+import { createCommand } from '../../system/-webview/command.js';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { dirname, joinPaths } from '../../system/path.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { getFileTooltipMarkdown } from './abstract/viewFileNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues } from './abstract/viewNode.js';
+import { ViewRefFileNode } from './abstract/viewRefNode.js';
+import type { FileNode } from './folderNode.js';
 
 export class UncommittedFileNode extends ViewRefFileNode<'uncommitted-file', ViewsWithCommits> implements FileNode {
 	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile) {

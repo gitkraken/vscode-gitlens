@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import type { RebaseTodoEntry } from '../../../models/rebase';
-import { formatRebaseTodoEntryLine, formatUpdateRefLine, processRebaseEntries } from '../rebase.parsing.utils';
+import type { RebaseTodoEntry } from '../../../models/rebase.js';
+import { formatRebaseTodoEntryLine, formatUpdateRefLine, processRebaseEntries } from '../rebase.parsing.utils.js';
 
 suite('Rebase Parsing Utils Test Suite', () => {
 	suite('processRebaseEntries', () => {

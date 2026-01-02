@@ -1,17 +1,17 @@
-import type { WalkthroughSteps } from '../constants';
-import { urls } from '../constants';
-import type { GlCommands } from '../constants.commands';
-import type { Source, Sources, TelemetryEvents } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription';
-import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
-import { command, executeCommand, executeCoreCommand } from '../system/-webview/command';
-import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
-import { openUrl } from '../system/-webview/vscode/uris';
-import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider';
-import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations';
-import { GlCommandBase } from './commandBase';
-import type { WorktreeGitCommandArgs } from './git/worktree';
+import type { GlCommands } from '../constants.commands.js';
+import type { WalkthroughSteps } from '../constants.js';
+import { urls } from '../constants.js';
+import type { Source, Sources, TelemetryEvents } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription.js';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
+import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
+import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode.js';
+import { isWalkthroughSupported } from '../telemetry/walkthroughStateProvider.js';
+import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations.js';
+import { GlCommandBase } from './commandBase.js';
+import type { WorktreeGitCommandArgs } from './git/worktree.js';
 
 @command()
 export class GetStartedCommand extends GlCommandBase {

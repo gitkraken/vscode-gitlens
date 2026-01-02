@@ -1,19 +1,19 @@
 import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import { GlyphChars } from '../constants';
-import type { Container } from '../container';
-import type { Repository } from '../git/models/repository';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
-import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { filterMap } from '../system/array';
-import { map } from '../system/iterable';
-import type { QuickPickResult } from './items/common';
-import { createQuickPickSeparator } from './items/common';
-import type { DirectiveQuickPickItem } from './items/directive';
-import { isDirectiveQuickPickItem } from './items/directive';
-import type { RepositoryQuickPickItem } from './items/gitWizard';
-import { createRepositoryQuickPickItem } from './items/gitWizard';
+import { GlyphChars } from '../constants.js';
+import type { Container } from '../container.js';
+import type { Repository } from '../git/models/repository.js';
+import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
+import { sortRepositories, sortRepositoriesGrouped } from '../git/utils/-webview/sorting.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { filterMap } from '../system/array.js';
+import { map } from '../system/iterable.js';
+import type { QuickPickResult } from './items/common.js';
+import { createQuickPickSeparator } from './items/common.js';
+import type { DirectiveQuickPickItem } from './items/directive.js';
+import { isDirectiveQuickPickItem } from './items/directive.js';
+import type { RepositoryQuickPickItem } from './items/gitWizard.js';
+import { createRepositoryQuickPickItem } from './items/gitWizard.js';
 
 export async function getBestRepositoryOrShowPicker(
 	container: Container,

@@ -1,8 +1,8 @@
-import { joinPaths, normalizePath } from '../../system/path';
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateAsyncByDelimiter, iterateByDelimiter } from '../../system/string';
-import type { GitFileIndexStatus } from '../models/fileStatus';
-import { diffHunkRegex, diffRegex } from './diffParser';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateAsyncByDelimiter, iterateByDelimiter } from '../../system/string.js';
+import type { GitFileIndexStatus } from '../models/fileStatus.js';
+import { diffHunkRegex, diffRegex } from './diffParser.js';
 
 const commitsMapping = {
 	sha: '%H',

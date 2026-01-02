@@ -2,10 +2,10 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property, queryAll } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import { debounce } from '../../../../../system/function/debounce';
-import type { GetOverviewBranch } from '../../../../home/protocol';
-import type { GlBranchCardBase } from './branch-card';
-import '../../../shared/components/progress';
+import { debounce } from '../../../../../system/function/debounce.js';
+import type { GetOverviewBranch } from '../../../../home/protocol.js';
+import type { GlBranchCardBase } from './branch-card.js';
+import '../../../shared/components/progress.js';
 
 @customElement('gl-section')
 export class GlSection extends LitElement {

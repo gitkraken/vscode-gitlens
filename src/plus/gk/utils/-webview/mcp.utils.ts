@@ -1,8 +1,8 @@
 import { env, lm, version } from 'vscode';
-import { isOffline, isWeb } from '@env/platform';
-import type { Container } from '../../../../container';
-import { configuration } from '../../../../system/-webview/configuration';
-import { satisfies } from '../../../../system/version';
+import { isOffline, isWeb } from '@env/platform.js';
+import type { Container } from '../../../../container.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { satisfies } from '../../../../system/version.js';
 
 export function isMcpBannerEnabled(container: Container, showAutoRegistration = false): boolean {
 	// Check if running on web or automatically registrable

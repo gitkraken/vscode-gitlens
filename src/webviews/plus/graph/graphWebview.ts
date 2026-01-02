@@ -1,48 +1,47 @@
 import type { emptySetMarker, GraphRefOptData, GraphSearchMode } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
-import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
-import { getAvatarUri } from '../../../avatars';
-import { parseCommandContext } from '../../../commands/commandContext.utils';
-import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
-import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
-import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
-import type { ExplainBranchCommandArgs } from '../../../commands/explainBranch';
-import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit';
-import type { ExplainStashCommandArgs } from '../../../commands/explainStash';
-import type { ExplainWipCommandArgs } from '../../../commands/explainWip';
-import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
-import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
-import type { InspectCommandArgs } from '../../../commands/inspect';
-import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote';
-import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
-import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
-import type { CreatePatchCommandArgs } from '../../../commands/patches';
-import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch';
-import type { RecomposeFromCommitCommandArgs } from '../../../commands/recomposeFromCommit';
+import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
+import { getAvatarUri } from '../../../avatars.js';
+import { parseCommandContext } from '../../../commands/commandContext.utils.js';
+import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
+import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard.js';
+import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard.js';
+import type { ExplainBranchCommandArgs } from '../../../commands/explainBranch.js';
+import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
+import type { ExplainStashCommandArgs } from '../../../commands/explainStash.js';
+import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
+import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
+import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage.js';
+import type { InspectCommandArgs } from '../../../commands/inspect.js';
+import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
+import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
+import type { CreatePatchCommandArgs } from '../../../commands/patches.js';
+import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch.js';
+import type { RecomposeFromCommitCommandArgs } from '../../../commands/recomposeFromCommit.js';
 import type {
 	Config,
 	GraphBranchesVisibility,
 	GraphMinimapMarkersAdditionalTypes,
 	GraphScrollMarkersAdditionalTypes,
-} from '../../../config';
-import { GlyphChars } from '../../../constants';
-import type { WebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands';
-import type { ContextKeys } from '../../../constants.context';
-import type { SearchQuery } from '../../../constants.search';
-import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
+} from '../../../config.js';
+import type { WebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands.js';
+import type { ContextKeys } from '../../../constants.context.js';
+import { GlyphChars } from '../../../constants.js';
+import type { SearchQuery } from '../../../constants.search.js';
+import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
 import type {
 	GraphShownTelemetryContext,
 	GraphTelemetryContext,
 	WebviewTelemetryEvents,
-} from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { CancellationError, isCancellationError } from '../../../errors';
-import type { CommitSelectedEvent } from '../../../eventBus';
-import type { FeaturePreview } from '../../../features';
-import { getFeaturePreviewStatus } from '../../../features';
-import { executeGitCommand } from '../../../git/actions';
-import * as BranchActions from '../../../git/actions/branch';
+} from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { CancellationError, isCancellationError } from '../../../errors.js';
+import type { CommitSelectedEvent } from '../../../eventBus.js';
+import type { FeaturePreview } from '../../../features.js';
+import { getFeaturePreviewStatus } from '../../../features.js';
+import * as BranchActions from '../../../git/actions/branch.js';
 import {
 	getOrderedComparisonRefs,
 	openCommitChanges,
@@ -53,117 +52,118 @@ import {
 	openOnlyChangedFiles,
 	showCommitInGraphDetailsView,
 	undoCommit,
-} from '../../../git/actions/commit';
-import * as ContributorActions from '../../../git/actions/contributor';
+} from '../../../git/actions/commit.js';
+import * as ContributorActions from '../../../git/actions/contributor.js';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
 	showPausedOperationStatus,
 	skipPausedOperation,
-} from '../../../git/actions/pausedOperation';
-import * as RepoActions from '../../../git/actions/repository';
-import * as StashActions from '../../../git/actions/stash';
-import * as TagActions from '../../../git/actions/tag';
-import * as WorktreeActions from '../../../git/actions/worktree';
-import { GitSearchError } from '../../../git/errors';
-import { CommitFormatter } from '../../../git/formatters/commitFormatter';
-import type { GitBranch } from '../../../git/models/branch';
-import type { GitCommit } from '../../../git/models/commit';
-import { isStash } from '../../../git/models/commit';
-import { GitContributor } from '../../../git/models/contributor';
-import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
-import type { IssueShape } from '../../../git/models/issue';
-import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
-import type { PullRequest } from '../../../git/models/pullRequest';
+} from '../../../git/actions/pausedOperation.js';
+import * as RepoActions from '../../../git/actions/repository.js';
+import * as StashActions from '../../../git/actions/stash.js';
+import * as TagActions from '../../../git/actions/tag.js';
+import * as WorktreeActions from '../../../git/actions/worktree.js';
+import { executeGitCommand } from '../../../git/actions.js';
+import { GitSearchError } from '../../../git/errors.js';
+import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
+import type { GitBranch } from '../../../git/models/branch.js';
+import type { GitCommit } from '../../../git/models/commit.js';
+import { isStash } from '../../../git/models/commit.js';
+import { GitContributor } from '../../../git/models/contributor.js';
+import type { GitGraph, GitGraphRowType } from '../../../git/models/graph.js';
+import type { IssueShape } from '../../../git/models/issue.js';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus.js';
+import type { PullRequest } from '../../../git/models/pullRequest.js';
 import type {
 	GitBranchReference,
 	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../../../git/models/reference';
-import { RemoteResourceType } from '../../../git/models/remoteResource';
+} from '../../../git/models/reference.js';
+import { RemoteResourceType } from '../../../git/models/remoteResource.js';
 import type {
 	Repository,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository';
-import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { uncommitted } from '../../../git/models/revision';
+} from '../../../git/models/repository.js';
+import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { uncommitted } from '../../../git/models/revision.js';
 import type {
 	GitCommitSearchContext,
 	GitGraphSearch,
 	GitGraphSearchProgress,
 	GitGraphSearchResults,
-} from '../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
-import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage';
-import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
-import { getBranchMergeTargetInfo, getStarredBranchIds } from '../../../git/utils/-webview/branch.utils';
-import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
-import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils';
-import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils';
+} from '../../../git/search.js';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search.js';
+import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage.js';
+import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
+import { getBranchMergeTargetInfo, getStarredBranchIds } from '../../../git/utils/-webview/branch.utils.js';
+import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
+import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
+import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import {
 	getBranchId,
 	getBranchNameWithoutRemote,
 	getLocalBranchByUpstream,
 	getRemoteNameFromBranchName,
-} from '../../../git/utils/branch.utils';
-import { splitCommitMessage } from '../../../git/utils/commit.utils';
-import { getLastFetchedUpdateInterval } from '../../../git/utils/fetch.utils';
+} from '../../../git/utils/branch.utils.js';
+import { splitCommitMessage } from '../../../git/utils/commit.utils.js';
+import { getLastFetchedUpdateInterval } from '../../../git/utils/fetch.utils.js';
 import {
 	getComparisonRefsForPullRequest,
 	getRepositoryIdentityForPullRequest,
 	serializePullRequest,
-} from '../../../git/utils/pullRequest.utils';
-import { createReference } from '../../../git/utils/reference.utils';
-import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
-import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
-import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils';
-import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
-import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
-import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
-import { showComparisonPicker } from '../../../quickpicks/comparisonPicker';
-import { showContributorsPicker } from '../../../quickpicks/contributorsPicker';
-import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
-import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
+} from '../../../git/utils/pullRequest.utils.js';
+import { createReference } from '../../../git/utils/reference.utils.js';
+import { isSha, shortenRevision } from '../../../git/utils/revision.utils.js';
+import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
+import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
+import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
+import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork.js';
+import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
+import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
 import {
 	executeActionCommand,
 	executeCommand,
 	executeCoreCommand,
 	registerCommand,
-} from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
-import type { StorageChangeEvent } from '../../../system/-webview/storage';
-import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
-import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
-import { openWorkspace } from '../../../system/-webview/vscode/workspaces';
-import { filterMap } from '../../../system/array';
-import { getScopedCounter } from '../../../system/counter';
-import { createCommandDecorator, getWebviewCommand } from '../../../system/decorators/command';
-import { debug, log } from '../../../system/decorators/log';
-import { disposableInterval } from '../../../system/function';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
-import { count, find, join, last } from '../../../system/iterable';
-import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '../../../system/object';
+} from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
+import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
+import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
+import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
+import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
+import { filterMap } from '../../../system/array.js';
+import { getScopedCounter } from '../../../system/counter.js';
+import { createCommandDecorator, getWebviewCommand } from '../../../system/decorators/command.js';
+import { debug, log } from '../../../system/decorators/log.js';
+import type { Deferrable } from '../../../system/function/debounce.js';
+import { debounce } from '../../../system/function/debounce.js';
+import { disposableInterval } from '../../../system/function.js';
+import { count, find, join, last } from '../../../system/iterable.js';
+import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '../../../system/object.js';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
-} from '../../../system/promise';
-import { Stopwatch } from '../../../system/stopwatch';
-import { createDisposable } from '../../../system/unifiedDisposable';
-import { serializeWebviewItemContext } from '../../../system/webview';
-import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
-import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
-import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../protocol';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
-import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
-import { isSerializedState } from '../../webviewsController';
-import type { ComposerCommandArgs } from '../composer/registration';
-import type { TimelineCommandArgs } from '../timeline/registration';
+} from '../../../system/promise.js';
+import { Stopwatch } from '../../../system/stopwatch.js';
+import { createDisposable } from '../../../system/unifiedDisposable.js';
+import { serializeWebviewItemContext } from '../../../system/webview.js';
+import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
+import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
+import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../protocol.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
+import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
+import { isSerializedState } from '../../webviewsController.js';
+import type { ComposerCommandArgs } from '../composer/registration.js';
+import type { TimelineCommandArgs } from '../timeline/registration.js';
 import {
 	formatRepositories,
 	hasGitReference,
@@ -172,7 +172,7 @@ import {
 	isGraphItemTypedContext,
 	toGraphHostingServiceType,
 	toGraphIssueTrackerType,
-} from './graphWebview.utils';
+} from './graphWebview.utils.js';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -217,7 +217,7 @@ import type {
 	UpdateIncludedRefsParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectionParams,
-} from './protocol';
+} from './protocol.js';
 import {
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
@@ -267,9 +267,9 @@ import {
 	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
-} from './protocol';
-import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from './registration';
-import { SearchHistory } from './searchHistory';
+} from './protocol.js';
+import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from './registration.js';
+import { SearchHistory } from './searchHistory.js';
 
 interface SelectedRowState {
 	selected: boolean;

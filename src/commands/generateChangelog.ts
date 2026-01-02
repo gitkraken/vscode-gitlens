@@ -1,20 +1,20 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
 import { ProgressLocation, window, workspace } from 'vscode';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { GitReference } from '../git/models/reference';
-import { getChangesForChangelog } from '../git/utils/-webview/log.utils';
-import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import type { AIGenerateChangelogChanges } from '../plus/ai/actions/generateChangelog';
-import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
-import { showComparisonPicker } from '../quickpicks/comparisonPicker';
-import { command } from '../system/-webview/command';
-import type { Lazy } from '../system/lazy';
-import { lazy } from '../system/lazy';
-import { Logger } from '../system/logger';
-import { pluralize } from '../system/string';
-import { GlCommandBase } from './commandBase';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { GitReference } from '../git/models/reference.js';
+import { getChangesForChangelog } from '../git/utils/-webview/log.utils.js';
+import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import type { AIGenerateChangelogChanges } from '../plus/ai/actions/generateChangelog.js';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
+import { showComparisonPicker } from '../quickpicks/comparisonPicker.js';
+import { command } from '../system/-webview/command.js';
+import type { Lazy } from '../system/lazy.js';
+import { lazy } from '../system/lazy.js';
+import { Logger } from '../system/logger.js';
+import { pluralize } from '../system/string.js';
+import { GlCommandBase } from './commandBase.js';
 
 export interface GenerateChangelogCommandArgs {
 	repoPath?: string;

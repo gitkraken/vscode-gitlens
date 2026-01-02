@@ -1,10 +1,10 @@
 import type { CancellationToken } from 'vscode';
-import type { SearchQuery } from '../../constants.search';
-import type { Source } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import type { SearchQuery } from '../../constants.search.js';
+import type { Source } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { CancellationError } from '../../errors.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
 
 export interface NaturalLanguageSearchOptions {
 	context?: string;

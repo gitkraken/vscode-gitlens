@@ -1,16 +1,16 @@
 import type { Uri } from 'vscode';
-import { Schemes } from '../../../constants';
-import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils';
-import { configuration } from '../../../system/-webview/configuration';
-import { formatDate, fromNow } from '../../../system/date';
-import { map } from '../../../system/iterable';
-import { normalizePath } from '../../../system/path';
-import type { GitRemote } from '../../models/remote';
-import { RemoteResourceType } from '../../models/remoteResource';
-import type { Repository } from '../../models/repository';
-import type { RepositoryShape } from '../../models/repositoryShape';
-import type { RemoteProvider } from '../../remotes/remoteProvider';
-import { millisecondsPerDay } from '../fetch.utils';
+import { Schemes } from '../../../constants.js';
+import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { formatDate, fromNow } from '../../../system/date.js';
+import { map } from '../../../system/iterable.js';
+import { normalizePath } from '../../../system/path.js';
+import type { GitRemote } from '../../models/remote.js';
+import { RemoteResourceType } from '../../models/remoteResource.js';
+import type { Repository } from '../../models/repository.js';
+import type { RepositoryShape } from '../../models/repositoryShape.js';
+import type { RemoteProvider } from '../../remotes/remoteProvider.js';
+import { millisecondsPerDay } from '../fetch.utils.js';
 
 export function formatLastFetched(lastFetched: number, short: boolean = true): string {
 	const date = new Date(lastFetched);

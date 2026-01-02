@@ -4,10 +4,10 @@ import type { Stats } from 'fs';
 import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
-import { normalizePath } from '../../../system/path';
-import { CancelledRunError, RunError } from './shell.errors';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import { normalizePath } from '../../../system/path.js';
+import { CancelledRunError, RunError } from './shell.errors.js';
 
 export const isWindows = process.platform === 'win32';
 

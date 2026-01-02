@@ -1,22 +1,22 @@
 import type { CancellationToken } from 'vscode';
-import { uuid } from '@env/crypto';
-import type { Response } from '@env/fetch';
-import { fetch } from '@env/fetch';
-import type { Role } from '../../@types/vsls';
-import type { AIProviders } from '../../constants.ai';
-import type { Container } from '../../container';
-import { AIError, AIErrorReason, CancellationError, isCancellationError } from '../../errors';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from '../gk/serverConnection';
-import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
-import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from './models/provider';
+import { uuid } from '@env/crypto.js';
+import type { Response } from '@env/fetch.js';
+import { fetch } from '@env/fetch.js';
+import type { Role } from '../../@types/vsls.d.js';
+import type { AIProviders } from '../../constants.ai.js';
+import type { Container } from '../../container.js';
+import { AIError, AIErrorReason, CancellationError, isCancellationError } from '../../errors.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import type { ServerConnection } from '../gk/serverConnection.js';
+import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model.js';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from './models/provider.js';
 import {
 	getActionName,
 	getOrgAIProviderOfType,
 	getOrPromptApiKey,
 	getValidatedTemperature,
-} from './utils/-webview/ai.utils';
+} from './utils/-webview/ai.utils.js';
 
 export interface AIProviderConfig {
 	url: string;

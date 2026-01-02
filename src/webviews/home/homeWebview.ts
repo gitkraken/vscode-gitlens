@@ -1,102 +1,105 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window, workspace } from 'vscode';
-import { ActionRunnerType } from '../../api/actionRunners';
-import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
-import { getAvatarUriFromGravatarEmail } from '../../avatars';
-import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
-import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
-import type { ExplainWipCommandArgs } from '../../commands/explainWip';
-import type { BranchGitCommandArgs } from '../../commands/git/branch';
-import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import { urls } from '../../constants';
-import type { ContextKeys } from '../../constants.context';
+import { ActionRunnerType } from '../../api/actionRunners.js';
+import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
+import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
+import { getAvatarUriFromGravatarEmail } from '../../avatars.js';
+import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget.js';
+import type { ExplainBranchCommandArgs } from '../../commands/explainBranch.js';
+import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
+import type { BranchGitCommandArgs } from '../../commands/git/branch.js';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote.js';
+import type { ContextKeys } from '../../constants.context.js';
 import {
 	isSupportedCloudIntegrationId,
 	supportedCloudIntegrationDescriptors,
 	supportedOrderedCloudIntegrationIds,
-} from '../../constants.integrations';
-import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
-import type { WalkthroughContextKeys } from '../../constants.walkthroughs';
-import type { Container } from '../../container';
-import { executeGitCommand } from '../../git/actions';
-import { revealBranch } from '../../git/actions/branch';
-import { openComparisonChanges } from '../../git/actions/commit';
+} from '../../constants.integrations.js';
+import { urls } from '../../constants.js';
+import type { HomeTelemetryContext, Source } from '../../constants.telemetry.js';
+import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
+import type { Container } from '../../container.js';
+import { revealBranch } from '../../git/actions/branch.js';
+import { openComparisonChanges } from '../../git/actions/commit.js';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
 	showPausedOperationStatus,
 	skipPausedOperation,
-} from '../../git/actions/pausedOperation';
-import * as RepoActions from '../../git/actions/repository';
-import { revealWorktree } from '../../git/actions/worktree';
-import { PushError } from '../../git/errors';
-import type { BranchContributionsOverview } from '../../git/gitProvider';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitFileChangeShape } from '../../git/models/fileChange';
-import type { Issue } from '../../git/models/issue';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import type { PullRequest } from '../../git/models/pullRequest';
-import type { GitRemote } from '../../git/models/remote';
-import { RemoteResourceType } from '../../git/models/remoteResource';
-import type { Repository, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { uncommitted } from '../../git/models/revision';
-import type { GitStatus } from '../../git/models/status';
-import type { GitWorktree } from '../../git/models/worktree';
-import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
-import { getBranchMergeTargetInfo } from '../../git/utils/-webview/branch.utils';
-import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
-import { toRepositoryShapeWithProvider } from '../../git/utils/-webview/repository.utils';
-import { sortBranches } from '../../git/utils/-webview/sorting';
-import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
-import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
-import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
-import { createRevisionRange } from '../../git/utils/revision.utils';
-import { showGitErrorMessage } from '../../messages';
-import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
-import { showPatchesView } from '../../plus/drafts/actions';
-import type { Subscription } from '../../plus/gk/models/subscription';
-import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isMcpBannerEnabled, mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils';
-import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils';
-import { getCommunitySubscription, isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
-import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
-import { providersMetadata } from '../../plus/integrations/providers/models';
-import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
-import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
-import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils';
-import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
-import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../quickpicks/repositoryPicker';
+} from '../../git/actions/pausedOperation.js';
+import * as RepoActions from '../../git/actions/repository.js';
+import { revealWorktree } from '../../git/actions/worktree.js';
+import { executeGitCommand } from '../../git/actions.js';
+import { PushError } from '../../git/errors.js';
+import type { BranchContributionsOverview } from '../../git/gitProvider.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitFileChangeShape } from '../../git/models/fileChange.js';
+import type { Issue } from '../../git/models/issue.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import type { PullRequest } from '../../git/models/pullRequest.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import { RemoteResourceType } from '../../git/models/remoteResource.js';
+import type { Repository, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
+import { uncommitted } from '../../git/models/revision.js';
+import type { GitStatus } from '../../git/models/status.js';
+import type { GitWorktree } from '../../git/models/worktree.js';
+import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils.js';
+import { getBranchMergeTargetInfo } from '../../git/utils/-webview/branch.utils.js';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils.js';
+import { toRepositoryShapeWithProvider } from '../../git/utils/-webview/repository.utils.js';
+import { sortBranches } from '../../git/utils/-webview/sorting.js';
+import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
+import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils.js';
+import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils.js';
+import { createRevisionRange } from '../../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService.js';
+import { showPatchesView } from '../../plus/drafts/actions.js';
+import type { Subscription } from '../../plus/gk/models/subscription.js';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
+import { isMcpBannerEnabled, mcpExtensionRegistrationAllowed } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import { isAiAllAccessPromotionActive } from '../../plus/gk/utils/-webview/promo.utils.js';
+import {
+	getCommunitySubscription,
+	isSubscriptionTrialOrPaidFromState,
+} from '../../plus/gk/utils/subscription.utils.js';
+import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService.js';
+import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService.js';
+import { providersMetadata } from '../../plus/integrations/providers/models.js';
+import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider.js';
+import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider.js';
+import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils.js';
+import type { StartWorkCommandArgs } from '../../plus/startWork/startWork.js';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../quickpicks/repositoryPicker.js';
 import {
 	executeActionCommand,
 	executeCommand,
 	executeCoreCommand,
 	registerCommand,
-} from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { getContext, onDidChangeContext } from '../../system/-webview/context';
-import type { StorageChangeEvent } from '../../system/-webview/storage';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { openWorkspace } from '../../system/-webview/vscode/workspaces';
-import { debug, log } from '../../system/decorators/log';
-import type { Deferrable } from '../../system/function/debounce';
-import { debounce } from '../../system/function/debounce';
-import { filterMap } from '../../system/iterable';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import { getSettledValue } from '../../system/promise';
-import { SubscriptionManager } from '../../system/subscriptionManager';
-import type { UriTypes } from '../../uris/deepLinks/deepLink';
-import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
-import type { ComposerCommandArgs } from '../plus/composer/registration';
-import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
-import type { Change } from '../plus/patchDetails/protocol';
-import type { TimelineCommandArgs } from '../plus/timeline/registration';
-import type { IpcMessage } from '../protocol';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
-import type { WebviewShowOptions } from '../webviewsController';
+} from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext } from '../../system/-webview/context.js';
+import type { StorageChangeEvent } from '../../system/-webview/storage.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
+import { debug, log } from '../../system/decorators/log.js';
+import type { Deferrable } from '../../system/function/debounce.js';
+import { debounce } from '../../system/function/debounce.js';
+import { filterMap } from '../../system/iterable.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import { getSettledValue } from '../../system/promise.js';
+import { SubscriptionManager } from '../../system/subscriptionManager.js';
+import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
+import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
+import type { ComposerCommandArgs } from '../plus/composer/registration.js';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
+import type { Change } from '../plus/patchDetails/protocol.js';
+import type { TimelineCommandArgs } from '../plus/timeline/registration.js';
+import type { IpcMessage } from '../protocol.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
+import type { WebviewShowOptions } from '../webviewsController.js';
 import type {
 	BranchAndTargetRefs,
 	BranchRef,
@@ -116,7 +119,7 @@ import type {
 	OverviewStaleThreshold,
 	State,
 	SubscriptionState,
-} from './protocol';
+} from './protocol.js';
 import {
 	ChangeOverviewRepositoryCommand,
 	CollapseSectionCommand,
@@ -143,8 +146,8 @@ import {
 	OpenInGraphCommand,
 	SetOverviewFilter,
 	TogglePreviewEnabledCommand,
-} from './protocol';
-import type { HomeWebviewShowingArgs } from './registration';
+} from './protocol.js';
+import type { HomeWebviewShowingArgs } from './registration.js';
 
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 

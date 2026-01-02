@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
 import * as assert from 'assert';
-import { iterateAsyncByDelimiter, iterateByDelimiter } from '../string';
+import { iterateAsyncByDelimiter, iterateByDelimiter } from '../string.js';
 
 suite('String Delimiter Iteration Test Suite', () => {
 	suite('iterateByDelimiter - Basic Functionality', () => {

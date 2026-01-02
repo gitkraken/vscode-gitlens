@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { CancellationToken } from 'vscode';
-import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
-import type { Container } from '../../container';
-import { formatDate, fromNow } from '../../system/date';
-import { debug } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
-import { getLoggableName } from '../../system/logger';
-import type { MaybePausedResult } from '../../system/promise';
-import { isBranchStarred } from '../utils/-webview/branch.utils';
+import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
+import type { Container } from '../../container.js';
+import { formatDate, fromNow } from '../../system/date.js';
+import { debug } from '../../system/decorators/log.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { getLoggableName } from '../../system/logger.js';
+import type { MaybePausedResult } from '../../system/promise.js';
+import { isBranchStarred } from '../utils/-webview/branch.utils.js';
 import {
 	formatDetachedHeadName,
 	getBranchId,
@@ -16,12 +16,12 @@ import {
 	getRemoteNameSlashIndex,
 	isDetachedHead,
 	parseRefName,
-} from '../utils/branch.utils';
-import { getUpstreamStatus } from '../utils/status.utils';
-import type { PullRequest, PullRequestState } from './pullRequest';
-import type { GitBranchReference } from './reference';
-import type { GitRemote } from './remote';
-import type { GitWorktree } from './worktree';
+} from '../utils/branch.utils.js';
+import { getUpstreamStatus } from '../utils/status.utils.js';
+import type { PullRequest, PullRequestState } from './pullRequest.js';
+import type { GitBranchReference } from './reference.js';
+import type { GitRemote } from './remote.js';
+import type { GitWorktree } from './worktree.js';
 
 export function isBranch(branch: unknown): branch is GitBranch {
 	return branch instanceof GitBranch;

@@ -1,4 +1,4 @@
-import { CharCode } from '../constants';
+import { CharCode } from '../constants.js';
 
 export function opacity(color: string, percentage: number): string {
 	const rgba = Color.from(color);

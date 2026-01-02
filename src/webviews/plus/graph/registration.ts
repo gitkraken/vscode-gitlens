@@ -1,29 +1,29 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import type { SearchQuery } from '../../../constants.search';
-import type { Source } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { GitUri } from '../../../git/gitUri';
-import type { GitReference } from '../../../git/models/reference';
-import type { Repository } from '../../../git/models/repository';
-import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { getContext } from '../../../system/-webview/context';
-import { getScmResourceFolderUri, getScmResourceUri, isScm } from '../../../system/-webview/scm';
-import { ViewNode } from '../../../views/nodes/abstract/viewNode';
-import type { BranchNode } from '../../../views/nodes/branchNode';
-import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
-import type { CommitNode } from '../../../views/nodes/commitNode';
-import { PullRequestNode } from '../../../views/nodes/pullRequestNode';
-import type { StashNode } from '../../../views/nodes/stashNode';
-import type { TagNode } from '../../../views/nodes/tagNode';
+import type { SearchQuery } from '../../../constants.search.js';
+import type { Source } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { GitUri } from '../../../git/gitUri.js';
+import type { GitReference } from '../../../git/models/reference.js';
+import type { Repository } from '../../../git/models/repository.js';
+import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { getContext } from '../../../system/-webview/context.js';
+import { getScmResourceFolderUri, getScmResourceUri, isScm } from '../../../system/-webview/scm.js';
+import { ViewNode } from '../../../views/nodes/abstract/viewNode.js';
+import type { BranchNode } from '../../../views/nodes/branchNode.js';
+import type { CommitFileNode } from '../../../views/nodes/commitFileNode.js';
+import type { CommitNode } from '../../../views/nodes/commitNode.js';
+import { PullRequestNode } from '../../../views/nodes/pullRequestNode.js';
+import type { StashNode } from '../../../views/nodes/stashNode.js';
+import type { TagNode } from '../../../views/nodes/tagNode.js';
 import type {
 	WebviewPanelShowCommandArgs,
 	WebviewPanelsProxy,
 	WebviewsController,
 	WebviewViewProxy,
-} from '../../webviewsController';
-import type { State } from './protocol';
+} from '../../webviewsController.js';
+import type { State } from './protocol.js';
 
 export type GraphWebviewShowingArgs = [
 	| Repository
@@ -71,7 +71,7 @@ export function registerGraphWebviewPanel(
 			allowMultipleInstances: configuration.get('graph.allowMultiple'),
 		},
 		async (container, host) => {
-			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview');
+			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview.js');
 			return new GraphWebviewProvider(container, host);
 		},
 	);
@@ -94,7 +94,7 @@ export function registerGraphWebviewView(
 			},
 		},
 		async (container, host) => {
-			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview');
+			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview.js');
 			return new GraphWebviewProvider(container, host);
 		},
 	);

@@ -1,33 +1,33 @@
 import type { TreeCheckboxChangeEvent } from 'vscode';
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { ViewShowBranchComparison } from '../../config';
-import { GlyphChars } from '../../constants';
-import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage';
-import type { GitUri } from '../../git/gitUri';
-import type { GitBranch } from '../../git/models/branch';
-import type { RepositoryFileSystemChangeEvent } from '../../git/models/repository';
-import type { GitUser } from '../../git/models/user';
-import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
-import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
-import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
-import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { showReferencePicker } from '../../quickpicks/referencePicker';
-import { debug, log } from '../../system/decorators/log';
-import { weakEvent } from '../../system/event';
-import { pluralize } from '../../system/string';
-import type { ViewsWithBranches } from '../viewBase';
-import type { WorktreesView } from '../worktreesView';
-import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import type { ViewShowBranchComparison } from '../../config.js';
+import { GlyphChars } from '../../constants.js';
+import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage.js';
+import type { GitUri } from '../../git/gitUri.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
+import type { GitUser } from '../../git/models/user.js';
+import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults.js';
+import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults.js';
+import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils.js';
+import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
+import { showReferencePicker } from '../../quickpicks/referencePicker.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { weakEvent } from '../../system/event.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithBranches } from '../viewBase.js';
+import type { WorktreesView } from '../worktreesView.js';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
 import {
 	getComparisonCheckedFiles,
 	getComparisonStoragePrefix,
 	resetComparisonCheckedFiles,
 	restoreComparisonCheckedFiles,
-} from './compareResultsNode';
-import { ResultsCommitsNode } from './resultsCommitsNode';
-import { ResultsFilesNode } from './resultsFilesNode';
+} from './compareResultsNode.js';
+import { ResultsCommitsNode } from './resultsCommitsNode.js';
+import { ResultsFilesNode } from './resultsFilesNode.js';
 
 type State = {
 	filterCommits: GitUser[] | undefined;

@@ -1,6 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { badgeBase } from './badges.css';
+import { badgeBase } from './badges.css.js';
 
 @customElement('gl-badge')
 export class Badge extends LitElement {

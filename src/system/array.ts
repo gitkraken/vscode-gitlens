@@ -1,4 +1,4 @@
-import { join } from './iterable';
+import { join } from './iterable.js';
 
 export function areEqual<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {
 	if (a === b) return true;

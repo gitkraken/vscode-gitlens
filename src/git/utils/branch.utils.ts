@@ -1,7 +1,7 @@
-import type { PageableResult } from '../../system/paging';
-import type { GitBranch, GitTrackingUpstream } from '../models/branch';
-import type { GitBranchReference, GitReference } from '../models/reference';
-import { shortenRevision } from './revision.utils';
+import type { PageableResult } from '../../system/paging.js';
+import type { GitBranch, GitTrackingUpstream } from '../models/branch.js';
+import type { GitBranchReference, GitReference } from '../models/reference.js';
+import { shortenRevision } from './revision.utils.js';
 
 const detachedHEADRegex = /^(HEAD|\(.*\))$/;
 

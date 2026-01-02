@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../code-icon';
-import '../overlays/tooltip';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('gl-avatar')
 export class GlAvatar extends LitElement {

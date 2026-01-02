@@ -1,15 +1,15 @@
 import type { TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import type { TreeViewSubscribableNodeTypes } from '../../../constants.views';
-import type { GitUri } from '../../../git/gitUri';
-import { gate } from '../../../system/decorators/gate';
-import { debug } from '../../../system/decorators/log';
-import { weakEvent } from '../../../system/event';
-import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
-import type { View } from '../../viewBase';
-import { CacheableChildrenViewNode } from './cacheableChildrenViewNode';
-import type { ViewNode } from './viewNode';
-import { canAutoRefreshView } from './viewNode';
+import type { TreeViewSubscribableNodeTypes } from '../../../constants.views.js';
+import type { GitUri } from '../../../git/gitUri.js';
+import { gate } from '../../../system/decorators/gate.js';
+import { debug } from '../../../system/decorators/log.js';
+import { weakEvent } from '../../../system/event.js';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope.js';
+import type { View } from '../../viewBase.js';
+import { CacheableChildrenViewNode } from './cacheableChildrenViewNode.js';
+import type { ViewNode } from './viewNode.js';
+import { canAutoRefreshView } from './viewNode.js';
 
 export abstract class SubscribeableViewNode<
 	Type extends TreeViewSubscribableNodeTypes = TreeViewSubscribableNodeTypes,

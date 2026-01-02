@@ -1,5 +1,5 @@
-import type { SearchQueryFilters } from '../search';
-import type { GitCommit } from './commit';
+import type { SearchQueryFilters } from '../search.js';
+import type { GitCommit } from './commit.js';
 
 export interface GitLog {
 	readonly repoPath: string;

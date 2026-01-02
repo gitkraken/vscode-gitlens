@@ -1,19 +1,19 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { FilesComparison } from '../../git/actions/commit';
-import { GitUri } from '../../git/gitUri';
-import type { GitFile } from '../../git/models/file';
-import type { FilesQueryResults } from '../../git/queryResults';
-import { makeHierarchical } from '../../system/array';
-import { debug } from '../../system/decorators/log';
-import { map } from '../../system/iterable';
-import { joinPaths, normalizePath } from '../../system/path';
-import { cancellable, PromiseCancelledError } from '../../system/promise';
-import { pluralize, sortCompare } from '../../system/string';
-import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { ResultsFileNode } from './resultsFileNode';
+import type { FilesComparison } from '../../git/actions/commit.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitFile } from '../../git/models/file.js';
+import type { FilesQueryResults } from '../../git/queryResults.js';
+import { makeHierarchical } from '../../system/array.js';
+import { debug } from '../../system/decorators/log.js';
+import { map } from '../../system/iterable.js';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import { cancellable, PromiseCancelledError } from '../../system/promise.js';
+import { pluralize, sortCompare } from '../../system/string.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
+import type { FileNode } from './folderNode.js';
+import { FolderNode } from './folderNode.js';
+import { ResultsFileNode } from './resultsFileNode.js';
 
 type State = {
 	filter: FilesQueryFilter | undefined;

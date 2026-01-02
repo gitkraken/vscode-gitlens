@@ -5,11 +5,12 @@ import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import antiTrojanSource from 'eslint-plugin-anti-trojan-source';
-import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import { createCustomTypeScriptImportResolver } from './scripts/eslint-import-resolver-ts.mjs';
 import importX from 'eslint-plugin-import-x';
 import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
-import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
+import noSrcImports from './scripts/eslint-rules/no-src-imports.mjs';
+import noEnvWithoutJs from './scripts/eslint-rules/no-env-without-js.mjs';
 import reactCompiler from 'eslint-plugin-react-compiler';
 import { fileURLToPath } from 'node:url';
 
@@ -118,7 +119,7 @@ const restrictedImports = {
 			paths: [{ name: 'vscode', message: "Can't use `vscode` in webviews", allowTypeImports: true }],
 			patterns: [
 				{
-					group: ['container'],
+					group: ['container.js'],
 					importNames: ['Container'],
 					message: "Can't use `Container` in webviews",
 					allowTypeImports: true,
@@ -161,11 +162,12 @@ export default defineConfig(
 			// @ts-ignore
 			'anti-trojan-source': antiTrojanSource,
 			// @ts-ignore
-			'@gitlens': { rules: { 'no-src-imports': noSrcImports } },
+			'@gitlens': { rules: { 'no-src-imports': noSrcImports, 'no-env-without-js': noEnvWithoutJs } },
 		},
 		rules: {
 			// Custom rules
 			'@gitlens/no-src-imports': 'error',
+			'@gitlens/no-env-without-js': 'error',
 			'anti-trojan-source/no-bidi': 'error',
 
 			// Core JavaScript rules
@@ -262,7 +264,7 @@ export default defineConfig(
 			// Import rules
 			'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
 			'import-x/default': 'off',
-			'import-x/extensions': 'off',
+			'import-x/extensions': ['error', 'ignorePackages', { checkTypeImports: true, fix: true }],
 			'import-x/named': 'off',
 			'import-x/namespace': 'off',
 			'import-x/newline-after-import': 'warn',
@@ -388,7 +390,7 @@ export default defineConfig(
 		settings: {
 			'import-x/extensions': ['.ts', '.tsx'],
 			'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
-			'import-x/resolver-next': [createTypeScriptImportResolver()],
+			'import-x/resolver-next': [createCustomTypeScriptImportResolver()],
 		},
 	},
 

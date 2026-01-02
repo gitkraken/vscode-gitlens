@@ -1,37 +1,37 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
-import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
-import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
-import type { GravatarDefaultStyle } from '../../config';
-import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
-import { ensureArray } from '../../system/array';
-import { formatDate, fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
-import { memoize } from '../../system/decorators/memoize';
-import { Lazy } from '../../system/lazy';
-import { getLoggableName } from '../../system/logger';
-import { getSettledValue } from '../../system/promise';
-import { pluralize } from '../../system/string';
-import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider';
-import { GitUri } from '../gitUri';
-import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getChangedFilesCount } from '../utils/commit.utils';
+import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
+import { getAvatarUri, getCachedAvatarUri } from '../../avatars.js';
+import type { GravatarDefaultStyle } from '../../config.js';
+import { GlyphChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { ensureArray } from '../../system/array.js';
+import { formatDate, fromNow } from '../../system/date.js';
+import { gate } from '../../system/decorators/gate.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { Lazy } from '../../system/lazy.js';
+import { getLoggableName } from '../../system/logger.js';
+import { getSettledValue } from '../../system/promise.js';
+import { pluralize } from '../../system/string.js';
+import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider.js';
+import { GitUri } from '../gitUri.js';
+import type { RemoteProvider } from '../remotes/remoteProvider.js';
+import { getChangedFilesCount } from '../utils/commit.utils.js';
 import {
 	isSha,
 	isUncommitted,
 	isUncommittedStaged,
 	isUncommittedStagedWithParentSuffix,
 	isUncommittedWithParentSuffix,
-} from '../utils/revision.utils';
-import type { GitDiffFileStats } from './diff';
-import type { GitFile } from './file';
-import { GitFileChange } from './fileChange';
-import type { PullRequest } from './pullRequest';
-import type { GitRevisionReference, GitStashReference } from './reference';
-import type { GitRemote } from './remote';
-import type { Repository } from './repository';
-import { uncommitted, uncommittedStaged } from './revision';
+} from '../utils/revision.utils.js';
+import type { GitDiffFileStats } from './diff.js';
+import type { GitFile } from './file.js';
+import { GitFileChange } from './fileChange.js';
+import type { PullRequest } from './pullRequest.js';
+import type { GitRevisionReference, GitStashReference } from './reference.js';
+import type { GitRemote } from './remote.js';
+import type { Repository } from './repository.js';
+import { uncommitted, uncommittedStaged } from './revision.js';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 

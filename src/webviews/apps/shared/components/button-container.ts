@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase } from './styles/lit/base.css';
+import { elementBase } from './styles/lit/base.css.js';
 
 @customElement('button-container')
 export class ButtonContainer extends LitElement {

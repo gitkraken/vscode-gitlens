@@ -1,14 +1,14 @@
 import type { CancellationToken, Uri } from 'vscode';
-import { getCachedAvatarUri } from '../../../../avatars';
-import type { SearchQuery } from '../../../../constants.search';
-import type { Container } from '../../../../container';
-import { emojify } from '../../../../emojis';
-import { isCancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import { GitSearchError } from '../../../../git/errors';
-import type { GitGraphSubProvider } from '../../../../git/gitProvider';
-import type { GitBranch } from '../../../../git/models/branch';
-import type { GitStashCommit } from '../../../../git/models/commit';
+import { getCachedAvatarUri } from '../../../../avatars.js';
+import type { SearchQuery } from '../../../../constants.search.js';
+import type { Container } from '../../../../container.js';
+import { emojify } from '../../../../emojis.js';
+import { isCancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitSearchError } from '../../../../git/errors.js';
+import type { GitGraphSubProvider } from '../../../../git/gitProvider.js';
+import type { GitBranch } from '../../../../git/models/branch.js';
+import type { GitStashCommit } from '../../../../git/models/commit.js';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -18,58 +18,58 @@ import type {
 	GitGraphRowsStats,
 	GitGraphRowStats,
 	GitGraphRowTag,
-} from '../../../../git/models/graph';
-import type { GitBranchReference } from '../../../../git/models/reference';
-import type { GitRemote } from '../../../../git/models/remote';
-import type { GitWorktree } from '../../../../git/models/worktree';
+} from '../../../../git/models/graph.js';
+import type { GitBranchReference } from '../../../../git/models/reference.js';
+import type { GitRemote } from '../../../../git/models/remote.js';
+import type { GitWorktree } from '../../../../git/models/worktree.js';
 import {
 	getGraphParser,
 	getShaAndDatesLogParser,
 	getShaAndDatesWithFilesLogParser,
 	getShaAndStatsLogParser,
 	getShaLogParser,
-} from '../../../../git/parsers/logParser';
+} from '../../../../git/parsers/logParser.js';
 import type {
 	GitGraphSearch,
 	GitGraphSearchCursor,
 	GitGraphSearchProgress,
 	GitGraphSearchResultData,
 	GitGraphSearchResults,
-} from '../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '../../../../git/search';
-import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils';
-import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
-import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
+} from '../../../../git/search.js';
+import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '../../../../git/search.js';
+import { isBranchStarred } from '../../../../git/utils/-webview/branch.utils.js';
+import { getRemoteIconUri } from '../../../../git/utils/-webview/icons.js';
+import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils.js';
 import {
 	getBranchId,
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
-} from '../../../../git/utils/branch.utils';
-import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
-import { createReference } from '../../../../git/utils/reference.utils';
-import { isUncommitted } from '../../../../git/utils/revision.utils';
-import { getTagId } from '../../../../git/utils/tag.utils';
-import { isUserMatch } from '../../../../git/utils/user.utils';
-import { getWorktreeId } from '../../../../git/utils/worktree.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { log } from '../../../../system/decorators/log';
-import { find, first, join, last } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { getSettledValue } from '../../../../system/promise';
-import { createDisposable, mixinDisposable } from '../../../../system/unifiedDisposable';
-import { serializeWebviewItemContext } from '../../../../system/webview';
+} from '../../../../git/utils/branch.utils.js';
+import { getChangedFilesCount } from '../../../../git/utils/commit.utils.js';
+import { createReference } from '../../../../git/utils/reference.utils.js';
+import { isUncommitted } from '../../../../git/utils/revision.utils.js';
+import { getTagId } from '../../../../git/utils/tag.utils.js';
+import { isUserMatch } from '../../../../git/utils/user.utils.js';
+import { getWorktreeId } from '../../../../git/utils/worktree.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { log } from '../../../../system/decorators/log.js';
+import { find, first, join, last } from '../../../../system/iterable.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { getSettledValue } from '../../../../system/promise.js';
+import { createDisposable, mixinDisposable } from '../../../../system/unifiedDisposable.js';
+import { serializeWebviewItemContext } from '../../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphItemRefGroupContext,
 	GraphTagContextValue,
-} from '../../../../webviews/plus/graph/protocol';
-import type { Git } from '../git';
-import { gitConfigsLog } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
-import { convertStashesToStdin } from './stash';
+} from '../../../../webviews/plus/graph/protocol.js';
+import type { Git } from '../git.js';
+import { gitConfigsLog } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
+import { convertStashesToStdin } from './stash.js';
 
 const progressiveSearchResultsBatchTimeMs = 500; // Send updates every 500ms (2 updates/second)
 

@@ -4,14 +4,14 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol';
-import { ipcContext } from '../../../shared/contexts/ipc';
-import type { Disposable } from '../../../shared/events';
-import type { HostIpc } from '../../../shared/ipc';
-import { emitTelemetrySentEvent } from '../../../shared/telemetry';
-import { graphStateContext } from '../context';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/tooltip';
+import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { Disposable } from '../../../shared/events.js';
+import type { HostIpc } from '../../../shared/ipc.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
+import { graphStateContext } from '../context.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 interface Icon {
 	type: IconTypes;

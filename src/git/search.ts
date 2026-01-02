@@ -1,10 +1,10 @@
-import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search';
-import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search';
-import type { StoredSearchQuery } from '../constants.storage';
-import { some } from '../system/iterable';
-import type { GitRevisionReference } from './models/reference';
-import type { GitUser } from './models/user';
-import { isSha, shortenRevision } from './utils/revision.utils';
+import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search.js';
+import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search.js';
+import type { StoredSearchQuery } from '../constants.storage.js';
+import { some } from '../system/iterable.js';
+import type { GitRevisionReference } from './models/reference.js';
+import type { GitUser } from './models/user.js';
+import { isSha, shortenRevision } from './utils/revision.utils.js';
 
 export interface GitCommitSearchContext {
 	readonly query: SearchQuery;

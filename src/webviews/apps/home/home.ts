@@ -4,34 +4,34 @@ import { provide } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { State } from '../../home/protocol';
-import { DidChangeSubscription, DidFocusAccount } from '../../home/protocol';
+import type { State } from '../../home/protocol.js';
+import { DidChangeSubscription, DidFocusAccount } from '../../home/protocol.js';
 import {
 	ActiveOverviewState,
 	activeOverviewStateContext,
 	InactiveOverviewState,
 	inactiveOverviewStateContext,
-} from '../plus/home/components/overviewState';
-import type { GlHomeHeader } from '../plus/shared/components/home-header';
-import { GlAppHost } from '../shared/appHost';
-import { scrollableBase } from '../shared/components/styles/lit/base.css';
-import type { LoggerContext } from '../shared/contexts/logger';
-import type { HostIpc } from '../shared/ipc';
-import type { GlAiAllAccessBanner } from './components/ai-all-access-banner';
-import { homeBaseStyles, homeStyles } from './home.css';
-import { HomeStateProvider } from './stateProvider';
-import '../plus/shared/components/home-header';
-import '../plus/home/components/active-work';
-import '../plus/home/components/launchpad';
-import '../plus/home/components/overview';
-import './components/feature-nav';
-import './components/ai-all-access-banner';
-import './components/ama-banner';
-import './components/integration-banner';
-import './components/preview-banner';
-import '../shared/components/mcp-banner';
-import './components/repo-alerts';
-import '../shared/components/banner/banner';
+} from '../plus/home/components/overviewState.js';
+import type { GlHomeHeader } from '../plus/shared/components/home-header.js';
+import { GlAppHost } from '../shared/appHost.js';
+import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
+import type { LoggerContext } from '../shared/contexts/logger.js';
+import type { HostIpc } from '../shared/ipc.js';
+import type { GlAiAllAccessBanner } from './components/ai-all-access-banner.js';
+import { homeBaseStyles, homeStyles } from './home.css.js';
+import { HomeStateProvider } from './stateProvider.js';
+import '../plus/shared/components/home-header.js';
+import '../plus/home/components/active-work.js';
+import '../plus/home/components/launchpad.js';
+import '../plus/home/components/overview.js';
+import './components/feature-nav.js';
+import './components/ai-all-access-banner.js';
+import './components/ama-banner.js';
+import './components/integration-banner.js';
+import './components/preview-banner.js';
+import '../shared/components/mcp-banner.js';
+import './components/repo-alerts.js';
+import '../shared/components/banner/banner.js';
 
 @customElement('gl-home-app')
 export class GlHomeApp extends GlAppHost<State> {

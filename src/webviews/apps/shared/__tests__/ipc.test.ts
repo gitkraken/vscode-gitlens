@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { URI } from 'vscode-uri';
-import { deserializeIpcData } from '../../../../system/ipcSerialize';
-import type { IpcPromise } from '../../../ipc';
+import { deserializeIpcData } from '../../../../system/ipcSerialize.js';
+import type { IpcPromise } from '../../../ipc.js';
 
 suite('IPC Deserialization Test Suite', () => {
 	suite('deserializeIpcData (pure function)', () => {

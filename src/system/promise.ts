@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { map } from './iterable';
+import { map } from './iterable.js';
 
 export type PromiseOrValue<T> = Promise<T> | T;
 

@@ -1,5 +1,5 @@
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
-import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
+import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
 
 export class AzureDevOpsAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitCloudHostIntegrationId.AzureDevOps> {
 	protected override get authProviderId(): GitCloudHostIntegrationId.AzureDevOps {

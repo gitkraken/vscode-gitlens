@@ -1,18 +1,18 @@
-import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
-import type { Container } from '../../container';
-import { showCommitInDetailsView } from '../../git/actions/commit';
-import { GitCommit } from '../../git/models/commit';
-import type { GitLog } from '../../git/models/log';
-import type { GitReference } from '../../git/models/reference';
-import { Repository } from '../../git/models/repository';
-import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/utils/reference.utils';
-import { formatPath } from '../../system/-webview/formatPath';
-import { pad } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator, StepResult } from '../quickCommand';
-import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+import { GlyphChars, quickPickTitleMaxChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { showCommitInDetailsView } from '../../git/actions/commit.js';
+import { GitCommit } from '../../git/models/commit.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { GitReference } from '../../git/models/reference.js';
+import { Repository } from '../../git/models/repository.js';
+import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/utils/reference.utils.js';
+import { formatPath } from '../../system/-webview/formatPath.js';
+import { pad } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type { PartialStepState, StepGenerator, StepResult } from '../quickCommand.js';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];

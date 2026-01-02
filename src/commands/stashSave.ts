@@ -1,19 +1,19 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import type { ScmResource } from '../@types/vscode.git.resources';
-import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import type { Container } from '../container';
-import { push } from '../git/actions/stash';
-import { GitUri } from '../git/gitUri';
-import type { Repository } from '../git/models/repository';
-import { command } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext, CommandScmGroupsContext, CommandScmStatesContext } from './commandContext';
+import type { ScmResource } from '../@types/vscode.git.resources.d.js';
+import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
+import type { Container } from '../container.js';
+import { push } from '../git/actions/stash.js';
+import { GitUri } from '../git/gitUri.js';
+import type { Repository } from '../git/models/repository.js';
+import { command } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext, CommandScmGroupsContext, CommandScmStatesContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 export interface StashSaveCommandArgs {
 	message?: string;

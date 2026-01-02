@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { getTelementryService } from '@env/providers';
-import { Logger } from '../logger';
-import { isPromise } from '../promise';
-import { resolveProp } from './resolver';
+import { getTelementryService } from '@env/providers.js';
+import { Logger } from '../logger.js';
+import { isPromise } from '../promise.js';
+import { resolveProp } from './resolver.js';
 
 export function gate<T extends (...arg: any) => any>(getGroupingKey?: (...args: Parameters<T>) => string) {
 	return (_target: any, key: string, descriptor: PropertyDescriptor): void => {

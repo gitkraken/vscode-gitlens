@@ -1,14 +1,14 @@
 import type { Uri } from 'vscode';
-import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
-import { Container } from '../../container';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
-import { defer } from '../../system/promise';
-import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { RevealOptions } from '../../views/viewBase';
-import { executeGitCommand } from '../actions';
-import type { GitReference } from '../models/reference';
-import type { Repository } from '../models/repository';
-import type { GitWorktree } from '../models/worktree';
+import type { WorktreeGitCommandArgs } from '../../commands/git/worktree.js';
+import { Container } from '../../container.js';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
+import { defer } from '../../system/promise.js';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
+import type { RevealOptions } from '../../views/viewBase.js';
+import { executeGitCommand } from '../actions.js';
+import type { GitReference } from '../models/reference.js';
+import type { Repository } from '../models/repository.js';
+import type { GitWorktree } from '../models/worktree.js';
 
 export async function create(
 	repo?: string | Repository,

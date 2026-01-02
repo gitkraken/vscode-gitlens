@@ -1,30 +1,30 @@
 import { ProgressLocation, window } from 'vscode';
-import type { Container } from '../../container';
-import { MergeError } from '../../git/errors';
-import type { GitReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
+import type { Container } from '../../container.js';
+import { MergeError } from '../../git/errors.js';
+import type { GitReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	getReferenceTypeLabel,
 	isBranchReference,
-} from '../../git/utils/reference.utils';
-import { showGitErrorMessage } from '../../messages';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import { executeCommand } from '../../system/-webview/command';
-import { isStringArray } from '../../system/array';
-import { Logger } from '../../system/logger';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
-import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
+} from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { isStringArray } from '../../system/array.js';
+import { Logger } from '../../system/logger.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand.js';
+import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
-} from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];

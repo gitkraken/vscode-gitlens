@@ -1,19 +1,19 @@
 import type { CancellationToken, DecorationOptions, Disposable, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
-import type { Container } from '../container';
-import type { GitCommit } from '../git/models/commit';
-import type { ParsedGitDiffHunks } from '../git/models/diff';
-import { localChangesMessage } from '../hovers/hovers';
-import { configuration } from '../system/-webview/configuration';
-import { log } from '../system/decorators/log';
-import { getLogScope } from '../system/logger.scope';
-import { getSettledValue } from '../system/promise';
-import { maybeStopWatch } from '../system/stopwatch';
-import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider';
-import { AnnotationProviderBase } from './annotationProvider';
-import type { Decoration } from './annotations';
-import { Decorations } from './fileAnnotationController';
+import type { Container } from '../container.js';
+import type { GitCommit } from '../git/models/commit.js';
+import type { ParsedGitDiffHunks } from '../git/models/diff.js';
+import { localChangesMessage } from '../hovers/hovers.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { log } from '../system/decorators/log.js';
+import { getLogScope } from '../system/logger.scope.js';
+import { getSettledValue } from '../system/promise.js';
+import { maybeStopWatch } from '../system/stopwatch.js';
+import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
+import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider.js';
+import { AnnotationProviderBase } from './annotationProvider.js';
+import type { Decoration } from './annotations.js';
+import { Decorations } from './fileAnnotationController.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 

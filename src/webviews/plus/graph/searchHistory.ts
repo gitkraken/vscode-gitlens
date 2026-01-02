@@ -1,5 +1,5 @@
-import type { SearchQuery } from '../../../constants.search';
-import type { Storage } from '../../../system/-webview/storage';
+import type { SearchQuery } from '../../../constants.search.js';
+import type { Storage } from '../../../system/-webview/storage.js';
 
 /** Maximum number of search history entries to store */
 const maximumSearchHistory = 50;

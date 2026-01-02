@@ -1,8 +1,8 @@
 import type { Uri } from 'vscode';
-import { deserializeIpcJsonReviver, serializeIpcJsonReplacer } from '@env/json';
-import type { Container } from '../container';
-import type { IpcPromise } from '../webviews/ipc';
-import type { Branded } from './brand';
+import { deserializeIpcJsonReviver, serializeIpcJsonReplacer } from '@env/json.js';
+import type { Container } from '../container.js';
+import type { IpcPromise } from '../webviews/ipc.js';
+import type { Branded } from './brand.js';
 
 // prettier-ignore
 export type IpcSerialized<T> =

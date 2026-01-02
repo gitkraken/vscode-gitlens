@@ -1,18 +1,18 @@
 import type { Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
-import type { Container } from '../../container';
-import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
-import { RemoteResourceType } from '../../git/models/remoteResource';
-import type { Repository } from '../../git/models/repository';
+import type { Container } from '../../container.js';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
+import { RemoteResourceType } from '../../git/models/remoteResource.js';
+import type { Repository } from '../../git/models/repository.js';
 import type {
 	GkProviderId,
 	RepositoryIdentityDescriptor,
 	RepositoryIdentityProviderDescriptor,
-} from '../../git/models/repositoryIdentities';
-import { missingRepositoryId } from '../../git/models/repositoryIdentities';
-import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { log } from '../../system/decorators/log';
-import { getSettledValue } from '../../system/promise';
+} from '../../git/models/repositoryIdentities.js';
+import { missingRepositoryId } from '../../git/models/repositoryIdentities.js';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser.js';
+import { log } from '../../system/decorators/log.js';
+import { getSettledValue } from '../../system/promise.js';
 
 export class RepositoryIdentityService implements Disposable {
 	constructor(

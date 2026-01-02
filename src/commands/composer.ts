@@ -1,17 +1,17 @@
-import type { Container } from '../container';
-import { showGenericErrorMessage } from '../messages';
-import { command, executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { Logger } from '../system/logger';
-import type { ComposerCommandArgs, ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration';
-import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { Logger } from '../system/logger.js';
+import type { ComposerCommandArgs, ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
+import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
 	isCommandContextViewNodeHasWorktree,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 @command()
 export class ComposeCommand extends GlCommandBase {

@@ -1,11 +1,11 @@
-import { explainChanges, explainCommit } from './actions/explainChanges';
-import { generateChangelog } from './actions/generateChangelog';
-import { generateCommits } from './actions/generateCommits';
-import { generateCreateDraft } from './actions/generateCreateDraft';
-import { generateCreatePullRequest } from './actions/generateCreatePullRequest';
-import { generateCommitMessage, generateStashMessage } from './actions/generateMessage';
-import { generateSearchQuery } from './actions/generateSearchQuery';
-import type { AIService } from './aiService';
+import { explainChanges, explainCommit } from './actions/explainChanges.js';
+import { generateChangelog } from './actions/generateChangelog.js';
+import { generateCommits } from './actions/generateCommits.js';
+import { generateCreateDraft } from './actions/generateCreateDraft.js';
+import { generateCreatePullRequest } from './actions/generateCreatePullRequest.js';
+import { generateCommitMessage, generateStashMessage } from './actions/generateMessage.js';
+import { generateSearchQuery } from './actions/generateSearchQuery.js';
+import type { AIService } from './aiService.js';
 
 type RemoveFirstArg<F> = F extends (first: any, ...args: infer Rest) => infer Return
 	? (...args: Rest) => Return

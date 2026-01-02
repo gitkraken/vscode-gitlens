@@ -1,16 +1,16 @@
-import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
-import type { AIProviders } from './constants.ai';
-import type { IntegrationIds } from './constants.integrations';
-import type { SubscriptionState } from './constants.subscription';
-import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
-import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views';
-import type { Environment } from './container';
-import type { FeaturePreviews } from './features';
-import type { GitRevisionRangeNotation } from './git/models/revision';
-import type { OrganizationSettings } from './plus/gk/models/organization';
-import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
-import type { IntegrationConnectedKey } from './plus/integrations/models/integration';
-import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
+import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
+import type { AIProviders } from './constants.ai.js';
+import type { IntegrationIds } from './constants.integrations.js';
+import type { SubscriptionState } from './constants.subscription.js';
+import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
+import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views.js';
+import type { Environment } from './container.js';
+import type { FeaturePreviews } from './features.js';
+import type { GitRevisionRangeNotation } from './git/models/revision.js';
+import type { OrganizationSettings } from './plus/gk/models/organization.js';
+import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
+import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
+import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
 
 export type SecretKeys =
 	| IntegrationAuthenticationKeys

@@ -12,9 +12,9 @@ import type {
 	DraftPatchFileChange,
 	DraftRole,
 	DraftVisibility,
-} from '../../../../../plus/drafts/models/drafts';
-import { makeHierarchical } from '../../../../../system/array';
-import { flatCount } from '../../../../../system/iterable';
+} from '../../../../../plus/drafts/models/drafts.js';
+import { makeHierarchical } from '../../../../../system/array.js';
+import { flatCount } from '../../../../../system/iterable.js';
 import type {
 	CloudDraftDetails,
 	DraftDetails,
@@ -22,23 +22,23 @@ import type {
 	ExecuteFileActionParams,
 	PatchDetails,
 	State,
-} from '../../../../plus/patchDetails/protocol';
+} from '../../../../plus/patchDetails/protocol.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
 	TreeItemCheckedDetail,
 	TreeItemSelectionDetail,
 	TreeModel,
-} from '../../../shared/components/tree/base';
-import { GlTreeBase } from './gl-tree-base';
-import '../../../shared/components/actions/action-item';
-import '../../../shared/components/actions/action-nav';
-import '../../../shared/components/badges/badge';
-import '../../../shared/components/button-container';
-import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/markdown/markdown';
-import '../../../shared/components/webview-pane';
+} from '../../../shared/components/tree/base.js';
+import { GlTreeBase } from './gl-tree-base.js';
+import '../../../shared/components/actions/action-item.js';
+import '../../../shared/components/actions/action-nav.js';
+import '../../../shared/components/badges/badge.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/markdown/markdown.js';
+import '../../../shared/components/webview-pane.js';
 
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/

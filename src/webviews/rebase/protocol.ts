@@ -1,14 +1,14 @@
-import type { Config } from '../../config';
-import type { ConflictDetectionResult } from '../../git/models/mergeConflicts';
+import type { Config } from '../../config.js';
+import type { ConflictDetectionResult } from '../../git/models/mergeConflicts.js';
 import type {
 	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
 	ProcessedRebaseCommandEntry,
 	ProcessedRebaseCommitEntry,
 	RebaseTodoCommitAction,
-} from '../../git/models/rebase';
-import type { Subscription } from '../../plus/gk/models/subscription';
-import type { IpcScope, WebviewState } from '../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
+} from '../../git/models/rebase.js';
+import type { Subscription } from '../../plus/gk/models/subscription.js';
+import type { IpcScope, WebviewState } from '../protocol.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../protocol.js';
 
 export const scope: IpcScope = 'rebase';
 

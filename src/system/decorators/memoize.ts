@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { resolveProp } from './resolver';
+import { resolveProp } from './resolver.js';
 
 export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>): void => {

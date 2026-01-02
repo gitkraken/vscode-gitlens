@@ -1,10 +1,10 @@
 import type { TreeItem } from 'vscode';
 import { Disposable, TreeItemCollapsibleState } from 'vscode';
-import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad';
-import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
-import type { ContextValues, ViewNode } from './abstract/viewNode';
-import { getViewNodeId } from './abstract/viewNode';
-import { GroupingNode } from './groupingNode';
+import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
+import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase.js';
+import type { ContextValues, ViewNode } from './abstract/viewNode.js';
+import { getViewNodeId } from './abstract/viewNode.js';
+import { GroupingNode } from './groupingNode.js';
 
 export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> extends GroupingNode {
 	private disposable: Disposable;

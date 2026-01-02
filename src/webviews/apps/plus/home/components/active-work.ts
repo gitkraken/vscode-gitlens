@@ -4,41 +4,41 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
-import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
-import { createCommandLink } from '../../../../../system/commands';
-import { createWebviewCommandLink } from '../../../../../system/webview';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
+import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import { createWebviewCommandLink } from '../../../../../system/webview.js';
 import type {
 	GetActiveOverviewResponse,
 	GetOverviewBranch,
 	OpenInGraphParams,
 	OpenInTimelineParams,
 	State,
-} from '../../../../home/protocol';
-import { ExecuteCommand } from '../../../../protocol';
-import { stateContext } from '../../../home/context';
-import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group';
-import { ipcContext } from '../../../shared/contexts/ipc';
-import { linkStyles, ruleStyles } from '../../shared/components/vscode.css';
-import { branchCardStyles, GlBranchCardBase } from './branch-card';
-import type { ActiveOverviewState } from './overviewState';
-import { activeOverviewStateContext } from './overviewState';
-import '../../../shared/components/breadcrumbs';
-import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/skeleton-loader';
-import '../../../shared/components/card/card';
-import '../../../shared/components/commit/commit-stats';
-import '../../../shared/components/menu/menu-divider';
-import '../../../shared/components/menu/menu-item';
-import '../../../shared/components/menu/menu-label';
-import '../../../shared/components/overlays/popover';
-import '../../../shared/components/pills/tracking';
-import '../../../shared/components/ref-button';
-import '../../../shared/components/repo-button-group';
-import '../../../shared/components/rich/issue-icon';
-import '../../../shared/components/rich/pr-icon';
-import '../../shared/components/merge-rebase-status';
+} from '../../../../home/protocol.js';
+import { ExecuteCommand } from '../../../../protocol.js';
+import { stateContext } from '../../../home/context.js';
+import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
+import { linkStyles, ruleStyles } from '../../shared/components/vscode.css.js';
+import { branchCardStyles, GlBranchCardBase } from './branch-card.js';
+import type { ActiveOverviewState } from './overviewState.js';
+import { activeOverviewStateContext } from './overviewState.js';
+import '../../../shared/components/breadcrumbs.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/skeleton-loader.js';
+import '../../../shared/components/card/card.js';
+import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/menu/menu-divider.js';
+import '../../../shared/components/menu/menu-item.js';
+import '../../../shared/components/menu/menu-label.js';
+import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/pills/tracking.js';
+import '../../../shared/components/ref-button.js';
+import '../../../shared/components/repo-button-group.js';
+import '../../../shared/components/rich/issue-icon.js';
+import '../../../shared/components/rich/pr-icon.js';
+import '../../shared/components/merge-rebase-status.js';
 
 export const activeWorkTagName = 'gl-active-work';
 

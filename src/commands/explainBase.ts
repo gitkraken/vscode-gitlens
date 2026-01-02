@@ -1,19 +1,19 @@
 import type { TextEditor, Uri } from 'vscode';
-import { md5 } from '@env/crypto';
-import type { GlCommands } from '../constants.commands';
-import type { Container } from '../container';
-import type { MarkdownContentMetadata } from '../documents/markdown';
-import { getMarkdownHeaderContent } from '../documents/markdown';
-import type { GitRepositoryService } from '../git/gitRepositoryService';
-import { GitUri } from '../git/gitUri';
-import type { AIExplainSourceContext } from '../plus/ai/actions/explainChanges';
-import type { AIResponse, AIResultContext } from '../plus/ai/aiProviderService';
-import type { AIModel } from '../plus/ai/models/model';
-import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { showMarkdownPreview } from '../system/-webview/markdown';
-import { GlCommandBase } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
+import { md5 } from '@env/crypto.js';
+import type { GlCommands } from '../constants.commands.js';
+import type { Container } from '../container.js';
+import type { MarkdownContentMetadata } from '../documents/markdown.js';
+import { getMarkdownHeaderContent } from '../documents/markdown.js';
+import type { GitRepositoryService } from '../git/gitRepositoryService.js';
+import { GitUri } from '../git/gitUri.js';
+import type { AIExplainSourceContext } from '../plus/ai/actions/explainChanges.js';
+import type { AIResponse, AIResultContext } from '../plus/ai/aiProviderService.js';
+import type { AIModel } from '../plus/ai/models/model.js';
+import { getAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { showMarkdownPreview } from '../system/-webview/markdown.js';
+import { GlCommandBase } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
 
 export interface ExplainBaseArgs {
 	worktreePath?: string | Uri;

@@ -1,17 +1,17 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import type { TelemetryEvents } from '../../../constants.telemetry';
-import { AINoRequestDataError, CancellationError } from '../../../errors';
-import type { GitCommit } from '../../../git/models/commit';
-import { isCommit } from '../../../git/models/commit';
-import type { GitRevisionReference } from '../../../git/models/reference';
-import { assertsCommitHasFullDetails } from '../../../git/utils/commit.utils';
-import { configuration } from '../../../system/-webview/configuration';
-import type { AIResponse, AIResult, AISourceContext } from '../aiProviderService';
-import type { AIService } from '../aiService';
-import type { PromptTemplateContext } from '../models/promptTemplates';
-import type { AIChatMessage } from '../models/provider';
-import type { AISummarizedResult } from '../models/results';
-import { parseSummarizeResult } from '../utils/-webview/results.utils';
+import type { TelemetryEvents } from '../../../constants.telemetry.js';
+import { AINoRequestDataError, CancellationError } from '../../../errors.js';
+import type { GitCommit } from '../../../git/models/commit.js';
+import { isCommit } from '../../../git/models/commit.js';
+import type { GitRevisionReference } from '../../../git/models/reference.js';
+import { assertsCommitHasFullDetails } from '../../../git/utils/commit.utils.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import type { AIResponse, AIResult, AISourceContext } from '../aiProviderService.js';
+import type { AIService } from '../aiService.js';
+import type { PromptTemplateContext } from '../models/promptTemplates.js';
+import type { AIChatMessage } from '../models/provider.js';
+import type { AISummarizedResult } from '../models/results.js';
+import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
 
 export type AIExplainSourceContext = AISourceContext<{ type: TelemetryEvents['ai/explain']['changeType'] }>;
 

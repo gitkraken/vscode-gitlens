@@ -1,17 +1,17 @@
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { GitCommit } from '../git/models/commit';
-import type { GitRemote } from '../git/models/remote';
-import { isRemote } from '../git/models/remote';
-import type { Repository } from '../git/models/repository';
-import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { first } from '../system/iterable';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasRemote } from './commandContext.utils';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { GitCommit } from '../git/models/commit.js';
+import type { GitRemote } from '../git/models/remote.js';
+import { isRemote } from '../git/models/remote.js';
+import type { Repository } from '../git/models/repository.js';
+import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
+import { showRepositoryPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { first } from '../system/iterable.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasRemote } from './commandContext.utils.js';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;

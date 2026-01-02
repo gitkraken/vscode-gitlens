@@ -1,30 +1,30 @@
 import { readdir } from 'fs';
 import type { CancellationToken } from 'vscode';
 import { Uri } from 'vscode';
-import type { Container } from '../../../../container';
-import { CancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import { PausedOperationAbortError, PausedOperationContinueError } from '../../../../git/errors';
-import type { GitPausedOperationsSubProvider } from '../../../../git/gitProvider';
+import type { Container } from '../../../../container.js';
+import { CancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import { PausedOperationAbortError, PausedOperationContinueError } from '../../../../git/errors.js';
+import type { GitPausedOperationsSubProvider } from '../../../../git/gitProvider.js';
 import type {
 	GitCherryPickStatus,
 	GitMergeStatus,
 	GitPausedOperationStatus,
 	GitRebaseStatus,
 	GitRevertStatus,
-} from '../../../../git/models/pausedOperationStatus';
-import type { GitBranchReference, GitTagReference } from '../../../../git/models/reference';
-import { createReference } from '../../../../git/utils/reference.utils';
-import { exists } from '../../../../system/-webview/vscode/uris';
-import { gate } from '../../../../system/decorators/gate';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import { getSettledValue } from '../../../../system/promise';
-import type { Git } from '../git';
-import { getGitCommandError } from '../git';
-import type { LocalGitProviderInternal } from '../localGitProvider';
+} from '../../../../git/models/pausedOperationStatus.js';
+import type { GitBranchReference, GitTagReference } from '../../../../git/models/reference.js';
+import { createReference } from '../../../../git/utils/reference.utils.js';
+import { exists } from '../../../../system/-webview/vscode/uris.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { getSettledValue } from '../../../../system/promise.js';
+import type { Git } from '../git.js';
+import { getGitCommandError } from '../git.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
 
 type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert' | 'sequencer';
 

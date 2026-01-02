@@ -1,14 +1,14 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { compareSubscriptionPlans } from '../../../../plus/gk/utils/subscription.utils';
-import { createCommandLink } from '../../../../system/commands';
-import type { State } from '../../../home/protocol';
-import { DismissAiAllAccessBannerCommand } from '../../../home/protocol';
-import { ipcContext } from '../../shared/contexts/ipc';
-import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from '../context';
-import '../../shared/components/banner/banner';
+import { compareSubscriptionPlans } from '../../../../plus/gk/utils/subscription.utils.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import type { State } from '../../../home/protocol.js';
+import { DismissAiAllAccessBannerCommand } from '../../../home/protocol.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { stateContext } from '../context.js';
+import '../../shared/components/banner/banner.js';
 
 export const aiAllAccessBannerTagName = 'gl-ai-all-access-banner';
 

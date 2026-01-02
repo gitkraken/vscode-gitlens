@@ -1,8 +1,8 @@
-import type { AIPrimaryProviders, AIProviders, OpenAIProviders } from '../../../constants.ai';
-import type { Container } from '../../../container';
-import type { Lazy } from '../../../system/lazy';
-import type { ServerConnection } from '../../gk/serverConnection';
-import type { AIProvider } from './provider';
+import type { AIPrimaryProviders, AIProviders, OpenAIProviders } from '../../../constants.ai.js';
+import type { Container } from '../../../container.js';
+import type { Lazy } from '../../../system/lazy.js';
+import type { ServerConnection } from '../../gk/serverConnection.js';
+import type { AIProvider } from './provider.js';
 
 export interface AIModel<Provider extends AIProviders = AIProviders, Model extends string = string> {
 	readonly id: Model;

@@ -1,17 +1,17 @@
 import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { CoreColors } from '../../constants.colors';
-import type { GitUri } from '../../git/gitUri';
-import type { GitContributor } from '../../git/models/contributor';
-import type { Repository } from '../../git/models/repository';
-import { sortContributors } from '../../git/utils/-webview/sorting';
-import { configuration } from '../../system/-webview/configuration';
-import { debug } from '../../system/decorators/log';
-import type { ViewsWithContributorsNode } from '../viewBase';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { ActionMessageNode, MessageNode } from './common';
-import { ContributorNode } from './contributorNode';
+import type { CoreColors } from '../../constants.colors.js';
+import type { GitUri } from '../../git/gitUri.js';
+import type { GitContributor } from '../../git/models/contributor.js';
+import type { Repository } from '../../git/models/repository.js';
+import { sortContributors } from '../../git/utils/-webview/sorting.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { debug } from '../../system/decorators/log.js';
+import type { ViewsWithContributorsNode } from '../viewBase.js';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { ActionMessageNode, MessageNode } from './common.js';
+import { ContributorNode } from './contributorNode.js';
 
 export class ContributorsNode extends CacheableChildrenViewNode<
 	'contributors',

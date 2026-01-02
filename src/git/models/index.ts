@@ -1,5 +1,5 @@
-import type { GitFile } from './file';
-import type { GitFileConflictStatus } from './fileStatus';
+import type { GitFile } from './file.js';
+import type { GitFileConflictStatus } from './fileStatus.js';
 
 export type GitIndexVersion = 'normal' | 'base' | 'current' | 'incoming';
 export interface GitIndexFile {

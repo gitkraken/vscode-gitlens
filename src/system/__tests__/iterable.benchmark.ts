@@ -5,7 +5,7 @@
  */
 
 import { Bench } from 'tinybench';
-import { chunk, filter, map, skip, take } from '../iterable';
+import { chunk, filter, map, skip, take } from '../iterable.js';
 import {
 	consumeIterator,
 	displayAnalysisHeader,
@@ -14,7 +14,7 @@ import {
 	displayResults,
 	extractResults,
 	formatBytes,
-} from './benchmarkUtils';
+} from './benchmarkUtils.js';
 
 // ============================================================================
 // Generator versions for comparison

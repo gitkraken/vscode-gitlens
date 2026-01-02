@@ -2,7 +2,7 @@ import type { PropertyValues } from 'lit';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { PointerEvent } from 'react';
-import { GlElement } from '../../../shared/components/element';
+import { GlElement } from '../../../shared/components/element.js';
 
 const tagName = 'gl-chart-scroller';
 

@@ -4,7 +4,7 @@ import type {
 	GraphSearchResultsError,
 	GraphSelectedRows,
 	State,
-} from '../../../plus/graph/protocol';
+} from '../../../plus/graph/protocol.js';
 
 export interface AppState extends State {
 	state: State;

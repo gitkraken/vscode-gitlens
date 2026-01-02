@@ -1,42 +1,42 @@
 import { env, Uri, window } from 'vscode';
-import type { Container } from '../../../../container';
-import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
+import type { Container } from '../../../../container.js';
+import type { GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type {
 	DiffRange,
 	GitDiffSubProvider,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
 	PreviousRangeComparisonUrisResult,
-} from '../../../../git/gitProvider';
-import { GitUri } from '../../../../git/gitUri';
-import type { GitDiff, GitDiffFiles, GitDiffFilter, GitDiffShortStat } from '../../../../git/models/diff';
-import type { GitFile } from '../../../../git/models/file';
-import type { GitRevisionRange, GitRevisionRangeNotation } from '../../../../git/models/revision';
-import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../../git/models/revision';
+} from '../../../../git/gitProvider.js';
+import { GitUri } from '../../../../git/gitUri.js';
+import type { GitDiff, GitDiffFiles, GitDiffFilter, GitDiffShortStat } from '../../../../git/models/diff.js';
+import type { GitFile } from '../../../../git/models/file.js';
+import type { GitRevisionRange, GitRevisionRangeNotation } from '../../../../git/models/revision.js';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../../git/models/revision.js';
 import {
 	parseGitApplyFiles,
 	parseGitDiffNameStatusFiles,
 	parseGitDiffShortStat,
-} from '../../../../git/parsers/diffParser';
-import type { LogParsedFile } from '../../../../git/parsers/logParser';
-import { getShaAndFileRangeLogParser, getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
+} from '../../../../git/parsers/diffParser.js';
+import type { LogParsedFile } from '../../../../git/parsers/logParser.js';
+import { getShaAndFileRangeLogParser, getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser.js';
 import {
 	getRevisionRangeParts,
 	isRevisionRange,
 	isUncommitted,
 	isUncommittedStaged,
-} from '../../../../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../../../../messages';
-import { configuration } from '../../../../system/-webview/configuration';
-import { splitPath } from '../../../../system/-webview/path';
-import { log } from '../../../../system/decorators/log';
-import { first } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import type { Git, GitResult } from '../git';
-import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
+} from '../../../../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../../../../messages.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { splitPath } from '../../../../system/-webview/path.js';
+import { log } from '../../../../system/decorators/log.js';
+import { first } from '../../../../system/iterable.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import type { Git, GitResult } from '../git.js';
+import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
 
 export class DiffGitSubProvider implements GitDiffSubProvider {
 	constructor(

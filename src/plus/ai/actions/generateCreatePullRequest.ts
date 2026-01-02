@@ -1,16 +1,16 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import type { Source } from '../../../constants.telemetry';
-import { AINoRequestDataError, CancellationError } from '../../../errors';
-import type { Repository } from '../../../git/models/repository';
-import { configuration } from '../../../system/-webview/configuration';
-import type { Deferred } from '../../../system/promise';
-import type { AIResponse } from '../aiProviderService';
-import type { AIService } from '../aiService';
-import type { AIModel } from '../models/model';
-import type { AIChatMessage } from '../models/provider';
-import type { AISummarizedResult } from '../models/results';
-import { prepareCompareDataForAIRequest } from '../utils/-webview/ai.utils';
-import { parseSummarizeResult } from '../utils/-webview/results.utils';
+import type { Source } from '../../../constants.telemetry.js';
+import { AINoRequestDataError, CancellationError } from '../../../errors.js';
+import type { Repository } from '../../../git/models/repository.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import type { Deferred } from '../../../system/promise.js';
+import type { AIResponse } from '../aiProviderService.js';
+import type { AIService } from '../aiService.js';
+import type { AIModel } from '../models/model.js';
+import type { AIChatMessage } from '../models/provider.js';
+import type { AISummarizedResult } from '../models/results.js';
+import { prepareCompareDataForAIRequest } from '../utils/-webview/ai.utils.js';
+import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
 
 /** Generates pull request title and description */
 export async function generateCreatePullRequest(

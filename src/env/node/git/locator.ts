@@ -1,9 +1,9 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { GlyphChars } from '../../../constants';
-import { any } from '../../../system/promise';
-import { maybeStopWatch } from '../../../system/stopwatch';
-import { findExecutable, run } from './shell';
+import { GlyphChars } from '../../../constants.js';
+import { any } from '../../../system/promise.js';
+import { maybeStopWatch } from '../../../system/stopwatch.js';
+import { findExecutable, run } from './shell.js';
 
 export class UnableToFindGitError extends Error {
 	constructor(public readonly original?: Error) {

@@ -1,5 +1,5 @@
-import { emojis as compressed } from './emojis.generated';
-import { decompressFromBase64LZString } from './system/string';
+import { emojis as compressed } from './emojis.generated.js';
+import { decompressFromBase64LZString } from './system/string.js';
 
 const emojiRegex = /(^|\s):([-+_a-z0-9]+):($|\s)/g;
 

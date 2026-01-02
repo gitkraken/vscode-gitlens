@@ -1,9 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { getAltKeySymbol } from '@env/platform';
-import { focusOutline } from '../styles/lit/a11y.css';
-import '../overlays/tooltip';
-import '../code-icon';
+import { getAltKeySymbol } from '@env/platform.js';
+import { focusOutline } from '../styles/lit/a11y.css.js';
+import '../overlays/tooltip.js';
+import '../code-icon.js';
 
 @customElement('action-item')
 export class ActionItem extends LitElement {

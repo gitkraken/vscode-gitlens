@@ -1,12 +1,12 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import type { Source } from '../../../constants.telemetry';
-import { CancellationError } from '../../../errors';
-import { configuration } from '../../../system/-webview/configuration';
-import type { Deferred } from '../../../system/promise';
-import { dedent } from '../../../system/string';
-import type { AIService } from '../aiService';
-import type { AIModel } from '../models/model';
-import type { AIProviderResponse } from '../models/provider';
+import type { Source } from '../../../constants.telemetry.js';
+import { CancellationError } from '../../../errors.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import type { Deferred } from '../../../system/promise.js';
+import { dedent } from '../../../system/string.js';
+import type { AIService } from '../aiService.js';
+import type { AIModel } from '../models/model.js';
+import type { AIProviderResponse } from '../models/provider.js';
 
 export interface AIGenerateCommitsResult {
 	readonly commits: { readonly message: string; readonly explanation: string; readonly hunks: { hunk: number }[] }[];

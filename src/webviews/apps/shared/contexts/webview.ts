@@ -1,5 +1,5 @@
 import { createContext } from '@lit/context';
-import type { CustomEditorIds, WebviewIds } from '../../../../constants.views';
+import type { CustomEditorIds, WebviewIds } from '../../../../constants.views.js';
 
 export interface WebviewContext {
 	webviewId: CustomEditorIds | WebviewIds;

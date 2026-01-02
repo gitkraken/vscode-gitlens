@@ -1,18 +1,18 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { ConflictDetectionResult } from '../../../../git/models/mergeConflicts';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils';
-import { pluralize } from '../../../../system/string';
-import type { State } from '../../../rebase/protocol';
-import { GetPotentialConflictsRequest } from '../../../rebase/protocol';
-import { elementBase, scrollableBase } from '../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../shared/contexts/ipc';
-import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from '../context';
-import '../../shared/components/code-icon';
-import '../../shared/components/overlays/popover';
-import '../../plus/shared/components/feature-gate-plus-state';
+import type { ConflictDetectionResult } from '../../../../git/models/mergeConflicts.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
+import { pluralize } from '../../../../system/string.js';
+import type { State } from '../../../rebase/protocol.js';
+import { GetPotentialConflictsRequest } from '../../../rebase/protocol.js';
+import { elementBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { stateContext } from '../context.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/overlays/popover.js';
+import '../../plus/shared/components/feature-gate-plus-state.js';
 
 @customElement('gl-rebase-conflict-indicator')
 export class GlRebaseConflictIndicator extends LitElement {

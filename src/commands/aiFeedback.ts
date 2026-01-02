@@ -1,13 +1,13 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { AIFeedbackEvent } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { UnhelpfulResult } from '../plus/ai/aiFeedbackUtils';
-import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../plus/ai/aiFeedbackUtils';
-import { extractAIResultContext } from '../plus/ai/utils/-webview/ai.utils';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
+import type { AIFeedbackEvent } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { UnhelpfulResult } from '../plus/ai/aiFeedbackUtils.js';
+import { sendFeedbackEvent, showUnhelpfulFeedbackPicker } from '../plus/ai/aiFeedbackUtils.js';
+import { extractAIResultContext } from '../plus/ai/utils/-webview/ai.utils.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
 
 @command()
 export class AIFeedbackHelpfulCommand extends ActiveEditorCommand {

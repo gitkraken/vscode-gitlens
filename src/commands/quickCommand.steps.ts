@@ -1,35 +1,40 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
-import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features';
-import { revealBranch } from '../git/actions/branch';
-import { openChanges, revealCommit, showCommitInDetailsView } from '../git/actions/commit';
-import { revealContributor } from '../git/actions/contributor';
-import { revealRemote } from '../git/actions/remote';
-import { revealRepository } from '../git/actions/repository';
-import { revealStash, showStashInDetailsView } from '../git/actions/stash';
-import { revealTag } from '../git/actions/tag';
-import { revealWorktree } from '../git/actions/worktree';
-import type { PagedResult } from '../git/gitProvider';
-import type { GitBranch } from '../git/models/branch';
-import type { GitCommit, GitStashCommit } from '../git/models/commit';
-import { isCommit, isStash } from '../git/models/commit';
-import type { GitContributor } from '../git/models/contributor';
-import type { GitLog } from '../git/models/log';
-import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import { Repository } from '../git/models/repository';
-import type { GitStash } from '../git/models/stash';
-import type { GitStatus } from '../git/models/status';
-import type { GitTag } from '../git/models/tag';
-import type { GitWorktree } from '../git/models/worktree';
-import { remoteUrlRegex } from '../git/parsers/remoteParser';
-import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
-import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
-import { groupRepositories } from '../git/utils/-webview/repository.utils';
-import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
+import { Container } from '../container.js';
+import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features.js';
+import { revealBranch } from '../git/actions/branch.js';
+import { openChanges, revealCommit, showCommitInDetailsView } from '../git/actions/commit.js';
+import { revealContributor } from '../git/actions/contributor.js';
+import { revealRemote } from '../git/actions/remote.js';
+import { revealRepository } from '../git/actions/repository.js';
+import { revealStash, showStashInDetailsView } from '../git/actions/stash.js';
+import { revealTag } from '../git/actions/tag.js';
+import { revealWorktree } from '../git/actions/worktree.js';
+import type { PagedResult } from '../git/gitProvider.js';
+import type { GitBranch } from '../git/models/branch.js';
+import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
+import { isCommit, isStash } from '../git/models/commit.js';
+import type { GitContributor } from '../git/models/contributor.js';
+import type { GitLog } from '../git/models/log.js';
+import type {
+	GitBranchReference,
+	GitReference,
+	GitRevisionReference,
+	GitTagReference,
+} from '../git/models/reference.js';
+import type { GitRemote } from '../git/models/remote.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import { Repository } from '../git/models/repository.js';
+import type { GitStash } from '../git/models/stash.js';
+import type { GitStatus } from '../git/models/status.js';
+import type { GitTag } from '../git/models/tag.js';
+import type { GitWorktree } from '../git/models/worktree.js';
+import { remoteUrlRegex } from '../git/parsers/remoteParser.js';
+import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick.js';
+import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick.js';
+import { groupRepositories } from '../git/utils/-webview/repository.utils.js';
+import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting.js';
 import {
 	sortBranches,
 	sortContributors,
@@ -37,10 +42,10 @@ import {
 	sortRepositoriesGrouped,
 	sortTags,
 	sortWorktrees,
-} from '../git/utils/-webview/sorting';
-import type { WorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
-import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
-import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils';
+} from '../git/utils/-webview/sorting.js';
+import type { WorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick.js';
+import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick.js';
+import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils.js';
 import {
 	createReference,
 	getReferenceLabel,
@@ -48,11 +53,11 @@ import {
 	isRevisionReference,
 	isStashReference,
 	isTagReference,
-} from '../git/utils/reference.utils';
-import { getHighlanderProviderName } from '../git/utils/remote.utils';
-import { createRevisionRange, getRevisionRangeParts, isRevisionRange, isSha } from '../git/utils/revision.utils';
-import { getSubscriptionNextPaidPlanId, isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
-import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
+} from '../git/utils/reference.utils.js';
+import { getHighlanderProviderName } from '../git/utils/remote.utils.js';
+import { createRevisionRange, getRevisionRangeParts, isRevisionRange, isSha } from '../git/utils/revision.utils.js';
+import { getSubscriptionNextPaidPlanId, isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils.js';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
@@ -80,18 +85,18 @@ import {
 	CommitRestoreFileChangesCommandQuickPickItem,
 	OpenChangedFilesCommandQuickPickItem,
 	OpenOnlyChangedFilesCommandQuickPickItem,
-} from '../quickpicks/items/commits';
-import type { QuickPickItemOfT, QuickPickSeparator } from '../quickpicks/items/common';
-import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
+} from '../quickpicks/items/commits.js';
+import type { QuickPickItemOfT, QuickPickSeparator } from '../quickpicks/items/common.js';
+import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../quickpicks/items/directive.js';
 import type {
 	BranchQuickPickItem,
 	CommitQuickPickItem,
 	RemoteQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
-} from '../quickpicks/items/gitWizard';
+} from '../quickpicks/items/gitWizard.js';
 import {
 	createBranchQuickPickItem,
 	createCommitQuickPickItem,
@@ -101,24 +106,33 @@ import {
 	createStashQuickPickItem,
 	createTagQuickPickItem,
 	GitWizardQuickPickItem,
-} from '../quickpicks/items/gitWizard';
-import type { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
+} from '../quickpicks/items/gitWizard.js';
+import type { ReferencesQuickPickItem } from '../quickpicks/referencePicker.js';
 import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
-} from '../quickpicks/remoteProviderPicker';
-import { executeCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { formatPath } from '../system/-webview/formatPath';
-import { getIconPathUris } from '../system/-webview/vscode';
-import { openWorkspace } from '../system/-webview/vscode/workspaces';
-import { filterMap, intersection, isStringArray } from '../system/array';
-import { debounce } from '../system/function/debounce';
-import { first, map } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { getSettledValue } from '../system/promise';
-import { pad, pluralize, truncate } from '../system/string';
-import type { ViewsWithRepositoryFolders } from '../views/viewBase';
+} from '../quickpicks/remoteProviderPicker.js';
+import { executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { formatPath } from '../system/-webview/formatPath.js';
+import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
+import { getIconPathUris } from '../system/-webview/vscode.js';
+import { filterMap, intersection, isStringArray } from '../system/array.js';
+import { debounce } from '../system/function/debounce.js';
+import { first, map } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { getSettledValue } from '../system/promise.js';
+import { pad, pluralize, truncate } from '../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase.js';
+import {
+	LoadMoreQuickInputButton,
+	OpenChangesViewQuickInputButton,
+	OpenInNewWindowQuickInputButton,
+	PickCommitQuickInputButton,
+	RevealInSideBarQuickInputButton,
+	ShowDetailsViewQuickInputButton,
+	ShowTagsToggleQuickInputButton,
+} from './quickCommand.buttons.js';
 import type {
 	AsyncStepResultGenerator,
 	CrossCommandReference,
@@ -127,7 +141,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from './quickCommand';
+} from './quickCommand.js';
 import {
 	canInputStepContinue,
 	canPickStepContinue,
@@ -138,17 +152,8 @@ import {
 	endSteps,
 	isCrossCommandReference,
 	StepResultBreak,
-} from './quickCommand';
-import {
-	LoadMoreQuickInputButton,
-	OpenChangesViewQuickInputButton,
-	OpenInNewWindowQuickInputButton,
-	PickCommitQuickInputButton,
-	RevealInSideBarQuickInputButton,
-	ShowDetailsViewQuickInputButton,
-	ShowTagsToggleQuickInputButton,
-} from './quickCommand.buttons';
-import type { OpenWalkthroughCommandArgs } from './walkthroughs';
+} from './quickCommand.js';
+import type { OpenWalkthroughCommandArgs } from './walkthroughs.js';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },

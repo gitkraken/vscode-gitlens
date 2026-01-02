@@ -7,7 +7,7 @@
  */
 
 import { Bench } from 'tinybench';
-import { iterateAsyncByDelimiter } from '../string';
+import { iterateAsyncByDelimiter } from '../string.js';
 import {
 	consumeAsyncIterator,
 	displayAnalysisHeader,
@@ -19,7 +19,7 @@ import {
 	extractResults,
 	formatBytes,
 	generateGitTestData,
-} from './benchmarkUtils';
+} from './benchmarkUtils.js';
 
 // Create async generator version for testing the old approach
 async function* iterateAsyncByDelimiterGenerator(

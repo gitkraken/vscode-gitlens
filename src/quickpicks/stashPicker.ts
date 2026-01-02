@@ -1,20 +1,20 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../commands/quickCommand.buttons';
-import type { Keys } from '../constants';
-import { Container } from '../container';
-import { revealStash, showStashInDetailsView } from '../git/actions/stash';
-import type { GitStashCommit } from '../git/models/commit';
-import type { GitStash } from '../git/models/stash';
-import type { KeyboardScope } from '../system/-webview/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { filter, map } from '../system/iterable';
-import { isPromise } from '../system/promise';
-import { CommandQuickPickItem } from './items/common';
-import type { DirectiveQuickPickItem } from './items/directive';
-import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
-import type { CommitQuickPickItem } from './items/gitWizard';
-import { createStashQuickPickItem } from './items/gitWizard';
+import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../commands/quickCommand.buttons.js';
+import type { Keys } from '../constants.js';
+import { Container } from '../container.js';
+import { revealStash, showStashInDetailsView } from '../git/actions/stash.js';
+import type { GitStashCommit } from '../git/models/commit.js';
+import type { GitStash } from '../git/models/stash.js';
+import type { KeyboardScope } from '../system/-webview/keyboard.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { filter, map } from '../system/iterable.js';
+import { isPromise } from '../system/promise.js';
+import { CommandQuickPickItem } from './items/common.js';
+import type { DirectiveQuickPickItem } from './items/directive.js';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive.js';
+import type { CommitQuickPickItem } from './items/gitWizard.js';
+import { createStashQuickPickItem } from './items/gitWizard.js';
 
 export async function showStashPicker(
 	stash: GitStash | Promise<GitStash | undefined> | undefined,

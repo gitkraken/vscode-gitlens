@@ -1,2 +1,2 @@
-export * from './banner';
-export { bannerStyles } from './banner.css';
+export * from './banner.js';
+export { bannerStyles } from './banner.css.js';

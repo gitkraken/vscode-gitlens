@@ -1,9 +1,9 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { prIconStyles } from './pr.css';
-import '../code-icon';
-import '../overlays/tooltip';
+import { prIconStyles } from './pr.css.js';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('pr-icon')
 export class PrIcon extends LitElement {

@@ -1,8 +1,8 @@
-import { hrtime } from '@env/hrtime';
-import { Logger } from './logger';
-import type { LogScope } from './logger.scope';
-import { setLogScopeExit, startLogScope } from './logger.scope';
-import { getDurationMilliseconds } from './string';
+import { hrtime } from '@env/hrtime.js';
+import { Logger } from './logger.js';
+import type { LogScope } from './logger.scope.js';
+import { setLogScopeExit, startLogScope } from './logger.scope.js';
+import { getDurationMilliseconds } from './string.js';
 
 export class LoggableScope implements Disposable {
 	private readonly scope: LogScope & Disposable;

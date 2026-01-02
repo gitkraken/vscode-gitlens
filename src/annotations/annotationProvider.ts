@@ -1,14 +1,14 @@
 import type { Tab, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
-import type { FileAnnotationType } from '../config';
-import type { AnnotationStatus } from '../constants';
-import type { Container } from '../container';
-import { getTabUri } from '../system/-webview/vscode/tabs';
-import { Logger } from '../system/logger';
-import type { Deferred } from '../system/promise';
-import { defer } from '../system/promise';
-import type { TrackedGitDocument } from '../trackers/trackedDocument';
-import type { Decoration } from './annotations';
+import type { FileAnnotationType } from '../config.js';
+import type { AnnotationStatus } from '../constants.js';
+import type { Container } from '../container.js';
+import { getTabUri } from '../system/-webview/vscode/tabs.js';
+import { Logger } from '../system/logger.js';
+import type { Deferred } from '../system/promise.js';
+import { defer } from '../system/promise.js';
+import type { TrackedGitDocument } from '../trackers/trackedDocument.js';
+import type { Decoration } from './annotations.js';
 
 export interface AnnotationContext {
 	selection?: { sha?: string; line?: never } | { sha?: never; line?: number } | false;

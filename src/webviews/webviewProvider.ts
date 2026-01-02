@@ -1,14 +1,14 @@
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
-import type { WebviewCommands } from '../constants.commands';
-import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry';
+import type { WebviewCommands } from '../constants.commands.js';
+import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry.js';
 import type {
 	CustomEditorIds,
 	WebviewIds,
 	WebviewPanelIds,
 	WebviewTypeFromId,
 	WebviewViewIds,
-} from '../constants.views';
-import type { WebviewContext } from '../system/webview';
+} from '../constants.views.js';
+import type { WebviewContext } from '../system/webview.js';
 import type {
 	IpcCallMessageType,
 	IpcCallParamsType,
@@ -17,9 +17,9 @@ import type {
 	IpcNotification,
 	IpcRequest,
 	WebviewState,
-} from './protocol';
-import type { WebviewCommandCallback } from './webviewCommandRegistrar';
-import type { WebviewShowOptions } from './webviewsController';
+} from './protocol.js';
+import type { WebviewCommandCallback } from './webviewCommandRegistrar.js';
+import type { WebviewShowOptions } from './webviewsController.js';
 
 export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
 

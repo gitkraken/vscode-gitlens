@@ -1,14 +1,14 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { fromNow } from '../../../../../system/date';
-import { pluralize } from '../../../../../system/string';
-import { createWebviewCommandLink } from '../../../../../system/webview';
-import type { BranchState, State } from '../../../../plus/graph/protocol';
-import { inlineCode } from '../../../shared/components/styles/lit/base.css';
-import { ruleStyles } from '../../shared/components/vscode.css';
-import { actionButton, linkBase } from '../styles/graph.css';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/tooltip';
+import { fromNow } from '../../../../../system/date.js';
+import { pluralize } from '../../../../../system/string.js';
+import { createWebviewCommandLink } from '../../../../../system/webview.js';
+import type { BranchState, State } from '../../../../plus/graph/protocol.js';
+import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
+import { ruleStyles } from '../../shared/components/vscode.css.js';
+import { actionButton, linkBase } from '../styles/graph.css.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-git-actions-buttons')
 export class GitActionsButtons extends LitElement {

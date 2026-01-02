@@ -2,8 +2,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as process from 'node:process';
-import type { VSCodeInstance } from '../baseTest';
-import { test as base, createTmpDir, expect, GitFixture } from '../baseTest';
+import type { VSCodeInstance } from '../baseTest.js';
+import { test as base, createTmpDir, expect, GitFixture } from '../baseTest.js';
 
 /** SHA of the initial commit - captured during repo setup */
 let initialCommitSha: string;

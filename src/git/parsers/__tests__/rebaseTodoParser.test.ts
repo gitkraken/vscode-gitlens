@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseRebaseTodo } from '../rebaseTodoParser';
+import { parseRebaseTodo } from '../rebaseTodoParser.js';
 
 suite('Rebase Todo Parser Test Suite', () => {
 	test('parses simple case without comments', () => {

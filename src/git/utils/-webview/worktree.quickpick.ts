@@ -1,12 +1,12 @@
 import type { QuickInputButton } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { GlyphChars } from '../../../constants';
-import { Container } from '../../../container';
-import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
-import { pad } from '../../../system/string';
-import type { GitWorktree } from '../../models/worktree';
-import { shortenRevision } from '../revision.utils';
-import { getBranchIconPath } from './icons';
+import { GlyphChars } from '../../../constants.js';
+import { Container } from '../../../container.js';
+import type { QuickPickItemOfT } from '../../../quickpicks/items/common.js';
+import { pad } from '../../../system/string.js';
+import type { GitWorktree } from '../../models/worktree.js';
+import { shortenRevision } from '../revision.utils.js';
+import { getBranchIconPath } from './icons.js';
 
 export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
 	readonly opened: boolean;

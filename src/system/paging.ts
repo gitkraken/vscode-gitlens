@@ -1,4 +1,4 @@
-import type { PagedResult } from '../git/gitProvider';
+import type { PagedResult } from '../git/gitProvider.js';
 
 export class PageableResult<T> {
 	private cached: Mutable<PagedResult<T>> | undefined;

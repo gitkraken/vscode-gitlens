@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { isUncommitted, shortenRevision } from '../../../../git/utils/revision.utils';
-import './code-icon';
-import './copy-container';
+import { isUncommitted, shortenRevision } from '../../../../git/utils/revision.utils.js';
+import './code-icon.js';
+import './copy-container.js';
 
 const styles = css`
 	:host {

@@ -1,12 +1,12 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { GitRevisionRangeNotation } from '../models/revision';
-import { isSha } from '../utils/revision.utils';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
-import { RemoteProvider } from './remoteProvider';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
+import { isSha } from '../utils/revision.utils.js';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider.js';
+import { RemoteProvider } from './remoteProvider.js';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;

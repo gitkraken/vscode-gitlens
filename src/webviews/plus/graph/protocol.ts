@@ -23,30 +23,30 @@ import type {
 	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
-import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config';
-import type { SearchQuery } from '../../../constants.search';
-import type { FeaturePreview } from '../../../features';
-import type { RepositoryVisibility } from '../../../git/gitProvider';
-import type { GitTrackingState } from '../../../git/models/branch';
-import type { GitGraphRowType } from '../../../git/models/graph';
-import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
-import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
+import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config.js';
+import type { SearchQuery } from '../../../constants.search.js';
+import type { FeaturePreview } from '../../../features.js';
+import type { RepositoryVisibility } from '../../../git/gitProvider.js';
+import type { GitTrackingState } from '../../../git/models/branch.js';
+import type { GitGraphRowType } from '../../../git/models/graph.js';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus.js';
+import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest.js';
 import type {
 	GitBranchReference,
 	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../../../git/models/reference';
-import type { ProviderReference } from '../../../git/models/remoteProvider';
-import type { RepositoryShape } from '../../../git/models/repositoryShape';
-import type { GitGraphSearchResultData } from '../../../git/search';
-import type { Subscription } from '../../../plus/gk/models/subscription';
-import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker';
-import type { DateTimeFormat } from '../../../system/date';
-import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
-import type { IpcScope, WebviewState } from '../../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
+} from '../../../git/models/reference.js';
+import type { ProviderReference } from '../../../git/models/remoteProvider.js';
+import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
+import type { GitGraphSearchResultData } from '../../../git/search.js';
+import type { Subscription } from '../../../plus/gk/models/subscription.js';
+import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
+import type { DateTimeFormat } from '../../../system/date.js';
+import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
+import type { IpcScope, WebviewState } from '../../protocol.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol.js';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
 

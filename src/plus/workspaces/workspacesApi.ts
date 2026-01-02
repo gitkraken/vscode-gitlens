@@ -1,10 +1,10 @@
-import type { RequestInit } from '@env/fetch';
-import type { Container } from '../../container';
-import { log } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection';
-import type { CloudWorkspaceData } from './models/cloudWorkspace';
-import { CloudWorkspaceProviderInputType } from './models/cloudWorkspace';
+import type { RequestInit } from '@env/fetch.js';
+import type { Container } from '../../container.js';
+import { log } from '../../system/decorators/log.js';
+import { Logger } from '../../system/logger.js';
+import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection.js';
+import type { CloudWorkspaceData } from './models/cloudWorkspace.js';
+import { CloudWorkspaceProviderInputType } from './models/cloudWorkspace.js';
 import type {
 	AddRepositoriesToWorkspaceResponse,
 	AddWorkspaceRepoDescriptor,
@@ -16,8 +16,8 @@ import type {
 	WorkspaceRepositoriesResponse,
 	WorkspaceResponse,
 	WorkspacesResponse,
-} from './models/workspaces';
-import { defaultWorkspaceCount, defaultWorkspaceRepoCount } from './models/workspaces';
+} from './models/workspaces.js';
+import { defaultWorkspaceCount, defaultWorkspaceRepoCount } from './models/workspaces.js';
 
 export class WorkspacesApi {
 	constructor(

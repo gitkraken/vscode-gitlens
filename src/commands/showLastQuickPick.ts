@@ -1,9 +1,9 @@
 import { commands } from 'vscode';
-import type { Container } from '../container';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { getLastCommand, GlCommandBase } from './commandBase';
+import type { Container } from '../container.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { getLastCommand, GlCommandBase } from './commandBase.js';
 
 @command()
 export class ShowLastQuickPickCommand extends GlCommandBase {

@@ -1,16 +1,16 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import type { GitFileWithCommit } from '../../git/models/file';
-import type { GitStatus } from '../../git/models/status';
-import { makeHierarchical } from '../../system/array';
-import { flatMap, groupBy } from '../../system/iterable';
-import type { Lazy } from '../../system/lazy';
-import { joinPaths, normalizePath } from '../../system/path';
-import type { ViewsWithWorkingTree } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { UncommittedFileNode } from './UncommittedFileNode';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitFileWithCommit } from '../../git/models/file.js';
+import type { GitStatus } from '../../git/models/status.js';
+import { makeHierarchical } from '../../system/array.js';
+import { flatMap, groupBy } from '../../system/iterable.js';
+import type { Lazy } from '../../system/lazy.js';
+import { joinPaths, normalizePath } from '../../system/path.js';
+import type { ViewsWithWorkingTree } from '../viewBase.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
+import type { FileNode } from './folderNode.js';
+import { FolderNode } from './folderNode.js';
+import { UncommittedFileNode } from './UncommittedFileNode.js';
 
 export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWithWorkingTree> {
 	constructor(

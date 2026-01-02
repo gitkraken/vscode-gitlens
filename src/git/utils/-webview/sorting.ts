@@ -1,16 +1,16 @@
-import type { BranchSorting, ContributorSorting, RepositoriesSorting, TagSorting } from '../../../config';
-import { configuration } from '../../../system/-webview/configuration';
-import { sortCompare } from '../../../system/string';
-import type { GitBranch } from '../../models/branch';
-import type { GitContributor } from '../../models/contributor';
-import { isContributor } from '../../models/contributor';
-import type { GitRemote } from '../../models/remote';
-import type { Repository } from '../../models/repository';
-import type { GitTag } from '../../models/tag';
-import type { GitWorktree } from '../../models/worktree';
-import { isWorktree } from '../../models/worktree';
-import type { ContributorQuickPickItem } from './contributor.quickpick';
-import type { WorktreeQuickPickItem } from './worktree.quickpick';
+import type { BranchSorting, ContributorSorting, RepositoriesSorting, TagSorting } from '../../../config.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { sortCompare } from '../../../system/string.js';
+import type { GitBranch } from '../../models/branch.js';
+import type { GitContributor } from '../../models/contributor.js';
+import { isContributor } from '../../models/contributor.js';
+import type { GitRemote } from '../../models/remote.js';
+import type { Repository } from '../../models/repository.js';
+import type { GitTag } from '../../models/tag.js';
+import type { GitWorktree } from '../../models/worktree.js';
+import { isWorktree } from '../../models/worktree.js';
+import type { ContributorQuickPickItem } from './contributor.quickpick.js';
+import type { WorktreeQuickPickItem } from './worktree.quickpick.js';
 
 export interface BranchSortOptions {
 	current?: boolean;

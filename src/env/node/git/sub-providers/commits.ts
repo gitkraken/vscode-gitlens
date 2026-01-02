@@ -1,11 +1,11 @@
 import type { CancellationToken, Range, Uri } from 'vscode';
-import type { SearchQuery } from '../../../../constants.search';
-import type { Source } from '../../../../constants.telemetry';
-import type { Container } from '../../../../container';
-import { CancellationError, isCancellationError } from '../../../../errors';
-import type { GitCache } from '../../../../git/cache';
-import type { GitCommandOptions } from '../../../../git/commandOptions';
-import { GitErrorHandling } from '../../../../git/commandOptions';
+import type { SearchQuery } from '../../../../constants.search.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { Container } from '../../../../container.js';
+import { CancellationError, isCancellationError } from '../../../../errors.js';
+import type { GitCache } from '../../../../git/cache.js';
+import type { GitCommandOptions } from '../../../../git/commandOptions.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
 import type {
 	GitCommitReachability,
 	GitCommitsSubProvider,
@@ -16,53 +16,53 @@ import type {
 	IncomingActivityOptions,
 	LeftRightCommitCountResult,
 	SearchCommitsResult,
-} from '../../../../git/gitProvider';
-import { GitUri } from '../../../../git/gitUri';
-import type { GitBlame } from '../../../../git/models/blame';
-import type { GitCommitFileset, GitStashCommit } from '../../../../git/models/commit';
-import { GitCommit, GitCommitIdentity, isStash } from '../../../../git/models/commit';
-import type { GitDiffFilter, ParsedGitDiffHunks } from '../../../../git/models/diff';
-import { GitFileChange } from '../../../../git/models/fileChange';
-import type { GitFileStatus } from '../../../../git/models/fileStatus';
-import type { GitLog } from '../../../../git/models/log';
-import type { GitReflog } from '../../../../git/models/reflog';
-import type { GitRevisionRange } from '../../../../git/models/revision';
-import type { GitUser } from '../../../../git/models/user';
+} from '../../../../git/gitProvider.js';
+import { GitUri } from '../../../../git/gitUri.js';
+import type { GitBlame } from '../../../../git/models/blame.js';
+import type { GitCommitFileset, GitStashCommit } from '../../../../git/models/commit.js';
+import { GitCommit, GitCommitIdentity, isStash } from '../../../../git/models/commit.js';
+import type { GitDiffFilter, ParsedGitDiffHunks } from '../../../../git/models/diff.js';
+import { GitFileChange } from '../../../../git/models/fileChange.js';
+import type { GitFileStatus } from '../../../../git/models/fileStatus.js';
+import type { GitLog } from '../../../../git/models/log.js';
+import type { GitReflog } from '../../../../git/models/reflog.js';
+import type { GitRevisionRange } from '../../../../git/models/revision.js';
+import type { GitUser } from '../../../../git/models/user.js';
 import type {
 	CommitsInFileRangeLogParser,
 	CommitsLogParser,
 	CommitsWithFilesLogParser,
 	ParsedCommit,
 	ParsedStash,
-} from '../../../../git/parsers/logParser';
+} from '../../../../git/parsers/logParser.js';
 import {
 	getCommitsLogParser,
 	getShaAndFilesAndStatsLogParser,
 	getShaLogParser,
-} from '../../../../git/parsers/logParser';
-import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
-import type { SearchQueryFilters } from '../../../../git/search';
-import { parseSearchQueryGitCommand } from '../../../../git/search';
-import { processNaturalLanguageToSearchQuery } from '../../../../git/search.naturalLanguage';
-import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils';
-import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils';
-import { isUserMatch } from '../../../../git/utils/user.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { splitPath } from '../../../../system/-webview/path';
-import { debug, log } from '../../../../system/decorators/log';
-import { filterMap, findLast, first, join, last, some } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
-import type { CacheController } from '../../../../system/promiseCache';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import { createDisposable } from '../../../../system/unifiedDisposable';
-import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
-import { GitDocumentState } from '../../../../trackers/trackedDocument';
-import type { Git, GitResult } from '../git';
-import { gitConfigsLog, gitConfigsLogWithFiles } from '../git';
-import type { LocalGitProviderInternal } from '../localGitProvider';
-import { convertStashesToStdin } from './stash';
+} from '../../../../git/parsers/logParser.js';
+import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser.js';
+import type { SearchQueryFilters } from '../../../../git/search.js';
+import { parseSearchQueryGitCommand } from '../../../../git/search.js';
+import { processNaturalLanguageToSearchQuery } from '../../../../git/search.naturalLanguage.js';
+import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils.js';
+import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils.js';
+import { isUserMatch } from '../../../../git/utils/user.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { splitPath } from '../../../../system/-webview/path.js';
+import { debug, log } from '../../../../system/decorators/log.js';
+import { filterMap, findLast, first, join, last, some } from '../../../../system/iterable.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { isFolderGlob, stripFolderGlob } from '../../../../system/path.js';
+import type { CacheController } from '../../../../system/promiseCache.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import { createDisposable } from '../../../../system/unifiedDisposable.js';
+import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
+import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
+import type { Git, GitResult } from '../git.js';
+import { gitConfigsLog, gitConfigsLogWithFiles } from '../git.js';
+import type { LocalGitProviderInternal } from '../localGitProvider.js';
+import { convertStashesToStdin } from './stash.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];

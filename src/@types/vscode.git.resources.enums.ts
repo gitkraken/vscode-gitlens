@@ -1,4 +1,4 @@
-export { Status as ScmStatus } from './vscode.git.enums';
+export { Status as ScmStatus } from './vscode.git.enums.js';
 
 export const enum ScmResourceGroupType {
 	Merge,

@@ -1,26 +1,26 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
-import { getAvatarUri } from '../../../avatars';
-import { GlyphChars, previewBadge } from '../../../constants';
-import type { ContextKeys } from '../../../constants.context';
-import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import { CancellationError } from '../../../errors';
-import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
-import { ApplyPatchCommitError } from '../../../git/errors';
-import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
-import type { GitCommit } from '../../../git/models/commit';
-import { GitFileChange } from '../../../git/models/fileChange';
-import type { PatchRevisionRange } from '../../../git/models/patch';
-import type { Repository } from '../../../git/models/repository';
-import { isRepository } from '../../../git/models/repository';
-import type { GkRepositoryId } from '../../../git/models/repositoryIdentities';
-import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
-import { createReference } from '../../../git/utils/reference.utils';
-import { shortenRevision } from '../../../git/utils/revision.utils';
-import { showGitErrorMessage } from '../../../messages';
-import { showPatchesView } from '../../../plus/drafts/actions';
-import { getDraftEntityIdentifier } from '../../../plus/drafts/draftsService';
+import { getAvatarUri } from '../../../avatars.js';
+import type { ContextKeys } from '../../../constants.context.js';
+import { GlyphChars, previewBadge } from '../../../constants.js';
+import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import { CancellationError } from '../../../errors.js';
+import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit.js';
+import { ApplyPatchCommitError } from '../../../git/errors.js';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
+import type { GitCommit } from '../../../git/models/commit.js';
+import { GitFileChange } from '../../../git/models/fileChange.js';
+import type { PatchRevisionRange } from '../../../git/models/patch.js';
+import type { Repository } from '../../../git/models/repository.js';
+import { isRepository } from '../../../git/models/repository.js';
+import type { GkRepositoryId } from '../../../git/models/repositoryIdentities.js';
+import { uncommitted, uncommittedStaged } from '../../../git/models/revision.js';
+import { createReference } from '../../../git/utils/reference.utils.js';
+import { shortenRevision } from '../../../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../../../messages.js';
+import { showPatchesView } from '../../../plus/drafts/actions.js';
+import { getDraftEntityIdentifier } from '../../../plus/drafts/draftsService.js';
 import type {
 	CreateDraftChange,
 	Draft,
@@ -31,29 +31,29 @@ import type {
 	DraftUser,
 	DraftVisibility,
 	LocalDraft,
-} from '../../../plus/drafts/models/drafts';
-import { confirmDraftStorage } from '../../../plus/drafts/utils/-webview/drafts.utils';
-import type { OrganizationMember } from '../../../plus/gk/models/organization';
-import { ensureAccount } from '../../../plus/gk/utils/-webview/acount.utils';
-import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
-import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker';
-import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
-import { executeCommand, registerCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
-import { gate } from '../../../system/decorators/gate';
-import { debug } from '../../../system/decorators/log';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
-import { find, some } from '../../../system/iterable';
-import { basename } from '../../../system/path';
-import type { Serialized } from '../../../system/serialize';
-import { serialize } from '../../../system/serialize';
-import { showInspectView } from '../../commitDetails/actions';
-import type { IpcCallMessageType, IpcMessage } from '../../protocol';
-import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
-import type { WebviewShowOptions } from '../../webviewsController';
-import type { ShowInCommitGraphCommandArgs } from '../graph/registration';
+} from '../../../plus/drafts/models/drafts.js';
+import { confirmDraftStorage } from '../../../plus/drafts/utils/-webview/drafts.utils.js';
+import type { OrganizationMember } from '../../../plus/gk/models/organization.js';
+import { ensureAccount } from '../../../plus/gk/utils/-webview/acount.utils.js';
+import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker.js';
+import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker.js';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
+import { executeCommand, registerCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
+import { gate } from '../../../system/decorators/gate.js';
+import { debug } from '../../../system/decorators/log.js';
+import type { Deferrable } from '../../../system/function/debounce.js';
+import { debounce } from '../../../system/function/debounce.js';
+import { find, some } from '../../../system/iterable.js';
+import { basename } from '../../../system/path.js';
+import type { Serialized } from '../../../system/serialize.js';
+import { serialize } from '../../../system/serialize.js';
+import { showInspectView } from '../../commitDetails/actions.js';
+import type { IpcCallMessageType, IpcMessage } from '../../protocol.js';
+import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
+import type { WebviewShowOptions } from '../../webviewsController.js';
+import type { ShowInCommitGraphCommandArgs } from '../graph/registration.js';
 import type {
 	ApplyPatchParams,
 	Change,
@@ -73,7 +73,7 @@ import type {
 	UpdateCreatePatchRepositoryCheckedStateParams,
 	UpdatePatchDetailsMetadataParams,
 	UpdatePatchUserSelection,
-} from './protocol';
+} from './protocol.js';
 import {
 	ApplyPatchCommand,
 	ArchiveDraftCommand,
@@ -99,10 +99,10 @@ import {
 	UpdatePatchUsersCommand,
 	UpdatePatchUserSelectionCommand,
 	UpdatePreferencesCommand,
-} from './protocol';
-import type { PatchDetailsWebviewShowingArgs } from './registration';
-import type { RepositoryChangeset } from './repositoryChangeset';
-import { RepositoryRefChangeset, RepositoryWipChangeset } from './repositoryChangeset';
+} from './protocol.js';
+import type { PatchDetailsWebviewShowingArgs } from './registration.js';
+import type { RepositoryChangeset } from './repositoryChangeset.js';
+import { RepositoryRefChangeset, RepositoryWipChangeset } from './repositoryChangeset.js';
 
 interface DraftUserState {
 	users: DraftUser[];

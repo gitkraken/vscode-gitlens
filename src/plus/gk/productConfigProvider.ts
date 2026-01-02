@@ -1,15 +1,15 @@
-import type { GlCommands } from '../../constants.commands';
-import { SubscriptionState } from '../../constants.subscription';
-import type { Container } from '../../container';
-import { deviceCohortGroup } from '../../system/-webview/vscode';
-import type { Lazy } from '../../system/lazy';
-import { lazy } from '../../system/lazy';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import type { Validator } from '../../system/validation';
-import { createValidator, Is } from '../../system/validation';
-import type { Promo, PromoLocation, PromoPlans } from './models/promo';
-import type { ServerConnection } from './serverConnection';
+import type { GlCommands } from '../../constants.commands.js';
+import { SubscriptionState } from '../../constants.subscription.js';
+import type { Container } from '../../container.js';
+import { deviceCohortGroup } from '../../system/-webview/vscode.js';
+import type { Lazy } from '../../system/lazy.js';
+import { lazy } from '../../system/lazy.js';
+import { getLoggableName, Logger } from '../../system/logger.js';
+import { startLogScope } from '../../system/logger.scope.js';
+import type { Validator } from '../../system/validation.js';
+import { createValidator, Is } from '../../system/validation.js';
+import type { Promo, PromoLocation, PromoPlans } from './models/promo.js';
+import type { ServerConnection } from './serverConnection.js';
 
 type Config = {
 	promos: Promo[];

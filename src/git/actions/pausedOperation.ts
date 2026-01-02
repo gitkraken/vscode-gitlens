@@ -1,12 +1,12 @@
 import { window } from 'vscode';
-import type { Container } from '../../container';
-import { showGitErrorMessage } from '../../messages';
-import { executeCommand } from '../../system/-webview/command';
-import { PausedOperationAbortError, PausedOperationContinueError } from '../errors';
-import type { GitRepositoryService } from '../gitRepositoryService';
-import type { GitPausedOperationStatus } from '../models/pausedOperationStatus';
-import { openRebaseEditor } from '../utils/-webview/rebase.utils';
-import { getReferenceLabel } from '../utils/reference.utils';
+import type { Container } from '../../container.js';
+import { showGitErrorMessage } from '../../messages.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { PausedOperationAbortError, PausedOperationContinueError } from '../errors.js';
+import type { GitRepositoryService } from '../gitRepositoryService.js';
+import type { GitPausedOperationStatus } from '../models/pausedOperationStatus.js';
+import { openRebaseEditor } from '../utils/-webview/rebase.utils.js';
+import { getReferenceLabel } from '../utils/reference.utils.js';
 
 export async function abortPausedOperation(svc: GitRepositoryService, options?: { quit?: boolean }): Promise<void> {
 	try {

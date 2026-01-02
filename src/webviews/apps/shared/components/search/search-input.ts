@@ -3,12 +3,12 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
-import type { SearchOperators, SearchQuery } from '../../../../../constants.search';
-import { searchOperatorsToLongFormMap } from '../../../../../constants.search';
-import { parseSearchQuery, rebuildSearchQueryFromParsed } from '../../../../../git/search';
-import { areSearchQueriesEqual } from '../../../../../git/utils/search.utils';
-import { filterMap } from '../../../../../system/array';
-import { fuzzyFilter } from '../../../../../system/fuzzy';
+import type { SearchOperators, SearchQuery } from '../../../../../constants.search.js';
+import { searchOperatorsToLongFormMap } from '../../../../../constants.search.js';
+import { parseSearchQuery, rebuildSearchQueryFromParsed } from '../../../../../git/search.js';
+import { areSearchQueriesEqual } from '../../../../../git/utils/search.utils.js';
+import { filterMap } from '../../../../../system/array.js';
+import { fuzzyFilter } from '../../../../../system/fuzzy.js';
 import {
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
@@ -17,25 +17,25 @@ import {
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
-} from '../../../../plus/graph/protocol';
-import { ipcContext } from '../../contexts/ipc';
-import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete';
-import { GlElement } from '../element';
+} from '../../../../plus/graph/protocol.js';
+import { ipcContext } from '../../contexts/ipc.js';
+import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete.js';
+import { GlElement } from '../element.js';
 import type {
 	SearchCompletionCommand,
 	SearchCompletionItem,
 	SearchCompletionOperator,
 	SearchCompletionOperatorValue,
-} from './models';
+} from './models.js';
 import {
 	naturalLanguageSearchAutocompleteCommand,
 	searchCompletionOperators,
 	structuredSearchAutocompleteCommand,
-} from './models';
-import '../button';
-import '../autocomplete/autocomplete';
-import '../code-icon';
-import '../copy-container';
+} from './models.js';
+import '../button.js';
+import '../autocomplete/autocomplete.js';
+import '../code-icon.js';
+import '../copy-container.js';
 
 export interface SearchNavigationEventDetail {
 	direction: 'first' | 'previous' | 'next' | 'last';

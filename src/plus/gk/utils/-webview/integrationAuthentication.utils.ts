@@ -1,12 +1,12 @@
 import { authentication, extensions } from 'vscode';
-import { wrapForForcedInsecureSSL } from '@env/fetch';
-import type { IntegrationIds } from '../../../../constants.integrations';
-import type { Container } from '../../../../container';
-import { sequentialize } from '../../../../system/function';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthenticationProvider';
-import type { ProviderAuthenticationSession } from '../../../integrations/authentication/models';
+import { wrapForForcedInsecureSSL } from '@env/fetch.js';
+import type { IntegrationIds } from '../../../../constants.integrations.js';
+import type { Container } from '../../../../container.js';
+import { sequentialize } from '../../../../system/function.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from '../../../integrations/authentication/models.js';
 
 const failedAuthProviderIds = new Set<string>();
 

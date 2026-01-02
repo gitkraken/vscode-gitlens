@@ -12,7 +12,7 @@ import {
 	ATTR_OS_TYPE,
 } from '@opentelemetry/semantic-conventions/incubating';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import type { TelemetryContext, TelemetryProvider } from './telemetry';
+import type { TelemetryContext, TelemetryProvider } from './telemetry.js';
 
 enum CompressionAlgorithm {
 	NONE = 'none',

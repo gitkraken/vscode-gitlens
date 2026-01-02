@@ -1,4 +1,4 @@
-import type { GitFile } from '../models/file';
+import type { GitFile } from '../models/file.js';
 
 export function isGitFile(file: any | undefined): file is GitFile {
 	return (

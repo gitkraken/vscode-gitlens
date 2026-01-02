@@ -1,7 +1,7 @@
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { TimelineDatum } from '../../../../plus/timeline/protocol';
-import { GlElement } from '../../../shared/components/element';
+import type { TimelineDatum } from '../../../../plus/timeline/protocol.js';
+import { GlElement } from '../../../shared/components/element.js';
 import '@shoelace-style/shoelace/dist/components/range/range.js';
 
 const tagName = 'gl-chart-slider';

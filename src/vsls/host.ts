@@ -1,14 +1,14 @@
 import type { CancellationToken, WorkspaceFoldersChangeEvent } from 'vscode';
 import { Disposable, Uri, workspace } from 'vscode';
-import { git } from '@env/providers';
-import type { LiveShare, SharedService } from '../@types/vsls';
-import type { Container } from '../container';
-import { isVslsRoot } from '../system/-webview/path.vsls';
-import { debug, log } from '../system/decorators/log';
-import { join } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
-import { normalizePath } from '../system/path';
+import { git } from '@env/providers.js';
+import type { LiveShare, SharedService } from '../@types/vsls.d.js';
+import type { Container } from '../container.js';
+import { isVslsRoot } from '../system/-webview/path.vsls.js';
+import { debug, log } from '../system/decorators/log.js';
+import { join } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope } from '../system/logger.scope.js';
+import { normalizePath } from '../system/path.js';
 import type {
 	GetRepositoriesForUriRequest,
 	GetRepositoriesForUriResponse,
@@ -16,8 +16,8 @@ import type {
 	GitCommandResponse,
 	RepositoryProxy,
 	RequestType,
-} from './protocol';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
+} from './protocol.js';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol.js';
 
 const defaultWhitelistFn = () => true;
 const gitWhitelist = new Map<string, (args: any[]) => boolean>([

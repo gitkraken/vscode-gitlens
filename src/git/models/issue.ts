@@ -1,6 +1,6 @@
-import type { IssueOrPullRequest, IssueOrPullRequestState } from './issueOrPullRequest';
-import type { ProviderReference } from './remoteProvider';
-import type { RepositoryIdentityDescriptor } from './repositoryIdentities';
+import type { IssueOrPullRequest, IssueOrPullRequestState } from './issueOrPullRequest.js';
+import type { ProviderReference } from './remoteProvider.js';
+import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 
 export function isIssue(issue: unknown): issue is Issue {
 	return issue instanceof Issue;

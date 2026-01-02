@@ -1,18 +1,18 @@
 import type { Disposable, TextDocument } from 'vscode';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import type { GitBlame } from '../git/models/blame';
-import type { ParsedGitDiffHunks } from '../git/models/diff';
-import type { GitLog } from '../git/models/log';
-import { configuration } from '../system/-webview/configuration';
-import { isActiveTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents';
-import { getOpenTextEditorIfVisible } from '../system/-webview/vscode/editors';
-import { debug, logName } from '../system/decorators/log';
-import type { Deferrable } from '../system/function/debounce';
-import { debounce } from '../system/function/debounce';
-import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
-import type { DocumentBlameStateChangeEvent, GitDocumentTracker } from './documentTracker';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitBlame } from '../git/models/blame.js';
+import type { ParsedGitDiffHunks } from '../git/models/diff.js';
+import type { GitLog } from '../git/models/log.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { isActiveTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents.js';
+import { getOpenTextEditorIfVisible } from '../system/-webview/vscode/editors.js';
+import { debug, logName } from '../system/decorators/log.js';
+import type { Deferrable } from '../system/function/debounce.js';
+import { debounce } from '../system/function/debounce.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope } from '../system/logger.scope.js';
+import type { DocumentBlameStateChangeEvent, GitDocumentTracker } from './documentTracker.js';
 
 interface CachedItem<T> {
 	item: Promise<T>;

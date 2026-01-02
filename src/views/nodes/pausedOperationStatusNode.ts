@@ -1,18 +1,18 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { Colors } from '../../constants.colors';
-import { GitUri } from '../../git/gitUri';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import type { GitStatus } from '../../git/models/status';
-import { pausedOperationStatusStringsByType } from '../../git/utils/pausedOperationStatus.utils';
-import { getReferenceLabel } from '../../git/utils/reference.utils';
-import { Lazy } from '../../system/lazy';
-import { pluralize } from '../../system/string';
-import type { ViewsWithCommits } from '../viewBase';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
-import { MergeConflictFilesNode } from './mergeConflictFilesNode';
-import { RebaseCommitNode } from './rebaseCommitNode';
+import type { Colors } from '../../constants.colors.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import type { GitStatus } from '../../git/models/status.js';
+import { pausedOperationStatusStringsByType } from '../../git/utils/pausedOperationStatus.utils.js';
+import { getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { Lazy } from '../../system/lazy.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
+import { MergeConflictFilesNode } from './mergeConflictFilesNode.js';
+import { RebaseCommitNode } from './rebaseCommitNode.js';
 
 export class PausedOperationStatusNode extends ViewNode<'paused-operation-status', ViewsWithCommits> {
 	private _status: GitStatus | undefined;

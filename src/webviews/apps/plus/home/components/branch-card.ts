@@ -4,18 +4,18 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type { GlCommands, PlusCommands, WebviewCommands } from '../../../../../constants.commands';
-import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
+import type { GlCommands, PlusCommands, WebviewCommands } from '../../../../../constants.commands.js';
+import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
 	actionGroupMap,
 	launchpadCategoryToGroupMap,
 	launchpadGroupIconMap,
 	launchpadGroupLabelMap,
-} from '../../../../../plus/launchpad/models/launchpad';
-import { createCommandLink } from '../../../../../system/commands';
-import { fromNow } from '../../../../../system/date';
-import { interpolate, pluralize } from '../../../../../system/string';
-import { createWebviewCommandLink } from '../../../../../system/webview';
+} from '../../../../../plus/launchpad/models/launchpad.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import { fromNow } from '../../../../../system/date.js';
+import { interpolate, pluralize } from '../../../../../system/string.js';
+import { createWebviewCommandLink } from '../../../../../system/webview.js';
 import type {
 	BranchRef,
 	CreatePullRequestCommandArgs,
@@ -24,26 +24,26 @@ import type {
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
 	State,
-} from '../../../../home/protocol';
-import { stateContext } from '../../../home/context';
-import { renderBranchName } from '../../../shared/components/branch-name';
-import type { GlCard } from '../../../shared/components/card/card';
-import { GlElement, observe } from '../../../shared/components/element';
-import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { linkStyles } from '../../shared/components/vscode.css';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/avatar/avatar';
-import '../../../shared/components/avatar/avatar-list';
-import '../../../shared/components/commit/commit-stats';
-import '../../../shared/components/formatted-date';
-import '../../../shared/components/overlays/tooltip';
-import '../../../shared/components/pills/tracking';
-import '../../../shared/components/rich/issue-icon';
-import '../../../shared/components/rich/pr-icon';
-import '../../../shared/components/actions/action-item';
-import '../../../shared/components/actions/action-nav';
-import '../../../shared/components/branch-icon';
-import './merge-target-status';
+} from '../../../../home/protocol.js';
+import { stateContext } from '../../../home/context.js';
+import { renderBranchName } from '../../../shared/components/branch-name.js';
+import type { GlCard } from '../../../shared/components/card/card.js';
+import { GlElement, observe } from '../../../shared/components/element.js';
+import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { linkStyles } from '../../shared/components/vscode.css.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/avatar/avatar.js';
+import '../../../shared/components/avatar/avatar-list.js';
+import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/formatted-date.js';
+import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/pills/tracking.js';
+import '../../../shared/components/rich/issue-icon.js';
+import '../../../shared/components/rich/pr-icon.js';
+import '../../../shared/components/actions/action-item.js';
+import '../../../shared/components/actions/action-nav.js';
+import '../../../shared/components/branch-icon.js';
+import './merge-target-status.js';
 
 export const branchCardStyles = css`
 	* {

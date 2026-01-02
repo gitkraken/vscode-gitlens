@@ -1,12 +1,12 @@
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
-import type { Container } from '../../../container';
-import type { RepositoryLocationProvider } from '../../../git/location/repositorylocationProvider';
-import type { LocalRepoDataMap } from '../../../git/models/pathMapping';
-import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider';
-import { debug, log } from '../../../system/decorators/log';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
+import type { Container } from '../../../container.js';
+import type { RepositoryLocationProvider } from '../../../git/location/repositorylocationProvider.js';
+import type { LocalRepoDataMap } from '../../../git/models/pathMapping.js';
+import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
+import { debug, log } from '../../../system/decorators/log.js';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
 
 export class LocalRepositoryLocationProvider implements RepositoryLocationProvider, Disposable {
 	constructor(

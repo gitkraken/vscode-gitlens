@@ -1,10 +1,10 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css';
-import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css';
-import '../../../shared/components/code-icon';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
+import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css.js';
+import '../../../shared/components/code-icon.js';
 
 @customElement('gl-commit-item')
 export class CommitItem extends LitElement {

@@ -1,18 +1,18 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../container';
-import type { GitCache } from '../../../../git/cache';
-import type { GitRemotesSubProvider } from '../../../../git/gitProvider';
-import type { GitRemote } from '../../../../git/models/remote';
-import { parseGitRemotes } from '../../../../git/parsers/remoteParser';
-import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../git/remotes/remoteProviders';
-import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes';
-import { sortRemotes } from '../../../../git/utils/-webview/sorting';
-import { gate } from '../../../../system/decorators/gate';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import type { Git } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
+import type { Container } from '../../../../container.js';
+import type { GitCache } from '../../../../git/cache.js';
+import type { GitRemotesSubProvider } from '../../../../git/gitProvider.js';
+import type { GitRemote } from '../../../../git/models/remote.js';
+import { parseGitRemotes } from '../../../../git/parsers/remoteParser.js';
+import { getRemoteProviderMatcher, loadRemoteProvidersFromConfig } from '../../../../git/remotes/remoteProviders.js';
+import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes.js';
+import { sortRemotes } from '../../../../git/utils/-webview/sorting.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import type { Git } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase implements GitRemotesSubProvider {
 	constructor(

@@ -1,4 +1,4 @@
-import { compareIgnoreCase } from './string';
+import { compareIgnoreCase } from './string.js';
 
 declare type VersionComparisonResult = -1 | 0 | 1;
 

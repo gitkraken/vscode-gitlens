@@ -1,15 +1,15 @@
 import type { Disposable, QuickInputButton, Uri } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import type { Keys } from '../constants';
-import type { Container } from '../container';
-import type { GitRevisionReference } from '../git/models/reference';
-import type { GitTreeEntry } from '../git/models/tree';
-import type { KeyboardScope } from '../system/-webview/keyboard';
-import { splitPath } from '../system/-webview/path';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { filterMap } from '../system/iterable';
-import { dirname } from '../system/path';
-import type { QuickPickItemOfT } from './items/common';
+import type { Keys } from '../constants.js';
+import type { Container } from '../container.js';
+import type { GitRevisionReference } from '../git/models/reference.js';
+import type { GitTreeEntry } from '../git/models/tree.js';
+import type { KeyboardScope } from '../system/-webview/keyboard.js';
+import { splitPath } from '../system/-webview/path.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { filterMap } from '../system/iterable.js';
+import { dirname } from '../system/path.js';
+import type { QuickPickItemOfT } from './items/common.js';
 
 export type RevisionQuickPickItem = QuickPickItemOfT<Pick<GitTreeEntry, 'type' | 'path'>>;
 

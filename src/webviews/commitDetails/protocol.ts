@@ -1,21 +1,21 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import type { Autolink } from '../../autolinks/models/autolinks';
-import type { Config, DateStyle } from '../../config';
-import type { Sources } from '../../constants.telemetry';
-import type { GitCommitReachability } from '../../git/gitProvider';
-import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
-import type { GitFileChangeShape } from '../../git/models/fileChange';
-import type { GitFileStatus } from '../../git/models/fileStatus';
-import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
-import type { PullRequestShape } from '../../git/models/pullRequest';
-import type { Repository } from '../../git/models/repository';
-import type { GitCommitSearchContext } from '../../git/search';
-import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
-import type { DateTimeFormat } from '../../system/date';
-import type { WebviewItemContext } from '../../system/webview';
-import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol';
-import type { IpcScope, WebviewState } from '../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
+import type { Autolink } from '../../autolinks/models/autolinks.js';
+import type { Config, DateStyle } from '../../config.js';
+import type { Sources } from '../../constants.telemetry.js';
+import type { GitCommitReachability } from '../../git/gitProvider.js';
+import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit.js';
+import type { GitFileChangeShape } from '../../git/models/fileChange.js';
+import type { GitFileStatus } from '../../git/models/fileStatus.js';
+import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest.js';
+import type { PullRequestShape } from '../../git/models/pullRequest.js';
+import type { Repository } from '../../git/models/repository.js';
+import type { GitCommitSearchContext } from '../../git/search.js';
+import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts.js';
+import type { DateTimeFormat } from '../../system/date.js';
+import type { WebviewItemContext } from '../../system/webview.js';
+import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol.js';
+import type { IpcScope, WebviewState } from '../protocol.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../protocol.js';
 
 export const scope: IpcScope = 'commitDetails';
 

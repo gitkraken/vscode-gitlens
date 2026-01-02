@@ -2,26 +2,26 @@ import { provide } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import type { CustomEditorIds, WebviewIds } from '../../../constants.views';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
-import type { WebviewFocusChangedParams, WebviewState } from '../../protocol';
+import type { CustomEditorIds, WebviewIds } from '../../../constants.views.js';
+import type { Deferrable } from '../../../system/function/debounce.js';
+import { debounce } from '../../../system/function/debounce.js';
+import type { WebviewFocusChangedParams, WebviewState } from '../../protocol.js';
 import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,
 	WebviewFocusChangedCommand,
-} from '../../protocol';
-import { GlElement } from './components/element';
-import { ipcContext } from './contexts/ipc';
-import { loggerContext, LoggerContext } from './contexts/logger';
-import { promosContext, PromosContext } from './contexts/promos';
-import { telemetryContext, TelemetryContext } from './contexts/telemetry';
-import type { WebviewContext } from './contexts/webview';
-import { webviewContext } from './contexts/webview';
-import type { Disposable } from './events';
-import { HostIpc } from './ipc';
-import type { ThemeChangeEvent } from './theme';
-import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
+} from '../../protocol.js';
+import { GlElement } from './components/element.js';
+import { ipcContext } from './contexts/ipc.js';
+import { loggerContext, LoggerContext } from './contexts/logger.js';
+import { promosContext, PromosContext } from './contexts/promos.js';
+import { telemetryContext, TelemetryContext } from './contexts/telemetry.js';
+import type { WebviewContext } from './contexts/webview.js';
+import { webviewContext } from './contexts/webview.js';
+import type { Disposable } from './events.js';
+import { HostIpc } from './ipc.js';
+import type { ThemeChangeEvent } from './theme.js';
+import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme.js';
 
 export type ReactiveElementHost = ReactiveControllerHost & HTMLElement;
 

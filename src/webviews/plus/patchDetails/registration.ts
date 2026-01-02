@@ -1,16 +1,16 @@
 import { ViewColumn } from 'vscode';
-import type { Sources } from '../../../constants.telemetry';
-import { executeCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { setContext } from '../../../system/-webview/context';
-import type { Serialized } from '../../../system/serialize';
+import type { Sources } from '../../../constants.telemetry.js';
+import { executeCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { setContext } from '../../../system/-webview/context.js';
+import type { Serialized } from '../../../system/serialize.js';
 import type {
 	WebviewPanelShowCommandArgs,
 	WebviewPanelsProxy,
 	WebviewsController,
 	WebviewViewProxy,
-} from '../../webviewsController';
-import type { CreateDraft, State, ViewDraft } from './protocol';
+} from '../../webviewsController.js';
+import type { CreateDraft, State, ViewDraft } from './protocol.js';
 
 export type ShowCreateDraft = {
 	mode: 'create';
@@ -49,7 +49,7 @@ export function registerPatchDetailsWebviewView(
 		},
 		async (container, host) => {
 			const { PatchDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview'
+				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview.js'
 			);
 			return new PatchDetailsWebviewProvider(container, host);
 		},
@@ -96,7 +96,7 @@ export function registerPatchDetailsWebviewPanel(
 		},
 		async (container, host) => {
 			const { PatchDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview'
+				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview.js'
 			);
 			return new PatchDetailsWebviewProvider(container, host);
 		},

@@ -7,11 +7,11 @@ import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { RebaseTodoCommitAction } from '../../../git/models/rebase';
-import { filterMap, some } from '../../../system/iterable';
-import { pluralize } from '../../../system/string';
-import { createWebviewCommandLink } from '../../../system/webview';
-import type { RebaseActiveStatus, RebaseCommitEntry, RebaseEntry, State } from '../../rebase/protocol';
+import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
+import { filterMap, some } from '../../../system/iterable.js';
+import { pluralize } from '../../../system/string.js';
+import { createWebviewCommandLink } from '../../../system/webview.js';
+import type { RebaseActiveStatus, RebaseCommitEntry, RebaseEntry, State } from '../../rebase/protocol.js';
 import {
 	AbortCommand,
 	ChangeEntriesCommand,
@@ -30,25 +30,25 @@ import {
 	StartCommand,
 	SwitchCommand,
 	UpdateSelectionCommand,
-} from '../../rebase/protocol';
-import { GlAppHost } from '../shared/appHost';
-import { scrollableBase } from '../shared/components/styles/lit/base.css';
-import type { LoggerContext } from '../shared/contexts/logger';
-import type { HostIpc } from '../shared/ipc';
-import type { GlRebaseConflictIndicator } from './components/conflict-indicator';
-import type { GlRebaseEntryElement } from './components/rebase-entry';
-import { rebaseStyles } from './rebase.css';
-import { RebaseStateProvider } from './stateProvider';
+} from '../../rebase/protocol.js';
+import { GlAppHost } from '../shared/appHost.js';
+import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
+import type { LoggerContext } from '../shared/contexts/logger.js';
+import type { HostIpc } from '../shared/ipc.js';
+import type { GlRebaseConflictIndicator } from './components/conflict-indicator.js';
+import type { GlRebaseEntryElement } from './components/rebase-entry.js';
+import { rebaseStyles } from './rebase.css.js';
+import { RebaseStateProvider } from './stateProvider.js';
 import '@lit-labs/virtualizer';
-import './components/conflict-indicator';
-import './components/rebase-entry';
-import '../shared/components/banner/banner';
-import '../shared/components/branch-name';
-import '../shared/components/button';
-import '../shared/components/checkbox/checkbox';
-import '../shared/components/commit-sha';
-import '../shared/components/overlays/popover-confirm';
-import '../shared/components/overlays/tooltip';
+import './components/conflict-indicator.js';
+import './components/rebase-entry.js';
+import '../shared/components/banner/banner.js';
+import '../shared/components/branch-name.js';
+import '../shared/components/button.js';
+import '../shared/components/checkbox/checkbox.js';
+import '../shared/components/commit-sha.js';
+import '../shared/components/overlays/popover-confirm.js';
+import '../shared/components/overlays/tooltip.js';
 
 const scrollZonePx = 80;
 const scrollSpeedPx = 8;

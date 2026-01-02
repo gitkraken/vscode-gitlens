@@ -1,4 +1,4 @@
-import type { Platform } from '../node/platform';
+import type { Platform } from '../node/platform.js';
 
 export const isWeb = true;
 export const isOffline = false;

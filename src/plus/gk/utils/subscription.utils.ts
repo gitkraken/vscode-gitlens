@@ -1,12 +1,12 @@
-import { SubscriptionState } from '../../../constants.subscription';
-import { getTimeRemaining } from '../../../system/date';
+import { SubscriptionState } from '../../../constants.subscription.js';
+import { getTimeRemaining } from '../../../system/date.js';
 import type {
 	PaidSubscriptionPlanIds,
 	Subscription,
 	SubscriptionPlan,
 	SubscriptionPlanIds,
 	SubscriptionStateString,
-} from '../models/subscription';
+} from '../models/subscription.js';
 
 const orderedPlans: SubscriptionPlanIds[] = [
 	'community',

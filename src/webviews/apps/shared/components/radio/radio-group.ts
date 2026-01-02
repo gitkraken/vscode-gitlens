@@ -1,10 +1,10 @@
 import { html } from 'lit';
 import { customElement, property, queryAssignedElements } from 'lit/decorators.js';
-import { GlElement, observe } from '../element';
-import type { Radio } from './radio';
-import { radioStyles } from './radio.css';
+import { GlElement, observe } from '../element.js';
+import { radioStyles } from './radio.css.js';
+import type { Radio } from './radio.js';
 
-import '../code-icon';
+import '../code-icon.js';
 
 export const tagName = 'gl-radio-group';
 

@@ -1,13 +1,13 @@
 import { window } from 'vscode';
-import type { Sources } from '../constants.telemetry';
-import type { Container } from '../container';
-import { command, executeCommand } from '../system/-webview/command';
-import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
-import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration';
-import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
+import type { Sources } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { getNodeRepoPath } from '../views/nodes/abstract/viewNode.js';
+import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
+import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
 
 export interface RecomposeFromCommitCommandArgs {
 	repoPath?: string;

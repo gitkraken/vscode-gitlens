@@ -1,15 +1,15 @@
-import { GlyphChars } from '../../constants';
-import type { Container } from '../../container';
-import type { Repository } from '../../git/models/repository';
-import type { GitStatus } from '../../git/models/status';
-import { createReference, getReferenceLabel } from '../../git/utils/reference.utils';
-import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard';
-import { pad } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import { pickRepositoryStep, showRepositoryStatusStep } from '../quickCommand.steps';
+import { GlyphChars } from '../../constants.js';
+import type { Container } from '../../container.js';
+import type { Repository } from '../../git/models/repository.js';
+import type { GitStatus } from '../../git/models/status.js';
+import { createReference, getReferenceLabel } from '../../git/utils/reference.utils.js';
+import { CommandQuickPickItem } from '../../quickpicks/items/common.js';
+import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard.js';
+import { pad } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import type { PartialStepState, StepGenerator, StepState } from '../quickCommand.js';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { pickRepositoryStep, showRepositoryStatusStep } from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

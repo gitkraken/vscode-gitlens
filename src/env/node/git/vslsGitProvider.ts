@@ -1,17 +1,17 @@
 import { Uri } from 'vscode';
-import { Schemes } from '../../../constants';
-import { Container } from '../../../container';
-import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
-import type { GitProviderDescriptor } from '../../../git/gitProvider';
-import type { Repository } from '../../../git/models/repository';
-import { isFolderUri } from '../../../system/-webview/path';
-import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls';
-import { debug } from '../../../system/decorators/log';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
-import type { GitResult } from './git';
-import { Git } from './git';
-import { LocalGitProvider } from './localGitProvider';
+import { Schemes } from '../../../constants.js';
+import { Container } from '../../../container.js';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions.js';
+import type { GitProviderDescriptor } from '../../../git/gitProvider.js';
+import type { Repository } from '../../../git/models/repository.js';
+import { isFolderUri } from '../../../system/-webview/path.js';
+import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls.js';
+import { debug } from '../../../system/decorators/log.js';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import type { GitResult } from './git.js';
+import { Git } from './git.js';
+import { LocalGitProvider } from './localGitProvider.js';
 
 export class VslsGit extends Git {
 	constructor(

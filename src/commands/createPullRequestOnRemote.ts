@@ -1,16 +1,16 @@
 import { window } from 'vscode';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { GitRemote } from '../git/models/remote';
-import type { CreatePullRequestRemoteResource } from '../git/models/remoteResource';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
-import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { CreatePullRequestRemoteResource } from '../git/models/remoteResource.js';
+import { RemoteResourceType } from '../git/models/remoteResource.js';
+import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
+import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils.js';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote.js';
 
 export interface CreatePullRequestOnRemoteCommandArgs {
 	base: string | undefined;

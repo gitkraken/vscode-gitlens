@@ -1,23 +1,8 @@
 import slug from 'slug';
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Uri } from 'vscode';
-import { md5 } from '@env/crypto';
-import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations';
-import type {
-	AsyncStepResultGenerator,
-	PartialStepState,
-	QuickPickStep,
-	StepGenerator,
-	StepSelection,
-	StepState,
-} from '../../commands/quickCommand';
-import {
-	canPickStepContinue,
-	createPickStep,
-	endSteps,
-	QuickCommand,
-	StepResultBreak,
-} from '../../commands/quickCommand';
+import { md5 } from '@env/crypto.js';
+import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
 import {
 	ConnectIntegrationButton,
 	OpenOnAzureDevOpsQuickInputButton,
@@ -25,36 +10,51 @@ import {
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
 	OpenOnJiraQuickInputButton,
-} from '../../commands/quickCommand.buttons';
-import { ensureAccessStep } from '../../commands/quickCommand.steps';
-import { getSteps } from '../../commands/quickWizard.utils';
-import { proBadge } from '../../constants';
-import type { IntegrationIds } from '../../constants.integrations';
+} from '../../commands/quickCommand.buttons.js';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepSelection,
+	StepState,
+} from '../../commands/quickCommand.js';
+import {
+	canPickStepContinue,
+	createPickStep,
+	endSteps,
+	QuickCommand,
+	StepResultBreak,
+} from '../../commands/quickCommand.js';
+import { ensureAccessStep } from '../../commands/quickCommand.steps.js';
+import { getSteps } from '../../commands/quickWizard.utils.js';
+import type { IntegrationIds } from '../../constants.integrations.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../constants.integrations';
-import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import type { PlusFeatures } from '../../features';
-import type { Issue, IssueShape } from '../../git/models/issue';
-import type { GitBranchReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
-import { getOrOpenIssueRepository } from '../../git/utils/-webview/issue.utils';
-import { showBranchPicker } from '../../quickpicks/branchPicker';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickItemOfT } from '../../quickpicks/items/common';
-import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
-import { executeCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { getScopedCounter } from '../../system/counter';
-import { fromNow } from '../../system/date';
-import { some } from '../../system/iterable';
-import { getIssueOwner } from '../integrations/providers/utils';
+} from '../../constants.integrations.js';
+import { proBadge } from '../../constants.js';
+import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import type { PlusFeatures } from '../../features.js';
+import type { Issue, IssueShape } from '../../git/models/issue.js';
+import type { GitBranchReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils.js';
+import { getOrOpenIssueRepository } from '../../git/utils/-webview/issue.utils.js';
+import { showBranchPicker } from '../../quickpicks/branchPicker.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import { executeCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { getScopedCounter } from '../../system/counter.js';
+import { fromNow } from '../../system/date.js';
+import { some } from '../../system/iterable.js';
+import { getIssueOwner } from '../integrations/providers/utils.js';
 
 export type StartWorkItem = {
 	issue: IssueShape;

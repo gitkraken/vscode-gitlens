@@ -1,27 +1,27 @@
 import { arch } from 'process';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { version as codeVersion, Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { urls } from '../../../../constants';
-import type { StoredGkCLIInstallInfo } from '../../../../constants.storage';
-import type { Source, Sources } from '../../../../constants.telemetry';
-import type { Container } from '../../../../container';
-import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService';
-import { mcpExtensionRegistrationAllowed } from '../../../../plus/gk/utils/-webview/mcp.utils';
-import { registerCommand } from '../../../../system/-webview/command';
-import { configuration } from '../../../../system/-webview/configuration';
-import { setContext } from '../../../../system/-webview/context';
-import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode';
-import { exists, openUrl } from '../../../../system/-webview/vscode/uris';
-import { gate } from '../../../../system/decorators/gate';
-import { debug, log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
-import { compare } from '../../../../system/version';
-import { getPlatform, isOffline, isWeb } from '../../platform';
-import { CliCommandHandlers } from './commands';
-import type { IpcServer } from './ipcServer';
-import { createIpcServer } from './ipcServer';
-import { extractZipFile, runCLICommand, showManualMcpSetupPrompt, toMcpInstallProvider } from './utils';
+import { urls } from '../../../../constants.js';
+import type { StoredGkCLIInstallInfo } from '../../../../constants.storage.js';
+import type { Source, Sources } from '../../../../constants.telemetry.js';
+import type { Container } from '../../../../container.js';
+import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService.js';
+import { mcpExtensionRegistrationAllowed } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
+import { registerCommand } from '../../../../system/-webview/command.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { setContext } from '../../../../system/-webview/context.js';
+import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { debug, log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
+import { compare } from '../../../../system/version.js';
+import { getPlatform, isOffline, isWeb } from '../../platform.js';
+import { CliCommandHandlers } from './commands.js';
+import type { IpcServer } from './ipcServer.js';
+import { createIpcServer } from './ipcServer.js';
+import { extractZipFile, runCLICommand, showManualMcpSetupPrompt, toMcpInstallProvider } from './utils.js';
 
 const enum CLIInstallErrorReason {
 	UnsupportedPlatform,

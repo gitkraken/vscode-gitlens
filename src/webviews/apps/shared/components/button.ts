@@ -2,10 +2,10 @@ import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlTooltip } from './overlays/tooltip';
-import { focusOutlineButton } from './styles/lit/a11y.css';
-import { elementBase } from './styles/lit/base.css';
-import './overlays/tooltip';
+import type { GlTooltip } from './overlays/tooltip.js';
+import { focusOutlineButton } from './styles/lit/a11y.css.js';
+import { elementBase } from './styles/lit/base.css.js';
+import './overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

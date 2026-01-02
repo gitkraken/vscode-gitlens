@@ -1,11 +1,11 @@
 import type { RequestError } from '@octokit/request-error';
 import type { CancellationToken } from 'vscode';
 import { version as codeVersion, env, Uri, window } from 'vscode';
-import type { RequestInfo, RequestInit, Response } from '@env/fetch';
-import { fetch as _fetch, getProxyAgent } from '@env/fetch';
-import { getPlatform } from '@env/platform';
-import type { Disposable } from '../../api/gitlens';
-import type { Container } from '../../container';
+import type { RequestInfo, RequestInit, Response } from '@env/fetch.js';
+import { fetch as _fetch, getProxyAgent } from '@env/fetch.js';
+import { getPlatform } from '@env/platform.js';
+import type { Disposable } from '../../api/gitlens.d.js';
+import type { Container } from '../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -17,18 +17,18 @@ import {
 	RequestRateLimitError,
 	RequestsAreBlockedTemporarilyError,
 	RequestUnprocessableEntityError,
-} from '../../errors';
+} from '../../errors.js';
 import {
 	showGkDisconnectedTooManyFailedRequestsWarningMessage,
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
-} from '../../messages';
-import { debug } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
-import type { UrlsProvider } from './urlsProvider';
+} from '../../messages.js';
+import { debug } from '../../system/decorators/log.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { Logger } from '../../system/logger.js';
+import type { LogScope } from '../../system/logger.scope.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import type { UrlsProvider } from './urlsProvider.js';
 
 interface FetchOptions {
 	cancellation?: CancellationToken;

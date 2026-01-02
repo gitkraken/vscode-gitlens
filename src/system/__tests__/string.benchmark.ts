@@ -6,7 +6,7 @@
  */
 
 import { Bench } from 'tinybench';
-import { iterateByDelimiter } from '../string';
+import { iterateByDelimiter } from '../string.js';
 import {
 	consumeArray,
 	consumeIterator,
@@ -18,7 +18,7 @@ import {
 	extractResults,
 	formatBytes,
 	generateGitTestData,
-} from './benchmarkUtils';
+} from './benchmarkUtils.js';
 
 // Create generator version for testing the old approach
 function* iterateByDelimiterGenerator(data: string | Iterable<string>, delimiter: string): IterableIterator<string> {

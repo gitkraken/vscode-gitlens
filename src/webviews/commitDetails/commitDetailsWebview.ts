@@ -1,27 +1,26 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
-import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks';
-import { serializeAutolink } from '../../autolinks/utils/-webview/autolinks.utils';
-import { getAvatarUri } from '../../avatars';
-import type { CopyDeepLinkCommandArgs, CopyFileDeepLinkCommandArgs } from '../../commands/copyDeepLink';
-import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard';
-import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
-import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import type { ExplainCommitCommandArgs } from '../../commands/explainCommit';
-import type { ExplainStashCommandArgs } from '../../commands/explainStash';
-import type { ExplainWipCommandArgs } from '../../commands/explainWip';
-import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote';
-import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote';
-import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import type { CreatePatchCommandArgs } from '../../commands/patches';
-import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands';
-import type { ContextKeys } from '../../constants.context';
-import { isSupportedCloudIntegrationId } from '../../constants.integrations';
-import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import type { CommitSelectedEvent } from '../../eventBus';
-import { executeGitCommand } from '../../git/actions';
+import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks.js';
+import { serializeAutolink } from '../../autolinks/utils/-webview/autolinks.utils.js';
+import { getAvatarUri } from '../../avatars.js';
+import type { CopyDeepLinkCommandArgs, CopyFileDeepLinkCommandArgs } from '../../commands/copyDeepLink.js';
+import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard.js';
+import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard.js';
+import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
+import type { ExplainCommitCommandArgs } from '../../commands/explainCommit.js';
+import type { ExplainStashCommandArgs } from '../../commands/explainStash.js';
+import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
+import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote.js';
+import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote.js';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote.js';
+import type { CreatePatchCommandArgs } from '../../commands/patches.js';
+import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
+import type { ContextKeys } from '../../constants.context.js';
+import { isSupportedCloudIntegrationId } from '../../constants.integrations.js';
+import type { InspectTelemetryContext, Sources } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import type { CommitSelectedEvent } from '../../eventBus.js';
 import {
 	applyChanges,
 	openChanges,
@@ -32,73 +31,74 @@ import {
 	openFileOnRemote,
 	restoreFile,
 	showDetailsQuickPick,
-} from '../../git/actions/commit';
-import * as RepoActions from '../../git/actions/repository';
-import { CheckoutError } from '../../git/errors';
-import { CommitFormatter } from '../../git/formatters/commitFormatter';
-import type { GitBranch } from '../../git/models/branch';
-import type { GitCommit } from '../../git/models/commit';
-import { isCommit, isStash } from '../../git/models/commit';
-import type { GitFileChange, GitFileChangeShape } from '../../git/models/fileChange';
-import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
-import type { PullRequest } from '../../git/models/pullRequest';
-import type { GitRevisionReference } from '../../git/models/reference';
-import type { GitRemote } from '../../git/models/remote';
-import { RemoteResourceType } from '../../git/models/remoteResource';
-import type { Repository } from '../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import type { RemoteProvider } from '../../git/remotes/remoteProvider';
-import type { GitCommitSearchContext } from '../../git/search';
-import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils';
-import { splitCommitMessage } from '../../git/utils/commit.utils';
-import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils';
-import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils';
-import { createReference } from '../../git/utils/reference.utils';
-import { isUncommitted, shortenRevision } from '../../git/utils/revision.utils';
-import { areSearchContextsEqual } from '../../git/utils/search.utils';
-import { showGitErrorMessage } from '../../messages';
-import { showPatchesView } from '../../plus/drafts/actions';
-import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
-import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.utils';
-import type { Subscription } from '../../plus/gk/models/subscription';
-import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
-import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
-import { supportsCodeSuggest } from '../../plus/integrations/providers/models';
-import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
+} from '../../git/actions/commit.js';
+import * as RepoActions from '../../git/actions/repository.js';
+import { executeGitCommand } from '../../git/actions.js';
+import { CheckoutError } from '../../git/errors.js';
+import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import { isCommit, isStash } from '../../git/models/commit.js';
+import type { GitFileChange, GitFileChangeShape } from '../../git/models/fileChange.js';
+import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest.js';
+import type { PullRequest } from '../../git/models/pullRequest.js';
+import type { GitRevisionReference } from '../../git/models/reference.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import { RemoteResourceType } from '../../git/models/remoteResource.js';
+import type { Repository } from '../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import type { RemoteProvider } from '../../git/remotes/remoteProvider.js';
+import type { GitCommitSearchContext } from '../../git/search.js';
+import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils.js';
+import { splitCommitMessage } from '../../git/utils/commit.utils.js';
+import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils.js';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils.js';
+import { createReference } from '../../git/utils/reference.utils.js';
+import { isUncommitted, shortenRevision } from '../../git/utils/revision.utils.js';
+import { areSearchContextsEqual } from '../../git/utils/search.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import { showPatchesView } from '../../plus/drafts/actions.js';
+import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts.js';
+import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.utils.js';
+import type { Subscription } from '../../plus/gk/models/subscription.js';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
+import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils.js';
+import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService.js';
+import { supportsCodeSuggest } from '../../plus/integrations/providers/models.js';
+import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils.js';
 import {
 	executeCommand,
 	executeCoreCommand,
 	executeCoreGitCommand,
 	registerWebviewCommand,
-} from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { getContext, onDidChangeContext, setContext } from '../../system/-webview/context';
-import type { MergeEditorInputs } from '../../system/-webview/vscode/editors';
-import { openMergeEditor } from '../../system/-webview/vscode/editors';
-import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command';
-import { debug, log } from '../../system/decorators/log';
-import type { Deferrable } from '../../system/function/debounce';
-import { debounce } from '../../system/function/debounce';
-import { filterMap, map } from '../../system/iterable';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import { MRU } from '../../system/mru';
-import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import type { LinesChangeEvent } from '../../trackers/lineTracker';
-import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
-import type { Change } from '../plus/patchDetails/protocol';
-import type { IpcCallMessageType, IpcMessage } from '../protocol';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
-import type { WebviewShowOptions } from '../webviewsController';
-import { isSerializedState } from '../webviewsController';
+} from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext, setContext } from '../../system/-webview/context.js';
+import type { MergeEditorInputs } from '../../system/-webview/vscode/editors.js';
+import { openMergeEditor } from '../../system/-webview/vscode/editors.js';
+import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
+import { debug, log } from '../../system/decorators/log.js';
+import type { Deferrable } from '../../system/function/debounce.js';
+import { debounce } from '../../system/function/debounce.js';
+import { filterMap, map } from '../../system/iterable.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import { MRU } from '../../system/mru.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise.js';
+import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
+import type { Change } from '../plus/patchDetails/protocol.js';
+import type { IpcCallMessageType, IpcMessage } from '../protocol.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
+import type { WebviewShowOptions } from '../webviewsController.js';
+import { isSerializedState } from '../webviewsController.js';
 import {
 	getFileCommitFromContext,
 	getUriFromContext,
 	isDetailsFileContext,
 	isDetailsItemContext,
-} from './commitDetailsWebview.utils';
+} from './commitDetailsWebview.utils.js';
 import type {
 	CommitDetails,
 	CreatePatchFromWipParams,
@@ -116,7 +116,7 @@ import type {
 	UpdateablePreferences,
 	Wip,
 	WipChange,
-} from './protocol';
+} from './protocol.js';
 import {
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
@@ -155,8 +155,8 @@ import {
 	SwitchModeCommand,
 	UnstageFileCommand,
 	UpdatePreferencesCommand,
-} from './protocol';
-import type { CommitDetailsWebviewShowingArgs } from './registration';
+} from './protocol.js';
+import type { CommitDetailsWebviewShowingArgs } from './registration.js';
 
 const { command, getCommands } =
 	createCommandDecorator<WebviewCommandsOrCommandsWithSuffix<'commitDetails' | 'graphDetails'>>();

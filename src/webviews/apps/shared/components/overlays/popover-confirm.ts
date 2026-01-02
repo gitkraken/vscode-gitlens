@@ -2,12 +2,12 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import type { GlButton } from '../button';
-import { elementBase } from '../styles/lit/base.css';
-import type { GlPopover } from './popover';
-import type { GlTooltip } from './tooltip';
-import '../button';
-import './popover';
+import type { GlButton } from '../button.js';
+import { elementBase } from '../styles/lit/base.css.js';
+import type { GlPopover } from './popover.js';
+import type { GlTooltip } from './tooltip.js';
+import '../button.js';
+import './popover.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

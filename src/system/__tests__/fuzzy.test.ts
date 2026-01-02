@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { fuzzyFilter, fuzzyMatch } from '../fuzzy';
+import { fuzzyFilter, fuzzyMatch } from '../fuzzy.js';
 
 suite('fuzzyMatch', () => {
 	test('should match exact strings', () => {

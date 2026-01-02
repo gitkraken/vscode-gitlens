@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable, Event } from 'vscode';
-import type { AIProviders } from '../../../constants.ai';
-import type { AIActionType, AIModel } from './model';
+import type { AIProviders } from '../../../constants.ai.js';
+import type { AIActionType, AIModel } from './model.js';
 
 export type AIChatMessageRole = 'assistant' | 'system' | 'user';
 

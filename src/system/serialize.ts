@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
-import { serializeJsonReplacer } from '@env/json';
-import type { Container } from '../container';
-import type { Branded } from './brand';
+import { serializeJsonReplacer } from '@env/json.js';
+import type { Container } from '../container.js';
+import type { Branded } from './brand.js';
 
 // prettier-ignore
 export type Serialized<T, TDate extends number | string = number> =

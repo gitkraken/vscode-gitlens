@@ -3,10 +3,10 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import { splitCommitMessage } from '../../../../../git/utils/commit.utils';
-import { debounce } from '../../../../../system/function/debounce';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
+import { splitCommitMessage } from '../../../../../git/utils/commit.utils.js';
+import { debounce } from '../../../../../system/function/debounce.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 
 @customElement('gl-commit-message')
 export class CommitMessage extends LitElement {

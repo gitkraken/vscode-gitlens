@@ -1,14 +1,14 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { Brand, Unbrand } from '../../system/brand';
-import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { RepositoryDescriptor } from '../models/resourceDescriptor';
-import type { GitRevisionRangeNotation } from '../models/revision';
-import { isSha } from '../utils/revision.utils';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
-import { RemoteProvider } from './remoteProvider';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { Brand, Unbrand } from '../../system/brand.js';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { RepositoryDescriptor } from '../models/resourceDescriptor.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
+import { isSha } from '../utils/revision.utils.js';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider.js';
+import { RemoteProvider } from './remoteProvider.js';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^lines-(\d+)(?::(\d+))?$/;

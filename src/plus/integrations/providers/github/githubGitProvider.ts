@@ -10,19 +10,19 @@ import type {
 	WorkspaceFolder,
 } from 'vscode';
 import { authentication, EventEmitter, Uri, window, workspace } from 'vscode';
-import { encodeUtf8Hex } from '@env/hex';
-import { CharCode, Schemes } from '../../../../constants';
-import { GitCloudHostIntegrationId } from '../../../../constants.integrations';
-import type { Container } from '../../../../container';
+import { encodeUtf8Hex } from '@env/hex.js';
+import { GitCloudHostIntegrationId } from '../../../../constants.integrations.js';
+import { CharCode, Schemes } from '../../../../constants.js';
+import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	ExtensionNotFoundError,
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
-} from '../../../../errors';
-import type { Features } from '../../../../features';
-import { GitCache } from '../../../../git/cache';
+} from '../../../../errors.js';
+import type { Features } from '../../../../features.js';
+import { GitCache } from '../../../../git/cache.js';
 import type {
 	GitDir,
 	GitProvider,
@@ -30,52 +30,52 @@ import type {
 	RepositoryOpenEvent,
 	RepositoryVisibility,
 	ScmRepository,
-} from '../../../../git/gitProvider';
-import type { GitUri } from '../../../../git/gitUri';
-import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority';
-import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame';
-import type { GitCommitLine } from '../../../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import type { GitLineDiff, ParsedGitDiffHunks } from '../../../../git/models/diff';
-import { GitFileChange } from '../../../../git/models/fileChange';
-import { GitFileIndexStatus } from '../../../../git/models/fileStatus';
-import type { GitLog } from '../../../../git/models/log';
-import type { GitReference } from '../../../../git/models/reference';
-import type { GitRemote } from '../../../../git/models/remote';
-import type { RepositoryChangeEvent } from '../../../../git/models/repository';
-import { Repository } from '../../../../git/models/repository';
-import type { GitRevisionRange } from '../../../../git/models/revision';
-import { deletedOrMissing } from '../../../../git/models/revision';
-import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils';
-import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { setContext } from '../../../../system/-webview/context';
-import { relative } from '../../../../system/-webview/path';
-import { gate } from '../../../../system/decorators/gate';
-import { debug, log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import type { LogScope } from '../../../../system/logger.scope';
-import { getLogScope } from '../../../../system/logger.scope';
-import { isAbsolute, maybeUri, normalizePath } from '../../../../system/path';
-import { asSettled, getSettledValue } from '../../../../system/promise';
-import type { CachedBlame, TrackedGitDocument } from '../../../../trackers/trackedDocument';
-import { GitDocumentState } from '../../../../trackers/trackedDocument';
-import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integrationAuthentication.utils';
-import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
-import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
-import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthenticationProvider';
-import type { GitHubApi } from './github';
-import { BranchesGitSubProvider } from './sub-providers/branches';
-import { CommitsGitSubProvider } from './sub-providers/commits';
-import { ConfigGitSubProvider } from './sub-providers/config';
-import { ContributorsGitSubProvider } from './sub-providers/contributors';
-import { DiffGitSubProvider } from './sub-providers/diff';
-import { GraphGitSubProvider } from './sub-providers/graph';
-import { RefsGitSubProvider } from './sub-providers/refs';
-import { RemotesGitSubProvider } from './sub-providers/remotes';
-import { RevisionGitSubProvider } from './sub-providers/revision';
-import { StatusGitSubProvider } from './sub-providers/status';
-import { TagsGitSubProvider } from './sub-providers/tags';
+} from '../../../../git/gitProvider.js';
+import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority.js';
+import type { GitUri } from '../../../../git/gitUri.js';
+import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame.js';
+import type { GitCommitLine } from '../../../../git/models/commit.js';
+import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit.js';
+import type { GitLineDiff, ParsedGitDiffHunks } from '../../../../git/models/diff.js';
+import { GitFileChange } from '../../../../git/models/fileChange.js';
+import { GitFileIndexStatus } from '../../../../git/models/fileStatus.js';
+import type { GitLog } from '../../../../git/models/log.js';
+import type { GitReference } from '../../../../git/models/reference.js';
+import type { GitRemote } from '../../../../git/models/remote.js';
+import type { RepositoryChangeEvent } from '../../../../git/models/repository.js';
+import { Repository } from '../../../../git/models/repository.js';
+import type { GitRevisionRange } from '../../../../git/models/revision.js';
+import { deletedOrMissing } from '../../../../git/models/revision.js';
+import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils.js';
+import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { setContext } from '../../../../system/-webview/context.js';
+import { relative } from '../../../../system/-webview/path.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { debug, log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import type { LogScope } from '../../../../system/logger.scope.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { isAbsolute, maybeUri, normalizePath } from '../../../../system/path.js';
+import { asSettled, getSettledValue } from '../../../../system/promise.js';
+import type { CachedBlame, TrackedGitDocument } from '../../../../trackers/trackedDocument.js';
+import { GitDocumentState } from '../../../../trackers/trackedDocument.js';
+import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integrationAuthentication.utils.js';
+import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub.js';
+import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub.js';
+import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthenticationProvider.js';
+import type { GitHubApi } from './github.js';
+import { BranchesGitSubProvider } from './sub-providers/branches.js';
+import { CommitsGitSubProvider } from './sub-providers/commits.js';
+import { ConfigGitSubProvider } from './sub-providers/config.js';
+import { ContributorsGitSubProvider } from './sub-providers/contributors.js';
+import { DiffGitSubProvider } from './sub-providers/diff.js';
+import { GraphGitSubProvider } from './sub-providers/graph.js';
+import { RefsGitSubProvider } from './sub-providers/refs.js';
+import { RemotesGitSubProvider } from './sub-providers/remotes.js';
+import { RevisionGitSubProvider } from './sub-providers/revision.js';
+import { StatusGitSubProvider } from './sub-providers/status.js';
+import { TagsGitSubProvider } from './sub-providers/tags.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 

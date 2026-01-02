@@ -1,8 +1,8 @@
 import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch';
-import { geminiProviderDescriptor as provider } from '../../constants.ai';
-import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import type { Response } from '@env/fetch.js';
+import { geminiProviderDescriptor as provider } from '../../constants.ai.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [

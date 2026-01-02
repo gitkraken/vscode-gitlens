@@ -1,10 +1,10 @@
 import { deflateSync, strFromU8, strToU8 } from 'fflate';
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
-import { base64 } from '@env/base64';
-import { getNonce } from '@env/crypto';
-import type { WebviewCommands } from '../constants.commands';
-import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry';
+import { base64 } from '@env/base64.js';
+import { getNonce } from '@env/crypto.js';
+import type { WebviewCommands } from '../constants.commands.js';
+import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry.js';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -14,23 +14,23 @@ import type {
 	WebviewTypeFromId,
 	WebviewViewIds,
 	WebviewViewTypes,
-} from '../constants.views';
-import type { Container } from '../container';
-import { isCancellationError } from '../errors';
-import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils';
-import { executeCommand, executeCoreCommand } from '../system/-webview/command';
-import { setContext } from '../system/-webview/context';
-import { getViewFocusCommand } from '../system/-webview/vscode/views';
-import { getScopedCounter } from '../system/counter';
-import { debug, logName } from '../system/decorators/log';
-import { sequentialize } from '../system/decorators/sequentialize';
-import { serializeIpcData } from '../system/ipcSerialize';
-import { getLoggableName, Logger } from '../system/logger';
-import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
-import { pauseOnCancelOrTimeout } from '../system/promise';
-import { maybeStopWatch, Stopwatch } from '../system/stopwatch';
-import type { WebviewContext } from '../system/webview';
-import type { IpcPromise } from './ipc';
+} from '../constants.views.js';
+import type { Container } from '../container.js';
+import { isCancellationError } from '../errors.js';
+import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils.js';
+import { executeCommand, executeCoreCommand } from '../system/-webview/command.js';
+import { setContext } from '../system/-webview/context.js';
+import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
+import { getScopedCounter } from '../system/counter.js';
+import { debug, logName } from '../system/decorators/log.js';
+import { sequentialize } from '../system/decorators/sequentialize.js';
+import { serializeIpcData } from '../system/ipcSerialize.js';
+import { getLoggableName, Logger } from '../system/logger.js';
+import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import { pauseOnCancelOrTimeout } from '../system/promise.js';
+import { maybeStopWatch, Stopwatch } from '../system/stopwatch.js';
+import type { WebviewContext } from '../system/webview.js';
+import type { IpcPromise } from './ipc.js';
 import type {
 	IpcCallMessageType,
 	IpcCallParamsType,
@@ -40,7 +40,7 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 	WebviewState,
-} from './protocol';
+} from './protocol.js';
 import {
 	ApplicablePromoRequest,
 	DidChangeHostWindowFocusNotification,
@@ -51,11 +51,11 @@ import {
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyRequest,
-} from './protocol';
-import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
-import type { CustomEditorDescriptor, WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
-import type { WebviewShowOptions } from './webviewsController';
+} from './protocol.js';
+import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar.js';
+import type { CustomEditorDescriptor, WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider.js';
+import type { WebviewShowOptions } from './webviewsController.js';
 
 const ipcSequencer = getScopedCounter();
 

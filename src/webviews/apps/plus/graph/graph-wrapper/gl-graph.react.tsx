@@ -23,14 +23,14 @@ import type {
 import GraphContainer, { CommitDateTimeSources, emptySetMarker, refZone } from '@gitkraken/gitkraken-components';
 import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getPlatform } from '@env/platform';
-import type { DateStyle } from '../../../../../config';
-import { splitCommitMessage } from '../../../../../git/utils/commit.utils';
-import type { DateTimeFormat } from '../../../../../system/date';
-import { formatDate, fromNow } from '../../../../../system/date';
-import { first, groupByFilterMap } from '../../../../../system/iterable';
-import { hasKeys } from '../../../../../system/object';
-import { pluralize } from '../../../../../system/string';
+import { getPlatform } from '@env/platform.js';
+import type { DateStyle } from '../../../../../config.js';
+import { splitCommitMessage } from '../../../../../git/utils/commit.utils.js';
+import type { DateTimeFormat } from '../../../../../system/date.js';
+import { formatDate, fromNow } from '../../../../../system/date.js';
+import { first, groupByFilterMap } from '../../../../../system/iterable.js';
+import { hasKeys } from '../../../../../system/object.js';
+import { pluralize } from '../../../../../system/string.js';
 import type {
 	GraphAvatars,
 	GraphColumnName,
@@ -43,13 +43,13 @@ import type {
 	RowAction,
 	State,
 	UpdateGraphConfigurationParams,
-} from '../../../../plus/graph/protocol';
-import type { GlButton } from '../../../shared/components/button';
-import type { CodeIcon } from '../../../shared/components/code-icon';
-import { GlMarkdown } from '../../../shared/components/markdown/markdown.react';
-import type { GraphStateProvider } from '../stateProvider';
-import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
+} from '../../../../plus/graph/protocol.js';
+import type { GlButton } from '../../../shared/components/button.js';
+import type { CodeIcon } from '../../../shared/components/code-icon.js';
+import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
+import type { GraphStateProvider } from '../stateProvider.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
 
 export type GraphWrapperProps = Pick<
 	State,

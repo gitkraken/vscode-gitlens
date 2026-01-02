@@ -1,11 +1,11 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { SubscriptionState } from '../../../../constants.subscription';
-import type { Source } from '../../../../constants.telemetry';
-import type { FeaturePreview } from '../../../../features';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils';
-import { linkStyles } from '../../plus/shared/components/vscode.css';
-import '../../plus/shared/components/feature-gate-plus-state';
+import type { SubscriptionState } from '../../../../constants.subscription.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { FeaturePreview } from '../../../../features.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
+import { linkStyles } from '../../plus/shared/components/vscode.css.js';
+import '../../plus/shared/components/feature-gate-plus-state.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

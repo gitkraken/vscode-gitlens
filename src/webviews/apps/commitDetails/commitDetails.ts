@@ -1,12 +1,13 @@
+import './commitDetails.scss';
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { ViewFilesLayout } from '../../../config';
-import type { GlCommands } from '../../../constants.commands';
-import type { GitCommitReachability } from '../../../git/gitProvider';
-import type { IpcSerialized } from '../../../system/ipcSerialize';
-import { pluralize } from '../../../system/string';
-import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol';
+import type { ViewFilesLayout } from '../../../config.js';
+import type { GlCommands } from '../../../constants.commands.js';
+import type { GitCommitReachability } from '../../../git/gitProvider.js';
+import type { IpcSerialized } from '../../../system/ipcSerialize.js';
+import { pluralize } from '../../../system/string.js';
+import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../commitDetails/protocol.js';
 import {
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
@@ -36,30 +37,29 @@ import {
 	SuggestChangesCommand,
 	SwitchCommand,
 	UnstageFileCommand,
-} from '../../commitDetails/protocol';
-import { ExecuteCommand } from '../../protocol';
-import type { CreatePatchMetadataEventDetail } from '../plus/patchDetails/components/gl-patch-create';
-import { GlAppHost } from '../shared/appHost';
-import type { IssuePullRequest } from '../shared/components/rich/issue-pull-request';
-import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
-import type { LoggerContext } from '../shared/contexts/logger';
-import { DOM } from '../shared/dom';
-import type { HostIpc } from '../shared/ipc';
-import type { GlCommitDetails } from './components/gl-commit-details';
-import type { FileChangeListItemDetail } from './components/gl-details-base';
-import type { GlInspectNav } from './components/gl-inspect-nav';
-import type { CreatePatchEventDetail, GenerateState } from './components/gl-inspect-patch';
-import type { GlWipDetails } from './components/gl-wip-details';
-import { CommitDetailsStateProvider } from './stateProvider';
-import './commitDetails.scss';
-import '../shared/components/code-icon';
-import '../shared/components/indicators/indicator';
-import '../shared/components/overlays/tooltip';
-import '../shared/components/pills/tracking';
-import './components/gl-commit-details';
-import './components/gl-wip-details';
-import './components/gl-inspect-nav';
-import './components/gl-status-nav';
+} from '../../commitDetails/protocol.js';
+import { ExecuteCommand } from '../../protocol.js';
+import type { CreatePatchMetadataEventDetail } from '../plus/patchDetails/components/gl-patch-create.js';
+import { GlAppHost } from '../shared/appHost.js';
+import type { IssuePullRequest } from '../shared/components/rich/issue-pull-request.js';
+import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
+import type { LoggerContext } from '../shared/contexts/logger.js';
+import { DOM } from '../shared/dom.js';
+import type { HostIpc } from '../shared/ipc.js';
+import type { GlCommitDetails } from './components/gl-commit-details.js';
+import type { FileChangeListItemDetail } from './components/gl-details-base.js';
+import type { GlInspectNav } from './components/gl-inspect-nav.js';
+import type { CreatePatchEventDetail, GenerateState } from './components/gl-inspect-patch.js';
+import type { GlWipDetails } from './components/gl-wip-details.js';
+import { CommitDetailsStateProvider } from './stateProvider.js';
+import '../shared/components/code-icon.js';
+import '../shared/components/indicators/indicator.js';
+import '../shared/components/overlays/tooltip.js';
+import '../shared/components/pills/tracking.js';
+import './components/gl-commit-details.js';
+import './components/gl-wip-details.js';
+import './components/gl-inspect-nav.js';
+import './components/gl-status-nav.js';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 

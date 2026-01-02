@@ -1,12 +1,12 @@
 import type { Tab } from 'vscode';
 import { version as codeVersion, ConfigurationTarget, Uri, ViewColumn, window, workspace } from 'vscode';
-import type { Container } from '../../../container';
-import { executeCoreCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { getTabUri } from '../../../system/-webview/vscode/tabs';
-import { exists } from '../../../system/-webview/vscode/uris';
-import { areUrisEqual } from '../../../system/uri';
-import { compare } from '../../../system/version';
+import type { Container } from '../../../container.js';
+import { executeCoreCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { getTabUri } from '../../../system/-webview/vscode/tabs.js';
+import { exists } from '../../../system/-webview/vscode/uris.js';
+import { areUrisEqual } from '../../../system/uri.js';
+import { compare } from '../../../system/version.js';
 
 export function getOpenRebaseEditorTab(todoUri: Uri): Tab | undefined {
 	for (const group of window.tabGroups.all) {

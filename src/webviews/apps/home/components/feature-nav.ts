@@ -5,18 +5,18 @@ import { when } from 'lit/directives/when.js';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
 	ManageCloudIntegrationsCommandArgs,
-} from '../../../../commands/cloudIntegrations';
-import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs';
-import type { Source } from '../../../../constants.telemetry';
-import { createCommandLink } from '../../../../system/commands';
-import type { State } from '../../../home/protocol';
-import { GlElement } from '../../shared/components/element';
-import { linkBase } from '../../shared/components/styles/lit/base.css';
-import { stateContext } from '../context';
-import { homeBaseStyles, navListStyles } from '../home.css';
-import '../../shared/components/code-icon';
-import '../../shared/components/feature-badge';
-import '../../shared/components/overlays/tooltip';
+} from '../../../../commands/cloudIntegrations.js';
+import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import type { State } from '../../../home/protocol.js';
+import { GlElement } from '../../shared/components/element.js';
+import { linkBase } from '../../shared/components/styles/lit/base.css.js';
+import { stateContext } from '../context.js';
+import { homeBaseStyles, navListStyles } from '../home.css.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/feature-badge.js';
+import '../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-feature-nav')
 export class GlFeatureNav extends GlElement {

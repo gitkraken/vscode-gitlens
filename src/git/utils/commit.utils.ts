@@ -1,5 +1,5 @@
-import type { GitCommit, GitCommitStats, GitCommitWithFullDetails } from '../models/commit';
-import type { GitReference } from '../models/reference';
+import type { GitCommit, GitCommitStats, GitCommitWithFullDetails } from '../models/commit.js';
+import type { GitReference } from '../models/reference.js';
 
 export function assertsCommitHasFullDetails(commit: GitCommit): asserts commit is GitCommitWithFullDetails {
 	if (!commit.hasFullDetails()) {

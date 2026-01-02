@@ -1,11 +1,11 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import type { Source } from '../../../constants.telemetry';
-import { AINoRequestDataError, CancellationError } from '../../../errors';
-import { configuration } from '../../../system/-webview/configuration';
-import type { Lazy } from '../../../system/lazy';
-import type { AIResponse } from '../aiProviderService';
-import type { AIService } from '../aiService';
-import type { AIChatMessage } from '../models/provider';
+import type { Source } from '../../../constants.telemetry.js';
+import { AINoRequestDataError, CancellationError } from '../../../errors.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import type { Lazy } from '../../../system/lazy.js';
+import type { AIResponse } from '../aiProviderService.js';
+import type { AIService } from '../aiService.js';
+import type { AIChatMessage } from '../models/provider.js';
 
 export interface AIGenerateChangelogChanges {
 	readonly changes: readonly AIGenerateChangelogChange[];

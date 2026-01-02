@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import '../code-icon';
-import '../overlays/tooltip';
+import '../code-icon.js';
+import '../overlays/tooltip.js';
 
 @customElement('gl-commit-author')
 export class GlCommitAuthor extends LitElement {

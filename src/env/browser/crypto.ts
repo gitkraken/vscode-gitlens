@@ -1,6 +1,6 @@
-import { base64 } from './base64';
-import { convertToHex } from './hex';
-import { md5 as _md5 } from './md5';
+import { base64 } from './base64.js';
+import { convertToHex } from './hex.js';
+import { md5 as _md5 } from './md5.js';
 
 export function getNonce(): string {
 	return base64(globalThis.crypto.getRandomValues(new Uint8Array(16)));

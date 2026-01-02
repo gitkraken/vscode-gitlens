@@ -1,5 +1,5 @@
-import type { DebounceOptions } from '../function/debounce';
-import { debounce as _debounce } from '../function/debounce';
+import type { DebounceOptions } from '../function/debounce.js';
+import { debounce as _debounce } from '../function/debounce.js';
 
 export function debounce<F extends (...args: any[]) => ReturnType<F>>(wait: number, options?: DebounceOptions<F>) {
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>): PropertyDescriptor => {

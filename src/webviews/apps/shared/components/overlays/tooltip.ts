@@ -2,7 +2,7 @@ import type SlTooltip from '@shoelace-style/shoelace/dist/components/tooltip/too
 import { setDefaultAnimation } from '@shoelace-style/shoelace/dist/utilities/animation-registry.js';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { handleUnsafeOverlayContent } from './overlays.utils';
+import { handleUnsafeOverlayContent } from './overlays.utils.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 setDefaultAnimation('tooltip.show', null);

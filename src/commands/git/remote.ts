@@ -1,14 +1,14 @@
 import { QuickInputButtons } from 'vscode';
-import type { Container } from '../../container';
-import { revealRemote } from '../../git/actions/remote';
-import type { GitRemote } from '../../git/models/remote';
-import { Repository } from '../../git/models/repository';
-import { showGenericErrorMessage } from '../../messages';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { Logger } from '../../system/logger';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { Container } from '../../container.js';
+import { revealRemote } from '../../git/actions/remote.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import { Repository } from '../../git/models/repository.js';
+import { showGenericErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { Logger } from '../../system/logger.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -17,7 +17,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canPickStepContinue,
 	createConfirmStep,
@@ -25,14 +25,14 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputRemoteNameStep,
 	inputRemoteUrlStep,
 	pickRemoteStep,
 	pickRepositoryStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

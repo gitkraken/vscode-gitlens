@@ -1,14 +1,14 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import type { Repository } from '../../git/models/repository';
-import { makeHierarchical } from '../../system/array';
-import type { ViewsWithTagsNode } from '../viewBase';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { MessageNode } from './common';
-import { TagNode } from './tagNode';
+import { GitUri } from '../../git/gitUri.js';
+import type { Repository } from '../../git/models/repository.js';
+import { makeHierarchical } from '../../system/array.js';
+import type { ViewsWithTagsNode } from '../viewBase.js';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode.js';
+import { MessageNode } from './common.js';
+import { TagNode } from './tagNode.js';
 
 export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNode> {
 	constructor(

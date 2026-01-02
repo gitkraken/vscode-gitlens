@@ -1,7 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import './code-icon';
+import './code-icon.js';
 
 @customElement('gl-branch-name')
 export class GlBranchName extends LitElement {

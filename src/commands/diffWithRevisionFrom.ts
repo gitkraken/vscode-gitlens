@@ -1,20 +1,20 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import type { Container } from '../container';
-import type { DiffRange } from '../git/gitProvider';
-import { GitUri } from '../git/gitUri';
-import { isBranchReference } from '../git/utils/reference.utils';
-import { shortenRevision } from '../git/utils/revision.utils';
-import { showNoRepositoryWarningMessage } from '../messages';
-import { showReferencePicker } from '../quickpicks/referencePicker';
-import { showStashPicker } from '../quickpicks/stashPicker';
-import { command, executeCommand } from '../system/-webview/command';
-import { selectionToDiffRange } from '../system/-webview/vscode/editors';
-import { basename } from '../system/path';
-import { pad } from '../system/string';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { DiffWithCommandArgs } from './diffWith';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
+import type { Container } from '../container.js';
+import type { DiffRange } from '../git/gitProvider.js';
+import { GitUri } from '../git/gitUri.js';
+import { isBranchReference } from '../git/utils/reference.utils.js';
+import { shortenRevision } from '../git/utils/revision.utils.js';
+import { showNoRepositoryWarningMessage } from '../messages.js';
+import { showReferencePicker } from '../quickpicks/referencePicker.js';
+import { showStashPicker } from '../quickpicks/stashPicker.js';
+import { command, executeCommand } from '../system/-webview/command.js';
+import { selectionToDiffRange } from '../system/-webview/vscode/editors.js';
+import { basename } from '../system/path.js';
+import { pad } from '../system/string.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { DiffWithCommandArgs } from './diffWith.js';
 
 export interface DiffWithRevisionFromCommandArgs {
 	stash?: boolean;

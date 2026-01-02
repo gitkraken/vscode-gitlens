@@ -1,15 +1,15 @@
 import { Uri } from 'vscode';
-import { isContainer } from '../../container';
-import { isBranch } from '../../git/models/branch';
-import { isCommit } from '../../git/models/commit';
-import { isRemote } from '../../git/models/remote';
-import { isRepository } from '../../git/models/repository';
-import { isTag } from '../../git/models/tag';
-import { isWorktree } from '../../git/models/worktree';
-import { isViewNode } from '../../views/nodes/utils/-webview/node.utils';
-import type { IpcDate, IpcPromise, IpcUri } from '../../webviews/ipc';
-import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc';
-import { IpcPromiseSettled } from '../../webviews/protocol';
+import { isContainer } from '../../container.js';
+import { isBranch } from '../../git/models/branch.js';
+import { isCommit } from '../../git/models/commit.js';
+import { isRemote } from '../../git/models/remote.js';
+import { isRepository } from '../../git/models/repository.js';
+import { isTag } from '../../git/models/tag.js';
+import { isWorktree } from '../../git/models/worktree.js';
+import { isViewNode } from '../../views/nodes/utils/-webview/node.utils.js';
+import type { IpcDate, IpcPromise, IpcUri } from '../../webviews/ipc.js';
+import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc.js';
+import { IpcPromiseSettled } from '../../webviews/protocol.js';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {
 	if (key === '' || value == null || typeof value !== 'object') return value;

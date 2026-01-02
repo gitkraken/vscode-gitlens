@@ -5,12 +5,12 @@ import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/ui/js/diff2html-ui.js'
 import { Diff2HtmlUI } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import type { ComposerHunk } from '../../../../../plus/composer/protocol';
-import { focusableBaseStyles } from '../../../../shared/components/styles/lit/a11y.css';
-import { boxSizingBase, scrollableBase } from '../../../../shared/components/styles/lit/base.css';
-import { compiledComposerTemplates } from './diff-templates.compiled';
-import { diff2htmlStyles, diffStyles, hljsStyles } from './diff.css';
-import '../../../../shared/components/code-icon';
+import type { ComposerHunk } from '../../../../../plus/composer/protocol.js';
+import { focusableBaseStyles } from '../../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '../../../../shared/components/styles/lit/base.css.js';
+import { compiledComposerTemplates } from './diff-templates.compiled.js';
+import { diff2htmlStyles, diffStyles, hljsStyles } from './diff.css.js';
+import '../../../../shared/components/code-icon.js';
 
 @customElement('gl-diff-file')
 export class GlDiffFile extends LitElement {

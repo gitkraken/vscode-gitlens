@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import type { Container } from '../container';
-import { command } from '../system/-webview/command';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasFileCommit } from './commandContext.utils';
+import type { Container } from '../container.js';
+import { command } from '../system/-webview/command.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasFileCommit } from './commandContext.utils.js';
 
 @command()
 export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {

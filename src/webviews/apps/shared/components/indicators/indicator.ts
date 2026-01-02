@@ -1,6 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { baseStyles, pulseStyles } from './indicator.css';
+import { baseStyles, pulseStyles } from './indicator.css.js';
 
 export const tagName = 'gl-indicator';
 

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { getGitLabPullRequestIdentityFromMaybeUrl, isMaybeGitLabPullRequestUrl } from '../gitlab.utils';
+import { getGitLabPullRequestIdentityFromMaybeUrl, isMaybeGitLabPullRequestUrl } from '../gitlab.utils.js';
 
 suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {

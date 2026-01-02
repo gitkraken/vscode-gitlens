@@ -1,4 +1,4 @@
-import type { GitUser } from '../models/user';
+import type { GitUser } from '../models/user.js';
 
 export function isUserMatch(
 	user: GitUser | undefined,

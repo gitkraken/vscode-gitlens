@@ -1,9 +1,9 @@
 import type SlPopup from '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { parseDuration, waitForEvent } from '../../dom';
-import { GlElement, observe } from '../element';
-import { scrollableBase } from '../styles/lit/base.css';
+import { parseDuration, waitForEvent } from '../../dom.js';
+import { GlElement, observe } from '../element.js';
+import { scrollableBase } from '../styles/lit/base.css.js';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 
 // Adapted from shoelace tooltip

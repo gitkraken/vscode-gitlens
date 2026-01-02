@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { hrtime } from '@env/hrtime';
-import { getParameters } from '../function';
-import { customLoggableNameFns, getLoggableName, Logger } from '../logger';
-import { slowCallWarningThreshold } from '../logger.constants';
-import type { LogScope } from '../logger.scope';
-import { clearLogScope, getLoggableScopeBlock, logScopeIdGenerator, setLogScope } from '../logger.scope';
-import { isPromise } from '../promise';
-import { getDurationMilliseconds } from '../string';
+import { hrtime } from '@env/hrtime.js';
+import { getParameters } from '../function.js';
+import { slowCallWarningThreshold } from '../logger.constants.js';
+import { customLoggableNameFns, getLoggableName, Logger } from '../logger.js';
+import type { LogScope } from '../logger.scope.js';
+import { clearLogScope, getLoggableScopeBlock, logScopeIdGenerator, setLogScope } from '../logger.scope.js';
+import { isPromise } from '../promise.js';
+import { getDurationMilliseconds } from '../string.js';
 
 export interface LogContext {
 	id: number;

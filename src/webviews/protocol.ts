@@ -1,10 +1,10 @@
 import type { TimeInput } from '@opentelemetry/api';
-import type { Config } from '../config';
-import type { GlCommands } from '../constants.commands';
-import type { Source, WebviewTelemetryEvents } from '../constants.telemetry';
-import type { WebviewIds, WebviewTypes } from '../constants.views';
-import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo';
-import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
+import type { Config } from '../config.js';
+import type { GlCommands } from '../constants.commands.js';
+import type { Source, WebviewTelemetryEvents } from '../constants.telemetry.js';
+import type { WebviewIds, WebviewTypes } from '../constants.views.js';
+import type { Promo, PromoLocation, PromoPlans } from '../plus/gk/models/promo.js';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration.js';
 
 export type IpcScope = 'core' | WebviewTypes;
 

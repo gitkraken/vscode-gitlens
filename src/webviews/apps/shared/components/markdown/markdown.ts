@@ -5,7 +5,7 @@ import { until } from 'lit/directives/until.js';
 import type { RendererObject, RendererThis, Tokens } from 'marked';
 import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
-import { ruleStyles } from '../../../plus/shared/components/vscode.css';
+import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
 
 let inlineMarked: Marked | undefined;
 let blockMarked: Marked | undefined;

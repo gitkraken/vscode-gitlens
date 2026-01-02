@@ -1,7 +1,7 @@
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
-import type { GitConflictFile, GitConflictRevision, GitIndexFile, GitIndexVersion } from '../models';
-import { GitFileConflictStatus } from '../models/fileStatus';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateByDelimiter } from '../../system/string.js';
+import { GitFileConflictStatus } from '../models/fileStatus.js';
+import type { GitConflictFile, GitConflictRevision, GitIndexFile, GitIndexVersion } from '../models/index.js';
 
 export function parseGitLsFilesStaged(data: string | undefined, singleEntry: boolean): GitIndexFile[] {
 	using sw = maybeStopWatch(`Git.parseLsFiles`, { log: false, logLevel: 'debug' });

@@ -1,10 +1,10 @@
 import type { GitBlame } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, Uri } from 'vscode';
-import type { SearchQuery } from '../../../../../constants.search';
-import type { Source } from '../../../../../constants.telemetry';
-import type { Container } from '../../../../../container';
-import { CancellationError } from '../../../../../errors';
-import type { GitCache } from '../../../../../git/cache';
+import type { SearchQuery } from '../../../../../constants.search.js';
+import type { Source } from '../../../../../constants.telemetry.js';
+import type { Container } from '../../../../../container.js';
+import { CancellationError } from '../../../../../errors.js';
+import type { GitCache } from '../../../../../git/cache.js';
 import type {
 	GitCommitsSubProvider,
 	GitLogForPathOptions,
@@ -13,30 +13,30 @@ import type {
 	GitSearchCommitsOptions,
 	LeftRightCommitCountResult,
 	SearchCommitsResult,
-} from '../../../../../git/gitProvider';
-import { GitUri } from '../../../../../git/gitUri';
-import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit';
-import type { ParsedGitDiffHunks } from '../../../../../git/models/diff';
-import { GitFileChange } from '../../../../../git/models/fileChange';
-import { GitFileIndexStatus } from '../../../../../git/models/fileStatus';
-import type { GitLog } from '../../../../../git/models/log';
-import type { GitRevisionRange } from '../../../../../git/models/revision';
-import { deletedOrMissing } from '../../../../../git/models/revision';
-import type { GitUser } from '../../../../../git/models/user';
-import { parseSearchQueryGitHubCommand } from '../../../../../git/search';
-import { processNaturalLanguageToSearchQuery } from '../../../../../git/search.naturalLanguage';
-import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
-import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
-import { log } from '../../../../../system/decorators/log';
-import { filterMap, first, last, map, some } from '../../../../../system/iterable';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import { isFolderGlob, stripFolderGlob } from '../../../../../system/path';
-import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument';
-import { GitDocumentState } from '../../../../../trackers/trackedDocument';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
-import { fromCommitFileStatus } from '../models';
+} from '../../../../../git/gitProvider.js';
+import { GitUri } from '../../../../../git/gitUri.js';
+import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit.js';
+import type { ParsedGitDiffHunks } from '../../../../../git/models/diff.js';
+import { GitFileChange } from '../../../../../git/models/fileChange.js';
+import { GitFileIndexStatus } from '../../../../../git/models/fileStatus.js';
+import type { GitLog } from '../../../../../git/models/log.js';
+import type { GitRevisionRange } from '../../../../../git/models/revision.js';
+import { deletedOrMissing } from '../../../../../git/models/revision.js';
+import type { GitUser } from '../../../../../git/models/user.js';
+import { parseSearchQueryGitHubCommand } from '../../../../../git/search.js';
+import { processNaturalLanguageToSearchQuery } from '../../../../../git/search.naturalLanguage.js';
+import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils.js';
+import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { filterMap, first, last, map, some } from '../../../../../system/iterable.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import { isFolderGlob, stripFolderGlob } from '../../../../../system/path.js';
+import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument.js';
+import { GitDocumentState } from '../../../../../trackers/trackedDocument.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
+import { fromCommitFileStatus } from '../models.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 

@@ -1,4 +1,4 @@
-import type { GlCommands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands.js';
 
 export function createCommandLink<T>(command: GlCommands, args?: T): string {
 	if (args == null) return `command:${command}`;

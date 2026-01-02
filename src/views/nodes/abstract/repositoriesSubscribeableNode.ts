@@ -1,13 +1,13 @@
 import { Disposable } from 'vscode';
-import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
-import { unknownGitUri } from '../../../git/gitUri';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
-import { debug } from '../../../system/decorators/log';
-import { weakEvent } from '../../../system/event';
-import { szudzikPairing } from '../../../system/function';
-import type { View } from '../../viewBase';
-import { SubscribeableViewNode } from './subscribeableViewNode';
-import type { ViewNode } from './viewNode';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
+import { unknownGitUri } from '../../../git/gitUri.js';
+import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
+import { debug } from '../../../system/decorators/log.js';
+import { weakEvent } from '../../../system/event.js';
+import { szudzikPairing } from '../../../system/function.js';
+import type { View } from '../../viewBase.js';
+import { SubscribeableViewNode } from './subscribeableViewNode.js';
+import type { ViewNode } from './viewNode.js';
 
 export abstract class RepositoriesSubscribeableNode<
 	TView extends View = View,

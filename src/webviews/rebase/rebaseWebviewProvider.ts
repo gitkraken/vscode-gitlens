@@ -1,39 +1,39 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { ViewColumn, workspace } from 'vscode';
-import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars';
-import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands';
-import type { RebaseEditorTelemetryContext } from '../../constants.telemetry';
-import type { Container } from '../../container';
-import { emojify } from '../../emojis';
+import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
+import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
+import type { RebaseEditorTelemetryContext } from '../../constants.telemetry.js';
+import type { Container } from '../../container.js';
+import { emojify } from '../../emojis.js';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
 	showPausedOperationStatus,
 	skipPausedOperation,
-} from '../../git/actions/pausedOperation';
-import type { GitCommit } from '../../git/models/commit';
-import type { ProcessedRebaseTodo, RebaseTodoAction } from '../../git/models/rebase';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils';
-import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils';
-import { createReference } from '../../git/utils/reference.utils';
-import type { Subscription } from '../../plus/gk/models/subscription';
-import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
-import { executeCommand, executeCoreCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { closeTab } from '../../system/-webview/vscode/tabs';
-import { exists } from '../../system/-webview/vscode/uris';
-import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command';
-import { log } from '../../system/decorators/log';
-import type { Deferrable } from '../../system/function/debounce';
-import { debounce } from '../../system/function/debounce';
-import { concat, filterMap, find, first, join, last, map } from '../../system/iterable';
-import { getSettledValue } from '../../system/promise';
-import type { ComposerWebviewShowingArgs } from '../plus/composer/registration';
-import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
-import type { IpcMessage } from '../protocol';
-import type { WebviewHost } from '../webviewProvider';
-import type { WebviewPanelShowCommandArgs } from '../webviewsController';
+} from '../../git/actions/pausedOperation.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { ProcessedRebaseTodo, RebaseTodoAction } from '../../git/models/rebase.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
+import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
+import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
+import { createReference } from '../../git/utils/reference.utils.js';
+import type { Subscription } from '../../plus/gk/models/subscription.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
+import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { closeTab } from '../../system/-webview/vscode/tabs.js';
+import { exists } from '../../system/-webview/vscode/uris.js';
+import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
+import { log } from '../../system/decorators/log.js';
+import type { Deferrable } from '../../system/function/debounce.js';
+import { debounce } from '../../system/function/debounce.js';
+import { concat, filterMap, find, first, join, last, map } from '../../system/iterable.js';
+import { getSettledValue } from '../../system/promise.js';
+import type { ComposerWebviewShowingArgs } from '../plus/composer/registration.js';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
+import type { IpcMessage } from '../protocol.js';
+import type { WebviewHost } from '../webviewProvider.js';
+import type { WebviewPanelShowCommandArgs } from '../webviewsController.js';
 import type {
 	Author,
 	ChangeEntriesParams,
@@ -52,7 +52,7 @@ import type {
 	ShiftEntriesParams,
 	State,
 	UpdateSelectionParams,
-} from './protocol';
+} from './protocol.js';
 import {
 	AbortCommand,
 	ChangeEntriesCommand,
@@ -76,8 +76,8 @@ import {
 	StartCommand,
 	SwitchCommand,
 	UpdateSelectionCommand,
-} from './protocol';
-import { RebaseTodoDocument } from './rebaseTodoDocument';
+} from './protocol.js';
+import { RebaseTodoDocument } from './rebaseTodoDocument.js';
 
 export const maxSmallIntegerV8 = 2 ** 30 - 1;
 

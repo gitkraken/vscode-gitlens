@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
-import type { Environment } from '../../container';
-import { memoize } from '../../system/decorators/memoize';
+import type { Environment } from '../../container.js';
+import { memoize } from '../../system/decorators/memoize.js';
 
 export class UrlsProvider {
 	constructor(private readonly env: Environment) {}

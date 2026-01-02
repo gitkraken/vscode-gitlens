@@ -1,7 +1,7 @@
 import { URI } from 'vscode-uri';
-import type { IpcDate, IpcPromise } from '../../webviews/ipc';
-import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc';
-import { IpcPromiseSettled } from '../../webviews/protocol';
+import type { IpcDate, IpcPromise } from '../../webviews/ipc.js';
+import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc.js';
+import { IpcPromiseSettled } from '../../webviews/protocol.js';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {
 	if (key === '' || value == null || typeof value !== 'object') return value;

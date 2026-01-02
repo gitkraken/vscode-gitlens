@@ -1,6 +1,6 @@
 import type { FrameLocator, Locator } from '@playwright/test';
-import { MaxTimeout } from '../baseTest';
-import { VSCodePage } from './vscodePage';
+import { MaxTimeout } from '../baseTest.js';
+import { VSCodePage } from './vscodePage.js';
 
 /**
  * Page object for GitLens-specific UI interactions.

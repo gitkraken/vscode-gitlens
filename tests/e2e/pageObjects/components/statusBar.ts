@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import type { VSCodePage } from '../vscodePage';
+import type { VSCodePage } from '../vscodePage.js';
 
 /**
  * Component for VS Code Status Bar interactions.

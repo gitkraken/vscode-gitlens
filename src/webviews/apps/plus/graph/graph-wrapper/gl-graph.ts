@@ -10,7 +10,7 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { debounce } from '../../../../../system/function/debounce';
+import { debounce } from '../../../../../system/function/debounce.js';
 import type {
 	GraphAvatars,
 	GraphColumnsConfig,
@@ -18,9 +18,9 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 	RowAction,
-} from '../../../../plus/graph/protocol';
-import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './gl-graph.react';
-import { GlGraphReact } from './gl-graph.react';
+} from '../../../../plus/graph/protocol.js';
+import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './gl-graph.react.jsx';
+import { GlGraphReact } from './gl-graph.react.jsx';
 
 /**
  * A LitElement web component that encapsulates the GraphWrapperReact component.

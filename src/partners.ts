@@ -1,10 +1,10 @@
 import type { CancellationTokenSource, Extension, ExtensionContext, Uri } from 'vscode';
 import { extensions } from 'vscode';
-import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
-import type { InviteToLiveShareCommandArgs } from './commands/inviteToLiveShare';
-import { Container } from './container';
-import { executeCommand, executeCoreCommand } from './system/-webview/command';
-import type { ContactPresence } from './vsls/vsls';
+import type { ActionContext, HoverCommandsActionContext } from './api/gitlens.d.js';
+import type { InviteToLiveShareCommandArgs } from './commands/inviteToLiveShare.js';
+import { Container } from './container.js';
+import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
+import type { ContactPresence } from './vsls/vsls.js';
 
 export async function installExtension<T>(
 	extensionId: string,

@@ -1,16 +1,16 @@
 import type { ColorTheme } from 'vscode';
 import { ColorThemeKind, ThemeColor, ThemeIcon, Uri, window } from 'vscode';
-import type { IconPath } from '../../../@types/vscode.iconpath';
-import type { Colors } from '../../../constants.colors';
-import type { Container } from '../../../container';
-import { getIconPathUris, isLightTheme } from '../../../system/-webview/vscode';
-import type { GitBranch } from '../../models/branch';
-import type { GitFileStatus } from '../../models/fileStatus';
-import type { IssueOrPullRequest } from '../../models/issueOrPullRequest';
-import type { GitRemote } from '../../models/remote';
-import type { Repository } from '../../models/repository';
-import type { GitStatus } from '../../models/status';
-import { getRemoteThemeIconString } from '../remote.utils';
+import type { IconPath } from '../../../@types/vscode.iconpath.d.js';
+import type { Colors } from '../../../constants.colors.js';
+import type { Container } from '../../../container.js';
+import { getIconPathUris, isLightTheme } from '../../../system/-webview/vscode.js';
+import type { GitBranch } from '../../models/branch.js';
+import type { GitFileStatus } from '../../models/fileStatus.js';
+import type { IssueOrPullRequest } from '../../models/issueOrPullRequest.js';
+import type { GitRemote } from '../../models/remote.js';
+import type { Repository } from '../../models/repository.js';
+import type { GitStatus } from '../../models/status.js';
+import { getRemoteThemeIconString } from '../remote.utils.js';
 
 export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
 	switch (branch?.status) {

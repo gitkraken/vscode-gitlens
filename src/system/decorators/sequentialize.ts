@@ -1,4 +1,4 @@
-import { defaultResolver } from '@env/resolver';
+import { defaultResolver } from '@env/resolver.js';
 
 interface SequentializeState {
 	promise: Promise<any>;

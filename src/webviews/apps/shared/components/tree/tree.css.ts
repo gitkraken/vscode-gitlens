@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { elementBase } from '../styles/lit/base.css';
+import { elementBase } from '../styles/lit/base.css.js';
 
 export const treeStyles = [
 	elementBase,

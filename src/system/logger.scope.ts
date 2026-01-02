@@ -1,4 +1,4 @@
-import { getScopedCounter } from './counter';
+import { getScopedCounter } from './counter.js';
 
 export const logScopeIdGenerator = getScopedCounter();
 

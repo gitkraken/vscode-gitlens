@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { splitPath } from '../-webview/path';
+import { splitPath } from '../-webview/path.js';
 
 const smallDiskNameRegex = /^[a-z]:\//gm;
 function capitalizeDiskName(path: string) {

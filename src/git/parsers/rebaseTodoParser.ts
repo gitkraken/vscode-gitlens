@@ -1,6 +1,6 @@
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
-import type { ParsedRebaseTodo, RebaseTodoAction, RebaseTodoEntry, RebaseTodoInfo } from '../models/rebase';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateByDelimiter } from '../../system/string.js';
+import type { ParsedRebaseTodo, RebaseTodoAction, RebaseTodoEntry, RebaseTodoInfo } from '../models/rebase.js';
 
 const rebaseActionsMap = new Map<string, RebaseTodoAction>([
 	// Standard commit commands

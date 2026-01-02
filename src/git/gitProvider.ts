@@ -1,18 +1,17 @@
 import type { CancellationToken, Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
-import type { Commit, InputBox } from '../@types/vscode.git';
-import type { ForcePushMode } from '../@types/vscode.git.enums';
-import type { GitConfigKeys } from '../constants';
-import type { SearchQuery } from '../constants.search';
-import type { Source } from '../constants.telemetry';
-import type { Features } from '../features';
-import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
-import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
-import type { GitUri } from './gitUri';
-import type { GitConflictFile } from './models';
-import type { GitBlame, GitBlameLine } from './models/blame';
-import type { GitBranch } from './models/branch';
-import type { GitCommit, GitCommitIdentityShape, GitCommitStats, GitStashCommit } from './models/commit';
-import type { GitContributor, GitContributorsStats } from './models/contributor';
+import type { Commit, InputBox } from '../@types/vscode.git.d.js';
+import type { ForcePushMode } from '../@types/vscode.git.enums.js';
+import type { GitConfigKeys } from '../constants.js';
+import type { SearchQuery } from '../constants.search.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Features } from '../features.js';
+import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration.js';
+import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable.js';
+import type { GitUri } from './gitUri.js';
+import type { GitBlame, GitBlameLine } from './models/blame.js';
+import type { GitBranch } from './models/branch.js';
+import type { GitCommit, GitCommitIdentityShape, GitCommitStats, GitStashCommit } from './models/commit.js';
+import type { GitContributor, GitContributorsStats } from './models/contributor.js';
 import type {
 	GitDiff,
 	GitDiffFiles,
@@ -20,29 +19,30 @@ import type {
 	GitDiffShortStat,
 	GitLineDiff,
 	ParsedGitDiffHunks,
-} from './models/diff';
-import type { GitFile } from './models/file';
-import type { GitFileChange } from './models/fileChange';
-import type { GitFileStatus } from './models/fileStatus';
-import type { GitGraph } from './models/graph';
-import type { GitLog } from './models/log';
-import type { ConflictDetectionResult } from './models/mergeConflicts';
-import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
-import type { GitBranchReference, GitReference } from './models/reference';
-import type { GitReflog } from './models/reflog';
-import type { GitRemote } from './models/remote';
-import type { Repository, RepositoryChangeEvent } from './models/repository';
-import type { GitRevisionRange, GitRevisionRangeNotation } from './models/revision';
-import type { GitStash } from './models/stash';
-import type { GitStatus } from './models/status';
-import type { GitStatusFile } from './models/statusFile';
-import type { GitTag } from './models/tag';
-import type { GitTreeEntry } from './models/tree';
-import type { GitUser } from './models/user';
-import type { GitWorktree } from './models/worktree';
-import type { RemoteProvider } from './remotes/remoteProvider';
-import type { GitGraphSearch, GitGraphSearchCursor, GitGraphSearchProgress, GitGraphSearchResults } from './search';
-import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting';
+} from './models/diff.js';
+import type { GitFile } from './models/file.js';
+import type { GitFileChange } from './models/fileChange.js';
+import type { GitFileStatus } from './models/fileStatus.js';
+import type { GitGraph } from './models/graph.js';
+import type { GitConflictFile } from './models/index.js';
+import type { GitLog } from './models/log.js';
+import type { ConflictDetectionResult } from './models/mergeConflicts.js';
+import type { GitPausedOperationStatus } from './models/pausedOperationStatus.js';
+import type { GitBranchReference, GitReference } from './models/reference.js';
+import type { GitReflog } from './models/reflog.js';
+import type { GitRemote } from './models/remote.js';
+import type { Repository, RepositoryChangeEvent } from './models/repository.js';
+import type { GitRevisionRange, GitRevisionRangeNotation } from './models/revision.js';
+import type { GitStash } from './models/stash.js';
+import type { GitStatus } from './models/status.js';
+import type { GitStatusFile } from './models/statusFile.js';
+import type { GitTag } from './models/tag.js';
+import type { GitTreeEntry } from './models/tree.js';
+import type { GitUser } from './models/user.js';
+import type { GitWorktree } from './models/worktree.js';
+import type { RemoteProvider } from './remotes/remoteProvider.js';
+import type { GitGraphSearch, GitGraphSearchCursor, GitGraphSearchProgress, GitGraphSearchResults } from './search.js';
+import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting.js';
 
 export type CachedGitTypes =
 	| 'branches'

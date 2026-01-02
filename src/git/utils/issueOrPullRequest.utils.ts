@@ -1,4 +1,4 @@
-import type { IssueOrPullRequest } from '../models/issueOrPullRequest';
+import type { IssueOrPullRequest } from '../models/issueOrPullRequest.js';
 
 export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrPullRequest {
 	const serialized: IssueOrPullRequest = {

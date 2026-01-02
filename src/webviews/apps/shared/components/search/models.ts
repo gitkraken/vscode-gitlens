@@ -1,7 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
-import type { SearchOperatorsLongForm } from '../../../../../constants.search';
-import type { CompletionItem } from '../autocomplete/autocomplete';
+import type { SearchOperatorsLongForm } from '../../../../../constants.search.js';
+import type { CompletionItem } from '../autocomplete/autocomplete.js';
 
 export type SearchCompletionItem = CompletionItem<
 	SearchCompletionOperator | SearchCompletionCommand | SearchCompletionValue

@@ -5,71 +5,71 @@ import type {
 } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
-import { md5 } from '@env/crypto';
-import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
-import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
-import { openComparisonChanges } from '../../git/actions/commit';
-import type { Account } from '../../git/models/author';
-import type { GitBranch } from '../../git/models/branch';
-import type { PullRequest } from '../../git/models/pullRequest';
-import type { GitRemote } from '../../git/models/remote';
-import type { ProviderReference } from '../../git/models/remoteProvider';
-import type { Repository } from '../../git/models/repository';
-import type { RepositoryDescriptor } from '../../git/models/resourceDescriptor';
-import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
-import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
+import { md5 } from '@env/crypto.js';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
+import type { Container } from '../../container.js';
+import { CancellationError } from '../../errors.js';
+import { openComparisonChanges } from '../../git/actions/commit.js';
+import type { Account } from '../../git/models/author.js';
+import type { GitBranch } from '../../git/models/branch.js';
+import type { PullRequest } from '../../git/models/pullRequest.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import type { ProviderReference } from '../../git/models/remoteProvider.js';
+import type { Repository } from '../../git/models/repository.js';
+import type { RepositoryDescriptor } from '../../git/models/resourceDescriptor.js';
+import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils.js';
+import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils.js';
 import {
 	getComparisonRefsForPullRequest,
 	getPullRequestIdentityFromMaybeUrl,
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
-} from '../../git/utils/pullRequest.utils';
-import { getCancellationTokenId } from '../../system/-webview/cancellation';
-import { executeCommand, registerCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
-import { setContext } from '../../system/-webview/context';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import { filterMap, groupByMap, map, some } from '../../system/iterable';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { TimedResult } from '../../system/promise';
-import { getSettledValue, timedWithSlowThreshold } from '../../system/promise';
-import type { UriTypes } from '../../uris/deepLinks/deepLink';
-import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
-import { showInspectView } from '../../webviews/commitDetails/actions';
-import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
-import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts';
-import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import type { GitHostIntegration } from '../integrations/models/gitHostIntegration';
-import type { IntegrationResult } from '../integrations/models/integration';
-import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
-import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
-import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
+} from '../../git/utils/pullRequest.utils.js';
+import { getCancellationTokenId } from '../../system/-webview/cancellation.js';
+import { executeCommand, registerCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { setContext } from '../../system/-webview/context.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { gate } from '../../system/decorators/gate.js';
+import { debug, log } from '../../system/decorators/log.js';
+import { filterMap, groupByMap, map, some } from '../../system/iterable.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import type { TimedResult } from '../../system/promise.js';
+import { getSettledValue, timedWithSlowThreshold } from '../../system/promise.js';
+import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
+import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
+import { showInspectView } from '../../webviews/commitDetails/actions.js';
+import type { ShowWipArgs } from '../../webviews/commitDetails/protocol.js';
+import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts.js';
+import type { ConnectionStateChangeEvent } from '../integrations/integrationService.js';
+import type { GitHostIntegration } from '../integrations/models/gitHostIntegration.js';
+import type { IntegrationResult } from '../integrations/models/integration.js';
+import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils.js';
+import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils.js';
+import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models.js';
 import {
 	getActionablePullRequests,
 	supportsCodeSuggest,
 	toProviderPullRequestWithUniqueId,
-} from '../integrations/providers/models';
+} from '../integrations/providers/models.js';
 import {
 	convertIntegrationIdToEnrichProvider,
 	convertRemoteProviderIdToEnrichProvider,
 	isEnrichableIntegrationId,
 	isEnrichableRemoteProviderId,
-} from './enrichmentService';
-import type { EnrichableItem, EnrichedItem } from './models/enrichedItem';
-import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad';
+} from './enrichmentService.js';
+import type { EnrichableItem, EnrichedItem } from './models/enrichedItem.js';
+import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
 import {
 	launchpadActionCategories,
 	launchpadCategoryToGroupMap,
 	launchpadGroups,
 	prActionsMap,
 	sharedCategoryToLaunchpadActionCategoryMap,
-} from './models/launchpad';
+} from './models/launchpad.js';
 
 export function getSuggestedActions(
 	category: LaunchpadActionCategory,

@@ -1,8 +1,8 @@
-import type { StoredFeaturePreviewUsagePeriod } from './constants.storage';
-import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription';
-import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
-import { capitalize } from './system/string';
+import type { StoredFeaturePreviewUsagePeriod } from './constants.storage.js';
+import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription.js';
+import type { RepositoryVisibility } from './git/gitProvider.js';
+import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
+import { capitalize } from './system/string.js';
 
 // GitFeature's must start with `git:` to be recognized in all usages
 export type GitFeatures =

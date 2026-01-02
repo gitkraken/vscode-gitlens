@@ -6,16 +6,16 @@ import type {
 	ProcessedRebaseEntry,
 	ProcessedRebaseTodo,
 	RebaseTodoAction,
-} from '../../git/models/rebase';
-import { parseRebaseTodo } from '../../git/parsers/rebaseTodoParser';
+} from '../../git/models/rebase.js';
+import { parseRebaseTodo } from '../../git/parsers/rebaseTodoParser.js';
 import {
 	formatRebaseTodoEntryLine,
 	formatUpdateRefLine,
 	processRebaseEntries,
-} from '../../git/utils/-webview/rebase.parsing.utils';
-import { map } from '../../system/iterable';
-import type { MoveEntryParams } from './protocol';
-import { maxSmallIntegerV8 } from './rebaseWebviewProvider';
+} from '../../git/utils/-webview/rebase.parsing.utils.js';
+import { map } from '../../system/iterable.js';
+import type { MoveEntryParams } from './protocol.js';
+import { maxSmallIntegerV8 } from './rebaseWebviewProvider.js';
 
 /** Encapsulates all read/write operations on the rebase todo file */
 export class RebaseTodoDocument {

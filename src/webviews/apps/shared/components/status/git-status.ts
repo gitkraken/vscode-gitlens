@@ -1,8 +1,8 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { GitFileStatus } from '../../../../../git/models/fileStatus';
-import { getGitFileStatusText } from '../../../../../git/utils/fileStatus.utils';
+import type { GitFileStatus } from '../../../../../git/models/fileStatus.js';
+import { getGitFileStatusText } from '../../../../../git/utils/fileStatus.utils.js';
 
 @customElement('gl-git-status')
 export class GlGitStatus extends LitElement {

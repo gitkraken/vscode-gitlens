@@ -1,18 +1,18 @@
 import type { Command, Uri } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
-import { GitUri } from '../../git/gitUri';
-import type { GitFile } from '../../git/models/file';
-import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import { createCoreCommand } from '../../system/-webview/command';
-import { relativeDir } from '../../system/-webview/path';
-import type { ViewsWithCommits } from '../viewBase';
-import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues } from './abstract/viewNode';
-import type { FileNode } from './folderNode';
-import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
-import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { GitFile } from '../../git/models/file.js';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus.js';
+import { createCoreCommand } from '../../system/-webview/command.js';
+import { relativeDir } from '../../system/-webview/path.js';
+import type { ViewsWithCommits } from '../viewBase.js';
+import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues } from './abstract/viewNode.js';
+import type { FileNode } from './folderNode.js';
+import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode.js';
+import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode.js';
 
 export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWithCommits> implements FileNode {
 	constructor(

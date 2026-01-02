@@ -1,11 +1,11 @@
 import { createContext } from '@lit/context';
-import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/models/promo';
-import { DidChangeSubscription } from '../../../home/protocol';
-import { DidChangeSubscriptionNotification } from '../../../plus/graph/protocol';
-import { DidChangeNotification } from '../../../plus/timeline/protocol';
-import { ApplicablePromoRequest } from '../../../protocol';
-import type { Disposable } from '../events';
-import type { HostIpc } from '../ipc';
+import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/models/promo.js';
+import { DidChangeSubscription } from '../../../home/protocol.js';
+import { DidChangeSubscriptionNotification } from '../../../plus/graph/protocol.js';
+import { DidChangeNotification } from '../../../plus/timeline/protocol.js';
+import { ApplicablePromoRequest } from '../../../protocol.js';
+import type { Disposable } from '../events.js';
+import type { HostIpc } from '../ipc.js';
 
 export class PromosContext implements Disposable {
 	private readonly ipc: HostIpc;

@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri, WorkspaceFolder } from 'vscode';
 import { workspace } from 'vscode';
-import type { Container } from '../../container';
-import { relative } from '../../system/-webview/path';
-import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces';
-import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { getLoggableName } from '../../system/logger';
-import { normalizePath } from '../../system/path';
-import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils';
-import { shortenRevision } from '../utils/revision.utils';
-import type { GitBranch } from './branch';
-import type { GitStatus } from './status';
+import type { Container } from '../../container.js';
+import { relative } from '../../system/-webview/path.js';
+import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces.js';
+import { formatDate, fromNow } from '../../system/date.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { getLoggableName } from '../../system/logger.js';
+import { normalizePath } from '../../system/path.js';
+import { getRepositoryOrWorktreePath } from '../utils/-webview/repository.utils.js';
+import { shortenRevision } from '../utils/revision.utils.js';
+import type { GitBranch } from './branch.js';
+import type { GitStatus } from './status.js';
 
 export class GitWorktree {
 	constructor(

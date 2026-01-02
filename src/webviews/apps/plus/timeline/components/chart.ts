@@ -2,22 +2,22 @@ import type { Chart, ChartOptions, ChartTypes, Data, DataItem } from 'billboard.
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb';
-import { shortenRevision } from '../../../../../git/utils/revision.utils';
-import { log } from '../../../../../system/decorators/log';
-import { debounce } from '../../../../../system/function/debounce';
-import { defer } from '../../../../../system/promise';
-import { pluralize, truncateMiddle } from '../../../../../system/string';
-import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol';
-import { GlElement } from '../../../shared/components/element';
-import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date';
-import { timelineChartStyles } from './chart.css';
-import type { SliderChangeEventDetail } from './slider';
-import { GlChartSlider } from './slider';
+import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb.d.js';
+import { shortenRevision } from '../../../../../git/utils/revision.utils.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { debounce } from '../../../../../system/function/debounce.js';
+import { defer } from '../../../../../system/promise.js';
+import { pluralize, truncateMiddle } from '../../../../../system/string.js';
+import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol.js';
+import { GlElement } from '../../../shared/components/element.js';
+import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date.js';
+import { timelineChartStyles } from './chart.css.js';
+import type { SliderChangeEventDetail } from './slider.js';
+import { GlChartSlider } from './slider.js';
 import '@shoelace-style/shoelace/dist/components/resize-observer/resize-observer.js';
-import './scroller';
-import '../../../shared/components/commit-sha';
-import '../../../shared/components/indicators/watermark-loader';
+import './scroller.js';
+import '../../../shared/components/commit-sha.js';
+import '../../../shared/components/indicators/watermark-loader.js';
 
 export const tagName = 'gl-timeline-chart';
 

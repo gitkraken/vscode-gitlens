@@ -1,11 +1,11 @@
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { GlElement } from '../element';
-import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base';
-import { treeItemStyles } from './tree.css';
-import '../actions/action-nav';
-import '../code-icon';
+import { GlElement } from '../element.js';
+import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base.js';
+import { treeItemStyles } from './tree.css.js';
+import '../actions/action-nav.js';
+import '../code-icon.js';
 
 @customElement('gl-tree-item')
 export class GlTreeItem extends GlElement {

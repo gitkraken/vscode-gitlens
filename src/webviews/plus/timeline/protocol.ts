@@ -1,10 +1,10 @@
 import type { Uri } from 'vscode';
-import type { FeatureAccess } from '../../../features';
-import type { GitReference } from '../../../git/models/reference';
-import type { RepositoryShape } from '../../../git/models/repositoryShape';
-import type { Serialized } from '../../../system/serialize';
-import type { IpcScope, WebviewState } from '../../protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
+import type { FeatureAccess } from '../../../features.js';
+import type { GitReference } from '../../../git/models/reference.js';
+import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
+import type { Serialized } from '../../../system/serialize.js';
+import type { IpcScope, WebviewState } from '../../protocol.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol.js';
 
 export const scope: IpcScope = 'timeline';
 

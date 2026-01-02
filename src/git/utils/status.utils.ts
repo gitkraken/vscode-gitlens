@@ -1,7 +1,7 @@
-import { GlyphChars } from '../../constants';
-import { pluralize } from '../../system/string';
-import type { GitTrackingUpstream } from '../models/branch';
-import type { GitDiffFileStats } from '../models/diff';
+import { GlyphChars } from '../../constants.js';
+import { pluralize } from '../../system/string.js';
+import type { GitTrackingUpstream } from '../models/branch.js';
+import type { GitDiffFileStats } from '../models/diff.js';
 
 export function getFormattedDiffStatus(
 	stats: GitDiffFileStats,

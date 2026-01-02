@@ -1,27 +1,27 @@
 import type { CancellationToken, Event, MessageItem, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
-import type { Container } from '../../container';
-import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
-import type { GitRemote } from '../../git/models/remote';
-import { RemoteResourceType } from '../../git/models/remoteResource';
-import { Repository } from '../../git/models/repository';
-import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
-import { openWorkspace } from '../../system/-webview/vscode/workspaces';
-import { log } from '../../system/decorators/log';
-import { normalizePath } from '../../system/path';
-import { getSettledValue } from '../../system/promise';
-import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
-import { isSubscriptionTrialOrPaidFromState } from '../gk/utils/subscription.utils';
-import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace';
+import type { Container } from '../../container.js';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
+import type { GitRemote } from '../../git/models/remote.js';
+import { RemoteResourceType } from '../../git/models/remoteResource.js';
+import { Repository } from '../../git/models/repository.js';
+import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker.js';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
+import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
+import { log } from '../../system/decorators/log.js';
+import { normalizePath } from '../../system/path.js';
+import { getSettledValue } from '../../system/promise.js';
+import type { SubscriptionChangeEvent } from '../gk/subscriptionService.js';
+import { isSubscriptionTrialOrPaidFromState } from '../gk/utils/subscription.utils.js';
+import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace.js';
 import {
 	CloudWorkspace,
 	CloudWorkspaceProviderInputType,
 	CloudWorkspaceProviderType,
 	cloudWorkspaceProviderTypeToRemoteProviderId,
-} from './models/cloudWorkspace';
-import type { LocalWorkspaceData, LocalWorkspaceRepositoryDescriptor } from './models/localWorkspace';
-import { LocalWorkspace } from './models/localWorkspace';
+} from './models/cloudWorkspace.js';
+import type { LocalWorkspaceData, LocalWorkspaceRepositoryDescriptor } from './models/localWorkspace.js';
+import { LocalWorkspace } from './models/localWorkspace.js';
 import type {
 	AddWorkspaceRepoDescriptor,
 	GetWorkspacesResponse,
@@ -33,9 +33,9 @@ import type {
 	WorkspaceRepositoriesByName,
 	WorkspaceRepositoryRelation,
 	WorkspacesResponse,
-} from './models/workspaces';
-import type { WorkspacesApi } from './workspacesApi';
-import type { GkWorkspacesSharedStorageProvider } from './workspacesSharedStorageProvider';
+} from './models/workspaces.js';
+import type { WorkspacesApi } from './workspacesApi.js';
+import type { GkWorkspacesSharedStorageProvider } from './workspacesSharedStorageProvider.js';
 
 export class WorkspacesService implements Disposable {
 	private _onDidResetWorkspaces: EventEmitter<void> = new EventEmitter<void>();

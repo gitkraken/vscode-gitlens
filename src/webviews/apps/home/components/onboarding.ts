@@ -1,19 +1,19 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs';
-import { walkthroughProgressSteps } from '../../../../constants.walkthroughs';
-import { createCommandLink } from '../../../../system/commands';
-import type { State } from '../../../home/protocol';
-import { DismissWalkthroughSection } from '../../../home/protocol';
-import { ruleStyles } from '../../plus/shared/components/vscode.css';
-import { ipcContext } from '../../shared/contexts/ipc';
-import type { HostIpc } from '../../shared/ipc';
-import { stateContext } from '../context';
-import { homeBaseStyles, walkthroughProgressStyles } from '../home.css';
-import '../../shared/components/button';
-import '../../shared/components/code-icon';
-import '../../shared/components/overlays/tooltip';
+import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs.js';
+import { walkthroughProgressSteps } from '../../../../constants.walkthroughs.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import type { State } from '../../../home/protocol.js';
+import { DismissWalkthroughSection } from '../../../home/protocol.js';
+import { ruleStyles } from '../../plus/shared/components/vscode.css.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { HostIpc } from '../../shared/ipc.js';
+import { stateContext } from '../context.js';
+import { homeBaseStyles, walkthroughProgressStyles } from '../home.css.js';
+import '../../shared/components/button.js';
+import '../../shared/components/code-icon.js';
+import '../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-onboarding')
 export class GlOnboarding extends LitElement {

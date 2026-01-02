@@ -2,18 +2,18 @@ import { readdir, realpath } from 'fs';
 import { resolve as resolvePath } from 'path';
 import type { CancellationToken, Disposable, Event, Range, TextDocument, WorkspaceFolder } from 'vscode';
 import { EventEmitter, extensions, Uri, window, workspace } from 'vscode';
-import { md5 } from '@env/crypto';
-import { fetch, getProxyAgent } from '@env/fetch';
-import { hrtime } from '@env/hrtime';
-import { isLinux, isWindows } from '@env/platform';
-import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
-import { GlyphChars, Schemes } from '../../../constants';
-import type { Container } from '../../../container';
-import type { Features } from '../../../features';
-import { gitMinimumVersion } from '../../../features';
-import { GitCache } from '../../../git/cache';
-import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '../../../git/errors';
-import { GitIgnoreCache } from '../../../git/gitIgnoreCache';
+import { md5 } from '@env/crypto.js';
+import { fetch, getProxyAgent } from '@env/fetch.js';
+import { hrtime } from '@env/hrtime.js';
+import { isLinux, isWindows } from '@env/platform.js';
+import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git.d.js';
+import { GlyphChars, Schemes } from '../../../constants.js';
+import type { Container } from '../../../container.js';
+import type { Features } from '../../../features.js';
+import { gitMinimumVersion } from '../../../features.js';
+import { GitCache } from '../../../git/cache.js';
+import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '../../../git/errors.js';
+import { GitIgnoreCache } from '../../../git/gitIgnoreCache.js';
 import type {
 	GitDir,
 	GitProvider,
@@ -24,23 +24,23 @@ import type {
 	RepositoryVisibility,
 	RevisionUriData,
 	ScmRepository,
-} from '../../../git/gitProvider';
-import type { GitUri } from '../../../git/gitUri';
-import { isGitUri } from '../../../git/gitUri';
-import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority';
-import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models/blame';
-import type { GitCommit } from '../../../git/models/commit';
-import type { GitLineDiff, ParsedGitDiffHunks } from '../../../git/models/diff';
-import type { GitLog } from '../../../git/models/log';
-import type { GitRemote } from '../../../git/models/remote';
-import { RemoteResourceType } from '../../../git/models/remoteResource';
-import type { RepositoryChangeEvent } from '../../../git/models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { deletedOrMissing } from '../../../git/models/revision';
-import { parseGitBlame } from '../../../git/parsers/blameParser';
-import { parseGitFileDiff } from '../../../git/parsers/diffParser';
-import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
+} from '../../../git/gitProvider.js';
+import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority.js';
+import type { GitUri } from '../../../git/gitUri.js';
+import { isGitUri } from '../../../git/gitUri.js';
+import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models/blame.js';
+import type { GitCommit } from '../../../git/models/commit.js';
+import type { GitLineDiff, ParsedGitDiffHunks } from '../../../git/models/diff.js';
+import type { GitLog } from '../../../git/models/log.js';
+import type { GitRemote } from '../../../git/models/remote.js';
+import { RemoteResourceType } from '../../../git/models/remoteResource.js';
+import type { RepositoryChangeEvent } from '../../../git/models/repository.js';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { deletedOrMissing } from '../../../git/models/revision.js';
+import { parseGitBlame } from '../../../git/parsers/blameParser.js';
+import { parseGitFileDiff } from '../../../git/parsers/diffParser.js';
+import { getVisibilityCacheKey } from '../../../git/utils/remote.utils.js';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils.js';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
@@ -48,45 +48,45 @@ import {
 	showGitInvalidConfigErrorMessage,
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
-} from '../../../messages';
-import { asRepoComparisonKey } from '../../../repositories';
-import { configuration } from '../../../system/-webview/configuration';
-import { setContext } from '../../../system/-webview/context';
-import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
-import { gate } from '../../../system/decorators/gate';
-import { debug, log } from '../../../system/decorators/log';
-import { debounce } from '../../../system/function/debounce';
-import { first } from '../../../system/iterable';
-import { Logger } from '../../../system/logger';
-import type { LogScope } from '../../../system/logger.scope';
-import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
-import { arePathsEqual, commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath } from '../../../system/path';
-import { any, asSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string';
-import { compare, fromString } from '../../../system/version';
-import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument';
-import { GitDocumentState } from '../../../trackers/trackedDocument';
-import type { Git } from './git';
-import type { GitLocation } from './locator';
-import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
-import { fsExists } from './shell';
-import { BranchesGitSubProvider } from './sub-providers/branches';
-import { CommitsGitSubProvider } from './sub-providers/commits';
-import { ConfigGitSubProvider } from './sub-providers/config';
-import { ContributorsGitSubProvider } from './sub-providers/contributors';
-import { DiffGitSubProvider, findPathStatusChanged } from './sub-providers/diff';
-import { GraphGitSubProvider } from './sub-providers/graph';
-import { OperationsGitSubProvider } from './sub-providers/operations';
-import { PatchGitSubProvider } from './sub-providers/patch';
-import { PausedOperationsGitSubProvider } from './sub-providers/pausedOperations';
-import { RefsGitSubProvider } from './sub-providers/refs';
-import { RemotesGitSubProvider } from './sub-providers/remotes';
-import { RevisionGitSubProvider } from './sub-providers/revision';
-import { StagingGitSubProvider } from './sub-providers/staging';
-import { StashGitSubProvider } from './sub-providers/stash';
-import { StatusGitSubProvider } from './sub-providers/status';
-import { TagsGitSubProvider } from './sub-providers/tags';
-import { WorktreesGitSubProvider } from './sub-providers/worktrees';
+} from '../../../messages.js';
+import { asRepoComparisonKey } from '../../../repositories.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { setContext } from '../../../system/-webview/context.js';
+import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path.js';
+import { gate } from '../../../system/decorators/gate.js';
+import { debug, log } from '../../../system/decorators/log.js';
+import { debounce } from '../../../system/function/debounce.js';
+import { first } from '../../../system/iterable.js';
+import { Logger } from '../../../system/logger.js';
+import type { LogScope } from '../../../system/logger.scope.js';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope.js';
+import { arePathsEqual, commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath } from '../../../system/path.js';
+import { any, asSettled, getSettledValue } from '../../../system/promise.js';
+import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string.js';
+import { compare, fromString } from '../../../system/version.js';
+import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument.js';
+import { GitDocumentState } from '../../../trackers/trackedDocument.js';
+import type { Git } from './git.js';
+import type { GitLocation } from './locator.js';
+import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator.js';
+import { fsExists } from './shell.js';
+import { BranchesGitSubProvider } from './sub-providers/branches.js';
+import { CommitsGitSubProvider } from './sub-providers/commits.js';
+import { ConfigGitSubProvider } from './sub-providers/config.js';
+import { ContributorsGitSubProvider } from './sub-providers/contributors.js';
+import { DiffGitSubProvider, findPathStatusChanged } from './sub-providers/diff.js';
+import { GraphGitSubProvider } from './sub-providers/graph.js';
+import { OperationsGitSubProvider } from './sub-providers/operations.js';
+import { PatchGitSubProvider } from './sub-providers/patch.js';
+import { PausedOperationsGitSubProvider } from './sub-providers/pausedOperations.js';
+import { RefsGitSubProvider } from './sub-providers/refs.js';
+import { RemotesGitSubProvider } from './sub-providers/remotes.js';
+import { RevisionGitSubProvider } from './sub-providers/revision.js';
+import { StagingGitSubProvider } from './sub-providers/staging.js';
+import { StashGitSubProvider } from './sub-providers/stash.js';
+import { StatusGitSubProvider } from './sub-providers/status.js';
+import { TagsGitSubProvider } from './sub-providers/tags.js';
+import { WorktreesGitSubProvider } from './sub-providers/worktrees.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 const slash = 47;

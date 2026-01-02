@@ -1,38 +1,38 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { TextEditor } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
-import type { ScmResource } from '../@types/vscode.git.resources';
-import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import type { GlCommands } from '../constants.commands';
-import type { IntegrationIds } from '../constants.integrations';
-import type { Container } from '../container';
-import { CancellationError } from '../errors';
-import { ApplyPatchCommitError } from '../git/errors';
-import type { GitDiff } from '../git/models/diff';
-import type { Repository } from '../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../git/models/revision';
-import { splitCommitMessage } from '../git/utils/commit.utils';
-import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
-import { showGitErrorMessage } from '../messages';
-import { showPatchesView } from '../plus/drafts/actions';
-import type { ProviderAuth } from '../plus/drafts/draftsService';
-import type { Draft, LocalDraft } from '../plus/drafts/models/drafts';
-import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { map } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { isViewRefFileNode } from '../views/nodes/utils/-webview/node.utils';
-import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol';
-import { ActiveEditorCommand, GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { ScmResource } from '../@types/vscode.git.resources.d.js';
+import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
+import type { GlCommands } from '../constants.commands.js';
+import type { IntegrationIds } from '../constants.integrations.js';
+import type { Container } from '../container.js';
+import { CancellationError } from '../errors.js';
+import { ApplyPatchCommitError } from '../git/errors.js';
+import type { GitDiff } from '../git/models/diff.js';
+import type { Repository } from '../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../git/models/revision.js';
+import { splitCommitMessage } from '../git/utils/commit.utils.js';
+import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../messages.js';
+import { showPatchesView } from '../plus/drafts/actions.js';
+import type { ProviderAuth } from '../plus/drafts/draftsService.js';
+import type { Draft, LocalDraft } from '../plus/drafts/models/drafts.js';
+import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils.js';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { map } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { isViewRefFileNode } from '../views/nodes/utils/-webview/node.utils.js';
+import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol.js';
+import { ActiveEditorCommand, GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
 	isCommandContextViewNodeHasRefFile,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 export interface CreatePatchCommandArgs {
 	to?: string;

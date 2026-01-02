@@ -1,9 +1,9 @@
-import { openAIProviderDescriptor as provider } from '../../constants.ai';
-import { configuration } from '../../system/-webview/configuration';
-import type { AIActionType, AIModel } from './models/model';
-import { openAIModels } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { ensureOrgConfiguredUrl, isAzureUrl } from './utils/-webview/ai.utils';
+import { openAIProviderDescriptor as provider } from '../../constants.ai.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import { openAIModels } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
+import { ensureOrgConfiguredUrl, isAzureUrl } from './utils/-webview/ai.utils.js';
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = openAIModels(provider);

@@ -1,19 +1,19 @@
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
-import type { CloudWorkspace } from '../../plus/workspaces/models/cloudWorkspace';
-import type { LocalWorkspace } from '../../plus/workspaces/models/localWorkspace';
-import { createCommand } from '../../system/-webview/command';
-import { debug } from '../../system/decorators/log';
-import { weakEvent } from '../../system/event';
-import { createViewDecorationUri } from '../viewDecorationProvider';
-import type { WorkspacesView } from '../workspacesView';
-import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { CommandMessageNode, MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
-import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
+import { GitUri } from '../../git/gitUri.js';
+import type { CloudWorkspace } from '../../plus/workspaces/models/cloudWorkspace.js';
+import type { LocalWorkspace } from '../../plus/workspaces/models/localWorkspace.js';
+import { createCommand } from '../../system/-webview/command.js';
+import { debug } from '../../system/decorators/log.js';
+import { weakEvent } from '../../system/event.js';
+import { createViewDecorationUri } from '../viewDecorationProvider.js';
+import type { WorkspacesView } from '../workspacesView.js';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { CommandMessageNode, MessageNode } from './common.js';
+import { RepositoryNode } from './repositoryNode.js';
+import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode.js';
 
 export class WorkspaceNode extends SubscribeableViewNode<
 	'workspace',

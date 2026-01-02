@@ -1,25 +1,25 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../container';
-import { CancellationError, isCancellationError } from '../../../../errors';
-import type { ConflictDetectionCacheKey, GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
-import { BranchError } from '../../../../git/errors';
+import type { Container } from '../../../../container.js';
+import { CancellationError, isCancellationError } from '../../../../errors.js';
+import type { ConflictDetectionCacheKey, GitCache } from '../../../../git/cache.js';
+import { GitErrorHandling } from '../../../../git/commandOptions.js';
+import { BranchError } from '../../../../git/errors.js';
 import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
 	GitBranchMergedStatus,
 	PagedResult,
 	PagingOptions,
-} from '../../../../git/gitProvider';
-import { GitBranch } from '../../../../git/models/branch';
-import type { ConflictDetectionResult } from '../../../../git/models/mergeConflicts';
-import type { GitBranchReference } from '../../../../git/models/reference';
-import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
-import { getBranchParser } from '../../../../git/parsers/refParser';
-import { getBranchMergeTargetName } from '../../../../git/utils/-webview/branch.utils';
-import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
-import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting';
-import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting';
+} from '../../../../git/gitProvider.js';
+import { GitBranch } from '../../../../git/models/branch.js';
+import type { ConflictDetectionResult } from '../../../../git/models/mergeConflicts.js';
+import type { GitBranchReference } from '../../../../git/models/reference.js';
+import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser.js';
+import { getBranchParser } from '../../../../git/parsers/refParser.js';
+import { getBranchMergeTargetName } from '../../../../git/utils/-webview/branch.utils.js';
+import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils.js';
+import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting.js';
+import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting.js';
 import {
 	formatDetachedHeadName,
 	getBranchId,
@@ -27,23 +27,23 @@ import {
 	isDetachedHead,
 	isRemoteHEAD,
 	parseUpstream,
-} from '../../../../git/utils/branch.utils';
-import { createConflictDetectionError } from '../../../../git/utils/mergeConflicts.utils';
-import { createReference } from '../../../../git/utils/reference.utils';
-import { createRevisionRange } from '../../../../git/utils/revision.utils';
-import { configuration } from '../../../../system/-webview/configuration';
-import { ensureArray, filterMap } from '../../../../system/array';
-import { debounce } from '../../../../system/decorators/debounce';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import { PageableResult } from '../../../../system/paging';
-import { normalizePath } from '../../../../system/path';
-import { getSettledValue } from '../../../../system/promise';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { Git } from '../git';
-import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
+} from '../../../../git/utils/branch.utils.js';
+import { createConflictDetectionError } from '../../../../git/utils/mergeConflicts.utils.js';
+import { createReference } from '../../../../git/utils/reference.utils.js';
+import { createRevisionRange } from '../../../../git/utils/revision.utils.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { ensureArray, filterMap } from '../../../../system/array.js';
+import { debounce } from '../../../../system/decorators/debounce.js';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { PageableResult } from '../../../../system/paging.js';
+import { normalizePath } from '../../../../system/path.js';
+import { getSettledValue } from '../../../../system/promise.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import type { Git } from '../git.js';
+import { getGitCommandError, gitConfigsLog, GitError, GitErrors } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 /** Minimum time between writes to the config for last accessed/modified dates */

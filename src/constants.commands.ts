@@ -1,4 +1,4 @@
-import type { ContributedCommands, ContributedPaletteCommands } from './constants.commands.generated';
+import type { ContributedCommands, ContributedPaletteCommands } from './constants.commands.generated.js';
 import type {
 	CoreViewContainerIds,
 	CustomEditorTypes,
@@ -9,7 +9,7 @@ import type {
 	WebviewPanelTypes,
 	WebviewTypes,
 	WebviewViewTypes,
-} from './constants.views';
+} from './constants.views.js';
 
 export const actionCommandPrefix = 'gitlens.action.';
 

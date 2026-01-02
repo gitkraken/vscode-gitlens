@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
-import type { LocalWorkspaceFileData } from './models/localWorkspace';
-import type { WorkspaceAutoAddSetting } from './models/workspaces';
+import type { LocalWorkspaceFileData } from './models/localWorkspace.js';
+import type { WorkspaceAutoAddSetting } from './models/workspaces.js';
 
 export interface GkWorkspacesSharedStorageProvider {
 	getCloudWorkspaceRepositoryLocation(cloudWorkspaceId: string, repoId: string): Promise<string | undefined>;

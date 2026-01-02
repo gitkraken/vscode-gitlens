@@ -1,24 +1,31 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import { GlyphChars } from '../../constants';
-import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../constants.search';
-import type { Container } from '../../container';
-import { showCommitInDetailsView } from '../../git/actions/commit';
-import type { SearchCommitsResult } from '../../git/gitProvider';
-import type { GitCommit } from '../../git/models/commit';
-import type { Repository } from '../../git/models/repository';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
-import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { ActionQuickPickItem, createQuickPickSeparator } from '../../quickpicks/items/common';
-import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { showReferencePicker2 } from '../../quickpicks/referencePicker';
-import { configuration } from '../../system/-webview/configuration';
-import { getContext } from '../../system/-webview/context';
-import { first, join, map } from '../../system/iterable';
-import { pluralize } from '../../system/string';
-import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GlyphChars } from '../../constants.js';
+import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../../constants.search.js';
+import type { Container } from '../../container.js';
+import { showCommitInDetailsView } from '../../git/actions/commit.js';
+import type { SearchCommitsResult } from '../../git/gitProvider.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { Repository } from '../../git/models/repository.js';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search.js';
+import { showContributorsPicker } from '../../quickpicks/contributorsPicker.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { ActionQuickPickItem, createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { showReferencePicker2 } from '../../quickpicks/referencePicker.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
+import { first, join, map } from '../../system/iterable.js';
+import { pluralize } from '../../system/string.js';
+import { SearchResultsNode } from '../../views/nodes/searchResultsNode.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
+import {
+	MatchAllToggleQuickInputButton,
+	MatchCaseToggleQuickInputButton,
+	MatchRegexToggleQuickInputButton,
+	MatchWholeWordToggleQuickInputButton,
+	ShowResultsInSideBarQuickInputButton,
+} from '../quickCommand.buttons.js';
 import type {
 	PartialStepState,
 	QuickPickStep,
@@ -27,17 +34,10 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
-import { canPickStepContinue, createPickStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
-import {
-	MatchAllToggleQuickInputButton,
-	MatchCaseToggleQuickInputButton,
-	MatchRegexToggleQuickInputButton,
-	MatchWholeWordToggleQuickInputButton,
-	ShowResultsInSideBarQuickInputButton,
-} from '../quickCommand.buttons';
-import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.js';
+import { canPickStepContinue, createPickStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 const UseAuthorPickerQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('person-add'),

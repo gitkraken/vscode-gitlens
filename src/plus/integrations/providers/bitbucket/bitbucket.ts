@@ -1,10 +1,10 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable } from 'vscode';
 import { window } from 'vscode';
-import type { RequestInit, Response } from '@env/fetch';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
-import type { Container } from '../../../../container';
+import type { RequestInit, Response } from '@env/fetch.js';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
+import { isWeb } from '@env/platform.js';
+import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -12,33 +12,33 @@ import {
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
-} from '../../../../errors';
-import type { Account, CommitAuthor, UnidentifiedAuthor } from '../../../../git/models/author';
-import type { Issue } from '../../../../git/models/issue';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
-import type { PullRequest } from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
-import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
+} from '../../../../errors.js';
+import type { Account, CommitAuthor, UnidentifiedAuthor } from '../../../../git/models/author.js';
+import type { Issue } from '../../../../git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest.js';
+import type { PullRequest } from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata.js';
 import {
 	showBitbucketPRCommitLinksAppNotInstalledWarningMessage,
 	showIntegrationRequestFailed500WarningMessage,
-} from '../../../../messages';
-import { configuration } from '../../../../system/-webview/configuration';
-import { debug } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import type { LogScope } from '../../../../system/logger.scope';
-import { getLogScope } from '../../../../system/logger.scope';
-import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models';
-import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
-import { fromProviderPullRequest } from '../models';
-import type { BitbucketCommit, BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
+} from '../../../../messages.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { debug } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import type { LogScope } from '../../../../system/logger.scope.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
+import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
+import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
+import { fromProviderPullRequest } from '../models.js';
+import type { BitbucketCommit, BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models.js';
 import {
 	bitbucketIssueStateToState,
 	fromBitbucketIssue,
 	fromBitbucketPullRequest,
 	parseRawBitbucketAuthor,
-} from './models';
+} from './models.js';
 
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable;

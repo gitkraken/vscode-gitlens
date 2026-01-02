@@ -5,9 +5,9 @@ import { keyed } from 'lit/directives/keyed.js';
 import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { when } from 'lit/directives/when.js';
-import { GlElement } from '../element';
-import type { GlGitStatus } from '../status/git-status';
-import { scrollableBase } from '../styles/lit/base.css';
+import { GlElement } from '../element.js';
+import type { GlGitStatus } from '../status/git-status.js';
+import { scrollableBase } from '../styles/lit/base.css.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -15,13 +15,13 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 	TreeModelFlat,
-} from './base';
+} from './base.js';
 import '@lit-labs/virtualizer';
-import '../actions/action-item';
-import '../status/git-status';
-import '../code-icon';
-import './tree-item';
-import type { GlTreeItem } from './tree-item';
+import '../actions/action-item.js';
+import '../status/git-status.js';
+import '../code-icon.js';
+import './tree-item.js';
+import type { GlTreeItem } from './tree-item.js';
 
 @customElement('gl-tree-generator')
 export class GlTreeGenerator extends GlElement {

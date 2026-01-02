@@ -1,15 +1,15 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
-import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
-import { log } from '../../system/decorators/log';
-import { sortCompare } from '../../system/string';
-import type { GitCache } from '../cache';
-import type { GitProvider, GitRemotesSubProvider } from '../gitProvider';
-import type { GitRemote } from '../models/remote';
-import { RepositoryChange } from '../models/repository';
-import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getDefaultRemoteOrHighlander } from '../utils/remote.utils';
+import type { Container } from '../../container.js';
+import { CancellationError } from '../../errors.js';
+import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration.js';
+import { log } from '../../system/decorators/log.js';
+import { sortCompare } from '../../system/string.js';
+import type { GitCache } from '../cache.js';
+import type { GitProvider, GitRemotesSubProvider } from '../gitProvider.js';
+import type { GitRemote } from '../models/remote.js';
+import { RepositoryChange } from '../models/repository.js';
+import type { RemoteProvider } from '../remotes/remoteProvider.js';
+import { getDefaultRemoteOrHighlander } from '../utils/remote.utils.js';
 
 export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	constructor(

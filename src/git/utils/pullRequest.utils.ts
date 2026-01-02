@@ -1,12 +1,12 @@
-import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations';
+import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
 import type {
 	PullRequest,
 	PullRequestComparisonRefs,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestShape,
-} from '../models/pullRequest';
-import { shortenRevision } from './revision.utils';
+} from '../models/pullRequest.js';
+import { shortenRevision } from './revision.utils.js';
 
 export interface PullRequestUrlIdentity {
 	provider?: GitSelfManagedHostIntegrationId | GitCloudHostIntegrationId;

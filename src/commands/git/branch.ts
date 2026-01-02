@@ -1,29 +1,29 @@
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
-import type { Container } from '../../container';
-import { BranchError } from '../../git/errors';
-import type { IssueShape } from '../../git/models/issue';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { Repository } from '../../git/models/repository';
-import type { GitWorktree } from '../../git/models/worktree';
-import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
-import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
-import { getBranchNameAndRemote } from '../../git/utils/branch.utils';
+import type { Container } from '../../container.js';
+import { BranchError } from '../../git/errors.js';
+import type { IssueShape } from '../../git/models/issue.js';
+import type { GitBranchReference, GitReference } from '../../git/models/reference.js';
+import { Repository } from '../../git/models/repository.js';
+import type { GitWorktree } from '../../git/models/worktree.js';
+import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils.js';
+import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils.js';
+import { getBranchNameAndRemote } from '../../git/utils/branch.utils.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isBranchReference,
 	isRevisionReference,
-} from '../../git/utils/reference.utils';
-import { showGitErrorMessage } from '../../messages';
-import { getIssueOwner } from '../../plus/integrations/providers/utils';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { ensureArray } from '../../system/array';
-import { Logger } from '../../system/logger';
-import { pluralize } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+} from '../../git/utils/reference.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import { getIssueOwner } from '../../plus/integrations/providers/utils.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { ensureArray } from '../../system/array.js';
+import { Logger } from '../../system/logger.js';
+import { pluralize } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -32,7 +32,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canPickStepContinue,
 	createConfirmStep,
@@ -40,7 +40,7 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
@@ -49,8 +49,8 @@ import {
 	pickBranchStep,
 	pickOrResetBranchStep,
 	pickRepositoryStep,
-} from '../quickCommand.steps';
-import { getSteps } from '../quickWizard.utils';
+} from '../quickCommand.steps.js';
+import { getSteps } from '../quickWizard.utils.js';
 
 interface Context {
 	repos: Repository[];

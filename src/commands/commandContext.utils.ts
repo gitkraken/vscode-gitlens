@@ -1,33 +1,33 @@
 import type { GitTimelineItem, SourceControl, TextEditor } from 'vscode';
 import { Uri, window } from 'vscode';
-import type { GlCommands, GlCommandsDeprecated } from '../constants.commands';
-import type { StoredNamedRef } from '../constants.storage';
-import type { GitBranch } from '../git/models/branch';
-import { isBranch } from '../git/models/branch';
-import type { GitCommit, GitStashCommit } from '../git/models/commit';
-import { isCommit } from '../git/models/commit';
-import type { GitContributor } from '../git/models/contributor';
-import { isContributor } from '../git/models/contributor';
-import type { GitFile } from '../git/models/file';
-import type { GitReference } from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
-import { isRemote } from '../git/models/remote';
-import { Repository } from '../git/models/repository';
-import type { GitTag } from '../git/models/tag';
-import { isTag } from '../git/models/tag';
-import { GitWorktree } from '../git/models/worktree';
-import { CloudWorkspace } from '../plus/workspaces/models/cloudWorkspace';
-import { LocalWorkspace } from '../plus/workspaces/models/localWorkspace';
-import { isScm, isScmResourceGroup, isScmResourceState } from '../system/-webview/scm';
-import { isGitTimelineItem } from '../system/-webview/timeline';
-import { ViewNode } from '../views/nodes/abstract/viewNode';
-import { ViewRefFileNode, ViewRefNode } from '../views/nodes/abstract/viewRefNode';
+import type { GlCommands, GlCommandsDeprecated } from '../constants.commands.js';
+import type { StoredNamedRef } from '../constants.storage.js';
+import type { GitBranch } from '../git/models/branch.js';
+import { isBranch } from '../git/models/branch.js';
+import type { GitCommit, GitStashCommit } from '../git/models/commit.js';
+import { isCommit } from '../git/models/commit.js';
+import type { GitContributor } from '../git/models/contributor.js';
+import { isContributor } from '../git/models/contributor.js';
+import type { GitFile } from '../git/models/file.js';
+import type { GitReference } from '../git/models/reference.js';
+import type { GitRemote } from '../git/models/remote.js';
+import { isRemote } from '../git/models/remote.js';
+import { Repository } from '../git/models/repository.js';
+import type { GitTag } from '../git/models/tag.js';
+import { isTag } from '../git/models/tag.js';
+import { GitWorktree } from '../git/models/worktree.js';
+import { CloudWorkspace } from '../plus/workspaces/models/cloudWorkspace.js';
+import { LocalWorkspace } from '../plus/workspaces/models/localWorkspace.js';
+import { isScm, isScmResourceGroup, isScmResourceState } from '../system/-webview/scm.js';
+import { isGitTimelineItem } from '../system/-webview/timeline.js';
+import { ViewNode } from '../views/nodes/abstract/viewNode.js';
+import { ViewRefFileNode, ViewRefNode } from '../views/nodes/abstract/viewRefNode.js';
 import type {
 	CommandContext,
 	CommandEditorLineContext,
 	CommandGitTimelineItemContext,
 	CommandViewNodeContext,
-} from './commandContext';
+} from './commandContext.js';
 
 export function isCommandContextEditorLine(context: CommandContext): context is CommandEditorLineContext {
 	return context.type === 'editorLine';

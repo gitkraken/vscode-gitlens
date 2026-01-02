@@ -1,12 +1,12 @@
-import type { Container } from '../../container';
-import { memoize } from '../../system/decorators/memoize';
-import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from '../utils/branch.utils';
-import { getFormattedDiffStatus, getUpstreamStatus } from '../utils/status.utils';
-import type { GitBranchStatus, GitTrackingUpstream } from './branch';
-import type { GitDiffFileStats } from './diff';
-import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './fileStatus';
-import type { GitRemote } from './remote';
-import type { GitStatusFile } from './statusFile';
+import type { Container } from '../../container.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from '../utils/branch.utils.js';
+import { getFormattedDiffStatus, getUpstreamStatus } from '../utils/status.utils.js';
+import type { GitBranchStatus, GitTrackingUpstream } from './branch.js';
+import type { GitDiffFileStats } from './diff.js';
+import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './fileStatus.js';
+import type { GitRemote } from './remote.js';
+import type { GitStatusFile } from './statusFile.js';
 
 export class GitStatus {
 	readonly detached: boolean;

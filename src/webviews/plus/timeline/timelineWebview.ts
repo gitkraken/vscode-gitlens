@@ -1,65 +1,65 @@
 import type { TabChangeEvent, TabGroupChangeEvent } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { proBadge } from '../../../constants';
-import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
-import type { Container } from '../../../container';
-import type { FileSelectedEvent } from '../../../eventBus';
-import type { FeatureAccess, RepoFeatureAccess } from '../../../features';
+import { proBadge } from '../../../constants.js';
+import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry.js';
+import type { Container } from '../../../container.js';
+import type { FileSelectedEvent } from '../../../eventBus.js';
+import type { FeatureAccess, RepoFeatureAccess } from '../../../features.js';
 import {
 	openChanges,
 	openChangesWithWorking,
 	openCommitChanges,
 	openCommitChangesWithWorking,
-} from '../../../git/actions/commit';
-import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
-import { ensureWorkingUri } from '../../../git/gitUri.utils';
-import type { GitCommit } from '../../../git/models/commit';
-import type { GitFileChange } from '../../../git/models/fileChange';
+} from '../../../git/actions/commit.js';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
+import { ensureWorkingUri } from '../../../git/gitUri.utils.js';
+import type { GitCommit } from '../../../git/models/commit.js';
+import type { GitFileChange } from '../../../git/models/fileChange.js';
 import type {
 	Repository,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { uncommitted } from '../../../git/models/revision';
-import { getReference } from '../../../git/utils/-webview/reference.utils';
-import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils';
-import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils';
-import { getChangedFilesCount } from '../../../git/utils/commit.utils';
-import { createReference } from '../../../git/utils/reference.utils';
+} from '../../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { uncommitted } from '../../../git/models/revision.js';
+import { getReference } from '../../../git/utils/-webview/reference.utils.js';
+import { toRepositoryShape } from '../../../git/utils/-webview/repository.utils.js';
+import { getPseudoCommitsWithStats } from '../../../git/utils/-webview/statusFile.utils.js';
+import { getChangedFilesCount } from '../../../git/utils/commit.utils.js';
+import { createReference } from '../../../git/utils/reference.utils.js';
 import {
 	createRevisionRange,
 	isUncommitted,
 	isUncommittedStaged,
 	shortenRevision,
-} from '../../../git/utils/revision.utils';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
-import { Directive } from '../../../quickpicks/items/directive';
-import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker';
-import { showReferencePicker2 } from '../../../quickpicks/referencePicker';
-import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker';
-import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker';
-import { executeCommand, registerCommand } from '../../../system/-webview/command';
-import { configuration } from '../../../system/-webview/configuration';
-import { isDescendant } from '../../../system/-webview/path';
-import { openTextEditor } from '../../../system/-webview/vscode/editors';
-import { getTabUri } from '../../../system/-webview/vscode/tabs';
-import { createFromDateDelta } from '../../../system/date';
-import { debug } from '../../../system/decorators/log';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
-import { map, some } from '../../../system/iterable';
-import { flatten } from '../../../system/object';
-import { basename } from '../../../system/path';
-import { batch, getSettledValue } from '../../../system/promise';
-import { PromiseCache } from '../../../system/promiseCache';
-import { SubscriptionManager } from '../../../system/subscriptionManager';
-import { createDisposable } from '../../../system/unifiedDisposable';
-import { areUrisEqual } from '../../../system/uri';
-import type { IpcMessage } from '../../protocol';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
-import type { WebviewShowOptions } from '../../webviewsController';
-import { isSerializedState } from '../../webviewsController';
+} from '../../../git/utils/revision.utils.js';
+import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
+import { Directive } from '../../../quickpicks/items/directive.js';
+import type { ReferencesQuickPickIncludes } from '../../../quickpicks/referencePicker.js';
+import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
+import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker2 } from '../../../quickpicks/repositoryPicker.js';
+import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
+import { executeCommand, registerCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import { isDescendant } from '../../../system/-webview/path.js';
+import { openTextEditor } from '../../../system/-webview/vscode/editors.js';
+import { getTabUri } from '../../../system/-webview/vscode/tabs.js';
+import { createFromDateDelta } from '../../../system/date.js';
+import { debug } from '../../../system/decorators/log.js';
+import type { Deferrable } from '../../../system/function/debounce.js';
+import { debounce } from '../../../system/function/debounce.js';
+import { map, some } from '../../../system/iterable.js';
+import { flatten } from '../../../system/object.js';
+import { basename } from '../../../system/path.js';
+import { batch, getSettledValue } from '../../../system/promise.js';
+import { PromiseCache } from '../../../system/promiseCache.js';
+import { SubscriptionManager } from '../../../system/subscriptionManager.js';
+import { createDisposable } from '../../../system/unifiedDisposable.js';
+import { areUrisEqual } from '../../../system/uri.js';
+import type { IpcMessage } from '../../protocol.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
+import type { WebviewShowOptions } from '../../webviewsController.js';
+import { isSerializedState } from '../../webviewsController.js';
 import type {
 	ChoosePathParams,
 	ChooseRefParams,
@@ -73,7 +73,7 @@ import type {
 	TimelineSliceBy,
 	UpdateConfigParams,
 	UpdateScopeParams,
-} from './protocol';
+} from './protocol.js';
 import {
 	ChoosePathRequest,
 	ChooseRefRequest,
@@ -81,15 +81,15 @@ import {
 	SelectDataPointCommand,
 	UpdateConfigCommand,
 	UpdateScopeCommand,
-} from './protocol';
-import type { TimelineWebviewShowingArgs } from './registration';
+} from './protocol.js';
+import type { TimelineWebviewShowingArgs } from './registration.js';
 import {
 	areTimelineScopesEqual,
 	areTimelineScopesEquivalent,
 	deserializeTimelineScope,
 	isTimelineScope,
 	serializeTimelineScope,
-} from './utils/-webview/timeline.utils';
+} from './utils/-webview/timeline.utils.js';
 
 interface Context {
 	config: {

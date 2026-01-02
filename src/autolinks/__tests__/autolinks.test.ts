@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { map } from '../../system/iterable';
-import type { Autolink, RefSet } from '../models/autolinks';
-import { getAutolinks, getBranchAutolinks } from '../utils/-webview/autolinks.utils';
+import { map } from '../../system/iterable.js';
+import type { Autolink, RefSet } from '../models/autolinks.js';
+import { getAutolinks, getBranchAutolinks } from '../utils/-webview/autolinks.utils.js';
 
 const mockRefSets = (prefixes: string[] = ['']): RefSet[] =>
 	prefixes.map(prefix => [

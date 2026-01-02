@@ -1,4 +1,4 @@
-import type { AIProviders } from '../../../constants.ai';
+import type { AIProviders } from '../../../constants.ai.js';
 
 export interface Organization {
 	readonly id: string;

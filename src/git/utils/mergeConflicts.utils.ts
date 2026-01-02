@@ -1,4 +1,4 @@
-import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '../models/mergeConflicts';
+import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '../models/mergeConflicts.js';
 
 export function createConflictDetectionError(reason: ConflictDetectionErrorReason): ConflictDetectionResult {
 	return { status: 'error', reason: reason, message: getConflictDetectionErrorMessage(reason) };

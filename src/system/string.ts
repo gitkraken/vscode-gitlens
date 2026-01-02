@@ -4,9 +4,9 @@ import type {
 	Result as TruncatedStringWidthResult,
 } from '@gk-nzaytsev/fast-string-truncated-width';
 import getTruncatedStringWidth from '@gk-nzaytsev/fast-string-truncated-width';
-import { hrtime } from '@env/hrtime';
-import { CharCode } from '../constants';
-import { getNumericFormat } from './date';
+import { hrtime } from '@env/hrtime.js';
+import { CharCode } from '../constants.js';
+import { getNumericFormat } from './date.js';
 
 export function capitalize(s: string): string {
 	return `${s[0].toLocaleUpperCase()}${s.slice(1)}`;

@@ -1,16 +1,16 @@
 import type { Uri } from 'vscode';
-import type { Container } from '../../container';
-import type { GitCommit } from '../../git/models/commit';
-import type { GitFileChange } from '../../git/models/fileChange';
-import { uncommitted } from '../../git/models/revision';
-import { isUncommitted } from '../../git/utils/revision.utils';
-import { isWebviewItemContext } from '../../system/webview';
+import type { Container } from '../../container.js';
+import type { GitCommit } from '../../git/models/commit.js';
+import type { GitFileChange } from '../../git/models/fileChange.js';
+import { uncommitted } from '../../git/models/revision.js';
+import { isUncommitted } from '../../git/utils/revision.utils.js';
+import { isWebviewItemContext } from '../../system/webview.js';
 import type {
 	DetailsFileContextValue,
 	DetailsItemContext,
 	DetailsItemTypedContext,
 	DetailsItemTypedContextValue,
-} from './protocol';
+} from './protocol.js';
 
 export function isDetailsItemContext(item: unknown): item is DetailsItemContext {
 	if (item == null) return false;

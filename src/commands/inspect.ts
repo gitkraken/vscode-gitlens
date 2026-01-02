@@ -1,23 +1,23 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import { showCommitInDetailsView } from '../git/actions/commit';
-import { GitUri } from '../git/gitUri';
-import type { GitRevisionReference } from '../git/models/reference';
-import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils';
-import { createReference } from '../git/utils/reference.utils';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { showCommitInDetailsView } from '../git/actions/commit.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitRevisionReference } from '../git/models/reference.js';
+import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils.js';
+import { createReference } from '../git/utils/reference.utils.js';
 import {
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
-} from '../messages';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
+} from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
 
 export interface InspectCommandArgs {
 	ref?: GitRevisionReference;

@@ -1,15 +1,15 @@
 import type { Event, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
-import type { Config } from '../config';
-import { actionCommandPrefix } from '../constants.commands';
-import type { Container } from '../container';
-import { registerCommand } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { setContext } from '../system/-webview/context';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { getScopedCounter } from '../system/counter';
-import { sortCompare } from '../system/string';
-import type { Action, ActionContext, ActionRunner } from './gitlens';
+import type { Config } from '../config.js';
+import { actionCommandPrefix } from '../constants.commands.js';
+import type { Container } from '../container.js';
+import { registerCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { setContext } from '../system/-webview/context.js';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
+import { getScopedCounter } from '../system/counter.js';
+import { sortCompare } from '../system/string.js';
+import type { Action, ActionContext, ActionRunner } from './gitlens.d.js';
 
 type Actions = ActionContext['type'];
 const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'openIssue', 'hover.commands'];

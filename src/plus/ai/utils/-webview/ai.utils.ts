@@ -1,24 +1,24 @@
 import type { CancellationToken, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import { Schemes } from '../../../../constants';
-import type { AIProviders } from '../../../../constants.ai';
-import type { Container } from '../../../../container';
-import type { MarkdownContentMetadata } from '../../../../documents/markdown';
-import { CancellationError } from '../../../../errors';
-import type { GitRepositoryService } from '../../../../git/gitRepositoryService';
-import { decodeGitLensRevisionUriAuthority } from '../../../../git/gitUri.authority';
-import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
-import { configuration } from '../../../../system/-webview/configuration';
-import { getContext } from '../../../../system/-webview/context';
-import { openSettingsEditor } from '../../../../system/-webview/vscode/editors';
-import { formatNumeric } from '../../../../system/date';
-import { Logger } from '../../../../system/logger';
-import { getSettledValue } from '../../../../system/promise';
-import { getPossessiveForm, pluralize } from '../../../../system/string';
-import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization';
-import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils';
-import type { AIResponse, AIResultContext } from '../../aiProviderService';
-import type { AIActionType, AIModel } from '../../models/model';
+import type { AIProviders } from '../../../../constants.ai.js';
+import { Schemes } from '../../../../constants.js';
+import type { Container } from '../../../../container.js';
+import type { MarkdownContentMetadata } from '../../../../documents/markdown.js';
+import { CancellationError } from '../../../../errors.js';
+import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
+import { decodeGitLensRevisionUriAuthority } from '../../../../git/gitUri.authority.js';
+import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { getContext } from '../../../../system/-webview/context.js';
+import { openSettingsEditor } from '../../../../system/-webview/vscode/editors.js';
+import { formatNumeric } from '../../../../system/date.js';
+import { Logger } from '../../../../system/logger.js';
+import { getSettledValue } from '../../../../system/promise.js';
+import { getPossessiveForm, pluralize } from '../../../../system/string.js';
+import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization.js';
+import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils.js';
+import type { AIResponse, AIResultContext } from '../../aiProviderService.js';
+import type { AIActionType, AIModel } from '../../models/model.js';
 
 export async function ensureAccount(container: Container, silent: boolean): Promise<boolean> {
 	const result = await ensureAccountQuickPick(

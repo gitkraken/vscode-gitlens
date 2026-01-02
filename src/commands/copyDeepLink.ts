@@ -1,21 +1,21 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { StoredNamedRef } from '../constants.storage';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import type { GitReference } from '../git/models/reference';
-import { getBranchNameAndRemote } from '../git/utils/branch.utils';
-import { createReference } from '../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../messages';
-import { showReferencePicker2 } from '../quickpicks/referencePicker';
-import { showRemotePicker } from '../quickpicks/remotePicker';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { normalizePath } from '../system/path';
-import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
+import type { StoredNamedRef } from '../constants.storage.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitReference } from '../git/models/reference.js';
+import { getBranchNameAndRemote } from '../git/utils/branch.utils.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
+import { showRemotePicker } from '../quickpicks/remotePicker.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { normalizePath } from '../system/path.js';
+import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextEditorLine,
 	isCommandContextViewNodeHasBranch,
@@ -24,7 +24,7 @@ import {
 	isCommandContextViewNodeHasRemote,
 	isCommandContextViewNodeHasTag,
 	isCommandContextViewNodeHasWorkspace,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 export interface CopyDeepLinkCommandArgs {
 	refOrRepoPath?: GitReference | string;

@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { urls } from '../../../../constants';
-import { createCommandLink } from '../../../../system/commands';
-import './banner/banner';
+import { urls } from '../../../../constants.js';
+import { createCommandLink } from '../../../../system/commands.js';
+import './banner/banner.js';
 
 export const mcpBannerTagName = 'gl-mcp-banner';
 

@@ -7,13 +7,13 @@ import * as process from 'node:process';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
-import { GitFixture } from './fixtures/git';
-import { VSCodeEvaluator } from './fixtures/vscodeEvaluator';
-import { GitLensPage } from './pageObjects/gitLensPage';
+import { GitFixture } from './fixtures/git.js';
+import { VSCodeEvaluator } from './fixtures/vscodeEvaluator.js';
+import { GitLensPage } from './pageObjects/gitLensPage.js';
 
 export { expect } from '@playwright/test';
-export { GitFixture } from './fixtures/git';
-export type { VSCode } from './fixtures/vscodeEvaluator';
+export { GitFixture } from './fixtures/git.js';
+export type { VSCode } from './fixtures/vscodeEvaluator.js';
 
 export const MaxTimeout = 10000;
 

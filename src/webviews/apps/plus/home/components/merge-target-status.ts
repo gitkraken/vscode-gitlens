@@ -1,20 +1,20 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { SubscriptionState } from '../../../../../constants.subscription';
-import { createCommandLink } from '../../../../../system/commands';
-import { pluralize } from '../../../../../system/string';
-import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol';
-import { renderBranchName } from '../../../shared/components/branch-name';
-import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
-import { chipStyles } from '../../shared/components/chipStyles';
-import '../../../shared/components/button';
-import '../../../shared/components/button-container';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/popover';
-import '../../../shared/components/overlays/tooltip';
-import '../../../shared/components/ref-button';
-import '../../shared/components/feature-gate-plus-state';
+import type { SubscriptionState } from '../../../../../constants.subscription.js';
+import { createCommandLink } from '../../../../../system/commands.js';
+import { pluralize } from '../../../../../system/string.js';
+import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol.js';
+import { renderBranchName } from '../../../shared/components/branch-name.js';
+import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { chipStyles } from '../../shared/components/chipStyles.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/ref-button.js';
+import '../../shared/components/feature-gate-plus-state.js';
 
 const mergeTargetStyles = css`
 	.header__actions {

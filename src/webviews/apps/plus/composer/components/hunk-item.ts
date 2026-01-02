@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import '../../../shared/components/code-icon';
+import '../../../shared/components/code-icon.js';
 
 @customElement('gl-hunk-item')
 export class HunkItem extends LitElement {

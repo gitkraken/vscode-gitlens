@@ -1,12 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { GitUri } from '../../git/gitUri';
-import type { Repository } from '../../git/models/repository';
-import type { ViewsWithRemotesNode } from '../viewBase';
-import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { MessageNode } from './common';
-import { RemoteNode } from './remoteNode';
+import type { GitUri } from '../../git/gitUri.js';
+import type { Repository } from '../../git/models/repository.js';
+import type { ViewsWithRemotesNode } from '../viewBase.js';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { MessageNode } from './common.js';
+import { RemoteNode } from './remoteNode.js';
 
 export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithRemotesNode> {
 	constructor(

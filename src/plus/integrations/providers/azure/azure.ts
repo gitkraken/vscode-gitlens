@@ -1,11 +1,11 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable } from 'vscode';
 import { window } from 'vscode';
-import { base64 } from '@env/base64';
-import type { RequestInit, Response } from '@env/fetch';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
-import type { Container } from '../../../../container';
+import { base64 } from '@env/base64.js';
+import type { RequestInit, Response } from '@env/fetch.js';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch.js';
+import { isWeb } from '@env/platform.js';
+import type { Container } from '../../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -13,19 +13,19 @@ import {
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
-} from '../../../../errors';
-import type { UnidentifiedAuthor } from '../../../../git/models/author';
-import type { Issue } from '../../../../git/models/issue';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
-import type { PullRequest } from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
-import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
-import { configuration } from '../../../../system/-webview/configuration';
-import { debug } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import type { LogScope } from '../../../../system/logger.scope';
-import { getLogScope } from '../../../../system/logger.scope';
-import { maybeStopWatch } from '../../../../system/stopwatch';
+} from '../../../../errors.js';
+import type { UnidentifiedAuthor } from '../../../../git/models/author.js';
+import type { Issue } from '../../../../git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest.js';
+import type { PullRequest } from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
+import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { debug } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import type { LogScope } from '../../../../system/logger.scope.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import { maybeStopWatch } from '../../../../system/stopwatch.js';
 import type {
 	AzureGitCommit,
 	AzureProjectDescriptor,
@@ -34,7 +34,7 @@ import type {
 	AzureWorkItemState,
 	AzureWorkItemStateCategory,
 	WorkItem,
-} from './models';
+} from './models.js';
 import {
 	azurePullRequestStatusToState,
 	azureWorkItemsStateCategoryToState,
@@ -43,7 +43,7 @@ import {
 	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
-} from './models';
+} from './models.js';
 
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable;

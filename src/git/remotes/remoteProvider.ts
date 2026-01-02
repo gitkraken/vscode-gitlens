@@ -1,18 +1,18 @@
 import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
-import type { Source } from '../../constants.telemetry';
-import { openUrl } from '../../system/-webview/vscode/uris';
-import { memoize } from '../../system/decorators/memoize';
-import { encodeUrl } from '../../system/encoding';
-import { getSettledValue } from '../../system/promise';
-import type { ProviderReference } from '../models/remoteProvider';
-import type { CreatePullRequestRemoteResource, RemoteResource } from '../models/remoteResource';
-import { RemoteResourceType } from '../models/remoteResource';
-import type { Repository } from '../models/repository';
-import type { GkProviderId } from '../models/repositoryIdentities';
-import type { ResourceDescriptor } from '../models/resourceDescriptor';
-import type { GitRevisionRangeNotation } from '../models/revision';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks.js';
+import type { Source } from '../../constants.telemetry.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { encodeUrl } from '../../system/encoding.js';
+import { getSettledValue } from '../../system/promise.js';
+import type { ProviderReference } from '../models/remoteProvider.js';
+import type { CreatePullRequestRemoteResource, RemoteResource } from '../models/remoteResource.js';
+import { RemoteResourceType } from '../models/remoteResource.js';
+import type { Repository } from '../models/repository.js';
+import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { ResourceDescriptor } from '../models/resourceDescriptor.js';
+import type { GitRevisionRangeNotation } from '../models/revision.js';
 
 export type RemoteProviderId =
 	| 'azure-devops'

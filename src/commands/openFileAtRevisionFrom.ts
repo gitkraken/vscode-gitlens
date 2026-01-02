@@ -1,17 +1,17 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import type { FileAnnotationType } from '../config';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import type { Container } from '../container';
-import { openFileAtRevision } from '../git/actions/commit';
-import { GitUri } from '../git/gitUri';
-import type { GitReference } from '../git/models/reference';
-import { showNoRepositoryWarningMessage } from '../messages';
-import { showReferencePicker } from '../quickpicks/referencePicker';
-import { showStashPicker } from '../quickpicks/stashPicker';
-import { command } from '../system/-webview/command';
-import { pad } from '../system/string';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
+import type { FileAnnotationType } from '../config.js';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants.js';
+import type { Container } from '../container.js';
+import { openFileAtRevision } from '../git/actions/commit.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitReference } from '../git/models/reference.js';
+import { showNoRepositoryWarningMessage } from '../messages.js';
+import { showReferencePicker } from '../quickpicks/referencePicker.js';
+import { showStashPicker } from '../quickpicks/stashPicker.js';
+import { command } from '../system/-webview/command.js';
+import { pad } from '../system/string.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;

@@ -1,5 +1,5 @@
 import type { ViewColumn, WebviewOptions, WebviewPanelOptions } from 'vscode';
-import type { TrackedUsageFeatures } from '../constants.telemetry';
+import type { TrackedUsageFeatures } from '../constants.telemetry.js';
 import type {
 	CustomEditorIds,
 	CustomEditorTypeFromId,
@@ -7,7 +7,7 @@ import type {
 	WebviewPanelTypeFromId,
 	WebviewViewIds,
 	WebviewViewTypeFromId,
-} from '../constants.views';
+} from '../constants.views.js';
 
 export interface CustomEditorDescriptor<ID extends CustomEditorIds = CustomEditorIds> {
 	id: ID;

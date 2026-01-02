@@ -1,4 +1,4 @@
-import type { Branded } from '../../system/brand';
+import type { Branded } from '../../system/brand.js';
 
 export const missingRepositoryId = '-';
 

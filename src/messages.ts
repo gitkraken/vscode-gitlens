@@ -1,17 +1,17 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, ThemeIcon, window } from 'vscode';
-import type { SuppressedMessages } from './config';
-import { urls } from './constants';
-import type { Source } from './constants.telemetry';
-import type { BlameIgnoreRevsFileError, GitCommandContext } from './git/errors';
-import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from './git/errors';
-import type { GitCommit } from './git/models/commit';
-import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils';
-import { executeCommand, executeCoreCommand } from './system/-webview/command';
-import { configuration } from './system/-webview/configuration';
-import { openUrl } from './system/-webview/vscode/uris';
-import { filterMap } from './system/array';
-import { Logger } from './system/logger';
+import type { SuppressedMessages } from './config.js';
+import { urls } from './constants.js';
+import type { Source } from './constants.telemetry.js';
+import type { BlameIgnoreRevsFileError, GitCommandContext } from './git/errors.js';
+import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from './git/errors.js';
+import type { GitCommit } from './git/models/commit.js';
+import { mcpExtensionRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
+import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
+import { configuration } from './system/-webview/configuration.js';
+import { openUrl } from './system/-webview/vscode/uris.js';
+import { filterMap } from './system/array.js';
+import { Logger } from './system/logger.js';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,

@@ -1,15 +1,15 @@
 import type { CancellationToken } from 'vscode';
-import type { Container } from '../../../../../container';
-import type { GitCache } from '../../../../../git/cache';
-import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../../git/gitProvider';
-import { GitTag } from '../../../../../git/models/tag';
-import type { TagSortOptions } from '../../../../../git/utils/-webview/sorting';
-import { sortTags } from '../../../../../git/utils/-webview/sorting';
-import { log } from '../../../../../system/decorators/log';
-import { Logger } from '../../../../../system/logger';
-import { getLogScope } from '../../../../../system/logger.scope';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
-import { stripOrigin } from '../githubGitProvider';
+import type { Container } from '../../../../../container.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../../git/gitProvider.js';
+import { GitTag } from '../../../../../git/models/tag.js';
+import type { TagSortOptions } from '../../../../../git/utils/-webview/sorting.js';
+import { sortTags } from '../../../../../git/utils/-webview/sorting.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { Logger } from '../../../../../system/logger.js';
+import { getLogScope } from '../../../../../system/logger.scope.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
+import { stripOrigin } from '../githubGitProvider.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 

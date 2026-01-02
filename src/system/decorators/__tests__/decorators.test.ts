@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { gate } from '../gate';
-import { memoize } from '../memoize';
-import { sequentialize } from '../sequentialize';
+import { gate } from '../gate.js';
+import { memoize } from '../memoize.js';
+import { sequentialize } from '../sequentialize.js';
 
 suite('Decorator Test Suite', () => {
 	suite('sequentialize', () => {

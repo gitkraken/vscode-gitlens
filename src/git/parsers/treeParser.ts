@@ -1,6 +1,6 @@
-import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
-import type { GitTreeEntry } from '../models/tree';
+import { maybeStopWatch } from '../../system/stopwatch.js';
+import { iterateByDelimiter } from '../../system/string.js';
+import type { GitTreeEntry } from '../models/tree.js';
 
 export function parseGitTree(data: string | undefined, ref: string, singleEntry: boolean): GitTreeEntry[] {
 	using sw = maybeStopWatch(`Git.parseTree`, { log: false, logLevel: 'debug' });

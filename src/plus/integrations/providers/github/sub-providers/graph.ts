@@ -1,12 +1,12 @@
 import type { CancellationToken, Uri } from 'vscode';
-import type { SearchQuery } from '../../../../../constants.search';
-import type { Container } from '../../../../../container';
-import { emojify } from '../../../../../emojis';
-import type { GitCache } from '../../../../../git/cache';
-import { GitSearchError } from '../../../../../git/errors';
-import type { GitGraphSubProvider } from '../../../../../git/gitProvider';
-import type { GitBranch } from '../../../../../git/models/branch';
-import type { GitStashCommit } from '../../../../../git/models/commit';
+import type { SearchQuery } from '../../../../../constants.search.js';
+import type { Container } from '../../../../../container.js';
+import { emojify } from '../../../../../emojis.js';
+import type { GitCache } from '../../../../../git/cache.js';
+import { GitSearchError } from '../../../../../git/errors.js';
+import type { GitGraphSubProvider } from '../../../../../git/gitProvider.js';
+import type { GitBranch } from '../../../../../git/models/branch.js';
+import type { GitStashCommit } from '../../../../../git/models/commit.js';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -15,38 +15,38 @@ import type {
 	GitGraphRowRemoteHead,
 	GitGraphRowStats,
 	GitGraphRowTag,
-} from '../../../../../git/models/graph';
-import type { GitLog } from '../../../../../git/models/log';
-import type { GitRemote } from '../../../../../git/models/remote';
-import type { GitUser } from '../../../../../git/models/user';
-import type { GitWorktree } from '../../../../../git/models/worktree';
+} from '../../../../../git/models/graph.js';
+import type { GitLog } from '../../../../../git/models/log.js';
+import type { GitRemote } from '../../../../../git/models/remote.js';
+import type { GitUser } from '../../../../../git/models/user.js';
+import type { GitWorktree } from '../../../../../git/models/worktree.js';
 import type {
 	GitGraphSearch,
 	GitGraphSearchCursor,
 	GitGraphSearchProgress,
 	GitGraphSearchResultData,
 	GitGraphSearchResults,
-} from '../../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQueryGitHubCommand } from '../../../../../git/search';
-import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils';
-import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons';
-import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils';
-import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
-import { createReference } from '../../../../../git/utils/reference.utils';
-import { isUncommitted } from '../../../../../git/utils/revision.utils';
-import { getTagId } from '../../../../../git/utils/tag.utils';
-import { configuration } from '../../../../../system/-webview/configuration';
-import { log } from '../../../../../system/decorators/log';
-import { first, map } from '../../../../../system/iterable';
-import { getSettledValue } from '../../../../../system/promise';
-import { serializeWebviewItemContext } from '../../../../../system/webview';
+} from '../../../../../git/search.js';
+import { getSearchQueryComparisonKey, parseSearchQueryGitHubCommand } from '../../../../../git/search.js';
+import { isBranchStarred } from '../../../../../git/utils/-webview/branch.utils.js';
+import { getRemoteIconUri } from '../../../../../git/utils/-webview/icons.js';
+import { getBranchId, getBranchNameWithoutRemote } from '../../../../../git/utils/branch.utils.js';
+import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
+import { createReference } from '../../../../../git/utils/reference.utils.js';
+import { isUncommitted } from '../../../../../git/utils/revision.utils.js';
+import { getTagId } from '../../../../../git/utils/tag.utils.js';
+import { configuration } from '../../../../../system/-webview/configuration.js';
+import { log } from '../../../../../system/decorators/log.js';
+import { first, map } from '../../../../../system/iterable.js';
+import { getSettledValue } from '../../../../../system/promise.js';
+import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphTagContextValue,
-} from '../../../../../webviews/plus/graph/protocol';
-import type { GitHubGitProviderInternal } from '../githubGitProvider';
+} from '../../../../../webviews/plus/graph/protocol.js';
+import type { GitHubGitProviderInternal } from '../githubGitProvider.js';
 
 const doubleQuoteRegex = /"/g;
 

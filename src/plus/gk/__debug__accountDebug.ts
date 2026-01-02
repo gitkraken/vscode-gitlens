@@ -1,15 +1,15 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription';
-import type { Container } from '../../container';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import { registerCommand } from '../../system/-webview/command';
-import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin';
-import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription';
-import type { SubscriptionService } from './subscriptionService';
-import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils';
-import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
+import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription.js';
+import type { Container } from '../../container.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { registerCommand } from '../../system/-webview/command.js';
+import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin.js';
+import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription.js';
+import type { SubscriptionService } from './subscriptionService.js';
+import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils.js';
+import { getSubscriptionFromCheckIn } from './utils/checkin.utils.js';
 
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];

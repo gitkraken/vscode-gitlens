@@ -1,24 +1,24 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
-import type { EnrichedAutolink } from '../autolinks/models/autolinks';
-import { DiffWithCommand } from '../commands/diffWith';
-import { ShowQuickCommitCommand } from '../commands/showQuickCommit';
-import { GlyphChars } from '../constants';
-import type { Sources } from '../constants.telemetry';
-import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters/commitFormatter';
-import { GitUri } from '../git/gitUri';
-import type { GitCommit } from '../git/models/commit';
-import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff';
-import type { PullRequest } from '../git/models/pullRequest';
-import type { GitRemote } from '../git/models/remote';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
-import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
-import { configuration } from '../system/-webview/configuration';
-import { editorLineToDiffRange } from '../system/-webview/vscode/editors';
-import { escapeMarkdownCodeBlocks } from '../system/markdown';
-import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
+import type { EnrichedAutolink } from '../autolinks/models/autolinks.js';
+import { DiffWithCommand } from '../commands/diffWith.js';
+import { ShowQuickCommitCommand } from '../commands/showQuickCommit.js';
+import { GlyphChars } from '../constants.js';
+import type { Sources } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { CommitFormatter } from '../git/formatters/commitFormatter.js';
+import { GitUri } from '../git/gitUri.js';
+import type { GitCommit } from '../git/models/commit.js';
+import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import type { GitRemote } from '../git/models/remote.js';
+import { deletedOrMissing, uncommittedStaged } from '../git/models/revision.js';
+import type { RemoteProvider } from '../git/remotes/remoteProvider.js';
+import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { editorLineToDiffRange } from '../system/-webview/vscode/editors.js';
+import { escapeMarkdownCodeBlocks } from '../system/markdown.js';
+import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise.js';
 
 export async function changesMessage(
 	container: Container,

@@ -1,5 +1,5 @@
-import type { PlusCommands, WebviewCommands } from '../constants.commands';
-import type { WebviewIds } from '../constants.views';
+import type { PlusCommands, WebviewCommands } from '../constants.commands.js';
+import type { WebviewIds } from '../constants.views.js';
 
 export function createWebviewCommandLink<T>(
 	command: WebviewCommands | PlusCommands,

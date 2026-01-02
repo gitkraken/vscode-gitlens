@@ -1,12 +1,12 @@
-import type { Container } from '../container';
-import { apply, pop } from '../git/actions/stash';
-import type { GitStashCommit } from '../git/models/commit';
-import type { GitStashReference } from '../git/models/reference';
-import type { CommandQuickPickItem } from '../quickpicks/items/common';
-import { command } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './commandContext.utils';
+import type { Container } from '../container.js';
+import { apply, pop } from '../git/actions/stash.js';
+import type { GitStashCommit } from '../git/models/commit.js';
+import type { GitStashReference } from '../git/models/reference.js';
+import type { CommandQuickPickItem } from '../quickpicks/items/common.js';
+import { command } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './commandContext.utils.js';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;

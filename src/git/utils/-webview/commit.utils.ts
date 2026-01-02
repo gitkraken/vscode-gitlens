@@ -1,8 +1,8 @@
-import type { Container } from '../../../container';
-import type { GitCommitFileset, GitCommitStats } from '../../models/commit';
-import { GitCommit, GitCommitIdentity } from '../../models/commit';
-import { uncommittedStaged } from '../../models/revision';
-import type { GitUser } from '../../models/user';
+import type { Container } from '../../../container.js';
+import type { GitCommitFileset, GitCommitStats } from '../../models/commit.js';
+import { GitCommit, GitCommitIdentity } from '../../models/commit.js';
+import { uncommittedStaged } from '../../models/revision.js';
+import type { GitUser } from '../../models/user.js';
 
 export function createUncommittedChangesCommit(
 	container: Container,

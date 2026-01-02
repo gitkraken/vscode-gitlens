@@ -1,6 +1,6 @@
-import type { GitCommitStats } from '../models/commit';
-import type { GitContributionTiers, GitContributor, GitContributorsStats } from '../models/contributor';
-import type { GitUser } from '../models/user';
+import type { GitCommitStats } from '../models/commit.js';
+import type { GitContributionTiers, GitContributor, GitContributorsStats } from '../models/contributor.js';
+import type { GitUser } from '../models/user.js';
 
 export interface ContributorScoreOptions {
 	// Thresholds

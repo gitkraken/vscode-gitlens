@@ -1,41 +1,41 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window, workspace } from 'vscode';
-import type { Config } from '../../config';
-import { proBadge, proBadgeSuperscript } from '../../constants';
-import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
-import { executeGitCommand } from '../../git/actions';
-import { convertLocationToOpenFlags, convertOpenFlagsToLocation, revealWorktree } from '../../git/actions/worktree';
-import { ApplyPatchCommitError, WorktreeCreateError, WorktreeDeleteError } from '../../git/errors';
-import type { GitDiff } from '../../git/models/diff';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
-import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import type { GitWorktree } from '../../git/models/worktree';
-import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
-import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils';
+import type { Config } from '../../config.js';
+import { proBadge, proBadgeSuperscript } from '../../constants.js';
+import type { Container } from '../../container.js';
+import { CancellationError } from '../../errors.js';
+import { convertLocationToOpenFlags, convertOpenFlagsToLocation, revealWorktree } from '../../git/actions/worktree.js';
+import { executeGitCommand } from '../../git/actions.js';
+import { ApplyPatchCommitError, WorktreeCreateError, WorktreeDeleteError } from '../../git/errors.js';
+import type { GitDiff } from '../../git/models/diff.js';
+import type { GitBranchReference, GitReference } from '../../git/models/reference.js';
+import type { Repository } from '../../git/models/repository.js';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
+import type { GitWorktree } from '../../git/models/worktree.js';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils.js';
+import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils.js';
 import {
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isBranchReference,
 	isRevisionReference,
-} from '../../git/utils/reference.utils';
-import { isSha } from '../../git/utils/revision.utils';
-import { showGitErrorMessage } from '../../messages';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickSeparator } from '../../quickpicks/items/common';
-import { Directive } from '../../quickpicks/items/directive';
-import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { configuration } from '../../system/-webview/configuration';
-import { isDescendant } from '../../system/-webview/path';
-import { revealInFileExplorer } from '../../system/-webview/vscode';
-import { getWorkspaceFriendlyPath, openWorkspace } from '../../system/-webview/vscode/workspaces';
-import { Logger } from '../../system/logger';
-import { basename } from '../../system/path';
-import type { Deferred } from '../../system/promise';
-import { pluralize, truncateLeft } from '../../system/string';
-import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+} from '../../git/utils/reference.utils.js';
+import { isSha } from '../../git/utils/revision.utils.js';
+import { showGitErrorMessage } from '../../messages.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { Directive } from '../../quickpicks/items/directive.js';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { configuration } from '../../system/-webview/configuration.js';
+import { isDescendant } from '../../system/-webview/path.js';
+import { getWorkspaceFriendlyPath, openWorkspace } from '../../system/-webview/vscode/workspaces.js';
+import { revealInFileExplorer } from '../../system/-webview/vscode.js';
+import { Logger } from '../../system/logger.js';
+import { basename } from '../../system/path.js';
+import type { Deferred } from '../../system/promise.js';
+import { pluralize, truncateLeft } from '../../system/string.js';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
 	CustomStep,
@@ -45,7 +45,7 @@ import type {
 	StepResultGenerator,
 	StepSelection,
 	StepState,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	canPickStepContinue,
 	canStepContinue,
@@ -55,7 +55,7 @@ import {
 	endSteps,
 	QuickCommand,
 	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	ensureAccessStep,
@@ -64,7 +64,7 @@ import {
 	pickRepositoryStep,
 	pickWorktreesStep,
 	pickWorktreeStep,
-} from '../quickCommand.steps';
+} from '../quickCommand.steps.js';
 
 interface Context {
 	repos: Repository[];

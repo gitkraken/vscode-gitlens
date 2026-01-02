@@ -1,7 +1,7 @@
 import type { QuickInputButton } from 'vscode';
-import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
-import { configuration } from '../../../system/-webview/configuration';
-import type { GitContributor } from '../../models/contributor';
+import type { QuickPickItemOfT } from '../../../quickpicks/items/common.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import type { GitContributor } from '../../models/contributor.js';
 
 export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>;
 

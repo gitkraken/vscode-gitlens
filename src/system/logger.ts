@@ -1,6 +1,6 @@
-import type { LogLevel } from './logger.constants';
-import type { LogScope } from './logger.scope';
-import { padOrTruncateEnd } from './string';
+import type { LogLevel } from './logger.constants.js';
+import type { LogScope } from './logger.scope.js';
+import { padOrTruncateEnd } from './string.js';
 
 const enum OrderedLevel {
 	Off = 0,

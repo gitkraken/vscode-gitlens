@@ -2,11 +2,11 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { DraftDetails, Mode, State } from '../../../../plus/patchDetails/protocol';
-import { GlElement } from '../../../shared/components/element';
-import type { PatchDetailsApp } from '../patchDetails';
-import './gl-draft-details';
-import './gl-patch-create';
+import type { DraftDetails, Mode, State } from '../../../../plus/patchDetails/protocol.js';
+import { GlElement } from '../../../shared/components/element.js';
+import type { PatchDetailsApp } from '../patchDetails.js';
+import './gl-draft-details.js';
+import './gl-patch-create.js';
 
 interface ExplainState {
 	cancelled?: boolean;

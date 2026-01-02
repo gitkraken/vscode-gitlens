@@ -1,14 +1,14 @@
 import { Uri, workspace } from 'vscode';
-import type { Container } from '../../../container';
-import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider';
-import type { CloudWorkspacesPathMap } from '../../../plus/workspaces/models/cloudWorkspace';
-import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models/localWorkspace';
-import type { CodeWorkspaceFileContents, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models/workspaces';
-import type { GkWorkspacesSharedStorageProvider } from '../../../plus/workspaces/workspacesSharedStorageProvider';
-import { log } from '../../../system/decorators/log';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
-import { getGKDLocalWorkspaceMappingFileUri } from './localSharedGkStorageLocationProvider';
+import type { Container } from '../../../container.js';
+import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
+import type { CloudWorkspacesPathMap } from '../../../plus/workspaces/models/cloudWorkspace.js';
+import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models/localWorkspace.js';
+import type { CodeWorkspaceFileContents, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models/workspaces.js';
+import type { GkWorkspacesSharedStorageProvider } from '../../../plus/workspaces/workspacesSharedStorageProvider.js';
+import { log } from '../../../system/decorators/log.js';
+import { Logger } from '../../../system/logger.js';
+import { getLogScope } from '../../../system/logger.scope.js';
+import { getGKDLocalWorkspaceMappingFileUri } from './localSharedGkStorageLocationProvider.js';
 
 export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesSharedStorageProvider {
 	private _cloudWorkspacePathMap: CloudWorkspacesPathMap | undefined = undefined;

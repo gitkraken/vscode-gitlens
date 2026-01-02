@@ -1,30 +1,30 @@
 import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
 import { window } from 'vscode';
-import { base64 } from '@env/base64';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
-import type { Container } from '../../../container';
-import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
-import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
-import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
-import { flatSettled } from '../../../system/promise';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import { GitHostIntegration } from '../models/gitHostIntegration';
-import type { IntegrationKey } from '../models/integration';
+import { base64 } from '@env/base64.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
+import type { Container } from '../../../container.js';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author.js';
+import type { DefaultBranch } from '../../../git/models/defaultBranch.js';
+import type { Issue, IssueShape } from '../../../git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest.js';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest.js';
+import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata.js';
+import { flatSettled } from '../../../system/promise.js';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { IntegrationKey } from '../models/integration.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
 	AzureProjectInputDescriptor,
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
-} from './azure/models';
-import type { ProviderPullRequest, ProviderRepository } from './models';
-import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models';
-import type { ProvidersApi } from './providersApi';
+} from './azure/models.js';
+import type { ProviderPullRequest, ProviderRepository } from './models.js';
+import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models.js';
+import type { ProvidersApi } from './providersApi.js';
 
 export abstract class AzureDevOpsIntegrationBase<
 	TIntegrationId extends GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,

@@ -1,4 +1,4 @@
-import type { PromptTemplate } from './models/promptTemplates';
+import type { PromptTemplate } from './models/promptTemplates.js';
 
 export const generateCommitMessage: PromptTemplate<'generate-commitMessage'> = {
 	id: 'generate-commitMessage_v2',

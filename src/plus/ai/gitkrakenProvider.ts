@@ -1,13 +1,13 @@
-import type { Response } from '@env/fetch';
-import { fetch } from '@env/fetch';
-import { gitKrakenProviderDescriptor as provider } from '../../constants.ai';
-import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors';
-import { debug } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { ensureAccount } from './utils/-webview/ai.utils';
+import type { Response } from '@env/fetch.js';
+import { fetch } from '@env/fetch.js';
+import { gitKrakenProviderDescriptor as provider } from '../../constants.ai.js';
+import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors.js';
+import { debug } from '../../system/decorators/log.js';
+import { Logger } from '../../system/logger.js';
+import { getLogScope } from '../../system/logger.scope.js';
+import type { AIActionType, AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
+import { ensureAccount } from './utils/-webview/ai.utils.js';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 

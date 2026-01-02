@@ -1,8 +1,8 @@
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import { command } from '../system/-webview/command';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import { command } from '../system/-webview/command.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
 
 @command()
 export class SwitchAIModelCommand extends GlCommandBase {

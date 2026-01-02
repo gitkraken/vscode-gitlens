@@ -1,15 +1,15 @@
 import type { Disposable } from 'vscode';
-import type { Container } from '../../container';
-import type { GitCommandOptions } from '../../git/commandOptions';
+import type { Container } from '../../container.js';
+import type { GitCommandOptions } from '../../git/commandOptions.js';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { GitProvider } from '../../git/gitProvider';
-import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
-import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
-import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
-import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
-import type { TelemetryService } from '../../telemetry/telemetry';
-import type { GitResult } from '../node/git/git';
+import { GitProvider } from '../../git/gitProvider.js';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
+import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider.js';
+import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
+import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
+import type { TelemetryService } from '../../telemetry/telemetry.js';
+import type { GitResult } from '../node/git/git.js';
 
 export function git(
 	_container: Container,

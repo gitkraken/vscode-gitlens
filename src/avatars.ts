@@ -1,17 +1,17 @@
 import { EventEmitter, Uri } from 'vscode';
-import { base64 } from '@env/base64';
-import { md5 } from '@env/crypto';
-import type { GravatarDefaultStyle } from './config';
-import type { StoredAvatar } from './constants.storage';
-import { Container } from './container';
-import type { CommitAuthor } from './git/models/author';
-import { getGitHubNoReplyAddressParts } from './git/remotes/github';
-import { configuration } from './system/-webview/configuration';
-import { getContext } from './system/-webview/context';
-import { debounce } from './system/function/debounce';
-import { filterMap } from './system/iterable';
-import { equalsIgnoreCase } from './system/string';
-import type { ContactPresenceStatus } from './vsls/vsls';
+import { base64 } from '@env/base64.js';
+import { md5 } from '@env/crypto.js';
+import type { GravatarDefaultStyle } from './config.js';
+import type { StoredAvatar } from './constants.storage.js';
+import { Container } from './container.js';
+import type { CommitAuthor } from './git/models/author.js';
+import { getGitHubNoReplyAddressParts } from './git/remotes/github.js';
+import { configuration } from './system/-webview/configuration.js';
+import { getContext } from './system/-webview/context.js';
+import { debounce } from './system/function/debounce.js';
+import { filterMap } from './system/iterable.js';
+import { equalsIgnoreCase } from './system/string.js';
+import type { ContactPresenceStatus } from './vsls/vsls.js';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 

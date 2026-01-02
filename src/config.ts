@@ -1,7 +1,7 @@
-import type { AIProviderAndModel, SupportedAIModels } from './constants.ai';
-import type { GroupableTreeViewTypes } from './constants.views';
-import type { DateTimeFormat } from './system/date';
-import type { LogLevel } from './system/logger.constants';
+import type { AIProviderAndModel, SupportedAIModels } from './constants.ai.js';
+import type { GroupableTreeViewTypes } from './constants.views.js';
+import type { DateTimeFormat } from './system/date.js';
+import type { LogLevel } from './system/logger.constants.js';
 
 export interface Config {
 	readonly advanced: AdvancedConfig;

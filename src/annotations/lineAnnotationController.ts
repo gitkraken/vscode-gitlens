@@ -1,22 +1,22 @@
 import type { ConfigurationChangeEvent, DecorationOptions, TextEditor, TextEditorDecorationType } from 'vscode';
 import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
-import { GlyphChars, Schemes } from '../constants';
-import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters/commitFormatter';
-import type { PullRequest } from '../git/models/pullRequest';
-import { detailsMessage } from '../hovers/hovers';
-import { configuration } from '../system/-webview/configuration';
-import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
-import { debug, log } from '../system/decorators/log';
-import { once } from '../system/event';
-import { debounce } from '../system/function/debounce';
-import { Logger } from '../system/logger';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import type { MaybePausedResult } from '../system/promise';
-import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../system/promise';
-import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
-import { getInlineDecoration } from './annotations';
-import type { BlameFontOptions } from './gutterBlameAnnotationProvider';
+import { GlyphChars, Schemes } from '../constants.js';
+import type { Container } from '../container.js';
+import { CommitFormatter } from '../git/formatters/commitFormatter.js';
+import type { PullRequest } from '../git/models/pullRequest.js';
+import { detailsMessage } from '../hovers/hovers.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
+import { debug, log } from '../system/decorators/log.js';
+import { once } from '../system/event.js';
+import { debounce } from '../system/function/debounce.js';
+import { Logger } from '../system/logger.js';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope.js';
+import type { MaybePausedResult } from '../system/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../system/promise.js';
+import type { LinesChangeEvent, LineState } from '../trackers/lineTracker.js';
+import { getInlineDecoration } from './annotations.js';
+import type { BlameFontOptions } from './gutterBlameAnnotationProvider.js';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {

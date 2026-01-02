@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlTooltip } from './overlays/tooltip';
-import './overlays/tooltip';
+import type { GlTooltip } from './overlays/tooltip.js';
+import './overlays/tooltip.js';
 
 const tagName = 'gl-copy-container';
 

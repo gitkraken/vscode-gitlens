@@ -3,7 +3,7 @@
  *
  * Uses page objects provided by baseTest for cleaner, more maintainable E2E tests.
  */
-import { expect, MaxTimeout, test } from '../baseTest';
+import { expect, MaxTimeout, test } from '../baseTest.js';
 
 test.describe('GitLens Smoke Test', () => {
 	test.afterEach(async ({ vscode }) => {

@@ -1,15 +1,15 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
-import type { AIGenerateCreateDraftEventData } from '../../../constants.telemetry';
-import { AINoRequestDataError, CancellationError } from '../../../errors';
-import type { Repository } from '../../../git/models/repository';
-import { configuration } from '../../../system/-webview/configuration';
-import type { Deferred } from '../../../system/promise';
-import type { AIResponse, AISourceContext } from '../aiProviderService';
-import type { AIService } from '../aiService';
-import type { AIModel } from '../models/model';
-import type { AIChatMessage } from '../models/provider';
-import type { AISummarizedResult } from '../models/results';
-import { parseSummarizeResult } from '../utils/-webview/results.utils';
+import type { AIGenerateCreateDraftEventData } from '../../../constants.telemetry.js';
+import { AINoRequestDataError, CancellationError } from '../../../errors.js';
+import type { Repository } from '../../../git/models/repository.js';
+import { configuration } from '../../../system/-webview/configuration.js';
+import type { Deferred } from '../../../system/promise.js';
+import type { AIResponse, AISourceContext } from '../aiProviderService.js';
+import type { AIService } from '../aiService.js';
+import type { AIModel } from '../models/model.js';
+import type { AIChatMessage } from '../models/provider.js';
+import type { AISummarizedResult } from '../models/results.js';
+import { parseSummarizeResult } from '../utils/-webview/results.utils.js';
 
 /** Generates a draft message (cloud patch or code suggestion) */
 export async function generateCreateDraft(

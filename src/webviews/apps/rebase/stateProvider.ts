@@ -1,10 +1,10 @@
 import { ContextProvider } from '@lit/context';
-import type { RebaseTodoCommitAction } from '../../../git/models/rebase';
-import type { Deferrable } from '../../../system/function/debounce';
-import { debounce } from '../../../system/function/debounce';
-import type { IpcSerialized } from '../../../system/ipcSerialize';
-import type { IpcMessage } from '../../protocol';
-import type { State as _State, Commit } from '../../rebase/protocol';
+import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
+import type { Deferrable } from '../../../system/function/debounce.js';
+import { debounce } from '../../../system/function/debounce.js';
+import type { IpcSerialized } from '../../../system/ipcSerialize.js';
+import type { IpcMessage } from '../../protocol.js';
+import type { State as _State, Commit } from '../../rebase/protocol.js';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeCommitsNotification,
@@ -13,12 +13,12 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingCommitsCommand,
 	isCommitEntry,
-} from '../../rebase/protocol';
-import type { ReactiveElementHost } from '../shared/appHost';
-import type { LoggerContext } from '../shared/contexts/logger';
-import type { HostIpc } from '../shared/ipc';
-import { StateProviderBase } from '../shared/stateProviderBase';
-import { stateContext } from './context';
+} from '../../rebase/protocol.js';
+import type { ReactiveElementHost } from '../shared/appHost.js';
+import type { LoggerContext } from '../shared/contexts/logger.js';
+import type { HostIpc } from '../shared/ipc.js';
+import { StateProviderBase } from '../shared/stateProviderBase.js';
+import { stateContext } from './context.js';
 
 type State = IpcSerialized<_State>;
 

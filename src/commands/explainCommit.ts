@@ -1,18 +1,18 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Container } from '../container';
-import type { GitCommit } from '../git/models/commit';
-import { isStash } from '../git/models/commit';
-import { showGenericErrorMessage } from '../messages';
-import { showCommitPicker } from '../quickpicks/commitPicker';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
-import type { CommandContext } from './commandContext';
-import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
-import type { ExplainBaseArgs } from './explainBase';
-import { ExplainCommandBase } from './explainBase';
+import type { Container } from '../container.js';
+import type { GitCommit } from '../git/models/commit.js';
+import { isStash } from '../git/models/commit.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showCommitPicker } from '../quickpicks/commitPicker.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { getNodeRepoPath } from '../views/nodes/abstract/viewNode.js';
+import type { CommandContext } from './commandContext.js';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
+import type { ExplainBaseArgs } from './explainBase.js';
+import { ExplainCommandBase } from './explainBase.js';
 
 export interface ExplainCommitCommandArgs extends ExplainBaseArgs {
 	rev?: string;

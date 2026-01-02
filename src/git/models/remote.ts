@@ -1,16 +1,16 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
-import { GitCloudHostIntegrationId } from '../../constants.integrations';
-import type { Container } from '../../container';
-import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
+import { GitCloudHostIntegrationId } from '../../constants.integrations.js';
+import type { Container } from '../../container.js';
+import type { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration.js';
 import {
 	getIntegrationConnectedKey,
 	getIntegrationIdForRemote,
-} from '../../plus/integrations/utils/-webview/integration.utils';
-import { memoize } from '../../system/decorators/memoize';
-import { getLoggableName } from '../../system/logger';
-import { equalsIgnoreCase } from '../../system/string';
-import { parseGitRemoteUrl } from '../parsers/remoteParser';
-import type { RemoteProvider } from '../remotes/remoteProvider';
+} from '../../plus/integrations/utils/-webview/integration.utils.js';
+import { memoize } from '../../system/decorators/memoize.js';
+import { getLoggableName } from '../../system/logger.js';
+import { equalsIgnoreCase } from '../../system/string.js';
+import { parseGitRemoteUrl } from '../parsers/remoteParser.js';
+import type { RemoteProvider } from '../remotes/remoteProvider.js';
 
 export function isRemote(remote: unknown): remote is GitRemote {
 	return remote instanceof GitRemote;

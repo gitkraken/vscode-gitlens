@@ -1,15 +1,15 @@
-import type { IssueMember } from '../../../../git/models/issue';
-import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
-import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
-import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest';
+import type { IssueMember } from '../../../../git/models/issue.js';
+import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue.js';
+import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest.js';
+import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
-} from '../../../../git/models/pullRequest';
-import type { Provider } from '../../../../git/models/remoteProvider';
-import type { ResourceDescriptor } from '../../../../git/models/resourceDescriptor';
+} from '../../../../git/models/pullRequest.js';
+import type { Provider } from '../../../../git/models/remoteProvider.js';
+import type { ResourceDescriptor } from '../../../../git/models/resourceDescriptor.js';
 
 const vstsHostnameRegex = /\.visualstudio\.com$/;
 

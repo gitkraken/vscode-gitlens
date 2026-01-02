@@ -1,33 +1,33 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import type { OpenIssueActionContext } from '../api/gitlens';
-import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote';
-import { GlyphChars } from '../constants';
-import type { IntegrationIds } from '../constants.integrations';
-import type { Source } from '../constants.telemetry';
-import type { Container } from '../container';
-import type { GitRemote } from '../git/models/remote';
-import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider';
-import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
-import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService';
-import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration';
-import type { Integration } from '../plus/integrations/models/integration';
-import { IntegrationBase } from '../plus/integrations/models/integration';
-import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration';
+import type { OpenIssueActionContext } from '../api/gitlens.d.js';
+import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote.js';
+import type { IntegrationIds } from '../constants.integrations.js';
+import { GlyphChars } from '../constants.js';
+import type { Source } from '../constants.telemetry.js';
+import type { Container } from '../container.js';
+import type { GitRemote } from '../git/models/remote.js';
+import type { RemoteProvider, RemoteProviderId } from '../git/remotes/remoteProvider.js';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons.js';
+import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService.js';
+import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration.js';
+import type { Integration } from '../plus/integrations/models/integration.js';
+import { IntegrationBase } from '../plus/integrations/models/integration.js';
+import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
-} from '../plus/integrations/utils/-webview/integration.utils';
-import { configuration } from '../system/-webview/configuration';
-import { fromNow } from '../system/date';
-import { debug } from '../system/decorators/log';
-import { encodeUrl } from '../system/encoding';
-import { join, map } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { escapeMarkdown } from '../system/markdown';
-import { getSettledValue, isPromise } from '../system/promise';
-import { PromiseCache } from '../system/promiseCache';
-import { capitalize, encodeHtmlWeak, getSuperscript } from '../system/string';
+} from '../plus/integrations/utils/-webview/integration.utils.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { fromNow } from '../system/date.js';
+import { debug } from '../system/decorators/log.js';
+import { encodeUrl } from '../system/encoding.js';
+import { join, map } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { escapeMarkdown } from '../system/markdown.js';
+import { getSettledValue, isPromise } from '../system/promise.js';
+import { PromiseCache } from '../system/promiseCache.js';
+import { capitalize, encodeHtmlWeak, getSuperscript } from '../system/string.js';
 import type {
 	Autolink,
 	CacheableAutolinkReference,
@@ -35,7 +35,7 @@ import type {
 	EnrichedAutolink,
 	MaybeEnrichedAutolink,
 	RefSet,
-} from './models/autolinks';
+} from './models/autolinks.js';
 import {
 	ensureCachedRegex,
 	getAutolinks,
@@ -43,7 +43,7 @@ import {
 	isDynamic,
 	numRegex,
 	supportedAutolinkIntegrations,
-} from './utils/-webview/autolinks.utils';
+} from './utils/-webview/autolinks.utils.js';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 

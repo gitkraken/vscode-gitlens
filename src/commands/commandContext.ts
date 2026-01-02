@@ -6,8 +6,8 @@ import type {
 	TextEditor,
 	Uri,
 } from 'vscode';
-import type { GlCommands, GlCommandsDeprecated } from '../constants.commands';
-import type { ViewNode } from '../views/nodes/abstract/viewNode';
+import type { GlCommands, GlCommandsDeprecated } from '../constants.commands.js';
+import type { ViewNode } from '../views/nodes/abstract/viewNode.js';
 
 export type CommandContext =
 	| CommandEditorLineContext

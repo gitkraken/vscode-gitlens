@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 //import { getGitHubPullRequestIdentityFromMaybeUrl } from '../github/models';
-import { getGitHubPullRequestIdentityFromMaybeUrl, isMaybeGitHubPullRequestUrl } from '../github.utils';
+import { getGitHubPullRequestIdentityFromMaybeUrl, isMaybeGitHubPullRequestUrl } from '../github.utils.js';
 
 suite('Test GitHub PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {

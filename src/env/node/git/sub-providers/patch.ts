@@ -1,15 +1,15 @@
 import { window } from 'vscode';
-import type { Container } from '../../../../container';
-import { CancellationError } from '../../../../errors';
-import { ApplyPatchCommitError, CherryPickError } from '../../../../git/errors';
-import type { GitPatchSubProvider } from '../../../../git/gitProvider';
-import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit';
-import { log } from '../../../../system/decorators/log';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
-import type { Git } from '../git';
-import { gitConfigsLog } from '../git';
-import type { LocalGitProvider } from '../localGitProvider';
+import type { Container } from '../../../../container.js';
+import { CancellationError } from '../../../../errors.js';
+import { ApplyPatchCommitError, CherryPickError } from '../../../../git/errors.js';
+import type { GitPatchSubProvider } from '../../../../git/gitProvider.js';
+import type { GitCommit, GitCommitIdentityShape } from '../../../../git/models/commit.js';
+import { log } from '../../../../system/decorators/log.js';
+import { Logger } from '../../../../system/logger.js';
+import { getLogScope } from '../../../../system/logger.scope.js';
+import type { Git } from '../git.js';
+import { gitConfigsLog } from '../git.js';
+import type { LocalGitProvider } from '../localGitProvider.js';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
 	constructor(

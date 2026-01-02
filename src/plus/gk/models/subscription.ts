@@ -1,6 +1,6 @@
-import type { SubscriptionState } from '../../../constants.subscription';
-import type { Source } from '../../../constants.telemetry';
-import type { Organization } from './organization';
+import type { SubscriptionState } from '../../../constants.subscription.js';
+import type { Source } from '../../../constants.telemetry.js';
+import type { Organization } from './organization.js';
 
 export type SubscriptionPlanIds =
 	| 'community'

@@ -1,6 +1,6 @@
-import { xAIProviderDescriptor as provider } from '../../constants.ai';
-import type { AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { xAIProviderDescriptor as provider } from '../../constants.ai.js';
+import type { AIModel } from './models/model.js';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type XAIModel = AIModel<typeof provider.id>;
 const models: XAIModel[] = [

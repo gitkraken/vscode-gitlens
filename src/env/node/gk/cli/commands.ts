@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/require-await */
 import type { Disposable } from 'vscode';
-import type { CompareWithCommandArgs } from '../../../../commands/compareWith';
-import type { Container } from '../../../../container';
-import { cherryPick, merge, rebase } from '../../../../git/actions/repository';
-import type { Repository } from '../../../../git/models/repository';
-import { executeCommand } from '../../../../system/-webview/command';
-import { createCommandDecorator } from '../../../../system/decorators/command';
-import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration';
+import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
+import type { Container } from '../../../../container.js';
+import { cherryPick, merge, rebase } from '../../../../git/actions/repository.js';
+import type { Repository } from '../../../../git/models/repository.js';
+import { executeCommand } from '../../../../system/-webview/command.js';
+import { createCommandDecorator } from '../../../../system/decorators/command.js';
+import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration.js';
 
 type CliCommand = 'cherry-pick' | 'compare' | 'graph' | 'merge' | 'rebase';
 type CliCommandHandler = (request: CliCommandRequest, repo?: Repository | undefined) => Promise<CliCommandResponse>;

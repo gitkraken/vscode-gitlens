@@ -1,21 +1,21 @@
 import type { CancellationToken, WebviewPanel, WebviewView, WebviewViewResolveContext } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import { uuid } from '@env/crypto';
-import type { GlCommands } from '../constants.commands';
-import type { Source } from '../constants.telemetry';
-import type { WebviewPanelIds, WebviewViewIds } from '../constants.views';
-import type { Container } from '../container';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
-import { executeCoreCommand, registerCommand } from '../system/-webview/command';
-import { getViewFocusCommand } from '../system/-webview/vscode/views';
-import { debug } from '../system/decorators/log';
-import { find, first, map } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { startLogScope } from '../system/logger.scope';
-import type { WebviewCommandRegistrar } from './webviewCommandRegistrar';
-import { WebviewController } from './webviewController';
-import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
+import { uuid } from '@env/crypto.js';
+import type { GlCommands } from '../constants.commands.js';
+import type { Source } from '../constants.telemetry.js';
+import type { WebviewPanelIds, WebviewViewIds } from '../constants.views.js';
+import type { Container } from '../container.js';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.js';
+import { executeCoreCommand, registerCommand } from '../system/-webview/command.js';
+import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
+import { debug } from '../system/decorators/log.js';
+import { find, first, map } from '../system/iterable.js';
+import { Logger } from '../system/logger.js';
+import { startLogScope } from '../system/logger.scope.js';
+import type { WebviewCommandRegistrar } from './webviewCommandRegistrar.js';
+import { WebviewController } from './webviewController.js';
+import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors.js';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider.js';
 
 interface WebviewPanelRegistration<
 	ID extends WebviewPanelIds,

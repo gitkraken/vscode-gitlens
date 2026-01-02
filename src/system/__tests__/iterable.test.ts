@@ -11,7 +11,7 @@ import {
 	skip,
 	take,
 	union,
-} from '../iterable';
+} from '../iterable.js';
 
 suite('Iterable Test Suite', () => {
 	suite('join', () => {

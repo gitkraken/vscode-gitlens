@@ -1,6 +1,6 @@
-import type { GlCommands } from '../../../constants.commands';
-import type { SubscriptionState } from '../../../constants.subscription';
-import type { PaidSubscriptionPlanIds } from './subscription';
+import type { GlCommands } from '../../../constants.commands.js';
+import type { SubscriptionState } from '../../../constants.subscription.js';
+import type { PaidSubscriptionPlanIds } from './subscription.js';
 
 export type PromoKeys = 'pro50' | (string & {});
 export type PromoLocation = 'account' | 'badge' | 'gate' | 'home';

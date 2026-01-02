@@ -1,20 +1,20 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Container } from '../container';
-import { uncommitted, uncommittedStaged } from '../git/models/revision';
-import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/-webview/command';
-import { createMarkdownCommandLink } from '../system/commands';
-import { Logger } from '../system/logger';
-import { capitalize } from '../system/string';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { uncommitted, uncommittedStaged } from '../git/models/revision.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { command } from '../system/-webview/command.js';
+import { createMarkdownCommandLink } from '../system/commands.js';
+import { Logger } from '../system/logger.js';
+import { capitalize } from '../system/string.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
 	isCommandContextViewNodeHasWorktree,
-} from './commandContext.utils';
-import type { ExplainBaseArgs } from './explainBase';
-import { ExplainCommandBase } from './explainBase';
+} from './commandContext.utils.js';
+import type { ExplainBaseArgs } from './explainBase.js';
+import { ExplainCommandBase } from './explainBase.js';
 
 export interface ExplainWipCommandArgs extends ExplainBaseArgs {
 	staged?: boolean;

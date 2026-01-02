@@ -1,12 +1,12 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css';
-import { handleUnsafeOverlayContent } from '../overlays/overlays.utils';
-import { focusOutline } from '../styles/lit/a11y.css';
-import '../overlays/popover';
-import '../overlays/tooltip';
-import '../code-icon';
+import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css.js';
+import { handleUnsafeOverlayContent } from '../overlays/overlays.utils.js';
+import { focusOutline } from '../styles/lit/a11y.css.js';
+import '../overlays/popover.js';
+import '../overlays/tooltip.js';
+import '../code-icon.js';
 
 @customElement('gl-action-chip')
 export class ActionChip extends LitElement {

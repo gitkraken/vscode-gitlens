@@ -1,13 +1,13 @@
 import type { Event, McpServerDefinition, McpServerDefinitionProvider } from 'vscode';
 import { Disposable, env, EventEmitter, lm, McpStdioServerDefinition } from 'vscode';
-import type { Container } from '../../../../container';
-import type { StorageChangeEvent } from '../../../../system/-webview/storage';
-import { getHostAppName } from '../../../../system/-webview/vscode';
-import { debug, log } from '../../../../system/decorators/log';
-import type { Deferrable } from '../../../../system/function/debounce';
-import { debounce } from '../../../../system/function/debounce';
-import { Logger } from '../../../../system/logger';
-import { runCLICommand, toMcpInstallProvider } from '../cli/utils';
+import type { Container } from '../../../../container.js';
+import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
+import { getHostAppName } from '../../../../system/-webview/vscode.js';
+import { debug, log } from '../../../../system/decorators/log.js';
+import type { Deferrable } from '../../../../system/function/debounce.js';
+import { debounce } from '../../../../system/function/debounce.js';
+import { Logger } from '../../../../system/logger.js';
+import { runCLICommand, toMcpInstallProvider } from '../cli/utils.js';
 
 const CLIProxyMCPConfigOutputs = {
 	checkingForUpdates: /checking for updates.../i,

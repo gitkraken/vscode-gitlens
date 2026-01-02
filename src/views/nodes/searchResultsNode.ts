@@ -1,16 +1,16 @@
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { md5 } from '@env/crypto';
-import type { SearchQuery } from '../../constants.search';
-import { executeGitCommand } from '../../git/actions';
-import type { GitLog } from '../../git/models/log';
-import type { CommitsQueryResults } from '../../git/queryResults';
-import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
-import { pluralize } from '../../system/string';
-import type { SearchAndCompareView } from '../searchAndCompareView';
-import type { ViewNode } from './abstract/viewNode';
-import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { ResultsCommitsNodeBase } from './resultsCommitsNode';
+import { md5 } from '@env/crypto.js';
+import type { SearchQuery } from '../../constants.search.js';
+import { executeGitCommand } from '../../git/actions.js';
+import type { GitLog } from '../../git/models/log.js';
+import type { CommitsQueryResults } from '../../git/queryResults.js';
+import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search.js';
+import { pluralize } from '../../system/string.js';
+import type { SearchAndCompareView } from '../searchAndCompareView.js';
+import type { ViewNode } from './abstract/viewNode.js';
+import { ContextValues, getViewNodeId } from './abstract/viewNode.js';
+import { ResultsCommitsNodeBase } from './resultsCommitsNode.js';
 
 interface SearchQueryResults {
 	readonly label: string;

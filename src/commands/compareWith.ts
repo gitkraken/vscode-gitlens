@@ -1,14 +1,14 @@
 import type { TextEditor, Uri } from 'vscode';
-import type { Container } from '../container';
-import { createReference } from '../git/utils/reference.utils';
-import { showGenericErrorMessage } from '../messages';
-import { showComparisonPicker } from '../quickpicks/comparisonPicker';
-import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { Logger } from '../system/logger';
-import { ActiveEditorCommand } from './commandBase';
-import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
+import type { Container } from '../container.js';
+import { createReference } from '../git/utils/reference.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { showComparisonPicker } from '../quickpicks/comparisonPicker.js';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { Logger } from '../system/logger.js';
+import { ActiveEditorCommand } from './commandBase.js';
+import { getCommandUri } from './commandBase.utils.js';
+import type { CommandContext } from './commandContext.js';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;

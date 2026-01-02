@@ -1,20 +1,20 @@
 import type { Disposable } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../../constants';
-import type { GitUri } from '../../../git/gitUri';
-import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { formatLastFetched } from '../../../git/utils/-webview/repository.utils';
-import { getHighlanderProviders } from '../../../git/utils/remote.utils';
-import { gate } from '../../../system/decorators/gate';
-import { debug, log } from '../../../system/decorators/log';
-import { weakEvent } from '../../../system/event';
-import { basename } from '../../../system/path';
-import { pad } from '../../../system/string';
-import type { View } from '../../viewBase';
-import { SubscribeableViewNode } from './subscribeableViewNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId } from './viewNode';
+import { GlyphChars } from '../../../constants.js';
+import type { GitUri } from '../../../git/gitUri.js';
+import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository.js';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository.js';
+import { formatLastFetched } from '../../../git/utils/-webview/repository.utils.js';
+import { getHighlanderProviders } from '../../../git/utils/remote.utils.js';
+import { gate } from '../../../system/decorators/gate.js';
+import { debug, log } from '../../../system/decorators/log.js';
+import { weakEvent } from '../../../system/event.js';
+import { basename } from '../../../system/path.js';
+import { pad } from '../../../system/string.js';
+import type { View } from '../../viewBase.js';
+import { SubscribeableViewNode } from './subscribeableViewNode.js';
+import type { ViewNode } from './viewNode.js';
+import { ContextValues, getViewNodeId } from './viewNode.js';
 
 export abstract class RepositoryFolderNode<
 	TView extends View = View,

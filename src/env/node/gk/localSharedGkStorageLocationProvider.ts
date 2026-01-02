@@ -2,17 +2,17 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { env } from 'process';
 import { Uri, workspace } from 'vscode';
-import type { Container } from '../../../container';
-import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider';
-import { log } from '../../../system/decorators/log';
-import type { Lazy } from '../../../system/lazy';
-import { lazy } from '../../../system/lazy';
-import { getLoggableName, Logger } from '../../../system/logger';
-import { getLogScope, startLogScope } from '../../../system/logger.scope';
-import { wait } from '../../../system/promise';
-import type { UnifiedAsyncDisposable } from '../../../system/unifiedDisposable';
-import { createAsyncDisposable } from '../../../system/unifiedDisposable';
-import { getPlatform } from '../platform';
+import type { Container } from '../../../container.js';
+import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider.js';
+import { log } from '../../../system/decorators/log.js';
+import type { Lazy } from '../../../system/lazy.js';
+import { lazy } from '../../../system/lazy.js';
+import { getLoggableName, Logger } from '../../../system/logger.js';
+import { getLogScope, startLogScope } from '../../../system/logger.scope.js';
+import { wait } from '../../../system/promise.js';
+import type { UnifiedAsyncDisposable } from '../../../system/unifiedDisposable.js';
+import { createAsyncDisposable } from '../../../system/unifiedDisposable.js';
+import { getPlatform } from '../platform.js';
 
 export class LocalSharedGkStorageLocationProvider implements SharedGkStorageLocationProvider {
 	private readonly _lazySharedGKUri: Lazy<Promise<Uri>>;

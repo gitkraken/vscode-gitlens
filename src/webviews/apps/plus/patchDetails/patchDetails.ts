@@ -1,11 +1,12 @@
 /*global*/
+import './patchDetails.scss';
 import type { TextDocumentShowOptions } from 'vscode';
-import type { ViewFilesLayout } from '../../../../config';
-import type { GlCommands } from '../../../../constants.commands';
-import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts';
-import { debounce } from '../../../../system/function/debounce';
-import type { Serialized } from '../../../../system/serialize';
-import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol';
+import type { ViewFilesLayout } from '../../../../config.js';
+import type { GlCommands } from '../../../../constants.commands.js';
+import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts.js';
+import { debounce } from '../../../../system/function/debounce.js';
+import type { Serialized } from '../../../../system/serialize.js';
+import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol.js';
 import {
 	ApplyPatchCommand,
 	ArchiveDraftCommand,
@@ -35,34 +36,33 @@ import {
 	UpdatePatchUsersCommand,
 	UpdatePatchUserSelectionCommand,
 	UpdatePreferencesCommand,
-} from '../../../plus/patchDetails/protocol';
-import type { IpcMessage } from '../../../protocol';
-import { ExecuteCommand } from '../../../protocol';
-import { App } from '../../shared/appBase';
-import { DOM } from '../../shared/dom';
-import type { Disposable } from '../../shared/events';
+} from '../../../plus/patchDetails/protocol.js';
+import type { IpcMessage } from '../../../protocol.js';
+import { ExecuteCommand } from '../../../protocol.js';
+import { App } from '../../shared/appBase.js';
+import { DOM } from '../../shared/dom.js';
+import type { Disposable } from '../../shared/events.js';
 import type {
 	ApplyPatchDetail,
 	DraftReasonEventDetail,
 	GlDraftDetails,
 	PatchCheckedDetail,
 	PatchDetailsUpdateSelectionEventDetail,
-} from './components/gl-draft-details';
+} from './components/gl-draft-details.js';
 import type {
 	CreatePatchCheckRepositoryEventDetail,
 	CreatePatchEventDetail,
 	CreatePatchMetadataEventDetail,
 	CreatePatchUpdateSelectionEventDetail,
 	GlPatchCreate,
-} from './components/gl-patch-create';
+} from './components/gl-patch-create.js';
 import type {
 	ChangePatchBaseDetail,
 	GlPatchDetailsApp,
 	SelectPatchRepoDetail,
 	ShowPatchInGraphDetail,
-} from './components/patch-details-app';
-import './patchDetails.scss';
-import './components/patch-details-app';
+} from './components/patch-details-app.js';
+import './components/patch-details-app.js';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 

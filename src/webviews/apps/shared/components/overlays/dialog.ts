@@ -1,7 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { focusableBaseStyles } from '../styles/lit/a11y.css';
+import { focusableBaseStyles } from '../styles/lit/a11y.css.js';
 
 // #0000004d - light
 

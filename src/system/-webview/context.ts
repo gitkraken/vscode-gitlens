@@ -1,6 +1,6 @@
 import { EventEmitter } from 'vscode';
-import type { ContextKeys } from '../../constants.context';
-import { executeCoreCommand } from './command';
+import type { ContextKeys } from '../../constants.context.js';
+import { executeCoreCommand } from './command.js';
 
 const contextStorage = new Map<keyof ContextKeys, unknown>();
 

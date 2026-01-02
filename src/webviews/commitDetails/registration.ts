@@ -1,6 +1,6 @@
-import type { CommitSelectedEvent } from '../../eventBus';
-import type { WebviewsController, WebviewViewProxy } from '../webviewsController';
-import type { ShowWipArgs, State } from './protocol';
+import type { CommitSelectedEvent } from '../../eventBus.js';
+import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
+import type { ShowWipArgs, State } from './protocol.js';
 
 export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']> | ShowWipArgs];
 
@@ -22,7 +22,7 @@ export function registerCommitDetailsWebviewView(
 		},
 		async (container, host) => {
 			const { CommitDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview'
+				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview.js'
 			);
 			return new CommitDetailsWebviewProvider(container, host, { attachedTo: 'default' });
 		},
@@ -47,7 +47,7 @@ export function registerGraphDetailsWebviewView(
 		},
 		async (container, host) => {
 			const { CommitDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview'
+				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview.js'
 			);
 			return new CommitDetailsWebviewProvider(container, host, { attachedTo: 'graph' });
 		},

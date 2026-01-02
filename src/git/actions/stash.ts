@@ -1,12 +1,12 @@
 import type { Uri } from 'vscode';
-import type { PushFlags } from '../../commands/git/stash';
-import { Container } from '../../container';
-import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { RevealOptions } from '../../views/viewBase';
-import { executeGitCommand } from '../actions';
-import type { GitStashCommit } from '../models/commit';
-import type { GitStashReference } from '../models/reference';
-import type { Repository } from '../models/repository';
+import type { PushFlags } from '../../commands/git/stash.js';
+import { Container } from '../../container.js';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
+import type { RevealOptions } from '../../views/viewBase.js';
+import { executeGitCommand } from '../actions.js';
+import type { GitStashCommit } from '../models/commit.js';
+import type { GitStashReference } from '../models/reference.js';
+import type { Repository } from '../models/repository.js';
 
 export function apply(repo?: string | Repository, ref?: GitStashReference): Promise<void> {
 	return executeGitCommand({

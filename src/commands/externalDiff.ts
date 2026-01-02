@@ -1,23 +1,23 @@
 import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
-import type { ScmResource } from '../@types/vscode.git.resources';
-import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { isUncommitted, isUncommittedStaged } from '../git/utils/revision.utils';
-import { showGenericErrorMessage } from '../messages';
-import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/-webview/command';
-import { configuration } from '../system/-webview/configuration';
-import { filterMap } from '../system/array';
-import { Logger } from '../system/logger';
-import { GlCommandBase } from './commandBase';
-import type { CommandContext } from './commandContext';
+import type { ScmResource } from '../@types/vscode.git.resources.d.js';
+import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
+import type { Container } from '../container.js';
+import { GitUri } from '../git/gitUri.js';
+import { isUncommitted, isUncommittedStaged } from '../git/utils/revision.utils.js';
+import { showGenericErrorMessage } from '../messages.js';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
+import { command } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
+import { filterMap } from '../system/array.js';
+import { Logger } from '../system/logger.js';
+import { GlCommandBase } from './commandBase.js';
+import type { CommandContext } from './commandContext.js';
 import {
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
 	isCommandContextViewNodeHasRefFile,
-} from './commandContext.utils';
+} from './commandContext.utils.js';
 
 interface ExternalDiffFile {
 	uri: Uri;

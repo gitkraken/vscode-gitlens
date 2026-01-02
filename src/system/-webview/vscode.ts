@@ -1,14 +1,14 @@
 import type { ColorTheme, ThemeIcon } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, ExtensionMode, Uri, window, workspace } from 'vscode';
-import { getPlatform } from '@env/platform';
-import type { IconPath } from '../../@types/vscode.iconpath';
-import type { Container } from '../../container';
-import { joinPaths, normalizePath } from '../path';
-import { getDistributionGroup } from '../string';
-import { satisfies } from '../version';
-import { executeCoreCommand } from './command';
-import { configuration } from './configuration';
-import { exists } from './vscode/uris';
+import { getPlatform } from '@env/platform.js';
+import type { IconPath } from '../../@types/vscode.iconpath.d.js';
+import type { Container } from '../../container.js';
+import { joinPaths, normalizePath } from '../path.js';
+import { getDistributionGroup } from '../string.js';
+import { satisfies } from '../version.js';
+import { executeCoreCommand } from './command.js';
+import { configuration } from './configuration.js';
+import { exists } from './vscode/uris.js';
 
 export const deviceCohortGroup = getDistributionGroup(env.machineId);
 

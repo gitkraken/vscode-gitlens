@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
-import { MaxTimeout } from '../../baseTest';
-import type { VSCodePage } from '../vscodePage';
+import { MaxTimeout } from '../../baseTest.js';
+import type { VSCodePage } from '../vscodePage.js';
 
 /** Component for VS Code Secondary Sidebar interactions */
 export class SecondarySidebar {
