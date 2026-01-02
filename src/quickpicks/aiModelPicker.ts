@@ -1,6 +1,7 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '../constants.ai.js';
+import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model.js';
 import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils.js';
@@ -32,8 +33,9 @@ const ConfigureAIKeyButton: QuickInputButton = {
 export async function showAIProviderPicker(
 	container: Container,
 	current: AIModelDescriptor | undefined,
+	source?: Source,
 ): Promise<ProviderQuickPickItem | undefined> {
-	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
 	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
 		container.ai.getProvidersConfiguration(),
@@ -130,8 +132,9 @@ export async function showAIModelPicker(
 	container: Container,
 	provider: AIProviders,
 	current?: AIModelDescriptor,
+	source?: Source,
 ): Promise<ModelQuickPickItem | Directive | undefined> {
-	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
 	const models = (await container.ai.getModels(provider)) ?? [];
 

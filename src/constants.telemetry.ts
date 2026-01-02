@@ -71,6 +71,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
 	'ai/generate': AIGenerateEvent;
 
+	/** Sent when AI is enabled */
+	'ai/enabled': void;
+
 	/** Sent when switching ai models */
 	'ai/switchModel': AISwitchModelEvent;
 
@@ -231,8 +234,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'home/startWork': void;
 	/** Sent when the user starts defining a user-specific merge target branch */
 	'home/changeBranchMergeTarget': void;
-	/** Sent when the user chooses to enable AI from the integrations menu */
-	'home/enableAi': void;
 	/** Sent when Home fails to load some state */
 	'home/failed': HomeFailedEvent;
 

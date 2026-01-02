@@ -392,7 +392,10 @@ export class GlIntegrationsChip extends LitElement {
 							? html` <span class="integration__actions">
 									<gl-button
 										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.home.enableAi', undefined)}"
+										href="${createCommandLink<Source>('gitlens.ai.enable', {
+											source: 'home',
+											detail: 'integrations',
+										})}"
 										tooltip="Re-enable AI Features"
 										aria-label="Re-enable AI Features"
 										><code-icon icon="unlock"></code-icon

@@ -23,6 +23,10 @@
 				]
 			}
 		},
+		"gitlens.ai.enable": {
+			"label": "Enable AI Features...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:gk:organization:ai:enabled"
+		},
 		"gitlens.ai.explainBranch": {
 			"label": "Explain Branch Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
@@ -3159,20 +3163,6 @@
 				]
 			}
 		},
-		"gitlens.graph.publishBranch": {
-			"label": "Publish Branch",
-			"icon": "$(cloud-upload)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
-						"group": "1_gitlens_actions",
-						"order": 2
-					}
-				]
-			}
-		},
 		"gitlens.graph.pull": {
 			"label": "Pull",
 			"icon": "$(repo-pull)",
@@ -4532,6 +4522,44 @@
 		"gitlens.plus.validate": {
 			"label": "Refresh Account",
 			"commandPalette": "gitlens:plus"
+		},
+		"gitlens.publishBranch:graph": {
+			"label": "Publish Branch",
+			"icon": "$(cloud-upload)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.publishBranch:views": {
+			"label": "Publish Branch",
+			"icon": "$(cloud-upload)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"group": "inline",
+						"order": 8
+					},
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"group": "1_gitlens_actions",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"group": "inline",
+						"order": 99
+					}
+				]
+			}
 		},
 		"gitlens.pullRepositories": {
 			"label": "Pull",
@@ -11768,30 +11796,6 @@
 						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.views.publishBranch": {
-			"label": "Publish Branch",
-			"icon": "$(cloud-upload)",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
-						"group": "inline",
-						"order": 8
-					},
-					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
-						"group": "1_gitlens_actions",
-						"order": 2
-					},
-					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
-						"group": "inline",
-						"order": 99
 					}
 				]
 			}

@@ -2,7 +2,12 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { md5, sha256 } from '@env/crypto.js';
 import type { ContextKeys } from '../../../constants.context.js';
-import type { ComposerTelemetryContext, Source, Sources, WebviewTelemetryEvents } from '../../../constants.telemetry.js';
+import type {
+	ComposerTelemetryContext,
+	Source,
+	Sources,
+	WebviewTelemetryEvents,
+} from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type {
 	Repository,
@@ -17,7 +22,7 @@ import type { AIModelChangeEvent } from '../../../plus/ai/aiProviderService.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
 import { executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
+import { onDidChangeContext } from '../../../system/-webview/context.js';
 import { getSettledValue } from '../../../system/promise.js';
 import { PromiseCache } from '../../../system/promiseCache.js';
 import type { IpcMessage } from '../../protocol.js';
@@ -1703,23 +1708,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'ai.enabled')) {
-			const newSetting = configuration.get('ai.enabled', undefined, true);
+			const newSetting = this.container.ai.enabled;
 			this._context.ai.enabled.config = newSetting;
 			// Update AI config setting in state
-			void this.host.notify(DidChangeAiEnabledNotification, {
-				config: newSetting,
-			});
+			void this.host.notify(DidChangeAiEnabledNotification, { config: newSetting });
 		}
 	}
 
 	private onContextChanged(key: keyof ContextKeys) {
 		if (key === 'gitlens:gk:organization:ai:enabled') {
-			const newSetting = getContext('gitlens:gk:organization:ai:enabled', true);
+			const newSetting = this.container.ai.allowed;
 			this._context.ai.enabled.org = newSetting;
 			// Update AI org setting in state
-			void this.host.notify(DidChangeAiEnabledNotification, {
-				org: newSetting,
-			});
+			void this.host.notify(DidChangeAiEnabledNotification, { org: newSetting });
 		}
 	}
 
@@ -1728,10 +1729,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private getAiEnabled() {
-		return {
-			org: getContext('gitlens:gk:organization:ai:enabled', true),
-			config: configuration.get('ai.enabled', undefined, true),
-		};
+		return { org: this.container.ai.allowed, config: this.container.ai.enabled };
 	}
 
 	private _panelWasVisible: boolean | undefined;

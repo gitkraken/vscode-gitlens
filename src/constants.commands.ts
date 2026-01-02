@@ -41,43 +41,38 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.visualizeHistory.repo:graph';
 
 type InternalHomeWebviewCommands =
-	| 'gitlens.ai.explainWip:home'
+	| 'gitlens.changeBranchMergeTarget:home'
+	| 'gitlens.deleteBranchOrWorktree:home'
 	| 'gitlens.ai.explainBranch:home'
+	| 'gitlens.ai.explainWip:home'
 	| 'gitlens.composeCommits:home'
-	| 'gitlens.home.changeBranchMergeTarget'
-	| 'gitlens.home.deleteBranchOrWorktree'
-	| 'gitlens.home.pushBranch'
-	| 'gitlens.home.openMergeTargetComparison'
-	| 'gitlens.home.openPullRequestChanges'
-	| 'gitlens.home.openPullRequestComparison'
-	| 'gitlens.home.openPullRequestOnRemote'
-	| 'gitlens.home.openPullRequestDetails'
-	| 'gitlens.home.createPullRequest'
-	| 'gitlens.home.openWorktree'
-	| 'gitlens.home.switchToBranch'
-	| 'gitlens.home.fetch'
-	| 'gitlens.home.openInGraph'
+	| 'gitlens.createBranch:home'
+	| 'gitlens.createCloudPatch:home'
+	| 'gitlens.createPullRequest:home'
+	| 'gitlens.fetch:home'
+	| 'gitlens.mergeIntoCurrent:home'
 	| 'gitlens.openInView.branch:home'
-	| 'gitlens.home.createBranch'
-	| 'gitlens.home.mergeIntoCurrent'
-	| 'gitlens.home.rebaseCurrentOnto'
-	| 'gitlens.home.startWork'
-	| 'gitlens.home.createCloudPatch'
+	| 'gitlens.openMergeTargetComparison:home'
+	| 'gitlens.openPullRequestChanges:home'
+	| 'gitlens.openPullRequestComparison:home'
+	| 'gitlens.openPullRequestDetails:home'
+	// | 'gitlens.openPullRequestOnRemote:home'
+	| 'gitlens.openWorktree:home'
 	| 'gitlens.pausedOperation.abort:home'
 	| 'gitlens.pausedOperation.continue:home'
 	| 'gitlens.pausedOperation.open:home'
 	| 'gitlens.pausedOperation.showConflicts:home'
 	| 'gitlens.pausedOperation.skip:home'
-	| 'gitlens.home.enableAi'
+	| 'gitlens.publishBranch:home'
+	| 'gitlens.pull:home'
+	| 'gitlens.push:home'
+	| 'gitlens.pushBranch:home'
+	| 'gitlens.rebaseCurrentOnto:home'
+	| 'gitlens.showInCommitGraph:home'
+	| 'gitlens.startWork:home'
+	| 'gitlens.switchToBranch:home'
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';
-
-type InternalHomeWebviewViewCommands =
-	| 'gitlens.views.home.account.resync'
-	| 'gitlens.views.home.ai.allAccess.dismiss'
-	| 'gitlens.views.home.publishBranch'
-	| 'gitlens.views.home.pull'
-	| 'gitlens.views.home.push';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
@@ -163,7 +158,6 @@ type InternalGlCommands =
 	| 'gitlens.visualizeHistory'
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands
-	| InternalHomeWebviewViewCommands
 	| InternalLaunchPadCommands
 	| InternalPlusCommands
 	| InternalPullRequestViewCommands

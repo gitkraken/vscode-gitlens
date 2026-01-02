@@ -1,12 +1,14 @@
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { SubscriptionState } from '../../../../../constants.subscription.js';
-import { createCommandLink } from '../../../../../system/commands.js';
 import { pluralize } from '../../../../../system/string.js';
 import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { chipStyles } from '../../shared/components/chipStyles.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
@@ -217,6 +219,9 @@ export class GlMergeTargetStatus extends LitElement {
 
 	static override styles = [elementBase, linkBase, chipStyles, scrollableBase, mergeTargetStyles];
 
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
+
 	@property({ type: Object })
 	branch!: Pick<GetOverviewBranch, 'repoPath' | 'id' | 'name' | 'opened' | 'upstream' | 'worktree'>;
 
@@ -352,9 +357,9 @@ export class GlMergeTargetStatus extends LitElement {
 						<div class="button-container">
 							<gl-button
 								full
-								href="${createCommandLink(
-									'gitlens.home.pushBranch',
-									mergeTargetRef! satisfies BranchRef,
+								href="${this._webview.createCommandLink<BranchRef>(
+									'gitlens.pushBranch:',
+									mergeTargetRef,
 								)}"
 								><span
 									>Push ${renderBranchName(this.mergedStatus.localBranchOnly.name)}</span
@@ -363,10 +368,10 @@ export class GlMergeTargetStatus extends LitElement {
 							<gl-button
 								full
 								appearance="secondary"
-								href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', [
-									this.branchRef,
-									mergeTargetRef,
-								])}"
+								href="${this._webview.createCommandLink<[BranchRef, BranchRef]>(
+									'gitlens.deleteBranchOrWorktree:',
+									[this.branchRef!, mergeTargetRef!],
+								)}"
 								><span
 									>Delete
 									${this.branch.worktree != null && !this.branch.worktree.isDefault
@@ -392,10 +397,10 @@ export class GlMergeTargetStatus extends LitElement {
 					<div class="button-container">
 						<gl-button
 							full
-							href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', [
-								this.branchRef,
-								mergeTargetRef,
-							])}"
+							href="${this._webview.createCommandLink<[BranchRef, BranchRef]>(
+								'gitlens.deleteBranchOrWorktree:',
+								[this.branchRef!, mergeTargetRef!],
+							)}"
 							><span
 								>Delete
 								${this.branch.worktree != null && !this.branch.worktree.isDefault
@@ -421,13 +426,19 @@ export class GlMergeTargetStatus extends LitElement {
 					<div class="button-container">
 						<gl-button
 							full
-							href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
+							href="${this._webview.createCommandLink<BranchRef>(
+								'gitlens.rebaseCurrentOnto:',
+								this.targetBranchRef,
+							)}"
 							><span>Rebase ${renderBranchName(this.conflicts.branch)} onto ${target}</span></gl-button
 						>
 						<gl-button
 							full
 							appearance="secondary"
-							href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
+							href="${this._webview.createCommandLink<BranchRef>(
+								'gitlens.mergeIntoCurrent:',
+								this.targetBranchRef,
+							)}"
 							><span>Merge ${target} into ${renderBranchName(this.conflicts.branch)}</span></gl-button
 						>
 					</div>
@@ -455,13 +466,19 @@ export class GlMergeTargetStatus extends LitElement {
 						<div class="button-container">
 							<gl-button
 								full
-								href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
+								href="${this._webview.createCommandLink<BranchRef>(
+									'gitlens.rebaseCurrentOnto:',
+									this.targetBranchRef,
+								)}"
 								><span>Rebase ${renderBranchName(this.branch.name)} onto ${target}</span></gl-button
 							>
 							<gl-button
 								full
 								appearance="secondary"
-								href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
+								href="${this._webview.createCommandLink<BranchRef>(
+									'gitlens.mergeIntoCurrent:',
+									this.targetBranchRef,
+								)}"
 								><span>Merge ${target} into ${renderBranchName(this.branch.name)}</span></gl-button
 							>
 						</div>
@@ -516,22 +533,28 @@ export class GlMergeTargetStatus extends LitElement {
 		return html`<span class="header__actions"
 			>${branchRef && targetRef
 				? html`<gl-button
-							href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.changeBranchMergeTarget', {
-								...branchRef,
-								mergeTargetId: targetRef.branchId,
-								mergeTargetName: targetRef.branchName,
-							})}"
+							href="${this._webview.createCommandLink<BranchAndTargetRefs>(
+								'gitlens.changeBranchMergeTarget:',
+								{
+									...branchRef,
+									mergeTargetId: targetRef.branchId,
+									mergeTargetName: targetRef.branchName,
+								},
+							)}"
 							appearance="toolbar"
 							><code-icon icon="pencil"></code-icon
 							><span slot="tooltip"
 								>Change Merge Target<br />${renderBranchName(this.target?.name)}</span
 							></gl-button
 						><gl-button
-							href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.openMergeTargetComparison', {
-								...branchRef,
-								mergeTargetId: targetRef.branchId,
-								mergeTargetName: targetRef.branchName,
-							})}"
+							href="${this._webview.createCommandLink<BranchAndTargetRefs>(
+								'gitlens.openMergeTargetComparison:',
+								{
+									...branchRef,
+									mergeTargetId: targetRef.branchId,
+									mergeTargetName: targetRef.branchName,
+								},
+							)}"
 							appearance="toolbar"
 							><code-icon icon="git-compare"></code-icon>
 							<span slot="tooltip"
@@ -542,7 +565,7 @@ export class GlMergeTargetStatus extends LitElement {
 							>
 						</gl-button>`
 				: nothing}<gl-button
-				href="${createCommandLink('gitlens.home.fetch', this.targetBranchRef)}"
+				href="${this._webview.createCommandLink<BranchRef>('gitlens.fetch:', this.targetBranchRef)}"
 				appearance="toolbar"
 				><code-icon icon="repo-fetch"></code-icon>
 				<span slot="tooltip">Fetch Merge Target<br />${renderBranchName(this.target?.name)}</span>
@@ -556,7 +579,7 @@ export class GlMergeTargetStatus extends LitElement {
 			appearance="toolbar"
 			density="compact"
 			tooltip="Change Merge Target"
-			href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.changeBranchMergeTarget', {
+			href="${this._webview.createCommandLink<BranchAndTargetRefs>('gitlens.changeBranchMergeTarget:', {
 				...this.branchRef!,
 				mergeTargetId: this.targetBranchRef!.branchId,
 				mergeTargetName: this.targetBranchRef!.branchName,

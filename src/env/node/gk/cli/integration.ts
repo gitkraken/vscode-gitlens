@@ -125,7 +125,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			void this.container.storage.store('gk:cli:install', undefined);
 		}
 
-		if (!mcpExtensionRegistrationAllowed() || reachedMaxAttempts(cliInstall)) {
+		if (!mcpExtensionRegistrationAllowed(this.container) || reachedMaxAttempts(cliInstall)) {
 			return;
 		}
 
@@ -230,7 +230,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 
 			const hostAppName = await getHostAppName();
-			const usingExtensionRegistration = mcpExtensionRegistrationAllowed();
+			const usingExtensionRegistration = mcpExtensionRegistrationAllowed(this.container);
 
 			if (!usingExtensionRegistration && isHostVSCode(hostAppName) && compare(codeVersion, '1.102') < 0) {
 				throw new McpSetupError(

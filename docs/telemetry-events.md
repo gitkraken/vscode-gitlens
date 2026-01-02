@@ -108,6 +108,14 @@
 }
 ```
 
+### ai/enabled
+
+> Sent when AI is enabled
+
+```typescript
+void
+```
+
 ### ai/explain
 
 > Sent when explaining changes from wip, commits, stashes, patches, etc.
@@ -2600,14 +2608,6 @@ void
 ### home/createBranch
 
 > Sent when the user chooses to create a branch from the home view
-
-```typescript
-void
-```
-
-### home/enableAi
-
-> Sent when the user chooses to enable AI from the integrations menu
 
 ```typescript
 void

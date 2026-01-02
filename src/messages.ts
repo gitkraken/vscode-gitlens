@@ -3,6 +3,7 @@ import { ConfigurationTarget, ThemeIcon, window } from 'vscode';
 import type { SuppressedMessages } from './config.js';
 import { urls } from './constants.js';
 import type { Source } from './constants.telemetry.js';
+import type { Container } from './container.js';
 import type { BlameIgnoreRevsFileError, GitCommandContext } from './git/errors.js';
 import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from './git/errors.js';
 import type { GitCommit } from './git/models/commit.js';
@@ -322,8 +323,8 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	}
 }
 
-export async function showMcpMessage(_current: string): Promise<void> {
-	const isAutoInstallable = mcpExtensionRegistrationAllowed();
+export async function showMcpMessage(container: Container, _current: string): Promise<void> {
+	const isAutoInstallable = mcpExtensionRegistrationAllowed(container);
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const learnMore = { title: 'Learn More' };
 	const install = { title: 'Install GitKraken MCP' };

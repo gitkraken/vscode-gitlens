@@ -214,7 +214,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
-		showMcp(gitlensVersion, previousVersion);
+		showMcp(container, gitlensVersion, previousVersion);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
@@ -412,7 +412,7 @@ async function showWhatsNew(
 	}
 }
 
-function showMcp(version: string, previousVersion: string | undefined): void {
+function showMcp(container: Container, version: string, previousVersion: string | undefined): void {
 	if (
 		isWeb ||
 		previousVersion == null ||
@@ -423,5 +423,5 @@ function showMcp(version: string, previousVersion: string | undefined): void {
 		return;
 	}
 
-	void showMcpMessage(version);
+	void showMcpMessage(container, version);
 }

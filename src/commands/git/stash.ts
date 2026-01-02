@@ -14,7 +14,6 @@ import type { AIModel } from '../../plus/ai/models/model.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
-import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import { formatPath } from '../../system/-webview/formatPath.js';
 import { getLoggableName, Logger } from '../../system/logger.js';
@@ -629,7 +628,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			value: state.message,
 			prompt: 'Enter stash message',
 			buttons:
-				getContext('gitlens:gk:organization:ai:enabled') && configuration.get('ai.enabled')
+				this.container.ai.enabled && this.container.ai.allowed
 					? [QuickInputButtons.Back, generateMessageButton]
 					: [QuickInputButtons.Back],
 			// Needed to clear any validation errors because of AI generation

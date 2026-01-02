@@ -565,7 +565,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Register commands from @command decorators
 		for (const c of getCommands()) {
 			commands.push(
-				this.host.registerWebviewCommand(getWebviewCommand(c.command, 'graph'), c.handler.bind(this)),
+				this.host.registerWebviewCommand(getWebviewCommand(c.command, this.host.type), c.handler.bind(this)),
 			);
 		}
 
@@ -2772,7 +2772,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
-			aiEnabled: configuration.get('ai.enabled'),
+			aiEnabled: this.container.ai.enabled,
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -3623,7 +3623,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.openBranchOnRemote(item, true);
 	}
 
-	@command('gitlens.graph.publishBranch')
+	@command('gitlens.publishBranch:graph')
 	@log()
 	private publishBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {

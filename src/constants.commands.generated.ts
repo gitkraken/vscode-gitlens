@@ -176,7 +176,6 @@ export type ContributedCommands =
 	| 'gitlens.graph.openCommitOnRemote.multi'
 	| 'gitlens.graph.openInWorktree'
 	| 'gitlens.graph.openOnlyChangedFiles'
-	| 'gitlens.graph.publishBranch'
 	| 'gitlens.graph.pull'
 	| 'gitlens.graph.push'
 	| 'gitlens.graph.rebaseOntoBranch'
@@ -254,6 +253,8 @@ export type ContributedCommands =
 	| 'gitlens.openWorktreeInNewWindow:graph'
 	| 'gitlens.openWorktreeInNewWindow:views'
 	| 'gitlens.plus.login'
+	| 'gitlens.publishBranch:graph'
+	| 'gitlens.publishBranch:views'
 	| 'gitlens.pullRepositories'
 	| 'gitlens.pushRepositories'
 	| 'gitlens.quickOpenFileHistory'
@@ -565,7 +566,6 @@ export type ContributedCommands =
 	| 'gitlens.views.pausedOperation.open'
 	| 'gitlens.views.pausedOperation.skip'
 	| 'gitlens.views.pruneRemote'
-	| 'gitlens.views.publishBranch'
 	| 'gitlens.views.publishRepository'
 	| 'gitlens.views.pull'
 	| 'gitlens.views.pullRequest.close'
@@ -831,6 +831,7 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
+	| 'gitlens.ai.enable'
 	| 'gitlens.ai.explainBranch'
 	| 'gitlens.ai.explainCommit'
 	| 'gitlens.ai.explainStash'

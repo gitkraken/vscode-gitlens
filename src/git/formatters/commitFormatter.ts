@@ -50,7 +50,7 @@ import type { FormatOptions, RequiredTokenOptions } from './formatter.js';
 import { Formatter } from './formatter.js';
 
 export interface CommitFormatOptions extends FormatOptions {
-	aiEnabled?: boolean;
+	ai?: { allowed: boolean; enabled: boolean };
 	avatarSize?: number;
 	dateSource?: DateSource;
 	dateStyle?: DateStyle;
@@ -504,7 +504,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Inspect Commit Details")`;
 			}
 
-			if (this._options.aiEnabled) {
+			if (this._options.ai?.enabled && this._options.ai?.allowed) {
 				commands += `${separator}[$(sparkle) Explain](${ExplainWipCommand.createMarkdownCommandLink({
 					repoPath: this._item.repoPath,
 					staged: undefined,
@@ -571,7 +571,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
 		}
 
-		if (this._options.aiEnabled) {
+		if (this._options.ai?.enabled && this._options.ai?.allowed) {
 			commands += `${separator}[$(sparkle) Explain](${ExplainCommitCommand.createMarkdownCommandLink({
 				repoPath: this._item.repoPath,
 				rev: this._item.sha,

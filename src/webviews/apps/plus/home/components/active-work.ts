@@ -4,11 +4,9 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlExtensionCommands } from '../../../../../constants.commands.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import { createWebviewCommandLink } from '../../../../../system/webview.js';
 import type {
 	GetActiveOverviewResponse,
 	GetOverviewBranch,
@@ -20,6 +18,8 @@ import { ExecuteCommand } from '../../../../protocol.js';
 import { stateContext } from '../../../home/context.js';
 import type { RepoButtonGroupClickEvent } from '../../../shared/components/repo-button-group.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles, ruleStyles } from '../../shared/components/vscode.css.js';
 import { branchCardStyles, GlBranchCardBase } from './branch-card.js';
 import type { ActiveOverviewState } from './overviewState.js';
@@ -102,15 +102,18 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	@consume({ context: activeOverviewStateContext })
+	private _activeOverviewState!: ActiveOverviewState;
+
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
 	private _homeState!: State;
 
-	@consume({ context: activeOverviewStateContext })
-	private _activeOverviewState!: ActiveOverviewState;
-
 	@consume({ context: ipcContext })
 	private _ipc!: typeof ipcContext.__context__;
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	@state()
 	private repoCollapsed = true;
@@ -129,7 +132,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 	private onBranchSelectorClicked() {
 		this._ipc.sendCommand(ExecuteCommand, {
-			command: 'gitlens.home.switchToBranch',
+			command: 'gitlens.switchToBranch:home',
 			args: [{ repoPath: this._activeOverviewState.state?.active.repoPath }],
 		});
 	}
@@ -203,7 +206,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Fetch All"
-						href=${createCommandLink('gitlens.home.fetch', undefined)}
+						href=${this._webview.createCommandLink('gitlens.fetch:')}
 						><code-icon icon="repo-fetch"></code-icon
 					></gl-button>
 					<gl-button
@@ -212,13 +215,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Visualize Repo History"
-						href=${createCommandLink(
-							'gitlens.visualizeHistory.repo:home' as GlExtensionCommands /* TODO@eamodio needs to be fixed */,
-							{
-								type: 'repo',
-								repoPath: this._activeOverviewState.state!.repository.path,
-							} satisfies OpenInTimelineParams,
-						)}
+						href=${this._webview.createCommandLink<OpenInTimelineParams>('gitlens.visualizeHistory.repo:', {
+							type: 'repo',
+							repoPath: this._activeOverviewState.state!.repository.path,
+						})}
 						><code-icon icon="graph-scatter"></code-icon></gl-button
 					><gl-button
 						aria-busy="${ifDefined(isFetching)}"
@@ -226,10 +226,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Open in Commit Graph"
-						href=${createCommandLink('gitlens.home.openInGraph', {
+						href=${this._webview.createCommandLink<OpenInGraphParams>('gitlens.showInCommitGraph:', {
 							type: 'repo',
 							repoPath: this._activeOverviewState.state!.repository.path,
-						} satisfies OpenInGraphParams)}
+						})}
 						><code-icon icon="gl-graph"></code-icon
 					></gl-button>
 				</span>
@@ -316,7 +316,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.ai.generateCommitMessage', {
+						href=${createCommandLink('gitlens.ai.generateCommitMessage', {
 							repoPath: this.repo,
 							source: 'home',
 						})}
@@ -325,14 +325,18 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				);
 				actions.push(html`<menu-divider></menu-divider>`);
 				actions.push(
-					html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+					html`<menu-item
+						?disabled=${isFetching}
+						href=${this._webview.createCommandLink('gitlens.ai.explainWip:')}
 						>Explain Working Changes (Preview)</menu-item
 					>`,
 				);
 			}
 
 			actions.push(
-				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+				html`<menu-item
+					?disabled=${isFetching}
+					href=${this._webview.createCommandLink('gitlens.ai.explainBranch:')}
 					>Explain Branch Changes (Preview)</menu-item
 				>`,
 			);
@@ -342,7 +346,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				actions.push(
 					html`<menu-item
 						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+						href=${this._webview.createCommandLink('gitlens.createCloudPatch:')}
 						>Share as Cloud Patch</menu-item
 					>`,
 				);
@@ -352,7 +356,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+					href=${this._webview.createCommandLink('gitlens.createCloudPatch:')}
 					appearance="secondary"
 					tooltip="Share as Cloud Patch"
 					><code-icon icon="gl-cloud-patch-share"></code-icon>
@@ -397,7 +401,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.composeCommits:home')}
+					href=${this._webview.createCommandLink('gitlens.composeCommits:home')}
 					appearance="secondary"
 					density="compact"
 					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
@@ -419,7 +423,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${this.createWebviewCommandLink('gitlens.views.home.publishBranch')}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.publishBranch:')}
 					appearance="secondary"
 					density="compact"
 				>
@@ -442,7 +446,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
-						href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
+						href=${this._webview.createCommandLink('gitlens.pull:')}
 						appearance="secondary"
 						density="compact"
 					>
@@ -460,9 +464,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
-						href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '', {
-							force: true,
-						})}
+						href=${this._webview.createCommandLink<{ force?: boolean }>('gitlens.push:', { force: true })}
 						appearance="secondary"
 						density="compact"
 					>
@@ -481,7 +483,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
-						href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
+						href=${this._webview.createCommandLink('gitlens.pull:')}
 						appearance="secondary"
 						density="compact"
 					>
@@ -506,7 +508,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
 						?disabled=${isFetching}
-						href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '')}
+						href=${this._webview.createCommandLink('gitlens.push:')}
 						appearance="secondary"
 						density="compact"
 					>
@@ -549,17 +551,17 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			html`<action-item
 				label="Open Pull Request Changes"
 				icon="request-changes"
-				href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openPullRequestChanges:')}
 			></action-item>`,
 			html`<action-item
 				label="Compare Pull Request"
 				icon="git-compare"
-				href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openPullRequestComparison:')}
 			></action-item>`,
 			html`<action-item
 				label="Open Pull Request Details"
 				icon="eye"
-				href=${this.createCommandLink('gitlens.home.openPullRequestDetails')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openPullRequestDetails:')}
 			></action-item>`,
 		];
 	}
@@ -578,13 +580,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					class="associate-issue-action"
 					appearance="toolbar"
-					href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
-						'gitlens.associateIssueWithBranch',
-						{
-							branch: this.branch.reference,
-							source: 'home',
-						},
-					)}
+					href=${createCommandLink<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
+						command: 'associateIssueWithBranch',
+						branch: this.branch.reference,
+						source: 'home',
+					})}
 					tooltip="Associate Issue with Branch"
 					aria-label="Associate Issue with Branch"
 					><issue-icon></issue-icon>

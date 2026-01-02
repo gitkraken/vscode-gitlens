@@ -2,6 +2,7 @@ import type { CancellationToken, Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { AIProviders } from '../../../../constants.ai.js';
 import { Schemes } from '../../../../constants.js';
+import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import type { MarkdownContentMetadata } from '../../../../documents/markdown.js';
 import { CancellationError } from '../../../../errors.js';
@@ -217,10 +218,14 @@ export function ensureOrgConfiguredUrl(type: AIProviders, userUrl: null | undefi
 	return provider.url || userUrl || undefined;
 }
 
-export async function ensureAccess(options?: { showPicker?: boolean }): Promise<boolean> {
+export async function ensureAccess(
+	container: Container,
+	options?: { showPicker?: boolean },
+	source?: Source,
+): Promise<boolean> {
 	const showPicker = options?.showPicker ?? false;
 
-	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
+	if (!container.ai.allowed) {
 		if (showPicker) {
 			await window.showQuickPick([{ label: 'OK' }], {
 				title: 'AI is Disabled',
@@ -234,7 +239,7 @@ export async function ensureAccess(options?: { showPicker?: boolean }): Promise<
 		return false;
 	}
 
-	if (!configuration.get('ai.enabled')) {
+	if (!container.ai.enabled) {
 		let reenable = false;
 		if (showPicker) {
 			const enable = { label: 'Re-enable AI Features' };
@@ -259,7 +264,7 @@ export async function ensureAccess(options?: { showPicker?: boolean }): Promise<
 		}
 
 		if (reenable) {
-			await configuration.updateEffective('ai.enabled', true);
+			await container.ai.enable(source);
 			return true;
 		}
 

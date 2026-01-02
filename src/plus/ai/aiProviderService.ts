@@ -35,6 +35,7 @@ import { uncommitted, uncommittedStaged } from '../../git/models/revision.js';
 import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker.js';
 import { Directive, isDirective } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
 import type { Storage } from '../../system/-webview/storage.js';
 import { log } from '../../system/decorators/log.js';
 import { debounce } from '../../system/function/debounce.js';
@@ -282,6 +283,14 @@ export class AIProviderService implements AIService, Disposable {
 		return this._actions;
 	}
 
+	get allowed(): boolean {
+		return getContext('gitlens:gk:organization:ai:enabled', true);
+	}
+
+	get enabled(): boolean {
+		return configuration.get('ai.enabled', undefined, true);
+	}
+
 	constructor(
 		readonly container: Container,
 		private readonly connection: ServerConnection,
@@ -294,6 +303,15 @@ export class AIProviderService implements AIService, Disposable {
 		this._onDidChangeModel.dispose();
 		this._providerDisposable?.dispose();
 		this._provider?.dispose();
+	}
+
+	async enable(source?: Source): Promise<void> {
+		if (this.enabled) return;
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('ai/enabled', undefined, source);
+		}
+		await configuration.updateEffective('ai.enabled', true);
 	}
 
 	private getConfiguredModel(): AIModelDescriptor | undefined {
@@ -395,7 +413,7 @@ export class AIProviderService implements AIService, Disposable {
 			}
 
 			while (true) {
-				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg))?.provider;
+				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg, source))?.provider;
 				if (chosenProviderId == null) {
 					chosenModel = undefined;
 					break;
@@ -412,7 +430,7 @@ export class AIProviderService implements AIService, Disposable {
 				}
 
 				if (chosenModel == null) {
-					const result = await showAIModelPicker(this.container, chosenProviderId, cfg);
+					const result = await showAIModelPicker(this.container, chosenProviderId, cfg, source);
 					if (result == null || (isDirective(result) && result !== Directive.Back)) {
 						chosenModel = undefined;
 						break;
@@ -567,7 +585,7 @@ export class AIProviderService implements AIService, Disposable {
 	}
 
 	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
-		if (!(await ensureAccess())) return false;
+		if (!(await ensureAccess(this.container, undefined, source))) return false;
 
 		if (feature === 'generate-commitMessage') return true;
 		const suffix = isAdvancedFeature(feature)

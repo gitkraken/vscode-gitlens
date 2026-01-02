@@ -833,7 +833,7 @@ export class ViewCommands implements Disposable {
 		return RemoteActions.remove(node.remote.repoPath, node.remote.name);
 	}
 
-	@command('gitlens.views.publishBranch')
+	@command('gitlens.publishBranch:views')
 	@log()
 	private publishBranch(node: BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('branch', 'tracking-status')) {

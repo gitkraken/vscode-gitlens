@@ -1,5 +1,5 @@
 import './commands/addAuthors.js';
-import './commands/aiFeedback.js';
+import './commands/ai.js';
 import './commands/browseRepoAtRevision.js';
 import './commands/closeUnchangedFiles.js';
 import './commands/cloudIntegrations.js';
@@ -75,7 +75,6 @@ import './commands/showQuickStashList.js';
 import './commands/showView.js';
 import './commands/stashApply.js';
 import './commands/stashSave.js';
-import './commands/switchAIModel.js';
 import './commands/switchMode.js';
 import './commands/toggleCodeLens.js';
 import './commands/toggleFileAnnotations.js';

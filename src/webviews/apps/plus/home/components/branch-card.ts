@@ -4,12 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type {
-	GlCommands,
-	GlExtensionCommands,
-	GlPlusCommands,
-	GlWebviewCommands,
-} from '../../../../../constants.commands.js';
+import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
 	actionGroupMap,
@@ -20,7 +15,6 @@ import {
 import { createCommandLink } from '../../../../../system/commands.js';
 import { fromNow } from '../../../../../system/date.js';
 import { interpolate, pluralize } from '../../../../../system/string.js';
-import { createWebviewCommandLink } from '../../../../../system/webview.js';
 import type {
 	BranchRef,
 	CreatePullRequestCommandArgs,
@@ -35,6 +29,8 @@ import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/avatar/avatar.js';
@@ -263,6 +259,9 @@ export abstract class GlBranchCardBase extends GlElement {
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
 	protected _homeState!: State;
+
+	@consume({ context: webviewContext })
+	protected _webview!: WebviewContext;
 
 	@property()
 	repo!: string;
@@ -693,18 +692,12 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<action-nav class="branch-item__collapsed-actions">${actions}</action-nav>`;
 	}
 
-	protected createWebviewCommandLink<T>(command: GlWebviewCommands | GlPlusCommands, args?: T | any): string {
-		return createWebviewCommandLink<T>(
+	protected createWebviewCommandLinkWithBranchRef<T>(
+		command: GlWebviewCommandsOrCommandsWithSuffix,
+		args?: Omit<T, keyof BranchRef>,
+	): string {
+		return this._webview.createCommandLink<T | BranchRef>(
 			command,
-			'gitlens.views.home',
-			'',
-			args ? { ...args, ...this.branchRef } : this.branchRef,
-		);
-	}
-
-	protected createCommandLink<T>(command: GlCommands, args?: T | any): string {
-		return createCommandLink<T>(
-			command as GlExtensionCommands, // TODO@eamodio needs to be fixed
 			args ? { ...args, ...this.branchRef } : this.branchRef,
 		);
 	}
@@ -788,7 +781,7 @@ export abstract class GlBranchCardBase extends GlElement {
 								class="branch-item__missing"
 								appearance="secondary"
 								full
-								href="${createCommandLink('gitlens.home.createPullRequest', {
+								href="${this._webview.createCommandLink('gitlens.createPullRequest:', {
 									ref: this.branchRef,
 									describeWithAI: false,
 									source: { source: 'home', detail: 'create-pr' },
@@ -804,8 +797,8 @@ export abstract class GlBranchCardBase extends GlElement {
 										class="branch-item__missing"
 										tooltip="Create a Pull Request with AI (Preview)"
 										appearance="secondary"
-										href="${createCommandLink<CreatePullRequestCommandArgs>(
-											'gitlens.home.createPullRequest',
+										href="${this._webview.createCommandLink<CreatePullRequestCommandArgs>(
+											'gitlens.createPullRequest:',
 											{
 												ref: this.branchRef,
 												describeWithAI: true,
@@ -870,9 +863,7 @@ export abstract class GlBranchCardBase extends GlElement {
 						<a
 							href=${createCommandLink<Omit<LaunchpadCommandArgs, 'command'>>('gitlens.showLaunchpad', {
 								source: 'home',
-								state: {
-									id: { uuid: this.launchpadItem.uuid, group: group },
-								},
+								state: { id: { uuid: this.launchpadItem.uuid, group: group } },
 							} satisfies Omit<LaunchpadCommandArgs, 'command'>)}
 							class="launchpad__grouping"
 						>
@@ -966,10 +957,11 @@ export class GlBranchCard extends GlBranchCardBase {
 					alt-label="Open Worktree in New Window"
 					icon="browser"
 					alt-icon="empty-window"
-					href=${this.createCommandLink('gitlens.home.openWorktree')}
-					alt-href=${this.createCommandLink<OpenWorktreeCommandArgs>('gitlens.home.openWorktree', {
-						location: 'newWindow',
-					})}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openWorktree:')}
+					alt-href=${this.createWebviewCommandLinkWithBranchRef<OpenWorktreeCommandArgs>(
+						'gitlens.openWorktree:',
+						{ location: 'newWindow' },
+					)}
 				></action-item>`,
 			);
 		} else {
@@ -977,7 +969,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				html`<action-item
 					label="Switch to Branch..."
 					icon="gl-switch"
-					href=${this.createCommandLink('gitlens.home.switchToBranch')}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.switchToBranch:')}
 				></action-item>`,
 			);
 		}
@@ -986,15 +978,14 @@ export class GlBranchCard extends GlBranchCardBase {
 			html`<action-item
 				label="Open in Commit Graph"
 				icon="gl-graph"
-				href=${createCommandLink('gitlens.home.openInGraph', {
-					...this.branchRef,
+				href=${this.createWebviewCommandLinkWithBranchRef<OpenInGraphParams>('gitlens.showInCommitGraph:', {
 					type: 'branch',
-				} satisfies OpenInGraphParams)}
+				})}
 			></action-item>`,
 			html`<action-item
 				label=${this.isWorktree ? 'Open in Worktrees View' : 'Open in Branches View'}
 				icon="arrow-right"
-				href=${this.createCommandLink('gitlens.openInView.branch:home')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openInView.branch:')}
 			></action-item>`,
 		);
 
@@ -1013,10 +1004,11 @@ export class GlBranchCard extends GlBranchCardBase {
 					alt-label="Open Worktree in New Window"
 					icon="browser"
 					alt-icon="empty-window"
-					href=${this.createCommandLink('gitlens.home.openWorktree')}
-					alt-href=${this.createCommandLink<OpenWorktreeCommandArgs>('gitlens.home.openWorktree', {
-						location: 'newWindow',
-					})}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openWorktree:')}
+					alt-href=${this.createWebviewCommandLinkWithBranchRef<OpenWorktreeCommandArgs>(
+						'gitlens.openWorktree:',
+						{ location: 'newWindow' },
+					)}
 				></action-item>`,
 			);
 
@@ -1033,7 +1025,7 @@ export class GlBranchCard extends GlBranchCardBase {
 						html`<action-item
 							label="Explain Working Changes (Preview)"
 							icon="sparkle"
-							href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+							href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainWip:')}
 						></action-item>`,
 					);
 				} else {
@@ -1041,7 +1033,7 @@ export class GlBranchCard extends GlBranchCardBase {
 						html`<action-item
 							label="Explain Branch Changes (Preview)"
 							icon="sparkle"
-							href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+							href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 						></action-item>`,
 					);
 				}
@@ -1051,7 +1043,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				html`<action-item
 					label="Switch to Branch..."
 					icon="gl-switch"
-					href=${this.createCommandLink('gitlens.home.switchToBranch')}
+					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.switchToBranch:')}
 				></action-item>`,
 			);
 
@@ -1060,7 +1052,7 @@ export class GlBranchCard extends GlBranchCardBase {
 					html`<action-item
 						label="Explain Branch Changes (Preview)"
 						icon="sparkle"
-						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 					></action-item>`,
 				);
 			}
@@ -1071,36 +1063,32 @@ export class GlBranchCard extends GlBranchCardBase {
 			html`<action-item
 				label="Fetch"
 				icon="repo-fetch"
-				href=${this.createCommandLink('gitlens.home.fetch')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.fetch:')}
 			></action-item>`,
 		);
 		actions.push(
 			html` <action-item
 				label="Visualize Branch History"
 				icon="graph-scatter"
-				href=${createCommandLink(
-					'gitlens.visualizeHistory.branch:home' as GlExtensionCommands /* TODO@eamodio needs to be fixed */,
-					{
-						type: 'branch',
-						repoPath: this.repo,
-						branchId: this.branch.id,
-					} satisfies OpenInTimelineParams,
-				)}
+				href=${this._webview.createCommandLink<OpenInTimelineParams>('gitlens.visualizeHistory.branch:', {
+					type: 'branch',
+					repoPath: this.repo,
+					branchId: this.branch.id,
+				})}
 			></action-item>`,
 		);
 		actions.push(
 			html`<action-item
 				label="Open in Commit Graph"
 				icon="gl-graph"
-				href=${createCommandLink('gitlens.home.openInGraph', {
-					...this.branchRef,
+				href=${this.createWebviewCommandLinkWithBranchRef<OpenInGraphParams>('gitlens.showInCommitGraph:', {
 					type: 'branch',
-				} satisfies OpenInGraphParams)}
+				})}
 			></action-item>`,
 			html`<action-item
 				label=${this.isWorktree ? 'Open in Worktrees View' : 'Open in Branches View'}
 				icon="arrow-right"
-				href=${this.createCommandLink('gitlens.openInView.branch:home')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openInView.branch:')}
 			></action-item>`,
 		);
 
@@ -1112,17 +1100,17 @@ export class GlBranchCard extends GlBranchCardBase {
 			html`<action-item
 				label="Open Pull Request Changes"
 				icon="request-changes"
-				href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openPullRequestChanges:')}
 			></action-item>`,
 			html`<action-item
 				label="Compare Pull Request"
 				icon="git-compare"
-				href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openPullRequestComparison:')}
 			></action-item>`,
 			html`<action-item
 				label="Open Pull Request Details"
 				icon="eye"
-				href=${this.createCommandLink('gitlens.home.openPullRequestDetails')}
+				href=${this.createWebviewCommandLinkWithBranchRef('gitlens.openPullRequestDetails:')}
 			></action-item>`,
 		];
 	}

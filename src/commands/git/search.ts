@@ -371,8 +371,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		const aiAllowed =
-			configuration.get('ai.enabled', undefined, true) && getContext('gitlens:gk:organization:ai:enabled', true);
+		const aiAllowed = this.container.ai.enabled && this.container.ai.allowed;
 
 		const matchCaseButton = new MatchCaseToggleQuickInputButton(state.matchCase);
 		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
