@@ -1,4 +1,4 @@
-import type { GlCommands, WebviewCommands } from '../../constants.commands.js';
+import type { GlCommands, GlWebviewCommands } from '../../constants.commands.js';
 import type { WebviewTypes } from '../../constants.views.js';
 
 interface Command<
@@ -70,6 +70,6 @@ export function createCommandDecorator<
 	};
 }
 
-export function getWebviewCommand(command: string, type: WebviewTypes): WebviewCommands {
-	return (command.endsWith(':') ? `${command}${type}` : command) as WebviewCommands;
+export function getWebviewCommand(command: string, type: WebviewTypes): GlWebviewCommands {
+	return (command.endsWith(':') ? `${command}${type}` : command) as GlWebviewCommands;
 }

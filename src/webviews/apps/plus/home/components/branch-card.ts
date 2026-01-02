@@ -4,7 +4,12 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type { GlCommands, PlusCommands, WebviewCommands } from '../../../../../constants.commands.js';
+import type {
+	GlCommands,
+	GlExtensionCommands,
+	GlPlusCommands,
+	GlWebviewCommands,
+} from '../../../../../constants.commands.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
 	actionGroupMap,
@@ -688,7 +693,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<action-nav class="branch-item__collapsed-actions">${actions}</action-nav>`;
 	}
 
-	protected createWebviewCommandLink<T>(command: WebviewCommands | PlusCommands, args?: T | any): string {
+	protected createWebviewCommandLink<T>(command: GlWebviewCommands | GlPlusCommands, args?: T | any): string {
 		return createWebviewCommandLink<T>(
 			command,
 			'gitlens.views.home',
@@ -698,7 +703,10 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected createCommandLink<T>(command: GlCommands, args?: T | any): string {
-		return createCommandLink<T>(command, args ? { ...args, ...this.branchRef } : this.branchRef);
+		return createCommandLink<T>(
+			command as GlExtensionCommands, // TODO@eamodio needs to be fixed
+			args ? { ...args, ...this.branchRef } : this.branchRef,
+		);
 	}
 
 	protected renderTimestamp(): TemplateResult | NothingType {
@@ -1070,11 +1078,14 @@ export class GlBranchCard extends GlBranchCardBase {
 			html` <action-item
 				label="Visualize Branch History"
 				icon="graph-scatter"
-				href=${createCommandLink('gitlens.visualizeHistory.branch:home', {
-					type: 'branch',
-					repoPath: this.repo,
-					branchId: this.branch.id,
-				} satisfies OpenInTimelineParams)}
+				href=${createCommandLink(
+					'gitlens.visualizeHistory.branch:home' as GlExtensionCommands /* TODO@eamodio needs to be fixed */,
+					{
+						type: 'branch',
+						repoPath: this.repo,
+						branchId: this.branch.id,
+					} satisfies OpenInTimelineParams,
+				)}
 			></action-item>`,
 		);
 		actions.push(

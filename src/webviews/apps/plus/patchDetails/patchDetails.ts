@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- disabling until we can migrate to the new Lit-based base */
 /*global*/
 import './patchDetails.scss';
 import type { TextDocumentShowOptions } from 'vscode';

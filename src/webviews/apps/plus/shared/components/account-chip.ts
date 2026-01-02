@@ -331,7 +331,7 @@ export class GlAccountChip extends LitElement {
 							${this.hasAccount
 								? html`<gl-button
 											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+											href="${createCommandLink<Source>('gitlens.plus.validate', {
 												source: 'account',
 											})}"
 											tooltip="Synchronize Status"

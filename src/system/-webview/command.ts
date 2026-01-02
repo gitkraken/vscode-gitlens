@@ -8,7 +8,7 @@ import type {
 	CoreGitCommands,
 	GlCommands,
 	GlCommandsDeprecated,
-	WebviewCommands,
+	GlWebviewCommands,
 } from '../../constants.commands.js';
 import { actionCommandPrefix } from '../../constants.commands.js';
 import { Container } from '../../container.js';
@@ -83,7 +83,11 @@ export function registerCommand(
 	);
 }
 
-export function registerWebviewCommand(command: WebviewCommands, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerWebviewCommand(
+	command: GlWebviewCommands,
+	callback: CommandCallback,
+	thisArg?: any,
+): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {

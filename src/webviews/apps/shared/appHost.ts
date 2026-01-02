@@ -2,9 +2,11 @@ import { provide } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import type { CustomEditorIds, WebviewIds } from '../../../constants.views.js';
+import type { GlWebviewCommands } from '../../../constants.commands.js';
+import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
 import type { Deferrable } from '../../../system/function/debounce.js';
 import { debounce } from '../../../system/function/debounce.js';
+import { createWebviewCommandLink } from '../../../system/webview.js';
 import type { WebviewFocusChangedParams, WebviewState } from '../../protocol.js';
 import {
 	DidChangeWebviewFocusNotification,
@@ -86,9 +88,18 @@ export abstract class GlAppHost<
 		this.bootstrap = undefined!;
 
 		this._stateProvider = this.createStateProvider(bootstrap, this._ipc, this._logger);
+
+		const { webviewId, webviewInstanceId } = this._stateProvider.state;
 		this._webview = {
-			webviewId: this._stateProvider.state.webviewId,
-			webviewInstanceId: this._stateProvider.state.webviewInstanceId,
+			webviewId: webviewId,
+			webviewInstanceId: webviewInstanceId,
+			createCommandLink: (command, args) => {
+				if (command.endsWith(':')) {
+					command = `${command}${webviewId.split('.').at(-1) as WebviewTypes}` as GlWebviewCommands;
+				}
+
+				return createWebviewCommandLink(command as GlWebviewCommands, webviewId, webviewInstanceId, args);
+			},
 		};
 
 		const themeEvent = computeThemeColors();

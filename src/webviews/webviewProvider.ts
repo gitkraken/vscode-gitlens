@@ -1,6 +1,11 @@
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
-import type { WebviewCommands } from '../constants.commands.js';
-import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry.js';
+import type { GlWebviewCommands } from '../constants.commands.js';
+import type {
+	Source,
+	TelemetryEvents,
+	WebviewTelemetryContext,
+	WebviewTelemetryEvents,
+} from '../constants.telemetry.js';
 import type {
 	CustomEditorIds,
 	WebviewIds,
@@ -121,7 +126,7 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 		params: IpcCallResponseParamsType<T>,
 	): Promise<boolean>;
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: WebviewCommands,
+		command: GlWebviewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable;
 	show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]): Promise<void>;

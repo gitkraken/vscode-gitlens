@@ -394,7 +394,7 @@ export class ViewCommands implements Disposable {
 	}
 
 	@command('gitlens.views.title.createBranch', { args: () => [] })
-	@command('gitlens.views.createBranch')
+	@command('gitlens.createBranch:views')
 	@log()
 	private async createBranch(node?: ViewRefNode | ViewRefFileNode | BranchesNode | BranchTrackingStatusNode) {
 		let from =
@@ -415,7 +415,7 @@ export class ViewCommands implements Disposable {
 		return BranchActions.create(node?.repoPath, from);
 	}
 
-	@command('gitlens.views.createPullRequest')
+	@command('gitlens.createPullRequest:views')
 	@log()
 	private async createPullRequest(node: BranchNode | BranchTrackingStatusNode) {
 		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
@@ -530,7 +530,7 @@ export class ViewCommands implements Disposable {
 		return WorktreeActions.remove(node.repoPath, uris);
 	}
 
-	@command('gitlens.views.fetch')
+	@command('gitlens.fetch:views')
 	@log()
 	private fetch(node: RemoteNode | RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('repository', 'repo-folder')) return RepoActions.fetch(node.repo);
@@ -635,7 +635,7 @@ export class ViewCommands implements Disposable {
 		await openRebaseEditor(this.container, node.repoPath);
 	}
 
-	@command('gitlens.views.openPullRequest')
+	@command('gitlens.openPullRequest:views')
 	@log()
 	private openPullRequest(node: PullRequestNode) {
 		if (!node.is('pullrequest')) return Promise.resolve();
@@ -654,7 +654,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.views.openPullRequestChanges')
+	@command('gitlens.openPullRequestChanges:views')
 	@log()
 	private async openPullRequestChanges(node: PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('pullrequest') && !node.is('launchpad-item')) return Promise.resolve();
@@ -687,7 +687,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
-	@command('gitlens.views.openPullRequestComparison')
+	@command('gitlens.openPullRequestComparison:views')
 	@log()
 	private async openPullRequestComparison(node: PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('pullrequest') && !node.is('launchpad-item')) return Promise.resolve();
@@ -723,9 +723,9 @@ export class ViewCommands implements Disposable {
 		await openUrl(url);
 	}
 
-	@command('gitlens.views.openWorktree')
-	@command('gitlens.views.openWorktreeInNewWindow', { args: a => [a, undefined, { location: 'newWindow' }] })
-	@command('gitlens.views.openWorktreeInNewWindow.multi', {
+	@command('gitlens.openWorktree:views')
+	@command('gitlens.openWorktreeInNewWindow:views', { args: a => [a, undefined, { location: 'newWindow' }] })
+	@command('gitlens.openWorktreeInNewWindow.multi:views', {
 		args: (a, s) => [a, s, { location: 'newWindow' }],
 		multiselect: true,
 	})
@@ -1106,13 +1106,13 @@ export class ViewCommands implements Disposable {
 		return node.star();
 	}
 
-	@command('gitlens.views.switchToAnotherBranch')
+	@command('gitlens.switchToAnotherBranch:views')
 	@log()
 	private switch(node?: ViewNode) {
 		return RepoActions.switchTo(getNodeRepoPath(node));
 	}
 
-	@command('gitlens.views.switchToBranch')
+	@command('gitlens.switchToBranch:views')
 	@command('gitlens.views.switchToCommit')
 	@command('gitlens.views.switchToTag')
 	@log()
@@ -1826,7 +1826,7 @@ export class ViewCommands implements Disposable {
 		node.filter = filter;
 	}
 
-	@command('gitlens.views.associateIssueWithBranch')
+	@command('gitlens.associateIssueWithBranch:views')
 	@log()
 	private async associateIssueWithBranch(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();

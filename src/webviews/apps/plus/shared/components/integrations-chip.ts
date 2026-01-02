@@ -212,7 +212,7 @@ export class GlIntegrationsChip extends LitElement {
 					<span class="header__actions"></span>
 						<gl-button
 							appearance="toolbar"
-							href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+							href="${createCommandLink<Source>('gitlens.plus.validate', {
 								source: 'home',
 								detail: 'integrations',
 							})}"

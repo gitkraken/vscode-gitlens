@@ -3,8 +3,13 @@ import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState 
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { base64 } from '@env/base64.js';
 import { getNonce } from '@env/crypto.js';
-import type { WebviewCommands } from '../constants.commands.js';
-import type { Source, TelemetryEvents, WebviewTelemetryContext, WebviewTelemetryEvents } from '../constants.telemetry.js';
+import type { GlWebviewCommands } from '../constants.commands.js';
+import type {
+	Source,
+	TelemetryEvents,
+	WebviewTelemetryContext,
+	WebviewTelemetryEvents,
+} from '../constants.telemetry.js';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -252,7 +257,7 @@ export class WebviewController<
 	}
 
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: WebviewCommands,
+		command: GlWebviewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
 		return this._commandRegistrar.registerCommand(

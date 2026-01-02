@@ -4,6 +4,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import type { GlExtensionCommands } from '../../../../../constants.commands.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -211,10 +212,13 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Visualize Repo History"
-						href=${createCommandLink('gitlens.visualizeHistory.repo:home', {
-							type: 'repo',
-							repoPath: this._activeOverviewState.state!.repository.path,
-						} satisfies OpenInTimelineParams)}
+						href=${createCommandLink(
+							'gitlens.visualizeHistory.repo:home' as GlExtensionCommands /* TODO@eamodio needs to be fixed */,
+							{
+								type: 'repo',
+								repoPath: this._activeOverviewState.state!.repository.path,
+							} satisfies OpenInTimelineParams,
+						)}
 						><code-icon icon="graph-scatter"></code-icon></gl-button
 					><gl-button
 						aria-busy="${ifDefined(isFetching)}"

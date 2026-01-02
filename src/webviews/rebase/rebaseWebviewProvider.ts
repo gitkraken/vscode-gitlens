@@ -1,7 +1,7 @@
 import type { Disposable, TextDocument } from 'vscode';
 import { ViewColumn, workspace } from 'vscode';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
-import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
+import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { emojify } from '../../emojis.js';
@@ -81,7 +81,7 @@ import { RebaseTodoDocument } from './rebaseTodoDocument.js';
 
 export const maxSmallIntegerV8 = 2 ** 30 - 1;
 
-const { command, getCommands } = createCommandDecorator<WebviewCommandsOrCommandsWithSuffix<'rebase'>>();
+const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'rebase'>>();
 
 interface Enrichment {
 	commits: Map<string, GitCommit>;
@@ -391,7 +391,7 @@ export class RebaseWebviewProvider implements Disposable {
 		await this.onAbort();
 	}
 
-	@command('gitlens.pausedOperation.showConflicts:rebase')
+	@command('gitlens.pausedOperation.showConflicts:')
 	@log()
 	private async onShowConflicts(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/showConflicts');

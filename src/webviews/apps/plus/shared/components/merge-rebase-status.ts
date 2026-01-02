@@ -2,12 +2,10 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { WebviewCommands } from '../../../../../constants.commands.js';
-import type { WebviewTypeFromId } from '../../../../../constants.views.js';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus.js';
 import type { GitReference } from '../../../../../git/models/reference.js';
 import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils.js';
-import { createWebviewCommandLink } from '../../../../../system/webview.js';
+import { createCommandLink } from '../../../../../system/commands.js';
 import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -123,19 +121,7 @@ export class GlMergeConflictWarning extends LitElement {
 	private createPausedOperationCommandLink(
 		command: 'abort' | 'continue' | 'open' | 'showConflicts' | 'skip',
 	): string {
-		const { webviewId, webviewInstanceId } = this._webview;
-		const webviewType = webviewId.split('.').at(-1) as WebviewTypeFromId<typeof webviewId>;
-		if (webviewType !== 'graph' && webviewType !== 'home') {
-			debugger;
-			return '';
-		}
-
-		return createWebviewCommandLink(
-			`gitlens.pausedOperation.${command}:${webviewType}` as const,
-			webviewId,
-			webviewInstanceId,
-			this.pausedOpStatus,
-		);
+		return this._webview.createCommandLink(`gitlens.pausedOperation.${command}:`, this.pausedOpStatus);
 	}
 
 	override render(): unknown {
@@ -204,12 +190,10 @@ export class GlMergeConflictWarning extends LitElement {
 	}
 
 	private createJumpUrl(ref: GitReference): string {
-		return createWebviewCommandLink<ShowInCommitGraphCommandArgs>(
-			'gitlens.showInCommitGraph' as WebviewCommands,
-			this._webview.webviewId,
-			this._webview.webviewInstanceId,
-			{ ref: ref, source: { source: 'merge-target' } },
-		);
+		return createCommandLink<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+			ref: ref,
+			source: { source: 'merge-target' },
+		});
 	}
 
 	private renderActions() {

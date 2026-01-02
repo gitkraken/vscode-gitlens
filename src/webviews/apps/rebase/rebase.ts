@@ -10,7 +10,6 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
 import { filterMap, some } from '../../../system/iterable.js';
 import { pluralize } from '../../../system/string.js';
-import { createWebviewCommandLink } from '../../../system/webview.js';
 import type { RebaseActiveStatus, RebaseCommitEntry, RebaseEntry, State } from '../../rebase/protocol.js';
 import {
 	AbortCommand,
@@ -1323,11 +1322,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private get showConflictsCommandUrl(): string {
-		return createWebviewCommandLink(
-			'gitlens.pausedOperation.showConflicts:rebase',
-			this._webview.webviewId,
-			this._webview.webviewInstanceId,
-		);
+		return this._webview.createCommandLink('gitlens.pausedOperation.showConflicts:rebase');
 	}
 
 	private onCurrentCommitClick = () => {

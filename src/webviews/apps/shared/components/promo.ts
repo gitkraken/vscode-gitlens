@@ -3,7 +3,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { until } from 'lit/directives/until.js';
-import type { GlCommands } from '../../../../constants.commands.js';
+import type { GlExtensionCommands } from '../../../../constants.commands.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Promo } from '../../../../plus/gk/models/promo.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -127,9 +127,9 @@ export class GlPromo extends LitElement {
 	}
 
 	private getCommandUrl(promo: Promo | undefined) {
-		let command: GlCommands | undefined;
+		let command: GlExtensionCommands | undefined;
 		if (promo?.content?.webview?.link?.command?.startsWith('command:')) {
-			command = promo.content.webview.link.command.substring('command:'.length) as GlCommands;
+			command = promo.content.webview.link.command.substring('command:'.length) as GlExtensionCommands;
 		}
 
 		return createCommandLink<Source>(command ?? 'gitlens.plus.upgrade', this.source);

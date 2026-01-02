@@ -1,4 +1,4 @@
-import type { GlCommands } from '../../../constants.commands.js';
+import type { GlExtensionCommands } from '../../../constants.commands.js';
 import type { SubscriptionState } from '../../../constants.subscription.js';
 import type { PaidSubscriptionPlanIds } from './subscription.js';
 
@@ -25,7 +25,7 @@ export interface Promo {
 			readonly link?: {
 				readonly html: string;
 				readonly title: string;
-				readonly command?: GlCommands;
+				readonly command?: GlExtensionCommands;
 			};
 		};
 	};

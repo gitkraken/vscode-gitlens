@@ -1,10 +1,12 @@
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { fromNow } from '../../../../../system/date.js';
 import { pluralize } from '../../../../../system/string.js';
-import { createWebviewCommandLink } from '../../../../../system/webview.js';
 import type { BranchState, State } from '../../../../plus/graph/protocol.js';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import { actionButton, linkBase } from '../styles/graph.css.js';
 import '../../../shared/components/code-icon.js';
@@ -64,6 +66,9 @@ export class GitActionsButtons extends LitElement {
 export class GlFetchButton extends LitElement {
 	static override styles = [linkBase, inlineCode, actionButton, ruleStyles];
 
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
+
 	@property({ type: Object })
 	state!: State;
 
@@ -82,14 +87,7 @@ export class GlFetchButton extends LitElement {
 	override render() {
 		return html`
 			<gl-tooltip placement="bottom">
-				<a
-					href=${createWebviewCommandLink(
-						'gitlens.graph.fetch',
-						this.state.webviewId,
-						this.state.webviewInstanceId,
-					)}
-					class="action-button"
-				>
+				<a href=${this._webview.createCommandLink('gitlens.fetch:')} class="action-button">
 					<code-icon class="action-button__icon" icon="repo-fetch"></code-icon>
 					Fetch
 					${this.fetchedText ? html`<span class="action-button__small">(${this.fetchedText})</span>` : ''}
@@ -138,6 +136,9 @@ export class PushPullButton extends LitElement {
 			}
 		`,
 	];
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	@property({ type: Object })
 	branchState?: BranchState;
@@ -214,11 +215,7 @@ export class PushPullButton extends LitElement {
 		return html`
 			<gl-tooltip placement="bottom">
 				<a
-					href=${createWebviewCommandLink(
-						`gitlens.graph.${action}`,
-						this.state.webviewId,
-						this.state.webviewInstanceId,
-					)}
+					href=${this._webview.createCommandLink(`gitlens.graph.${action}`)}
 					class="action-button${this.isBehind ? ' is-behind' : ''}${this.isAhead ? ' is-ahead' : ''}"
 				>
 					<code-icon class="action-button__icon" icon=${icon}></code-icon>
@@ -256,11 +253,7 @@ export class PushPullButton extends LitElement {
 				? html`
 						<gl-tooltip placement="top" slot="anchor">
 							<a
-								href=${createWebviewCommandLink(
-									'gitlens.graph.pushWithForce',
-									this.state.webviewId,
-									this.state.webviewInstanceId,
-								)}
+								href=${this._webview.createCommandLink('gitlens.graph.pushWithForce')}
 								class="action-button"
 								aria-label="Force Push"
 							>

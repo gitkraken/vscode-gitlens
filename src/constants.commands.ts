@@ -174,6 +174,8 @@ type InternalGlCommands =
 	| InternalWalkthroughCommands;
 
 export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;
+/** Non-webview commands */
+export type GlExtensionCommands = Exclude<GlCommands, GlWebviewCommands>;
 export type GlPaletteCommands = ContributedPaletteCommands;
 
 export type CoreCommands =
@@ -240,17 +242,17 @@ type FilterCommands<Prefix extends string, U, Suffix extends string = ''> = U ex
 		: never
 	: never;
 
-export type PlusCommands = FilterCommands<'gitlens.plus.', GlCommands>;
+export type GlPlusCommands = FilterCommands<'gitlens.plus.', GlCommands>;
 
-export type TreeViewCommands =
+export type GlTreeViewCommands =
 	| FilterCommands<`gitlens.views.${TreeViewTypes}`, GlCommands>
 	| FilterCommands<`gitlens.`, GlCommands, ':views'>;
 
-export type TreeViewCommandsByViewId<T extends TreeViewIds> = FilterCommands<T, GlCommands>;
-export type TreeViewCommandsByViewType<T extends TreeViewTypes> = FilterCommands<`gitlens.views.${T}.`, GlCommands>;
-export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = ExtractSuffix<
+export type GlTreeViewCommandsByViewId<T extends TreeViewIds> = FilterCommands<T, GlCommands>;
+export type GlTreeViewCommandsByViewType<T extends TreeViewTypes> = FilterCommands<`gitlens.views.${T}.`, GlCommands>;
+export type GlTreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = ExtractSuffix<
 	`gitlens.views.${T}.`,
-	TreeViewCommandsByViewType<T>
+	GlTreeViewCommandsByViewType<T>
 >;
 
 type CustomEditorOrWebviewPanelCommands<T extends CustomEditorTypes | WebviewPanelTypes> =
@@ -262,13 +264,13 @@ type WebviewViewCommands<T extends WebviewViewTypes> =
 	| FilterCommands<'gitlens.views.', GlCommands, `:${T}`>
 	| FilterCommands<'gitlens.', GlCommands, `:${T}`>;
 
-export type WebviewCommands<T extends WebviewTypes = WebviewTypes> =
+export type GlWebviewCommands<T extends WebviewTypes = WebviewTypes> =
 	| (T extends CustomEditorTypes | WebviewPanelTypes ? CustomEditorOrWebviewPanelCommands<T> : never)
 	| (T extends WebviewViewTypes ? WebviewViewCommands<T> : never);
 
 /** Extracts command prefixes (before the type suffix) for use with decorated commands */
 type ExtractCommandPrefix<T, U extends string> = T extends `${infer Prefix}:${U}` ? `${Prefix}:` : never;
 
-export type WebviewCommandsOrCommandsWithSuffix<T extends WebviewTypes = WebviewTypes> =
-	| WebviewCommands<T>
-	| ExtractCommandPrefix<WebviewCommands<T>, T>;
+export type GlWebviewCommandsOrCommandsWithSuffix<T extends WebviewTypes = WebviewTypes> =
+	| GlWebviewCommands<T>
+	| ExtractCommandPrefix<GlWebviewCommands<T>, T>;

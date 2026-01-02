@@ -33,7 +33,7 @@ import type {
 	WorktreesViewConfig,
 } from '../config.js';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config.js';
-import type { TreeViewCommandSuffixesByViewType } from '../constants.commands.js';
+import type { GlTreeViewCommandSuffixesByViewType } from '../constants.commands.js';
 import type { TrackedUsageFeatures } from '../constants.telemetry.js';
 import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views.js';
 import type { Container } from '../container.js';
@@ -486,8 +486,8 @@ export abstract class ViewBase<
 	}
 
 	getQualifiedCommand(
-		command: TreeViewCommandSuffixesByViewType<Type>,
-	): `gitlens.views.${Type}.${TreeViewCommandSuffixesByViewType<Type>}` {
+		command: GlTreeViewCommandSuffixesByViewType<Type>,
+	): `gitlens.views.${Type}.${GlTreeViewCommandSuffixesByViewType<Type>}` {
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 

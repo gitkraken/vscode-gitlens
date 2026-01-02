@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- disabling until we can migrate to the new Lit-based base */
 /*global document IntersectionObserver*/
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations.js';

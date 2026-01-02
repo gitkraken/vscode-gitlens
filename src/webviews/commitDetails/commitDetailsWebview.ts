@@ -15,7 +15,7 @@ import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemot
 import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote.js';
 import type { CreatePatchCommandArgs } from '../../commands/patches.js';
-import type { WebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
+import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
 import type { ContextKeys } from '../../constants.context.js';
 import { isSupportedCloudIntegrationId } from '../../constants.integrations.js';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry.js';
@@ -159,7 +159,7 @@ import {
 import type { CommitDetailsWebviewShowingArgs } from './registration.js';
 
 const { command, getCommands } =
-	createCommandDecorator<WebviewCommandsOrCommandsWithSuffix<'commitDetails' | 'graphDetails'>>();
+	createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'commitDetails' | 'graphDetails'>>();
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
 

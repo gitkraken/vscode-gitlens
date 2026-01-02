@@ -20,7 +20,6 @@ import { createCommandLink } from '../../../../system/commands.js';
 import { debounce } from '../../../../system/decorators/debounce.js';
 import { hasTruthyKeys } from '../../../../system/object.js';
 import { wait } from '../../../../system/promise.js';
-import { createWebviewCommandLink } from '../../../../system/webview.js';
 import type {
 	DidChooseRefParams,
 	GraphExcludedRef,
@@ -54,6 +53,8 @@ import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
+import type { WebviewContext } from '../../shared/contexts/webview.js';
+import { webviewContext } from '../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { graphStateContext } from './context.js';
@@ -151,19 +152,17 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	// FIXME: remove light DOM
-	// protected override createRenderRoot(): HTMLElement | DocumentFragment {
-	// 	return this;
-	// }
-
 	@consume({ context: ipcContext })
-	_ipc!: typeof ipcContext.__context__;
+	private _ipc!: typeof ipcContext.__context__;
 
 	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
-	_telemetry!: TelemetryContext;
+	private _telemetry!: TelemetryContext;
 
 	@consume({ context: graphStateContext, subscribe: true })
-	graphState!: typeof graphStateContext.__context__;
+	private graphState!: typeof graphStateContext.__context__;
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	@state() private aiAllowed = true;
 
@@ -917,18 +916,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private renderTitlebarHeaderRow(repo: RepositoryShape | undefined) {
 		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
-		const {
-			allowed,
-			branch,
-			branchState,
-			config,
-			lastFetched,
-			loading,
-			state,
-			subscription,
-			webviewId,
-			webviewInstanceId,
-		} = this.graphState;
+		const { allowed, branch, branchState, config, lastFetched, loading, state, subscription } = this.graphState;
 
 		return html`<div class="titlebar__row titlebar__row--wrap">
 			<div class="titlebar__group">
@@ -980,11 +968,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							`,
 						)}
 						<gl-ref-button
-							href=${createWebviewCommandLink(
-								'gitlens.graph.switchToAnotherBranch',
-								webviewId,
-								webviewInstanceId,
-							)}
+							href=${this._webview.createCommandLink('gitlens.switchToAnotherBranch:')}
 							icon
 							.ref=${branch}
 							?worktree=${branchState?.worktree}
@@ -1073,11 +1057,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				</gl-tooltip>
 				<gl-tooltip placement="bottom">
 					<a
-						href=${createWebviewCommandLink(
-							'gitlens.visualizeHistory.repo:graph',
-							webviewId,
-							webviewInstanceId,
-						)}
+						href=${this._webview.createCommandLink('gitlens.visualizeHistory.repo:')}
 						class="action-button"
 						aria-label=${`Open Visual History`}
 					>

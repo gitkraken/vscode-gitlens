@@ -464,7 +464,7 @@ export class GlCommitDetailsApp extends GlAppHost<IpcSerialized<State>> {
 				break;
 			case 'switch':
 				this._ipc.sendCommand(SwitchCommand, undefined);
-				// this.onCommandClickedCore('gitlens.views.switchToBranch');
+				// this.onCommandClickedCore('gitlens.switchToBranch:views');
 				break;
 			case 'open-pr-changes':
 				this._ipc.sendCommand(OpenPullRequestChangesCommand, undefined);

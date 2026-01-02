@@ -1,8 +1,10 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
-import type { CustomEditorIds, WebviewIds } from '../../../constants.views.js';
+import type { GlWebviewCommands } from '../../../constants.commands.js';
+import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
 import { debounce } from '../../../system/function/debounce.js';
 import type { LogScope } from '../../../system/logger.scope.js';
+import { createWebviewCommandLink } from '../../../system/webview.js';
 import type {
 	IpcCallParamsType,
 	IpcCallResponseParamsType,
@@ -32,6 +34,7 @@ import { telemetryEventName } from './telemetry.js';
 import type { ThemeChangeEvent } from './theme.js';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme.js';
 
+/** @deprecated Use GlAppHost instead */
 export abstract class App<
 	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,
 > {
@@ -72,9 +75,17 @@ export abstract class App<
 		this._telemetry = new TelemetryContext(this._hostIpc);
 		disposables.push(this._telemetry);
 
+		const { webviewId, webviewInstanceId } = this.state;
 		this._webview = {
-			webviewId: this.state.webviewId,
-			webviewInstanceId: this.state.webviewInstanceId,
+			webviewId: webviewId,
+			webviewInstanceId: webviewInstanceId,
+			createCommandLink: (command, args) => {
+				if (command.endsWith(':')) {
+					command = `${command}${webviewId.split('.').at(-1) as WebviewTypes}` as GlWebviewCommands;
+				}
+
+				return createWebviewCommandLink(command as GlWebviewCommands, webviewId, webviewInstanceId, args);
+			},
 		};
 
 		new ContextProvider(document.body, { context: ipcContext, initialValue: this._hostIpc });

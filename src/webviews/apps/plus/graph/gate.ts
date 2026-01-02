@@ -3,7 +3,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { createWebviewCommandLink } from '../../../../system/webview.js';
+import { createCommandLink } from '../../../../system/commands.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphStateContext } from './context.js';
 import '../../shared/components/feature-badge.js';
@@ -30,12 +30,9 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 			.featurePreview=${this.graphState.featurePreview}
 			featurePreviewCommandLink=${ifDefined(
 				this.graphState.featurePreview
-					? createWebviewCommandLink(
-							'gitlens.plus.continueFeaturePreview',
-							this.graphState.webviewId,
-							this.graphState.webviewInstanceId,
-							{ feature: this.graphState.featurePreview.feature },
-						)
+					? createCommandLink('gitlens.plus.continueFeaturePreview', {
+							feature: this.graphState.featurePreview.feature,
+						})
 					: undefined,
 			)}
 			appearance="alert"
