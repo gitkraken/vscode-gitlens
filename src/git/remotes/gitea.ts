@@ -8,7 +8,11 @@ import type { GkProviderId } from '../models/repositoryIdentities.js';
 import type { GitRevisionRangeNotation } from '../models/revision.js';
 import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils.js';
 import { isSha } from '../utils/revision.utils.js';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider.js';
+import type {
+	LocalInfoFromRemoteUriResult,
+	RemoteProviderId,
+	RemoteProviderSupportedFeatures,
+} from './remoteProvider.js';
 import { RemoteProvider } from './remoteProvider.js';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;

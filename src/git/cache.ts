@@ -6,7 +6,13 @@ import type { PromiseOrValue } from '../system/promise.js';
 import { PromiseCache, PromiseMap, RepoPromiseCacheMap, RepoPromiseMap } from '../system/promiseCache.js';
 import { PathTrie } from '../system/trie.js';
 import type { GitIgnoreCache } from './gitIgnoreCache.js';
-import type { CachedGitTypes, GitCommitReachability, GitContributorsResult, GitDir, PagedResult } from './gitProvider.js';
+import type {
+	CachedGitTypes,
+	GitCommitReachability,
+	GitContributorsResult,
+	GitDir,
+	PagedResult,
+} from './gitProvider.js';
 import type { GitBranch } from './models/branch.js';
 import type { GitContributor } from './models/contributor.js';
 import type { ConflictDetectionResult } from './models/mergeConflicts.js';

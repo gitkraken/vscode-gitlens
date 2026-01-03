@@ -16,7 +16,11 @@ import { GitFileIndexStatus } from '../../../../../git/models/fileStatus.js';
 import type { GitRevisionRange } from '../../../../../git/models/revision.js';
 import { deletedOrMissing, uncommitted } from '../../../../../git/models/revision.js';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils.js';
-import { createRevisionRange, getRevisionRangeParts, isRevisionRange } from '../../../../../git/utils/revision.utils.js';
+import {
+	createRevisionRange,
+	getRevisionRangeParts,
+	isRevisionRange,
+} from '../../../../../git/utils/revision.utils.js';
 import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors.js';
 import { log } from '../../../../../system/decorators/log.js';
 import { union } from '../../../../../system/iterable.js';

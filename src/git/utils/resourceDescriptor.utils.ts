@@ -1,4 +1,8 @@
-import type { IssueResourceDescriptor, RepositoryDescriptor, ResourceDescriptor } from '../models/resourceDescriptor.js';
+import type {
+	IssueResourceDescriptor,
+	RepositoryDescriptor,
+	ResourceDescriptor,
+} from '../models/resourceDescriptor.js';
 
 export function isRepositoryDescriptor(resource: ResourceDescriptor): resource is RepositoryDescriptor {
 	return (

@@ -2,15 +2,25 @@ import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from '
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
 import { GitBranch } from '../../git/models/branch.js';
-import type { Repository, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository.js';
+import type {
+	Repository,
+	RepositoryChangeEvent,
+	RepositoryFileSystemChangeEvent,
+} from '../../git/models/repository.js';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository.js';
 import type { GitStatus } from '../../git/models/status.js';
 import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons.js';
 import { formatLastFetched } from '../../git/utils/-webview/repository.utils.js';
 import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils.js';
 import { getHighlanderProviders } from '../../git/utils/remote.utils.js';
-import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace.js';
-import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace.js';
+import type {
+	CloudWorkspace,
+	CloudWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models/cloudWorkspace.js';
+import type {
+	LocalWorkspace,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models/localWorkspace.js';
 import { findLastIndex } from '../../system/array.js';
 import { gate } from '../../system/decorators/gate.js';
 import { debug, log } from '../../system/decorators/log.js';

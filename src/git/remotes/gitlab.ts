@@ -24,7 +24,11 @@ import type { GitRevisionRangeNotation } from '../models/revision.js';
 import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons.js';
 import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils.js';
 import { isSha } from '../utils/revision.utils.js';
-import type { LocalInfoFromRemoteUriResult, RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider.js';
+import type {
+	LocalInfoFromRemoteUriResult,
+	RemoteProviderId,
+	RemoteProviderSupportedFeatures,
+} from './remoteProvider.js';
 import { RemoteProvider } from './remoteProvider.js';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;

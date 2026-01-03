@@ -2,7 +2,12 @@ import type { Uri } from 'vscode';
 import type { FileAnnotationType } from './config.js';
 import type { AnnotationStatus, Keys } from './constants.js';
 import type { SubscriptionState } from './constants.subscription.js';
-import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewPanelTypes, WebviewViewTypes } from './constants.views.js';
+import type {
+	CustomEditorTypes,
+	GroupableTreeViewTypes,
+	WebviewPanelTypes,
+	WebviewViewTypes,
+} from './constants.views.js';
 import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { Features } from './features.js';
 import type { OrgAIProviders } from './plus/gk/models/organization.js';

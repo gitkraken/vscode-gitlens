@@ -2,7 +2,12 @@ import type { GitBranch } from '../../models/branch.js';
 import { isBranch } from '../../models/branch.js';
 import type { GitCommit, GitStashCommit } from '../../models/commit.js';
 import { isCommit } from '../../models/commit.js';
-import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../../models/reference.js';
+import type {
+	GitBranchReference,
+	GitReference,
+	GitRevisionReference,
+	GitTagReference,
+} from '../../models/reference.js';
 import type { GitTag } from '../../models/tag.js';
 import { isTag } from '../../models/tag.js';
 import { createReference } from '../reference.utils.js';

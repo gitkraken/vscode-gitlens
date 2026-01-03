@@ -16,8 +16,20 @@ import { executeCommand } from '../../system/-webview/command.js';
 import { isStringArray } from '../../system/array.js';
 import { Logger } from '../../system/logger.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
-import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand.js';
-import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand.js';
+import type {
+	PartialStepState,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand.js';
+import {
+	canPickStepContinue,
+	endSteps,
+	isCrossCommandReference,
+	QuickCommand,
+	StepResultBreak,
+} from '../quickCommand.js';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
