@@ -1,7 +1,7 @@
 import { ContextProvider } from '@lit/context';
+import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type { State } from '../../../plus/timeline/protocol.js';
 import { DidChangeNotification } from '../../../plus/timeline/protocol.js';
-import type { IpcMessage } from '../../../protocol.js';
 import type { ReactiveElementHost } from '../../shared/appHost.js';
 import { StateProviderBase } from '../../shared/stateProviderBase.js';
 import { stateContext } from './context.js';

@@ -7,6 +7,7 @@ import type { GlCommands } from '../../../../constants.commands.js';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts.js';
 import { debounce } from '../../../../system/function/debounce.js';
 import type { Serialized } from '../../../../system/serialize.js';
+import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol.js';
 import {
 	ApplyPatchCommand,
@@ -38,7 +39,6 @@ import {
 	UpdatePatchUserSelectionCommand,
 	UpdatePreferencesCommand,
 } from '../../../plus/patchDetails/protocol.js';
-import type { IpcMessage } from '../../../protocol.js';
 import { ExecuteCommand } from '../../../protocol.js';
 import { App } from '../../shared/appBase.js';
 import { DOM } from '../../shared/dom.js';

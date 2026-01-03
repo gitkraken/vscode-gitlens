@@ -11,7 +11,7 @@ import {
 	SwitchModeCommand,
 	UpdatePreferencesCommand,
 } from '../../commitDetails/protocol.js';
-import type { IpcMessage } from '../../protocol.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { ReactiveElementHost } from '../shared/appHost.js';
 import { StateProviderBase } from '../shared/stateProviderBase.js';
 import { stateContext } from './context.js';

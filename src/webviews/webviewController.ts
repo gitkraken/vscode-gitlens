@@ -35,7 +35,8 @@ import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.s
 import { pauseOnCancelOrTimeout } from '../system/promise.js';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch.js';
 import type { WebviewContext } from '../system/webview.js';
-import type { IpcPromise } from './ipc.js';
+import { dispatchIpcMessage } from './ipc/handlerRegistry.js';
+import type { IpcPromise } from './ipc/models/dataTypes.js';
 import type {
 	IpcCallMessageType,
 	IpcCallParamsType,
@@ -43,9 +44,8 @@ import type {
 	IpcMessage,
 	IpcNotification,
 	IpcRequest,
-	WebviewFocusChangedParams,
-	WebviewState,
-} from './protocol.js';
+} from './ipc/models/ipc.js';
+import type { WebviewFocusChangedParams, WebviewState } from './protocol.js';
 import {
 	ApplicablePromoRequest,
 	DidChangeHostWindowFocusNotification,
@@ -561,7 +561,10 @@ export class WebviewController<
 				break;
 
 			default:
-				this.provider.onMessageReceived?.(e);
+				// Try @ipc decorated handlers first, then fall back to onMessageReceived
+				if (!(await dispatchIpcMessage(this, this.provider, e))) {
+					this.provider.onMessageReceived?.(e);
+				}
 				break;
 		}
 	}

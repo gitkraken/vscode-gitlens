@@ -3,7 +3,7 @@ import type { RebaseTodoCommitAction } from '../../../git/models/rebase.js';
 import type { Deferrable } from '../../../system/function/debounce.js';
 import { debounce } from '../../../system/function/debounce.js';
 import type { IpcSerialized } from '../../../system/ipcSerialize.js';
-import type { IpcMessage } from '../../protocol.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { State as _State, Commit } from '../../rebase/protocol.js';
 import {
 	DidChangeAvatarsNotification,

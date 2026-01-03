@@ -7,8 +7,8 @@ import { isRepository } from '../../git/models/repository.js';
 import { isTag } from '../../git/models/tag.js';
 import { isWorktree } from '../../git/models/worktree.js';
 import { isViewNode } from '../../views/nodes/utils/-webview/node.utils.js';
-import type { IpcDate, IpcPromise, IpcUri } from '../../webviews/ipc.js';
-import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc.js';
+import type { IpcDate, IpcPromise, IpcUri } from '../../webviews/ipc/models/dataTypes.js';
+import { getIpcTaggedType, isIpcPromise } from '../../webviews/ipc/utils/ipc.utils.js';
 import { IpcPromiseSettled } from '../../webviews/protocol.js';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {

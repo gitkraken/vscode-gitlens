@@ -3,8 +3,9 @@ import type { FeatureAccess } from '../../../features.js';
 import type { GitReference } from '../../../git/models/reference.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Serialized } from '../../../system/serialize.js';
-import type { IpcScope, WebviewState } from '../../protocol.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol.js';
+import type { IpcScope } from '../../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
 
 export const scope: IpcScope = 'timeline';
 

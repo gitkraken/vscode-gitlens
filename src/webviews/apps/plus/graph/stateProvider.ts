@@ -1,7 +1,13 @@
 import { ContextProvider } from '@lit/context';
 import { debounce } from '../../../../system/function/debounce.js';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope.js';
-import type { DidSearchParams, GraphSearchResults, GraphSearchResultsError, State } from '../../../plus/graph/protocol.js';
+import type { IpcMessage } from '../../../ipc/models/ipc.js';
+import type {
+	DidSearchParams,
+	GraphSearchResults,
+	GraphSearchResultsError,
+	State,
+} from '../../../plus/graph/protocol.js';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -23,7 +29,7 @@ import {
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 } from '../../../plus/graph/protocol.js';
-import type { IpcMessage, WebviewState } from '../../../protocol.js';
+import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
 import type { ReactiveElementHost } from '../../shared/appHost.js';
 import { signalObjectState, signalState } from '../../shared/components/signal-utils.js';

@@ -1,8 +1,9 @@
 import type { Context, ContextProvider, ContextType } from '@lit/context';
 import { fromBase64ToString } from '@env/base64.js';
-import type { CustomEditorIds, WebviewIds } from '../../../constants.views.js';
+import type { WebviewIds } from '../../../constants.views.js';
 import { isPromise } from '../../../system/promise.js';
-import type { IpcMessage, WebviewState } from '../../protocol.js';
+import type { IpcMessage } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
 import { WebviewReadyRequest } from '../../protocol.js';
 import type { ReactiveElementHost } from './appHost.js';
 import type { LoggerContext } from './contexts/logger.js';
@@ -18,7 +19,7 @@ import type { HostIpc } from './ipc.js';
  * - Async: Requests full state from extension after connection
  */
 export abstract class StateProviderBase<
-	ID extends WebviewIds | CustomEditorIds,
+	ID extends WebviewIds,
 	State extends WebviewState<ID>,
 	TContext extends Context<unknown, State>,
 > implements Disposable {

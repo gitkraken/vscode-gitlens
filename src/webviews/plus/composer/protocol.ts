@@ -2,8 +2,9 @@ import type { Sources } from '../../../constants.telemetry.js';
 import type { GitCommitIdentityShape } from '../../../git/models/commit.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { AIModel } from '../../../plus/ai/models/model.js';
-import type { IpcScope, WebviewState } from '../../protocol.js';
-import { IpcCommand, IpcNotification } from '../../protocol.js';
+import type { IpcScope } from '../../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
 
 export const scope: IpcScope = 'composer';
 

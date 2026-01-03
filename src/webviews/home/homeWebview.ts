@@ -97,24 +97,23 @@ import { SubscriptionManager } from '../../system/subscriptionManager.js';
 import { isWebviewContext } from '../../system/webview.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
+import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
+import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
 import type { ComposerCommandArgs } from '../plus/composer/registration.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { Change } from '../plus/patchDetails/protocol.js';
 import type { TimelineCommandArgs } from '../plus/timeline/registration.js';
-import type { IpcMessage } from '../protocol.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
 import type {
 	BranchAndTargetRefs,
 	BranchRef,
-	CollapseSectionParams,
 	CreatePullRequestCommandArgs,
 	DidChangeRepositoriesParams,
 	GetActiveOverviewResponse,
 	GetInactiveOverviewResponse,
 	GetOverviewBranch,
 	IntegrationState,
-	OpenInGraphParams,
 	OpenInTimelineParams,
 	OpenWorktreeCommandArgs,
 	OverviewFilters,
@@ -390,49 +389,37 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return commands;
 	}
 
-	private setOverviewFilter(value: OverviewFilters) {
-		this._overviewBranchFilter = value;
+	@ipcCommand(SetOverviewFilter)
+	private onSetOverviewFilter(params: IpcParams<typeof SetOverviewFilter>) {
+		this._overviewBranchFilter = params;
 		void this.host.notify(DidChangeOverviewFilter, { filter: this._overviewBranchFilter });
 	}
 
-	async onMessageReceived(e: IpcMessage): Promise<void> {
-		switch (true) {
-			case CollapseSectionCommand.is(e):
-				this.onCollapseSection(e.params);
-				break;
-			case DismissWalkthroughSection.is(e):
-				this.dismissWalkthrough();
-				break;
+	@ipcRequest(GetLaunchpadSummary)
+	private async onGetLaunchpadSummary(): Promise<IpcResponse<typeof GetLaunchpadSummary>> {
+		return getLaunchpadSummary(this.container);
+	}
 
-			case DismissAiAllAccessBannerCommand.is(e):
-				void this.dismissAiAllAccessBanner();
-				break;
-			case SetOverviewFilter.is(e):
-				this.setOverviewFilter(e.params);
-				break;
-			case GetLaunchpadSummary.is(e):
-				void this.host.respond(GetLaunchpadSummary, e, await getLaunchpadSummary(this.container));
-				break;
-			case GetOverviewFilterState.is(e):
-				void this.host.respond(GetOverviewFilterState, e, this._overviewBranchFilter);
-				break;
-			case ChangeOverviewRepositoryCommand.is(e):
-				if ((await this.onChooseRepository()) == null) return;
-				void this.host.notify(DidChangeOverviewRepository, undefined);
-				break;
-			case TogglePreviewEnabledCommand.is(e):
-				this.onTogglePreviewEnabled();
-				break;
-			case OpenInGraphCommand.is(e):
-				this.showInCommitGraph(e.params);
-				break;
-			case GetActiveOverview.is(e):
-				void this.host.respond(GetActiveOverview, e, await this.getActiveBranchOverview());
-				break;
-			case GetInactiveOverview.is(e):
-				void this.host.respond(GetInactiveOverview, e, await this.getInactiveBranchOverview());
-				break;
-		}
+	@ipcRequest(GetOverviewFilterState)
+	private onGetOverviewFilterState(): IpcResponse<typeof GetOverviewFilterState> {
+		return this._overviewBranchFilter;
+	}
+
+	@ipcCommand(ChangeOverviewRepositoryCommand)
+	private async onChangeOverviewRepository() {
+		if ((await this.onChooseRepository()) == null) return;
+
+		void this.host.notify(DidChangeOverviewRepository, undefined);
+	}
+
+	@ipcRequest(GetActiveOverview)
+	private onGetActiveOverview(): Promise<IpcResponse<typeof GetActiveOverview>> {
+		return this.getActiveBranchOverview();
+	}
+
+	@ipcRequest(GetInactiveOverview)
+	private onGetInactiveOverview(): Promise<IpcResponse<typeof GetInactiveOverview>> {
+		return this.getInactiveBranchOverview();
 	}
 
 	includeBootstrap(_deferrable?: boolean): Promise<State> {
@@ -489,11 +476,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
+	@ipcCommand(OpenInGraphCommand)
 	@command('gitlens.showInCommitGraph:')
 	@log<HomeWebviewProvider['showInCommitGraph']>({
 		args: { 0: p => `${p?.type}, repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
 	})
-	private showInCommitGraph(params: OpenInGraphParams) {
+	private showInCommitGraph(params: IpcParams<typeof OpenInGraphCommand>) {
 		const repoInfo = params != null ? this._repositoryBranches.get(params.repoPath) : undefined;
 		if (repoInfo == null) {
 			void executeCommand('gitlens.showGraph', this.getSelectedRepository());
@@ -735,6 +723,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void showPatchesView({ mode: 'create', create: { changes: [change] } });
 	}
 
+	@ipcCommand(TogglePreviewEnabledCommand)
 	private onTogglePreviewEnabled(isEnabled?: boolean) {
 		if (isEnabled === undefined) {
 			isEnabled = !this.getPreviewEnabled();
@@ -751,7 +740,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		configuration.updateEffective('home.preview.enabled', isEnabled);
 	}
 
-	private onCollapseSection(params: CollapseSectionParams) {
+	@ipcCommand(CollapseSectionCommand)
+	private onCollapseSection(params: IpcParams<typeof CollapseSectionCommand>) {
 		const collapsed = this.container.storage.get('home:sections:collapsed');
 		if (collapsed == null) {
 			if (params.collapsed === true) {
@@ -775,6 +765,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
+	@ipcCommand(DismissWalkthroughSection)
 	@log()
 	private dismissWalkthrough() {
 		const dismissed = this.container.storage.get('home:walkthrough:dismissed');
@@ -830,6 +821,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return subscription.account?.id ?? '00000000';
 	}
 
+	@ipcCommand(DismissAiAllAccessBannerCommand)
 	@log()
 	private async dismissAiAllAccessBanner() {
 		this.container.telemetry.sendEvent('aiAllAccess/bannerDismissed', undefined, { source: 'home' });

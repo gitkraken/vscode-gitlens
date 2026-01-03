@@ -7,8 +7,9 @@ import type {
 	RebaseTodoCommitAction,
 } from '../../git/models/rebase.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
-import type { IpcScope, WebviewState } from '../protocol.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../protocol.js';
+import type { IpcScope } from '../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
+import type { WebviewState } from '../protocol.js';
 
 export const scope: IpcScope = 'rebase';
 

@@ -45,8 +45,9 @@ import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
 import type { DateTimeFormat } from '../../../system/date.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
-import type { IpcScope, WebviewState } from '../../protocol.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol.js';
+import type { IpcScope } from '../../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
+import type { WebviewState } from '../../protocol.js';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
 

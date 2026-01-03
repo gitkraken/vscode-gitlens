@@ -25,20 +25,15 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { onDidChangeContext } from '../../../system/-webview/context.js';
 import { getSettledValue } from '../../../system/promise.js';
 import { PromiseCache } from '../../../system/promiseCache.js';
-import type { IpcMessage } from '../../protocol.js';
+import type { IpcParams } from '../../ipc/handlerRegistry.js';
+import { ipcCommand } from '../../ipc/handlerRegistry.js';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
 import type {
-	AIFeedbackParams,
 	ComposerBaseCommit,
 	ComposerCommit,
 	ComposerContext,
 	ComposerHunk,
 	ComposerSafetyState,
-	FinishAndCommitParams,
-	GenerateCommitMessageParams,
-	GenerateCommitsParams,
-	OnAddHunksToCommitParams,
-	ReloadComposerParams,
 	State,
 } from './protocol.js';
 import {
@@ -159,68 +154,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._generateCommitMessageCancellation?.dispose();
 		this._repositorySubscription?.dispose();
 		this._disposable.dispose();
-	}
-
-	onMessageReceived(e: IpcMessage): void {
-		switch (true) {
-			case GenerateCommitsCommand.is(e):
-				void this.onGenerateCommits(e.params);
-				break;
-			case GenerateCommitMessageCommand.is(e):
-				void this.onGenerateCommitMessage(e.params);
-				break;
-			case FinishAndCommitCommand.is(e):
-				void this.onFinishAndCommit(e.params);
-				break;
-			case CloseComposerCommand.is(e):
-				void this.close();
-				break;
-			case ReloadComposerCommand.is(e):
-				void this.onReloadComposer(e.params);
-				break;
-			case OnSelectAIModelCommand.is(e):
-				void this.onSelectAIModel();
-				break;
-			case AIFeedbackHelpfulCommand.is(e):
-				void this.onAIFeedbackHelpful(e.params);
-				break;
-			case AIFeedbackUnhelpfulCommand.is(e):
-				void this.onAIFeedbackUnhelpful(e.params);
-				break;
-			case CancelGenerateCommitsCommand.is(e):
-				void this.onCancelGenerateCommits();
-				break;
-			case CancelGenerateCommitMessageCommand.is(e):
-				void this.onCancelGenerateCommitMessage();
-				break;
-			case ClearAIOperationErrorCommand.is(e):
-				void this.onClearAIOperationError();
-				break;
-			case OpenOnboardingCommand.is(e):
-				this.onOpenOnboarding();
-				break;
-			case AdvanceOnboardingCommand.is(e):
-				this.onAdvanceOnboarding(e.params);
-				break;
-			case DismissOnboardingCommand.is(e):
-				this.onDismissOnboarding();
-				break;
-			case OnAddHunksToCommitCommand.is(e):
-				void this.onAddHunksToCommit(e.params);
-				break;
-			case OnUndoCommand.is(e):
-				this.onUndo();
-				break;
-			case OnRedoCommand.is(e):
-				this.onRedo();
-				break;
-			case OnResetCommand.is(e):
-				this.onReset();
-				break;
-			case ChooseRepositoryCommand.is(e):
-				void this.onChooseRepository();
-				break;
-		}
 	}
 
 	getTelemetryContext(): ComposerTelemetryContext {
@@ -785,7 +718,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		};
 	}
 
-	private async onAddHunksToCommit(params: OnAddHunksToCommitParams) {
+	@ipcCommand(OnAddHunksToCommitCommand)
+	private async onAddHunksToCommit(params: IpcParams<typeof OnAddHunksToCommitCommand>) {
 		if (params.source === 'unstaged') {
 			// Update context to indicate unstaged changes were included
 			this._context.diff.unstagedIncluded = true;
@@ -798,20 +732,24 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(OnUndoCommand)
 	private onUndo(): void {
 		this._context.operations.undo.count++;
 		this.host.sendTelemetryEvent('composer/action/undo');
 	}
 
+	@ipcCommand(OnRedoCommand)
 	private onRedo(): void {
 		this._context.operations.redo.count++;
 	}
 
+	@ipcCommand(OnResetCommand)
 	private onReset(): void {
 		this._context.operations.reset.count++;
 		this.host.sendTelemetryEvent('composer/action/reset');
 	}
 
+	@ipcCommand(ChooseRepositoryCommand)
 	private async onChooseRepository(): Promise<void> {
 		const { title, placeholder } = getRepositoryPickerTitleAndPlaceholder(
 			this.container.git.openRepositories,
@@ -834,7 +772,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		});
 	}
 
-	private async onReloadComposer(params: ReloadComposerParams): Promise<void> {
+	@ipcCommand(ReloadComposerCommand)
+	private async onReloadComposer(params: IpcParams<typeof ReloadComposerCommand>): Promise<void> {
 		try {
 			// Clear cache to force fresh data on reload
 			this._cache.clear();
@@ -925,6 +864,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(CancelGenerateCommitsCommand)
 	private async onCancelGenerateCommits(): Promise<void> {
 		if (this._generateCommitsCancellation) {
 			this._generateCommitsCancellation.cancel();
@@ -932,6 +872,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(CancelGenerateCommitMessageCommand)
 	private async onCancelGenerateCommitMessage(): Promise<void> {
 		if (this._generateCommitMessageCancellation) {
 			this._generateCommitMessageCancellation.cancel();
@@ -939,16 +880,19 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(ClearAIOperationErrorCommand)
 	private async onClearAIOperationError(): Promise<void> {
 		// Send notification to clear the AI operation error
 		await this.host.notify(DidClearAIOperationErrorNotification, undefined);
 	}
 
+	@ipcCommand(OpenOnboardingCommand)
 	private onOpenOnboarding(): void {
 		this.advanceOnboardingStep(1);
 	}
 
-	private onAdvanceOnboarding(params: { stepNumber: number }): void {
+	@ipcCommand(AdvanceOnboardingCommand)
+	private onAdvanceOnboarding(params: IpcParams<typeof AdvanceOnboardingCommand>): void {
 		this.advanceOnboardingStep(params.stepNumber);
 	}
 
@@ -963,6 +907,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		void this.container.storage.store('composer:onboarding:stepReached', highestStep).catch();
 	}
 
+	@ipcCommand(DismissOnboardingCommand)
 	private onDismissOnboarding(): void {
 		if (this.isOnboardingDismissed()) {
 			return;
@@ -1010,7 +955,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private async close(): Promise<void> {
+	@ipcCommand(CloseComposerCommand)
+	private async onClose(): Promise<void> {
 		this._context.sessionDuration = Date.now() - new Date(this._context.sessionStart).getTime();
 		await commands.executeCommand('workbench.action.closeActiveEditor');
 	}
@@ -1029,6 +975,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	@ipcCommand(OnSelectAIModelCommand)
 	private async onSelectAIModel(): Promise<void> {
 		// Trigger the AI provider/model switch command
 		await commands.executeCommand<Source>('gitlens.ai.switchProvider', {
@@ -1038,13 +985,15 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		});
 	}
 
-	private async onAIFeedbackHelpful(params: AIFeedbackParams): Promise<void> {
+	@ipcCommand(AIFeedbackHelpfulCommand)
+	private async onAIFeedbackHelpful(params: IpcParams<typeof AIFeedbackHelpfulCommand>): Promise<void> {
 		// Send AI feedback for composer auto-composition
 		this._context.operations.generateCommits.feedback.upvoteCount++;
 		await this.sendComposerAIFeedback('helpful', params.sessionId);
 	}
 
-	private async onAIFeedbackUnhelpful(params: AIFeedbackParams): Promise<void> {
+	@ipcCommand(AIFeedbackUnhelpfulCommand)
+	private async onAIFeedbackUnhelpful(params: IpcParams<typeof AIFeedbackUnhelpfulCommand>): Promise<void> {
 		// Send AI feedback for composer auto-composition
 		this._context.operations.generateCommits.feedback.downvoteCount++;
 		await this.sendComposerAIFeedback('unhelpful', params.sessionId);
@@ -1135,7 +1084,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		await this.host.notify(DidWorkingDirectoryChangeNotification, undefined);
 	}
 
-	private async onGenerateCommits(params: GenerateCommitsParams): Promise<void> {
+	@ipcCommand(GenerateCommitsCommand)
+	private async onGenerateCommits(params: IpcParams<typeof GenerateCommitsCommand>): Promise<void> {
 		const eventData: WebviewTelemetryEvents[`composer/action/${'compose' | 'recompose'}`] = {
 			'customInstructions.used': false,
 			'customInstructions.length': 0,
@@ -1362,7 +1312,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private async onGenerateCommitMessage(params: GenerateCommitMessageParams): Promise<void> {
+	@ipcCommand(GenerateCommitMessageCommand)
+	private async onGenerateCommitMessage(params: IpcParams<typeof GenerateCommitMessageCommand>): Promise<void> {
 		const eventData: WebviewTelemetryEvents['composer/action/generateCommitMessage'] = {
 			'customInstructions.setting.used': false,
 			'customInstructions.setting.length': 0,
@@ -1486,7 +1437,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private async onFinishAndCommit(params: FinishAndCommitParams): Promise<void> {
+	@ipcCommand(FinishAndCommitCommand)
+	private async onFinishAndCommit(params: IpcParams<typeof FinishAndCommitCommand>): Promise<void> {
 		try {
 			// Notify webview that committing is starting
 			await this.host.notify(DidStartCommittingNotification, undefined);

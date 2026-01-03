@@ -7,7 +7,13 @@ import { Logger } from '../../../system/logger.js';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../../../system/logger.scope.js';
 import type { Serialized } from '../../../system/serialize.js';
 import { maybeStopWatch } from '../../../system/stopwatch.js';
-import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol.js';
+import type {
+	IpcCallParamsType,
+	IpcCallResponseParamsType,
+	IpcCommand,
+	IpcMessage,
+	IpcRequest,
+} from '../../ipc/models/ipc.js';
 import { IpcPromiseSettled } from '../../protocol.js';
 import { DOM } from './dom.js';
 import type { Disposable, Event } from './events.js';

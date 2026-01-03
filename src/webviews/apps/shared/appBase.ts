@@ -11,9 +11,8 @@ import type {
 	IpcCommand,
 	IpcMessage,
 	IpcRequest,
-	WebviewFocusChangedParams,
-	WebviewState,
-} from '../../protocol.js';
+} from '../../ipc/models/ipc.js';
+import type { WebviewFocusChangedParams, WebviewState } from '../../protocol.js';
 import {
 	DidChangeWebviewFocusNotification,
 	DidChangeWebviewVisibilityNotification,

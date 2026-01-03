@@ -13,9 +13,10 @@ import type { GitCommitSearchContext } from '../../git/search.js';
 import type { Draft, DraftVisibility } from '../../plus/drafts/models/drafts.js';
 import type { DateTimeFormat } from '../../system/date.js';
 import type { WebviewItemContext } from '../../system/webview.js';
+import type { IpcScope } from '../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
 import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol.js';
-import type { IpcScope, WebviewState } from '../protocol.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../protocol.js';
+import type { WebviewState } from '../protocol.js';
 
 export const scope: IpcScope = 'commitDetails';
 

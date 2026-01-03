@@ -158,7 +158,9 @@ import { createDisposable } from '../../../system/unifiedDisposable.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
-import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../protocol.js';
+import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
+import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
+import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
@@ -175,14 +177,6 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	BranchState,
-	DidChangeRefsVisibilityParams,
-	DidGetCountParams,
-	DidGetRowHoverParams,
-	DidSearchParams,
-	DoubleClickedParams,
-	GetMissingAvatarsParams,
-	GetMissingRefsMetadataParams,
-	GetMoreRowsParams,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphColumnsConfig,
@@ -205,18 +199,7 @@ import type {
 	GraphSelectedRows,
 	GraphSelection,
 	GraphWorkingTreeStats,
-	OpenPullRequestDetailsParams,
-	RowActionParams,
-	SearchOpenInViewParams,
-	SearchParams,
 	State,
-	UpdateColumnsParams,
-	UpdateExcludeTypesParams,
-	UpdateGraphConfigurationParams,
-	UpdateGraphSearchModeParams,
-	UpdateIncludedRefsParams,
-	UpdateRefsVisibilityParams,
-	UpdateSelectionParams,
 } from './protocol.js';
 import {
 	ChooseAuthorRequest,
@@ -615,117 +598,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	onMessageReceived(e: IpcMessage): void {
-		switch (true) {
-			case ChooseRepositoryCommand.is(e):
-				void this.onChooseRepository();
-				break;
-			case ChooseAuthorRequest.is(e):
-				void this.onChooseAuthor(ChooseAuthorRequest, e);
-				break;
-			case ChooseRefRequest.is(e):
-				void this.onChooseRef(ChooseRefRequest, e);
-				break;
-			case ChooseComparisonRequest.is(e):
-				void this.onChooseComparison(ChooseComparisonRequest, e);
-				break;
-			case ChooseFileRequest.is(e):
-				void this.onChooseFile(ChooseFileRequest, e);
-				break;
-			case JumpToHeadRequest.is(e):
-				void this.onJumpToHead(JumpToHeadRequest, e);
-				break;
-			case DoubleClickedCommand.is(e):
-				void this.onDoubleClick(e.params);
-				break;
-			case EnsureRowRequest.is(e):
-				void this.onEnsureRowRequest(EnsureRowRequest, e);
-				break;
-			case GetCountsRequest.is(e):
-				void this.onGetCounts(GetCountsRequest, e);
-				break;
-			case GetMissingAvatarsCommand.is(e):
-				void this.onGetMissingAvatars(e.params);
-				break;
-			case GetMissingRefsMetadataCommand.is(e):
-				void this.onGetMissingRefMetadata(e.params);
-				break;
-			case GetMoreRowsCommand.is(e):
-				void this.onGetMoreRows(e.params);
-				break;
-			case GetRowHoverRequest.is(e):
-				void this.onHoverRowRequest(GetRowHoverRequest, e);
-				break;
-			case OpenPullRequestDetailsCommand.is(e):
-				void this.onOpenPullRequestDetails(e.params);
-				break;
-			case RowActionCommand.is(e):
-				void this.onRowAction(e.params);
-				break;
-			case SearchRequest.is(e):
-				void this.onSearchRequest(SearchRequest, e);
-				break;
-			case SearchCancelCommand.is(e):
-				this.onSearchCancel(e.params);
-				break;
-			case SearchOpenInViewCommand.is(e):
-				this.onSearchOpenInView(e.params);
-				break;
-			case SearchHistoryGetRequest.is(e):
-				this.onSearchHistoryGetRequest(SearchHistoryGetRequest, e);
-				break;
-			case SearchHistoryStoreRequest.is(e):
-				void this.onSearchHistoryStoreRequest(SearchHistoryStoreRequest, e);
-				break;
-			case SearchHistoryDeleteRequest.is(e):
-				void this.onSearchHistoryDeleteRequest(SearchHistoryDeleteRequest, e);
-				break;
-			case UpdateColumnsCommand.is(e):
-				this.onColumnsChanged(e.params);
-				break;
-			case UpdateGraphConfigurationCommand.is(e):
-				this.updateGraphConfig(e.params);
-				break;
-			case UpdateGraphSearchModeCommand.is(e):
-				this.updateGraphSearchMode(e.params);
-				break;
-			case UpdateExcludeTypesCommand.is(e):
-				this.updateExcludedTypes(this._graph?.repoPath, e.params);
-				break;
-			case UpdateIncludedRefsCommand.is(e):
-				this.updateIncludeOnlyRefs(this._graph?.repoPath, e.params);
-				break;
-			case UpdateRefsVisibilityCommand.is(e):
-				this.onRefsVisibilityChanged(e.params);
-				break;
-			case UpdateSelectionCommand.is(e):
-				this.onSelectionChanged(e.params);
-				break;
-		}
-	}
-	private async onGetCounts<T extends typeof GetCountsRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		let counts: DidGetCountParams;
-		if (this._graph != null) {
-			const tags = await this.container.git.getRepositoryService(this._graph.repoPath).tags.getTags();
-			counts = {
-				branches: count(this._graph.branches?.values(), b => !b.remote),
-				remotes: this._graph.remotes.size,
-				stashes: this._graph.stashes?.size,
-				// Subtract the default worktree
-				worktrees: this._graph.worktrees != null ? this._graph.worktrees.length - 1 : undefined,
-				tags: tags.values.length,
-			};
-		} else {
-			counts = undefined;
-		}
+	@ipcRequest(GetCountsRequest)
+	private async onGetCounts() {
+		if (this._graph == null) return undefined;
 
-		void this.host.respond(requestType, msg, counts);
+		const tags = await this.container.git.getRepositoryService(this._graph.repoPath).tags.getTags();
+		return {
+			branches: count(this._graph.branches?.values(), b => !b.remote),
+			remotes: this._graph.remotes.size,
+			stashes: this._graph.stashes?.size,
+			// Subtract the default worktree
+			worktrees: this._graph.worktrees != null ? this._graph.worktrees.length - 1 : undefined,
+			tags: tags.values.length,
+		};
 	}
 
-	private updateGraphConfig(params: UpdateGraphConfigurationParams) {
+	@ipcCommand(UpdateGraphConfigurationCommand)
+	private onUpdateGraphConfig(params: IpcParams<typeof UpdateGraphConfigurationCommand>) {
 		const config = this.getComponentConfig();
 
-		let key: keyof UpdateGraphConfigurationParams['changes'];
+		let key: keyof IpcParams<typeof UpdateGraphConfigurationCommand>['changes'];
 		for (key in params.changes) {
 			if (config[key] !== params.changes[key]) {
 				switch (key) {
@@ -768,7 +660,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
+	@ipcCommand(UpdateGraphSearchModeCommand)
+	private onUpdateGraphSearchMode(params: IpcParams<typeof UpdateGraphSearchModeCommand>) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
 		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
 
@@ -954,11 +847,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.updateState();
 	}
 
-	private onColumnsChanged(e: UpdateColumnsParams) {
-		this.updateColumns(e.config);
+	@ipcCommand(UpdateColumnsCommand)
+	private onColumnsChanged(params: IpcParams<typeof UpdateColumnsCommand>) {
+		this.updateColumns(params.config);
 
 		const eventData: WebviewTelemetryEvents['graph/columns/changed'] = {};
-		for (const [name, config] of Object.entries(e.config)) {
+		for (const [name, config] of Object.entries(params.config)) {
 			for (const [prop, value] of Object.entries(config)) {
 				eventData[`column.${name}.${prop as keyof GraphColumnConfig}`] = value;
 			}
@@ -966,17 +860,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.host.sendTelemetryEvent('graph/columns/changed', eventData);
 	}
 
-	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
-		this.updateExcludedRefs(this._graph?.repoPath, e.refs, e.visible);
+	@ipcCommand(UpdateRefsVisibilityCommand)
+	private onRefsVisibilityChanged(params: IpcParams<typeof UpdateRefsVisibilityCommand>) {
+		this.updateExcludedRefs(this._graph?.repoPath, params.refs, params.visible);
 	}
 
-	private onDoubleClick(e: DoubleClickedParams) {
-		if (e.type === 'ref' && e.ref.context) {
-			let item = this.getGraphItemContext(e.ref.context);
+	@ipcCommand(DoubleClickedCommand)
+	private onDoubleClick(params: IpcParams<typeof DoubleClickedCommand>) {
+		if (params.type === 'ref' && params.ref.context) {
+			let item = this.getGraphItemContext(params.ref.context);
 			if (isGraphItemRefContext(item)) {
-				if (e.metadata != null) {
-					item = this.getGraphItemContext(e.metadata.data.context);
-					if (e.metadata.type === 'upstream' && isGraphItemTypedContext(item, 'upstreamStatus')) {
+				if (params.metadata != null) {
+					item = this.getGraphItemContext(params.metadata.data.context);
+					if (params.metadata.type === 'upstream' && isGraphItemTypedContext(item, 'upstreamStatus')) {
 						const { ahead, behind, ref } = item.webviewItemValue;
 						if (behind > 0) {
 							return void RepoActions.pull(ref.repoPath, ref);
@@ -984,9 +880,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (ahead > 0) {
 							return void RepoActions.push(ref.repoPath, false, ref);
 						}
-					} else if (e.metadata.type === 'pullRequest' && isGraphItemTypedContext(item, 'pullrequest')) {
+					} else if (params.metadata.type === 'pullRequest' && isGraphItemTypedContext(item, 'pullrequest')) {
 						return void this.openPullRequestOnRemote(item);
-					} else if (e.metadata.type === 'issue' && isGraphItemTypedContext(item, 'issue')) {
+					} else if (params.metadata.type === 'issue' && isGraphItemTypedContext(item, 'issue')) {
 						return void this.openIssueOnRemote(item);
 					}
 
@@ -994,7 +890,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 
 				const { ref } = item.webviewItemValue;
-				if (e.ref.refType === 'head' && e.ref.isCurrentHead) {
+				if (params.ref.refType === 'head' && params.ref.isCurrentHead) {
 					return RepoActions.switchTo(ref.repoPath);
 				}
 
@@ -1005,18 +901,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					configuration.isUnset('gitCommands.skipConfirmations') ? true : undefined,
 				);
 			}
-		} else if (e.type === 'row' && e.row) {
+		} else if (params.type === 'row' && params.row) {
 			this._showActiveSelectionDetailsDebounced?.cancel();
 
-			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
+			const commit = this.getRevisionReference(this.repository?.path, params.row.id, params.row.type);
 			if (commit != null) {
-				const searchContext = this.getSearchContext(e.row.id);
+				const searchContext = this.getSearchContext(params.row.id);
 				this.container.events.fire(
 					'commit:selected',
 					{
 						commit: commit,
 						interaction: 'active',
-						preserveFocus: e.preserveFocus,
+						preserveFocus: params.preserveFocus,
 						preserveVisibility: false,
 						searchContext: searchContext,
 					},
@@ -1027,7 +923,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					? this.container.views.commitDetails
 					: this.container.views.graphDetails;
 				if (!details.ready) {
-					void details.show({ preserveFocus: e.preserveFocus }, {
+					void details.show({ preserveFocus: params.preserveFocus }, {
 						commit: commit,
 						interaction: 'active',
 						preserveVisibility: false,
@@ -1040,16 +936,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return Promise.resolve();
 	}
 
-	private async onHoverRowRequest<T extends typeof GetRowHoverRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		const hover: DidGetRowHoverParams = {
-			id: msg.params.id,
+	@ipcRequest(GetRowHoverRequest)
+	private async onHoverRowRequest(params: IpcParams<typeof GetRowHoverRequest>) {
+		const hover: IpcResponse<typeof GetRowHoverRequest> = {
+			id: params.id,
 			markdown: undefined!,
 		};
 
 		this.cancelOperation('hover');
 
 		if (this._graph != null) {
-			const id = msg.params.id;
+			const id = params.id;
 
 			let markdown = this._hoverCache.get(id);
 			if (markdown == null) {
@@ -1059,18 +956,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				let commit;
 				try {
 					const svc = this.container.git.getRepositoryService(this._graph.repoPath);
-					switch (msg.params.type) {
+					switch (params.type) {
 						case 'work-dir-changes':
 							cache = false;
 							commit = await svc.commits.getCommit(uncommitted, cancellation.token);
 							break;
 						case 'stash-node': {
 							const stash = await svc.stash?.getStash(undefined, cancellation.token);
-							commit = stash?.stashes.get(msg.params.id);
+							commit = stash?.stashes.get(params.id);
 							break;
 						}
 						default: {
-							commit = await svc.commits.getCommit(msg.params.id, cancellation.token);
+							commit = await svc.commits.getCommit(params.id, cancellation.token);
 							break;
 						}
 					}
@@ -1116,7 +1013,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		hover.markdown ??= { status: 'rejected' as const, reason: new CancellationError() };
-		void this.host.respond(requestType, msg, hover);
+		return hover;
 	}
 
 	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
@@ -1173,27 +1070,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return tooltip;
 	}
 
+	@ipcRequest(EnsureRowRequest)
 	@debug()
-	private async onEnsureRowRequest<T extends typeof EnsureRowRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		if (this._graph == null) return;
-
-		const e = msg.params;
+	private async onEnsureRowRequest(params: IpcParams<typeof EnsureRowRequest>) {
+		if (this._graph == null) return { id: undefined };
 
 		let id: string | undefined;
-		if (this._graph.ids.has(e.id)) {
-			id = e.id;
+		if (this._graph.ids.has(params.id)) {
+			id = params.id;
 		} else {
-			await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
+			await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
 			void this.notifyDidChangeRows();
-			if (this._graph.ids.has(e.id)) {
-				id = e.id;
+			if (this._graph.ids.has(params.id)) {
+				id = params.id;
 			}
 		}
 
-		void this.host.respond(requestType, msg, { id: id });
+		return { id: id };
 	}
 
-	private async onGetMissingAvatars(e: GetMissingAvatarsParams) {
+	@ipcCommand(GetMissingAvatarsCommand)
+	private async onGetMissingAvatars(params: IpcParams<typeof GetMissingAvatarsCommand>) {
 		if (this._graph == null) return;
 
 		const repoPath = this._graph.repoPath;
@@ -1205,7 +1102,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const promises: Promise<void>[] = [];
 
-		for (const [email, id] of Object.entries(e.emails)) {
+		for (const [email, id] of Object.entries(params.emails)) {
 			if (this._graph.avatars.has(email)) continue;
 
 			promises.push(getAvatar.call(this, email, id));
@@ -1217,7 +1114,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async onGetMissingRefMetadata(e: GetMissingRefsMetadataParams) {
+	@ipcCommand(GetMissingRefsMetadataCommand)
+	private async onGetMissingRefMetadata(params: IpcParams<typeof GetMissingRefsMetadataCommand>) {
 		if (
 			this._graph == null ||
 			this._refsMetadata === null ||
@@ -1416,8 +1314,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const promises: Promise<void>[] = [];
 
-		for (const id of Object.keys(e.metadata)) {
-			promises.push(getRefMetadata.call(this, id, e.metadata[id]));
+		for (const id of Object.keys(params.metadata)) {
+			promises.push(getRefMetadata.call(this, id, params.metadata[id]));
 		}
 
 		if (promises.length) {
@@ -1426,8 +1324,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.updateRefsMetadata();
 	}
 
+	@ipcCommand(GetMoreRowsCommand)
 	@debug()
-	private async onGetMoreRows(e: GetMoreRowsParams, sendSelectedRows: boolean = false) {
+	private async onGetMoreRows(params: IpcParams<typeof GetMoreRowsCommand>, sendSelectedRows: boolean = false) {
 		if (this._graph?.paging == null) return;
 		if (this._graph?.more == null || this.repository?.etag !== this._etagRepository) {
 			this.updateState(true);
@@ -1435,12 +1334,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
+		await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
 		void this.notifyDidChangeRows(sendSelectedRows);
 	}
 
+	@ipcCommand(OpenPullRequestDetailsCommand)
 	@log()
-	private async onOpenPullRequestDetails(_params: OpenPullRequestDetailsParams) {
+	private async onOpenPullRequestDetails(_params: IpcParams<typeof OpenPullRequestDetailsCommand>) {
 		// TODO: a hack for now, since we aren't using the params at all right now and always opening the current branch's PR
 		const repo = this.repository;
 		if (repo == null) return undefined;
@@ -1454,8 +1354,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.container.views.pullRequest.showPullRequest(pr, branch);
 	}
 
+	@ipcCommand(RowActionCommand)
 	@log()
-	private async onRowAction(params: RowActionParams): Promise<void> {
+	private async onRowAction(params: IpcParams<typeof RowActionCommand>) {
 		const repoPath = this._graph?.repoPath;
 		if (repoPath == null) return;
 
@@ -1508,46 +1409,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	@ipcRequest(SearchHistoryGetRequest)
 	@debug()
-	private onSearchHistoryGetRequest<T extends typeof SearchHistoryGetRequest>(
-		requestType: T,
-		msg: IpcCallMessageType<T>,
-	) {
+	private onSearchHistoryGetRequest(): IpcResponse<typeof SearchHistoryGetRequest> {
 		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
 		try {
-			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+			return { history: this._searchHistory.get() };
 		} catch {
-			void this.host.respond(requestType, msg, { history: [] });
+			return { history: [] };
 		}
 	}
 
+	@ipcRequest(SearchHistoryStoreRequest)
 	@debug()
-	private async onSearchHistoryStoreRequest<T extends typeof SearchHistoryStoreRequest>(
-		requestType: T,
-		msg: IpcCallMessageType<T>,
-	) {
+	private async onSearchHistoryStoreRequest(params: IpcParams<typeof SearchHistoryStoreRequest>) {
 		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
 
 		try {
-			await this._searchHistory.store(msg.params.search);
+			await this._searchHistory.store(params.search);
 		} finally {
-			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+			// eslint-disable-next-line no-unsafe-finally
+			return { history: this._searchHistory.get() };
 		}
 	}
 
+	@ipcRequest(SearchHistoryDeleteRequest)
 	@debug()
-	private async onSearchHistoryDeleteRequest<T extends typeof SearchHistoryDeleteRequest>(
-		requestType: T,
-		msg: IpcCallMessageType<T>,
-	) {
+	private async onSearchHistoryDeleteRequest(params: IpcParams<typeof SearchHistoryDeleteRequest>) {
 		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
 		try {
-			await this._searchHistory.delete(msg.params.query);
+			await this._searchHistory.delete(params.query);
 		} finally {
-			void this.host.respond(requestType, msg, { history: this._searchHistory.get() });
+			// eslint-disable-next-line no-unsafe-finally
+			return { history: this._searchHistory.get() };
 		}
 	}
 
+	@ipcCommand(SearchCancelCommand)
 	@debug()
 	private onSearchCancel(params: { preserveResults: boolean }) {
 		this.cancelOperation('search');
@@ -1568,35 +1466,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	@ipcRequest(SearchRequest)
 	@debug()
-	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+	private async onSearchRequest(params: IpcParams<typeof SearchRequest>) {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
-		if (msg.params.search?.naturalLanguage) {
-			msg.params.search = await processNaturalLanguageToSearchQuery(this.container, msg.params.search, {
+		if (params.search?.naturalLanguage) {
+			params.search = await processNaturalLanguageToSearchQuery(this.container, params.search, {
 				source: 'graph',
 			});
 		}
 
-		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
+		const query = params.search ? parseSearchQuery(params.search) : undefined;
 		const types = query != null ? join(query.operations.keys(), ',') : '';
 
-		let results;
+		let results: IpcResponse<typeof SearchRequest> | undefined;
 		let exception: (Error & { original?: Error }) | undefined;
 
 		try {
-			results = await this.searchGraphOrContinue(msg.params, true);
-			void this.host.respond(requestType, msg, results);
+			results = await this.searchGraphOrContinue(params, true);
+			return results;
 		} catch (ex) {
 			exception = ex;
-			void this.host.respond(requestType, msg, {
-				search: msg.params.search,
+			return {
+				search: params.search,
 				results: isCancellationError(ex)
 					? undefined
 					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
 				partial: false,
 				searchId: this._searchIdCounter.current,
-			});
+			};
 		} finally {
 			const cancelled = isCancellationError(exception);
 
@@ -1613,7 +1512,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async searchGraphOrContinue(e: SearchParams, progressive: boolean = true): Promise<DidSearchParams> {
+	private async searchGraphOrContinue(
+		e: IpcParams<typeof SearchRequest>,
+		progressive: boolean = true,
+	): Promise<IpcResponse<typeof SearchRequest>> {
 		let search = this._search;
 
 		const graph = this._graph!;
@@ -1858,15 +1760,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return search;
 	}
 
-	private onSearchOpenInView(e: SearchOpenInViewParams) {
+	@ipcCommand(SearchOpenInViewCommand)
+	private onSearchOpenInView(params: IpcParams<typeof SearchOpenInViewCommand>) {
 		if (this.repository == null) return;
 
-		void this.container.views.searchAndCompare.search(this.repository.path, e.search, {
-			label: { label: `for ${e.search.query}` },
+		void this.container.views.searchAndCompare.search(this.repository.path, params.search, {
+			label: { label: `for ${params.search.query}` },
 			reveal: { select: true, focus: false, expand: true },
 		});
 	}
 
+	@ipcCommand(ChooseRepositoryCommand)
 	private async onChooseRepository() {
 		// // Ensure that the current repository is always last
 		// const repositories = this.container.git.openRepositories.sort(
@@ -1900,74 +1804,62 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
-	private async onChooseRef<T extends typeof ChooseRefRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		if (this.repository == null) {
-			return this.host.respond(requestType, msg, undefined);
-		}
+	@ipcRequest(ChooseRefRequest)
+	private async onChooseRef(params: IpcParams<typeof ChooseRefRequest>) {
+		if (this.repository == null) return undefined;
 
-		const result = await showReferencePicker2(this.repository.path, msg.params.title, msg.params.placeholder, {
-			allowedAdditionalInput: msg.params.allowedAdditionalInput,
-			include: msg.params.include ?? ['branches', 'tags'],
-			picked: msg.params.picked,
+		const result = await showReferencePicker2(this.repository.path, params.title, params.placeholder, {
+			allowedAdditionalInput: params.allowedAdditionalInput,
+			include: params.include ?? ['branches', 'tags'],
+			picked: params.picked,
 		});
 		const pick = result?.value;
 
-		return this.host.respond(
-			requestType,
-			msg,
-			pick?.sha != null
-				? {
-						id: pick.id,
-						name: pick.name,
-						sha: pick.sha,
-						refType: pick.refType,
-						graphRefType: convertRefToGraphRefType(pick),
-					}
-				: undefined,
-		);
+		return pick?.sha != null
+			? {
+					id: pick.id,
+					name: pick.name,
+					sha: pick.sha,
+					refType: pick.refType,
+					graphRefType: convertRefToGraphRefType(pick),
+				}
+			: undefined;
 	}
 
-	private async onChooseComparison<T extends typeof ChooseComparisonRequest>(
-		requestType: T,
-		msg: IpcCallMessageType<T>,
-	) {
-		if (this.repository == null) {
-			return this.host.respond(requestType, msg, { range: undefined });
-		}
+	@ipcRequest(ChooseComparisonRequest)
+	private async onChooseComparison(params: IpcParams<typeof ChooseComparisonRequest>) {
+		if (this.repository == null) return { range: undefined };
 
 		const result = await showComparisonPicker(this.container, this.repository.path, {
 			getTitleAndPlaceholder: step => {
 				switch (step) {
 					case 1:
 						return {
-							title: msg.params.title,
+							title: params.title,
 							placeholder: 'Choose a branch or tag to show commits from',
 						};
 					case 2:
 						return {
-							title: msg.params.title,
+							title: params.title,
 							placeholder: 'Choose a base to compare against (e.g., main)',
 						};
 				}
 			},
 		});
 
-		return this.host.respond(requestType, msg, {
-			range: result != null ? `${result.base.ref}..${result.head.ref}` : undefined,
-		});
+		return { range: result != null ? `${result.base.ref}..${result.head.ref}` : undefined };
 	}
 
-	private async onChooseAuthor<T extends typeof ChooseAuthorRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		if (this.repository == null) {
-			return this.host.respond(requestType, msg, { authors: undefined });
-		}
+	@ipcRequest(ChooseAuthorRequest)
+	private async onChooseAuthor(params: IpcParams<typeof ChooseAuthorRequest>) {
+		if (this.repository == null) return { authors: undefined };
 
-		const authors = msg.params.picked != null ? new Set(msg.params.picked) : undefined;
+		const authors = params.picked != null ? new Set(params.picked) : undefined;
 		const contributors = await showContributorsPicker(
 			this.container,
 			this.repository,
-			msg.params.title,
-			msg.params.placeholder,
+			params.title,
+			params.placeholder,
 			{
 				appendReposToTitle: true,
 				clearButton: true,
@@ -1980,69 +1872,59 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 		);
 
-		return this.host.respond(requestType, msg, {
-			authors: contributors != null ? filterMap(contributors, c => c.email) : undefined,
-		});
+		return { authors: contributors != null ? filterMap(contributors, c => c.email) : undefined };
 	}
 
-	private async onChooseFile<T extends typeof ChooseFileRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		if (this.repository == null) {
-			return this.host.respond(requestType, msg, { files: undefined });
-		}
+	@ipcRequest(ChooseFileRequest)
+	private async onChooseFile(params: IpcParams<typeof ChooseFileRequest>) {
+		if (this.repository == null) return { files: undefined };
 
 		const uris = await window.showOpenDialog({
-			canSelectFiles: msg.params.type === 'file',
-			canSelectFolders: msg.params.type === 'folder',
-			canSelectMany: msg.params.type === 'file',
-			title: msg.params.title,
-			openLabel: msg.params.openLabel,
+			canSelectFiles: params.type === 'file',
+			canSelectFolders: params.type === 'folder',
+			canSelectMany: params.type === 'file',
+			title: params.title,
+			openLabel: params.openLabel,
 			defaultUri: this.repository.folder?.uri,
 		});
 
-		if (!uris?.length) {
-			return this.host.respond(requestType, msg, { files: undefined });
-		}
+		if (!uris?.length) return { files: undefined };
 
 		// Convert URIs to relative paths from the repository root
 		const files = uris.map(uri => this.container.git.getRelativePath(uri, this.repository!.path));
-
-		return this.host.respond(requestType, msg, { files: files });
+		return { files: files };
 	}
 
-	private async onJumpToHead<T extends typeof JumpToHeadRequest>(requestType: T, msg: IpcCallMessageType<T>) {
-		if (this.repository == null) {
-			return this.host.respond(requestType, msg, undefined);
-		}
+	@ipcRequest(JumpToHeadRequest)
+	private async onJumpToHead(): Promise<IpcResponse<typeof JumpToHeadRequest>> {
+		if (this.repository == null) return undefined;
 
 		let branch = find(this._graph!.branches.values(), b => b.current);
 		if (branch == null) {
 			branch = await this.repository.git.branches.getBranch();
 		}
 
-		return this.host.respond(
-			requestType,
-			msg,
-			branch?.sha != null
-				? {
-						id: branch.id,
-						name: branch.name,
-						sha: branch.sha,
-						refType: branch.refType,
-						graphRefType: convertRefToGraphRefType(branch),
-					}
-				: undefined,
-		);
+		return branch?.sha != null
+			? {
+					id: branch.id,
+					name: branch.name,
+					sha: branch.sha,
+					refType: branch.refType as 'branch',
+					graphRefType: convertRefToGraphRefType(branch),
+				}
+			: undefined;
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
 		undefined;
 	private _lastUserSelectionTime: number = 0;
 
-	private onSelectionChanged(e: UpdateSelectionParams) {
+	@ipcCommand(UpdateSelectionCommand)
+	private onSelectionChanged(params: IpcParams<typeof UpdateSelectionCommand>) {
 		this._showActiveSelectionDetailsDebounced?.cancel();
 
-		const item = e.selection.find(r => r.active) ?? e.selection[0];
-		this.setSelectedRows(item?.id, e.selection, { selected: true, hidden: item?.hidden });
+		const item = params.selection.find(r => r.active) ?? params.selection[0];
+		this.setSelectedRows(item?.id, params.selection, { selected: true, hidden: item?.hidden });
 
 		// Track when user explicitly selects
 		this._lastUserSelectionTime = Date.now();
@@ -2207,7 +2089,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private async notifyDidChangeRefsVisibility(params?: DidChangeRefsVisibilityParams) {
+	private async notifyDidChangeRefsVisibility(params?: IpcParams<typeof DidChangeRefsVisibilityNotification>) {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeRefsVisibilityNotification, this._ipcNotificationMap, this);
 			return false;
@@ -3068,7 +2950,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const filters = this.getFiltersByRepo(this.repository.path);
-		const refsVisibility: DidChangeRefsVisibilityParams = {
+		const refsVisibility: IpcParams<typeof DidChangeRefsVisibilityNotification> = {
 			branchesVisibility: this.getBranchesVisibility(filters),
 			excludeRefs: this.getExcludedRefs(filters, data) ?? {},
 			excludeTypes: this.getExcludedTypes(filters) ?? {},
@@ -3282,9 +3164,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return refs;
 	}
 
+	@ipcCommand(UpdateIncludedRefsCommand)
+	private onUpdateIncludeOnlyRefs(params: IpcParams<typeof UpdateIncludedRefsCommand>) {
+		this.updateIncludeOnlyRefs(this._graph?.repoPath, params);
+	}
+
 	private updateIncludeOnlyRefs(
 		repoPath: string | undefined,
-		{ branchesVisibility, refs }: UpdateIncludedRefsParams,
+		{ branchesVisibility, refs }: IpcParams<typeof UpdateIncludedRefsCommand>,
 	) {
 		if (repoPath == null) return;
 
@@ -3320,7 +3207,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.notifyDidChangeRefsVisibility();
 	}
 
-	private updateExcludedTypes(repoPath: string | undefined, { key, value }: UpdateExcludeTypesParams) {
+	@ipcCommand(UpdateExcludeTypesCommand)
+	private onUpdateExcludedTypes(params: IpcParams<typeof UpdateExcludeTypesCommand>) {
+		this.updateExcludedTypes(this._graph?.repoPath, params);
+	}
+
+	private updateExcludedTypes(
+		repoPath: string | undefined,
+		{ key, value }: IpcParams<typeof UpdateExcludeTypesCommand>,
+	) {
 		if (repoPath == null) return;
 
 		let excludeTypes = this.getFiltersByRepo(repoPath)?.excludeTypes;

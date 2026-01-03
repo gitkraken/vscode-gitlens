@@ -16,8 +16,9 @@ import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndic
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
-import type { IpcScope, WebviewState } from '../protocol.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../protocol.js';
+import type { IpcScope } from '../ipc/models/ipc.js';
+import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
+import type { WebviewState } from '../protocol.js';
 
 export const scope: IpcScope = 'home';
 

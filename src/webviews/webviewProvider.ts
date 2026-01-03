@@ -21,8 +21,8 @@ import type {
 	IpcMessage,
 	IpcNotification,
 	IpcRequest,
-	WebviewState,
-} from './protocol.js';
+} from './ipc/models/ipc.js';
+import type { WebviewState } from './protocol.js';
 import type { WebviewCommandCallback } from './webviewCommandRegistrar.js';
 import type { WebviewShowOptions } from './webviewsController.js';
 
