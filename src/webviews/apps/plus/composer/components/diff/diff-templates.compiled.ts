@@ -1,7 +1,7 @@
 /* eslint-disable */
 // @ts-nocheck
 // Generated — DO NOT EDIT
-import type { CompiledTemplates } from 'diff2html/lib-esm/src/hoganjs-utils.js';
+import type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils.js';
 import * as Hogan from '@profoundlogic/hogan';
 export const compiledComposerTemplates: CompiledTemplates = {
   "generic-block-header": new Hogan.Template({code: function (c,p,i) { var t=this;t.b(i=i||"");t.b("<tr>");t.b("\n" + i);t.b("    <td class=\"");t.b(t.v(t.f("lineClass",c,p,0)));t.b(" ");t.b(t.v(t.d("CSSLineClass.INFO",c,p,0)));t.b("\"></td>");t.b("\n" + i);t.b("    <td class=\"");t.b(t.v(t.d("CSSLineClass.INFO",c,p,0)));t.b("\">");t.b("\n" + i);t.b("        <div class=\"");t.b(t.v(t.f("contentClass",c,p,0)));t.b("\">");if(t.s(t.f("blockHeader",c,p,1),c,p,0,156,173,"{{ }}")){t.rs(c,p,function(c,p,t){t.b(t.t(t.f("blockHeader",c,p,0)));});c.pop();}if(!t.s(t.f("blockHeader",c,p,1),c,p,1,0,0,"")){t.b("&nbsp;");};t.b("</div>");t.b("\n" + i);t.b("    </td>");t.b("\n" + i);t.b("</tr>");return t.fl(); },partials: {}, subs: {  }}),

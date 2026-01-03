@@ -4,5 +4,5 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'diff2html@3.4.53'
+    - 'diff2html@3.4.55'
     - 'esbuild-loader@4.4.2'

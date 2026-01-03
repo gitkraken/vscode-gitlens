@@ -1,6 +1,6 @@
-import { ColorSchemeType } from 'diff2html/lib-esm/src/types';
-import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/src/ui/js/diff2html-ui.js';
-import { Diff2HtmlUI } from 'diff2html/lib-esm/src/ui/js/diff2html-ui.js';
+import { ColorSchemeType } from 'diff2html/lib-esm/types';
+import type { Diff2HtmlUIConfig } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
+import { Diff2HtmlUI } from 'diff2html/lib-esm/ui/js/diff2html-ui.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { boxSizingBase } from '../../../../shared/components/styles/lit/base.css.js';

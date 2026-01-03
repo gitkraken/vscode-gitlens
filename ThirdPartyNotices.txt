@@ -21,7 +21,7 @@ This project incorporates components from the projects listed below.
 16. @shoelace-style/shoelace version 2.20.1 (https://github.com/shoelace-style/shoelace)
 17. @vscode/codicons version 0.0.44 (https://github.com/microsoft/vscode-codicons)
 18. billboard.js version 3.17.2 (https://github.com/naver/billboard.js)
-19. diff2html version 3.4.53 (https://github.com/rtfpessoa/diff2html)
+19. diff2html version 3.4.55 (https://github.com/rtfpessoa/diff2html)
 20. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
 21. driver.js version 1.3.6 (https://github.com/kamranahmedse/driver.js)
 22. fflate version 0.8.2 (https://github.com/101arrowz/fflate)

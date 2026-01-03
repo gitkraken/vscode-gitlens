@@ -1284,7 +1284,7 @@ class CompileComposerTemplatesPlugin {
 			return `  "${name}": new Hogan.Template(${code})`;
 		}
 
-		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/src/hoganjs-utils.js';\nimport * as Hogan from '@profoundlogic/hogan';\n`;
+		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils.js';\nimport * as Hogan from '@profoundlogic/hogan';\n`;
 
 		const body = `export const compiledComposerTemplates: CompiledTemplates = {\n${precompile(
 			'generic-block-header',
