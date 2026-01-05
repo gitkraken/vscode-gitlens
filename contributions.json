@@ -1401,6 +1401,18 @@
 			"label": "Copy Working Changes to Worktree...",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.copyWorkingChangesToWorktree:graph": {
+			"label": "Copy Working Changes to Worktree...",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 4
+					}
+				]
+			}
+		},
 		"gitlens.copyWorkingChangesToWorktree:views": {
 			"label": "Copy Working Changes to Worktree...",
 			"menus": {
@@ -2854,18 +2866,6 @@
 						"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.graph.copyWorkingChangesToWorktree": {
-			"label": "Copy Working Changes to Worktree...",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 4
 					}
 				]
 			}

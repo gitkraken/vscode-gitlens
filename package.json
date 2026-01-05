@@ -6797,6 +6797,10 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.copyWorkingChangesToWorktree:graph",
+				"title": "Copy Working Changes to Worktree..."
+			},
+			{
 				"command": "gitlens.copyWorkingChangesToWorktree:views",
 				"title": "Copy Working Changes to Worktree..."
 			},
@@ -7376,10 +7380,6 @@
 				"command": "gitlens.graph.copySha",
 				"title": "Copy SHA",
 				"icon": "$(copy)"
-			},
-			{
-				"command": "gitlens.graph.copyWorkingChangesToWorktree",
-				"title": "Copy Working Changes to Worktree..."
 			},
 			{
 				"command": "gitlens.graph.createPatch",
@@ -12055,6 +12055,10 @@
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.copyWorkingChangesToWorktree:graph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.copyWorkingChangesToWorktree:views",
 					"when": "false"
 				},
@@ -12520,10 +12524,6 @@
 				},
 				{
 					"command": "gitlens.graph.copySha",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.copyWorkingChangesToWorktree",
 					"when": "false"
 				},
 				{
@@ -25690,7 +25690,7 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.graph.copyWorkingChangesToWorktree",
+					"command": "gitlens.copyWorkingChangesToWorktree:graph",
 					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
 				},

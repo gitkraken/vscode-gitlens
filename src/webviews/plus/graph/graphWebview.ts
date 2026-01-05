@@ -4326,7 +4326,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
-	@command('gitlens.graph.copyWorkingChangesToWorktree')
+	@command('gitlens.copyWorkingChangesToWorktree:')
 	@log()
 	private copyWorkingChangesToWorktree(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
