@@ -27022,7 +27022,7 @@
 		"generate:licenses": "node ./scripts/generateLicenses.mjs",
 		"bundle": "node ./scripts/build.mjs --mode production",
 		"bundle:turbo": "node ./scripts/build.mjs --mode production --quick=turbo",
-		"clean": "pnpx rimraf --glob dist out .vscode-test .vscode-test-web .eslintcache* tsconfig*.tsbuildinfo",
+		"clean": "pnpx rimraf --glob dist out .vscode-test .vscode-test-web .eslintcache* **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:lint": "pnpx rimraf .eslintcache",
 		"clean:deps": "pnpx rimraf node_modules",
