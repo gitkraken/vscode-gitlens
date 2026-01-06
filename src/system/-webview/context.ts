@@ -30,3 +30,50 @@ export async function setContext<T extends keyof ContextKeys>(
 	void (await executeCoreCommand('setContext', key, value ?? undefined));
 	_onDidChangeContext.fire(key);
 }
+
+export async function addToContextDelimitedString<T extends keyof ContextKeys>(
+	key: T,
+	values: ContextKeys[T] extends string ? string[] : never,
+	delimiter: string = '|',
+): Promise<void> {
+	const current = getContext(key);
+	const currentArray = typeof current === 'string' && current.length > 0 ? current.split(delimiter) : [];
+
+	if (currentArray.length === 0) {
+		return setContext(key, values.join(delimiter) as ContextKeys[T]);
+	}
+
+	const merged = Array.from(new Set([...currentArray, ...values]));
+	return setContext(key, merged.join(delimiter) as ContextKeys[T]);
+}
+
+export async function removeFromContextDelimitedString<T extends keyof ContextKeys>(
+	key: T,
+	values: ContextKeys[T] extends string ? string[] : never,
+	delimiter: string = '|',
+): Promise<void> {
+	const current = getContext(key);
+	if (typeof current !== 'string' || current.length === 0 || values.length === 0) {
+		return;
+	}
+
+	const currentArray = current.split(delimiter);
+	const filtered = currentArray.filter(v => !values.includes(v));
+
+	if (filtered.length === 0) {
+		return setContext(key, undefined);
+	}
+
+	return setContext(key, filtered.join(delimiter) as ContextKeys[T]);
+}
+
+export function includesContextDelimitedString<T extends keyof ContextKeys>(
+	key: T,
+	value: ContextKeys[T] extends string ? string : never,
+	delimiter: string = '|',
+): boolean {
+	const current = getContext(key);
+	if (typeof current !== 'string' || current.length === 0) return false;
+
+	return current.split(delimiter).includes(value);
+}

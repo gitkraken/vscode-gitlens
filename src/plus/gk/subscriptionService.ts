@@ -1489,9 +1489,14 @@ export class SubscriptionService implements Disposable {
 			}
 		}
 
-		void setContext('gitlens:plus:disabled', !plusEnabled && !allowed);
+		const plusDisabled = !plusEnabled && !allowed;
+		void setContext('gitlens:plus:disabled', plusDisabled);
 		void setContext('gitlens:plus:required', allowed === false);
 		void setContext('gitlens:plus:disallowedRepos', disallowedRepos);
+
+		if (!plusDisabled) {
+			void setContext('gitlens:plus:disabled:view:overrides', undefined);
+		}
 	}
 
 	private updateStatusBar(): void {

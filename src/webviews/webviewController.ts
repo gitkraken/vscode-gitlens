@@ -24,7 +24,11 @@ import type { Container } from '../container.js';
 import { isCancellationError } from '../errors.js';
 import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command.js';
-import { setContext } from '../system/-webview/context.js';
+import {
+	includesContextDelimitedString,
+	removeFromContextDelimitedString,
+	setContext,
+} from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
 import { getScopedCounter } from '../system/counter.js';
 import { debug, logName } from '../system/decorators/log.js';
@@ -238,12 +242,36 @@ export class WebviewController<
 		});
 	}
 
+	private async removePlusFeatureOverride() {
+		if (!this.descriptor.plusFeature) {
+			return;
+		}
+
+		if (includesContextDelimitedString('gitlens:plus:disabled:view:overrides', this.descriptor.id)) {
+			const action = 'Enable Pro Features';
+			void window
+				.showInformationMessage(
+					`${this.descriptor.title} was closed as Pro features have been disabled.`,
+					action,
+				)
+				.then(selection => {
+					if (selection === action) {
+						void executeCommand('gitlens.plus.restore');
+					}
+				});
+		}
+
+		return removeFromContextDelimitedString('gitlens:plus:disabled:view:overrides', [this.descriptor.id]);
+	}
+
 	private _disposed: boolean = false;
 	dispose(): void {
 		this._disposed = true;
 		this.cancellation?.cancel();
 		this.cancellation?.dispose();
 		resetContextKeys(this.descriptor.contextKeyPrefix);
+
+		void this.removePlusFeatureOverride();
 
 		this.provider?.onFocusChanged?.(false);
 		this.provider?.onVisibilityChanged?.(false);
@@ -604,10 +632,14 @@ export class WebviewController<
 				this.provider.onActiveChanged?.(active);
 				if (!active) {
 					this.handleFocusChanged(false);
+
+					void this.removePlusFeatureOverride();
 				}
 			}
 		} else {
 			resetContextKeys(this.descriptor.contextKeyPrefix);
+
+			void this.removePlusFeatureOverride();
 
 			if (active != null) {
 				this.provider.onActiveChanged?.(false);

@@ -5,8 +5,8 @@ import type { GlCommands } from '../constants.commands.js';
 import type { Source } from '../constants.telemetry.js';
 import type { WebviewPanelIds, WebviewViewIds } from '../constants.views.js';
 import type { Container } from '../container.js';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils.js';
 import { executeCoreCommand, registerCommand } from '../system/-webview/command.js';
+import { addToContextDelimitedString, getContext } from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
 import { debug } from '../system/decorators/log.js';
 import { find, first, map } from '../system/iterable.js';
@@ -140,10 +140,7 @@ export class WebviewsController implements Disposable {
 						context: WebviewViewResolveContext<SerializedState>,
 						token: CancellationToken,
 					) => {
-						if (registration.descriptor.plusFeature) {
-							if (!(await ensurePlusFeaturesEnabled())) return;
-							if (token.isCancellationRequested) return;
-						}
+						if (token.isCancellationRequested) return;
 
 						const instanceId = uuid();
 
@@ -230,6 +227,10 @@ export class WebviewsController implements Disposable {
 					await onBeforeShow?.(...args);
 				}
 
+				if (descriptor.plusFeature && getContext('gitlens:plus:disabled') === true) {
+					await addToContextDelimitedString('gitlens:plus:disabled:view:overrides', [descriptor.id]);
+				}
+
 				return void executeCoreCommand(getViewFocusCommand(descriptor.id), options);
 			},
 		} satisfies WebviewViewProxy<ID, ShowingArgs, SerializedState>;
@@ -277,10 +278,6 @@ export class WebviewsController implements Disposable {
 			...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 		): Promise<void> {
 			const { descriptor } = registration;
-			if (descriptor.plusFeature) {
-				if (!(await ensurePlusFeaturesEnabled())) return;
-			}
-
 			void container.usage.track(`${descriptor.trackingFeature}:shown`).catch();
 
 			let column = options?.column ?? descriptor.column ?? ViewColumn.Beside;

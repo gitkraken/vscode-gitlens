@@ -46,6 +46,8 @@ export type ContextKeys = {
 	'gitlens:install:upgradedFrom': string;
 	'gitlens:plus': Exclude<SubscriptionPlanIds, 'community'>;
 	'gitlens:plus:disabled': boolean;
+	/** Pipe-delimited view IDs to allow showing pro views when hidden */
+	'gitlens:plus:disabled:view:overrides': string;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:required': boolean;
 	'gitlens:plus:state': SubscriptionState;
