@@ -19,13 +19,13 @@ test.describe('GitLens Smoke Test', () => {
 		await vscode.gitlens.showGitLensView();
 
 		// Click continue if present (it might be the welcome view)
-		const continueButton = vscode.page.getByRole('button', { name: 'Continue' });
+		const continueButton = vscode.page.getByRole('button', { name: 'Continue', exact: true });
 		if (await continueButton.isVisible()) {
 			await continueButton.click();
 		}
 
 		// Check if GitLens section is visible (grouped view)
-		const gitlensSection = vscode.gitlens.sidebar.getSection(/^GitLens/);
+		const gitlensSection = vscode.gitlens.sidebar.getSection(/^GitLens/).last();
 		if (await gitlensSection.isVisible()) {
 			await expect(gitlensSection).toBeVisible({ timeout: MaxTimeout });
 
