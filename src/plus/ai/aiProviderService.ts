@@ -404,11 +404,15 @@ export class AIProviderService implements AIService, Disposable {
 
 		let chosenModel: AIModel | undefined;
 		let chosenProviderId: AIProviders | undefined;
+		const currentModel =
+			cfg?.provider != null && cfg?.model != null
+				? lazy(() => this.getOrUpdateModel(cfg.provider, cfg.model))
+				: undefined;
 		const fallbackModel = lazy(() => this.getBestFallbackModel());
 
 		if (!options?.silent) {
 			if (!options?.force) {
-				chosenModel = await fallbackModel.value;
+				chosenModel = currentModel != null ? await currentModel.value : await fallbackModel.value;
 				chosenProviderId = chosenModel?.provider.id;
 			}
 
@@ -447,7 +451,7 @@ export class AIProviderService implements AIService, Disposable {
 			}
 		}
 
-		chosenModel ??= await fallbackModel.value;
+		chosenModel ??= currentModel != null ? await currentModel.value : await fallbackModel.value;
 		const model = chosenModel == null ? undefined : await this.getOrUpdateModel(chosenModel);
 		if (options?.silent) return model;
 
