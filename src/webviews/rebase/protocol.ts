@@ -49,6 +49,9 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 
 	/** Subscription state for Pro feature gating */
 	subscription?: Subscription;
+
+	/** Whether the close-warning banner has been dismissed */
+	closeWarningDismissed?: boolean;
 }
 
 /** Reason the rebase is paused */
@@ -178,6 +181,8 @@ export interface GetMissingCommitsParams {
 export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(scope, 'commits/get');
 
 export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
+
+export const DismissCloseWarningCommand = new IpcCommand(scope, 'closeWarning/dismiss');
 
 // REQUESTS
 

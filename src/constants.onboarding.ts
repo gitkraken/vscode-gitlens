@@ -13,6 +13,9 @@ export const onboardingDefinitions = {
 	// MCP Banner (shown in home and graph)
 	'mcp:banner': { schema: '17.8.0', scope: 'global' },
 
+	// Rebase Editor
+	'rebaseEditor:closeWarning': { schema: '17.8.0', scope: 'global' },
+
 	// Composer
 	'composer:onboarding': {
 		schema: '17.8.0',

@@ -16,6 +16,7 @@ import {
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
+	DismissCloseWarningCommand,
 	isCommandEntry,
 	isCommitEntry,
 	MoveEntriesCommand,
@@ -103,6 +104,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	/** Conflict detection stale state - set when commits are dropped */
 	@state() private conflictDetectionStale = false;
+
+	/** Local state for close warning dismissal (optimistic update) */
+	@state() private closeWarningDismissedLocal = false;
 
 	/** Cached values computed in willUpdate for performance */
 	private _idToSortedIndex = new Map<string, number>();
@@ -1213,7 +1217,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					: !isReadOnly
 						? html`<div class="entries-empty">No commits to rebase</div>`
 						: nothing}
-				${this.renderFooter()}
+				${this.renderCloseWarningBanner()} ${this.renderFooter()}
 			</div>
 		`;
 	}
@@ -1228,6 +1232,28 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			@gl-banner-primary-click=${this.onSwitchClicked}
 		></gl-banner>`;
 	}
+
+	private renderCloseWarningBanner() {
+		// Don't show for active rebases or if dismissed
+		if (this.isActiveRebase || this.closeWarningDismissedLocal || this.state?.closeWarningDismissed) {
+			return nothing;
+		}
+
+		return html`<gl-banner
+			class="close-warning-banner"
+			display="outline"
+			layout="responsive"
+			body="Closing this tab will automatically start the rebase with your current plan."
+			dismissible
+			@gl-banner-dismiss=${this.onDismissCloseWarning}
+		></gl-banner>`;
+	}
+
+	private onDismissCloseWarning = () => {
+		this._ipc.sendCommand(DismissCloseWarningCommand, undefined);
+		// Optimistically update local state to hide banner immediately
+		this.closeWarningDismissedLocal = true;
+	};
 
 	private renderConflictIndicator() {
 		// Only show for new rebases (not active ones)
