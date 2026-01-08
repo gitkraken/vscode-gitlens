@@ -61,7 +61,9 @@ pnpm run build:quick      # Fast build (no linting)
 pnpm run build:turbo      # Turbo build (no typechecking or linting)
 pnpm run build:extension  # Build only the extension (no webviews)
 pnpm run build:webviews   # Build only webviews
+pnpm run build:tests      # Build unit tests (not part of the main build)
 pnpm run bundle           # Production bundle
+pnpm run bundle:e2e       # E2E tests (turbo) production bundle (with DEBUG for account simulation)
 pnpm run bundle:turbo     # Turbo production bundle (no typechecking or linting)
 ```
 
@@ -73,39 +75,33 @@ pnpm run watch:quick      # Fast watch mode (no linting)
 pnpm run watch:turbo      # Turbo watch mode (no typechecking or linting)
 pnpm run watch:extension  # Watch extension only
 pnpm run watch:webviews   # Watch webviews only
-pnpm run watch:tests      # Watch test files
+pnpm run watch:tests      # Watch unit test files
 ```
 
-### Testing & Quality
+### Testing
 
 ```bash
-pnpm run test             # Run VS Code extension tests
+pnpm run test             # Run unit tests (VS Code extension tests)
 pnpm run test:e2e         # Run Playwright E2E tests
-pnpm run build:tests      # Build test files with esbuild
+```
+
+### Quality
+
+```bash
 pnpm run lint             # Run ESLint with TypeScript rules
 pnpm run lint:fix         # Auto-fix linting issues
 pnpm run pretty           # Format code with Prettier
 pnpm run pretty:check     # Check formatting
 ```
 
-### Specialized Commands
+### Specialized Commands (typically not needed during normal development as they are part of build/watch)
 
 ```bash
 pnpm run generate:contributions  # Generate package.json contributions from contributions.json
 pnpm run extract:contributions   # Extract contributions from package.json to contributions.json
 pnpm run generate:commandTypes   # Generate command types from contributions
 pnpm run build:icons             # Build icon font from SVG sources
-pnpm run web                     # Run extension in web environment for testing
-pnpm run package                 # Create VSIX package
 ```
-
-### Debugging
-
-- Use **"Watch & Run"** launch configuration (F5) for desktop debugging
-- Use **"Watch & Run (web)"** for webworker/browser debugging
-- Press `Ctrl+Shift+P` → "Tasks: Run Task" → "watch" to start build task
-- Tests are co-located with source files in `__tests__/` directories
-- Webview changes can be refreshed without restarting extension
 
 ## Git & Repository Requirements/Guidelines
 
@@ -133,7 +129,7 @@ pnpm run package                 # Create VSIX package
 
 Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
 
-### Section Mapping
+#### Section Mapping
 
 | Change Type | Section    |
 | ----------- | ---------- |
@@ -144,7 +140,7 @@ Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
 | Deprecation | Deprecated |
 | Removal     | Removed    |
 
-### Entry Format
+#### Entry Format
 
 ```markdown
 - [Verb] [description] ([#issue](url))
@@ -163,7 +159,7 @@ Uses [Keep a Changelog](http://keepachangelog.com/) format under `[Unreleased]`.
 - Fixes an issue where the _Home_ view would not update when switching repositories ([#4717](https://github.com/gitkraken/vscode-gitlens/issues/4717))
 ```
 
-### Detection
+#### Detection
 
 Check `[Unreleased]` section for:
 
@@ -265,6 +261,36 @@ src/
 tests/                        # E2E and Unit tests
 walkthroughs/                 # Welcome and tips walkthroughs
 ```
+
+### Testing Structure
+
+**Unit Tests**
+
+- Tests co-located with source files in `__tests__/` directories
+- Pattern: `src/path/to/__tests__/file.test.ts`
+- VS Code extension tests use `@vscode/test-cli`
+- Unit tests are built separately: `pnpm run build:tests`
+
+```bash
+pnpm run test           # Run unit tests (VS Code extension tests)
+pnpm run watch:tests    # Watch mode for tests
+```
+
+**End-to-End (E2E) Tests**
+
+- E2E tests use Playwright in `tests/e2e/`
+  - Fixture setup and utilities in `tests/e2e/fixtures/`
+  - Page objects in `tests/e2e/pageObjects/`
+  - Test specs in `tests/e2e/specs/`
+- E2E tests are built as part of the main build, but can be built directly: `pnpm run bundle:e2e`
+
+```bash
+pnpm run test:e2e       # Run E2E tests
+pnpm run bundle:e2e     # Build E2E tests (production with DEBUG for account simulation)
+pnpm run watch          # Watch mode (includes E2E tests)
+```
+
+**Important**: If you have access to VS Code's `runTests` and `testFailures` tools, use them to run and debug E2E tests
 
 ### Core Architectural Patterns
 
@@ -421,24 +447,6 @@ Files in or under directories named "plus" fall under `LICENSE.plus` (non-OSS):
 - **AI Features** - Commit generation, explanations using various providers
 
 Pro features integrate with GitKraken accounts and require authentication via SubscriptionService.
-
-### Testing Infrastructure
-
-**Test Structure**
-
-- Tests co-located with source files in `__tests__/` directories
-- Pattern: `src/path/to/__tests__/file.test.ts`
-- VS Code extension tests use `@vscode/test-cli`
-- E2E tests use Playwright in `tests/e2e/`
-- Build tests separately: `pnpm run build:tests`
-
-**Running Tests**
-
-```bash
-pnpm run test           # Run extension tests
-pnpm run test:e2e       # Run E2E tests
-pnpm run watch:tests    # Watch mode for tests
-```
 
 ## Coding Standards & Style Rules
 
