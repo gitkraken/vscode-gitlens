@@ -49,6 +49,12 @@ export function fromString(version: string): Version {
 	return from(major, minor, patch, pre);
 }
 
+export function fromVersion(v: Version, includePre: false): `${number}.${number}.${number}`;
+export function fromVersion(v: Version, includePre?: boolean): `${number}.${number}.${number}${string | undefined}`;
+export function fromVersion(v: Version, includePre?: boolean): `${number}.${number}.${number}${string | undefined}` {
+	return `${v.major}.${v.minor}.${v.patch}${includePre && v.pre ? `-${v.pre}` : ''}`;
+}
+
 export function satisfies(
 	v: string | Version | null | undefined,
 	requirement: `${'=' | '>' | '>=' | '<' | '<='} ${string}`,

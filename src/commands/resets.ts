@@ -216,12 +216,14 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'banners':
 				await this.container.storage.delete('home:sections:collapsed');
-				await this.container.storage.delete('home:walkthrough:dismissed');
-				await this.container.storage.delete('mcp:banner:dismissed');
+				await this.container.onboarding.resetAll();
 
 				// Deprecated keys
 				await this.container.storage.delete('home:banners:dismissed');
 				await this.container.storage.delete('home:sections:dismissed');
+				await this.container.storage.delete('home:walkthrough:dismissed');
+				await this.container.storage.delete('mcp:banner:dismissed');
+				await this.container.storage.delete('views:scm:grouped:welcome:dismissed');
 				break;
 
 			case 'integrations':

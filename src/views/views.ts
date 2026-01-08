@@ -11,6 +11,7 @@ import type {
 } from '../git/models/reference.js';
 import type { GitRemote } from '../git/models/remote.js';
 import type { GitWorktree } from '../git/models/worktree.js';
+import type { OnboardingChangeEvent } from '../onboarding/onboardingService.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
@@ -108,13 +109,14 @@ export class Views implements Disposable {
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 			new ViewCommands(container),
 			...this.registerViews(),
 			...this.registerWebviewViews(webviews),
 			...this.registerCommands(),
 		);
 
-		this._welcomeDismissed = container.storage.get('views:scm:grouped:welcome:dismissed', false);
+		this._welcomeDismissed = container.onboarding.isDismissed('views:scmGrouped:welcome');
 
 		let newInstall = false;
 		let showGitLensView = false;
@@ -129,7 +131,7 @@ export class Views implements Disposable {
 				}
 			}
 		} else if (!this._welcomeDismissed) {
-			void container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+			void container.onboarding.dismiss('views:scmGrouped:welcome').catch();
 			this._welcomeDismissed = true;
 		}
 
@@ -180,6 +182,13 @@ export class Views implements Disposable {
 		}
 
 		if (configuration.changed(e, 'views.scm.grouped.views')) {
+			this.updateScmGroupedViewsRegistration();
+		}
+	}
+
+	private onOnboardingChanged(e: OnboardingChangeEvent) {
+		if (e.key === 'views:scmGrouped:welcome') {
+			this._welcomeDismissed = e.dismissed;
 			this.updateScmGroupedViewsRegistration();
 		}
 	}
@@ -398,12 +407,12 @@ export class Views implements Disposable {
 
 			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
 				this._welcomeDismissed = true;
-				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+				void this.container.onboarding.dismiss('views:scmGrouped:welcome').catch();
 				this.updateScmGroupedViewsRegistration();
 			}),
 			registerCommand('gitlens.views.scm.grouped.welcome.restore', async () => {
 				this._welcomeDismissed = true;
-				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true).catch();
+				void this.container.onboarding.dismiss('views:scmGrouped:welcome').catch();
 				await updateScmGroupedViewsInConfig(new Set());
 			}),
 		];

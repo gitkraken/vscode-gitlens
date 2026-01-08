@@ -118,6 +118,7 @@ import {
 } from '../../../git/utils/pullRequest.utils.js';
 import { createReference } from '../../../git/utils/reference.utils.js';
 import { isSha, shortenRevision } from '../../../git/utils/revision.utils.js';
+import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
@@ -135,7 +136,6 @@ import {
 } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
-import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
@@ -362,7 +362,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.storage.onDidChange(this.onStorageChanged, this),
+			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async () => {
@@ -819,8 +819,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.notifyDidChangeSubscription();
 	}
 
-	private onStorageChanged(e: StorageChangeEvent) {
-		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+	private onOnboardingChanged(e: OnboardingChangeEvent) {
+		if (e.key === 'mcp:banner') {
 			this.onMcpBannerChanged();
 		}
 	}

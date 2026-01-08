@@ -10,7 +10,7 @@ export function isMcpBannerEnabled(container: Container, showAutoRegistration = 
 		return false;
 	}
 
-	return !container.storage.get('mcp:banner:dismissed', false);
+	return !container.onboarding.isDismissed('mcp:banner');
 }
 
 const supportedApps = ['Visual Studio Code', 'Visual Studio Code - Insiders', 'Visual Studio Code - Exploration'];

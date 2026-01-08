@@ -27,6 +27,9 @@ import { GitFileSystemProvider } from './git/fsProvider.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
 import { LineHoverController } from './hovers/lineHoverController.js';
+import { OnboardingService } from './onboarding/onboardingService.js';
+import { UsageTracker } from './onboarding/usageTracker.js';
+import { WalkthroughStateProvider } from './onboarding/walkthroughStateProvider.js';
 import { AIProviderService } from './plus/ai/aiProviderService.js';
 import { DraftService } from './plus/drafts/draftsService.js';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider.js';
@@ -61,8 +64,6 @@ import { memoize } from './system/decorators/memoize.js';
 import { Logger } from './system/logger.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
 import { TelemetryService } from './telemetry/telemetry.js';
-import { UsageTracker } from './telemetry/usageTracker.js';
-import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider.js';
 import { GitTerminalLinkProvider } from './terminal/linkProvider.js';
 import { GitDocumentTracker } from './trackers/documentTracker.js';
 import { LineTracker } from './trackers/lineTracker.js';
@@ -204,6 +205,7 @@ export class Container {
 		this._disposables = [
 			configuration,
 			(this._storage = storage),
+			(this._onboarding = new OnboardingService(storage, version)),
 			(this._telemetry = new TelemetryService(this)),
 			(this._usage = new UsageTracker(this, storage)),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -729,6 +731,11 @@ export class Container {
 	private readonly _storage: Storage;
 	get storage(): Storage {
 		return this._storage;
+	}
+
+	private readonly _onboarding: OnboardingService;
+	get onboarding(): OnboardingService {
+		return this._onboarding;
 	}
 
 	private _subscription: SubscriptionService;
