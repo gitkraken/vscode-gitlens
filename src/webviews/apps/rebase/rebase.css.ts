@@ -167,6 +167,15 @@ export const rebaseStyles = css`
 		--gl-banner-primary-emphasis-background: var(--vscode-inputValidation-warningBorder, #cca700);
 	}
 
+	.close-warning-banner {
+		margin: 0.5rem 1rem;
+
+		/* Info-style colors */
+		--gl-banner-primary-background: var(--vscode-inputValidation-infoBackground, rgba(0, 127, 212, 0.15));
+		--gl-banner-secondary-background: var(--vscode-inputValidation-infoBackground, rgba(0, 127, 212, 0.15));
+		--gl-banner-text-color: var(--vscode-inputValidation-infoForeground, inherit);
+	}
+
 	/* ==========================================================================
 	   Header
 	   ========================================================================== */

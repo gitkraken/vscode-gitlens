@@ -17,6 +17,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/mode
 import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { createReference } from '../../git/utils/reference.utils.js';
+import type { OnboardingChangeEvent } from '../../onboarding/onboardingService.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
@@ -53,6 +54,7 @@ import {
 	DidChangeCommitsNotification,
 	DidChangeNotification,
 	DidChangeSubscriptionNotification,
+	DismissCloseWarningCommand,
 	GetMissingAvatarsCommand,
 	GetMissingCommitsCommand,
 	GetPotentialConflictsRequest,
@@ -151,6 +153,7 @@ export class RebaseWebviewProvider implements Disposable {
 			this.container.subscription.onDidChange(e => {
 				this.onSubscriptionChanged(e.current);
 			}),
+			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 		);
 
 		// Subscribe to repository changes
@@ -230,6 +233,12 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
+	private onOnboardingChanged(e: OnboardingChangeEvent): void {
+		if (e.key === 'rebaseEditor:closeWarning') {
+			this.updateState();
+		}
+	}
+
 	private onSubscriptionChanged(subscription: Subscription): void {
 		if (!this.host.visible) return;
 
@@ -264,6 +273,12 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		await continuePausedOperation(svc);
+	}
+
+	@ipcCommand(DismissCloseWarningCommand)
+	@log()
+	private async onDismissCloseWarning(): Promise<void> {
+		await this.container.onboarding.dismiss('rebaseEditor:closeWarning');
 	}
 
 	@ipcCommand(RecomposeCommand)
@@ -712,6 +727,7 @@ export class RebaseWebviewProvider implements Disposable {
 			rebaseStatus: rebaseStatus,
 			repoPath: this.repoPath,
 			subscription: subscription,
+			closeWarningDismissed: this.container.onboarding.isDismissed('rebaseEditor:closeWarning'),
 		};
 	}
 

@@ -136,7 +136,7 @@ export class GkCliIntegrationProvider implements Disposable {
 	@gate()
 	@log({ exit: true })
 	private async setupMCP(source?: Sources, force = false): Promise<void> {
-		await this.container.storage.store('mcp:banner:dismissed', true);
+		await this.container.onboarding.dismiss('mcp:banner');
 
 		try {
 			const result = await window.withProgress(

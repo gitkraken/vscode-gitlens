@@ -54,6 +54,7 @@ import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils.js';
 import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '../../git/utils/revision.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import type { OnboardingChangeEvent } from '../../onboarding/onboardingService.js';
 import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService.js';
 import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
@@ -81,7 +82,6 @@ import {
 } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../system/-webview/context.js';
-import type { StorageChangeEvent } from '../../system/-webview/storage.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
@@ -89,7 +89,7 @@ import { debug, log } from '../../system/decorators/log.js';
 import type { Deferrable } from '../../system/function/debounce.js';
 import { debounce } from '../../system/function/debounce.js';
 import { filterMap } from '../../system/iterable.js';
-import { getLoggableName, Logger } from '../../system/logger.js';
+import { Logger, getLoggableName } from '../../system/logger.js';
 import { startLogScope } from '../../system/logger.scope.js';
 import { hasKeys } from '../../system/object.js';
 import { getSettledValue } from '../../system/promise.js';
@@ -203,7 +203,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onLaunchpadChanged, this),
 			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
-			this.container.storage.onDidChange(this.onStorageChanged, this),
+			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 		);
 	}
 
@@ -264,9 +264,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.notifyDidChangeIntegrations();
 	}
 
-	private onStorageChanged(e: StorageChangeEvent) {
-		if (!e.workspace && e.keys.includes('mcp:banner:dismissed')) {
+	private onOnboardingChanged(e: OnboardingChangeEvent) {
+		if (e.key === 'mcp:banner') {
 			this.onMcpBannerChanged();
+		} else if (e.key === 'home:walkthrough') {
+			this.notifyDidChangeProgress();
 		}
 	}
 
@@ -772,15 +774,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@ipcCommand(DismissWalkthroughSection)
 	@log()
 	private dismissWalkthrough() {
-		const dismissed = this.container.storage.get('home:walkthrough:dismissed');
-		if (!dismissed) {
-			void this.container.storage.store('home:walkthrough:dismissed', true).catch();
+		if (!this.container.onboarding.isDismissed('home:walkthrough')) {
+			void this.container.onboarding.dismiss('home:walkthrough').catch();
 			void this.container.usage.track('home:walkthrough:dismissed').catch();
 		}
 	}
 
 	private getWalkthroughDismissed() {
-		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
+		return this.container.onboarding.isDismissed('home:walkthrough');
 	}
 
 	private getWelcomeOverlayCollapsed() {
