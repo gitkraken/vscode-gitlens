@@ -26949,6 +26949,7 @@
 							"markdown": "walkthroughs/welcome/git-blame.md"
 						},
 						"completionEvents": [
+							"onStepSelected",
 							"onContext:gitlens:walkthroughState:gitBlame == true"
 						]
 					},
