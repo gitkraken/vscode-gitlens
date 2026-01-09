@@ -45,6 +45,7 @@ export function registerSettingsWebviewCommands<T>(
 				'gitlens.showSettingsPage!branches-view',
 				'gitlens.showSettingsPage!commits-view',
 				'gitlens.showSettingsPage!contributors-view',
+				'gitlens.showSettingsPage!current-line',
 				'gitlens.showSettingsPage!file-history-view',
 				'gitlens.showSettingsPage!line-history-view',
 				'gitlens.showSettingsPage!remotes-view',
